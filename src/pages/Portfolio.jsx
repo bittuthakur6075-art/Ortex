@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { Link } from "react-router-dom"
 import { X, ChevronLeft, ChevronRight } from "lucide-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
@@ -370,15 +371,13 @@ export default function Portfolio() {
                   
                   <div className="mt-8 pt-6 border-t border-border flex justify-between items-center text-xs text-muted-foreground">
                     <span>Item {currentIndex + 1} of {filteredItems.length}</span>
-                    <button 
-                      onClick={() => {
-                        closeLightbox();
-                        // Scroll to contact form or redirect
-                      }} 
+                    <Link 
+                      to={`/contact?product=${encodeURIComponent(filteredItems[currentIndex].title)}&category=${encodeURIComponent(filteredItems[currentIndex].category)}`}
+                      onClick={closeLightbox}
                       className="text-primary hover:underline font-semibold"
                     >
                       Inquire about this
-                    </button>
+                    </Link>
                   </div>
                 </div>
 

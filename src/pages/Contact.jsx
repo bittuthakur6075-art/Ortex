@@ -1,5 +1,6 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
+import { useSearchParams } from "react-router-dom"
 import { Phone, Mail, Globe, Clock } from "lucide-react"
 import { toast } from "sonner"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
@@ -21,6 +22,33 @@ export default function Contact() {
 
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const [searchParams] = useSearchParams()
+
+  useEffect(() => {
+    const product = searchParams.get("product")
+    const category = searchParams.get("category")
+    
+    if (product) {
+      const mapCategory = (cat) => {
+        if (!cat) return ""
+        const lower = cat.toLowerCase()
+        if (lower.includes("mdf")) return "MDF products"
+        if (lower.includes("acrylic")) return "Acrylic products"
+        if (lower.includes("lanyard") || lower.includes("id card")) return "Lanyards & ID card accessories"
+        if (lower.includes("badge")) return "Badge manufacturing"
+        if (lower.includes("gift")) return "Corporate gifting & promotional merchandise"
+        if (lower.includes("stationery") || lower.includes("highlighter")) return "Corporate gifting & promotional merchandise"
+        return "Other"
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        message: `Hi Ortex, I am interested in your portfolio item: "${product}". Please provide a customized quote for this product.`,
+        productInterest: mapCategory(category) || prev.productInterest
+      }))
+    }
+  }, [searchParams])
 
   const productCategories = [
     "MDF products",

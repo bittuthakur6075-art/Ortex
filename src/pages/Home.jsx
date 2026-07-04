@@ -2,6 +2,7 @@ import { motion } from "framer-motion"
 import { Link } from "react-router-dom"
 import { Settings, Sliders, Globe, ArrowRight } from "lucide-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
+import Hero from "../components/Hero"
 
 export default function Home() {
   useDocumentMetadata(
@@ -30,50 +31,7 @@ export default function Home() {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative min-h-[100dvh] flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <div 
-            className="absolute inset-0"
-            style={{
-              backgroundImage: "url(https://images.unsplash.com/photo-1610891015188-5369212db097)",
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat"
-            }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/85 to-background/70" />
-          </div>
-        </div>
-
-        <div className="relative z-10 lp-wrap py-20 text-left">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="max-w-3xl"
-          >
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6 tracking-tight text-foreground text-balance">
-              Transforming ideas into premium customized products for businesses worldwide
-            </h1>
-            <p className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-8 max-w-prose">
-              Your trusted partner for OEM manufacturing, white label production, and complete customization services. From concept to delivery, we bring your vision to life.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Link to="/products">
-                <button className="px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg flex items-center justify-center transition-all duration-200 active:scale-[0.98] cursor-pointer">
-                  Explore products
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </button>
-              </Link>
-              <Link to="/contact">
-                <button className="px-6 py-3 border-2 border-border hover:bg-muted text-foreground font-semibold rounded-lg transition-all duration-200 active:scale-[0.98] cursor-pointer">
-                  Get quote
-                </button>
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+      <Hero />
 
       {/* Capabilities Section */}
       <section className="py-20 bg-secondary">
