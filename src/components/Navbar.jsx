@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { Menu, X, Sun, Moon } from "lucide-react"
+import logoImg from "../assets/logo.png"
 
 export default function Navbar() {
   const location = useLocation()
@@ -85,13 +86,9 @@ export default function Navbar() {
 
   const isActive = (path) => location.pathname === path
   const isHome = location.pathname === "/"
-  const headerBaseClass = isHome ? "fixed" : "sticky"
-  // The hero is always light (white) in both themes. While the header is
-  // transparent over it, force dark ink so the logo/nav stay visible in dark
-  // mode. Once scrolled solid (or the mobile drawer is open) the header has a
-  // themed background, so follow the theme via `text-foreground`.
-  const overHero = isHome && !scrolled && !mobileMenuOpen
-  const inkClass = overHero ? "text-[#071437]" : "text-foreground"
+  const headerBaseClass = "sticky"
+  const overHero = false
+  const inkClass = "text-foreground"
 
   return (
     <header 
@@ -101,9 +98,7 @@ export default function Navbar() {
       } ${
         mobileMenuOpen
           ? "h-screen h-dvh bg-background overflow-y-auto"
-          : (isHome && !scrolled)
-            ? "bg-transparent border-b border-transparent py-0"
-            : "bg-background/95 backdrop-blur-md border-b shadow-sm py-0"
+          : "bg-background/95 backdrop-blur-md border-b shadow-sm py-0"
       }`}
     >
       <div className="lp-wrap h-full flex flex-col justify-start">
@@ -112,29 +107,24 @@ export default function Navbar() {
         <div className="flex h-[70px] items-center justify-between shrink-0">
           
           {/* Logo & Branding */}
-          <Link to="/" className="flex items-center space-x-2 mr-4 lg:mr-6 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md">
-            <div className="flex flex-col">
-              <svg className={`h-5 md:h-6 w-auto ${inkClass} fill-current`} viewBox="0 0 32 9" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Ortex logo">
-                <path d="M4.32 8.88C3.696 8.88 3.12 8.772 2.592 8.556C2.064 8.34 1.604 8.032 1.212 7.632C0.828 7.232 0.528 6.76 0.312 6.216C0.104 5.664 0 5.06 0 4.404C0 3.532 0.184 2.768 0.552 2.112C0.92 1.448 1.428 0.932 2.076 0.564C2.732 0.188 3.476 0 4.308 0C5.156 0 5.904 0.188 6.552 0.564C7.208 0.932 7.72 1.448 8.088 2.112C8.456 2.776 8.64 3.544 8.64 4.416C8.64 5.072 8.532 5.672 8.316 6.216C8.108 6.76 7.808 7.232 7.416 7.632C7.032 8.032 6.576 8.34 6.048 8.556C5.52 8.772 4.944 8.88 4.32 8.88ZM4.308 7.608C4.852 7.608 5.328 7.472 5.736 7.2C6.152 6.928 6.476 6.552 6.708 6.072C6.94 5.584 7.056 5.024 7.056 4.392C7.056 3.768 6.94 3.224 6.708 2.76C6.484 2.288 6.164 1.924 5.748 1.668C5.34 1.404 4.86 1.272 4.308 1.272C3.764 1.272 3.284 1.404 2.868 1.668C2.46 1.924 2.144 2.284 1.92 2.748C1.696 3.212 1.584 3.76 1.584 4.392C1.584 5.032 1.696 5.592 1.92 6.072C2.152 6.552 2.472 6.928 2.88 7.2C3.296 7.472 3.772 7.608 4.308 7.608Z" />
-                <path d="M9.88734 8.76V2.64H11.3633V4.116H11.3993V8.76H9.88734ZM11.3993 5.568L11.2433 4.116C11.3873 3.596 11.6313 3.2 11.9753 2.928C12.3193 2.656 12.7313 2.52 13.2113 2.52C13.3793 2.52 13.4993 2.536 13.5713 2.568V3.996C13.5313 3.98 13.4753 3.972 13.4033 3.972C13.3313 3.964 13.2433 3.96 13.1393 3.96C12.5553 3.96 12.1193 4.088 11.8313 4.344C11.5433 4.6 11.3993 5.008 11.3993 5.568Z" />
-                <path d="M17.4635 8.88C16.7115 8.88 16.1555 8.704 15.7955 8.352C15.4435 7.992 15.2675 7.456 15.2675 6.744V1.248L16.7915 0.684V6.78C16.7915 7.076 16.8715 7.296 17.0315 7.44C17.1915 7.584 17.4435 7.656 17.7875 7.656C17.9235 7.656 18.0435 7.648 18.1475 7.632C18.2595 7.608 18.3635 7.58 18.4595 7.548V8.724C18.3635 8.772 18.2275 8.808 18.0515 8.832C17.8755 8.864 17.6795 8.88 17.4635 8.88ZM14.0915 3.828V2.64H18.4595V3.828H14.0915Z" />
-                <path d="M22.151 8.88C21.503 8.88 20.935 8.744 20.447 8.472C19.967 8.2 19.591 7.824 19.319 7.344C19.055 6.864 18.923 6.312 18.923 5.688C18.923 5.064 19.055 4.516 19.319 4.044C19.591 3.564 19.967 3.192 20.447 2.928C20.927 2.656 21.487 2.52 22.127 2.52C22.735 2.52 23.263 2.648 23.711 2.904C24.159 3.152 24.507 3.504 24.755 3.96C25.003 4.416 25.127 4.948 25.127 5.556C25.127 5.668 25.123 5.772 25.115 5.868C25.107 5.964 25.095 6.06 25.079 6.156H19.859V5.1H23.915L23.603 5.388C23.603 4.812 23.471 4.38 23.207 4.092C22.943 3.804 22.575 3.66 22.103 3.66C21.591 3.66 21.183 3.836 20.879 4.188C20.583 4.54 20.435 5.048 20.435 5.712C20.435 6.368 20.583 6.872 20.879 7.224C21.183 7.568 21.611 7.74 22.163 7.74C22.483 7.74 22.763 7.68 23.003 7.56C23.243 7.44 23.419 7.256 23.531 7.008H24.959C24.759 7.584 24.419 8.04 23.939 8.376C23.467 8.712 22.871 8.88 22.151 8.88Z" />
-                <path d="M29.9545 8.76L28.0705 6.024L25.5265 2.64H27.2425L28.9465 5.124L31.6705 8.76H29.9545ZM28.1905 5.076L29.9065 2.64H31.5865L28.9225 6.132L28.1905 5.076ZM28.7905 6.204L26.9425 8.76H25.2745L28.0705 5.136L28.7905 6.204Z" />
-              </svg>
-              <span className={`text-[10px] ${inkClass} font-semibold mt-0.5 tracking-wider uppercase leading-none`}>Industries</span>
-            </div>
+          <Link to="/" className="flex items-center mr-4 lg:mr-6 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md">
+            <img 
+              src={logoImg} 
+              alt="Ortex Industries Private Limited Logo" 
+              className="h-10 md:h-12 lg:h-14 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02]" 
+            />
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-1 flex-1 justify-center">
+          <nav className="hidden lg:flex items-center space-x-2 flex-1 justify-center">
             {navItems.map((item) => (
               <Link 
                 key={item.path} 
                 to={item.path} 
-                className={`px-4 py-2 text-[15px] transition-colors duration-200 ${
+                className={`px-3.5 py-2 text-[15px] whitespace-nowrap transition-colors duration-200 ${
                   isActive(item.path)
                     ? "text-[#466EFA] font-semibold"
-                    : `${overHero ? "text-[#071437]/80" : "text-foreground/80"} hover:text-[#466EFA] font-normal`
+                    : `${overHero ? "text-white/80" : "text-foreground/80"} hover:text-[#466EFA] font-medium`
                 }`}
               >
                 {item.name}
@@ -169,7 +159,7 @@ export default function Navbar() {
             </a>
             
             <Link to="/quote">
-              <button className="px-6 py-2.5 font-medium text-[15px] text-white bg-[#466EFA] hover:bg-[#2f57e0] rounded-full transition-all duration-200 active:scale-[0.98] cursor-pointer flex items-center gap-1.5 group shadow-sm hover:shadow-md">
+              <button className="px-6 py-2.5 font-medium text-[15px] text-white bg-[#466EFA] hover:bg-[#2f57e0] rounded-full transition-all duration-200 active:scale-[0.98] cursor-pointer flex items-center gap-1.5 group shadow-sm hover:shadow-md whitespace-nowrap">
                 Get quote
                 <svg className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M14.4301 5.92993L20.5001 11.9999L14.4301 18.0699"/>

@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom"
 import RollText from "./RollText"
+import logoImg from "../assets/logo.png"
 import "./Footer.css"
 
 export default function Footer() {
@@ -21,7 +22,12 @@ export default function Footer() {
         
         {/* Top: Logo / Brand & Designer link */}
         <div className="lp-footer-top">
-          <Link to="/" className="lp-footer-logo" aria-label="Ortex home">
+          <Link to="/" className="lp-footer-logo flex items-center gap-3" aria-label="Ortex home">
+            <img 
+              src={logoImg} 
+              alt="Ortex Industries Private Limited Logo" 
+              className="h-10 md:h-12 w-auto object-contain brightness-0 invert" 
+            />
             <span className="lp-footer-logo-text">Ortex Industries</span>
           </Link>
         </div>

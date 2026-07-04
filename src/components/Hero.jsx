@@ -28,10 +28,16 @@ export default function Hero() {
   }, [])
 
   return (
-    <section className="lp-hero">
-      <div className="lp-hero-mesh" aria-hidden="true">
-        <span className="lp-mesh-glow" />
-      </div>
+    <section className="lp-hero has-video">
+      <video 
+        className="lp-hero-video" 
+        src="/hero-bg.mp4" 
+        autoPlay 
+        muted 
+        loop 
+        playsInline
+      />
+      <div className="lp-hero-overlay" />
       <div className="lp-wrap lp-hero-inner">
         <div className={`lp-hero-copy ${reveal ? 'lp-reveal is-in' : 'lp-reveal'}`}>
           <span className="lp-hero-badge">
