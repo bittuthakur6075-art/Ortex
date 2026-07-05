@@ -11,6 +11,8 @@ export default function DocumentView({ open, onClose, doc, settings, type }) {
   const t = doc.totals
   const isInvoice = type === "invoice"
   const heading = isInvoice ? "TAX INVOICE" : "QUOTATION"
+  // GST place of supply follows the ship-to (consignee) state when present.
+  const psState = doc.shipTo?.stateCode || doc.customer?.stateCode
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-0 sm:p-6">
@@ -34,8 +36,7 @@ export default function DocumentView({ open, onClose, doc, settings, type }) {
         {/* Header */}
         <div className="flex items-start justify-between border-b-2 border-[#0b1220] pb-4">
           <div>
-            <div className="text-2xl font-bold tracking-tight">{c.name}</div>
-            <div className="text-[#4b5563]">{c.tagline}</div>
+            <img src="/logo.svg" alt={c.name} className="mb-2 h-10 w-auto" />
             <div className="mt-2 text-xs leading-relaxed text-[#4b5563]">
               {c.address}
               <br />
@@ -72,33 +73,39 @@ export default function DocumentView({ open, onClose, doc, settings, type }) {
                   {c.gstin}
                 </div>
               )}
+              {doc.paymentTerms && (
+                <div>
+                  <span className="text-[#6b7280]">Payment: </span>
+                  {doc.paymentTerms}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Bill to */}
+        {/* Bill to + Ship to */}
         <div className="mt-4 grid grid-cols-2 gap-4">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-[#6b7280]">{isInvoice ? "Bill to" : "Quotation for"}</div>
-            <div className="mt-1 font-semibold">{doc.customer?.company || doc.customer?.name}</div>
-            {doc.customer?.company && doc.customer?.name && <div>{doc.customer.name}</div>}
-            <div className="text-xs text-[#4b5563]">
-              {doc.customer?.address}
-              {doc.customer?.address && <br />}
-              {doc.customer?.phone} {doc.customer?.email ? `· ${doc.customer.email}` : ""}
-              {doc.customer?.gstin && (
-                <>
-                  <br />
-                  GSTIN: {doc.customer.gstin}
-                </>
-              )}
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-[#6b7280]">{isInvoice ? "Buyer (Bill to)" : "Quotation for"}</div>
+            <Party party={doc.customer} />
+          </div>
+          {doc.shipTo ? (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-[#6b7280]">Consignee (Ship to)</div>
+              <Party party={doc.shipTo} />
             </div>
-          </div>
-          <div className="text-right text-xs text-[#4b5563]">
-            <div>Place of supply: State {doc.customer?.stateCode || "—"}</div>
-            <div>Tax type: {t.interState ? "IGST (inter-state)" : "CGST + SGST (intra-state)"}</div>
-          </div>
+          ) : (
+            <div className="text-right text-xs text-[#4b5563]">
+              <div>Place of supply: State {psState || "Not Specified"}</div>
+              <div>Tax type: {t.interState ? "IGST (inter-state)" : "CGST + SGST (intra-state)"}</div>
+            </div>
+          )}
         </div>
+        {doc.shipTo && (
+          <div className="mt-1 text-xs text-[#4b5563]">
+            Place of supply: State {psState || "Not Specified"} · Tax: {t.interState ? "IGST (inter-state)" : "CGST + SGST (intra-state)"}
+          </div>
+        )}
 
         {/* Lines */}
         <table className="mt-4 w-full border-collapse text-xs">
@@ -107,6 +114,7 @@ export default function DocumentView({ open, onClose, doc, settings, type }) {
               <th className="border border-[#d1d5db] px-2 py-1.5">#</th>
               <th className="border border-[#d1d5db] px-2 py-1.5">Description</th>
               <th className="border border-[#d1d5db] px-2 py-1.5">HSN</th>
+              <th className="border border-[#d1d5db] px-2 py-1.5">Due on</th>
               <th className="border border-[#d1d5db] px-2 py-1.5 text-right">Qty</th>
               <th className="border border-[#d1d5db] px-2 py-1.5 text-right">Rate</th>
               <th className="border border-[#d1d5db] px-2 py-1.5 text-right">Disc</th>
@@ -123,7 +131,10 @@ export default function DocumentView({ open, onClose, doc, settings, type }) {
                   <td className="border border-[#d1d5db] px-2 py-1.5">{i + 1}</td>
                   <td className="border border-[#d1d5db] px-2 py-1.5">{line.description}</td>
                   <td className="border border-[#d1d5db] px-2 py-1.5">{line.hsn}</td>
-                  <td className="border border-[#d1d5db] px-2 py-1.5 text-right">{line.quantity}</td>
+                  <td className="border border-[#d1d5db] px-2 py-1.5">{line.dueOn ? formatDate(line.dueOn) : "N/A"}</td>
+                  <td className="border border-[#d1d5db] px-2 py-1.5 text-right">
+                    {line.quantity} {line.unit || ""}
+                  </td>
                   <td className="border border-[#d1d5db] px-2 py-1.5 text-right">{formatCurrency(line.rate)}</td>
                   <td className="border border-[#d1d5db] px-2 py-1.5 text-right">{line.discountPercent}%</td>
                   <td className="border border-[#d1d5db] px-2 py-1.5 text-right">{formatCurrency(cl.taxable)}</td>
@@ -175,7 +186,7 @@ export default function DocumentView({ open, onClose, doc, settings, type }) {
           <div>
             {doc.terms && (
               <>
-                <div className="font-semibold">Terms &amp; conditions</div>
+                <div className="font-semibold">Terms & conditions</div>
                 <div className="whitespace-pre-wrap text-[#4b5563]">{doc.terms}</div>
               </>
             )}
@@ -191,6 +202,27 @@ export default function DocumentView({ open, onClose, doc, settings, type }) {
         </div>
       </div>
     </div>
+  )
+}
+
+function Party({ party }) {
+  if (!party) return null
+  return (
+    <>
+      <div className="mt-1 font-semibold">{party.company || party.name}</div>
+      {party.company && party.name && <div>{party.name}</div>}
+      <div className="text-xs text-[#4b5563]">
+        {party.address}
+        {party.address && <br />}
+        {party.phone} {party.email ? `· ${party.email}` : ""}
+        {party.gstin && (
+          <>
+            <br />
+            GSTIN: {party.gstin}
+          </>
+        )}
+      </div>
+    </>
   )
 }
 

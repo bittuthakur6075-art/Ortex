@@ -1,242 +1,108 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Calculator, ChevronRight, ChevronLeft, Check, Upload, ArrowRight, AlertTriangle } from "lucide-react"
+import {
+  Calculator, Plus, Minus, Trash2, Check, Upload, ArrowRight,
+  ChevronLeft, AlertTriangle, Search, ShoppingCart, Clock, Package,
+} from "lucide-react"
 import { toast } from "sonner"
+import { Link } from "react-router-dom"
 import { submitEnquiry } from "../lib/leads"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
-import { Link } from "react-router-dom"
+import { PRODUCTS, CATEGORIES, CATEGORY_META, VOLUME_TIERS, priceLine } from "../constants/products"
+
+const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`
+const catIcon = (name) => CATEGORY_META[name]?.icon || "📦"
 
 export default function QuoteCalculator() {
   useDocumentMetadata(
-    "Interactive Quote Calculator - Ortex Industries",
-    "Calculate instant price estimates for custom MDF, acrylic products, badges, lanyards, and corporate gifts. Configure specifications and request custom RFQs online."
+    "Get a Quote: Custom Manufacturing RFQ | Ortex Industries",
+    "Build a custom quote from Ortex Industries' real product catalogue, including MDF, acrylic, lanyards, badges, exam boards, and corporate gifts. Add products, set quantities, and get an instant bulk estimate with volume discounts."
   )
 
   const [step, setStep] = useState(1)
-  const [selectedCategory, setSelectedCategory] = useState("")
-  const [specs, setSpecs] = useState({
-    size: "Standard (2\"x2\")",
-    width: "16mm",
-    thickness: "3mm",
-    material: "Standard PVC",
-    attachment: "Pin",
-    printMethod: "UV Printing",
-    giftingType: "Customized Mug",
-    customShape: false
-  })
-  const [quantity, setQuantity] = useState(100)
+  const [category, setCategory] = useState("all")
+  const [query, setQuery] = useState("")
+  // Cart is { [productId]: quantity }.
+  const [cart, setCart] = useState({})
   const [contactData, setContactData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    company: "",
-    logoFile: null,
-    logoFileName: "",
-    message: ""
+    name: "", email: "", phone: "", company: "",
+    logoFile: null, logoFileName: "", message: "",
   })
   const [errors, setErrors] = useState({})
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [reference, setReference] = useState("")
 
-  const categories = [
-    { id: "mdf", name: "MDF products", basePrice: 15, moq: 100, icon: "🪵" },
-    { id: "acrylic", name: "Acrylic products", basePrice: 25, moq: 50, icon: "💎" },
-    { id: "lanyards", name: "Lanyards & ID card accessories", basePrice: 12, moq: 100, icon: "🎗️" },
-    { id: "badges", name: "Badge manufacturing", basePrice: 18, moq: 50, icon: "🎖️" },
-    { id: "boards", name: "Examination boards", basePrice: 65, moq: 25, icon: "📋" },
-    { id: "gifting", name: "Corporate gifting & merchandise", basePrice: 120, moq: 20, icon: "🎁" }
-  ]
+  const productById = useMemo(() => Object.fromEntries(PRODUCTS.map((p) => [p.id, p])), [])
 
-  const activeCategoryObj = categories.find((c) => c.id === selectedCategory)
+  const filtered = useMemo(() => {
+    let rows = PRODUCTS
+    if (category !== "all") rows = rows.filter((p) => p.category === category)
+    const q = query.trim().toLowerCase()
+    if (q) rows = rows.filter((p) => [p.name, p.material, p.category].some((v) => v.toLowerCase().includes(q)))
+    return rows
+  }, [category, query])
 
-  // Specification options depending on selection
-  const specOptions = {
-    mdf: {
-      sizes: [
-        { label: "Small (2\"x2\")", price: 0 },
-        { label: "Medium (3\"x3\")", price: 5 },
-        { label: "Large (4\"x4\")", price: 10 }
-      ],
-      printMethods: [
-        { label: "UV Printing", price: 10 },
-        { label: "Laser Engraving", price: 15 }
-      ]
-    },
-    acrylic: {
-      thicknesses: [
-        { label: "2mm thickness", price: 0 },
-        { label: "3mm thickness", price: 8 },
-        { label: "5mm thickness", price: 15 }
-      ],
-      printMethods: [
-        { label: "UV Printing", price: 12 },
-        { label: "Laser Engraving", price: 18 }
-      ]
-    },
-    lanyards: {
-      widths: [
-        { label: "12mm width", price: 0 },
-        { label: "16mm width", price: 3 },
-        { label: "20mm width", price: 6 }
-      ],
-      printMethods: [
-        { label: "Sublimation (Multicolor)", price: 5 },
-        { label: "Screen Printing (Solid)", price: 2 }
-      ],
-      attachments: [
-        { label: "Standard Fish Hook", price: 0 },
-        { label: "Premium Trigger Hook", price: 2 },
-        { label: "Safety Release Clip", price: 3 }
-      ]
-    },
-    badges: {
-      materials: [
-        { label: "Acrylic Plastic", price: 0 },
-        { label: "Metal Plate", price: 12 }
-      ],
-      attachments: [
-        { label: "Standard Pin", price: 0 },
-        { label: "Strong Magnet Backing", price: 10 }
-      ]
-    },
-    boards: {
-      materials: [
-        { label: "Standard PVC Board", price: 0 },
-        { label: "Clear Acrylic Board", price: 15 },
-        { label: "Reinforced ABS Plastic", price: 10 }
-      ],
-      printMethods: [
-        { label: "Single-Color Logo", price: 5 },
-        { label: "Full-Color UV Print", price: 15 }
-      ]
-    },
-    gifting: {
-      types: [
-        { label: "Branded Pen", price: -80 },
-        { label: "Customized Mug", price: 0 },
-        { label: "Executive Diary", price: 80 },
-        { label: "Insulated Water Bottle", price: 100 }
-      ]
-    }
-  }
+  // Computed cart lines + totals.
+  const lines = useMemo(
+    () => Object.entries(cart).map(([id, qty]) => {
+      const product = productById[id]
+      return { product, ...priceLine(product, qty) }
+    }),
+    [cart, productById]
+  )
+  const subtotal = lines.reduce((s, l) => s + l.gross, 0)
+  const totalDiscount = lines.reduce((s, l) => s + l.discount, 0)
+  const estimate = lines.reduce((s, l) => s + l.total, 0)
+  const belowMoq = lines.filter((l) => l.qty > 0 && l.qty < l.product.moq)
+  // Combined orders dispatch together, so the window follows the slowest line.
+  const maxLeadTime = lines.reduce((m, l) => Math.max(m, l.product.leadTimeDays), 0)
 
-  // Calculate Unit and Total Price
-  const calculatePricing = () => {
-    if (!activeCategoryObj) return { unitPrice: 0, totalPrice: 0, rawTotal: 0, discount: 0, discountPercent: 0 }
-
-    let unitPrice = activeCategoryObj.basePrice
-    const catSpecs = specOptions[selectedCategory]
-
-    if (selectedCategory === "mdf") {
-      const sizePrice = catSpecs.sizes.find((s) => s.label === specs.size)?.price || 0
-      const printPrice = catSpecs.printMethods.find((p) => p.label === specs.printMethod)?.price || 0
-      unitPrice += sizePrice + printPrice
-      if (specs.customShape) unitPrice += 4
-    } else if (selectedCategory === "acrylic") {
-      const thickPrice = catSpecs.thicknesses.find((t) => t.label === specs.thickness)?.price || 0
-      const printPrice = catSpecs.printMethods.find((p) => p.label === specs.printMethod)?.price || 0
-      unitPrice += thickPrice + printPrice
-      if (specs.customShape) unitPrice += 6
-    } else if (selectedCategory === "lanyards") {
-      const widthPrice = catSpecs.widths.find((w) => w.label === specs.width)?.price || 0
-      const printPrice = catSpecs.printMethods.find((p) => p.label === specs.printMethod)?.price || 0
-      const attachPrice = catSpecs.attachments.find((a) => a.label === specs.attachment)?.price || 0
-      unitPrice += widthPrice + printPrice + attachPrice
-    } else if (selectedCategory === "badges") {
-      const matPrice = catSpecs.materials.find((m) => m.label === specs.material)?.price || 0
-      const attachPrice = catSpecs.attachments.find((a) => a.label === specs.attachment)?.price || 0
-      unitPrice += matPrice + attachPrice
-    } else if (selectedCategory === "boards") {
-      const matPrice = catSpecs.materials.find((m) => m.label === specs.material)?.price || 0
-      const printPrice = catSpecs.printMethods.find((p) => p.label === specs.printMethod)?.price || 0
-      unitPrice += matPrice + printPrice
-    } else if (selectedCategory === "gifting") {
-      const typePrice = catSpecs.types.find((t) => t.label === specs.giftingType)?.price || 0
-      unitPrice += typePrice
-    }
-
-    const rawTotal = unitPrice * quantity
-    let discountPercent = 0
-    if (quantity >= 5000) discountPercent = 30
-    else if (quantity >= 1000) discountPercent = 20
-    else if (quantity >= 300) discountPercent = 10
-
-    const discount = (rawTotal * discountPercent) / 100
-    const totalPrice = rawTotal - discount
-
-    return {
-      unitPrice: Math.round(unitPrice * 100) / 100,
-      rawTotal: Math.round(rawTotal),
-      discount: Math.round(discount),
-      totalPrice: Math.round(totalPrice),
-      discountPercent
-    }
-  }
-
-  const pricing = calculatePricing()
-
-  const handleCategorySelect = (id) => {
-    setSelectedCategory(id)
-    // Reset specific defaults
-    if (id === "mdf") {
-      setSpecs((prev) => ({ ...prev, size: "Small (2\"x2\")", printMethod: "UV Printing" }))
-      setQuantity(100)
-    } else if (id === "acrylic") {
-      setSpecs((prev) => ({ ...prev, thickness: "3mm thickness", printMethod: "UV Printing" }))
-      setQuantity(50)
-    } else if (id === "lanyards") {
-      setSpecs((prev) => ({ ...prev, width: "16mm width", printMethod: "Sublimation (Multicolor)", attachment: "Standard Fish Hook" }))
-      setQuantity(100)
-    } else if (id === "badges") {
-      setSpecs((prev) => ({ ...prev, material: "Acrylic Plastic", attachment: "Standard Pin" }))
-      setQuantity(50)
-    } else if (id === "boards") {
-      setSpecs((prev) => ({ ...prev, material: "Standard PVC Board", printMethod: "Single-Color Logo" }))
-      setQuantity(25)
-    } else if (id === "gifting") {
-      setSpecs((prev) => ({ ...prev, giftingType: "Customized Mug" }))
-      setQuantity(20)
-    }
-    setStep(2)
-  }
+  const addToCart = (product) => setCart((c) => (c[product.id] ? c : { ...c, [product.id]: product.moq }))
+  const setQty = (id, qty) => setCart((c) => ({ ...c, [id]: Math.max(0, Math.round(Number(qty) || 0)) }))
+  const bumpQty = (id, delta) => setCart((c) => ({ ...c, [id]: Math.max(0, (c[id] || 0) + delta) }))
+  const removeLine = (id) => setCart((c) => {
+    const n = { ...c }
+    delete n[id]
+    return n
+  })
 
   const validateContact = () => {
-    const tempErrors = {}
-    if (!contactData.name.trim()) tempErrors.name = "Name is required"
-    if (!contactData.email.trim()) {
-      tempErrors.email = "Email is required"
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactData.email)) {
-      tempErrors.email = "Please enter a valid email address"
-    }
-    if (!contactData.phone.trim()) {
-      tempErrors.phone = "Phone number is required"
-    } else if (!/^\+?[\d\s-]{10,}$/.test(contactData.phone)) {
-      tempErrors.phone = "Please enter a valid phone number"
-    }
-    setErrors(tempErrors)
-    return Object.keys(tempErrors).length === 0
+    const e = {}
+    if (!contactData.name.trim()) e.name = "Name is required"
+    if (!contactData.email.trim()) e.email = "Email is required"
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactData.email)) e.email = "Please enter a valid email address"
+    if (!contactData.phone.trim()) e.phone = "Phone number is required"
+    else if (!/^\+?[\d\s-]{10,}$/.test(contactData.phone)) e.phone = "Please enter a valid phone number"
+    setErrors(e)
+    return Object.keys(e).length === 0
   }
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0]
-    if (file) {
-      setContactData((prev) => ({
-        ...prev,
-        logoFile: file,
-        logoFileName: file.name
-      }))
-    }
+    if (file) setContactData((prev) => ({ ...prev, logoFile: file, logoFileName: file.name }))
   }
 
   const handleFormSubmit = async (e) => {
     e.preventDefault()
+    if (lines.length === 0) {
+      toast.error("Your quote is empty — add at least one product.")
+      setStep(1)
+      return
+    }
     if (!validateContact()) return
 
+    const itemLines = lines.map(
+      (l) => `• ${l.product.name} × ${l.qty} ${l.product.unit} @ ₹${l.product.basePrice}` +
+        `${l.discountPercent ? ` (−${l.discountPercent}%)` : ""} = ${inr(l.total)}`
+    )
+    const categories = [...new Set(lines.map((l) => l.product.category))]
     const summaryLines = [
-      `Quote request via calculator`,
-      `Category: ${activeCategoryObj.name}`,
-      `Quantity: ${quantity}`,
-      pricing?.total != null ? `Estimated total: ₹${pricing.total}` : null,
-      pricing?.unitPrice != null ? `Estimated unit price: ₹${pricing.unitPrice}` : null,
+      "Quote request via RFQ builder",
+      ...itemLines,
+      `Subtotal: ${inr(subtotal)}`,
+      totalDiscount ? `Volume discount: −${inr(totalDiscount)}` : null,
+      `Estimated total (pre-tax): ${inr(estimate)}  (+ GST as applicable)`,
+      maxLeadTime > 0 ? `Est. dispatch: ~${maxLeadTime} working days after artwork approval` : null,
       contactData.logoFileName ? `Logo file: ${contactData.logoFileName}` : null,
       contactData.message ? `Notes: ${contactData.message}` : null,
     ].filter(Boolean)
@@ -249,629 +115,420 @@ export default function QuoteCalculator() {
         phone: contactData.phone,
         company: contactData.company,
       },
-      productInterest: activeCategoryObj.name,
+      productInterest: categories.length === 1 ? categories[0] : "Multiple categories",
       message: summaryLines.join("\n"),
-      notes: JSON.stringify({ category: activeCategoryObj.name, specs, quantity, pricing }),
+      notes: JSON.stringify({
+        items: lines.map((l) => ({
+          productId: l.product.id, name: l.product.name, sku: l.product.sku,
+          category: l.product.category, unit: l.product.unit, rate: l.product.basePrice,
+          gstRate: l.product.gstRate, quantity: l.qty, discountPercent: l.discountPercent, lineTotal: l.total,
+        })),
+        subtotal, totalDiscount, estimatePreTax: estimate,
+      }),
     })
 
     if (res.error) {
       toast.error("Couldn't submit your quote request. Please try again or WhatsApp us.")
       return
     }
-    toast.success("Quote request submitted successfully! Our sales desk will verify details.")
+    setReference(Date.now().toString().slice(-6))
+    toast.success("Quote request submitted! Our sales desk will send a formal quotation.")
     setIsSubmitted(true)
   }
 
-  return (
-    <div className="min-h-screen bg-background py-12">
-      <div className="lp-wrap max-w-4xl">
-        {/* Page Header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center p-3 rounded-full bg-primary/10 mb-4">
-            <Calculator className="h-8 w-8 text-primary" />
-          </div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">
-            B2B Custom Quote Estimator
-          </h1>
-          <p className="text-muted-foreground mt-2 max-w-xl mx-auto">
-            Configure raw materials, dimensions, printing techniques, and quantities to generate instant bulk price estimates.
-          </p>
-        </div>
+  const resetAll = () => {
+    setStep(1)
+    setCart({})
+    setContactData({ name: "", email: "", phone: "", company: "", logoFile: null, logoFileName: "", message: "" })
+    setErrors({})
+    setIsSubmitted(false)
+  }
 
-        {/* Steps Indicator */}
-        {!isSubmitted && (
-          <div className="flex items-center justify-center mb-10 space-x-2 md:space-x-4">
-            {[1, 2, 3, 4].map((s) => (
-              <div key={s} className="flex items-center">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
-                    step === s
-                      ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
-                      : step > s
-                      ? "bg-emerald-500 text-white"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {step > s ? <Check className="h-4 w-4" /> : s}
+  // ---------------------------------------------------------------- success --
+  if (isSubmitted) {
+    return (
+      <div className="min-h-screen bg-background py-16">
+        <div className="lp-wrap max-w-2xl">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-card border border-border/80 rounded-2xl p-8 md:p-10 text-center"
+          >
+            <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Check className="h-9 w-9" />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground">Quote request submitted</h1>
+            <p className="text-muted-foreground mt-2 max-w-md mx-auto">
+              Thanks! Your request is logged under reference <strong className="text-foreground">#{reference}</strong>.
+              Our sales desk will verify specs and send a formal GST quotation.
+            </p>
+
+            <div className="my-8 rounded-xl border border-border bg-secondary p-5 text-left">
+              <h2 className="font-semibold text-foreground border-b border-border pb-2 mb-3">Your quote</h2>
+              <div className="space-y-2">
+                {lines.map((l) => (
+                  <div key={l.product.id} className="flex justify-between text-sm gap-4">
+                    <span className="text-muted-foreground">{l.product.name} <span className="opacity-70">× {l.qty}</span></span>
+                    <span className="font-medium text-foreground whitespace-nowrap">{inr(l.total)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between border-t border-border mt-3 pt-3">
+                <span className="font-semibold text-foreground">Estimated total (pre-tax)</span>
+                <span className="font-bold text-primary">{inr(estimate)}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">+ GST as applicable · exclusive of shipping</p>
+              {maxLeadTime > 0 && (
+                <p className="text-xs text-foreground mt-2 flex items-center justify-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-primary" />
+                  Est. dispatch ~{maxLeadTime} working days after artwork approval
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-wrap justify-center gap-3">
+              <button onClick={resetAll} className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors cursor-pointer">
+                Build another quote
+              </button>
+              <Link to="/">
+                <button className="px-5 py-2.5 border border-border text-foreground hover:bg-muted rounded-lg font-medium transition-colors cursor-pointer">
+                  Return home
+                </button>
+              </Link>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    )
+  }
+
+  // -------------------------------------------------------------- summary aside
+  // Rendered via a plain function call (not <QuoteSummary/>) so React keeps the
+  // same element identity across renders — otherwise the quantity <input>s would
+  // remount and lose focus on every keystroke.
+  const renderSummary = (compact = false) => (
+    <div className="bg-card border border-border/80 rounded-2xl p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <ShoppingCart className="h-5 w-5 text-primary" />
+        <h2 className="font-bold text-foreground">Your quote</h2>
+        {lines.length > 0 && (
+          <span className="ml-auto text-xs font-semibold text-primary bg-primary/10 rounded-full px-2.5 py-0.5">
+            {lines.length} item{lines.length > 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
+
+      {lines.length === 0 ? (
+        <div className="text-center py-8 text-sm text-muted-foreground">
+          <Package className="h-8 w-8 mx-auto mb-2 opacity-40" />
+          No products yet.<br />Add items from the catalogue to build your quote.
+        </div>
+      ) : (
+        <>
+          <div className="space-y-4">
+            {lines.map((l) => (
+              <div key={l.product.id} className="border-b border-border/60 pb-4 last:border-0 last:pb-0">
+                <div className="flex justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-foreground leading-snug">{l.product.name}</div>
+                    <div className="text-xs text-muted-foreground">₹{l.product.basePrice}/{l.product.unit}
+                      {l.discountPercent > 0 && <span className="text-emerald-500 font-medium"> · −{l.discountPercent}%</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => removeLine(l.product.id)} aria-label={`Remove ${l.product.name}`} className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
-                {s < 4 && (
-                  <div
-                    className={`h-1 w-10 md:w-20 ml-2 md:ml-4 rounded transition-all duration-300 ${
-                      step > s ? "bg-emerald-500" : "bg-muted"
-                    }`}
-                  />
+                <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center">
+                    <button onClick={() => bumpQty(l.product.id, -25)} aria-label="Decrease quantity" className="w-7 h-7 rounded-l-lg border border-border bg-secondary hover:bg-muted flex items-center justify-center cursor-pointer">
+                      <Minus className="h-3.5 w-3.5" />
+                    </button>
+                    <input
+                      type="number" min="0" value={l.qty}
+                      onChange={(e) => setQty(l.product.id, e.target.value)}
+                      className="w-14 h-7 border-y border-border bg-secondary text-center text-sm font-semibold text-foreground focus:outline-none"
+                      aria-label={`Quantity for ${l.product.name}`}
+                    />
+                    <button onClick={() => bumpQty(l.product.id, 25)} aria-label="Increase quantity" className="w-7 h-7 rounded-r-lg border border-border bg-secondary hover:bg-muted flex items-center justify-center cursor-pointer">
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <span className="text-sm font-bold text-foreground">{inr(l.total)}</span>
+                </div>
+                {l.qty > 0 && l.qty < l.product.moq && (
+                  <p className="text-[11px] text-amber-500 mt-1.5 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" /> Below MOQ ({l.product.moq} {l.product.unit})
+                  </p>
                 )}
               </div>
             ))}
           </div>
-        )}
 
-        <div className="bg-card border border-border/80 rounded-2xl p-6 md:p-10 shadow-lg text-left relative overflow-hidden">
-          <AnimatePresence mode="wait">
-            {isSubmitted ? (
-              /* Success Screen */
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }}
-                className="text-center py-10"
-              >
-                <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Check className="h-10 w-10 animate-bounce" />
-                </div>
-                <h2 className="text-2xl font-bold text-foreground">RFQ Submitted Successfully!</h2>
-                <p className="text-muted-foreground mt-2 max-w-md mx-auto">
-                  Thank you for submitting your custom setup parameters. We have recorded your parameters under reference ID <strong>#{Date.now().toString().slice(-6)}</strong>.
-                </p>
-
-                <div className="my-8 p-6 bg-secondary rounded-xl border max-w-md mx-auto text-left space-y-3">
-                  <h3 className="font-semibold text-foreground border-b pb-2">Configuration Summary</h3>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Product Type</span>
-                    <span className="font-medium text-foreground">{activeCategoryObj?.name}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Quantity</span>
-                    <span className="font-medium text-foreground">{quantity} units</span>
-                  </div>
-                  <div className="flex justify-between text-sm border-t pt-2">
-                    <span className="text-muted-foreground font-semibold">Estimated Total</span>
-                    <span className="font-bold text-primary">₹ {pricing.totalPrice.toLocaleString()}</span>
-                  </div>
-                </div>
-
-                <p className="text-xs text-muted-foreground">
-                  Our sales representative will verify your design guidelines and send a final invoice with delivery logistics details.
-                </p>
-
-                <div className="mt-8 flex justify-center space-x-4">
-                  <button
-                    onClick={() => {
-                      setStep(1)
-                      setSelectedCategory("")
-                      setContactData({ name: "", email: "", phone: "", company: "", logoFile: null, logoFileName: "", message: "" })
-                      setIsSubmitted(false)
-                    }}
-                    className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/95 transition-all duration-200 cursor-pointer"
-                  >
-                    Configure New Quote
-                  </button>
-                  <Link to="/">
-                    <button className="px-5 py-2.5 border-2 border-border text-foreground hover:bg-muted rounded-lg font-medium transition-all duration-200 cursor-pointer">
-                      Return Home
-                    </button>
-                  </Link>
-                </div>
-              </motion.div>
-            ) : (
-              /* Wizard Screen views */
-              <div className="space-y-6">
-                {step === 1 && (
-                  /* Step 1: Select Category */
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <h2 className="text-xl font-bold mb-6 text-foreground">Select Product Type</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {categories.map((cat) => (
-                        <div
-                          key={cat.id}
-                          onClick={() => handleCategorySelect(cat.id)}
-                          className={`p-6 border rounded-xl cursor-pointer hover:border-primary/80 hover:bg-primary/5 hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between h-40 ${
-                            selectedCategory === cat.id
-                              ? "border-primary bg-primary/5 ring-2 ring-primary/25"
-                              : "border-border/60 bg-card"
-                          }`}
-                        >
-                          <div className="text-3xl">{cat.icon}</div>
-                          <div>
-                            <h3 className="font-semibold text-foreground mt-2 leading-tight">{cat.name}</h3>
-                            <p className="text-xs text-muted-foreground mt-1">Min. order: {cat.moq} units</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-
-                {step === 2 && activeCategoryObj && (
-                  /* Step 2: Configure Specification Parameters */
-                  <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="space-y-6"
-                  >
-                    <h2 className="text-xl font-bold text-foreground">Configure Design Specs</h2>
-                    <p className="text-sm text-muted-foreground -mt-3">
-                      Selected Product: <strong className="text-primary">{activeCategoryObj.name}</strong>
-                    </p>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Dynamic specifications select render */}
-                      {selectedCategory === "mdf" && (
-                        <>
-                          <div>
-                            <label className="text-sm font-semibold text-foreground">Select Size Option</label>
-                            <select
-                              value={specs.size}
-                              onChange={(e) => setSpecs((prev) => ({ ...prev, size: e.target.value }))}
-                              className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary rounded-lg focus:outline-none cursor-pointer"
-                            >
-                              {specOptions.mdf.sizes.map((s) => (
-                                <option key={s.label} value={s.label}>
-                                  {s.label} {s.price > 0 ? `(+₹${s.price})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-sm font-semibold text-foreground">Branding Method</label>
-                            <select
-                              value={specs.printMethod}
-                              onChange={(e) => setSpecs((prev) => ({ ...prev, printMethod: e.target.value }))}
-                              className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary rounded-lg focus:outline-none cursor-pointer"
-                            >
-                              {specOptions.mdf.printMethods.map((p) => (
-                                <option key={p.label} value={p.label}>
-                                  {p.label} {p.price > 0 ? `(+₹${p.price})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="md:col-span-2 flex items-center mt-2">
-                            <input
-                              type="checkbox"
-                              id="customShape"
-                              checked={specs.customShape}
-                              onChange={(e) => setSpecs((prev) => ({ ...prev, customShape: e.target.checked }))}
-                              className="w-4.5 h-4.5 accent-primary rounded cursor-pointer"
-                            />
-                            <label htmlFor="customShape" className="ml-3 text-sm font-medium text-foreground cursor-pointer">
-                              Requires customized outer boundary shape cutting (+₹4 per unit)
-                            </label>
-                          </div>
-                        </>
-                      )}
-
-                      {selectedCategory === "acrylic" && (
-                        <>
-                          <div>
-                            <label className="text-sm font-semibold text-foreground">Material Thickness</label>
-                            <select
-                              value={specs.thickness}
-                              onChange={(e) => setSpecs((prev) => ({ ...prev, thickness: e.target.value }))}
-                              className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary rounded-lg focus:outline-none cursor-pointer"
-                            >
-                              {specOptions.acrylic.thicknesses.map((t) => (
-                                <option key={t.label} value={t.label}>
-                                  {t.label} {t.price > 0 ? `(+₹${t.price})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-sm font-semibold text-foreground">Branding Method</label>
-                            <select
-                              value={specs.printMethod}
-                              onChange={(e) => setSpecs((prev) => ({ ...prev, printMethod: e.target.value }))}
-                              className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary rounded-lg focus:outline-none cursor-pointer"
-                            >
-                              {specOptions.acrylic.printMethods.map((p) => (
-                                <option key={p.label} value={p.label}>
-                                  {p.label} {p.price > 0 ? `(+₹${p.price})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="md:col-span-2 flex items-center mt-2">
-                            <input
-                              type="checkbox"
-                              id="customShapeAc"
-                              checked={specs.customShape}
-                              onChange={(e) => setSpecs((prev) => ({ ...prev, customShape: e.target.checked }))}
-                              className="w-4.5 h-4.5 accent-primary rounded cursor-pointer"
-                            />
-                            <label htmlFor="customShapeAc" className="ml-3 text-sm font-medium text-foreground cursor-pointer">
-                              Requires customized outer boundary shape cutting (+₹6 per unit)
-                            </label>
-                          </div>
-                        </>
-                      )}
-
-                      {selectedCategory === "lanyards" && (
-                        <>
-                          <div>
-                            <label className="text-sm font-semibold text-foreground">Lanyard Width</label>
-                            <select
-                              value={specs.width}
-                              onChange={(e) => setSpecs((prev) => ({ ...prev, width: e.target.value }))}
-                              className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary rounded-lg focus:outline-none cursor-pointer"
-                            >
-                              {specOptions.lanyards.widths.map((w) => (
-                                <option key={w.label} value={w.label}>
-                                  {w.label} {w.price > 0 ? `(+₹${w.price})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-sm font-semibold text-foreground">Printing Method</label>
-                            <select
-                              value={specs.printMethod}
-                              onChange={(e) => setSpecs((prev) => ({ ...prev, printMethod: e.target.value }))}
-                              className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary rounded-lg focus:outline-none cursor-pointer"
-                            >
-                              {specOptions.lanyards.printMethods.map((p) => (
-                                <option key={p.label} value={p.label}>
-                                  {p.label} {p.price > 0 ? `(+₹${p.price})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-sm font-semibold text-foreground">Attachment Accessory</label>
-                            <select
-                              value={specs.attachment}
-                              onChange={(e) => setSpecs((prev) => ({ ...prev, attachment: e.target.value }))}
-                              className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary rounded-lg focus:outline-none cursor-pointer"
-                            >
-                              {specOptions.lanyards.attachments.map((a) => (
-                                <option key={a.label} value={a.label}>
-                                  {a.label} {a.price > 0 ? `(+₹${a.price})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </>
-                      )}
-
-                      {selectedCategory === "badges" && (
-                        <>
-                          <div>
-                            <label className="text-sm font-semibold text-foreground">Badge Material</label>
-                            <select
-                              value={specs.material}
-                              onChange={(e) => setSpecs((prev) => ({ ...prev, material: e.target.value }))}
-                              className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary rounded-lg focus:outline-none cursor-pointer"
-                            >
-                              {specOptions.badges.materials.map((m) => (
-                                <option key={m.label} value={m.label}>
-                                  {m.label} {m.price > 0 ? `(+₹${m.price})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-sm font-semibold text-foreground">Attachment Hook</label>
-                            <select
-                              value={specs.attachment}
-                              onChange={(e) => setSpecs((prev) => ({ ...prev, attachment: e.target.value }))}
-                              className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary rounded-lg focus:outline-none cursor-pointer"
-                            >
-                              {specOptions.badges.attachments.map((a) => (
-                                <option key={a.label} value={a.label}>
-                                  {a.label} {a.price > 0 ? `(+₹${a.price})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </>
-                      )}
-
-                      {selectedCategory === "boards" && (
-                        <>
-                          <div>
-                            <label className="text-sm font-semibold text-foreground">Board Material</label>
-                            <select
-                              value={specs.material}
-                              onChange={(e) => setSpecs((prev) => ({ ...prev, material: e.target.value }))}
-                              className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary rounded-lg focus:outline-none cursor-pointer"
-                            >
-                              {specOptions.boards.materials.map((m) => (
-                                <option key={m.label} value={m.label}>
-                                  {m.label} {m.price > 0 ? `(+₹${m.price})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-sm font-semibold text-foreground">Branding Level</label>
-                            <select
-                              value={specs.printMethod}
-                              onChange={(e) => setSpecs((prev) => ({ ...prev, printMethod: e.target.value }))}
-                              className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary rounded-lg focus:outline-none cursor-pointer"
-                            >
-                              {specOptions.boards.printMethods.map((p) => (
-                                <option key={p.label} value={p.label}>
-                                  {p.label} {p.price > 0 ? `(+₹${p.price})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </>
-                      )}
-
-                      {selectedCategory === "gifting" && (
-                        <div>
-                          <label className="text-sm font-semibold text-foreground">Corporate Merchandise Option</label>
-                          <select
-                            value={specs.giftingType}
-                            onChange={(e) => setSpecs((prev) => ({ ...prev, giftingType: e.target.value }))}
-                            className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary rounded-lg focus:outline-none cursor-pointer"
-                          >
-                            {specOptions.gifting.types.map((t) => (
-                              <option key={t.label} value={t.label}>
-                                {t.label} {t.price > 0 ? `(+₹${t.price})` : t.price < 0 ? `(-₹${Math.abs(t.price)})` : ""}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex justify-between items-center pt-6 border-t border-border mt-8">
-                      <button
-                        onClick={() => setStep(1)}
-                        className="px-5 py-2.5 border border-border hover:bg-muted text-foreground font-semibold rounded-lg flex items-center transition-all duration-200 cursor-pointer"
-                      >
-                        <ChevronLeft className="mr-2 h-4 w-4" />
-                        Back
-                      </button>
-                      <button
-                        onClick={() => setStep(3)}
-                        className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg flex items-center transition-all duration-200 cursor-pointer"
-                      >
-                        Next Step
-                        <ChevronRight className="ml-2 h-4 w-4" />
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-
-                {step === 3 && activeCategoryObj && (
-                  /* Step 3: Quantities and Price calculations */
-                  <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="space-y-6"
-                  >
-                    <h2 className="text-xl font-bold text-foreground">Set Quantity & Calculate Cost</h2>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <div className="flex justify-between items-center">
-                          <label htmlFor="qtyInput" className="text-sm font-semibold text-foreground">Order Quantity</label>
-                          <span className="text-xs text-muted-foreground">MOQ for this category is {activeCategoryObj.moq} units</span>
-                        </div>
-                        
-                        <div className="flex items-center space-x-4 mt-2">
-                          <input
-                            id="qtyRange"
-                            type="range"
-                            min={Math.floor(activeCategoryObj.moq / 2)}
-                            max="5000"
-                            step="10"
-                            value={quantity}
-                            onChange={(e) => setQuantity(parseInt(e.target.value))}
-                            className="flex-1 accent-primary h-2 bg-secondary rounded-lg appearance-none cursor-pointer"
-                          />
-                          <input
-                            id="qtyInput"
-                            type="number"
-                            value={quantity}
-                            onChange={(e) => setQuantity(Math.max(0, parseInt(e.target.value) || 0))}
-                            className="w-24 px-3 py-2 bg-secondary border border-border focus:border-primary rounded-lg text-center font-bold text-foreground"
-                          />
-                        </div>
-                      </div>
-
-                      {/* MOQ Alert Warning */}
-                      {quantity < activeCategoryObj.moq && (
-                        <div className="flex items-start space-x-3 p-4 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl">
-                          <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                          <div>
-                            <h4 className="font-semibold text-sm">Below Minimum Order Quantity</h4>
-                            <p className="text-xs opacity-90 mt-0.5">
-                              Setup printing parameters and raw-materials calibration require a minimum run of {activeCategoryObj.moq} units. Submitting below this threshold will require custom validation from our sales team.
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Dynamic Price Display Board */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-border mt-8">
-                        <div className="bg-secondary p-5 rounded-xl border">
-                          <span className="text-xs text-muted-foreground uppercase font-semibold">Unit Price</span>
-                          <div className="text-2xl font-bold text-foreground mt-1">₹ {pricing.unitPrice}</div>
-                        </div>
-                        <div className="bg-secondary p-5 rounded-xl border">
-                          <span className="text-xs text-muted-foreground uppercase font-semibold">Volume Discount</span>
-                          <div className="text-2xl font-bold text-emerald-500 mt-1">
-                            {pricing.discountPercent > 0 ? `${pricing.discountPercent}% (-₹${pricing.discount.toLocaleString()})` : "0%"}
-                          </div>
-                        </div>
-                        <div className="bg-primary/5 p-5 rounded-xl border border-primary/20">
-                          <span className="text-xs text-primary uppercase font-semibold">Estimated Total</span>
-                          <div className="text-2xl font-black text-primary mt-1">₹ {pricing.totalPrice.toLocaleString()}</div>
-                        </div>
-                      </div>
-
-                      {/* Discount Info Banner */}
-                      <div className="p-4 bg-secondary border border-border rounded-xl text-xs text-muted-foreground space-y-1">
-                        <h4 className="font-semibold text-foreground text-sm mb-1">Volume Discounts Table</h4>
-                        <p>🔹 300+ units: 10% discount</p>
-                        <p>🔹 1,000+ units: 20% discount</p>
-                        <p>🔹 5,000+ units: 30% discount</p>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center pt-6 border-t border-border mt-8">
-                      <button
-                        onClick={() => setStep(2)}
-                        className="px-5 py-2.5 border border-border hover:bg-muted text-foreground font-semibold rounded-lg flex items-center transition-all duration-200 cursor-pointer"
-                      >
-                        <ChevronLeft className="mr-2 h-4 w-4" />
-                        Back
-                      </button>
-                      <button
-                        onClick={() => setStep(4)}
-                        className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg flex items-center transition-all duration-200 cursor-pointer"
-                      >
-                        Submit Request
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-
-                {step === 4 && activeCategoryObj && (
-                  /* Step 4: Contact details & submit */
-                  <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="space-y-6"
-                  >
-                    <h2 className="text-xl font-bold text-foreground">Buyer Details & Logo Submission</h2>
-                    
-                    <form onSubmit={handleFormSubmit} className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label htmlFor="calcName" className="text-sm font-semibold text-foreground">Name *</label>
-                          <input
-                            id="calcName"
-                            type="text"
-                            value={contactData.name}
-                            onChange={(e) => setContactData((prev) => ({ ...prev, name: e.target.value }))}
-                            placeholder="Full name"
-                            className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border/80 focus:border-primary rounded-lg focus:outline-none transition-all duration-200 text-foreground"
-                          />
-                          {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
-                        </div>
-
-                        <div>
-                          <label htmlFor="calcEmail" className="text-sm font-semibold text-foreground">Email *</label>
-                          <input
-                            id="calcEmail"
-                            type="email"
-                            value={contactData.email}
-                            onChange={(e) => setContactData((prev) => ({ ...prev, email: e.target.value }))}
-                            placeholder="your.email@example.com"
-                            className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border/80 focus:border-primary rounded-lg focus:outline-none transition-all duration-200 text-foreground"
-                          />
-                          {errors.email && <p className="text-xs text-destructive mt-1">{errors.email}</p>}
-                        </div>
-
-                        <div>
-                          <label htmlFor="calcPhone" className="text-sm font-semibold text-foreground">Phone *</label>
-                          <input
-                            id="calcPhone"
-                            type="text"
-                            value={contactData.phone}
-                            onChange={(e) => setContactData((prev) => ({ ...prev, phone: e.target.value }))}
-                            placeholder="+91-XXXXXXXXXX"
-                            className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border/80 focus:border-primary rounded-lg focus:outline-none transition-all duration-200 text-foreground"
-                          />
-                          {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
-                        </div>
-
-                        <div>
-                          <label htmlFor="calcCompany" className="text-sm font-semibold text-foreground">Company Name</label>
-                          <input
-                            id="calcCompany"
-                            type="text"
-                            value={contactData.company}
-                            onChange={(e) => setContactData((prev) => ({ ...prev, company: e.target.value }))}
-                            placeholder="Your company name"
-                            className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border/80 focus:border-primary rounded-lg focus:outline-none transition-all duration-200 text-foreground"
-                          />
-                        </div>
-                      </div>
-
-                      {/* File logo uploader */}
-                      <div>
-                        <label className="text-sm font-semibold text-foreground">Upload Logo Mockup (Optional)</label>
-                        <div className="mt-2 flex items-center justify-center border-2 border-dashed border-border/80 rounded-lg p-5 bg-secondary/50 hover:bg-secondary transition-all duration-200 relative">
-                          <input
-                            type="file"
-                            accept="image/*,.pdf,.svg,.ai"
-                            onChange={handleFileUpload}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          />
-                          <div className="text-center space-y-1">
-                            <Upload className="h-6 w-6 text-muted-foreground mx-auto" />
-                            <p className="text-sm text-foreground">
-                              {contactData.logoFileName ? (
-                                <span className="font-semibold text-primary">{contactData.logoFileName}</span>
-                              ) : (
-                                <span>Click to upload or drag & drop</span>
-                              )}
-                            </p>
-                            <p className="text-xs text-muted-foreground">SVG, AI, PDF or High-res PNG up to 10MB</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Custom comments message */}
-                      <div>
-                        <label htmlFor="calcMessage" className="text-sm font-semibold text-foreground">Additional Design Requirements</label>
-                        <textarea
-                          id="calcMessage"
-                          value={contactData.message}
-                          onChange={(e) => setContactData((prev) => ({ ...prev, message: e.target.value }))}
-                          placeholder="Please supply details about colors, shapes, special hardware requirements, or logistics packaging preferences..."
-                          className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border/80 focus:border-primary rounded-lg focus:outline-none min-h-[90px] transition-all duration-200 text-foreground"
-                        />
-                      </div>
-
-                      <div className="flex justify-between items-center pt-6 border-t border-border mt-8">
-                        <button
-                          type="button"
-                          onClick={() => setStep(3)}
-                          className="px-5 py-2.5 border border-border hover:bg-muted text-foreground font-semibold rounded-lg flex items-center transition-all duration-200 cursor-pointer"
-                        >
-                          <ChevronLeft className="mr-2 h-4 w-4" />
-                          Back
-                        </button>
-                        <button
-                          type="submit"
-                          className="px-5 py-2.5 bg-accent hover:bg-accent/95 text-accent-foreground font-bold rounded-lg flex items-center transition-all duration-200 cursor-pointer"
-                        >
-                          Submit RFQ Setup
-                          <Check className="ml-2 h-4 w-4" />
-                        </button>
-                      </div>
-                    </form>
-                  </motion.div>
-                )}
+          <div className="mt-4 pt-4 border-t border-border space-y-1.5 text-sm">
+            <div className="flex justify-between text-muted-foreground">
+              <span>Subtotal</span><span>{inr(subtotal)}</span>
+            </div>
+            {totalDiscount > 0 && (
+              <div className="flex justify-between text-emerald-500 font-medium">
+                <span>Volume discount</span><span>−{inr(totalDiscount)}</span>
               </div>
             )}
-          </AnimatePresence>
+            <div className="flex justify-between text-base font-bold text-foreground pt-1">
+              <span>Estimated total</span><span className="text-primary">{inr(estimate)}</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Indicative pre-tax estimate. GST (12% to 18% as applicable) and shipping extra.</p>
+          </div>
+
+          {maxLeadTime > 0 && (
+            <div className="mt-3 flex items-center gap-2 rounded-lg bg-secondary border border-border px-3 py-2 text-xs">
+              <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span className="text-foreground font-medium">Est. dispatch ~{maxLeadTime} working days</span>
+              <span className="text-muted-foreground">after artwork approval</span>
+            </div>
+          )}
+
+          {!compact && step === 1 && (
+            <button
+              onClick={() => setStep(2)}
+              className="mt-4 w-full bg-primary hover:bg-primary/90 text-primary-foreground py-2.5 font-semibold rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              Continue to details <ArrowRight className="h-4 w-4" />
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  )
+
+  // ------------------------------------------------------------------- render
+  return (
+    <div className="min-h-screen bg-background py-12">
+      <div className="lp-wrap">
+        {/* Header */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center p-3 rounded-full bg-primary/10 mb-4">
+            <Calculator className="h-8 w-8 text-primary" />
+          </div>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">Build your custom quote</h1>
+          <p className="text-muted-foreground mt-2 max-w-xl mx-auto">
+            Add products from our catalogue, set your quantities and get an instant bulk estimate with volume discounts. Submit to receive a formal GST quotation from our sales desk.
+          </p>
         </div>
+
+        {/* Step indicator */}
+        <div className="flex items-center justify-center mb-10 gap-3">
+          {[{ n: 1, label: "Build quote" }, { n: 2, label: "Your details" }].map((s, i) => (
+            <div key={s.n} className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
+                  step === s.n ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
+                    : step > s.n ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
+                }`}>
+                  {step > s.n ? <Check className="h-4 w-4" /> : s.n}
+                </div>
+                <span className={`text-sm font-medium ${step === s.n ? "text-foreground" : "text-muted-foreground"}`}>{s.label}</span>
+              </div>
+              {i === 0 && <div className={`h-0.5 w-8 md:w-16 rounded ${step > 1 ? "bg-emerald-500" : "bg-muted"}`} />}
+            </div>
+          ))}
+        </div>
+
+        <AnimatePresence mode="wait">
+          {step === 1 ? (
+            <motion.div
+              key="step1"
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="grid lg:grid-cols-[1fr_360px] gap-6 items-start"
+            >
+              {/* Catalogue */}
+              <div>
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-3 mb-5">
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      value={query} onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Search products…"
+                      className="w-full pl-10 pr-4 py-2.5 bg-card border border-border focus:border-primary rounded-lg focus:outline-none text-foreground"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 mb-5">
+                  <button
+                    onClick={() => setCategory("all")}
+                    className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer ${
+                      category === "all" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-foreground/80 hover:border-primary/50"
+                    }`}
+                  >All products</button>
+                  {CATEGORIES.map((c) => (
+                    <button
+                      key={c} onClick={() => setCategory(c)}
+                      className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer ${
+                        category === c ? "bg-primary text-primary-foreground" : "bg-card border border-border text-foreground/80 hover:border-primary/50"
+                      }`}
+                    >{catIcon(c)} {c}</button>
+                  ))}
+                </div>
+
+                {/* Product grid */}
+                {filtered.length === 0 ? (
+                  <div className="text-center py-16 text-muted-foreground">No products match your search.</div>
+                ) : (
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {filtered.map((p) => {
+                      const inCart = cart[p.id] != null
+                      return (
+                        <div key={p.id} className="bg-card border border-border/70 rounded-xl p-5 flex flex-col hover:border-primary/50 hover:-translate-y-0.5 transition-all duration-200">
+                          <div className="flex items-start justify-between">
+                            <span className="text-2xl">{catIcon(p.category)}</span>
+                            <span className="text-xs text-muted-foreground bg-secondary rounded-full px-2 py-0.5">{p.category.split(" ")[0]}</span>
+                          </div>
+                          <h3 className="font-semibold text-foreground mt-3 leading-tight">{p.name}</h3>
+                          <p className="text-xs text-muted-foreground mt-1 flex-1">{p.material}</p>
+                          <div className="flex items-end justify-between mt-3">
+                            <div>
+                              <div className="text-lg font-bold text-foreground">₹{p.basePrice}<span className="text-xs font-normal text-muted-foreground">/{p.unit}</span></div>
+                              <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
+                                <span>MOQ {p.moq}</span>
+                                <span className="inline-flex items-center gap-0.5"><Clock className="h-3 w-3" />{p.leadTimeDays}d</span>
+                              </div>
+                            </div>
+                          </div>
+                          {inCart ? (
+                            <div className="mt-4 flex items-center justify-center gap-2 text-sm font-medium text-emerald-600">
+                              <Check className="h-4 w-4" /> Added to quote
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => addToCart(p)}
+                              className="mt-4 w-full border border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground py-2 font-medium rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            >
+                              <Plus className="h-4 w-4" /> Add to quote
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Volume discount table */}
+                <div className="mt-6 p-4 bg-secondary border border-border rounded-xl">
+                  <h4 className="font-semibold text-foreground text-sm mb-2">Volume discounts (applied automatically per line)</h4>
+                  <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
+                    {VOLUME_TIERS.filter((t) => t.percent > 0).slice().reverse().map((t) => (
+                      <span key={t.min}>🔹 {t.min.toLocaleString("en-IN")}+ units: <strong className="text-foreground">{t.percent}% off</strong></span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Summary aside */}
+              <aside className="lg:sticky lg:top-24">
+                {renderSummary()}
+              </aside>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="step2"
+              initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+              className="grid lg:grid-cols-[1fr_360px] gap-6 items-start"
+            >
+              {/* Contact form */}
+              <div className="bg-card border border-border/80 rounded-2xl p-6 md:p-8">
+                <h2 className="text-xl font-bold text-foreground mb-1">Your details</h2>
+                <p className="text-sm text-muted-foreground mb-6">We'll use these to send your formal quotation.</p>
+
+                {belowMoq.length > 0 && (
+                  <div className="flex items-start gap-3 p-4 mb-6 bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-xl">
+                    <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+                    <p className="text-xs">
+                      {belowMoq.length} item{belowMoq.length > 1 ? "s are" : " is"} below the minimum order quantity. We can still quote these, but our team may confirm feasibility or suggest the nearest run size.
+                    </p>
+                  </div>
+                )}
+
+                <form onSubmit={handleFormSubmit} className="space-y-6">
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="calcName" className="text-sm font-semibold text-foreground">Name *</label>
+                      <input id="calcName" type="text" value={contactData.name}
+                        onChange={(e) => setContactData((p) => ({ ...p, name: e.target.value }))}
+                        placeholder="Full name"
+                        className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border/80 focus:border-primary rounded-lg focus:outline-none text-foreground" />
+                      {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
+                    </div>
+                    <div>
+                      <label htmlFor="calcEmail" className="text-sm font-semibold text-foreground">Email *</label>
+                      <input id="calcEmail" type="email" value={contactData.email}
+                        onChange={(e) => setContactData((p) => ({ ...p, email: e.target.value }))}
+                        placeholder="your.email@example.com"
+                        className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border/80 focus:border-primary rounded-lg focus:outline-none text-foreground" />
+                      {errors.email && <p className="text-xs text-destructive mt-1">{errors.email}</p>}
+                    </div>
+                    <div>
+                      <label htmlFor="calcPhone" className="text-sm font-semibold text-foreground">Phone *</label>
+                      <input id="calcPhone" type="text" value={contactData.phone}
+                        onChange={(e) => setContactData((p) => ({ ...p, phone: e.target.value }))}
+                        placeholder="+91-XXXXXXXXXX"
+                        className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border/80 focus:border-primary rounded-lg focus:outline-none text-foreground" />
+                      {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
+                    </div>
+                    <div>
+                      <label htmlFor="calcCompany" className="text-sm font-semibold text-foreground">Company name</label>
+                      <input id="calcCompany" type="text" value={contactData.company}
+                        onChange={(e) => setContactData((p) => ({ ...p, company: e.target.value }))}
+                        placeholder="Your company name"
+                        className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border/80 focus:border-primary rounded-lg focus:outline-none text-foreground" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-semibold text-foreground">Upload logo / artwork (optional)</label>
+                    <div className="mt-2 flex items-center justify-center border-2 border-dashed border-border/80 rounded-lg p-5 bg-secondary/50 hover:bg-secondary transition-colors relative">
+                      <input type="file" accept="image/*,.pdf,.svg,.ai" onChange={handleFileUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                      <div className="text-center space-y-1">
+                        <Upload className="h-6 w-6 text-muted-foreground mx-auto" />
+                        <p className="text-sm text-foreground">
+                          {contactData.logoFileName
+                            ? <span className="font-semibold text-primary">{contactData.logoFileName}</span>
+                            : <span>Click to upload or drag & drop</span>}
+                        </p>
+                        <p className="text-xs text-muted-foreground">SVG, AI, PDF or high-res PNG up to 10MB</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="calcMessage" className="text-sm font-semibold text-foreground">Additional requirements</label>
+                    <textarea id="calcMessage" value={contactData.message}
+                      onChange={(e) => setContactData((p) => ({ ...p, message: e.target.value }))}
+                      placeholder="Colours, custom shapes, branding placement, delivery timeline or packaging preferences…"
+                      className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border/80 focus:border-primary rounded-lg focus:outline-none min-h-[90px] text-foreground" />
+                  </div>
+
+                  <div className="flex justify-between items-center pt-6 border-t border-border">
+                    <button type="button" onClick={() => setStep(1)}
+                      className="px-5 py-2.5 border border-border hover:bg-muted text-foreground font-semibold rounded-lg flex items-center gap-2 transition-colors cursor-pointer">
+                      <ChevronLeft className="h-4 w-4" /> Back to catalogue
+                    </button>
+                    <button type="submit"
+                      className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg flex items-center gap-2 transition-colors cursor-pointer">
+                      Submit request <Check className="h-4 w-4" />
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Read-only summary */}
+              <aside className="lg:sticky lg:top-24">
+                {renderSummary(true)}
+              </aside>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )

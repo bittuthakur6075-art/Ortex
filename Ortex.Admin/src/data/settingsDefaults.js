@@ -45,6 +45,11 @@ export const DEFAULT_SETTINGS = {
     // (Superseded server-side once the Edge Function email path is live.)
     emailjs: { serviceId: "", templateId: "", publicKey: "" },
   },
+  integrations: {
+    // IndiaMART Lead Manager Pull API — paste your CRM key and enable to pull
+    // buyer enquiries into the Enquiries module. lastPull tracks the sync window.
+    indiamart: { crmKey: "", enabled: false, lastPull: null, lastResult: "" },
+  },
 }
 
 // Deep-merge a saved settings object over the defaults so new default keys
@@ -60,6 +65,11 @@ export function mergeSettings(saved) {
       ...DEFAULT_SETTINGS.notifications,
       ...saved.notifications,
       emailjs: { ...DEFAULT_SETTINGS.notifications.emailjs, ...saved.notifications?.emailjs },
+    },
+    integrations: {
+      ...DEFAULT_SETTINGS.integrations,
+      ...saved.integrations,
+      indiamart: { ...DEFAULT_SETTINGS.integrations.indiamart, ...saved.integrations?.indiamart },
     },
   }
 }

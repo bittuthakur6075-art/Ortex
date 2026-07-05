@@ -23,7 +23,7 @@ export default function Footer() {
         {/* Top: Logo / Brand & Designer link */}
         <div className="lp-footer-top">
           <Link to="/" className="lp-footer-logo" aria-label="Ortex Industries home">
-            <img src="/img/logo.png" alt="Ortex Industries" className="lp-footer-logo-img" />
+            <img src="/img/logo.svg" alt="Ortex Industries" className="lp-footer-logo-img" />
           </Link>
         </div>
 

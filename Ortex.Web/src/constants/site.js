@@ -7,7 +7,7 @@ export const CONTACT = {
   phonePrimary: "+91-9211947188",
   phoneSecondary: "+91-8448663297",
   email: "sales@ortexindustries.in",
-  hours: "Mon–Sat: 9:00 AM – 6:00 PM (Sunday Closed)",
+  hours: "Mon-Sat: 9:00 AM to 6:00 PM (Sunday Closed)",
 }
 
 // Digits-only number used to build WhatsApp deep links.

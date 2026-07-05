@@ -218,7 +218,7 @@ export default function Industries() {
               Solutions built for your sector
             </h2>
             <p className="text-lg mb-8 max-w-2xl mx-auto opacity-90 text-primary-foreground/90">
-              Tell us about your industry and requirements — we'll recommend the right products, materials, and branding for your organisation.
+              Tell us about your industry and requirements, and we will recommend the right products, materials, and branding for your organisation.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Link

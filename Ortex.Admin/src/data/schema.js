@@ -108,7 +108,68 @@ export function statusMeta(list, id) {
   return list.find((s) => s.id === id) || list[0]
 }
 
+
+
+// Helper to automatically detect product category from its name
+export function autoDetectCategory(productName, categories = []) {
+  if (!productName) return null
+  const nameLower = productName.toLowerCase()
+
+  // Custom keyword mappings for standard categories to be more accurate
+  const keywordMappings = {
+    "mdf": "MDF products",
+    "wooden": "MDF products",
+    "acrylic": "Acrylic products",
+    "lanyard": "Lanyards & ID card accessories",
+    "id card": "Lanyards & ID card accessories",
+    "badge": "Badge manufacturing",
+    "exam board": "Examination boards",
+    "examination board": "Examination boards",
+    "clipboard": "Clipboards & writing pads",
+    "writing pad": "Clipboards & writing pads",
+    "notepad": "Clipboards & writing pads",
+    "gift": "Corporate gifting & merchandise",
+    "bottle": "Corporate gifting & merchandise",
+    "diary": "Corporate gifting & merchandise",
+    "mug": "Corporate gifting & merchandise",
+    "pen": "Corporate gifting & merchandise",
+    "customization": "Customization & branding",
+    "branding": "Customization & branding",
+    "printing": "Customization & branding",
+    "engraving": "Customization & branding"
+  }
+
+  // First try specific mappings
+  for (const [kw, catName] of Object.entries(keywordMappings)) {
+    if (nameLower.includes(kw)) {
+      const match = categories.find((c) => c.name.toLowerCase() === catName.toLowerCase())
+      if (match) return match
+    }
+  }
+
+  // Fallback: try matching category name words dynamically (longer match wins first)
+  if (categories.length) {
+    const sortedCats = [...categories].sort((a, b) => b.name.length - a.name.length)
+    for (const cat of sortedCats) {
+      const catWords = cat.name
+        .toLowerCase()
+        .split(/[\s&/]+/)
+        .filter((w) => w && !["products", "and", "or", "manufacturing", "accessories", "other", "etc"].includes(w))
+      
+      for (const word of catWords) {
+        if (word.length > 2 && nameLower.includes(word)) {
+          return cat
+        }
+      }
+    }
+  }
+
+  return null
+}
+
+
 // ---- entity factories ------------------------------------------------------
+
 
 export function newProduct(overrides = {}) {
   return {
@@ -125,6 +186,7 @@ export function newProduct(overrides = {}) {
     leadTimeDays: 7,
     status: "active",
     description: "",
+    images: [],
     ...overrides,
   }
 }
@@ -139,9 +201,11 @@ export function newLine(overrides = {}) {
     description: "",
     hsn: "",
     quantity: 1,
+    unit: "pcs",
     rate: 0,
     discountPercent: 0,
     gstRate: 18,
+    dueOn: null,
     ...overrides,
   }
 }

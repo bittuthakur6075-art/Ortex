@@ -22,12 +22,12 @@ export function composeInvoiceEmail(invoice, settings) {
   const c = settings.company
   const t = invoice.totals || {}
   const cust = invoice.customer || {}
-  const subject = `Invoice ${invoice.number} — ${c.name}`
+  const subject = `Invoice ${invoice.number} - ${c.name}`
 
   const lines = (invoice.lines || [])
     .map((l, i) => {
       const cl = t.lines?.[i] || {}
-      return `  ${i + 1}. ${l.description} — ${l.quantity} × ${formatCurrency(l.rate)} = ${formatCurrency(cl.total || 0)}`
+      return `  ${i + 1}. ${l.description} - ${l.quantity} × ${formatCurrency(l.rate)} = ${formatCurrency(cl.total || 0)}`
     })
     .join("\n")
 
@@ -39,7 +39,7 @@ export function composeInvoiceEmail(invoice, settings) {
     `Invoice no : ${invoice.number}`,
     `Date       : ${formatDate(invoice.issueDate)}`,
     `Due date   : ${formatDate(invoice.dueDate)}`,
-    `Customer   : ${cust.company || cust.name || "—"}${cust.company && cust.name ? ` (${cust.name})` : ""}`,
+    `Customer   : ${cust.company || cust.name || "Not Specified"}${cust.company && cust.name ? ` (${cust.name})` : ""}`,
     cust.gstin ? `Buyer GSTIN: ${cust.gstin}` : null,
     ``,
     `Items:`,
@@ -49,7 +49,7 @@ export function composeInvoiceEmail(invoice, settings) {
     `${tax}`,
     `Grand total   : ${formatCurrency(t.grandTotal)}`,
     ``,
-    `— ${c.name}${c.gstin ? ` · GSTIN ${c.gstin}` : ""}`,
+    `- ${c.name}${c.gstin ? ` · GSTIN ${c.gstin}` : ""}`,
     c.phone ? `${c.phone} · ${c.email}` : c.email || "",
     ``,
     `(Open the console → Invoices → ${invoice.number} → Preview to print/PDF the full tax invoice.)`,

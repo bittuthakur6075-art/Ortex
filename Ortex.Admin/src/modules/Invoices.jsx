@@ -19,6 +19,7 @@ import { formatDate, toDateInput, formatCurrency } from "../lib/format"
 import { exportCsv } from "../lib/csv"
 import PageHeader from "../components/PageHeader"
 import CustomerFields from "../components/CustomerFields"
+import ShipToFields from "../components/ShipToFields"
 import LineItemsEditor from "../components/LineItemsEditor"
 import DocumentView from "../components/DocumentView"
 import ReceiptView from "../components/ReceiptView"
@@ -40,8 +41,10 @@ import {
 const emptyDraft = (settings) => ({
   id: null,
   customer: newCustomer(),
+  shipTo: null,
   lines: [newLine()],
   extraDiscountPercent: 0,
+  paymentTerms: "",
   issueDate: new Date().toISOString(),
   dueDate: new Date(Date.now() + 15 * 86400000).toISOString(),
   notes: "",
@@ -228,7 +231,7 @@ function InvoiceEditor({ draft, products, customers, payments, settings, onClose
   const [payOpen, setPayOpen] = useState(false)
   const [receiptFor, setReceiptFor] = useState(null)
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
-  const interState = isInterState(settings.company.stateCode, form.customer.stateCode)
+  const interState = isInterState(settings.company.stateCode, form.shipTo?.stateCode || form.customer.stateCode)
 
   const linkedPayments = isEdit ? payments.filter((p) => p.invoiceId === form.id && p.type === "inflow") : []
   const paid = isEdit ? paidForInvoice(form.id, payments) : 0
@@ -346,8 +349,13 @@ function InvoiceEditor({ draft, products, customers, payments, settings, onClose
         )}
 
         <section>
-          <h3 className="mb-3 text-sm font-semibold text-foreground">Customer</h3>
+          <h3 className="mb-3 text-sm font-semibold text-foreground">Customer (Bill to)</h3>
           <CustomerFields value={form.customer} onChange={(customer) => set({ customer })} customers={customers} />
+        </section>
+
+        <section>
+          <h3 className="mb-3 text-sm font-semibold text-foreground">Ship to (Consignee)</h3>
+          <ShipToFields value={form.shipTo} onChange={(shipTo) => set({ shipTo })} customers={customers} />
         </section>
 
         <section>
@@ -368,6 +376,9 @@ function InvoiceEditor({ draft, products, customers, payments, settings, onClose
           </Field>
           <Field label="Due date">
             <Input type="date" value={toDateInput(form.dueDate)} onChange={(e) => set({ dueDate: new Date(e.target.value).toISOString() })} />
+          </Field>
+          <Field label="Payment terms" className="sm:col-span-2">
+            <Input value={form.paymentTerms || ""} onChange={(e) => set({ paymentTerms: e.target.value })} placeholder="e.g. 70% Advance & 30% Before dispatch" />
           </Field>
           <Field label="Notes" className="sm:col-span-2">
             <Textarea value={form.notes} onChange={(e) => set({ notes: e.target.value })} />

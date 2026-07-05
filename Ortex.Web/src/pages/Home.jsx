@@ -280,7 +280,7 @@ export default function Home() {
               Trusted across industries
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              From corporates and schools to government and events — we deliver sector-specific solutions
+              From corporates and schools to government and events, we deliver sector-specific solutions.
             </p>
           </motion.div>
 

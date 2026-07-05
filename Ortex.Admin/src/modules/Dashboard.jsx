@@ -201,9 +201,9 @@ function Funnel({ funnel }) {
 
 function QuoteAging({ aging, openCount }) {
   const buckets = [
-    { key: "0-7", label: "0–7 days", tone: "text-emerald-500" },
-    { key: "8-15", label: "8–15 days", tone: "text-amber-500" },
-    { key: "16-30", label: "16–30 days", tone: "text-orange-500" },
+    { key: "0-7", label: "0-7 days", tone: "text-emerald-500" },
+    { key: "8-15", label: "8-15 days", tone: "text-amber-500" },
+    { key: "16-30", label: "16-30 days", tone: "text-orange-500" },
     { key: "30+", label: "30+ days", tone: "text-destructive" },
   ]
   return (
@@ -233,8 +233,8 @@ function QuoteAging({ aging, openCount }) {
 function ArAging({ aging, total }) {
   const buckets = [
     { key: "current", label: "Current", tone: "bg-emerald-500" },
-    { key: "1-30", label: "1–30 od", tone: "bg-amber-500" },
-    { key: "31-60", label: "31–60 od", tone: "bg-orange-500" },
+    { key: "1-30", label: "1-30 od", tone: "bg-amber-500" },
+    { key: "31-60", label: "31-60 od", tone: "bg-orange-500" },
     { key: "60+", label: "60+ od", tone: "bg-destructive" },
   ]
   const max = Math.max(1, ...buckets.map((b) => aging[b.key]))

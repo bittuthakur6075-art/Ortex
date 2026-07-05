@@ -2,7 +2,8 @@ import { useState } from "react"
 import { Download, Upload, FileSpreadsheet, CheckCircle2, AlertTriangle } from "./icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
-import { newProduct, GST_RATES, UNITS } from "../data/schema"
+import { newProduct, GST_RATES, UNITS, autoDetectCategory } from "../data/schema"
+import { useCategories } from "../data/hooks"
 import { downloadCsvRaw, parseCsv } from "../lib/csv"
 import { round2 } from "../lib/format"
 import { Button, Modal, Badge } from "./ui"
@@ -15,7 +16,7 @@ const SAMPLE = [
   ["Acrylic Fridge Magnet", "ACR-MAG-01", "Acrylic products", "3926", "pcs", "35", "14", "100", "18", "6", "active", "3mm acrylic", "UV-printed magnet"],
 ]
 
-function validateRow(raw) {
+function validateRow(raw, categories = []) {
   // Map headers case-insensitively to our known columns.
   const get = (key) => {
     const found = Object.keys(raw).find((k) => k.trim().toLowerCase() === key.toLowerCase())
@@ -28,8 +29,26 @@ function validateRow(raw) {
   const basePrice = Number(get("basePrice"))
   if (get("basePrice") !== "" && Number.isNaN(basePrice)) errors.push("Base price is not a number")
 
-  let gstRate = Number(get("gstRate"))
-  if (!GST_RATES.includes(gstRate)) gstRate = 18
+  const categoryName = get("category").trim()
+  let detectedCategory = null
+  if (!categoryName && name) {
+    detectedCategory = autoDetectCategory(name, categories)
+  }
+
+  const resolvedCategory = categoryName || (detectedCategory ? detectedCategory.name : "MDF products")
+  const cat = categories.find((c) => c.name.toLowerCase() === resolvedCategory.toLowerCase())
+
+  let hsn = get("hsn").trim()
+  if (!hsn && cat) {
+    hsn = cat.hsn || ""
+  }
+
+  let gstRate = get("gstRate") !== "" ? Number(get("gstRate")) : NaN
+  if (Number.isNaN(gstRate)) {
+    gstRate = cat && cat.gstRate != null ? cat.gstRate : 18
+  } else if (!GST_RATES.includes(gstRate)) {
+    gstRate = 18
+  }
 
   let unit = get("unit").trim().toLowerCase()
   if (!UNITS.includes(unit)) unit = "pcs"
@@ -40,8 +59,8 @@ function validateRow(raw) {
   const product = newProduct({
     name,
     sku: get("sku").trim(),
-    category: get("category").trim() || "MDF products",
-    hsn: get("hsn").trim(),
+    category: resolvedCategory,
+    hsn,
     unit,
     basePrice: round2(basePrice || 0),
     costPrice: round2(Number(get("costPrice")) || 0),
@@ -56,6 +75,7 @@ function validateRow(raw) {
 }
 
 export default function ProductImport({ open, onClose }) {
+  const categories = useCategories()
   const [rows, setRows] = useState(null) // parsed+validated
   const [fileName, setFileName] = useState("")
 
@@ -75,7 +95,7 @@ export default function ProductImport({ open, onClose }) {
       setRows([])
       return
     }
-    setRows(parsed.map(validateRow))
+    setRows(parsed.map(row => validateRow(row, categories)))
     e.target.value = "" // allow re-upload of same file
   }
 

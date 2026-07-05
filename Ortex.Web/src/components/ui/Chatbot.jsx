@@ -71,7 +71,7 @@ const KB = [
   },
   {
     test: /contact|sales|whatsapp|phone|number|email|address|location|office/i,
-    answer: "Here is how you can connect with us directly:\n- **WhatsApp Primary:** +91-9211947188\n- **Phone Secondary:** +91-8448663297\n- **Email:** sales@ortexindustries.in\n- **Office Hours:** Mon–Sat: 9:00 AM – 6:00 PM (Sunday Closed)\n- **Location:** New Delhi, India.\n\nFeel free to tap the WhatsApp button at the bottom of the chat to start a direct thread!"
+    answer: "Here is how you can connect with us directly:\n- **WhatsApp Primary:** +91-9211947188\n- **Phone Secondary:** +91-8448663297\n- **Email:** sales@ortexindustries.in\n- **Office Hours:** Mon-Sat: 9:00 AM to 6:00 PM (Sunday Closed)\n- **Location:** New Delhi, India.\n\nFeel free to tap the WhatsApp button at the bottom of the chat to start a direct thread!"
   },
   {
     test: /order|buy|purchase|how to/i,

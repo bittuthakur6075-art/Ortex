@@ -26,9 +26,15 @@ async function generateNumber(series) {
   return documentNumber(prefix, seq)
 }
 
-function totalsFor(lines, settings, customer, extraDiscountPercent = 0) {
+// GST place of supply for goods follows the ship-to (consignee) location when
+// one is given, otherwise the bill-to customer.
+export function placeOfSupplyState(customer, shipTo) {
+  return shipTo?.stateCode?.trim() ? shipTo.stateCode : customer?.stateCode
+}
+
+function totalsFor(lines, settings, customer, extraDiscountPercent = 0, shipTo = null) {
   return computeDocument(lines, {
-    interState: isInterState(settings.company.stateCode, customer?.stateCode),
+    interState: isInterState(settings.company.stateCode, placeOfSupplyState(customer, shipTo)),
     extraDiscountPercent,
   })
 }
@@ -41,15 +47,17 @@ export async function createQuotation(draft) {
   const issueDate = draft.issueDate || new Date().toISOString()
   const validityDays = draft.validityDays ?? settings.quotation.validityDays
   const validUntil = new Date(new Date(issueDate).getTime() + validityDays * 86400000).toISOString()
-  const totals = totalsFor(draft.lines || [], settings, draft.customer, draft.extraDiscountPercent)
+  const totals = totalsFor(draft.lines || [], settings, draft.customer, draft.extraDiscountPercent, draft.shipTo)
 
   await upsertCustomer(draft.customer)
   return repo.create("quotations", {
     number,
     status: "draft",
     customer: draft.customer,
+    shipTo: draft.shipTo || null,
     lines: draft.lines || [],
     extraDiscountPercent: draft.extraDiscountPercent || 0,
+    paymentTerms: draft.paymentTerms || "",
     totals,
     issueDate,
     validUntil,
@@ -67,8 +75,8 @@ export async function updateQuotation(id, patch) {
   const existing = await repo.get("quotations", id)
   if (!existing) return null
   const merged = { ...existing, ...patch }
-  // Recompute totals whenever lines / discount / customer change.
-  const totals = totalsFor(merged.lines || [], settings, merged.customer, merged.extraDiscountPercent)
+  // Recompute totals whenever lines / discount / customer / ship-to change.
+  const totals = totalsFor(merged.lines || [], settings, merged.customer, merged.extraDiscountPercent, merged.shipTo)
   return repo.update("quotations", id, { ...patch, totals })
 }
 
@@ -82,14 +90,16 @@ export async function convertQuotationToInvoice(quotationId) {
   const number = await generateNumber("invoice")
   const issueDate = new Date().toISOString()
   const dueDate = new Date(Date.now() + 15 * 86400000).toISOString()
-  const totals = totalsFor(q.lines, settings, q.customer, q.extraDiscountPercent)
+  const totals = totalsFor(q.lines, settings, q.customer, q.extraDiscountPercent, q.shipTo)
 
   const invoice = await repo.create("invoices", {
     number,
     status: "sent",
     customer: q.customer,
+    shipTo: q.shipTo || null,
     lines: q.lines,
     extraDiscountPercent: q.extraDiscountPercent || 0,
+    paymentTerms: q.paymentTerms || "",
     totals,
     issueDate,
     dueDate,
@@ -112,14 +122,16 @@ export async function createInvoice(draft) {
   const number = await generateNumber("invoice")
   const issueDate = draft.issueDate || new Date().toISOString()
   const dueDate = draft.dueDate || new Date(Date.now() + 15 * 86400000).toISOString()
-  const totals = totalsFor(draft.lines || [], settings, draft.customer, draft.extraDiscountPercent)
+  const totals = totalsFor(draft.lines || [], settings, draft.customer, draft.extraDiscountPercent, draft.shipTo)
   await upsertCustomer(draft.customer)
   const invoice = await repo.create("invoices", {
     number,
     status: draft.status || "draft",
     customer: draft.customer,
+    shipTo: draft.shipTo || null,
     lines: draft.lines || [],
     extraDiscountPercent: draft.extraDiscountPercent || 0,
+    paymentTerms: draft.paymentTerms || "",
     totals,
     issueDate,
     dueDate,
@@ -147,7 +159,7 @@ export async function updateInvoice(id, patch) {
   const existing = await repo.get("invoices", id)
   if (!existing) return null
   const merged = { ...existing, ...patch }
-  const totals = totalsFor(merged.lines || [], settings, merged.customer, merged.extraDiscountPercent)
+  const totals = totalsFor(merged.lines || [], settings, merged.customer, merged.extraDiscountPercent, merged.shipTo)
   return repo.update("invoices", id, { ...patch, totals })
 }
 

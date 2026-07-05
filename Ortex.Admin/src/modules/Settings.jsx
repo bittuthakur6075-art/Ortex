@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react"
-import { Building2, KeyRound, Percent, Hash, Database, Sparkles, Trash2, Info, Save, Mail } from "../components/icons"
+import { Building2, KeyRound, Percent, Hash, Database, Sparkles, Trash2, Info, Save, Mail, Inbox } from "../components/icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { useSettings, useCollections } from "../data/hooks"
 import { seedDemo } from "../data/seed"
 import { login, changePassword, currentEmail } from "../lib/auth"
+import { syncIndiaMart } from "../data/integrations"
 import { GST_RATES } from "../data/schema"
 import PageHeader from "../components/PageHeader"
 import { Button, Card, Input, Select, Textarea, Field, PageLoader } from "../components/ui"
@@ -31,6 +32,7 @@ export default function Settings() {
   const settings = useSettings()
   const { data } = useCollections(["products", "enquiries", "quotations", "invoices", "payments"])
   const [draft, setDraft] = useState(null)
+  const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     if (settings) setDraft(structuredClone(settings))
@@ -44,10 +46,22 @@ export default function Settings() {
   const setQuotation = (key, v) => setDraft((d) => ({ ...d, quotation: { ...d.quotation, [key]: v } }))
   const setNotifications = (key, v) => setDraft((d) => ({ ...d, notifications: { ...d.notifications, [key]: v } }))
   const setEmailjs = (key, v) => setDraft((d) => ({ ...d, notifications: { ...d.notifications, emailjs: { ...d.notifications.emailjs, [key]: v } } }))
+  const setIndiamart = (key, v) =>
+    setDraft((d) => ({ ...d, integrations: { ...d.integrations, indiamart: { ...d.integrations.indiamart, [key]: v } } }))
 
   const saveSettings = async () => {
     await repo.saveSettings(draft)
     toast.success("Settings saved")
+  }
+
+  const syncIndiaMartNow = async () => {
+    setSyncing(true)
+    await repo.saveSettings(draft) // persist the latest key before the server pulls
+    const res = await syncIndiaMart()
+    setSyncing(false)
+    if (res.error) return toast.error(res.error)
+    if (res.skipped) return toast.message(res.reason || "IndiaMART sync is off")
+    toast.success(`IndiaMART: ${res.inserted} new lead(s) imported${res.duplicates ? `, ${res.duplicates} already had` : ""}`)
   }
 
   return (
@@ -197,6 +211,46 @@ export default function Settings() {
               <Input value={draft.notifications.emailjs.publicKey} onChange={(e) => setEmailjs("publicKey", e.target.value)} />
             </Field>
           </div>
+        </SettingsCard>
+
+        <SettingsCard
+          icon={Inbox}
+          title="IndiaMART leads"
+          description="Auto-import buyer enquiries from IndiaMART into the Enquiries module."
+        >
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-border accent-primary"
+              checked={!!draft.integrations.indiamart.enabled}
+              onChange={(e) => setIndiamart("enabled", e.target.checked)}
+            />
+            Enable IndiaMART lead sync
+          </label>
+          <div className="mt-4 max-w-xl">
+            <Field label="IndiaMART CRM / Pull API key" hint="From IndiaMART → Lead Manager → CRM Integration">
+              <Input
+                type="password"
+                value={draft.integrations.indiamart.crmKey}
+                onChange={(e) => setIndiamart("crmKey", e.target.value)}
+                placeholder="Paste your IndiaMART key"
+              />
+            </Field>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button size="sm" variant="outline" onClick={syncIndiaMartNow} disabled={syncing || !draft.integrations.indiamart.crmKey}>
+              <Inbox className="h-4 w-4" /> {syncing ? "Syncing…" : "Save & sync now"}
+            </Button>
+            {draft.integrations.indiamart.lastResult && (
+              <span className="text-xs text-muted-foreground">
+                Last sync: {draft.integrations.indiamart.lastResult}
+                {draft.integrations.indiamart.lastPull ? ` · ${new Date(draft.integrations.indiamart.lastPull).toLocaleString("en-IN")}` : ""}
+              </span>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Paste your key, enable, then click <strong>Save & sync now</strong> to import. Automatic scheduled sync can be turned on separately.
+          </p>
         </SettingsCard>
 
         <PasswordCard />

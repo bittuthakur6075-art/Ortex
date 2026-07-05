@@ -38,8 +38,7 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
         {/* Header */}
         <div className="flex items-start justify-between border-b-2 border-[#0b1220] pb-4">
           <div>
-            <div className="text-2xl font-bold tracking-tight">{c.name}</div>
-            <div className="text-[#4b5563]">{c.tagline}</div>
+            <img src="/logo.svg" alt={c.name} className="mb-2 h-10 w-auto" />
             <div className="mt-2 text-xs leading-relaxed text-[#4b5563]">
               {c.address}
               <br />
@@ -78,7 +77,7 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
             <span className="text-sm font-semibold">Received with thanks</span>
           </div>
           <p className="mt-3 leading-relaxed text-[#0b1220]">
-            Received from <span className="font-semibold">{payment.party || payment.customer?.name || "—"}</span>
+            Received from <span className="font-semibold">{payment.party || payment.customer?.name || "Not Specified"}</span>
             {payment.customer?.company ? ` (${payment.customer.company})` : ""} a sum of{" "}
             <span className="font-semibold">{formatCurrency(payment.amount)}</span>{" "}
             <span className="italic text-[#4b5563]">({amountInWords(payment.amount)})</span> vide{" "}

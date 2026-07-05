@@ -11,6 +11,7 @@ import { formatDate, toDateInput, daysUntil } from "../lib/format"
 import { exportCsv } from "../lib/csv"
 import PageHeader from "../components/PageHeader"
 import CustomerFields from "../components/CustomerFields"
+import ShipToFields from "../components/ShipToFields"
 import LineItemsEditor from "../components/LineItemsEditor"
 import DocumentView from "../components/DocumentView"
 import {
@@ -30,8 +31,10 @@ import {
 const emptyDraft = (settings) => ({
   id: null,
   customer: newCustomer(),
+  shipTo: null,
   lines: [newLine()],
   extraDiscountPercent: 0,
+  paymentTerms: "",
   issueDate: new Date().toISOString(),
   validityDays: settings?.quotation?.validityDays ?? 15,
   notes: "",
@@ -221,7 +224,7 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
   const [form, setForm] = useState(draft)
   const [showLost, setShowLost] = useState(false)
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
-  const interState = isInterState(settings.company.stateCode, form.customer.stateCode)
+  const interState = isInterState(settings.company.stateCode, form.shipTo?.stateCode || form.customer.stateCode)
 
   const save = async () => {
     if (!form.customer.name.trim()) return toast.error("Customer name is required")
@@ -334,13 +337,18 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
         )}
 
         <section>
-          <h3 className="mb-3 text-sm font-semibold text-foreground">Customer</h3>
+          <h3 className="mb-3 text-sm font-semibold text-foreground">Customer (Bill to)</h3>
           <CustomerFields value={form.customer} onChange={(customer) => set({ customer })} customers={customers} />
           {interState ? (
             <p className="mt-2 text-xs text-muted-foreground">Inter-state supply → IGST will be applied.</p>
-          ) : form.customer.stateCode ? (
+          ) : form.shipTo?.stateCode || form.customer.stateCode ? (
             <p className="mt-2 text-xs text-muted-foreground">Intra-state supply → CGST + SGST will be applied.</p>
           ) : null}
+        </section>
+
+        <section>
+          <h3 className="mb-3 text-sm font-semibold text-foreground">Ship to (Consignee)</h3>
+          <ShipToFields value={form.shipTo} onChange={(shipTo) => set({ shipTo })} customers={customers} />
         </section>
 
         <section>
@@ -361,6 +369,9 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
           </Field>
           <Field label="Validity (days)">
             <Input type="number" min="1" value={form.validityDays} onChange={(e) => set({ validityDays: Number(e.target.value) })} />
+          </Field>
+          <Field label="Payment terms" className="sm:col-span-2">
+            <Input value={form.paymentTerms} onChange={(e) => set({ paymentTerms: e.target.value })} placeholder="e.g. 70% Advance & 30% Before dispatch" />
           </Field>
           <Field label="Notes" className="sm:col-span-2">
             <Textarea value={form.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Internal or customer-facing note" />

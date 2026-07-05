@@ -1,14 +1,16 @@
 import { useState, useMemo, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Inbox, Plus, Search, Star, Mail, Phone, MessageCircle, Trash2, Target, Download } from "../components/icons"
+import { Inbox, Plus, Search, Star, Mail, Phone, MessageCircle, Trash2, Target, Download, FileText, Printer } from "../components/icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
-import { convertEnquiryToLead } from "../data/domain"
-import { useCollection } from "../data/hooks"
+import { convertEnquiryToLead, createQuotation, markEnquiryQuoted } from "../data/domain"
+import { useCollection, useSettings } from "../data/hooks"
 import { ENQUIRY_STATUS, LEAD_SOURCES, PRODUCT_CATEGORIES, newEnquiry } from "../data/schema"
-import { relativeTime, formatDateTime } from "../lib/format"
+import { relativeTime, formatDateTime, formatCurrency } from "../lib/format"
+import { isQuoteEnquiry, parseQuoteRfq, rfqToQuotationLines } from "../lib/quoteRfq"
 import { exportCsv } from "../lib/csv"
 import { cn } from "../lib/cn"
+import DocumentView from "../components/DocumentView"
 import PageHeader from "../components/PageHeader"
 import {
   Button,
@@ -27,13 +29,19 @@ import {
 
 export default function Enquiries() {
   const { items, loading } = useCollection("enquiries")
+  const { items: products } = useCollection("products")
+  const settings = useSettings()
   const [query, setQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [selected, setSelected] = useState(null)
+  const [preview, setPreview] = useState(null) // generated quotation to print
+
+  const quoteCount = useMemo(() => items.filter(isQuoteEnquiry).length, [items])
 
   const filtered = useMemo(() => {
     let rows = items
     if (statusFilter === "starred") rows = rows.filter((e) => e.starred)
+    else if (statusFilter === "quotes") rows = rows.filter(isQuoteEnquiry)
     else if (statusFilter !== "all") rows = rows.filter((e) => e.status === statusFilter)
     const q = query.trim().toLowerCase()
     if (q) {
@@ -89,6 +97,9 @@ export default function Enquiries() {
           <Chip active={statusFilter === "starred"} onClick={() => setStatusFilter("starred")}>
             <Star className="h-3.5 w-3.5" /> Starred
           </Chip>
+          <Chip active={statusFilter === "quotes"} onClick={() => setStatusFilter("quotes")}>
+            <FileText className="h-3.5 w-3.5" /> Quote requests{quoteCount > 0 && ` (${quoteCount})`}
+          </Chip>
           {ENQUIRY_STATUS.map((s) => (
             <Chip key={s.id} active={statusFilter === s.id} onClick={() => setStatusFilter(s.id)}>
               {s.label}
@@ -105,43 +116,74 @@ export default function Enquiries() {
         <EmptyState icon={Search} title="No matches" description="Try adjusting your search or filters." />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((e) => (
-            <Card
-              key={e.id}
-              onClick={() => setSelected(e)}
-              className="cursor-pointer p-4 transition-colors hover:border-primary/40"
-            >
-              <div className="flex items-start gap-3">
-                <Avatar name={e.customer?.name} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate font-semibold text-foreground">{e.customer?.name || "Unknown"}</span>
-                    {e.starred && <Star className="h-3.5 w-3.5 flex-none fill-amber-400 text-amber-400" />}
+          {filtered.map((e) => {
+            const rfq = parseQuoteRfq(e)
+            return (
+              <Card
+                key={e.id}
+                onClick={() => setSelected(e)}
+                className={cn(
+                  "cursor-pointer p-4 transition-colors hover:border-primary/40",
+                  rfq && "border-l-2 border-l-primary",
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <Avatar name={e.customer?.name} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate font-semibold text-foreground">{e.customer?.name || "Unknown"}</span>
+                      {e.starred && <Star className="h-3.5 w-3.5 flex-none fill-amber-400 text-amber-400" />}
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">{e.customer?.company || e.customer?.email}</div>
                   </div>
-                  <div className="truncate text-xs text-muted-foreground">{e.customer?.company || e.customer?.email}</div>
+                  <div className="flex flex-none flex-col items-end gap-1.5">
+                    {isQuoteEnquiry(e) && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                        <FileText className="h-3 w-3" /> Quote
+                      </span>
+                    )}
+                    <StatusBadge list={ENQUIRY_STATUS} status={e.status} />
+                  </div>
                 </div>
-                <StatusBadge list={ENQUIRY_STATUS} status={e.status} />
-              </div>
-              <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{e.message}</p>
-              <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
-                <span className="truncate">{e.productInterest || "—"}</span>
-                <span className="flex-none">{relativeTime(e.createdAt)}</span>
-              </div>
-            </Card>
-          ))}
+                <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{e.message}</p>
+                <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
+                  <span className="truncate">
+                    {rfq
+                      ? `${rfq.items.length} item${rfq.items.length > 1 ? "s" : ""} · est. ${formatCurrency(rfq.estimatePreTax)}`
+                      : e.productInterest || "—"}
+                  </span>
+                  <span className="flex-none">{relativeTime(e.createdAt)}</span>
+                </div>
+              </Card>
+            )
+          })}
         </div>
       )}
 
-      <EnquiryDrawer enquiry={active} onClose={() => setSelected(null)} />
+      <EnquiryDrawer
+        enquiry={active}
+        products={products}
+        settings={settings}
+        onPrint={(quote) => {
+          setSelected(null)
+          setPreview(quote)
+        }}
+        onClose={() => setSelected(null)}
+      />
+
+      <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settings} type="quotation" />
     </div>
   )
 }
 
-function EnquiryDrawer({ enquiry, onClose }) {
+function EnquiryDrawer({ enquiry, products = [], settings, onPrint, onClose }) {
   const navigate = useNavigate()
   const isNew = enquiry === "new"
   const open = enquiry !== null
   const [form, setForm] = useState(newEnquiry())
+  const [generating, setGenerating] = useState(false)
+
+  const rfq = !isNew && enquiry ? parseQuoteRfq(enquiry) : null
 
   useEffect(() => {
     if (!open) return
@@ -177,6 +219,36 @@ function EnquiryDrawer({ enquiry, onClose }) {
     toast.success("Converted to lead")
     onClose()
     navigate("/leads", { state: { openLeadId: lead.id } })
+  }
+
+  // Build a formal quotation from the customer's RFQ line items, link it back to
+  // this enquiry, mark the enquiry "quoted", then open the printable document.
+  const generateQuotation = async () => {
+    if (!rfq || !settings) return
+    setGenerating(true)
+    try {
+      const lines = rfqToQuotationLines(rfq.items, products)
+      const quote = await createQuotation({
+        customer: form.customer,
+        lines,
+        notes: `Generated from website quote request${form.customer.name ? ` — ${form.customer.name}` : ""}.`,
+        enquiryId: enquiry.id,
+      })
+      await markEnquiryQuoted(enquiry.id)
+      await repo.update("enquiries", enquiry.id, { quotationId: quote.id, quotationNumber: quote.number })
+      toast.success(`Quotation ${quote.number} generated`)
+      onPrint(quote)
+    } catch {
+      toast.error("Couldn't generate the quotation. Please try again.")
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const printExisting = async () => {
+    const quote = await repo.get("quotations", enquiry.quotationId)
+    if (quote) onPrint(quote)
+    else toast.error("Linked quotation not found — generate a new one.")
   }
 
   const phoneDigits = (form.customer.phone || "").replace(/\D/g, "")
@@ -252,6 +324,74 @@ function EnquiryDrawer({ enquiry, onClose }) {
           </>
         )}
 
+        {rfq && (
+          <div className="overflow-hidden rounded-xl border border-primary/30 bg-primary/[0.03]">
+            <div className="flex items-center justify-between gap-2 border-b border-primary/20 bg-primary/5 px-3 py-2">
+              <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+                <FileText className="h-3.5 w-3.5" /> Quote request
+              </span>
+              <span className="text-xs text-muted-foreground">{rfq.items.length} item{rfq.items.length > 1 ? "s" : ""}</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Product</th>
+                    <th className="px-3 py-2 text-right font-medium">Qty</th>
+                    <th className="px-3 py-2 text-right font-medium">Rate</th>
+                    <th className="px-3 py-2 text-right font-medium">Disc</th>
+                    <th className="px-3 py-2 text-right font-medium">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {rfq.items.map((it, i) => (
+                    <tr key={i}>
+                      <td className="px-3 py-2">
+                        <div className="font-medium text-foreground">{it.name}</div>
+                        <div className="text-xs text-muted-foreground">{it.category}</div>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular text-foreground">{it.quantity} {it.unit || ""}</td>
+                      <td className="px-3 py-2 text-right tabular text-muted-foreground">{formatCurrency(it.rate)}</td>
+                      <td className="px-3 py-2 text-right tabular text-muted-foreground">{it.discountPercent ? `${it.discountPercent}%` : "—"}</td>
+                      <td className="px-3 py-2 text-right tabular font-medium text-foreground">{formatCurrency(it.lineTotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="space-y-1 border-t border-primary/20 px-3 py-2.5 text-sm">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal</span><span className="tabular">{formatCurrency(rfq.subtotal)}</span>
+              </div>
+              {rfq.totalDiscount > 0 && (
+                <div className="flex justify-between text-[hsl(var(--success))]">
+                  <span>Volume discount</span><span className="tabular">−{formatCurrency(rfq.totalDiscount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t border-border pt-1 font-semibold text-foreground">
+                <span>Est. total (pre-tax)</span><span className="tabular text-primary">{formatCurrency(rfq.estimatePreTax)}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">Customer-facing estimate · GST added on the quotation.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 border-t border-primary/20 bg-muted/30 px-3 py-2.5">
+              {enquiry.quotationId ? (
+                <>
+                  <Button size="sm" onClick={printExisting}>
+                    <Printer className="h-4 w-4" /> Print quotation {enquiry.quotationNumber || ""}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={generateQuotation} disabled={generating}>
+                    {generating ? "Regenerating…" : "Regenerate"}
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" onClick={generateQuotation} disabled={generating}>
+                  <FileText className="h-4 w-4" /> {generating ? "Generating…" : "Generate quotation"}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <Field label="Name" required>
             <Input value={form.customer.name} onChange={(e) => setCustomer("name", e.target.value)} onBlur={() => !isNew && repo.update("enquiries", enquiry.id, { customer: form.customer })} />
@@ -299,7 +439,7 @@ function EnquiryDrawer({ enquiry, onClose }) {
           <Textarea value={form.message} onChange={(e) => set("message", e.target.value)} onBlur={() => !isNew && repo.update("enquiries", enquiry.id, { message: form.message })} placeholder="Requirement details…" />
         </Field>
 
-        {!isNew && (
+        {!isNew && !rfq && (
           <Field label="Internal notes">
             <Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} onBlur={() => repo.update("enquiries", enquiry.id, { notes: form.notes })} placeholder="Private notes (saved on blur)…" />
           </Field>

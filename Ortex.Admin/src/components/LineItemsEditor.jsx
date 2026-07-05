@@ -40,9 +40,11 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
               <th className="px-3 py-2.5 font-medium">Item</th>
               <th className="w-20 px-3 py-2.5 font-medium">HSN</th>
               <th className="w-20 px-3 py-2.5 text-right font-medium">Qty</th>
+              <th className="w-16 px-3 py-2.5 font-medium">Unit</th>
               <th className="w-28 px-3 py-2.5 text-right font-medium">Rate</th>
               <th className="w-20 px-3 py-2.5 text-right font-medium">Disc%</th>
               <th className="w-20 px-3 py-2.5 text-right font-medium">GST%</th>
+              <th className="w-36 px-3 py-2.5 font-medium">Due on</th>
               <th className="w-28 px-3 py-2.5 text-right font-medium">Amount</th>
               <th className="w-10 px-2 py-2.5" />
             </tr>
@@ -50,7 +52,7 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
           <tbody className="divide-y divide-border">
             {lines.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-sm text-muted-foreground">
+                <td colSpan={10} className="px-3 py-6 text-center text-sm text-muted-foreground">
                   No items yet. Add a line to get started.
                 </td>
               </tr>
@@ -88,6 +90,9 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
                     <Input type="number" min="0" value={line.quantity} onChange={(e) => update(i, { quantity: Number(e.target.value) })} className="h-9 py-1.5 text-right text-xs" />
                   </td>
                   <td className="px-3 py-2">
+                    <Input value={line.unit ?? "pcs"} onChange={(e) => update(i, { unit: e.target.value })} className="h-9 py-1.5 text-xs" placeholder="pcs" />
+                  </td>
+                  <td className="px-3 py-2">
                     <Input type="number" min="0" step="0.01" value={line.rate} onChange={(e) => update(i, { rate: Number(e.target.value) })} className="h-9 py-1.5 text-right text-xs" />
                   </td>
                   <td className="px-3 py-2">
@@ -101,6 +106,14 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
                         </option>
                       ))}
                     </Select>
+                  </td>
+                  <td className="px-3 py-2">
+                    <Input
+                      type="date"
+                      value={line.dueOn ? line.dueOn.slice(0, 10) : ""}
+                      onChange={(e) => update(i, { dueOn: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                      className="h-9 py-1.5 text-xs"
+                    />
                   </td>
                   <td className="px-3 py-3 text-right font-medium tabular text-foreground">{formatCurrency(computed.total)}</td>
                   <td className="px-2 py-3 text-right">
