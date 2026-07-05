@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { ReceiptIndianRupee, Plus, Search, Eye, Trash2, Download, IndianRupee, AlertTriangle, ReceiptText, Mail } from "../components/icons"
+import { ReceiptIndianRupee, Plus, Search, Eye, Trash2, Download, IndianRupee, AlertTriangle, ReceiptText, Mail, Upload } from "../components/icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { useCollection, useSettings } from "../data/hooks"
@@ -23,6 +23,7 @@ import ShipToFields from "../components/ShipToFields"
 import LineItemsEditor from "../components/LineItemsEditor"
 import DocumentView from "../components/DocumentView"
 import ReceiptView from "../components/ReceiptView"
+import TallyInvoiceImport, { parseTallyInvoiceXml } from "../components/TallyInvoiceImport"
 import {
   Button,
   Card,
@@ -63,6 +64,7 @@ export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [editing, setEditing] = useState(null)
   const [preview, setPreview] = useState(null)
+  const [importing, setImporting] = useState(false)
 
   const rows = useMemo(() => {
     return items.map((inv) => ({
@@ -112,6 +114,9 @@ export default function Invoices() {
       <PageHeader title="Invoices" subtitle={`${items.length} invoices · GST tax invoices & collections`}>
         <Button variant="outline" size="sm" onClick={handleExport} disabled={!filtered.length}>
           <Download className="h-4 w-4" /> Export
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setImporting(true)}>
+          <Upload className="h-4 w-4" /> Import Tally XML
         </Button>
         <Button size="sm" onClick={() => setEditing(emptyDraft(settings))}>
           <Plus className="h-4 w-4" /> New invoice
@@ -220,6 +225,8 @@ export default function Invoices() {
         />
       )}
 
+      <TallyInvoiceImport open={importing} onClose={() => setImporting(false)} />
+
       <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settings} type="invoice" />
     </div>
   )
@@ -231,6 +238,25 @@ function InvoiceEditor({ draft, products, customers, payments, settings, onClose
   const [payOpen, setPayOpen] = useState(false)
   const [receiptFor, setReceiptFor] = useState(null)
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
+  const handleTallyEditorImport = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const text = await file.text()
+      const parsed = parseTallyInvoiceXml(text)
+      if (!parsed.length) {
+        toast.error("No valid Tally Sales vouchers found in the XML file.")
+        return
+      }
+      const inv = parsed[0]
+      set(inv)
+      toast.success(`Auto-filled invoice details from Tally (${inv.number})`)
+    } catch (err) {
+      console.error(err)
+      toast.error(`Error parsing Tally XML: ${err.message}`)
+    }
+    e.target.value = ""
+  }
   const interState = isInterState(settings.company.stateCode, form.shipTo?.stateCode || form.customer.stateCode)
 
   const linkedPayments = isEdit ? payments.filter((p) => p.invoiceId === form.id && p.type === "inflow") : []
@@ -307,6 +333,14 @@ function InvoiceEditor({ draft, products, customers, payments, settings, onClose
             )}
           </div>
           <div className="flex gap-2">
+            {!isEdit && (
+              <label className="cursor-pointer">
+                <span className="inline-flex items-center justify-center rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted/40 transition-colors gap-1.5 h-9">
+                  <Upload className="h-4 w-4" /> Import Tally XML
+                </span>
+                <input type="file" accept=".xml,text/xml" onChange={handleTallyEditorImport} className="hidden" />
+              </label>
+            )}
             <Button variant="outline" size="sm" onClick={onClose}>
               Cancel
             </Button>

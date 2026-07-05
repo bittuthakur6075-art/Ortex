@@ -119,10 +119,10 @@ export async function convertQuotationToInvoice(quotationId) {
 
 export async function createInvoice(draft) {
   const settings = await repo.getSettings()
-  const number = await generateNumber("invoice")
+  const number = draft.number || await generateNumber("invoice")
   const issueDate = draft.issueDate || new Date().toISOString()
-  const dueDate = draft.dueDate || new Date(Date.now() + 15 * 86400000).toISOString()
-  const totals = totalsFor(draft.lines || [], settings, draft.customer, draft.extraDiscountPercent, draft.shipTo)
+  const dueDate = draft.dueDate || draft.dueDate === null ? draft.dueDate : new Date(Date.now() + 15 * 86400000).toISOString()
+  const totals = draft.totals || totalsFor(draft.lines || [], settings, draft.customer, draft.extraDiscountPercent, draft.shipTo)
   await upsertCustomer(draft.customer)
   const invoice = await repo.create("invoices", {
     number,
@@ -139,9 +139,10 @@ export async function createInvoice(draft) {
     terms: draft.terms ?? settings.quotation.terms,
     quotationId: draft.quotationId || null,
     amountPaid: 0,
+    tally: draft.tally || null,
   })
   // Drafts aren't "generated" yet — only email when issued as sent/final.
-  const _notify = invoice.status === "draft" ? { skipped: true } : await notifyInvoiceCreated(invoice, settings)
+  const _notify = invoice.status === "draft" || draft.tally ? { skipped: true } : await notifyInvoiceCreated(invoice, settings)
   return { ...invoice, _notify }
 }
 

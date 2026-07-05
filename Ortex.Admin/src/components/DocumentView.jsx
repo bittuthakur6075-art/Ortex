@@ -1,6 +1,8 @@
-import { Printer, X } from "./icons"
+import { Printer, X, Download } from "./icons"
 import { formatCurrency, formatDate, amountInWords } from "../lib/format"
 import { Button } from "./ui"
+import { useRef } from "react"
+import html2pdf from "html2pdf.js"
 
 // Full-screen, printable A4-style document for a quotation or invoice.
 // `type` is "quotation" | "invoice". Uses the .print-area / .no-print hooks in
@@ -14,6 +16,23 @@ export default function DocumentView({ open, onClose, doc, settings, type }) {
   // GST place of supply follows the ship-to (consignee) state when present.
   const psState = doc.shipTo?.stateCode || doc.customer?.stateCode
 
+  const reportRef = useRef(null)
+
+  const handleDownloadPDF = () => {
+    const element = reportRef.current
+    if (!element) return
+
+    const opt = {
+      margin:       [10, 10, 10, 10],
+      filename:     `${type}-${doc.number}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }
+
+    html2pdf().set(opt).from(element).save()
+  }
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-0 sm:p-6">
       {/* Toolbar (hidden when printing) */}
@@ -22,8 +41,11 @@ export default function DocumentView({ open, onClose, doc, settings, type }) {
           {heading} · {doc.number}
         </span>
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => window.print()}>
-            <Printer className="h-4 w-4" /> Print / PDF
+          <Button size="sm" onClick={handleDownloadPDF}>
+            <Download className="h-4 w-4" /> Download PDF
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => window.print()}>
+            <Printer className="h-4 w-4" /> Print
           </Button>
           <Button variant="outline" size="sm" onClick={onClose}>
             <X className="h-4 w-4" /> Close
@@ -32,7 +54,7 @@ export default function DocumentView({ open, onClose, doc, settings, type }) {
       </div>
 
       {/* Document */}
-      <div className="print-area mx-auto max-w-3xl bg-white p-8 text-[13px] text-[#0b1220] sm:rounded-xl" style={{ minHeight: "60vh" }}>
+      <div ref={reportRef} className="print-area mx-auto w-full max-w-[210mm] bg-white p-8 sm:p-12 text-[13px] text-[#0b1220] sm:rounded-xl shadow-lg flex flex-col" style={{ minHeight: "297mm" }}>
         {/* Header */}
         <div className="flex items-start justify-between border-b-2 border-[#0b1220] pb-4">
           <div>
@@ -197,7 +219,7 @@ export default function DocumentView({ open, onClose, doc, settings, type }) {
             <div className="border-t border-[#6b7280] px-8 pt-1 text-[#6b7280]">Authorised signatory</div>
           </div>
         </div>
-        <div className="mt-4 text-center text-[10px] text-[#9ca3af]">
+        <div className="mt-auto pt-6 text-center text-[10px] text-[#9ca3af]">
           This is a computer-generated document.
         </div>
       </div>

@@ -38,39 +38,38 @@ export default function Login() {
         {/* ---- Left: sign-in form ---- */}
         <section className="lgn-left">
           <div className="lgn-top">
-            <div />
+            <a href="/" className="lgn-brand" aria-label="Ortex Industries home">
+              <img src="/img/logo.svg" alt="Ortex Industries" className="h-7 w-auto" />
+            </a>
             <div className="lgn-tophelp">
               Need help? <a href="mailto:sales@ortexindustries.in">Contact IT</a>
             </div>
           </div>
 
           <div className="lgn-body">
-            <img src="/img/logo.svg" alt="Ortex Industries" className="h-8 w-auto mx-auto mb-8 block" />
             <h1 className="lgn-title">Admin Console</h1>
             <p className="lgn-sub">
               Sign in to manage enquiries, quotations, invoicing and payments for Ortex Industries.
             </p>
 
             <form onSubmit={handleSubmit} noValidate className="lgn-form">
-              {hasSupabase && (
-                <div className="mb-4">
-                  <label htmlFor="email" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Email
-                  </label>
-                  <div className="relative">
-                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      autoFocus
-                      value={email}
-                      onChange={(e) => { setEmail(e.target.value); if (error) setError("") }}
-                      placeholder="you@ortexindustries.in"
-                      className="pl-10"
-                    />
-                  </div>
+              <div className="mb-4">
+                <label htmlFor="email" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Email
+                </label>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    autoFocus
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); if (error) setError("") }}
+                    placeholder="you@ortexindustries.in"
+                    className="pl-10"
+                  />
                 </div>
-              )}
+              </div>
 
               <label htmlFor="pw" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Password
@@ -80,10 +79,9 @@ export default function Login() {
                 <Input
                   id="pw"
                   type="password"
-                  autoFocus={!hasSupabase}
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); if (error) setError("") }}
-                  placeholder={hasSupabase ? "Enter your password" : "Enter admin password"}
+                  placeholder="Enter your password"
                   className="pl-10"
                 />
               </div>
@@ -101,15 +99,9 @@ export default function Login() {
               <span>
                 {hasSupabase
                   ? "Encrypted sign-in, secured by Supabase Auth."
-                  : "Client-side demo console. Not a security boundary."}
+                  : "Database and authentication not configured. Set Supabase keys in .env"}
               </span>
             </div>
-
-            {!hasSupabase && (
-              <p className="mt-4 rounded-lg bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
-                Demo password: <span className="font-mono font-semibold text-foreground">ortex@admin</span>
-              </p>
-            )}
           </div>
 
           <div className="lgn-copyright">

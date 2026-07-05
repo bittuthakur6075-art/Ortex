@@ -34,18 +34,18 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
     <div className="space-y-4">
       {/* Line rows */}
       <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full min-w-[720px] text-left text-sm">
+        <table className="w-full min-w-[1024px] text-left text-sm table-fixed">
           <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
-              <th className="px-3 py-2.5 font-medium">Item</th>
-              <th className="w-20 px-3 py-2.5 font-medium">HSN</th>
-              <th className="w-20 px-3 py-2.5 text-right font-medium">Qty</th>
-              <th className="w-16 px-3 py-2.5 font-medium">Unit</th>
-              <th className="w-28 px-3 py-2.5 text-right font-medium">Rate</th>
-              <th className="w-20 px-3 py-2.5 text-right font-medium">Disc%</th>
-              <th className="w-20 px-3 py-2.5 text-right font-medium">GST%</th>
-              <th className="w-36 px-3 py-2.5 font-medium">Due on</th>
-              <th className="w-28 px-3 py-2.5 text-right font-medium">Amount</th>
+              <th className="px-3 py-2.5 font-medium">Item / Description</th>
+              <th className="w-24 px-3 py-2.5 font-medium">HSN</th>
+              <th className="w-24 px-3 py-2.5 text-right font-medium">Qty</th>
+              <th className="w-20 px-3 py-2.5 font-medium">Unit</th>
+              <th className="w-32 px-3 py-2.5 text-right font-medium">Rate</th>
+              <th className="w-24 px-3 py-2.5 text-right font-medium">Disc%</th>
+              <th className="w-24 px-3 py-2.5 text-right font-medium">GST%</th>
+              <th className="w-40 px-3 py-2.5 font-medium">Due on</th>
+              <th className="w-32 px-3 py-2.5 text-right font-medium">Amount</th>
               <th className="w-10 px-2 py-2.5" />
             </tr>
           </thead>
@@ -83,22 +83,22 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
                       className="h-9 py-1.5 text-xs"
                     />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="w-24 px-3 py-2">
                     <Input value={line.hsn} onChange={(e) => update(i, { hsn: e.target.value })} className="h-9 py-1.5 text-xs" />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="w-24 px-3 py-2">
                     <Input type="number" min="0" value={line.quantity} onChange={(e) => update(i, { quantity: Number(e.target.value) })} className="h-9 py-1.5 text-right text-xs" />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="w-20 px-3 py-2">
                     <Input value={line.unit ?? "pcs"} onChange={(e) => update(i, { unit: e.target.value })} className="h-9 py-1.5 text-xs" placeholder="pcs" />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="w-32 px-3 py-2">
                     <Input type="number" min="0" step="0.01" value={line.rate} onChange={(e) => update(i, { rate: Number(e.target.value) })} className="h-9 py-1.5 text-right text-xs" />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="w-24 px-3 py-2">
                     <Input type="number" min="0" max="100" value={line.discountPercent} onChange={(e) => update(i, { discountPercent: Number(e.target.value) })} className="h-9 py-1.5 text-right text-xs" />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="w-24 px-3 py-2">
                     <Select value={line.gstRate} onChange={(e) => update(i, { gstRate: Number(e.target.value) })} className="h-9 py-1.5 text-right text-xs">
                       {GST_RATES.map((r) => (
                         <option key={r} value={r}>
@@ -107,7 +107,7 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
                       ))}
                     </Select>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="w-40 px-3 py-2">
                     <Input
                       type="date"
                       value={line.dueOn ? line.dueOn.slice(0, 10) : ""}
@@ -115,8 +115,8 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
                       className="h-9 py-1.5 text-xs"
                     />
                   </td>
-                  <td className="px-3 py-3 text-right font-medium tabular text-foreground">{formatCurrency(computed.total)}</td>
-                  <td className="px-2 py-3 text-right">
+                  <td className="w-32 px-3 py-3 text-right font-medium tabular text-foreground">{formatCurrency(computed.total)}</td>
+                  <td className="w-10 px-2 py-3 text-right">
                     <button onClick={() => remove(i)} className="text-muted-foreground hover:text-destructive">
                       <Trash2 className="h-4 w-4" />
                     </button>

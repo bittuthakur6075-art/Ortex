@@ -104,15 +104,12 @@ function useDarkMode() {
 
 function Brand() {
   return (
-    <div className="flex items-center gap-2.5">
-      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-        Ox
-      </div>
-      <div className="flex flex-col leading-none">
-        <span className="text-sm font-bold tracking-tight text-foreground">Ortex Industries</span>
+    <NavLink to="/" className="flex items-center gap-2.5 focus:outline-none">
+      <img src="/img/logo.svg" alt="Ortex Industries" className="h-8 w-auto object-contain" />
+      <div className="flex flex-col leading-none border-l border-border pl-2.5">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Admin console</span>
       </div>
-    </div>
+    </NavLink>
   )
 }
 

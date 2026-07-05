@@ -271,19 +271,23 @@ body {
     display: none !important;
   }
   .print-area {
-    position: absolute;
-    inset: 0;
-    margin: 0;
-    padding: 0;
-    width: 100%;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 20mm !important;
+    box-sizing: border-box;
     background: #fff !important;
     color: #0b1220 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    position: relative !important;
   }
   .print-area * {
     color: inherit;
     box-shadow: none !important;
   }
   @page {
-    margin: 14mm;
+    size: A4;
+    margin: 0;
   }
 }

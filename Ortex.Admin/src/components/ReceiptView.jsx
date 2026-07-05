@@ -1,6 +1,8 @@
-import { Printer, X, CheckCircle2 } from "./icons"
+import { Printer, X, CheckCircle2, Download } from "./icons"
 import { formatCurrency, formatDate, amountInWords } from "../lib/format"
 import { Button } from "./ui"
+import { useRef } from "react"
+import html2pdf from "html2pdf.js"
 
 // Printable payment acknowledgement. Auto-titles itself:
 //   • "Receipt Voucher"  — advance received before an invoice exists (GST Rule 50)
@@ -18,6 +20,23 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
     : "Advance against order"
   const isPartial = allocation && allocation.balance > 0.5
 
+  const receiptRef = useRef(null)
+
+  const handleDownloadPDF = () => {
+    const element = receiptRef.current
+    if (!element) return
+
+    const opt = {
+      margin:       [10, 10, 10, 10],
+      filename:     `receipt-${payment.number}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }
+
+    html2pdf().set(opt).from(element).save()
+  }
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-0 sm:p-6">
       <div className="no-print sticky top-0 z-10 mx-auto mb-4 flex max-w-2xl items-center justify-between gap-2 bg-card px-4 py-3 sm:rounded-xl">
@@ -25,8 +44,11 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
           {heading} · {payment.number}
         </span>
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => window.print()}>
-            <Printer className="h-4 w-4" /> Print / PDF
+          <Button size="sm" onClick={handleDownloadPDF}>
+            <Download className="h-4 w-4" /> Download PDF
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => window.print()}>
+            <Printer className="h-4 w-4" /> Print
           </Button>
           <Button variant="outline" size="sm" onClick={onClose}>
             <X className="h-4 w-4" /> Close
@@ -34,7 +56,7 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
         </div>
       </div>
 
-      <div className="print-area mx-auto max-w-2xl bg-white p-8 text-[13px] text-[#0b1220] sm:rounded-xl">
+      <div ref={receiptRef} className="print-area mx-auto w-full max-w-[210mm] bg-white p-8 sm:p-12 text-[13px] text-[#0b1220] sm:rounded-xl shadow-lg flex flex-col" style={{ minHeight: "297mm" }}>
         {/* Header */}
         <div className="flex items-start justify-between border-b-2 border-[#0b1220] pb-4">
           <div>
@@ -142,7 +164,7 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
             <div className="border-t border-[#6b7280] px-6 pt-1 text-xs text-[#6b7280]">Authorised signatory</div>
           </div>
         </div>
-        <div className="mt-4 text-center text-[10px] text-[#9ca3af]">This is a computer-generated receipt.</div>
+        <div className="mt-auto pt-6 text-center text-[10px] text-[#9ca3af]">This is a computer-generated receipt.</div>
       </div>
     </div>
   )
