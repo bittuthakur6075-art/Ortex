@@ -1,0 +1,17 @@
+{
+  "name": "ortex-tally-connector",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bridges Ortex Admin (Supabase) into TallyPrime — pushes invoices, payments, customers and products as Tally vouchers/masters via the local XML gateway.",
+  "bin": { "ortex-tally": "src/index.js" },
+  "scripts": {
+    "start": "node src/index.js",
+    "once": "node src/index.js --once",
+    "dry-run": "node src/index.js --once --dry-run",
+    "fixture": "node test/fixture.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.75.0"
+  }
+}

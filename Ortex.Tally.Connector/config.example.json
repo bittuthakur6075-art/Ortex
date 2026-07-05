@@ -1,0 +1,27 @@
+{
+  "tally": {
+    "url": "http://localhost:9000",
+    "company": "Ortex Industries"
+  },
+  "supabase": {
+    "url": "https://pfoeztiakqtemakfgpgs.supabase.co",
+    "serviceKey": "PASTE-YOUR-SERVICE_ROLE-KEY-HERE"
+  },
+  "ledgers": {
+    "sales": "Sales",
+    "cgst": "Output CGST",
+    "sgst": "Output SGST",
+    "igst": "Output IGST",
+    "roundOff": "Round Off",
+    "debtorsGroup": "Sundry Debtors",
+    "stockGroup": "Primary",
+    "receiptAccount": "Cash"
+  },
+  "sync": {
+    "customers": true,
+    "products": true,
+    "invoices": true,
+    "payments": true,
+    "intervalSeconds": 300
+  }
+}

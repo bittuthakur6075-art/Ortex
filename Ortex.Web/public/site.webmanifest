@@ -1,0 +1,17 @@
+{
+  "name": "Ortex Industries",
+  "short_name": "Ortex",
+  "description": "Premium customized products — MDF, acrylic, lanyards, badges, and corporate gifts.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#466efa",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
