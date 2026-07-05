@@ -1,45 +1,60 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI coding assistants when working with code in this repository.
 
-## Project
+## Repository Overview
 
-Marketing/lead-gen single-page app for **Ortex Industries** — a manufacturer of customized products (MDF/acrylic items, lanyards, corporate gifts, OEM/white-label production). The site is a client-side React SPA with no backend: lead capture (Contact form, Quote calculator) persists to `localStorage`, not a server.
+This repository contains the digital infrastructure for **Ortex Industries** (manufacturer of customized MDF/acrylic items, lanyards, corporate gifts, OEM/white-label production). It is split into three main applications:
 
-## Commands
+1. **`Ortex.Web`**: The marketing/lead-gen single-page app (React + Vite + Tailwind CSS v4). Focuses on brand showcases, product catalog, and lead capture.
+2. **`Ortex.Admin`**: The business admin dashboard (React + Vite + Tailwind CSS). Used for managing quotations, invoices, payments, and customers.
+3. **`Ortex.Tally.Connector`**: Connector integrations for Tally ERP systems.
 
+---
+
+## Ortex.Web (Marketing Site)
+
+### Commands
 ```bash
-npm run dev       # Vite dev server with HMR
-npm run build     # Production build to dist/
-npm run preview   # Serve the production build locally
-npm run lint      # Oxlint
+# From C:\Dev\Ortex\Ortex.Web
+npm run dev       # Start Vite dev server with HMR
+npm run build     # Compile production build to dist/
+npm run preview   # Serve build output locally
+npm run lint      # Run oxlint
 ```
 
-There is no test suite. `npm run dev` may land on a port other than 5173 if it's in use — check the terminal output for the actual URL.
+### Architecture
+* **Stack**: React 19 + Vite 8, Tailwind CSS v4, Router v7, Framer Motion.
+* **Routing**: Defined in `src/App.jsx`. Top-level views are located in `src/pages/`.
+* **State**: No server backend; form captures (e.g. Contact, Quote wizard) save locally to `localStorage` (`ortex_submissions`, `ortex_quotes`).
+* **SEO**: Every page uses `useDocumentMetadata` at the top to set title tags and meta descriptions.
 
-## Architecture
+---
 
-- **Stack**: React 19 + Vite 8, Tailwind CSS v4 (via `@tailwindcss/vite`, configured in-CSS, no `tailwind.config.js`), React Router 7, Framer Motion, Lucide icons, Sonner toasts.
-- **Routing** (`src/App.jsx`): `BrowserRouter` wrapping a fixed shell — `<ScrollToTop />`, `<Navbar />`, routed `<main>`, `<Footer />`, `<Chatbot />`, and the Sonner `<Toaster />`. Routes: `/`, `/about`, `/products`, `/industries`, `/portfolio`, `/contact`, `/quote`, `/privacy`, `/terms`, `/cookies`, `/acceptable-use`. Add a new page by creating `src/pages/*.jsx` and registering a `<Route>` here.
-- **Pages** (`src/pages/`) are self-contained top-level views. Each page calls `useDocumentMetadata` (`src/hooks/`) at the top to set `<title>`/`<meta description>` for SEO.
-- **Components** are split by role: `src/components/layout/` is the persistent chrome (`Navbar`, `Footer`, `ScrollToTop`), `src/components/ui/` is reusable UI (`Hero`, `Chatbot`, `RollText`). Component-scoped CSS (`Footer.css`, `Hero.css`) sits next to its component.
-- **Shared config** lives in `src/constants/site.js` — business contact details (`CONTACT`) and the `whatsappLink()` deep-link builder. Reference these instead of re-hardcoding phone/email/WhatsApp values in new code; the shell (`Navbar`/`Footer`) already does. (Existing inline copies inside prose — chatbot scripts, legal pages, SEO descriptions — are content, not config, and are left as-is.)
-- **Styling system** is centralized in `src/index.css` using Tailwind v4's `@theme`:
-  - Design tokens are HSL CSS variables (`--primary`, `--background`, `--foreground`, `--whatsapp`, etc.). Reference them via Tailwind's `bg-*/text-*` utilities, not hard-coded colors.
-  - Dark mode is a `.dark` class toggled on `document.documentElement` by `Navbar.jsx` (reads `localStorage` + OS preference); tokens have dark overrides so the switch is instant.
-  - Default box-shadows are overridden to `none` — the design is intentionally flat. `.lp-wrap` is the custom responsive container (Bootstrap-like max-widths) used instead of Tailwind's `container`.
-  - Use `cn()` (`src/utils/cn.js`, clsx + tailwind-merge) for conditional/merged class names.
+## Ortex.Admin (Admin Panel)
 
-## Data & integrations (no backend)
+### Commands
+```bash
+# From C:\Dev\Ortex\Ortex.Admin
+npm run dev       # Start Vite dev server with HMR
+npm run build     # Compile production build to dist/
+npm run preview   # Serve build output locally
+npm run lint      # Run oxlint
+```
 
-- **Contact form** (`Contact.jsx`): validates inputs, reads a `?product=` query param to pre-fill the message, saves submissions to `localStorage` key `ortex_submissions`.
-- **Quote calculator** (`QuoteCalculator.jsx`): multi-step wizard with a client-side pricing engine (base cost + material specs × quantity, tiered volume discounts); saves RFQs to `localStorage` key `ortex_quotes`.
-- **WhatsApp/phone CTAs** in the shell resolve through `src/constants/site.js` (`whatsappLink()`, `CONTACT`) — update the numbers/message there and both `Navbar` and `Footer` follow.
+### Architecture
+* **Stack**: React, Vite, Tailwind CSS, Lucide icons, Sonner toasts.
+* **Database & Auth**: Supabase integration. Remote calls map to `apiStore` when env vars are present; local demo mode is disabled, enforcing secure Supabase Auth.
+* **Key Features**:
+  * **Full-Page Editors**: Quotation and Invoice creators use clean full-page dashboards rather than modal views, layout utilizes a 2/3 (Details & Line Items) and 1/3 (Settings & Notes) split, with the Line Items input grid occupying a full-width section.
+  * **Spacious Line Items Editor**: The `LineItemsEditor` uses a strict `table-fixed` layout with a `min-w-[1024px]` viewport, aligning the headers and input cells precisely using matched width tailwind classes (`w-24`, `w-20`, etc.).
+  * **A4 Print Engine**: Integrated Print (`window.print()`) and PDF Download (`html2pdf.js`) flows. Documents are styled to fit standard A4 borders (`210mm x 297mm`) with computer-generated notes locked to the absolute bottom via CSS flex columns (`mt-auto`).
+  * **Tally XML Import**: Invoices and Quotations modules support direct Tally XML file parsing and automated line item ingestion.
 
-## Reference docs
+---
 
-The `docs/` tree mirrors the Webority house layout (Architecture / guides / PM):
-
-- `docs/Architecture/ARCHITECTURE.md` — detailed narrative of business context, stack, directory structure, design tokens, and per-page logic (the former `project_memory.md`).
-- `docs/PM/PRODUCT_BACKLOG.md` — product-manager audit and feature backlog (the former `product_manager_suggestions.md`).
-- `docs/guides/GETTING_STARTED.md` — local setup, commands, and where to change common things.
+## Reference Docs
+The `docs/` directory contains structured guidance:
+* `docs/Architecture/ARCHITECTURE.md` — Narratives, directories, data flows, and design systems.
+* `docs/PM/PRODUCT_BACKLOG.md` — Feature backlogs and release progress.
+* `docs/guides/GETTING_STARTED.md` — Local setup instructions.
