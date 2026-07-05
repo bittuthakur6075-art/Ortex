@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Calculator, Plus, Minus, Trash2, Check, Upload, ArrowRight,
@@ -9,6 +9,7 @@ import { Link } from "react-router-dom"
 import { submitEnquiry } from "../lib/leads"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { PRODUCTS, CATEGORIES, CATEGORY_META, VOLUME_TIERS, priceLine } from "../constants/products"
+import { supabase, hasSupabase } from "../lib/supabaseClient"
 
 const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`
 const catIcon = (name) => CATEGORY_META[name]?.icon || "📦"
@@ -32,15 +33,52 @@ export default function QuoteCalculator() {
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [reference, setReference] = useState("")
 
-  const productById = useMemo(() => Object.fromEntries(PRODUCTS.map((p) => [p.id, p])), [])
+  const [productsList, setProductsList] = useState(PRODUCTS)
+  const [categoriesList, setCategoriesList] = useState(CATEGORIES)
+  const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    if (!hasSupabase) return
+
+    async function fetchProducts() {
+      setIsLoading(true)
+      try {
+        const { data, error } = await supabase
+          .from("products")
+          .select("id, doc")
+        
+        if (error) throw error
+        
+        if (data) {
+          const activeProducts = data
+            .map((row) => ({ ...row.doc, id: row.id }))
+            .filter((p) => p.status === "active")
+          
+          if (activeProducts.length > 0) {
+            setProductsList(activeProducts)
+            const derivedCategories = [...new Set(activeProducts.map((p) => p.category))]
+            setCategoriesList(derivedCategories)
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching products from Supabase:", err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchProducts()
+  }, [])
+
+  const productById = useMemo(() => Object.fromEntries(productsList.map((p) => [p.id, p])), [productsList])
 
   const filtered = useMemo(() => {
-    let rows = PRODUCTS
+    let rows = productsList
     if (category !== "all") rows = rows.filter((p) => p.category === category)
     const q = query.trim().toLowerCase()
     if (q) rows = rows.filter((p) => [p.name, p.material, p.category].some((v) => v.toLowerCase().includes(q)))
     return rows
-  }, [category, query])
+  }, [category, query, productsList])
 
   // Computed cart lines + totals.
   const lines = useMemo(
@@ -361,7 +399,7 @@ export default function QuoteCalculator() {
                       category === "all" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-foreground/80 hover:border-primary/50"
                     }`}
                   >All products</button>
-                  {CATEGORIES.map((c) => (
+                  {categoriesList.map((c) => (
                     <button
                       key={c} onClick={() => setCategory(c)}
                       className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer ${
