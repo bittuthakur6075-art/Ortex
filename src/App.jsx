@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom"
 import { Toaster } from "sonner"
 import Navbar from "./components/Navbar"
 import Footer from "./components/Footer"
@@ -15,10 +15,27 @@ import Terms from "./pages/Terms"
 import Cookies from "./pages/Cookies"
 import AcceptableUse from "./pages/AcceptableUse"
 import QuoteCalculator from "./pages/QuoteCalculator"
+import Admin from "./pages/Admin"
 
-function App() {
+function AppLayout() {
+  const location = useLocation()
+  const isAdmin = location.pathname.startsWith("/admin")
+
+  if (isAdmin) {
+    return (
+      <>
+        <ScrollToTop />
+        <Routes>
+          <Route path="/admin" element={<Admin />} />
+        </Routes>
+        <Chatbot />
+        <Toaster position="top-right" richColors />
+      </>
+    )
+  }
+
   return (
-    <Router>
+    <>
       <ScrollToTop />
       <div className="flex flex-col min-h-screen bg-background text-foreground">
         
@@ -51,6 +68,14 @@ function App() {
         <Toaster position="top-right" richColors />
         
       </div>
+    </>
+  )
+}
+
+function App() {
+  return (
+    <Router>
+      <AppLayout />
     </Router>
   )
 }

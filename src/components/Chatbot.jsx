@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react"
-import { Link } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 import { Send, X, Volume2, VolumeX, Sparkles, MessageCircle, ArrowRight } from "lucide-react"
 import { cn } from "../utils/cn"
 
@@ -79,9 +79,56 @@ const KB = [
   }
 ]
 
-function localAnswer(q) {
-  const hit = KB.find((k) => k.test.test(q))
+// ─── Admin Dashboard Chatbot Knowledge ───────────────────────────────────────
+
+const ADMIN_GREETING = {
+  role: "assistant",
+  text: "Welcome to the **Ortex Factory Command Assistant**! 🛡️⚡\n\nI can help you monitor production queues, machine workloads, raw material stock alerts, job dispatches, and factory cycle metrics.\n\nTry asking me: *What is the daily output?* or *Any low stock alerts?*",
+}
+
+const ADMIN_SUGGESTIONS = [
+  "Daily output goal progress",
+  "Machine status & loads",
+  "Low stock raw materials",
+  "Active floor jobs queue",
+  "Factory cycle lead time",
+  "Production pipeline stages",
+]
+
+const ADMIN_KB = [
+  {
+    test: /output|goal|dispat|progress|today|efficiency/i,
+    answer: "⚡ **Factory Output & Goal Progress Today:**\n- **Efficiency:** Operating at **84%** of daily target.\n- **Dispatches:** **840 / 1,000** custom items manufactured & shipped today.\n- **Status:** On track to hit the daily goal before shift end! 🟢"
+  },
+  {
+    test: /machine|equipment|load|tempera|hardware|engraver|mimaki|heat press/i,
+    answer: "⚙️ **Factory Equipment Status:**\n1. **CO2 Laser Engraver (1390) (Cutting):** 94% load | Active | Temp 38°C 🔵\n2. **Mimaki UV Flatbed Printer (Printing):** 82% load | Active | Temp 26°C 🟣\n3. **Satin Lanyard Heat Press (Sublimation):** 20% load | Setup | Temp 185°C 🟡"
+  },
+  {
+    test: /stock|inventory|material|sheet|acrylic|ribbon|hooks|warning|critical|low/i,
+    answer: "🚨 **Raw Materials Inventory Alerts:**\n- 🔴 **Critical:** 2mm Clear Acrylic Sheet (8x4ft) — **4 sheets left**\n- 🟡 **Warning:** 20mm Royal Blue Satin Ribbon Roll — **3 rolls left**\n- 🟡 **Warning:** Metal D-Shaped Lanyard Hooks — **450 pcs left**\n- 🟢 **Healthy:** 3mm Premium MDF Board (8x4ft) — **140 sheets left**"
+  },
+  {
+    test: /queue|floor|job|active|order|progress/i,
+    answer: "📋 **Active Floor Job Queue:**\n- **ORX-2846** — Infosys BPM → Acrylic Name Plates (150 pcs) — **85% done** (Assembly stage)\n- **ORX-2847** — Tata Steel Ltd. → MDF Signage Boards (50 pcs) — **60% done** (Laser Cutting stage)\n- **ORX-2844** — Wipro Technologies → ID Badges & Lanyards (1000 pcs) — **25% done** (Printing stage)\n- **ORX-2843** — Mahindra & Mahindra → Acrylic Trophy Set (40 pcs) — **10% done** (Design stage)"
+  },
+  {
+    test: /pipeline|stage|workflow|process|step/i,
+    answer: "🔄 **Production Pipeline Breakdown (47 active orders):**\n1. **Artwork Design (12):** Mockups waiting for client approval.\n2. **Laser Cutting (8):** Raw MDF/Acrylic engraving.\n3. **UV Printing / Sub (15):** Logo/graphic printing.\n4. **Assembly & QC (6):** Ring/pin fittings and QA checks.\n5. **Ready to Dispatch (6):** Packaged cartons ready for shipping."
+  },
+  {
+    test: /cycle|lead|time|average|days/i,
+    answer: "📈 **Weekly Cycle Lead Times:**\n- **Average time to dispatch:** **3.4 Days**\n- **Fastest line:** Acrylic magnets & keychains (1.8 Days)\n- **Longest line:** Bulk Custom Satin Lanyards (4.2 Days)"
+  },
+]
+
+function localAnswer(q, isAdmin) {
+  const kb = isAdmin ? ADMIN_KB : KB
+  const hit = kb.find((k) => k.test.test(q))
   if (hit) return hit.answer
+  if (isAdmin) {
+    return "I can help you with anything on the admin dashboard — orders, revenue, products, customers, deadlines, and more.\n\nTry asking about **today's orders**, **revenue report**, or **upcoming deadlines**!"
+  }
   return "That's a great question! For specific customizations, pricing details, or bulk catalog requests, it's best to speak with our sales representative.\n\nWould you like to **connect on WhatsApp** (+91-9211947188) or send a query through our **Contact Form**?"
 }
 
@@ -148,8 +195,14 @@ function renderInlineBold(text) {
 }
 
 export default function Chatbot() {
+  const location = useLocation()
+  const isAdmin = location.pathname.startsWith("/admin")
+
+  const activeGreeting = isAdmin ? ADMIN_GREETING : GREETING
+  const activeSuggestions = isAdmin ? ADMIN_SUGGESTIONS : SUGGESTIONS
+
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState([GREETING])
+  const [messages, setMessages] = useState([activeGreeting])
   const [draft, setDraft] = useState("")
   const [busy, setBusy] = useState(false)
   const [muted, setMuted] = useState(false)
@@ -158,6 +211,15 @@ export default function Chatbot() {
   const launcherRef = useRef(null)
   const chimeRef = useRef(null)
   const userActed = useRef(false)
+  const prevAdminRef = useRef(isAdmin)
+
+  // Reset messages when switching between admin and public pages
+  useEffect(() => {
+    if (prevAdminRef.current !== isAdmin) {
+      setMessages([isAdmin ? ADMIN_GREETING : GREETING])
+      prevAdminRef.current = isAdmin
+    }
+  }, [isAdmin])
 
   useEffect(() => {
     chimeRef.current = makeChime()
@@ -228,7 +290,7 @@ export default function Chatbot() {
     const delay = 600 + Math.min(message.length * 10, 800)
     await new Promise((r) => setTimeout(r, delay))
 
-    const answer = localAnswer(message)
+    const answer = localAnswer(message, isAdmin)
     setMessages((m) => [...m, { role: "assistant", text: answer }])
     play("receive")
     setBusy(false)
@@ -358,7 +420,7 @@ export default function Chatbot() {
             <div className="pt-2">
               <p className="text-[11px] text-muted-foreground font-semibold mb-2 ml-1">Suggested questions:</p>
               <div className="ka-suggest">
-                {SUGGESTIONS.map((s) => (
+                {activeSuggestions.map((s) => (
                   <button
                     key={s}
                     onClick={() => handleSuggestionClick(s)}

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 import { Settings, Sliders, Globe, ArrowRight } from "lucide-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import Hero from "../components/Hero"
+import ganeshaKeyholder from "../assets/ganesha-keyholder.png"
 
 export default function Home() {
   useDocumentMetadata(
@@ -110,9 +111,9 @@ export default function Home() {
               </div>
 
               <Link to="/about" className="inline-block mt-8">
-                <button className="px-5 py-2.5 border-2 border-border hover:bg-muted font-medium rounded-lg flex items-center justify-center transition-all duration-200 active:scale-[0.98] cursor-pointer text-foreground">
+                <button className="px-6 py-2.5 font-medium text-[15px] text-white bg-[#466EFA] hover:bg-[#2f57e0] rounded-full transition-all duration-200 active:scale-[0.98] cursor-pointer flex items-center gap-1.5 group shadow-sm hover:shadow-md">
                   Learn more about us
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </button>
               </Link>
             </motion.div>
@@ -126,7 +127,7 @@ export default function Home() {
             >
               <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl">
                 <img 
-                  src="https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/whatsapp-image-2026-06-25-at-6.53.24-am-2-AChL5.jpeg" 
+                  src={ganeshaKeyholder} 
                   alt="Premium customized products manufactured by Ortex Industries" 
                   className="w-full h-full object-cover"
                 />
@@ -138,7 +139,7 @@ export default function Home() {
       </section>
 
       {/* Call to Action Section */}
-      <section className="py-20 bg-primary text-primary-foreground">
+      <section className="py-20 bg-[#005C6E] text-white">
         <div className="lp-wrap text-center">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -146,16 +147,16 @@ export default function Home() {
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
           >
-            <h2 className="text-3xl md:text-4xl font-bold mb-6 text-balance text-primary-foreground">
+            <h2 className="text-3xl md:text-4xl font-bold mb-6 text-balance text-white">
               Ready to bring your ideas to life?
             </h2>
-            <p className="text-lg mb-8 max-w-2xl mx-auto opacity-90 text-primary-foreground/90">
+            <p className="text-lg mb-8 max-w-2xl mx-auto opacity-90 text-white/90">
               Get in touch with our team to discuss your requirements and receive a customized quote for your project.
             </p>
             <Link to="/contact">
-              <button className="px-6 py-3 bg-background text-foreground hover:bg-background/90 font-semibold rounded-lg flex items-center justify-center mx-auto transition-all duration-200 active:scale-[0.98] cursor-pointer">
+              <button className="px-6 py-2.5 font-medium text-[15px] text-white bg-[#466EFA] hover:bg-[#2f57e0] rounded-full transition-all duration-200 active:scale-[0.98] cursor-pointer flex items-center gap-1.5 group shadow-sm hover:shadow-md mx-auto">
                 Contact us today
-                <ArrowRight className="ml-2 h-5 w-5 text-foreground" />
+                <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </button>
             </Link>
           </motion.div>
