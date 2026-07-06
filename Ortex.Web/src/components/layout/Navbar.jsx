@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { Menu, X, Sun, Moon } from "lucide-react"
+import { Menu, X } from "lucide-react"
 import { whatsappLink } from "../../constants/site"
 
 export default function Navbar() {
@@ -8,24 +8,11 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [hidden, setHidden] = useState(false)
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== "undefined") {
-      return document.documentElement.classList.contains("dark") ||
-             localStorage.getItem("theme") === "dark" ||
-             (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches)
-    }
-    return false
-  })
 
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add("dark")
-      localStorage.setItem("theme", "dark")
-    } else {
-      document.documentElement.classList.remove("dark")
-      localStorage.setItem("theme", "light")
-    }
-  }, [darkMode])
+    document.documentElement.classList.remove("dark")
+    localStorage.setItem("theme", "light")
+  }, [])
 
   // Smart-sticky header (ported from Lumex): solidify to a frosted bar once scrolled,
   // tuck out of view on scroll-down and glide back on scroll-up.
@@ -83,11 +70,11 @@ export default function Navbar() {
 
   const navItems = [
     { name: "Home", path: "/" },
-    { name: "About us", path: "/about" },
     { name: "Products & services", path: "/products" },
     { name: "Industries we serve", path: "/industries" },
     { name: "Portfolio", path: "/portfolio" },
     { name: "Gallery", path: "/photos" },
+    { name: "About us", path: "/about" },
     { name: "Contact us", path: "/contact" }
   ]
 
@@ -119,7 +106,7 @@ export default function Navbar() {
               <img
                 src="/img/logo.svg"
                 alt="Ortex Industries"
-                className={`h-[42px] w-auto max-w-[220px] object-contain object-left transition-[filter] duration-300 ${
+                className={`h-[30px] w-auto max-w-[220px] object-contain object-left transition-[filter] duration-300 ${
                   overHero ? "brightness-0 invert" : ""
                 }`}
               />
@@ -148,16 +135,6 @@ export default function Navbar() {
 
             {/* Desktop Actions */}
             <div className="hidden lg:flex items-center gap-3">
-              {/* Theme Toggle */}
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className={`p-2 rounded-full ${inkClass} ${overHero ? "hover:bg-white/10" : "hover:bg-muted"} transition-all duration-200 cursor-pointer flex items-center justify-center`}
-                aria-label="Toggle theme"
-                title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-              >
-                {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              </button>
-
               {/* WhatsApp Link */}
               <a
                 href={whatsappLink()}
@@ -185,15 +162,6 @@ export default function Navbar() {
 
             {/* Mobile Actions & Menu Toggle */}
             <div className="flex items-center gap-2 lg:hidden">
-              {/* Theme Toggle */}
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className={`p-2 rounded-full ${inkClass} ${overHero ? "hover:bg-white/10" : "hover:bg-muted"} transition-all duration-200 cursor-pointer flex items-center justify-center`}
-                aria-label="Toggle theme"
-              >
-                {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              </button>
-
               {/* WhatsApp Link */}
               <a
                 href={whatsappLink()}

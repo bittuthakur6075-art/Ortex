@@ -4,7 +4,8 @@ import useDocumentMetadata from "../hooks/useDocumentMetadata"
 export default function AcceptableUse() {
   useDocumentMetadata(
     "Acceptable Use Policy - Ortex Industries",
-    "Acceptable Use Policy for Ortex Industries. Read our rules regarding custom artwork uploads and platform use."
+    "Acceptable Use Policy for Ortex Industries. Read our rules regarding custom artwork uploads and platform use.",
+    { path: "/acceptable-use" }
   )
 
   const rules = [

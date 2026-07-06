@@ -4,7 +4,8 @@ import useDocumentMetadata from "../hooks/useDocumentMetadata"
 export default function Terms() {
   useDocumentMetadata(
     "Terms of Service - Ortex Industries",
-    "Terms of Service for Ortex Industries. Read our customer agreements and custom manufacturing terms."
+    "Terms of Service for Ortex Industries. Read our customer agreements and custom manufacturing terms.",
+    { path: "/terms" }
   )
 
   const terms = [

@@ -1,85 +1,85 @@
 import { motion } from "framer-motion"
 import { Link } from "react-router-dom"
 import {
-  Settings, Sliders, Globe, ArrowRight,
-  Box, Diamond, Contact as ContactIcon, Gift,
-  Building2, GraduationCap, Landmark, Calendar, Factory, Layers, Boxes,
-  Award, ClipboardList, FileText, Sparkles,
-  Stethoscope, Megaphone, Heart, ShoppingBag,
+  Setting2, Slider, Global, ArrowRight,
+  Box, MagicStar, Profile2User, Gift,
+  Building, Teacher, Bank, Calendar, Building3, Layer,
+  Award, Document, DocumentText, Flash,
+  Activity, VolumeHigh, Heart, Bag,
   Truck, Star,
-} from "lucide-react"
+} from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import Hero from "../components/ui/Hero"
 
 const HOME_OG = "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/whatsapp-image-2026-06-25-at-6.53.24-am-2-AChL5.jpeg"
 
 const stats = [
-  { icon: Factory, value: "100%", label: "In-house production" },
-  { icon: Boxes, value: "8+", label: "Product categories" },
-  { icon: Layers, value: "10+", label: "Industries served" },
-  { icon: Globe, value: "PAN India + Export", label: "Delivery reach" },
+  { icon: Building3, value: "100%", label: "In-house production" },
+  { icon: Box, value: "8+", label: "Product categories" },
+  { icon: Layer, value: "10+", label: "Industries served" },
+  { icon: Global, value: "PAN-INDIA", label: "Worldwide reach" },
 ]
 
 const capabilities = [
   {
-    icon: Settings,
-    title: "In-house manufacturing",
-    description: "State-of-the-art facilities for complete production control and quality assurance",
+    icon: Setting2,
+    title: "Factory Direct",
+    description: "CNC routing & high-resolution direct UV printing.",
   },
   {
-    icon: Sliders,
-    title: "Complete customization",
-    description: "Tailored solutions to match your exact specifications and branding requirements",
+    icon: Slider,
+    title: "Custom Branding",
+    description: "Pantone matching & vector file proofing.",
   },
   {
-    icon: Globe,
-    title: "Global reach",
-    description: "Serving customers across India and worldwide with reliable export support",
+    icon: Global,
+    title: "Global Delivery",
+    description: "Fast national shipping & secure bulk cargo.",
   },
 ]
 
 const featuredProducts = [
-  { icon: Box, title: "MDF products", description: "Magnets, keychains, photo frames, name plates & office accessories." },
-  { icon: Diamond, title: "Acrylic products", description: "Keychains, badges, name plates & display stands with UV printing." },
-  { icon: ContactIcon, title: "Lanyards & ID accessories", description: "Custom-printed lanyards, ID cards, badges & access passes." },
-  { icon: Award, title: "Badge manufacturing", description: "Acrylic, magnetic, button, metal, and plastic badges." },
-  { icon: ClipboardList, title: "Examination boards", description: "Durable acrylic, PVC, and ABS examination boards." },
-  { icon: FileText, title: "Custom clipboards", description: "Professional clipboards & writing pads with custom branding." },
-  { icon: Gift, title: "Corporate gifting", description: "Branded pens, diaries, bottles, mugs & complete gift solutions." },
-  { icon: Sparkles, title: "Branding services", description: "UV printing, laser engraving, sublimation, and embossing." },
+  { icon: Box, title: "MDF Manufacturing", description: "Custom shape keychains, magnets, and desk organizers cut from high-density 3.2mm/5.5mm MDF sheet." },
+  { icon: MagicStar, title: "Acrylic Customization", description: "Sandwich-layered keychains (scratch prevention), laser-polished badges, and name displays." },
+  { icon: Profile2User, title: "Lanyards & ID Straps", description: "Textured polyester and satin-finish lanyards (12mm/16mm/20mm) with breakaway safety attachments." },
+  { icon: Award, title: "Badge Production", description: "Laser-cut acrylic, custom-printed tinplate button, magnetic, and plastic molded badges." },
+  { icon: Document, title: "Examination Boards", description: "High-impact PVC and ABS examination clipboards with custom surface-branding overlays." },
+  { icon: DocumentText, title: "Corporate Clipboards", description: "Custom-branded writing pads and rigid clipboards cut to custom sizes with spring clips." },
+  { icon: Gift, title: "Custom Merchandise", description: "Fully customized executive diary sets, bottles, thermal mugs, and branding accessories." },
+  { icon: Flash, title: "Industrial Branding", description: "Advanced flatbed UV printing, precise laser engraving, dye-sublimation, and thermo-embossing." },
 ]
 
 const featuredIndustries = [
-  { icon: Building2, title: "Corporate" },
-  { icon: GraduationCap, title: "Education" },
-  { icon: Landmark, title: "Government" },
-  { icon: Stethoscope, title: "Healthcare" },
+  { icon: Building, title: "Corporate" },
+  { icon: Teacher, title: "Education" },
+  { icon: Bank, title: "Government" },
+  { icon: Activity, title: "Healthcare" },
   { icon: Calendar, title: "Events" },
-  { icon: Megaphone, title: "Marketing" },
+  { icon: VolumeHigh, title: "Marketing" },
   { icon: Heart, title: "NGOs" },
-  { icon: ShoppingBag, title: "Retail" },
+  { icon: Bag, title: "Retail" },
 ]
 
 const steps = [
   {
-    icon: ClipboardList,
-    title: "Specify details",
-    description: "Submit product specs, quantities, and logos via our Quote Calculator or contact forms.",
+    icon: Document,
+    title: "Artwork submission",
+    description: "Upload vector formats (.cdr, .ai, .pdf, or .dxf) and spec requirements using our B2B Quote Builder.",
   },
   {
-    icon: Sparkles,
-    title: "Digital mockup",
-    description: "Receive a professional visual layout and sizing proof from our design team for confirmation.",
+    icon: Flash,
+    title: "Technical proofing",
+    description: "Our in-house prepress design team evaluates dimensions and sends a virtual mockup layout for approval.",
   },
   {
-    icon: Factory,
-    title: "In-house production",
-    description: "Your order goes into production with high-precision printing, engraving, and strict QC.",
+    icon: Building3,
+    title: "Direct manufacturing",
+    description: "Your batch undergoes printing, precision cutting, assembly, and strict manual quality assurance check.",
   },
   {
     icon: Truck,
-    title: "Express delivery",
-    description: "Safe, bulk-packed delivery to your location, supporting PAN India and international export.",
+    title: "Cargo dispatch",
+    description: "Orders are bulk-packed in heavy-duty cardboard and shipped via express courier with full tracking support.",
   },
 ]
 
@@ -283,7 +283,7 @@ export default function Home() {
       <Hero />
 
       {/* Trust / Stats Strip */}
-      <section className="py-12 bg-background border-b border-border">
+      <section className="py-12 bg-background">
         <div className="lp-wrap">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
             {stats.map((stat, idx) => (
@@ -293,11 +293,8 @@ export default function Home() {
                 transition={{ duration: 0.5, delay: idx * 0.1 }}
                 className="flex flex-col items-center text-center"
               >
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
-                  <stat.icon className="h-6 w-6 text-primary" aria-hidden="true" />
-                </div>
-                <div className="text-xl md:text-2xl font-bold text-foreground leading-tight">{stat.value}</div>
-                <p className="text-sm text-muted-foreground mt-1">{stat.label}</p>
+                <div className="text-[32px] font-medium text-primary leading-none">{stat.value}</div>
+                <p className="text-[14px] font-normal uppercase text-muted-foreground mt-3">{stat.label}</p>
               </motion.div>
             ))}
           </div>
@@ -307,12 +304,13 @@ export default function Home() {
       {/* Capabilities Section */}
       <section className="py-20 bg-secondary">
         <div className="lp-wrap">
-          <motion.div {...fadeUp} transition={{ duration: 0.5 }} className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-foreground text-balance">
-              Our core capabilities
+          <motion.div {...fadeUp} transition={{ duration: 0.5 }} className="text-center mb-[50px]">
+            <span className="block text-[14px] font-medium text-primary tracking-[0.1em] uppercase mb-1">PRODUCTION STANDARDS</span>
+            <h2 className="text-[54px] font-medium leading-tight mb-4 text-foreground text-balance">
+              Factory Scale. Millimeter Precision.
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Delivering excellence through advanced manufacturing and customization expertise
+            <p className="text-[16px] font-normal text-muted-foreground max-w-2xl mx-auto">
+              From custom vector routing to Pantone-matched UV printing, we handle high-volume B2B contract orders with absolute quality assurance.
             </p>
           </motion.div>
 
@@ -322,13 +320,13 @@ export default function Home() {
                 key={item.title}
                 {...fadeUp}
                 transition={{ duration: 0.5, delay: idx * 0.1 }}
-                className="bg-card rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-border text-left"
+                className="bg-card rounded-[24px] p-8 shadow-lg text-center"
               >
-                <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
-                  <item.icon className="h-7 w-7 text-primary" aria-hidden="true" />
+                <div className="flex justify-center mb-4 text-primary">
+                  <item.icon size={30} color="currentColor" variant="Bulk" className="text-primary" aria-hidden="true" />
                 </div>
-                <h3 className="text-xl font-semibold mb-3 text-card-foreground">{item.title}</h3>
-                <p className="text-muted-foreground leading-relaxed">{item.description}</p>
+                <h3 className="text-[24px] leading-tight font-semibold mb-3 text-black">{item.title}</h3>
+                <p className="text-[16px] font-normal text-muted-foreground leading-relaxed">{item.description}</p>
               </motion.div>
             ))}
           </div>
@@ -337,28 +335,28 @@ export default function Home() {
 
       {/* Products Preview Section */}
       <section className="py-20 bg-background overflow-hidden">
-        <div className="lp-wrap mb-10">
-          <motion.div {...fadeUp} transition={{ duration: 0.5 }} className="text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-foreground text-balance">
-              What we manufacture
+        <div className="lp-wrap">
+          <motion.div {...fadeUp} transition={{ duration: 0.5 }} className="text-center mb-[50px]">
+            <span className="block text-[14px] font-medium text-primary tracking-[0.1em] uppercase mb-1">PRODUCT CATALOG</span>
+            <h2 className="text-[54px] font-medium leading-tight mb-4 text-foreground text-balance">
+              B2B Product Offerings
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              A comprehensive range of customizable products, produced in-house with complete branding support
+            <p className="text-[16px] font-normal text-muted-foreground max-w-2xl mx-auto">
+              From custom keychains and breakaway lanyards to rigid examination boards, all items are produced in-house to support direct wholesale requirements.
             </p>
           </motion.div>
         </div>
 
-        {/* Full width marquee container */}
-        <div className="marquee-container py-4">
-          <div className="animate-marquee flex gap-6">
-            {/* Double the list to create a seamless scrolling animation */}
-            {[...featuredProducts, ...featuredProducts].map((item, idx) => (
+        {/* Responsive B2B Grid (4 Columns) */}
+        <div className="lp-wrap">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {featuredProducts.map((item, idx) => (
               <div
                 key={`${item.title}-${idx}`}
-                className="w-[280px] sm:w-[320px] flex-shrink-0 bg-card rounded-2xl p-6 border border-border hover:border-primary/50 hover:shadow-lg transition-all duration-300 text-left"
+                className="bg-card rounded-2xl p-6 border border-border hover:border-primary/50 hover:shadow-lg transition-all duration-300 text-left"
               >
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-                  <item.icon className="h-6 w-6 text-primary" aria-hidden="true" />
+                <div className="flex items-center mb-4 text-primary">
+                  <item.icon size={30} color="currentColor" variant="Bulk" className="text-primary" aria-hidden="true" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2 text-card-foreground">{item.title}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
@@ -374,7 +372,7 @@ export default function Home() {
               className="px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg inline-flex items-center gap-2 transition-all duration-200 active:scale-[0.98]"
             >
               Explore all products & services
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              <ArrowRight size={16} color="currentColor" className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
         </div>
@@ -392,28 +390,44 @@ export default function Home() {
               transition={{ duration: 0.5 }}
               className="text-left"
             >
-              <h2 className="text-3xl md:text-4xl font-bold mb-6 tracking-tight text-foreground text-balance">
-                Why businesses choose Ortex Industries
+              <span className="block text-[14px] font-medium text-primary tracking-[0.1em] uppercase mb-1 text-left">B2B PARTNERSHIP</span>
+              <h2 className="text-[54px] font-medium leading-tight mb-6 text-foreground text-balance text-left">
+                Built for B2B Scale & Precision
               </h2>
 
               <div className="space-y-6">
-                <div>
-                  <h3 className="text-xl font-semibold mb-2 text-foreground">Complete in-house manufacturing</h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    Our advanced production facilities ensure complete quality control from raw materials to finished products, delivering consistent excellence in every order.
-                  </p>
+                <div className="flex gap-4 items-start">
+                  <div className="flex-shrink-0 text-primary mt-1">
+                    <Building3 size={24} color="currentColor" variant="Bulk" />
+                  </div>
+                  <div>
+                    <h3 className="text-[20px] font-semibold mb-2 text-foreground">100% In-house manufacturing</h3>
+                    <p className="text-[16px] font-normal text-muted-foreground leading-relaxed">
+                      Absolute quality control from raw materials to CNC routing, direct UV printing, and packaging, ensuring zero defects and strict tolerance limits.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-semibold mb-2 text-foreground">Unlimited customization options</h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    From design to branding, we offer complete customization services including UV printing, laser engraving, sublimation, and embossing to match your exact requirements.
-                  </p>
+                <div className="flex gap-4 items-start">
+                  <div className="flex-shrink-0 text-primary mt-1">
+                    <Slider size={24} color="currentColor" variant="Bulk" />
+                  </div>
+                  <div>
+                    <h3 className="text-[20px] font-semibold mb-2 text-foreground">Unlimited customization options</h3>
+                    <p className="text-[16px] font-normal text-muted-foreground leading-relaxed">
+                      Upload your vector designs (.cdr, .ai, .pdf, or .dxf) and match Pantone colors exactly on custom cuts, sheet thicknesses, and finishes.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-semibold mb-2 text-foreground">Competitive pricing with premium quality</h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    Direct manufacturing capabilities allow us to offer competitive pricing without compromising on quality, making premium products accessible for businesses of all sizes.
-                  </p>
+                <div className="flex gap-4 items-start">
+                  <div className="flex-shrink-0 text-primary mt-1">
+                    <Award size={24} color="currentColor" variant="Bulk" />
+                  </div>
+                  <div>
+                    <h3 className="text-[20px] font-semibold mb-2 text-foreground">Direct factory-direct pricing</h3>
+                    <p className="text-[16px] font-normal text-muted-foreground leading-relaxed">
+                      Cut out trading agents and middleman markups by 20–35% with transparent volume-tiered pricing and formal B2B invoicing.
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -422,7 +436,7 @@ export default function Home() {
                 className="mt-8 px-5 py-2.5 border-2 border-border hover:bg-muted font-medium rounded-lg inline-flex items-center transition-all duration-200 active:scale-[0.98] text-foreground"
               >
                 Learn more about us
-                <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                <ArrowRight size={16} color="currentColor" className="ml-2 h-4 w-4" aria-hidden="true" />
               </Link>
             </motion.div>
 
@@ -433,11 +447,11 @@ export default function Home() {
               transition={{ duration: 0.5 }}
               className="relative"
             >
-              <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl bg-white">
+              <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl bg-white premium-card">
                 <img
-                  src="/img/krishna-key-holder.jpg"
-                  alt="Handcrafted MDF Krishna key holder with hooks and floral design by Ortex Industries"
-                  className="w-full h-full object-contain"
+                  src="/img/factory-production-workshop.jpg"
+                  alt="State-of-the-art in-house manufacturing workshop featuring flatbed UV printing and CNC laser cutting at Ortex Industries"
+                  className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                   loading="lazy"
                   decoding="async"
                 />
@@ -449,41 +463,38 @@ export default function Home() {
       </section>
 
       {/* How We Work Section */}
-      <section className="py-20 bg-background border-t border-border">
+      <section className="py-20 bg-background">
         <div className="lp-wrap">
-          <motion.div {...fadeUp} transition={{ duration: 0.5 }} className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-foreground tracking-tight text-balance">
-              How we bring your designs to life
+          <motion.div {...fadeUp} transition={{ duration: 0.5 }} className="text-center mb-[50px]">
+            <span className="block text-[14px] font-medium text-primary tracking-[0.1em] uppercase mb-1">WORKFLOW PROCESS</span>
+            <h2 className="text-[54px] font-medium leading-tight mb-4 text-foreground tracking-tight text-balance">
+              Our Four-Step Production Pipeline
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Our streamlined 4-step manufacturing process makes B2B customization simple and stress-free.
+            <p className="text-[16px] font-normal text-muted-foreground max-w-2xl mx-auto">
+              Our streamlined intake and proofing pipeline eliminates guesswork, ensuring your bulk order matches your vector artwork exactly.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 relative">
-            {/* Connection Line for Desktop */}
-            <div className="hidden md:block absolute top-[32px] left-[12%] right-[12%] h-0.5 bg-border -z-10" />
-
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {steps.map((step, idx) => (
               <motion.div
                 key={step.title}
                 {...fadeUp}
                 transition={{ duration: 0.5, delay: idx * 0.1 }}
-                className="flex flex-col items-center text-center group"
+                className="bg-card rounded-[24px] p-8 shadow-lg text-left relative overflow-hidden border border-border/5 group"
               >
-                {/* Step icon container */}
-                <div className="relative mb-6">
-                  <div className="w-16 h-16 rounded-full bg-card border-2 border-border group-hover:border-primary flex items-center justify-center shadow-sm transition-all duration-300 relative z-10">
-                    <step.icon className="h-7 w-7 text-primary transition-transform duration-300 group-hover:scale-110" />
-                  </div>
-                  {/* Step Number */}
-                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-background">
-                    {idx + 1}
-                  </span>
+                {/* Large Background Step Number */}
+                <div className="absolute top-4 right-6 text-[54px] font-bold text-primary/10 select-none leading-none pointer-events-none group-hover:text-primary/20 transition-colors duration-300">
+                  0{idx + 1}
                 </div>
 
-                <h3 className="text-lg font-bold mb-2 text-foreground">{step.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed px-2">{step.description}</p>
+                {/* Icon Container */}
+                <div className="mb-6 text-primary flex items-center">
+                  <step.icon size={30} color="currentColor" variant="Bulk" />
+                </div>
+
+                <h3 className="text-[20px] font-semibold mb-3 text-foreground">{step.title}</h3>
+                <p className="text-[14px] font-normal text-muted-foreground leading-relaxed">{step.description}</p>
               </motion.div>
             ))}
           </div>
@@ -492,13 +503,14 @@ export default function Home() {
 
       {/* Industries Preview Section */}
       <section className="py-20 bg-secondary overflow-hidden">
-        <div className="lp-wrap mb-10">
-          <motion.div {...fadeUp} transition={{ duration: 0.5 }} className="text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-foreground text-balance">
-              Trusted across industries
+        <div className="lp-wrap">
+          <motion.div {...fadeUp} transition={{ duration: 0.5 }} className="text-center mb-[50px]">
+            <span className="block text-[14px] font-medium text-primary tracking-[0.1em] uppercase mb-1">SECTORS SERVED</span>
+            <h2 className="text-[54px] font-medium leading-tight mb-4 text-foreground text-balance">
+              Tailored Solutions by Industry
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              From corporates and schools to government and events, we deliver sector-specific solutions.
+            <p className="text-[16px] font-normal text-muted-foreground max-w-2xl mx-auto">
+              We engineer custom accessories, promotional merchandise, and identity solutions to meet the compliance and procurement standards of every sector.
             </p>
           </motion.div>
         </div>
@@ -510,10 +522,10 @@ export default function Home() {
             {[...featuredIndustries, ...featuredIndustries].map((item, idx) => (
               <div
                 key={`${item.title}-${idx}`}
-                className="w-[180px] sm:w-[220px] flex-shrink-0 flex flex-col items-center text-center bg-card rounded-2xl p-6 border border-border hover:border-primary/50 hover:shadow-lg transition-all duration-300"
+                className="w-[180px] sm:w-[220px] flex-shrink-0 flex flex-col items-center text-center p-6 premium-card interactive-glow"
               >
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
-                  <item.icon className="h-6 w-6 text-primary" aria-hidden="true" />
+                <div className="flex items-center mb-3 text-primary">
+                  <item.icon size={30} color="currentColor" variant="Bulk" className="text-primary" aria-hidden="true" />
                 </div>
                 <h3 className="text-base font-semibold text-card-foreground">{item.title}</h3>
               </div>
@@ -528,21 +540,22 @@ export default function Home() {
               className="px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg inline-flex items-center gap-2 transition-all duration-200 active:scale-[0.98]"
             >
               See all industries we serve
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              <ArrowRight size={16} color="currentColor" className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
         </div>
       </section>
 
       {/* Recent Work Section — Auto-rotating daily from Photos + Portfolio pool */}
-      <section className="py-20 bg-background border-t border-border">
+      <section className="py-20 bg-background">
         <div className="lp-wrap">
-          <motion.div {...fadeUp} transition={{ duration: 0.5 }} className="text-center mb-14">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-foreground text-balance">
-              Recent work
+          <motion.div {...fadeUp} transition={{ duration: 0.5 }} className="text-center mb-[50px]">
+            <span className="block text-[14px] font-medium text-primary tracking-[0.1em] uppercase mb-1">PRODUCTION GALLERY</span>
+            <h2 className="text-[54px] font-medium leading-tight mb-4 text-foreground text-balance">
+              Daily Production Output
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Fresh picks from our production floor — this showcase updates daily with new products from our gallery
+            <p className="text-[16px] font-normal text-muted-foreground max-w-2xl mx-auto">
+              A real-time window into our manufacturing floor, showcasing custom orders completed and packed for delivery today.
             </p>
           </motion.div>
 
@@ -552,7 +565,7 @@ export default function Home() {
                 key={item.title + idx}
                 {...fadeUp}
                 transition={{ duration: 0.5, delay: idx * 0.08 }}
-                className="group rounded-xl overflow-hidden bg-card border border-border/50 hover:shadow-xl transition-all duration-300"
+                className="group overflow-hidden premium-card interactive-glow"
               >
                 <div className="aspect-square overflow-hidden bg-muted">
                   <img
@@ -584,13 +597,14 @@ export default function Home() {
 
       {/* Testimonials Section */}
       <section className="py-20 bg-secondary overflow-hidden">
-        <div className="text-center mb-16 px-4">
+        <div className="text-center mb-[50px] px-4">
           <motion.div {...fadeUp} transition={{ duration: 0.5 }}>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-foreground tracking-tight text-balance">
-              What our customers say
+            <span className="block text-[14px] font-medium text-primary tracking-[0.1em] uppercase mb-1">CLIENT REVIEWS</span>
+            <h2 className="text-[54px] font-medium leading-tight mb-4 text-foreground tracking-tight text-balance">
+              Verified Procurement Reviews
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Genuine customer feedback and ratings from verified buyers across India.
+            <p className="text-[16px] font-normal text-muted-foreground max-w-2xl mx-auto">
+              Read feedback from corporate supply-chain managers, education heads, and promotional buyers on our bulk delivery performance.
             </p>
           </motion.div>
         </div>
@@ -601,15 +615,9 @@ export default function Home() {
             {[...testimonials, ...testimonials].map((t, idx) => (
               <div
                 key={`${t.author}-${idx}`}
-                className="w-[320px] md:w-[360px] flex-shrink-0 bg-card rounded-2xl p-6 border border-border/80 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-300 text-left"
+                className="w-[320px] md:w-[360px] flex-shrink-0 p-6 flex flex-col justify-between text-left bg-card rounded-none border-none shadow-none"
               >
                 <div>
-                  {/* Rating Stars */}
-                  <div className="flex gap-1 mb-4">
-                    {[...Array(t.rating)].map((_, i) => (
-                      <Star key={i} className="h-4.5 w-4.5 fill-primary text-primary" />
-                    ))}
-                  </div>
                   {/* Quote */}
                   <p className="text-sm md:text-base text-muted-foreground leading-relaxed italic mb-6">
                     "{t.quote}"
@@ -638,11 +646,12 @@ export default function Home() {
       <section className="py-20 bg-primary text-primary-foreground">
         <div className="lp-wrap text-center">
           <motion.div {...fadeUp} transition={{ duration: 0.5 }}>
-            <h2 className="text-3xl md:text-4xl font-bold mb-6 text-balance text-primary-foreground">
-              Ready to bring your ideas to life?
+            <span className="block text-[14px] font-medium text-primary-foreground/80 tracking-[0.1em] uppercase mb-1">GET STARTED</span>
+            <h2 className="text-[54px] font-medium leading-tight mb-4 text-balance text-primary-foreground">
+              Ready to Secure Your Production Run?
             </h2>
-            <p className="text-lg mb-8 max-w-2xl mx-auto opacity-90 text-primary-foreground/90">
-              Get in touch with our team to discuss your requirements and receive a customized quote for your project.
+            <p className="text-[16px] font-normal mb-8 max-w-2xl mx-auto opacity-90 text-primary-foreground/90">
+              Get a transparent, volume-discounted quotation with full GST breakdown. Talk directly to our manufacturing engineers today.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Link
@@ -650,7 +659,7 @@ export default function Home() {
                 className="px-6 py-3 bg-background text-foreground hover:bg-background/90 font-semibold rounded-lg inline-flex items-center gap-2 transition-all duration-200 active:scale-[0.98]"
               >
                 Get a quote
-                <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                <ArrowRight size={20} color="currentColor" className="h-5 w-5" aria-hidden="true" />
               </Link>
               <Link
                 to="/contact"

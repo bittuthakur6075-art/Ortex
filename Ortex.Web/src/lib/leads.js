@@ -21,14 +21,7 @@ export async function submitEnquiry({ source, customer, productInterest = "", me
   }
 
   if (!hasSupabase) {
-    try {
-      const list = JSON.parse(localStorage.getItem("ortex_web_enquiries") || "[]")
-      list.push({ ...doc, id: Date.now(), createdAt: new Date().toISOString() })
-      localStorage.setItem("ortex_web_enquiries", JSON.stringify(list))
-    } catch {
-      /* ignore storage errors */
-    }
-    return { ok: true, local: true }
+    return { error: "Database offline. Please try again or contact us directly via WhatsApp." }
   }
 
   const { error } = await supabase.from("enquiries").insert({ doc })

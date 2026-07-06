@@ -126,7 +126,13 @@ end $$;
 -- Public website lead capture: anon may INSERT enquiries only (no read/update).
 drop policy if exists anon_insert_enquiries on public.enquiries;
 create policy anon_insert_enquiries on public.enquiries
-  for insert to anon with check (true);
+  for insert to anon
+  with check (
+    (doc->>'status' = 'new') AND
+    (doc->'starred' IS NULL OR doc->>'starred' = 'false') AND
+    (doc->>'owner' IS NULL OR doc->>'owner' = '') AND
+    (doc->>'quotationId' IS NULL)
+  );
 
 -- Profiles: a user can read their own profile; admins can read all.
 drop policy if exists profiles_self on public.profiles;

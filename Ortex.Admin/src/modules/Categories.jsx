@@ -1,18 +1,35 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Tags, Plus, Pencil, Trash2, Sparkles } from "../components/icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
-import { useCollection } from "../data/hooks"
+import { useCollection, useSorting } from "../data/hooks"
 import { newCategory, GST_RATES, PRODUCT_CATEGORIES } from "../data/schema"
 import PageHeader from "../components/PageHeader"
-import { Button, Card, Input, Select, Textarea, Field, EmptyState, Modal, PageLoader } from "../components/ui"
+import { Button, Card, Input, Select, Textarea, Field, EmptyState, Modal, PageLoader, SortTh } from "../components/ui"
 
 export default function Categories() {
   const { items, loading } = useCollection("categories")
   const { items: products } = useCollection("products")
   const [editing, setEditing] = useState(null) // category | "new" | null
-
+  const [sort, onSort] = useSorting("name")
   const countFor = (name) => products.filter((p) => p.category === name).length
+
+  const sortedItems = useMemo(() => {
+    const { key, desc } = sort
+    const sorted = [...items].sort((a, b) => {
+      let valA = a[key]
+      let valB = b[key]
+      if (key === "productsCount") {
+        valA = countFor(a.name)
+        valB = countFor(b.name)
+      }
+      if (valA === undefined || valA === null) valA = ""
+      if (valB === undefined || valB === null) valB = ""
+      if (typeof valA === "string") return valA.localeCompare(valB)
+      return valA - valB
+    })
+    return desc ? sorted.reverse() : sorted
+  }, [items, sort, products])
 
   // One-click seed of the standard Ortex categories the first time.
   const seedDefaults = async () => {
@@ -57,15 +74,15 @@ export default function Categories() {
             <table className="w-full text-left text-sm">
               <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Category</th>
-                  <th className="px-4 py-3 font-medium">Default HSN</th>
-                  <th className="px-4 py-3 text-right font-medium">Default GST</th>
-                  <th className="px-4 py-3 text-right font-medium">Products</th>
+                  <SortTh sortKey="name" sort={sort} onSort={onSort}>Category</SortTh>
+                  <SortTh sortKey="hsn" sort={sort} onSort={onSort}>Default HSN</SortTh>
+                  <SortTh sortKey="gstRate" sort={sort} onSort={onSort} align="right">Default GST</SortTh>
+                  <SortTh sortKey="productsCount" sort={sort} onSort={onSort} align="right">Products</SortTh>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {items.map((c) => (
+                {sortedItems.map((c) => (
                   <tr key={c.id} className="cursor-pointer transition-colors hover:bg-muted/40" onClick={() => setEditing(c)}>
                     <td className="px-4 py-3">
                       <div className="font-medium text-foreground">{c.name}</div>

@@ -39,7 +39,7 @@
   --foreground: 222 47% 11%;
   --primary: 229 77% 54%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 240 5% 96%;
+  --secondary: 200 33.3% 98.2%;
   --secondary-foreground: 222 47% 11%;
   --accent: 229 77% 54%;
   --accent-foreground: 0 0% 100%;
@@ -982,3 +982,62 @@ a:hover > .roll-text .roll-char {
 .animate-marquee-slow:hover {
   animation-play-state: paused;
 }
+
+/* ============================================================
+   Premium Design Tokens & Micro-interactions
+   ============================================================ */
+
+.premium-card {
+  background: hsla(var(--card) / 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid hsla(var(--border) / 0.8);
+  border-radius: 1.25rem;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
+}
+
+.premium-card:hover {
+  transform: translateY(-5px);
+  border-color: hsla(var(--primary) / 0.4);
+  box-shadow: 0 10px 40px rgba(var(--primary) / 0.08);
+}
+
+.dark .premium-card {
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+}
+
+.dark .premium-card:hover {
+  border-color: rgba(70, 110, 250, 0.3);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(70, 110, 250, 0.08);
+}
+
+.interactive-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.interactive-glow::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -50%;
+  width: 200%;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent
+  );
+  transform: skewX(-25deg);
+  transition: 0.75s ease;
+  pointer-events: none;
+}
+
+.interactive-glow:hover::before {
+  left: 125%;
+}
+

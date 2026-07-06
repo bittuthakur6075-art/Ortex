@@ -98,3 +98,17 @@ export function useSettings() {
 
   return settings
 }
+
+export function useSorting(defaultKey, defaultDesc = false) {
+  const [sort, setSort] = useState({ key: defaultKey, desc: defaultDesc })
+  const onSort = useCallback((key) => {
+    setSort((prev) => {
+      if (prev.key === key) {
+        return { key, desc: !prev.desc }
+      }
+      return { key, desc: false }
+    })
+  }, [])
+  return [sort, onSort]
+}
+

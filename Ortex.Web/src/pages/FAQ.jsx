@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Plus, Minus } from "lucide-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
@@ -32,6 +32,32 @@ export default function FAQ() {
     "Got questions about custom manufacturing, MOQ, sampling policies, or design files? Find answers to frequently asked questions about Ortex Industries.",
     { path: "/faq" }
   )
+
+  useEffect(() => {
+    const schema = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": faqs.map(faq => ({
+        "@type": "Question",
+        "name": faq.question,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": faq.answer
+        }
+      }))
+    }
+
+    const script = document.createElement("script")
+    script.type = "application/ld+json"
+    script.id = "faq-schema"
+    script.innerHTML = JSON.stringify(schema)
+    document.head.appendChild(script)
+
+    return () => {
+      const el = document.getElementById("faq-schema")
+      if (el) el.remove()
+    }
+  }, [])
 
   const [activeFaq, setActiveFaq] = useState(null)
 
@@ -117,6 +143,7 @@ export default function FAQ() {
                   alt="Frequently Asked Questions Illustration"
                   className="w-full h-full object-cover"
                   loading="lazy"
+                  decoding="async"
                 />
               </div>
             </div>

@@ -13,6 +13,7 @@
     "@supabase/supabase-js": "^2.110.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.42.2",
+    "iconsax-react": "^0.0.8",
     "lucide-react": "^0.469.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

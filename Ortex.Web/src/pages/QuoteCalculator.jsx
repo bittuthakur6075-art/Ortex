@@ -17,7 +17,8 @@ const catIcon = (name) => CATEGORY_META[name]?.icon || "📦"
 export default function QuoteCalculator() {
   useDocumentMetadata(
     "Get a Quote: Custom Manufacturing RFQ | Ortex Industries",
-    "Build a custom quote from Ortex Industries' real product catalogue, including MDF, acrylic, lanyards, badges, exam boards, and corporate gifts. Add products, set quantities, and get an instant bulk estimate with volume discounts."
+    "Build a custom quote from Ortex Industries' real product catalogue, including MDF, acrylic, lanyards, badges, exam boards, and corporate gifts. Add products, set quantities, and get an instant bulk estimate with volume discounts.",
+    { path: "/quote" }
   )
 
   const [step, setStep] = useState(1)

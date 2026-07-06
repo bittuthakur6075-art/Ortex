@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { toast } from "sonner"
 import { ShieldCheck, Plus, Users as UsersIcon } from "../components/icons"
-import { Button, Card, Input, Select, Field, Modal, Badge, PageLoader, EmptyState } from "../components/ui"
+import { Button, Card, Input, Select, Field, Modal, Badge, PageLoader, EmptyState, SortTh } from "../components/ui"
 import PageHeader from "../components/PageHeader"
 import { listProfiles, updateProfile, createUser } from "../data/users"
+import { useSorting } from "../data/hooks"
 import { ASSIGNABLE_MODULES, SALES_DEFAULT_MODULES, MODULES } from "../data/modules"
 import { currentUserId } from "../lib/auth"
 
@@ -15,6 +16,22 @@ export default function Users() {
   const [rows, setRows] = useState(null)
   const [editing, setEditing] = useState(null) // profile object or "new"
   const selfId = currentUserId()
+  const [sort, onSort] = useSorting("email")
+
+  const sortedUsers = useMemo(() => {
+    if (!rows) return []
+    const { key, desc } = sort
+    const sorted = [...rows].sort((a, b) => {
+      let valA = a[key]
+      let valB = b[key]
+      if (valA === undefined || valA === null) valA = ""
+      if (valB === undefined || valB === null) valB = ""
+      if (typeof valA === "boolean") return valA === valB ? 0 : valA ? -1 : 1
+      if (typeof valA === "string") return valA.localeCompare(valB)
+      return valA - valB
+    })
+    return desc ? sorted.reverse() : sorted
+  }, [rows, sort])
 
   const load = useCallback(async () => {
     try {
@@ -49,15 +66,15 @@ export default function Users() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="px-4 py-3 font-semibold">Name</th>
-                  <th className="px-4 py-3 font-semibold">Email</th>
-                  <th className="px-4 py-3 font-semibold">Role</th>
-                  <th className="px-4 py-3 font-semibold">Modules</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <SortTh sortKey="name" sort={sort} onSort={onSort}>Name</SortTh>
+                  <SortTh sortKey="email" sort={sort} onSort={onSort}>Email</SortTh>
+                  <SortTh sortKey="role" sort={sort} onSort={onSort}>Role</SortTh>
+                  <SortTh sortKey="modules" sort={sort} onSort={onSort}>Modules</SortTh>
+                  <SortTh sortKey="active" sort={sort} onSort={onSort}>Status</SortTh>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((p) => (
+                {sortedUsers.map((p) => (
                   <tr
                     key={p.id}
                     className="cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-muted/40"

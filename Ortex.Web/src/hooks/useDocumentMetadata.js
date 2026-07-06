@@ -39,13 +39,14 @@ function metaByProp(property, content) {
 }
 
 export default function useDocumentMetadata(title, description, options = {}) {
-  const { path, image } = options
+  const { path, image, robots } = options
   useEffect(() => {
     const prevTitle = document.title
-    const url = path ? `${SITE_URL}${path}` : window.location.origin + window.location.pathname
+    const url = `${SITE_URL}${path || window.location.pathname}`
 
     if (title) document.title = title
     metaByName("description", description)
+    if (robots) metaByName("robots", robots)
 
     // Canonical
     const canonical = setMeta('link[rel="canonical"]', () => {

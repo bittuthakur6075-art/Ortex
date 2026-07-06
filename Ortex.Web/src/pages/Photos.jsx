@@ -272,6 +272,7 @@ export default function Photos() {
 
       {/* Filter Tabs */}
       <section className="py-8 bg-background">
+        <h2 className="sr-only">Visual product showcase</h2>
         <div className="lp-wrap">
           <div className="flex flex-wrap justify-center gap-2 md:gap-3 mb-12">
             {categories.map((cat) => (

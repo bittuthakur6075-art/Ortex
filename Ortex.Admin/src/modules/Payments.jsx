@@ -2,7 +2,7 @@ import { useState, useMemo } from "react"
 import { Wallet, Plus, Search, ArrowDownLeft, ArrowUpRight, Download, Trash2, ReceiptText } from "../components/icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
-import { useCollection, useSettings } from "../data/hooks"
+import { useCollection, useSettings, useSorting } from "../data/hooks"
 import { recordPayment, paidForInvoice, invoiceBalance } from "../data/domain"
 import { PAYMENT_TYPE, PAYMENT_METHODS, statusMeta } from "../data/schema"
 import ReceiptView from "../components/ReceiptView"
@@ -23,6 +23,7 @@ import {
   Chip,
   Modal,
   PageLoader,
+  SortTh,
 } from "../components/ui"
 
 export default function Payments() {
@@ -33,6 +34,7 @@ export default function Payments() {
   const [typeFilter, setTypeFilter] = useState("all")
   const [newPayment, setNewPayment] = useState(null) // "inflow" | "payout" | null
   const [receiptFor, setReceiptFor] = useState(null)
+  const [sort, onSort] = useSorting("date", true)
 
   const filtered = useMemo(() => {
     let rows = items
@@ -43,8 +45,21 @@ export default function Payments() {
         [p.number, p.party, p.invoiceNumber, p.method, p.reference, p.note].filter(Boolean).some((v) => v.toLowerCase().includes(s)),
       )
     }
-    return [...rows].sort((a, b) => new Date(b.date) - new Date(a.date))
-  }, [items, query, typeFilter])
+    const { key, desc } = sort
+    const sorted = [...rows].sort((a, b) => {
+      let valA = a[key]
+      let valB = b[key]
+      if (key === "date") {
+        valA = valA ? new Date(valA).getTime() : 0
+        valB = valB ? new Date(valB).getTime() : 0
+      }
+      if (valA === undefined || valA === null) valA = ""
+      if (valB === undefined || valB === null) valB = ""
+      if (typeof valA === "string") return desc ? valB.localeCompare(valA) : valA.localeCompare(valB)
+      return desc ? valB - valA : valA - valB
+    })
+    return sorted
+  }, [items, query, typeFilter, sort])
 
   const totals = useMemo(() => {
     const inflow = round2(items.filter((p) => p.type === "inflow").reduce((s, p) => s + p.amount, 0))
@@ -127,12 +142,12 @@ export default function Payments() {
             <table className="w-full text-left text-sm">
               <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Ref</th>
-                  <th className="px-4 py-3 font-medium">Party</th>
-                  <th className="px-4 py-3 font-medium">Method</th>
-                  <th className="px-4 py-3 font-medium">Type</th>
-                  <th className="px-4 py-3 text-right font-medium">Amount</th>
-                  <th className="px-4 py-3 font-medium">Date</th>
+                  <SortTh sortKey="number" sort={sort} onSort={onSort}>Ref</SortTh>
+                  <SortTh sortKey="party" sort={sort} onSort={onSort}>Party</SortTh>
+                  <SortTh sortKey="method" sort={sort} onSort={onSort}>Method</SortTh>
+                  <SortTh sortKey="type" sort={sort} onSort={onSort}>Type</SortTh>
+                  <SortTh sortKey="amount" sort={sort} onSort={onSort} align="right">Amount</SortTh>
+                  <SortTh sortKey="date" sort={sort} onSort={onSort}>Date</SortTh>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>

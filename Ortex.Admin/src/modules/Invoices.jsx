@@ -2,7 +2,7 @@ import { useState, useMemo } from "react"
 import { ReceiptIndianRupee, Plus, Search, Eye, Trash2, Download, IndianRupee, AlertTriangle, ReceiptText, Mail, Upload } from "../components/icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
-import { useCollection, useSettings } from "../data/hooks"
+import { useCollection, useSettings, useSorting } from "../data/hooks"
 import {
   createInvoice,
   updateInvoice,
@@ -37,6 +37,7 @@ import {
   Chip,
   Modal,
   PageLoader,
+  SortTh,
 } from "../components/ui"
 
 const emptyDraft = (settings) => ({
@@ -65,6 +66,7 @@ export default function Invoices() {
   const [editing, setEditing] = useState(null)
   const [preview, setPreview] = useState(null)
   const [importing, setImporting] = useState(false)
+  const [sort, onSort] = useSorting("issueDate", true)
 
   const rows = useMemo(() => {
     return items.map((inv) => ({
@@ -84,8 +86,25 @@ export default function Invoices() {
         [i.number, i.customer?.name, i.customer?.company].filter(Boolean).some((v) => v.toLowerCase().includes(s)),
       )
     }
-    return [...list].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate))
-  }, [rows, query, statusFilter])
+
+    const { key, desc } = sort
+    const sorted = [...list].sort((a, b) => {
+      let valA = a[key]
+      let valB = b[key]
+      if (key === "customer") {
+        valA = a.customer?.company || a.customer?.name || ""
+        valB = b.customer?.company || b.customer?.name || ""
+      } else if (key === "grandTotal") {
+        valA = a.totals?.grandTotal || 0
+        valB = b.totals?.grandTotal || 0
+      }
+      if (valA === undefined || valA === null) valA = ""
+      if (valB === undefined || valB === null) valB = ""
+      if (typeof valA === "string") return valA.localeCompare(valB)
+      return valA - valB
+    })
+    return desc ? sorted.reverse() : sorted
+  }, [rows, query, statusFilter, sort])
 
   const handleExport = () => {
     exportCsv(
@@ -161,12 +180,12 @@ export default function Invoices() {
             <table className="w-full text-left text-sm">
               <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Number</th>
-                  <th className="px-4 py-3 font-medium">Customer</th>
-                  <th className="px-4 py-3 text-right font-medium">Total</th>
-                  <th className="px-4 py-3 text-right font-medium">Balance</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Due</th>
+                  <SortTh sortKey="number" sort={sort} onSort={onSort}>Number</SortTh>
+                  <SortTh sortKey="customer" sort={sort} onSort={onSort}>Customer</SortTh>
+                  <SortTh sortKey="grandTotal" sort={sort} onSort={onSort} align="right">Total</SortTh>
+                  <SortTh sortKey="_balance" sort={sort} onSort={onSort} align="right">Balance</SortTh>
+                  <SortTh sortKey="_status" sort={sort} onSort={onSort}>Status</SortTh>
+                  <SortTh sortKey="dueDate" sort={sort} onSort={onSort}>Due</SortTh>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>

@@ -218,6 +218,7 @@ export default function Portfolio() {
 
       {/* Gallery Section */}
       <section className="py-16 lp-wrap">
+        <h2 className="sr-only">Our manufactured work showcase</h2>
         
         {/* Category Tabs */}
         <div className="flex flex-wrap items-center justify-center gap-2 mb-12">

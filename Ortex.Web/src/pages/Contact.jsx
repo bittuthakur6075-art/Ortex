@@ -9,7 +9,8 @@ import useDocumentMetadata from "../hooks/useDocumentMetadata"
 export default function Contact() {
   useDocumentMetadata(
     "Contact Ortex Industries - Get Quote for Customized Products",
-    "Contact Ortex Industries for customized product quotes. Call +91-9211947188, email sales@ortexindustries.in, or WhatsApp for immediate assistance. Serving India and worldwide."
+    "Contact Ortex Industries for customized product quotes. Call +91-9211947188, email sales@ortexindustries.in, or WhatsApp for immediate assistance. Serving India and worldwide.",
+    { path: "/contact" }
   )
 
   const [formData, setFormData] = useState({

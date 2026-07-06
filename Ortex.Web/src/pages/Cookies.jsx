@@ -4,7 +4,8 @@ import useDocumentMetadata from "../hooks/useDocumentMetadata"
 export default function Cookies() {
   useDocumentMetadata(
     "Cookie Policy - Ortex Industries",
-    "Cookie Policy for Ortex Industries. Learn how we use cookies and tracking technologies to improve our platform."
+    "Cookie Policy for Ortex Industries. Learn how we use cookies and tracking technologies to improve our platform.",
+    { path: "/cookies" }
   )
 
   const cookieInfo = [

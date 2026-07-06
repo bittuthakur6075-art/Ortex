@@ -4,7 +4,8 @@ import useDocumentMetadata from "../hooks/useDocumentMetadata"
 export default function Privacy() {
   useDocumentMetadata(
     "Privacy Policy - Ortex Industries",
-    "Privacy Policy for Ortex Industries. Learn how we handle customer data, custom manufacturing records, and form inquiries."
+    "Privacy Policy for Ortex Industries. Learn how we handle customer data, custom manufacturing records, and form inquiries.",
+    { path: "/privacy" }
   )
 
   const sections = [

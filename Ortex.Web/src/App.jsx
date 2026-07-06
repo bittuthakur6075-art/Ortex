@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react"
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
 import { Toaster } from "sonner"
 import Navbar from "./components/layout/Navbar"
@@ -5,20 +6,22 @@ import Footer from "./components/layout/Footer"
 import ScrollToTop from "./components/layout/ScrollToTop"
 import Chatbot from "./components/ui/Chatbot"
 import WhatsAppWidget from "./components/ui/WhatsAppWidget"
-import Home from "./pages/Home"
-import About from "./pages/About"
-import Products from "./pages/Products"
-import Industries from "./pages/Industries"
-import Portfolio from "./pages/Portfolio"
-import Contact from "./pages/Contact"
-import Privacy from "./pages/Privacy"
-import Terms from "./pages/Terms"
-import Cookies from "./pages/Cookies"
-import AcceptableUse from "./pages/AcceptableUse"
-import QuoteCalculator from "./pages/QuoteCalculator"
-import FAQ from "./pages/FAQ"
-import Photos from "./pages/Photos"
-import NotFound from "./pages/NotFound"
+
+// Lazy load pages to optimize bundle size and core web vitals
+const Home = lazy(() => import("./pages/Home"))
+const About = lazy(() => import("./pages/About"))
+const Products = lazy(() => import("./pages/Products"))
+const Industries = lazy(() => import("./pages/Industries"))
+const Portfolio = lazy(() => import("./pages/Portfolio"))
+const Contact = lazy(() => import("./pages/Contact"))
+const Privacy = lazy(() => import("./pages/Privacy"))
+const Terms = lazy(() => import("./pages/Terms"))
+const Cookies = lazy(() => import("./pages/Cookies"))
+const AcceptableUse = lazy(() => import("./pages/AcceptableUse"))
+const QuoteCalculator = lazy(() => import("./pages/QuoteCalculator"))
+const FAQ = lazy(() => import("./pages/FAQ"))
+const Photos = lazy(() => import("./pages/Photos"))
+const NotFound = lazy(() => import("./pages/NotFound"))
 
 function AppLayout() {
 
@@ -40,22 +43,28 @@ function AppLayout() {
 
         {/* Page Content */}
         <main id="main" className="flex-grow">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/industries" element={<Industries />} />
-            <Route path="/portfolio" element={<Portfolio />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/cookies" element={<Cookies />} />
-            <Route path="/acceptable-use" element={<AcceptableUse />} />
-            <Route path="/quote" element={<QuoteCalculator />} />
-            <Route path="/faq" element={<FAQ />} />
-            <Route path="/photos" element={<Photos />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Suspense fallback={
+            <div className="flex items-center justify-center min-h-[50vh]">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+            </div>
+          }>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/industries" element={<Industries />} />
+              <Route path="/portfolio" element={<Portfolio />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/cookies" element={<Cookies />} />
+              <Route path="/acceptable-use" element={<AcceptableUse />} />
+              <Route path="/quote" element={<QuoteCalculator />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route path="/photos" element={<Photos />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </main>
 
         {/* Footer */}
@@ -81,5 +90,5 @@ function App() {
   )
 }
 
-
 export default App
+

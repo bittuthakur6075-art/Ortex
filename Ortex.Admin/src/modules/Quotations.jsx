@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom"
 import { FileText, Plus, Search, Eye, FileCheck2, Trash2, Download, AlertTriangle } from "../components/icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
-import { useCollection, useSettings } from "../data/hooks"
+import { useCollection, useSettings, useSorting } from "../data/hooks"
 import { createQuotation, updateQuotation, convertQuotationToInvoice, markEnquiryQuoted, markLeadQuoted, isInterState } from "../data/domain"
 import { notifyMessage } from "../data/notify"
 import { QUOTATION_STATUS, LOST_REASONS, newCustomer, newLine } from "../data/schema"
@@ -26,6 +26,7 @@ import {
   Chip,
   Modal,
   PageLoader,
+  SortTh,
 } from "../components/ui"
 
 const emptyDraft = (settings) => ({
@@ -57,6 +58,7 @@ export default function Quotations() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [editing, setEditing] = useState(null) // draft object or null
   const [preview, setPreview] = useState(null)
+  const [sort, onSort] = useSorting("issueDate", true)
 
   // Prefill a new quotation when arriving from a "Convert to quotation" action
   // on an enquiry or a lead.
@@ -84,8 +86,29 @@ export default function Quotations() {
         [q.number, q.customer?.name, q.customer?.company].filter(Boolean).some((v) => v.toLowerCase().includes(s)),
       )
     }
-    return [...rows].sort((a, b) => new Date(b.issueDate) - new Date(a.issueDate))
-  }, [items, query, statusFilter])
+    const { key, desc } = sort
+    const sorted = [...rows].sort((a, b) => {
+      let valA, valB
+      if (key === "customer") {
+        valA = a.customer?.company || a.customer?.name
+        valB = b.customer?.company || b.customer?.name
+      } else if (key === "grandTotal") {
+        valA = a.totals?.grandTotal
+        valB = b.totals?.grandTotal
+      } else if (key === "issueDate" || key === "validUntil") {
+        valA = a[key] ? new Date(a[key]).getTime() : 0
+        valB = b[key] ? new Date(b[key]).getTime() : 0
+      } else {
+        valA = a[key]
+        valB = b[key]
+      }
+      if (valA === undefined || valA === null) valA = ""
+      if (valB === undefined || valB === null) valB = ""
+      if (typeof valA === "string") return desc ? valB.localeCompare(valA) : valA.localeCompare(valB)
+      return desc ? valB - valA : valA - valB
+    })
+    return sorted
+  }, [items, query, statusFilter, sort])
 
   const handleExport = () => {
     exportCsv(
@@ -170,11 +193,11 @@ export default function Quotations() {
             <table className="w-full text-left text-sm">
               <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Number</th>
-                  <th className="px-4 py-3 font-medium">Customer</th>
-                  <th className="px-4 py-3 text-right font-medium">Total</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Validity</th>
+                  <SortTh sortKey="number" sort={sort} onSort={onSort}>Number</SortTh>
+                  <SortTh sortKey="customer" sort={sort} onSort={onSort}>Customer</SortTh>
+                  <SortTh sortKey="grandTotal" sort={sort} onSort={onSort} align="right">Total</SortTh>
+                  <SortTh sortKey="status" sort={sort} onSort={onSort}>Status</SortTh>
+                  <SortTh sortKey="validUntil" sort={sort} onSort={onSort}>Validity</SortTh>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>

@@ -18,7 +18,7 @@ import {
 } from "../components/icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
-import { useCollection } from "../data/hooks"
+import { useCollection, useSorting } from "../data/hooks"
 import {
   computeLeadScore,
   weightedLeadValue,
@@ -29,7 +29,7 @@ import { LEAD_STAGES, OPEN_LEAD_STAGES, ACTIVITY_TYPES, LEAD_SOURCES, LOST_REASO
 import { formatCurrency, formatDate, toDateInput, daysUntil, relativeTime, round2 } from "../lib/format"
 import { cn } from "../lib/cn"
 import PageHeader from "../components/PageHeader"
-import { Button, Card, Input, Select, Textarea, Field, Badge, StatCard, StatusBadge, EmptyState, Avatar, Money, Chip, Drawer, Modal, PageLoader } from "../components/ui"
+import { Button, Card, Input, Select, Textarea, Field, Badge, StatCard, StatusBadge, EmptyState, Avatar, Money, Chip, Drawer, Modal, PageLoader, SortTh } from "../components/ui"
 
 // Follow-up urgency from the nextFollowUp date.
 function followState(lead) {
@@ -236,19 +236,31 @@ function LeadCard({ lead, onOpen, onDragStart, dragging }) {
 /* ---------------- List view ---------------- */
 
 function LeadList({ leads, onOpen }) {
-  const sorted = [...leads].sort((a, b) => (b.estimatedValue || 0) - (a.estimatedValue || 0))
+  const [sort, onSort] = useSorting("estimatedValue", true)
+  const sorted = useMemo(() => {
+    const { key, desc } = sort
+    const s = [...leads].sort((a, b) => {
+      let valA = key === "score" ? computeLeadScore(a) : key === "customer" ? (a.customer?.company || a.customer?.name || "") : a[key]
+      let valB = key === "score" ? computeLeadScore(b) : key === "customer" ? (b.customer?.company || b.customer?.name || "") : b[key]
+      if (valA === undefined || valA === null) valA = ""
+      if (valB === undefined || valB === null) valB = ""
+      if (typeof valA === "string") return valA.localeCompare(valB)
+      return valA - valB
+    })
+    return desc ? s.reverse() : s
+  }, [leads, sort])
   return (
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
-              <th className="px-4 py-3 font-medium">Lead</th>
-              <th className="px-4 py-3 font-medium">Stage</th>
-              <th className="px-4 py-3 text-right font-medium">Value</th>
-              <th className="px-4 py-3 text-right font-medium">Score</th>
-              <th className="px-4 py-3 font-medium">Follow-up</th>
-              <th className="px-4 py-3 font-medium">Owner</th>
+              <SortTh sortKey="customer" sort={sort} onSort={onSort}>Lead</SortTh>
+              <SortTh sortKey="stage" sort={sort} onSort={onSort}>Stage</SortTh>
+              <SortTh sortKey="estimatedValue" sort={sort} onSort={onSort} align="right">Value</SortTh>
+              <SortTh sortKey="score" sort={sort} onSort={onSort} align="right">Score</SortTh>
+              <SortTh sortKey="nextFollowUp" sort={sort} onSort={onSort}>Follow-up</SortTh>
+              <SortTh sortKey="owner" sort={sort} onSort={onSort}>Owner</SortTh>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">

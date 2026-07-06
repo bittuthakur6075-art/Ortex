@@ -93,7 +93,7 @@ The project utilizes Tailwind v4's direct CSS `@theme` configuration. The layout
     *   `--background`: HSL `0 0% 100%` (Dark: `222 47% 11%`)
     *   `--foreground`: HSL `222 47% 11%` (Dark: `0 0% 98%`)
     *   `--primary`: HSL `217 91% 60%`
-    *   `--secondary`: HSL `240 5% 96%` (Dark: `240 4% 16%`)
+    *   `--secondary`: HSL `200 33.3% 98.2%` (#f9fbfc) (Dark: `240 4% 16%`)
     *   `--accent`: HSL `217 91% 50%`
     *   `--whatsapp`: HSL `142 71% 49%` (Brand color helper for WhatsApp integration)
 

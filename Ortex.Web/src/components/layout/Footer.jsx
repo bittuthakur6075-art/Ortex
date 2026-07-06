@@ -67,11 +67,11 @@ export default function Footer() {
               <h4>Quick links</h4>
               <ul>
                 <li><Link to="/"><RollText text="Home" /></Link></li>
-                <li><Link to="/about"><RollText text="About us" /></Link></li>
                 <li><Link to="/products"><RollText text="Products & services" /></Link></li>
                 <li><Link to="/industries"><RollText text="Industries we serve" /></Link></li>
                 <li><Link to="/portfolio"><RollText text="Portfolio" /></Link></li>
                 <li><Link to="/faq"><RollText text="FAQs" /></Link></li>
+                <li><Link to="/about"><RollText text="About us" /></Link></li>
               </ul>
             </div>
 

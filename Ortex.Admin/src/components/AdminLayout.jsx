@@ -13,8 +13,6 @@ import {
   Settings,
   ShieldCheck,
   LogOut,
-  Sun,
-  Moon,
   Menu,
   X,
 } from "./icons"
@@ -90,16 +88,11 @@ const NAV = [
 ]
 
 function useDarkMode() {
-  const [dark, setDark] = useState(() => {
-    if (localStorage.getItem("ortex_admin_theme") === "dark") return true
-    if (localStorage.getItem("ortex_admin_theme") === "light") return false
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-  })
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark)
-    localStorage.setItem("ortex_admin_theme", dark ? "dark" : "light")
-  }, [dark])
-  return [dark, () => setDark((d) => !d)]
+    document.documentElement.classList.remove("dark")
+    localStorage.setItem("ortex_admin_theme", "light")
+  }, [])
+  return [false, () => {}]
 }
 
 function Brand() {
@@ -151,7 +144,7 @@ function NavItems({ onNavigate }) {
 export default function AdminLayout() {
   const authed = useAuth()
   const navigate = useNavigate()
-  const [dark, toggleDark] = useDarkMode()
+  useDarkMode()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const ready = useAuthReady()
@@ -239,14 +232,6 @@ export default function AdminLayout() {
             <Brand />
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <button
-              onClick={toggleDark}
-              className="rounded-lg p-2 text-muted-foreground hover:bg-muted"
-              aria-label="Toggle theme"
-              title={dark ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </button>
           </div>
         </header>
 

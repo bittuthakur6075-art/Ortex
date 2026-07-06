@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react"
 import { Package, Plus, Search, Pencil, Trash2, Download, Upload, X } from "../components/icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
-import { useCollection, useCategories } from "../data/hooks"
+import { useCollection, useCategories, useSorting } from "../data/hooks"
 import { PRODUCT_STATUS, UNITS, GST_RATES, newProduct, autoDetectCategory } from "../data/schema"
 import { formatCurrency, round2 } from "../lib/format"
 import { exportCsv } from "../lib/csv"
@@ -21,6 +21,7 @@ import {
   Money,
   Drawer,
   PageLoader,
+  SortTh,
 } from "../components/ui"
 
 export default function Products() {
@@ -33,7 +34,7 @@ export default function Products() {
   const [editing, setEditing] = useState(null) // product object or "new"
   const [viewing, setViewing] = useState(null) // product details viewing
   const [importing, setImporting] = useState(false)
-
+  const [sort, onSort] = useSorting("name")
   const filtered = useMemo(() => {
     let rows = items
     if (category !== "all") rows = rows.filter((p) => p.category === category)
@@ -43,8 +44,22 @@ export default function Products() {
         [p.name, p.sku, p.hsn, p.material, p.category].filter(Boolean).some((v) => v.toLowerCase().includes(q)),
       )
     }
-    return [...rows].sort((a, b) => a.name.localeCompare(b.name))
-  }, [items, query, category])
+
+    const { key, desc } = sort
+    const sorted = [...rows].sort((a, b) => {
+      let valA = a[key]
+      let valB = b[key]
+      if (key === "margin") {
+        valA = a.basePrice - a.costPrice
+        valB = b.basePrice - b.costPrice
+      }
+      if (valA === undefined || valA === null) valA = ""
+      if (valB === undefined || valB === null) valB = ""
+      if (typeof valA === "string") return valA.localeCompare(valB)
+      return valA - valB
+    })
+    return desc ? sorted.reverse() : sorted
+  }, [items, query, category, sort])
 
   const handleExport = () => {
     exportCsv(
@@ -201,13 +216,13 @@ export default function Products() {
                       aria-label="Select all"
                     />
                   </th>
-                  <th className="px-4 py-3 font-medium">Product</th>
-                  <th className="px-4 py-3 font-medium">Category</th>
-                  <th className="px-4 py-3 font-medium">HSN</th>
-                  <th className="px-4 py-3 text-right font-medium">Base price</th>
-                  <th className="px-4 py-3 text-right font-medium">Margin</th>
-                  <th className="px-4 py-3 text-right font-medium">GST</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
+                  <SortTh sortKey="name" sort={sort} onSort={onSort}>Product</SortTh>
+                  <SortTh sortKey="category" sort={sort} onSort={onSort}>Category</SortTh>
+                  <SortTh sortKey="hsn" sort={sort} onSort={onSort}>HSN</SortTh>
+                  <SortTh sortKey="basePrice" sort={sort} onSort={onSort} align="right">Base price</SortTh>
+                  <SortTh sortKey="margin" sort={sort} onSort={onSort} align="right">Margin</SortTh>
+                  <SortTh sortKey="gstRate" sort={sort} onSort={onSort} align="right">GST</SortTh>
+                  <SortTh sortKey="status" sort={sort} onSort={onSort}>Status</SortTh>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>

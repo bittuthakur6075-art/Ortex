@@ -2,14 +2,14 @@ import { useState, useMemo, useEffect } from "react"
 import { Users, Plus, Search, Mail, Phone, MessageCircle, Trash2, FileText, ReceiptIndianRupee } from "../components/icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
-import { useCollection } from "../data/hooks"
+import { useCollection, useSorting } from "../data/hooks"
 import { invoiceBalance } from "../data/domain"
 import { newCustomer } from "../data/schema"
 import { formatCurrency, round2 } from "../lib/format"
 import { exportCsv } from "../lib/csv"
 import { cn } from "../lib/cn"
 import PageHeader from "../components/PageHeader"
-import { Button, Card, Input, Field, EmptyState, Avatar, Money, Drawer, PageLoader } from "../components/ui"
+import { Button, Card, Input, Field, EmptyState, Avatar, Money, Drawer, PageLoader, SortTh } from "../components/ui"
 
 // Match a stored document customer snapshot to a master customer by email → phone.
 function matches(customer, doc) {
@@ -28,6 +28,7 @@ export default function Customers() {
   const { items: payments } = useCollection("payments")
   const [query, setQuery] = useState("")
   const [selected, setSelected] = useState(null)
+  const [sort, onSort] = useSorting("_business", true)
 
   const enriched = useMemo(() => {
     return items.map((c) => {
@@ -43,8 +44,23 @@ export default function Customers() {
     const q = query.trim().toLowerCase()
     let rows = enriched
     if (q) rows = rows.filter((c) => [c.name, c.company, c.email, c.phone, c.gstin].filter(Boolean).some((v) => v.toLowerCase().includes(q)))
-    return [...rows].sort((a, b) => b._business - a._business || a.name.localeCompare(b.name))
-  }, [enriched, query])
+    
+    const { key, desc } = sort
+    const sorted = [...rows].sort((a, b) => {
+      let valA = a[key]
+      let valB = b[key]
+      if (key === "name") {
+        // Sort by company or name
+        valA = a.company || a.name || ""
+        valB = b.company || b.name || ""
+      }
+      if (valA === undefined || valA === null) valA = ""
+      if (valB === undefined || valB === null) valB = ""
+      if (typeof valA === "string") return valA.localeCompare(valB)
+      return valA - valB
+    })
+    return desc ? sorted.reverse() : sorted
+  }, [enriched, query, sort])
 
   const active = selected === "new" ? "new" : selected ? enriched.find((c) => c.id === selected.id) || null : null
 
@@ -101,11 +117,11 @@ export default function Customers() {
             <table className="w-full text-left text-sm">
               <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Customer</th>
-                  <th className="px-4 py-3 font-medium">GSTIN</th>
-                  <th className="px-4 py-3 text-right font-medium">Orders</th>
-                  <th className="px-4 py-3 text-right font-medium">Business</th>
-                  <th className="px-4 py-3 text-right font-medium">Outstanding</th>
+                  <SortTh sortKey="name" sort={sort} onSort={onSort}>Customer</SortTh>
+                  <SortTh sortKey="gstin" sort={sort} onSort={onSort}>GSTIN</SortTh>
+                  <SortTh sortKey="_orders" sort={sort} onSort={onSort} align="right">Orders</SortTh>
+                  <SortTh sortKey="_business" sort={sort} onSort={onSort} align="right">Business</SortTh>
+                  <SortTh sortKey="_outstanding" sort={sort} onSort={onSort} align="right">Outstanding</SortTh>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

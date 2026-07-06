@@ -36,6 +36,7 @@ export default function Hero() {
         muted 
         loop 
         playsInline
+        aria-hidden="true"
       />
       <div className="lp-hero-overlay" />
       <div className="lp-wrap lp-hero-inner">
