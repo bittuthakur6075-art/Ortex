@@ -4,6 +4,7 @@ import Navbar from "./components/layout/Navbar"
 import Footer from "./components/layout/Footer"
 import ScrollToTop from "./components/layout/ScrollToTop"
 import Chatbot from "./components/ui/Chatbot"
+import WhatsAppWidget from "./components/ui/WhatsAppWidget"
 import Home from "./pages/Home"
 import About from "./pages/About"
 import Products from "./pages/Products"
@@ -15,6 +16,8 @@ import Terms from "./pages/Terms"
 import Cookies from "./pages/Cookies"
 import AcceptableUse from "./pages/AcceptableUse"
 import QuoteCalculator from "./pages/QuoteCalculator"
+import FAQ from "./pages/FAQ"
+import Photos from "./pages/Photos"
 import NotFound from "./pages/NotFound"
 
 function AppLayout() {
@@ -49,6 +52,8 @@ function AppLayout() {
             <Route path="/cookies" element={<Cookies />} />
             <Route path="/acceptable-use" element={<AcceptableUse />} />
             <Route path="/quote" element={<QuoteCalculator />} />
+            <Route path="/faq" element={<FAQ />} />
+            <Route path="/photos" element={<Photos />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
@@ -57,6 +62,8 @@ function AppLayout() {
         <Footer />
         {/* Ortex AI Chatbot Guide */}
         <Chatbot />
+        {/* Floating WhatsApp Widget */}
+        <WhatsAppWidget />
 
         {/* Sonner Toaster for Notifications */}
         <Toaster position="top-right" richColors />

@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react"
-import { Link, useLocation } from "react-router-dom"
-import { Send, X, Volume2, VolumeX, Sparkles, MessageCircle, ArrowRight } from "lucide-react"
+import { Link } from "react-router-dom"
+import { Send, X, Volume2, VolumeX, Sparkles, ArrowRight } from "lucide-react"
 import { cn } from "../../utils/cn"
+import { whatsappLink } from "../../constants/site"
 
 /* ============================================================
    Ortex AI Assistant (Orty)
@@ -55,7 +56,7 @@ const KB = [
   },
   {
     test: /price|cost|quote|rate|bill|how much/i,
-    answer: "Pricing is highly customized based on your product choice, design complexity, and order quantity. We offer competitive factory rates.\n\nFor a custom quote, you can:\n- Click **'Get Quote'** at the top of the chat panel to go to our Contact form.\n- Click the **WhatsApp icon** below to chat directly with our sales team.\n- Email us at **sales@ortexindustries.in**."
+    answer: "Pricing is highly customized based on your product choice, design complexity, and order quantity. We offer competitive factory rates.\n\nFor a custom quote, you can:\n- Click [Get Quote](/quote) to use our custom calculator.\n- Chat with us directly on [WhatsApp](https://wa.me/919211947188).\n- Send us an email at **sales@ortexindustries.in**."
   },
   {
     test: /custom|design|logo|mockup|artwork|own/i,
@@ -71,65 +72,18 @@ const KB = [
   },
   {
     test: /contact|sales|whatsapp|phone|number|email|address|location|office/i,
-    answer: "Here is how you can connect with us directly:\n- **WhatsApp Primary:** +91-9211947188\n- **Phone Secondary:** +91-8448663297\n- **Email:** sales@ortexindustries.in\n- **Office Hours:** Mon-Sat: 9:00 AM to 6:00 PM (Sunday Closed)\n- **Location:** New Delhi, India.\n\nFeel free to tap the WhatsApp button at the bottom of the chat to start a direct thread!"
+    answer: "Here is how you can connect with us directly:\n- **WhatsApp Sales:** [Chat on WhatsApp](https://wa.me/919211947188)\n- **Phone Secondary:** +91-8448663297\n- **Email:** sales@ortexindustries.in\n- **Office Hours:** Mon-Sat: 9:00 AM to 6:00 PM (Sunday Closed)\n- **Location:** New Delhi, India.\n\nFeel free to tap the WhatsApp button at the bottom of the chat to start a direct thread!"
   },
   {
     test: /order|buy|purchase|how to/i,
-    answer: "Ordering is simple:\n1. Send us your product requirements (qty, size, product type).\n2. Share your logo or artwork via email (**sales@ortexindustries.in**) or WhatsApp.\n3. Our design team shares a **digital mockup**.\n4. Upon your approval and order confirmation, we manufacture and ship!\n\nTap the WhatsApp button or fill out the contact form to begin."
+    answer: "Ordering is simple:\n1. Send us your product requirements (qty, size, product type).\n2. Share your logo or artwork via email (**sales@ortexindustries.in**) or WhatsApp.\n3. Our design team shares a **digital mockup**.\n4. Upon your approval and order confirmation, we manufacture and ship!\n\nTap the [WhatsApp button](https://wa.me/919211947188) or fill out the [Contact Form](/contact) to begin."
   }
 ]
 
-// ─── Admin Dashboard Chatbot Knowledge ───────────────────────────────────────
-
-const ADMIN_GREETING = {
-  role: "assistant",
-  text: "Welcome to the **Ortex Factory Command Assistant**! 🛡️⚡\n\nI can help you monitor production queues, machine workloads, raw material stock alerts, job dispatches, and factory cycle metrics.\n\nTry asking me: *What is the daily output?* or *Any low stock alerts?*",
-}
-
-const ADMIN_SUGGESTIONS = [
-  "Daily output goal progress",
-  "Machine status & loads",
-  "Low stock raw materials",
-  "Active floor jobs queue",
-  "Factory cycle lead time",
-  "Production pipeline stages",
-]
-
-const ADMIN_KB = [
-  {
-    test: /output|goal|dispat|progress|today|efficiency/i,
-    answer: "⚡ **Factory Output & Goal Progress Today:**\n- **Efficiency:** Operating at **84%** of daily target.\n- **Dispatches:** **840 / 1,000** custom items manufactured & shipped today.\n- **Status:** On track to hit the daily goal before shift end! 🟢"
-  },
-  {
-    test: /machine|equipment|load|tempera|hardware|engraver|mimaki|heat press/i,
-    answer: "⚙️ **Factory Equipment Status:**\n1. **CO2 Laser Engraver (1390) (Cutting):** 94% load | Active | Temp 38°C 🔵\n2. **Mimaki UV Flatbed Printer (Printing):** 82% load | Active | Temp 26°C 🟣\n3. **Satin Lanyard Heat Press (Sublimation):** 20% load | Setup | Temp 185°C 🟡"
-  },
-  {
-    test: /stock|inventory|material|sheet|acrylic|ribbon|hooks|warning|critical|low/i,
-    answer: "🚨 **Raw Materials Inventory Alerts:**\n- 🔴 **Critical:** 2mm Clear Acrylic Sheet (8x4ft) — **4 sheets left**\n- 🟡 **Warning:** 20mm Royal Blue Satin Ribbon Roll — **3 rolls left**\n- 🟡 **Warning:** Metal D-Shaped Lanyard Hooks — **450 pcs left**\n- 🟢 **Healthy:** 3mm Premium MDF Board (8x4ft) — **140 sheets left**"
-  },
-  {
-    test: /queue|floor|job|active|order|progress/i,
-    answer: "📋 **Active Floor Job Queue:**\n- **ORX-2846** — Infosys BPM → Acrylic Name Plates (150 pcs) — **85% done** (Assembly stage)\n- **ORX-2847** — Tata Steel Ltd. → MDF Signage Boards (50 pcs) — **60% done** (Laser Cutting stage)\n- **ORX-2844** — Wipro Technologies → ID Badges & Lanyards (1000 pcs) — **25% done** (Printing stage)\n- **ORX-2843** — Mahindra & Mahindra → Acrylic Trophy Set (40 pcs) — **10% done** (Design stage)"
-  },
-  {
-    test: /pipeline|stage|workflow|process|step/i,
-    answer: "🔄 **Production Pipeline Breakdown (47 active orders):**\n1. **Artwork Design (12):** Mockups waiting for client approval.\n2. **Laser Cutting (8):** Raw MDF/Acrylic engraving.\n3. **UV Printing / Sub (15):** Logo/graphic printing.\n4. **Assembly & QC (6):** Ring/pin fittings and QA checks.\n5. **Ready to Dispatch (6):** Packaged cartons ready for shipping."
-  },
-  {
-    test: /cycle|lead|time|average|days/i,
-    answer: "📈 **Weekly Cycle Lead Times:**\n- **Average time to dispatch:** **3.4 Days**\n- **Fastest line:** Acrylic magnets & keychains (1.8 Days)\n- **Longest line:** Bulk Custom Satin Lanyards (4.2 Days)"
-  },
-]
-
-function localAnswer(q, isAdmin) {
-  const kb = isAdmin ? ADMIN_KB : KB
-  const hit = kb.find((k) => k.test.test(q))
+function localAnswer(q) {
+  const hit = KB.find((k) => k.test.test(q))
   if (hit) return hit.answer
-  if (isAdmin) {
-    return "I can help you with anything on the admin dashboard — orders, revenue, products, customers, deadlines, and more.\n\nTry asking about **today's orders**, **revenue report**, or **upcoming deadlines**!"
-  }
-  return "That's a great question! For specific customizations, pricing details, or bulk catalog requests, it's best to speak with our sales representative.\n\nWould you like to **connect on WhatsApp** (+91-9211947188) or send a query through our **Contact Form**?"
+  return "That's a great question! For specific customizations, pricing details, or bulk catalog requests, it's best to speak with our sales representative.\n\nWould you like to [connect on WhatsApp](https://wa.me/919211947188) or send a query through our [Contact Form](/contact)?"
 }
 
 /* Tiny Web Audio synthesizer for chime effects */
@@ -189,20 +143,66 @@ function renderText(text) {
 }
 
 function renderInlineBold(text) {
-  return text.split(/\*\*(.+?)\*\*/g).map((seg, i) =>
-    i % 2 === 1 ? <strong key={i} className="font-semibold text-primary">{seg}</strong> : seg
-  )
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = linkRegex.exec(text)) !== null) {
+    const [_, linkText, linkUrl] = match;
+    const matchIndex = match.index;
+    
+    if (matchIndex > lastIndex) {
+      parts.push(text.substring(lastIndex, matchIndex));
+    }
+    
+    if (linkUrl.startsWith("http://") || linkUrl.startsWith("https://")) {
+      const isWa = linkUrl.startsWith("https://wa.me/919211947188") || linkUrl.includes("wa.me");
+      const finalUrl = isWa 
+        ? whatsappLink("Hi Ortex, I am talking to Orty (AI Guide) and would like to ask about custom manufacturing/pricing.")
+        : linkUrl;
+        
+      parts.push(
+        <a 
+          key={matchIndex} 
+          href={finalUrl} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="text-primary font-bold hover:underline"
+        >
+          {linkText}
+        </a>
+      );
+    } else {
+      parts.push(
+        <Link 
+          key={matchIndex} 
+          to={linkUrl} 
+          className="text-primary font-bold hover:underline"
+        >
+          {linkText}
+        </Link>
+      );
+    }
+    
+    lastIndex = linkRegex.lastIndex;
+  }
+  
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+  
+  return parts.flatMap((part, partIdx) => {
+    if (typeof part !== "string") return [part];
+    return part.split(/\*\*(.+?)\*\*/g).map((seg, i) =>
+      i % 2 === 1 ? <strong key={`${partIdx}-${i}`} className="font-semibold text-primary">{seg}</strong> : seg
+    );
+  });
 }
 
 export default function Chatbot() {
-  const location = useLocation()
-  const isAdmin = location.pathname.startsWith("/admin")
-
-  const activeGreeting = isAdmin ? ADMIN_GREETING : GREETING
-  const activeSuggestions = isAdmin ? ADMIN_SUGGESTIONS : SUGGESTIONS
-
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState([activeGreeting])
+  const [messages, setMessages] = useState([GREETING])
   const [draft, setDraft] = useState("")
   const [busy, setBusy] = useState(false)
   const [muted, setMuted] = useState(false)
@@ -211,15 +211,6 @@ export default function Chatbot() {
   const launcherRef = useRef(null)
   const chimeRef = useRef(null)
   const userActed = useRef(false)
-  const prevAdminRef = useRef(isAdmin)
-
-  // Reset messages when switching between admin and public pages
-  useEffect(() => {
-    if (prevAdminRef.current !== isAdmin) {
-      setMessages([isAdmin ? ADMIN_GREETING : GREETING])
-      prevAdminRef.current = isAdmin
-    }
-  }, [isAdmin])
 
   useEffect(() => {
     chimeRef.current = makeChime()
@@ -271,7 +262,7 @@ export default function Chatbot() {
   const handleSuggestionClick = (text) => {
     userActed.current = true
     if (text === "Talk to sales") {
-      window.open("https://wa.me/919211947188", "_blank", "noopener,noreferrer")
+      window.open(whatsappLink("Hi Ortex, I am talking to Orty (AI Assistant) and would like to connect with a sales representative."), "_blank", "noopener,noreferrer")
       return
     }
     sendText(text)
@@ -290,7 +281,7 @@ export default function Chatbot() {
     const delay = 600 + Math.min(message.length * 10, 800)
     await new Promise((r) => setTimeout(r, delay))
 
-    const answer = localAnswer(message, isAdmin)
+    const answer = localAnswer(message)
     setMessages((m) => [...m, { role: "assistant", text: answer }])
     play("receive")
     setBusy(false)
@@ -420,7 +411,7 @@ export default function Chatbot() {
             <div className="pt-2">
               <p className="text-[11px] text-muted-foreground font-semibold mb-2 ml-1">Suggested questions:</p>
               <div className="ka-suggest">
-                {activeSuggestions.map((s) => (
+                {SUGGESTIONS.map((s) => (
                   <button
                     key={s}
                     onClick={() => handleSuggestionClick(s)}
@@ -437,11 +428,18 @@ export default function Chatbot() {
         {/* Sales / WhatsApp CTA Banner */}
         <div className="px-4 py-2 bg-whatsapp/5 border-t border-b border-whatsapp/10 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <MessageCircle className="h-4.5 w-4.5 text-whatsapp fill-current" />
+            {/* WhatsApp Green Icon */}
+            <svg 
+              className="h-5 w-5 text-whatsapp fill-current" 
+              viewBox="0 0 24 24" 
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.457L0 24zm6.59-4.846c1.62.962 3.21 1.468 4.797 1.469 5.378-.001 9.756-4.379 9.759-9.76.002-2.607-1.013-5.059-2.859-6.907C16.438 2.11 13.99 1.096 11.385 1.096 6.006 1.096 1.628 5.474 1.625 10.855c-.001 1.639.489 3.238 1.419 4.7l-.986 3.603 3.699-.97c1.472.842 2.87 1.34 4.545 1.34zM17.476 14.39c-.329-.165-1.948-.96-2.253-1.071-.305-.11-.527-.165-.749.165-.221.329-.857 1.071-1.05 1.29-.193.22-.387.247-.716.082-1.099-.548-1.867-1.026-2.607-2.296-.195-.334-.195-.568-.03-.733.149-.148.329-.384.494-.576.165-.192.22-.329.329-.548.11-.22.055-.412-.028-.577-.082-.165-.749-1.808-1.026-2.476-.27-.648-.544-.56-.749-.57-.193-.01-.415-.011-.637-.011-.222 0-.582.083-.887.412-.305.329-1.164 1.14-1.164 2.784 0 1.644 1.196 3.23 1.361 3.45.165.22 2.353 3.593 5.7 5.039.796.344 1.417.55 1.902.705.8.254 1.528.218 2.103.133.64-.095 1.948-.796 2.223-1.564.276-.768.276-1.426.192-1.563-.083-.138-.305-.22-.634-.385z"/>
+            </svg>
             <span className="text-[11px] font-semibold text-whatsapp-foreground">Need bulk pricing right away?</span>
           </div>
           <a
-            href="https://wa.me/919211947188"
+            href={whatsappLink("Hi Ortex, I need a bulk pricing quote for customized products.")}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center space-x-1 text-[11px] font-bold text-whatsapp hover:underline"

@@ -878,4 +878,107 @@ a:hover > .roll-text .roll-char {
   background-color: rgba(47, 80, 228, 0.14);
 }
 
+/* Infinite Marquee Animation */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
 
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 35s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+@keyframes marquee-reverse {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.animate-marquee-reverse {
+  display: flex;
+  width: max-content;
+  animation: marquee-reverse 35s linear infinite;
+}
+
+.animate-marquee-reverse:hover {
+  animation-play-state: paused;
+}
+
+.marquee-container {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+
+.marquee-container::before,
+.marquee-container::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 120px;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.marquee-container::before {
+  left: 0;
+  background: linear-gradient(to right, hsl(var(--background)), transparent);
+}
+
+.marquee-container::after {
+  right: 0;
+  background: linear-gradient(to left, hsl(var(--background)), transparent);
+}
+
+/* Secondary background matching marquee container */
+.marquee-container-secondary {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+
+.marquee-container-secondary::before,
+.marquee-container-secondary::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 120px;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.marquee-container-secondary::before {
+  left: 0;
+  background: linear-gradient(to right, hsl(var(--secondary)), transparent);
+}
+
+.marquee-container-secondary::after {
+  right: 0;
+  background: linear-gradient(to left, hsl(var(--secondary)), transparent);
+}
+
+/* Slower Marquee for reading text reviews */
+.animate-marquee-slow {
+  display: flex;
+  width: max-content;
+  animation: marquee 55s linear infinite;
+}
+
+.animate-marquee-slow:hover {
+  animation-play-state: paused;
+}
