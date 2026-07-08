@@ -7,6 +7,7 @@
 // it falls back to localStorage so the site still works standalone.
 
 import { supabase, hasSupabase } from "./supabaseClient"
+import { trackActivity } from "./tracker"
 
 export async function submitEnquiry({ source, customer, productInterest = "", message = "", notes = "" }) {
   const doc = {
@@ -19,6 +20,18 @@ export async function submitEnquiry({ source, customer, productInterest = "", me
     message,
     notes,
   }
+
+  // Asynchronously track the submission activity
+  const isQuote = source === "Quote calculator"
+  trackActivity({
+    activityType: isQuote ? "Quote request" : "Contact form submission",
+    productId: productInterest,
+    metadata: {
+      customer,
+      productName: productInterest,
+      message,
+    }
+  }).catch(err => console.error("Tracking failed:", err))
 
   if (!hasSupabase) {
     return { error: "Database offline. Please try again or contact us directly via WhatsApp." }

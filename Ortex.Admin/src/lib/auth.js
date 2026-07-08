@@ -33,6 +33,7 @@ if (hasSupabase) {
 // ---- legacy passphrase gate (fallback when no backend) ----
 const PASSWORD_KEY = "ortex_admin_password"
 const SESSION_KEY = "ortex_admin_session"
+const DEFAULT_PASSWORD = "ortex@admin"
 const AUTH_EVENT = "ortex-admin-auth"
 
 export function isAuthed() {
@@ -46,13 +47,19 @@ export function authReady() {
   return hasSupabase ? sessionLoaded : true
 }
 
-// login(email, password) with Supabase. Returns { ok: true } or { error: message }.
+// login(email, password) with Supabase; legacy mode uses `password` only and
+// ignores `email`. Returns { ok: true } or { error: message }.
 export async function login(email, password) {
   if (hasSupabase) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     return error ? { error: error.message } : { ok: true }
   }
-  return { error: "Supabase connection is not configured. Please create a .env file with your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to log in." }
+  if (password === (localStorage.getItem(PASSWORD_KEY) || DEFAULT_PASSWORD)) {
+    sessionStorage.setItem(SESSION_KEY, "1")
+    window.dispatchEvent(new Event(AUTH_EVENT))
+    return { ok: true }
+  }
+  return { error: "Incorrect password. Please try again." }
 }
 
 export async function logout() {

@@ -15,6 +15,7 @@ import {
   LogOut,
   Menu,
   X,
+  Flame,
 } from "./icons"
 import { logout, useAuth, useAuthReady, currentEmail } from "../lib/auth"
 import { useProfile } from "../data/profile"
@@ -76,6 +77,12 @@ const NAV = [
       { to: "/quotations", key: "quotations", label: "Quotations", icon: FileText },
       { to: "/invoices", key: "invoices", label: "Invoices", icon: ReceiptIndianRupee },
       { to: "/payments", key: "payments", label: "Payments", icon: Wallet },
+    ],
+  },
+  {
+    section: "Automation",
+    items: [
+      { to: "/automation", key: "automation", label: "Automation", icon: Flame },
     ],
   },
   {

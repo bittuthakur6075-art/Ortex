@@ -8,7 +8,22 @@
 //   payments    — payment + payout ledger entries
 //   settings    — singleton: company profile, tax + numbering config
 
-export const COLLECTIONS = ["products", "categories", "customers", "enquiries", "leads", "quotations", "invoices", "payments"]
+export const COLLECTIONS = [
+  "products",
+  "categories",
+  "customers",
+  "enquiries",
+  "leads",
+  "quotations",
+  "invoices",
+  "payments",
+  "user_activities",
+  "event_logs",
+  "whatsapp_logs",
+  "ai_messages",
+  "automation_rules",
+  "message_templates"
+]
 
 // ---- shared status vocabularies -------------------------------------------
 // tone maps to the Badge component's colour set.
@@ -249,8 +264,90 @@ export function newActivity(overrides = {}) {
   return { type: "Note", direction: "outbound", summary: "", owner: "", ...overrides }
 }
 
-// Product category master. Default HSN + GST auto-fill onto a product when its
-// category is chosen.
 export function newCategory(overrides = {}) {
   return { name: "", hsn: "", gstRate: 18, description: "", ...overrides }
+}
+
+export function newUserActivity(overrides = {}) {
+  return {
+    userId: "",
+    sessionId: "",
+    productId: null,
+    activityType: "",
+    pageUrl: "",
+    referrer: "",
+    timestamp: new Date().toISOString(),
+    device: "",
+    browser: "",
+    operatingSystem: "",
+    ipAddress: "",
+    metadata: {},
+    ...overrides
+  }
+}
+
+export function newEventLog(overrides = {}) {
+  return {
+    activityId: "",
+    eventType: "",
+    userId: "",
+    description: "",
+    timestamp: new Date().toISOString(),
+    status: "processed",
+    ...overrides
+  }
+}
+
+export function newAiMessage(overrides = {}) {
+  return {
+    eventId: "",
+    userId: "",
+    customerName: "",
+    triggerType: "",
+    context: "",
+    generatedMessage: "",
+    createdAt: new Date().toISOString(),
+    ...overrides
+  }
+}
+
+export function newWhatsappLog(overrides = {}) {
+  return {
+    userId: "",
+    customerName: "",
+    phone: "",
+    templateName: "",
+    messageText: "",
+    status: "queued",
+    retryCount: 0,
+    maxRetries: 3,
+    errorMessage: "",
+    responsePayload: null,
+    createdAt: new Date().toISOString(),
+    sentAt: null,
+    ...overrides
+  }
+}
+
+export function newAutomationRule(overrides = {}) {
+  return {
+    name: "",
+    triggerEvent: "",
+    actionType: "whatsapp",
+    templateId: "",
+    delayMinutes: 0,
+    active: true,
+    description: "",
+    ...overrides
+  }
+}
+
+export function newMessageTemplate(overrides = {}) {
+  return {
+    name: "",
+    category: "",
+    body: "",
+    placeholders: [],
+    ...overrides
+  }
 }

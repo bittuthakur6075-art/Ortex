@@ -1,11 +1,12 @@
-import { lazy, Suspense } from "react"
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
+import { lazy, Suspense, useEffect } from "react"
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom"
 import { Toaster } from "sonner"
 import Navbar from "./components/layout/Navbar"
 import Footer from "./components/layout/Footer"
 import ScrollToTop from "./components/layout/ScrollToTop"
 import Chatbot from "./components/ui/Chatbot"
 import WhatsAppWidget from "./components/ui/WhatsAppWidget"
+import { trackActivity } from "./lib/tracker"
 
 // Lazy load pages to optimize bundle size and core web vitals
 const Home = lazy(() => import("./pages/Home"))
@@ -24,6 +25,45 @@ const Photos = lazy(() => import("./pages/Photos"))
 const NotFound = lazy(() => import("./pages/NotFound"))
 
 function AppLayout() {
+  const location = useLocation()
+
+  useEffect(() => {
+    let activityType = "Home page visit"
+    const path = location.pathname
+
+    if (path === "/") {
+      activityType = "Home page visit"
+    } else if (path === "/products") {
+      activityType = "Product page visit"
+    } else if (path === "/about") {
+      activityType = "Category browsing"
+    } else if (path === "/quote") {
+      activityType = "Checkout"
+    } else if (path === "/contact") {
+      activityType = "Product inquiry"
+    } else if (path === "/privacy" || path === "/terms" || path === "/cookies" || path === "/acceptable-use") {
+      activityType = "File download"
+    } else {
+      activityType = "Category browsing"
+    }
+
+    const params = new URLSearchParams(location.search)
+    const searchVal = params.get("search") || params.get("q")
+    const productVal = params.get("product")
+
+    let metadata = {}
+    if (searchVal) {
+      metadata.searchQuery = searchVal
+      trackActivity({ activityType: "Product search", metadata })
+    }
+
+    if (productVal) {
+      metadata.productName = productVal
+      trackActivity({ activityType: "Product page visit", productId: productVal, metadata })
+    } else {
+      trackActivity({ activityType, metadata })
+    }
+  }, [location])
 
   return (
     <>
