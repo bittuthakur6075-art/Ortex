@@ -34,8 +34,8 @@ export default function QuoteCalculator() {
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [reference, setReference] = useState("")
 
-  const [productsList, setProductsList] = useState(PRODUCTS)
-  const [categoriesList, setCategoriesList] = useState(CATEGORIES)
+  const [productsList, setProductsList] = useState(hasSupabase ? [] : PRODUCTS)
+  const [categoriesList, setCategoriesList] = useState(hasSupabase ? [] : CATEGORIES)
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
@@ -411,7 +411,12 @@ export default function QuoteCalculator() {
                 </div>
 
                 {/* Product grid */}
-                {filtered.length === 0 ? (
+                {isLoading && productsList.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
+                    <div className="w-8 h-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
+                    <span>Loading catalogue...</span>
+                  </div>
+                ) : filtered.length === 0 ? (
                   <div className="text-center py-16 text-muted-foreground">No products match your search.</div>
                 ) : (
                   <div className="grid sm:grid-cols-2 gap-4">
