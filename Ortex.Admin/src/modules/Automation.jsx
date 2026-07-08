@@ -177,10 +177,7 @@ export default function Automation() {
         await repo.update("automation_rules", editingRule.id, ruleForm)
         toast.success("Automation rule updated successfully")
       } else {
-        await repo.create("automation_rules", {
-          ...ruleForm,
-          id: "rule_" + Date.now()
-        })
+        await repo.create("automation_rules", ruleForm)
         toast.success("New automation rule created")
       }
       setRuleDrawerOpen(false)
@@ -232,10 +229,7 @@ export default function Automation() {
         await repo.update("message_templates", editingTemplate.id, payload)
         toast.success("Template updated successfully")
       } else {
-        await repo.create("message_templates", {
-          ...payload,
-          id: "template_" + Date.now()
-        })
+        await repo.create("message_templates", payload)
         toast.success("New message template created")
       }
       setTemplateDrawerOpen(false)
@@ -259,11 +253,11 @@ export default function Automation() {
     if (!searchQuery) return activities
     const query = searchQuery.toLowerCase()
     return activities.filter(a =>
-      a.activityType.toLowerCase().includes(query) ||
-      a.userId.toLowerCase().includes(query) ||
-      a.sessionId.toLowerCase().includes(query) ||
-      (a.ipAddress && a.ipAddress.includes(query)) ||
-      (a.metadata?.productName && a.metadata.productName.toLowerCase().includes(query))
+      (a.activityType || "").toLowerCase().includes(query) ||
+      (a.userId || "").toLowerCase().includes(query) ||
+      (a.sessionId || "").toLowerCase().includes(query) ||
+      (a.ipAddress || "").includes(query) ||
+      (a.metadata?.productName || "").toLowerCase().includes(query)
     )
   }, [activities, searchQuery])
 
@@ -271,10 +265,10 @@ export default function Automation() {
     if (!searchQuery) return whatsappLogs
     const query = searchQuery.toLowerCase()
     return whatsappLogs.filter(l =>
-      l.customerName.toLowerCase().includes(query) ||
-      l.phone.includes(query) ||
-      l.messageText.toLowerCase().includes(query) ||
-      l.status.toLowerCase().includes(query)
+      (l.customerName || "").toLowerCase().includes(query) ||
+      (l.phone || "").includes(query) ||
+      (l.messageText || "").toLowerCase().includes(query) ||
+      (l.status || "").toLowerCase().includes(query)
     )
   }, [whatsappLogs, searchQuery])
 
