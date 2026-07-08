@@ -166,6 +166,20 @@ async function processEventTrigger(activity) {
     } catch (e) {
       console.error("Failed to save event log to Supabase:", e)
     }
+
+    // 🔥 Fire server-side automation engine via Supabase Edge Function
+    try {
+      supabase.functions.invoke("automation-engine", {
+        body: {
+          eventType,
+          userId: activity.userId,
+          description,
+          metadata: activity.metadata || {}
+        }
+      }).catch(e => console.warn("Automation engine skipped:", e))
+    } catch (e) {
+      console.warn("Automation engine error:", e)
+    }
   } else {
     try {
       const list = JSON.parse(localStorage.getItem("ortex_event_logs") || "[]")
@@ -173,7 +187,7 @@ async function processEventTrigger(activity) {
       list.push(eventRecord)
       localStorage.setItem("ortex_event_logs", JSON.stringify(list))
 
-      // Trigger client-side automation engine execution
+      // Trigger client-side automation engine execution (local/dev mode)
       runClientAutomationEngine(eventRecord, activity)
     } catch (e) {
       console.warn("LocalStorage write failed for event log:", e)

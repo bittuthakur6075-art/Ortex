@@ -122,42 +122,32 @@ export default function Automation() {
     return phone.replace(/(\+?\d{2}-?\d{3})\d{4}(\d{3})/, "$1-XXXX-$2")
   }
 
-  // Trigger manual retry for failed WhatsApp messages
-  const handleRetryMessage = async (logId) => {
+  // Open WhatsApp Web with pre-filled message (free, no API needed)
+  const handleOpenWhatsApp = async (log) => {
     if (!checkRateLimit()) return
 
-    toast.info("Retrying WhatsApp delivery...")
+    const phone = log.phone?.replace(/\D/g, "")
+    if (!phone) {
+      toast.error("No phone number available for this log.")
+      return
+    }
+
+    // Use stored whatsappUrl or build it
+    const url = log.whatsappUrl ||
+      `https://wa.me/${phone}?text=${encodeURIComponent(log.messageText || "")}`
+
+    window.open(url, "_blank")
+
+    // Mark as sent in DB
     try {
-      const target = whatsappLogs.find(l => l.id === logId)
-      if (!target) return
-
-      await repo.update("whatsapp_logs", logId, {
-        status: "sending",
-        retryCount: (target.retryCount || 0) + 1,
-        errorMessage: ""
+      await repo.update("whatsapp_logs", log.id, {
+        status: "sent",
+        sentAt: new Date().toISOString(),
+        responsePayload: { method: "whatsapp_web", opened_at: new Date().toISOString() }
       })
-
-      // Simulate sending delay
-      setTimeout(async () => {
-        const success = Math.random() > 0.1 // 90% success rate on manual retry
-        if (success) {
-          await repo.update("whatsapp_logs", logId, {
-            status: "delivered",
-            sentAt: new Date().toISOString(),
-            responsePayload: { status: "success", message_id: "retry_wamid_" + Math.random().toString(36).substring(7) }
-          })
-          toast.success("WhatsApp message delivered!")
-        } else {
-          await repo.update("whatsapp_logs", logId, {
-            status: "failed",
-            errorMessage: "API Network Error: Server timed out during payload transmission."
-          })
-          toast.error("WhatsApp delivery failed again.")
-        }
-      }, 1500)
-
+      toast.success(`Opening WhatsApp for ${log.customerName}...`)
     } catch (err) {
-      toast.error("Retry failed: " + err.message)
+      toast.error("Failed to update log: " + err.message)
     }
   }
 
@@ -788,19 +778,22 @@ export default function Automation() {
                             <div className="text-[10px] text-destructive mt-1 font-mono max-w-xs">{log.errorMessage}</div>
                           )}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right">
-                          {log.status === "failed" && (
+                        <td className="whitespace-nowrap px-4 py-3 text-right space-x-2">
+                          {(log.status === "failed" || log.status === "queued") && (
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleRetryMessage(log.id)}
-                              className="h-7 text-[11px]"
+                              onClick={() => handleOpenWhatsApp(log)}
+                              className="h-7 text-[11px] border-emerald-500 text-emerald-600 hover:bg-emerald-50"
                             >
-                              Retry Dispatch
+                              📱 Send via WhatsApp
                             </Button>
                           )}
-                          {log.status === "queued" && (
-                            <span className="text-xs text-muted-foreground italic">Scheduled</span>
+                          {log.status === "sent" && (
+                            <span className="text-xs text-muted-foreground italic">Sent via WhatsApp Web</span>
+                          )}
+                          {log.status === "delivered" && (
+                            <span className="text-xs text-emerald-600 font-semibold">✓ Delivered</span>
                           )}
                         </td>
                       </tr>
