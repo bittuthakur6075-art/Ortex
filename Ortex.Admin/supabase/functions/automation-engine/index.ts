@@ -245,21 +245,23 @@ Deno.serve(async (req: Request) => {
       }
 
       // ----------------------------------------------------------------
-      // 6a. Save to ai_messages
+      // 6a. Save to ai_messages — field names match Automation.jsx
+      // msg.triggerType, msg.context, msg.generatedMessage, msg.customerName
       // ----------------------------------------------------------------
+      const ruleName = ruleDoc.name as string ?? 'Automation Rule'
+      const context = `Trigger: ${ruleName}. Event: ${description ?? eventType}. Customer: ${customerName || 'Anonymous'}.`
+
       const aiMessageData = {
-        eventType,
-        userId: userId ?? null,
-        description: description ?? null,
-        metadata: metadata ?? null,
-        ruleId: ruleRow.id,
-        templateId: matchedTemplate?.id ?? null,
-        templateName: matchedTemplate?.doc?.name ?? templateName ?? null,
+        triggerType: ruleName,
+        context,
+        generatedMessage: body,
         customerName,
         productName,
         phone: phone || null,
-        messageBody: body,
-        status: 'pending',
+        userId: userId ?? null,
+        eventType,
+        ruleId: ruleRow.id,
+        templateId: matchedTemplate?.id ?? null,
         createdAt: new Date().toISOString(),
       }
 
@@ -269,29 +271,33 @@ Deno.serve(async (req: Request) => {
 
       if (aiMsgError) {
         console.error('Error inserting ai_message:', aiMsgError)
-        // Continue processing other rules even if one fails
         continue
       }
 
       // ----------------------------------------------------------------
-      // 6b. Save to whatsapp_logs if phone is present
+      // 6b. Save to whatsapp_logs — field names match Automation.jsx
+      // log.messageText, log.templateName, log.phone, log.status='queued'
       // ----------------------------------------------------------------
       if (phone) {
         const cleanPhone = phone.replace(/\D/g, '')
         const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(body)}`
+        const resolvedTemplateName = (matchedTemplate?.doc?.name as string) ?? (ruleDoc.templateId as string) ?? 'Auto Generated'
 
         const whatsappLogData = {
-          eventType,
-          userId: userId ?? null,
-          ruleId: ruleRow.id,
-          templateId: matchedTemplate?.id ?? null,
           customerName,
-          productName,
           phone,
-          cleanPhone,
-          messageBody: body,
+          templateName: resolvedTemplateName,
+          messageText: body,
           whatsappUrl,
-          status: 'pending',
+          status: 'queued',
+          retryCount: 0,
+          maxRetries: 3,
+          errorMessage: '',
+          responsePayload: null,
+          sentAt: null,
+          userId: userId ?? null,
+          eventType,
+          ruleId: ruleRow.id,
           createdAt: new Date().toISOString(),
         }
 
