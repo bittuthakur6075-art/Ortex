@@ -419,46 +419,68 @@ export default function QuoteCalculator() {
                 ) : filtered.length === 0 ? (
                   <div className="text-center py-16 text-muted-foreground">No products match your search.</div>
                 ) : (
-                  <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="grid sm:grid-cols-2 gap-5">
                     {filtered.map((p) => {
                       const inCart = cart[p.id] != null
                       return (
-                        <div key={p.id} className="bg-card border border-border/70 rounded-xl p-5 flex flex-col hover:border-primary/50 hover:-translate-y-0.5 transition-all duration-200">
-                          <div className="flex items-start justify-between">
+                        <div key={p.id} className="bg-card border border-border/60 rounded-2xl overflow-hidden flex flex-col h-full hover:shadow-lg hover:border-primary/30 transition-all duration-300 group">
+                          {/* Image Container */}
+                          <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted/20 border-b border-border/40">
                             {p.images && p.images.length > 0 ? (
                               <img 
                                 src={p.images[0]} 
                                 alt={p.name} 
-                                className="w-12 h-12 rounded-lg object-cover border border-border/60 bg-muted/30"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                               />
                             ) : (
-                              <span className="text-2xl">{catIcon(p.category)}</span>
+                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted/30 to-muted/10">
+                                <span className="text-4xl filter drop-shadow-sm">{catIcon(p.category)}</span>
+                              </div>
                             )}
-                            <span className="text-xs text-muted-foreground bg-secondary rounded-full px-2 py-0.5">{p.category.split(" ")[0]}</span>
+                            {/* Category Tag Overlay */}
+                            <span className="absolute top-3 left-3 bg-background/80 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2.5 py-1 rounded-full border border-border/30 shadow-sm">
+                              {p.category}
+                            </span>
                           </div>
-                          <h3 className="font-semibold text-foreground mt-3 leading-tight">{p.name}</h3>
-                          <p className="text-xs text-muted-foreground mt-1 flex-1">{p.material}</p>
-                          <div className="flex items-end justify-between mt-3">
-                            <div>
-                              <div className="text-lg font-bold text-foreground">₹{p.basePrice}<span className="text-xs font-normal text-muted-foreground">/{p.unit}</span></div>
-                              <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
-                                <span>MOQ {p.moq}</span>
-                                <span className="inline-flex items-center gap-0.5"><Clock className="h-3 w-3" />{p.leadTimeDays}d</span>
+
+                          {/* Content Area */}
+                          <div className="p-4 flex flex-col flex-1">
+                            <h3 className="font-bold text-foreground text-sm line-clamp-2 leading-snug group-hover:text-primary transition-colors min-h-[40px] flex-none">
+                              {p.name}
+                            </h3>
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1 flex-1">
+                              {p.material || "Standard specification"}
+                            </p>
+
+                            {/* Price and Metadata Section */}
+                            <div className="mt-4 pt-3 border-t border-border/40 flex items-baseline justify-between">
+                              <div>
+                                <span className="text-[10px] font-medium text-muted-foreground block mb-0.5">Indicative Price</span>
+                                <div className="text-base font-extrabold text-foreground">
+                                  ₹{Number(p.basePrice).toLocaleString('en-IN')}
+                                  <span className="text-[11px] font-normal text-muted-foreground ml-1">/ {p.unit}</span>
+                                </div>
+                              </div>
+                              <div className="text-[10px] text-muted-foreground flex flex-col items-end gap-1">
+                                <span className="bg-secondary px-1.5 py-0.5 rounded font-medium">MOQ {p.moq}</span>
+                                <span className="inline-flex items-center gap-1 font-medium"><Clock className="h-3 w-3 text-primary/80" /> {p.leadTimeDays}d dispatch</span>
                               </div>
                             </div>
+
+                            {/* Cart Action Button */}
+                            {inCart ? (
+                              <div className="mt-4 w-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 py-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all text-xs">
+                                <Check className="h-4 w-4" /> Added to quote
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => addToCart(p)}
+                                className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/95 py-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow-md cursor-pointer text-xs"
+                              >
+                                <Plus className="h-4 w-4" /> Add to quote
+                              </button>
+                            )}
                           </div>
-                          {inCart ? (
-                            <div className="mt-4 flex items-center justify-center gap-2 text-sm font-medium text-emerald-600">
-                              <Check className="h-4 w-4" /> Added to quote
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => addToCart(p)}
-                              className="mt-4 w-full border border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground py-2 font-medium rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                            >
-                              <Plus className="h-4 w-4" /> Add to quote
-                            </button>
-                          )}
                         </div>
                       )
                     })}
