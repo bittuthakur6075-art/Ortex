@@ -57,17 +57,44 @@ function getUAInfo() {
   return { browser, os, device }
 }
 
-// Fetch public IP address asynchronously (best effort)
-let cachedIp = ""
-async function getIpAddress() {
-  if (cachedIp) return cachedIp
+// Fetch public IP and location details asynchronously (best effort)
+let cachedLocation = null
+async function getLocationData() {
+  if (cachedLocation) return cachedLocation
   try {
-    const res = await fetch("https://api.ipify.org?format=json")
+    const res = await fetch("https://ipapi.co/json/")
+    if (!res.ok) throw new Error("Failed to fetch location data")
     const data = await res.json()
-    cachedIp = data.ip
-    return cachedIp
-  } catch {
-    return "127.0.0.1" // Fallback
+    cachedLocation = {
+      ip: data.ip || "127.0.0.1",
+      city: data.city || "Unknown City",
+      region: data.region || "Unknown Region",
+      country: data.country_name || "Unknown Country",
+      location: data.city && data.country_name ? `${data.city}, ${data.region ? data.region + ', ' : ''}${data.country_name}` : "Unknown Location"
+    }
+    return cachedLocation
+  } catch (err) {
+    console.warn("Geolocation fetch failed, trying fallback IP fetch:", err)
+    try {
+      const res = await fetch("https://api.ipify.org?format=json")
+      const data = await res.json()
+      cachedLocation = {
+        ip: data.ip || "127.0.0.1",
+        city: "Unknown City",
+        region: "Unknown Region",
+        country: "Unknown Country",
+        location: "Unknown Location"
+      }
+      return cachedLocation
+    } catch {
+      return {
+        ip: "127.0.0.1",
+        city: "Unknown City",
+        region: "Unknown Region",
+        country: "Unknown Country",
+        location: "Unknown Location"
+      }
+    }
   }
 }
 
@@ -75,7 +102,7 @@ async function getIpAddress() {
 export async function trackActivity({ activityType, productId = null, metadata = {} }) {
   const { userId, sessionId } = getTrackingIds()
   const { browser, os, device } = getUAInfo()
-  const ipAddress = await getIpAddress()
+  const loc = await getLocationData()
 
   const doc = {
     userId,
@@ -88,7 +115,11 @@ export async function trackActivity({ activityType, productId = null, metadata =
     device,
     browser,
     operatingSystem: os,
-    ipAddress,
+    ipAddress: loc.ip,
+    city: loc.city,
+    region: loc.region,
+    country: loc.country,
+    location: loc.location,
     metadata,
   }
 
