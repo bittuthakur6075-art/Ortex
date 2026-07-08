@@ -148,6 +148,8 @@ function NavItems({ onNavigate }) {
   )
 }
 
+import { syncLocalToSupabase } from "../data/sync"
+
 export default function AdminLayout() {
   const authed = useAuth()
   const navigate = useNavigate()
@@ -159,6 +161,12 @@ export default function AdminLayout() {
   useEffect(() => {
     if (ready && !authed) navigate("/login", { replace: true })
   }, [ready, authed, navigate])
+
+  useEffect(() => {
+    if (authed) {
+      syncLocalToSupabase()
+    }
+  }, [authed])
 
   // Wait for the session to resolve before deciding — avoids a login flash on refresh.
   if (!ready) {
