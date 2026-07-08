@@ -425,7 +425,15 @@ export default function QuoteCalculator() {
                       return (
                         <div key={p.id} className="bg-card border border-border/70 rounded-xl p-5 flex flex-col hover:border-primary/50 hover:-translate-y-0.5 transition-all duration-200">
                           <div className="flex items-start justify-between">
-                            <span className="text-2xl">{catIcon(p.category)}</span>
+                            {p.images && p.images.length > 0 ? (
+                              <img 
+                                src={p.images[0]} 
+                                alt={p.name} 
+                                className="w-12 h-12 rounded-lg object-cover border border-border/60 bg-muted/30"
+                              />
+                            ) : (
+                              <span className="text-2xl">{catIcon(p.category)}</span>
+                            )}
                             <span className="text-xs text-muted-foreground bg-secondary rounded-full px-2 py-0.5">{p.category.split(" ")[0]}</span>
                           </div>
                           <h3 className="font-semibold text-foreground mt-3 leading-tight">{p.name}</h3>
