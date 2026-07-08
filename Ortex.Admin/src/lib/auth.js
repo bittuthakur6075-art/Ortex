@@ -62,6 +62,26 @@ export async function login(email, password) {
   return { error: "Incorrect password. Please try again." }
 }
 
+export async function signUp(email, password, name = "") {
+  if (hasSupabase) {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name,
+          role: email === "louis.sharma37@gmail.com" ? "admin" : "sales",
+          modules: email === "louis.sharma37@gmail.com"
+            ? ["leads","enquiries","customers","products","categories","quotations","invoices","payments","automation","users","settings"]
+            : ["leads","enquiries","customers"]
+        }
+      }
+    })
+    return error ? { error: error.message } : { ok: true }
+  }
+  return { error: "Local/Demo mode does not support user registration." }
+}
+
 export async function logout() {
   if (hasSupabase) {
     await supabase.auth.signOut()

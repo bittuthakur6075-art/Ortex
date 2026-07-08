@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Lock, Mail, ShieldCheck, ArrowRight, Inbox, CheckCircle2, Database, LayoutGrid } from "./icons"
-import { login, isAuthed } from "../lib/auth"
+import { Lock, Mail, ShieldCheck, ArrowRight, Inbox, CheckCircle2, Database, LayoutGrid, Users } from "./icons"
+import { login, signUp, isAuthed } from "../lib/auth"
 import { hasSupabase } from "../data/supabaseClient"
 import { Button, Input } from "./ui"
 
@@ -9,6 +9,8 @@ export default function Login() {
   const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [name, setName] = useState("")
+  const [isSignUp, setIsSignUp] = useState(false)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
 
@@ -19,13 +21,33 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setBusy(true)
-    const res = await login(email, password)
-    setBusy(false)
-    if (res.ok) {
-      navigate("/", { replace: true })
+    setError("")
+    
+    if (isSignUp) {
+      const res = await signUp(email, password, name)
+      if (res.ok) {
+        // Auto sign in after sign up
+        const loginRes = await login(email, password)
+        setBusy(false)
+        if (loginRes.ok) {
+          navigate("/", { replace: true })
+        } else {
+          setError("Account created, but automatic sign in failed. Please sign in manually.")
+          setIsSignUp(false)
+        }
+      } else {
+        setBusy(false)
+        setError(res.error || "Registration failed.")
+      }
     } else {
-      setError(res.error || "Sign in failed.")
-      setPassword("")
+      const res = await login(email, password)
+      setBusy(false)
+      if (res.ok) {
+        navigate("/", { replace: true })
+      } else {
+        setError(res.error || "Sign in failed.")
+        setPassword("")
+      }
     }
   }
 
@@ -35,7 +57,7 @@ export default function Login() {
     <div className="lgn">
       <div className="lgn-card">
 
-        {/* ---- Left: sign-in form ---- */}
+        {/* ---- Left: sign-in/up form ---- */}
         <section className="lgn-left">
           <div className="lgn-top">
             <a href="/" className="lgn-brand" aria-label="Ortex Industries home">
@@ -49,10 +71,32 @@ export default function Login() {
           <div className="lgn-body">
             <h1 className="lgn-title">Admin Console</h1>
             <p className="lgn-sub">
-              Sign in to manage enquiries, quotations, invoicing and payments for Ortex Industries.
+              {isSignUp 
+                ? "Create a staff/admin account to access the console."
+                : "Sign in to manage enquiries, quotations, invoicing and payments for Ortex Industries."}
             </p>
 
             <form onSubmit={handleSubmit} noValidate className="lgn-form">
+              {isSignUp && (
+                <div className="mb-4">
+                  <label htmlFor="name" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Name
+                  </label>
+                  <div className="relative">
+                    <Users className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="name"
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => { setName(e.target.value); if (error) setError("") }}
+                      placeholder="Your Full Name"
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="mb-4">
                 <label htmlFor="email" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Email
@@ -89,9 +133,21 @@ export default function Login() {
               {error && <p className="mt-2 text-sm text-destructive" role="alert">{error}</p>}
 
               <Button type="submit" className="mt-5 w-full justify-center" disabled={busy}>
-                {busy ? "Signing in…" : "Sign in"}
+                {busy ? (isSignUp ? "Creating account…" : "Signing in…") : (isSignUp ? "Create Account" : "Sign In")}
                 <ArrowRight className="h-4 w-4" />
               </Button>
+              
+              {hasSupabase && (
+                <div className="mt-4 text-center text-xs">
+                  <button 
+                    type="button" 
+                    onClick={() => { setIsSignUp(!isSignUp); setError(""); }}
+                    className="text-primary hover:underline font-medium"
+                  >
+                    {isSignUp ? "Already have an account? Sign in" : "Don't have an account yet? Register/Sign up"}
+                  </button>
+                </div>
+              )}
             </form>
 
             <div className="lgn-secure">
