@@ -148,6 +148,72 @@ export async function seedDemo() {
   await repo.update("invoices", "inv_2", { amountPaid: total("inv_2") })
   await repo.update("invoices", "inv_3", { amountPaid: half("inv_3") })
 
+  // ---- Message Templates ----
+  const TEMPLATES = [
+    { id: "template_quote_request", name: "template_quote_request", category: "Quote Request", body: "Hi {name}, we received your quote request for {product_name}. Our team is working on your pricing. - Ortex Sales Desk", placeholders: ["name", "product_name"] },
+    { id: "template_contact_form", name: "template_contact_form", category: "Contact Form", body: "Hi {name}, thanks for contacting us! We received your message: \"{message_snippet}\". A representative will contact you soon. - Ortex Industries", placeholders: ["name", "message_snippet"] },
+    { id: "template_cart_abandonment", name: "template_cart_abandonment", category: "Cart Abandonment", body: "Hi {name}, we noticed you left some items in your quote cart, including {product_name}. Can we help you finalize your quote? - Ortex Sales", placeholders: ["name", "product_name"] },
+    { id: "template_order_confirm", name: "template_order_confirm", category: "Order Confirmation", body: "Hi {name}, your order for {product_name} ({quantity} {unit}) is confirmed! Invoice {invoice_number} has been generated. - Ortex Industries", placeholders: ["name", "product_name", "quantity", "unit", "invoice_number"] },
+    { id: "template_payment_confirm", name: "template_payment_confirm", category: "Payment Confirmation", body: "Hi {name}, we received your payment of ₹{amount} for Invoice {invoice_number}. Thank you! - Ortex Accounts", placeholders: ["name", "amount", "invoice_number"] },
+  ]
+  await repo.bulkCreate("message_templates", TEMPLATES)
+
+  // ---- Automation Rules ----
+  const RULES = [
+    { id: "rule_quote", name: "Quote Request Follow-up", triggerEvent: "quote_requested", actionType: "whatsapp", templateId: "template_quote_request", delayMinutes: 0, active: true, description: "Send WhatsApp immediately after quote calculator submission." },
+    { id: "rule_contact", name: "Contact Form Auto-reply", triggerEvent: "contact_form_submitted", actionType: "whatsapp", templateId: "template_contact_form", delayMinutes: 0, active: true, description: "Send welcome reply after contact form submission." },
+    { id: "rule_cart", name: "Cart Abandonment Reminder", triggerEvent: "cart_abandoned", actionType: "whatsapp", templateId: "template_cart_abandonment", delayMinutes: 30, active: true, description: "Send reminder 30 minutes after quote cart is inactive." },
+    { id: "rule_order", name: "Order Confirmation Notification", triggerEvent: "order_confirmed", actionType: "whatsapp", templateId: "template_order_confirm", delayMinutes: 0, active: true, description: "Send confirmation message when invoice is generated." },
+    { id: "rule_payment", name: "Payment Receipt Confirmation", triggerEvent: "payment_received", actionType: "whatsapp", templateId: "template_payment_confirm", delayMinutes: 0, active: true, description: "Send payment confirmation upon receiving payment inflow." },
+  ]
+  await repo.bulkCreate("automation_rules", RULES)
+
+  // ---- User Activities ----
+  const ACTIVITIES = [
+    { id: "act_1", userId: "usr_priya", sessionId: "sess_p1", activityType: "Home page visit", pageUrl: "/", referrer: "Google Search", timestamp: ago(4), device: "Mobile", browser: "Chrome", operatingSystem: "Android", ipAddress: "103.88.22.41", metadata: {} },
+    { id: "act_2", userId: "usr_priya", sessionId: "sess_p1", activityType: "Product page visit", productId: "prod_mdf01", pageUrl: "/products?product=Custom%20MDF%20Award%20Trophy", referrer: "Home page link", timestamp: ago(4), device: "Mobile", browser: "Chrome", operatingSystem: "Android", ipAddress: "103.88.22.41", metadata: { productName: "Custom MDF Award Trophy" } },
+    { id: "act_3", userId: "usr_priya", sessionId: "sess_p1", activityType: "Quote request", pageUrl: "/quote", referrer: "Products page link", timestamp: ago(4), device: "Mobile", browser: "Chrome", operatingSystem: "Android", ipAddress: "103.88.22.41", metadata: { customer: CUSTOMERS.bright, productName: "Custom MDF Award Trophy", quantity: 500 } },
+    { id: "act_4", userId: "usr_rahul", sessionId: "sess_r1", activityType: "Product search", pageUrl: "/products?search=lanyards", referrer: "Direct", timestamp: ago(3), device: "Desktop", browser: "Chrome", operatingSystem: "Windows", ipAddress: "122.161.4.19", metadata: { searchQuery: "lanyards" } },
+    { id: "act_5", userId: "usr_rahul", sessionId: "sess_r1", activityType: "Product page visit", productId: "prod_lan01", pageUrl: "/products?product=Sublimation%20Lanyard%2016mm", referrer: "Search results", timestamp: ago(3), device: "Desktop", browser: "Chrome", operatingSystem: "Windows", ipAddress: "122.161.4.19", metadata: { productName: "Sublimation Lanyard 16mm" } },
+    { id: "act_6", userId: "usr_rahul", sessionId: "sess_r1", activityType: "Contact form submission", pageUrl: "/contact", referrer: "Products page link", timestamp: ago(3), device: "Desktop", browser: "Chrome", operatingSystem: "Windows", ipAddress: "122.161.4.19", metadata: { customer: CUSTOMERS.technova, productName: "Sublimation Lanyard 16mm", message: "1000 sublimation lanyards in brand colours for a conference." } },
+    { id: "act_7", userId: "usr_anon1", sessionId: "sess_a1", activityType: "Home page visit", pageUrl: "/", referrer: "LinkedIn Ads", timestamp: ago(2), device: "Mobile", browser: "Safari", operatingSystem: "iOS", ipAddress: "223.189.14.77", metadata: {} },
+    { id: "act_8", userId: "usr_anon1", sessionId: "sess_a1", activityType: "Product page visit", productId: "prod_acr01", pageUrl: "/products?product=Acrylic%20Desk%20Standee", referrer: "Home page", timestamp: ago(2), device: "Mobile", browser: "Safari", operatingSystem: "iOS", ipAddress: "223.189.14.77", metadata: { productName: "Acrylic Desk Standee" } },
+    { id: "act_9", userId: "usr_anon1", sessionId: "sess_a1", activityType: "Cart actions", pageUrl: "/quote", referrer: "Products", timestamp: ago(2), device: "Mobile", browser: "Safari", operatingSystem: "iOS", ipAddress: "223.189.14.77", metadata: { action: "add", productName: "Acrylic Desk Standee", quantity: 50 } },
+    { id: "act_10", userId: "usr_anita", sessionId: "sess_an1", activityType: "PDF download", pageUrl: "/products", referrer: "Direct", timestamp: ago(1), device: "Desktop", browser: "Firefox", operatingSystem: "Linux", ipAddress: "115.241.89.5", metadata: { fileName: "Ortex_Product_Catalogue_2026.pdf" } },
+  ]
+  await repo.bulkCreate("user_activities", ACTIVITIES)
+
+  // ---- Event Logs ----
+  const EVENTS = [
+    { id: "evt_1", activityId: "act_1", eventType: "home_visited", userId: "usr_priya", description: "User visited the home page.", timestamp: ago(4), status: "processed" },
+    { id: "evt_2", activityId: "act_2", eventType: "product_visited", userId: "usr_priya", description: "User viewed product: Custom MDF Award Trophy.", timestamp: ago(4), status: "processed" },
+    { id: "evt_3", activityId: "act_3", eventType: "quote_requested", userId: "usr_priya", description: "User requested a quote for Custom MDF Award Trophy (500 pcs).", timestamp: ago(4), status: "processed" },
+    { id: "evt_4", activityId: "act_4", eventType: "search_performed", userId: "usr_rahul", description: "User searched for: \"lanyards\".", timestamp: ago(3), status: "processed" },
+    { id: "evt_5", activityId: "act_5", eventType: "product_visited", userId: "usr_rahul", description: "User viewed product: Sublimation Lanyard 16mm.", timestamp: ago(3), status: "processed" },
+    { id: "evt_6", activityId: "act_6", eventType: "contact_form_submitted", userId: "usr_rahul", description: "User submitted contact form for Sublimation Lanyard 16mm.", timestamp: ago(3), status: "processed" },
+    { id: "evt_7", activityId: "act_7", eventType: "home_visited", userId: "usr_anon1", description: "User visited the home page.", timestamp: ago(2), status: "processed" },
+    { id: "evt_8", activityId: "act_8", eventType: "product_visited", userId: "usr_anon1", description: "User viewed product: Acrylic Desk Standee.", timestamp: ago(2), status: "processed" },
+    { id: "evt_9", activityId: "act_9", eventType: "cart_abandoned", userId: "usr_anon1", description: "User abandoned cart with Acrylic Desk Standee (50 pcs).", timestamp: ago(2), status: "processed" },
+    { id: "evt_10", activityId: "act_10", eventType: "pdf_downloaded", userId: "usr_anita", description: "User downloaded PDF: Ortex_Product_Catalogue_2026.pdf.", timestamp: ago(1), status: "processed" },
+  ]
+  await repo.bulkCreate("event_logs", EVENTS)
+
+  // ---- AI Messages ----
+  const AI_MESSAGES = [
+    { id: "aim_1", eventId: "evt_3", userId: "usr_priya", customerName: "Priya Sharma", triggerType: "Quote Request Follow-up", context: "Trigger: Quote Request Follow-up. User activity: User requested a quote for Custom MDF Award Trophy (500 pcs). Customer details: Priya Sharma (+91-9876543210).", generatedMessage: "Hi Priya Sharma, we received your quote request for Custom MDF Award Trophy. Our team is working on your pricing. - Ortex Sales Desk", createdAt: ago(4) },
+    { id: "aim_2", eventId: "evt_6", userId: "usr_rahul", customerName: "Rahul Verma", triggerType: "Contact Form Auto-reply", context: "Trigger: Contact Form Auto-reply. User activity: User submitted contact form for Sublimation Lanyard 16mm. Customer details: Rahul Verma (+91-9811122233).", generatedMessage: "Hi Rahul Verma, thanks for contacting us! We received your message: \"1000 sublimation lanyards in brand colours for a conference.\". A representative will contact you soon. - Ortex Industries", createdAt: ago(3) },
+    { id: "aim_3", eventId: "evt_9", userId: "usr_anon1", customerName: "Anonymous Buyer", triggerType: "Cart Abandonment Reminder", context: "Trigger: Cart Abandonment Reminder. User activity: User abandoned cart with Acrylic Desk Standee (50 pcs).", generatedMessage: "Hi Customer, we noticed you left some items in your quote cart, including Acrylic Desk Standee. Can we help you finalize your quote? - Ortex Sales", createdAt: ago(2) }
+  ]
+  await repo.bulkCreate("ai_messages", AI_MESSAGES)
+
+  // ---- WhatsApp Logs ----
+  const WA_LOGS = [
+    { id: "wal_1", userId: "usr_priya", customerName: "Priya Sharma", phone: "+91-9876543210", templateName: "template_quote_request", messageText: "Hi Priya Sharma, we received your quote request for Custom MDF Award Trophy. Our team is working on your pricing. - Ortex Sales Desk", status: "delivered", retryCount: 0, maxRetries: 3, errorMessage: "", responsePayload: { success: true }, createdAt: ago(4), sentAt: ago(4) },
+    { id: "wal_2", userId: "usr_rahul", customerName: "Rahul Verma", phone: "+91-9811122233", templateName: "template_contact_form", messageText: "Hi Rahul Verma, thanks for contacting us! We received your message: \"1000 sublimation lanyards in brand colours for a conference.\". A representative will contact you soon. - Ortex Industries", status: "delivered", retryCount: 0, maxRetries: 3, errorMessage: "", responsePayload: { success: true }, createdAt: ago(3), sentAt: ago(3) },
+    { id: "wal_3", userId: "usr_anon1", customerName: "Anonymous Buyer", phone: "+91-9999999999", templateName: "template_cart_abandonment", messageText: "Hi Customer, we noticed you left some items in your quote cart, including Acrylic Desk Standee. Can we help you finalize your quote? - Ortex Sales", status: "failed", retryCount: 3, maxRetries: 3, errorMessage: "API Error: Invalid recipient phone number format.", responsePayload: null, createdAt: ago(2), sentAt: ago(2) }
+  ]
+  await repo.bulkCreate("whatsapp_logs", WA_LOGS)
+
   // Advance numbering counters past the seeded documents.
   const settings = await repo.getSettings()
   await repo.saveSettings({

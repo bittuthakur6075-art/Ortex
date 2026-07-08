@@ -18,6 +18,7 @@ export const MODULES = [
   { key: "payments", path: "/payments", label: "Payments", section: "Sales" },
   { key: "users", path: "/users", label: "Users", section: "System", adminOnly: true },
   { key: "settings", path: "/settings", label: "Settings", section: "System", adminOnly: true },
+  { key: "automation", path: "/automation", label: "Automation", section: "Automation", adminOnly: true },
 ]
 
 // Modules a Sales Executive can be granted (configurable per user).

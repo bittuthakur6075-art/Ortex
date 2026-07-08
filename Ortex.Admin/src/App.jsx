@@ -14,6 +14,7 @@ import Payments from "./modules/Payments"
 import SettingsPage from "./modules/Settings"
 import Users from "./modules/Users"
 import Profile from "./modules/Profile"
+import AutomationPage from "./modules/Automation"
 import { useProfile } from "./data/profile"
 import { canAccess } from "./data/modules"
 
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="payments" element={guard("payments", <Payments />)} />
           <Route path="users" element={guard("users", <Users />)} />
           <Route path="settings" element={guard("settings", <SettingsPage />)} />
+          <Route path="automation" element={guard("automation", <AutomationPage />)} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

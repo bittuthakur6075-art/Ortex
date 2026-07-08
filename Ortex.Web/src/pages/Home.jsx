@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import Hero from "../components/ui/Hero"
+import { photosData } from "../constants/photos"
 
 const HOME_OG = "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/whatsapp-image-2026-06-25-at-6.53.24-am-2-AChL5.jpeg"
 
@@ -190,38 +191,7 @@ const testimonials = [
  */
 const photoPool = [
   // ── Photos page (IndiaMART gallery) ──────────────────────────────────────
-  { image: "https://5.imimg.com/data5/SELLER/Default/2025/1/481096172/WM/HE/AO/143706925/corporate-gift-acrylic-keychain-500x500.jpeg", title: "Corporate gift acrylic keychain", alt: "Custom branded corporate gift acrylic keychain" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2025/1/481100200/UR/IJ/UG/143706925/hyundai-printed-leather-key-chain-500x500.jpeg", title: "Hyundai printed leather key chain", alt: "Branded leather keychain with Hyundai logo" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2025/1/481091231/PX/XM/CX/143706925/honda-promotional-leather-keychain-500x500.png", title: "Honda promotional leather keychain", alt: "Promotional leather keychain for Honda" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2025/5/512168567/DY/DE/DS/143706925/promotional-and-customized-keychains-500x500.jpg", title: "Promotional & customized keychains", alt: "Assorted promotional and customized keychains" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2025/12/569941121/XQ/ZJ/HG/143706925/whatsapp-image-2025-12-23-at-06-17-36-2-500x500.jpeg", title: "T-shirt shaped silicone keychains", alt: "Colorful T-shirt shaped silicone keychains" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2024/11/463781034/EE/FO/MO/143706925/event-acrylic-keychain-500x500.jpg", title: "Event acrylic keychain", alt: "Custom event acrylic keychain" },
-  { image: "https://5.imimg.com/data5/SELLER/PDFImage/2024/12/474630789/NL/FO/AG/143706925/advertising-acrylic-keychain-500x500.png", title: "Advertising acrylic keychain", alt: "Branded advertising acrylic keychain" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2025/1/481090402/JU/WR/UB/143706925/acrylic-keychain-in-chennai-500x500.jpeg", title: "Acrylic keychain in Chennai", alt: "Custom acrylic keychain produced for Chennai client" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2025/1/481088805/OD/JM/JU/143706925/custom-acrylic-keychains-500x500.jpeg", title: "Custom acrylic keychains", alt: "Set of custom acrylic keychains" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2025/1/481092106/NF/FY/PN/143706925/plain-leather-key-ring-500x500.jpeg", title: "Plain leather key ring", alt: "Elegant plain leather key ring" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2026/1/573795810/WN/GX/PY/143706925/prem-motor-7-5inch-500x500.jpeg", title: "7.5 inch promotional wall clock", alt: "Promotional square wall clock 7.5 inch" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2026/1/573804766/LV/IM/KQ/143706925/cipla-15-iinch-500x500.jpeg", title: "15 inch designer promotional wall clock", alt: "Large designer promotional wall clock" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2026/2/586971663/RO/MA/YK/143706925/chatgpt-image-feb-22-2026-04-39-50-pm-500x500.png", title: "Premium designer wooden wall clock", alt: "Elegant wooden wall clock for corporate gifts" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2026/2/586971679/JR/HK/IO/143706925/chatgpt-image-feb-22-2026-04-35-28-pm-500x500.png", title: "Premium designer MDF wall clock", alt: "MDF wall clock for promotional & corporate gifting" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2026/3/588539946/GP/IM/CZ/143706925/customized-acrylic-watch-500x500.jpeg", title: "Customized acrylic watch", alt: "Custom acrylic wall clock" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2023/9/346322532/QM/VZ/UO/143706925/acrylic-fancy-wall-clock-500x500.jpg", title: "Acrylic fancy wall clock", alt: "Fancy acrylic wall clock" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2025/4/506195244/QF/EB/BF/143706925/customize-acrylic-dashboard-500x500.jpeg", title: "Custom acrylic dashboard", alt: "Customized acrylic dashboard accessory" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2026/4/602634900/YA/NI/IH/143706925/whatsapp-image-2026-04-23-at-12-34-32-pm-500x500.jpeg", title: "Premium storage exam board", alt: "Premium quality storage exam board" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2026/6/620543604/RO/NK/WF/143706925/mdf-exam-pad-manufacturer-500x500.jpg", title: "MDF exam pad", alt: "MDF exam pad manufacturer" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2024/9/454900945/MY/KH/EI/143706925/customize-exam-clip-board-500x500.jpeg", title: "Custom exam clipboard", alt: "Customized exam clipboard" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2026/2/587603905/MI/ZQ/KS/143706925/whatsapp-image-2026-02-27-at-4-20-23-pm-500x500.jpeg", title: "Custom printed round badges", alt: "Custom printed round fridge magnets and promotional badges" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2026/3/591664244/QG/QI/RW/143706925/whatsapp-image-2026-03-16-at-12-21-25-pm-1-500x500.jpeg", title: "Lotus plastic lighting badges", alt: "Light-up lotus shaped plastic badges" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2026/2/586969920/VP/TA/PY/143706925/whatsapp-image-2026-02-25-at-7-01-44-pm-1-500x500.jpeg", title: "Plastic safety pin badge", alt: "Moulded plastic badge with safety pin" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2025/1/484451444/XK/DL/AE/143706925/acrylic-fridge-magnet-500x500.jpeg", title: "Acrylic fridge magnet", alt: "Custom acrylic fridge magnet" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2025/10/551181820/QG/OT/ET/143706925/wood-mdf-fridge-magnet-500x500.jpeg", title: "Wood MDF fridge magnet", alt: "Wooden MDF fridge magnet" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2025/5/509315459/IP/JM/SW/143706925/custom-fridge-magnet-500x500.png", title: "Custom fridge magnet", alt: "Custom printed fridge magnet" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2025/4/506193229/IZ/YR/PU/143706925/wooden-fridge-magnet-500x500.jpeg", title: "Wooden fridge magnet", alt: "Natural wood fridge magnet" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2023/9/345285655/XS/TQ/EP/143706925/plain-acrylic-name-display-holder-500x500.jpg", title: "Acrylic name display holder", alt: "Plain acrylic name display holder" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2025/1/482070645/GT/ZV/FZ/143706925/promotional-cotton-cap-500x500.jpg", title: "Promotional cotton cap", alt: "Custom branded cotton cap" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2023/9/346287326/CU/SK/EL/143706925/acrylic-name-card-holder-500x500.jpg", title: "Acrylic name card holder", alt: "Clear acrylic name card holder" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2023/9/345279309/HP/MS/YC/143706925/acrylic-paper-weight-500x500.jpeg", title: "Acrylic paper weight", alt: "Custom acrylic paper weight" },
-  { image: "https://5.imimg.com/data5/SELLER/Default/2026/5/609883285/GL/CR/KR/143706925/sublimation-mobile-popsocket-500x500.jpeg", title: "Sublimation mobile popsocket", alt: "Custom sublimation mobile popsocket" },
+  ...photosData.map(p => ({ image: p.url, title: p.name, alt: p.name })),
   // ── Original portfolio images ─────────────────────────────────────────────
   { image: "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/1c8810a9aab598f2852aa43694b1e810.jpg", title: "Custom printed lanyards", alt: "Yellow polyester lanyard with custom full-colour printing and metal hardware" },
   { image: "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/df12dcba362d2a4018c92cdfe42fe5ea.jpg", title: "Magnetic metal badges", alt: "Set of circular magnetic metal badges in yellow and blue" },
