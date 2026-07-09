@@ -1,7 +1,11 @@
 import { motion } from "framer-motion"
 import { Link } from "react-router-dom"
-import { Box, Diamond, Contact, Award, ClipboardList, FileText, Gift, Sparkles, ArrowRight } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
+import { PRODUCT_CATEGORIES, categoryStats } from "../constants/categories"
+import { CATEGORY_META } from "../constants/products"
+
+const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`
 
 export default function Products() {
   useDocumentMetadata(
@@ -10,56 +14,22 @@ export default function Products() {
     { path: "/products" }
   )
 
-  const categories = [
-    {
-      icon: Box,
-      title: "MDF products",
-      description: "Premium quality fridge magnets, keychains, photo frames, name plates, and office accessories with complete customization options",
-      variant: "elevated"
-    },
-    {
-      icon: Diamond,
-      title: "Acrylic products",
-      description: "Crystal-clear acrylic keychains, badges, name plates, display stands, and signages with UV printing and laser engraving",
-      variant: "default"
-    },
-    {
-      icon: Contact,
-      title: "Lanyards & ID card accessories",
-      description: "Polyester, satin, and woven lanyards with custom printing. Complete range of ID cards, badges, and access passes",
-      variant: "elevated"
-    },
-    {
-      icon: Award,
-      title: "Badge manufacturing",
-      description: "Acrylic, magnetic, button, metal, and plastic badges for corporate, events, schools, and promotional purposes",
-      variant: "default"
-    },
-    {
-      icon: ClipboardList,
-      title: "Examination boards",
-      description: "Durable acrylic, PVC, and ABS examination boards with storage compartments. Perfect for educational institutions",
-      variant: "elevated"
-    },
-    {
-      icon: FileText,
-      title: "Customized clipboards & writing pads",
-      description: "Professional clipboards and writing pads with custom branding, available in various sizes and materials",
-      variant: "default"
-    },
-    {
-      icon: Gift,
-      title: "Corporate gifting & promotional merchandise",
-      description: "Branded pens, diaries, water bottles, mugs, power banks, and complete corporate gift solutions",
-      variant: "elevated"
-    },
-    {
-      icon: Sparkles,
-      title: "Customization & branding services",
-      description: "UV printing, laser engraving, sublimation, embossing, and complete branding solutions for all products",
-      variant: "default"
+  // The hub renders the real catalogue taxonomy from constants/categories.js —
+  // the same 12 categories the quote builder prices — instead of a separate
+  // hardcoded marketing list that had drifted from it.
+  const categories = PRODUCT_CATEGORIES.map((entry, idx) => {
+    const s = categoryStats(entry)
+    return {
+      slug: entry.slug,
+      title: entry.name,
+      icon: CATEGORY_META[entry.category]?.icon || "📦",
+      description: entry.seoDescription,
+      count: s.count,
+      priceMin: s.priceMin,
+      moqMin: s.moqMin,
+      variant: idx % 2 === 0 ? "elevated" : "default",
     }
-  ]
+  })
 
   return (
     <>
@@ -105,11 +75,11 @@ export default function Products() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-20">
             {categories.map((item, idx) => (
               <motion.div
-                key={item.title}
+                key={item.slug}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: idx * 0.1 }}
+                transition={{ duration: 0.5, delay: Math.min(idx, 5) * 0.08 }}
                 className={`group rounded-2xl p-6 transition-all duration-300 h-full flex flex-col border border-border/50 ${
                   item.variant === "elevated"
                     ? "bg-card shadow-lg hover:shadow-xl hover:-translate-y-1"
@@ -118,22 +88,30 @@ export default function Products() {
               >
                 <div className="flex items-start space-x-4 flex-1">
                   <div className="flex-shrink-0">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <item.icon className="h-6 w-6 text-primary" aria-hidden="true" />
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl" aria-hidden="true">
+                      {item.icon}
                     </div>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold mb-2 text-foreground">{item.title}</h3>
+                    <h3 className="text-lg font-semibold mb-2 text-foreground">
+                      <Link to={`/products/${item.slug}`} className="hover:text-primary transition-colors">
+                        {item.title}
+                      </Link>
+                    </h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+                    <p className="text-xs text-muted-foreground mt-3">
+                      {item.count} product{item.count > 1 ? "s" : ""} · from{" "}
+                      <strong className="text-foreground">{inr(item.priceMin)}/unit</strong> · MOQ from {item.moqMin}
+                    </p>
                   </div>
                 </div>
 
                 <div className="mt-auto pt-4">
                   <Link
-                    to={`/contact?product=${encodeURIComponent(item.title)}`}
+                    to={`/products/${item.slug}`}
                     className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-primary group-hover:text-primary transition-all duration-200"
                   >
-                    Enquire about this
+                    View products &amp; pricing
                     <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" aria-hidden="true" />
                   </Link>
                 </div>

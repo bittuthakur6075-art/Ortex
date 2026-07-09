@@ -5,7 +5,7 @@ import {
   ChevronLeft, AlertTriangle, Search, ShoppingCart, Clock, Package,
 } from "lucide-react"
 import { toast } from "sonner"
-import { Link } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { submitEnquiry, newReference } from "../lib/leads"
 import { ARTWORK_ACCEPT, ARTWORK_HINT, validateArtwork, uploadArtwork } from "../lib/uploads"
 import { whatsappLink } from "../constants/site"
@@ -89,6 +89,23 @@ export default function QuoteCalculator() {
   }, [])
 
   const productById = useMemo(() => Object.fromEntries(productsList.map((p) => [p.id, p])), [productsList])
+
+  // Deep link from category landing pages: /quote?add=prod_key01 (comma-separable)
+  // seeds the cart at each product's MOQ. Re-runs if the Supabase fetch swaps
+  // the catalogue in, so an id that wasn't loaded yet still lands in the cart.
+  const [searchParams] = useSearchParams()
+  useEffect(() => {
+    const ids = (searchParams.get("add") || "").split(",").filter(Boolean)
+    if (ids.length === 0) return
+    setCart((c) => {
+      const next = { ...c }
+      for (const id of ids) {
+        const p = productById[id]
+        if (p && next[id] == null) next[id] = p.moq
+      }
+      return next
+    })
+  }, [searchParams, productById])
 
   const filtered = useMemo(() => {
     let rows = productsList

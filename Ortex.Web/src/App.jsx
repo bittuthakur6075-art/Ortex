@@ -14,6 +14,7 @@ import { flushOutbox } from "./lib/leads"
 const Home = lazy(() => import("./pages/Home"))
 const About = lazy(() => import("./pages/About"))
 const Products = lazy(() => import("./pages/Products"))
+const ProductCategory = lazy(() => import("./pages/ProductCategory"))
 const Industries = lazy(() => import("./pages/Industries"))
 const Work = lazy(() => import("./pages/Work"))
 const OEM = lazy(() => import("./pages/OEM"))
@@ -101,6 +102,7 @@ function AppLayout() {
               <Route path="/" element={<Home />} />
               <Route path="/about" element={<About />} />
               <Route path="/products" element={<Products />} />
+              <Route path="/products/:slug" element={<ProductCategory />} />
               <Route path="/industries" element={<Industries />} />
               <Route path="/oem" element={<OEM />} />
               <Route path="/work" element={<Work />} />
