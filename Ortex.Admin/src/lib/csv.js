@@ -3,7 +3,13 @@
 // "download template → fill in Excel → upload" loop needs no spreadsheet lib.
 
 function cell(value) {
-  const s = value == null ? "" : String(value)
+  let s = value == null ? "" : String(value)
+  // Neutralize spreadsheet formula injection: Excel/Sheets evaluate any cell
+  // that begins with = + - @ (or a leading tab/CR) as a formula, so a customer
+  // name like `=HYPERLINK(...)` could exfiltrate data or run a command on the
+  // staff machine that opens the export. Prefix such values with an apostrophe
+  // so they are always treated as literal text.
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 

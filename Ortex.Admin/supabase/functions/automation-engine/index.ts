@@ -6,6 +6,22 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+// This function is intentionally callable by the public marketing site (anon
+// key) on visitor events, and it writes with the service-role key. To keep that
+// public surface from being abused for spam/storage-exhaustion, we (a) only act
+// on a known set of event types, (b) bound every stored string, and (c) cap how
+// many rules a single request can fan out to.
+const ALLOWED_EVENTS = new Set([
+  'quote_requested',
+  'contact_form_submitted',
+  'product_visited',
+  'search_performed',
+  'pdf_downloaded',
+  'cart_added',
+])
+const MAX_RULES_PER_REQUEST = 25
+const clip = (v: unknown, max: number): string => String(v ?? '').slice(0, max)
+
 // ---------------------------------------------------------------------------
 // Smart message generator
 // ---------------------------------------------------------------------------
@@ -133,6 +149,15 @@ Deno.serve(async (req: Request) => {
       })
     }
 
+    // Reject unknown events outright — this is the primary guard against an
+    // attacker driving arbitrary writes through the public trigger surface.
+    if (!ALLOWED_EVENTS.has(eventType)) {
+      return new Response(JSON.stringify({ error: 'Unsupported eventType' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     // ------------------------------------------------------------------
     // 2. Initialise Supabase client
     // ------------------------------------------------------------------
@@ -190,15 +215,17 @@ Deno.serve(async (req: Request) => {
     // 5. Extract common context from metadata
     // ------------------------------------------------------------------
     const customer = (metadata?.customer as Record<string, string>) ?? {}
-    const customerName: string = customer.name ?? ''
-    const productName: string =
+    const customerName: string = clip(customer.name, 120)
+    const productName: string = clip(
       (metadata?.product as Record<string, string>)?.name ??
-      (metadata?.productName as string) ??
-      ''
-    const phone: string = customer.phone ?? ''
-    const quantity: string = String(metadata?.quantity ?? '')
-    const unit: string = String(metadata?.unit ?? '')
-    const messageSnippet: string = (metadata?.messageSnippet as string) ?? description ?? ''
+        (metadata?.productName as string) ??
+        '',
+      160,
+    )
+    const phone: string = clip(customer.phone, 20)
+    const quantity: string = clip(metadata?.quantity, 20)
+    const unit: string = clip(metadata?.unit, 20)
+    const messageSnippet: string = clip((metadata?.messageSnippet as string) ?? description ?? '', 500)
 
     const placeholderData: Record<string, string | undefined> = {
       name: customerName,
@@ -214,7 +241,9 @@ Deno.serve(async (req: Request) => {
     // ------------------------------------------------------------------
     let processedCount = 0
 
-    for (const ruleRow of matchingRules) {
+    // Cap fan-out per request so a single event can't drive an unbounded number
+    // of inserts.
+    for (const ruleRow of matchingRules.slice(0, MAX_RULES_PER_REQUEST)) {
       const ruleDoc = ruleRow.doc as Record<string, unknown>
 
       // Resolve the rule's template. The console stores `templateId` as the
@@ -244,8 +273,8 @@ Deno.serve(async (req: Request) => {
       // 6a. Save to ai_messages — field names match Automation.jsx
       // msg.triggerType, msg.context, msg.generatedMessage, msg.customerName
       // ----------------------------------------------------------------
-      const ruleName = ruleDoc.name as string ?? 'Automation Rule'
-      const context = `Trigger: ${ruleName}. Event: ${description ?? eventType}. Customer: ${customerName || 'Anonymous'}.`
+      const ruleName = clip(ruleDoc.name ?? 'Automation Rule', 120)
+      const context = `Trigger: ${ruleName}. Event: ${clip(description ?? eventType, 200)}. Customer: ${customerName || 'Anonymous'}.`
 
       const aiMessageData = {
         triggerType: ruleName,

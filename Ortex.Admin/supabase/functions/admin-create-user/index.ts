@@ -2,9 +2,8 @@
 //
 // Creates a new auth user (email + password + role + module access). Callable
 // ONLY by a signed-in admin — the caller's JWT is checked against their profile
-// role before the service-role key is used to create the user. Role/name/
-// modules are passed as user_metadata; the DB signup trigger copies them into
-// public.profiles.
+// role before the service-role key is used to create the user. This is the only
+// supported way to mint a console login; there is no public signup.
 //
 // Deploy:  supabase functions deploy admin-create-user
 // (SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY are injected
@@ -45,17 +44,34 @@ Deno.serve(async (req) => {
     if (String(password).length < 6) return json({ error: "Password must be at least 6 characters" }, 400)
     if (!["admin", "sales"].includes(role)) return json({ error: "Role must be admin or sales" }, 400)
 
-    // 3) Create the user with the service-role key.
+    // 3) Create the user with the service-role key. The signup trigger seeds a
+    //    least-privileged profile (sales / no modules) — it deliberately ignores
+    //    user_metadata, since that is attacker-controlled on a public signup.
     const admin = createClient(url, service)
     const { data, error } = await admin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: { name: name ?? "", role, modules: Array.isArray(modules) ? modules : [] },
+      user_metadata: { name: name ?? "" },
     })
     if (error) return json({ error: error.message }, 400)
 
-    return json({ ok: true, id: data.user?.id })
+    const id = data.user?.id
+    if (!id) return json({ error: "User created but no id returned" }, 500)
+
+    // 4) Grant the requested role/modules — only reachable behind the admin
+    //    check above. Service-role client bypasses RLS.
+    const { error: grantErr } = await admin
+      .from("profiles")
+      .update({ role, modules: Array.isArray(modules) ? modules : [] })
+      .eq("id", id)
+    if (grantErr) {
+      // Don't leave a half-provisioned login behind.
+      await admin.auth.admin.deleteUser(id)
+      return json({ error: `Could not apply role: ${grantErr.message}` }, 500)
+    }
+
+    return json({ ok: true, id })
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500)
   }

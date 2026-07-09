@@ -19,6 +19,7 @@ import {
   Data,
   DocumentDownload,
   Eye as EyeIcon,
+  EyeSlash,
   Convertshape2,
   DocumentText1,
   DocumentText,
@@ -82,6 +83,7 @@ export const Clock = wrap(ClockIcon)
 export const Database = wrap(Data)
 export const Download = wrap(DocumentDownload)
 export const Eye = wrap(EyeIcon)
+export const EyeOff = wrap(EyeSlash)
 export const FileCheck2 = wrap(Convertshape2)
 export const FileSpreadsheet = wrap(DocumentText1)
 export const FileText = wrap(DocumentText)

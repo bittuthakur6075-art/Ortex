@@ -62,26 +62,10 @@ export async function login(email, password) {
   return { error: "Incorrect password. Please try again." }
 }
 
-export async function signUp(email, password, name = "") {
-  if (hasSupabase) {
-    const isAdmin = email.toLowerCase().startsWith("louis.sharma37")
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name,
-          role: isAdmin ? "admin" : "sales",
-          modules: isAdmin
-            ? ["leads","enquiries","customers","products","categories","quotations","invoices","payments","automation","users","settings"]
-            : ["leads","enquiries","customers"]
-        }
-      }
-    })
-    return error ? { error: error.message } : { ok: true }
-  }
-  return { error: "Local/Demo mode does not support user registration." }
-}
+// There is deliberately no signUp() here. The console is invite-only: accounts
+// are created by an admin through the `admin-create-user` Edge Function, which
+// verifies the caller is an admin before using the service-role key. Public
+// signup would let anyone mint their own account against the (public) anon key.
 
 export async function logout() {
   if (hasSupabase) {

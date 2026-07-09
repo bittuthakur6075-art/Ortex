@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Lock, Mail, ShieldCheck, ArrowRight, Inbox, CheckCircle2, Database, LayoutGrid, Users } from "./icons"
-import { login, signUp, isAuthed } from "../lib/auth"
+import { Lock, Mail, ShieldCheck, ArrowRight, Inbox, CheckCircle2, Database, LayoutGrid, Eye, EyeOff } from "./icons"
+import { login, isAuthed } from "../lib/auth"
 import { hasSupabase } from "../data/supabaseClient"
 import { Button, Input } from "./ui"
 
@@ -9,8 +9,7 @@ export default function Login() {
   const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [name, setName] = useState("")
-  const [isSignUp, setIsSignUp] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
 
@@ -22,32 +21,14 @@ export default function Login() {
     e.preventDefault()
     setBusy(true)
     setError("")
-    
-    if (isSignUp) {
-      const res = await signUp(email, password, name)
-      if (res.ok) {
-        // Auto sign in after sign up
-        const loginRes = await login(email, password)
-        setBusy(false)
-        if (loginRes.ok) {
-          navigate("/", { replace: true })
-        } else {
-          setError("Account created, but automatic sign in failed. Please sign in manually.")
-          setIsSignUp(false)
-        }
-      } else {
-        setBusy(false)
-        setError(res.error || "Registration failed.")
-      }
+
+    const res = await login(email, password)
+    setBusy(false)
+    if (res.ok) {
+      navigate("/", { replace: true })
     } else {
-      const res = await login(email, password)
-      setBusy(false)
-      if (res.ok) {
-        navigate("/", { replace: true })
-      } else {
-        setError(res.error || "Sign in failed.")
-        setPassword("")
-      }
+      setError(res.error || "Sign in failed.")
+      setPassword("")
     }
   }
 
@@ -71,32 +52,10 @@ export default function Login() {
           <div className="lgn-body">
             <h1 className="lgn-title">Admin Console</h1>
             <p className="lgn-sub">
-              {isSignUp 
-                ? "Create a staff/admin account to access the console."
-                : "Sign in to manage enquiries, quotations, invoicing and payments for Ortex Industries."}
+              Sign in to manage enquiries, quotations, invoicing and payments for Ortex Industries.
             </p>
 
             <form onSubmit={handleSubmit} noValidate className="lgn-form">
-              {isSignUp && (
-                <div className="mb-4">
-                  <label htmlFor="name" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Name
-                  </label>
-                  <div className="relative">
-                    <Users className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="name"
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => { setName(e.target.value); if (error) setError("") }}
-                      placeholder="Your Full Name"
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-              )}
-
               <div className="mb-4">
                 <label htmlFor="email" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Email
@@ -122,31 +81,37 @@ export default function Login() {
                 <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="pw"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); if (error) setError("") }}
                   placeholder="Enter your password"
-                  className="pl-10"
+                  className="pl-10 pr-10"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
 
               {error && <p className="mt-2 text-sm text-destructive" role="alert">{error}</p>}
 
               <Button type="submit" className="mt-5 w-full justify-center" disabled={busy}>
-                {busy ? (isSignUp ? "Creating account…" : "Signing in…") : (isSignUp ? "Create Account" : "Sign In")}
+                {busy ? "Signing in…" : "Sign In"}
                 <ArrowRight className="h-4 w-4" />
               </Button>
-              
+
               {hasSupabase && (
-                <div className="mt-4 text-center text-xs">
-                  <button 
-                    type="button" 
-                    onClick={() => { setIsSignUp(!isSignUp); setError(""); }}
-                    className="text-primary hover:underline font-medium"
-                  >
-                    {isSignUp ? "Already have an account? Sign in" : "Don't have an account yet? Register/Sign up"}
-                  </button>
-                </div>
+                <p className="mt-4 text-center text-xs text-muted-foreground">
+                  Accounts are created by an administrator.{" "}
+                  <a href="mailto:sales@ortexindustries.in" className="text-primary hover:underline font-medium">
+                    Request access
+                  </a>
+                </p>
               )}
             </form>
 
