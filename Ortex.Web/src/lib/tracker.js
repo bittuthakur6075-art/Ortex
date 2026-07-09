@@ -1,7 +1,19 @@
 import { supabase, hasSupabase } from "./supabaseClient"
+import { hasAnalyticsConsent } from "./consent"
 
-// Generate or retrieve tracking user ID and session ID
-function getTrackingIds() {
+// Returned instead of real IP/location when the visitor has not opted in.
+const NO_LOCATION = {
+  ip: null,
+  city: "Not collected",
+  region: "Not collected",
+  country: "Not collected",
+  location: "Not collected",
+}
+
+// Generate or retrieve tracking user ID and session ID. Exported so lead
+// capture can stamp the same ids onto the enquiry, giving the admin Growth
+// dashboard a deterministic behavior→revenue join key.
+export function getTrackingIds() {
   let userId = localStorage.getItem("ortex_tracking_user_id")
   if (!userId) {
     userId = "usr_" + Math.random().toString(36).substring(2, 11)
@@ -57,9 +69,12 @@ function getUAInfo() {
   return { browser, os, device }
 }
 
-// Fetch public IP and location details asynchronously (best effort)
+// Fetch public IP and location details asynchronously (best effort).
+// Gated on consent — no third-party call is made, and no IP is stored, until
+// the visitor opts in via the cookie banner.
 let cachedLocation = null
 async function getLocationData() {
+  if (!hasAnalyticsConsent()) return NO_LOCATION
   if (cachedLocation) return cachedLocation
   try {
     const res = await fetch("https://ipapi.co/json/")

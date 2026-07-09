@@ -6,7 +6,7 @@ import useDocumentMetadata from "../hooks/useDocumentMetadata"
 const faqs = [
   {
     question: "What is your Minimum Order Quantity (MOQ)?",
-    answer: "Because we manufacture our products in-house, we offer flexible MOQs depending on the category. Typically, custom badges and keychains start at 100 units, lanyards and keychains start at 200 units, while customized clipboards start at 100 units. Smaller promotional sample runs can also be negotiated.",
+    answer: "Because we manufacture in-house, MOQs are flexible and vary by product. Wall clocks start at 10 units; acrylic paperweights, examination boards and corporate gifting items start at 25; keychains, badges, clipboards and MDF products start at 50; lanyards and fridge magnets start at 100. Every product card in our quote builder shows that product's exact MOQ, and smaller promotional sample runs can be negotiated.",
   },
   {
     question: "Can I get a digital or physical sample before bulk order?",
@@ -14,7 +14,7 @@ const faqs = [
   },
   {
     question: "What design and logo file formats do you accept?",
-    answer: "For high-precision UV printing and laser engraving, we prefer vector file formats like .AI, .EPS, .PDF, or .SVG. However, we also accept high-resolution raster files (.PNG or .JPG) and our design team will assist you in preparing the artwork for production.",
+    answer: "For high-precision UV printing and laser engraving, we prefer vector formats: .AI, .CDR, .DXF, .EPS, .PDF or .SVG. We also accept high-resolution raster files (.PNG or .JPG) and our design team will assist you in preparing the artwork for production. Upload files up to 10 MB directly in the quote builder, or send larger files over WhatsApp.",
   },
   {
     question: "What are your standard manufacturing lead times?",

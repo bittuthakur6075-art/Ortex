@@ -10,20 +10,20 @@ export default function Cookies() {
 
   const cookieInfo = [
     {
-      title: "1. What Are Cookies?",
-      content: "Cookies are small text files stored on your computer or mobile device when you visit a website. They are widely used to make websites work, enable features like session logs, and provide analytical data to website owners."
+      title: "1. This Website Does Not Set Cookies",
+      content: "Ortex Industries does not set any HTTP cookies, and we do not use Google Analytics, Meta Pixel, advertising pixels, or any third-party advertising or retargeting network. We do use two browser storage mechanisms that behave similarly, and this policy explains exactly what they hold."
     },
     {
-      title: "2. How We Use Cookies",
-      content: "Ortex Industries uses cookies to enhance your experience. Specifically, they help us remember your layout preferences, auto-fill contact fields on subsequent inquiries, keep your session authenticated (where applicable), and gather statistical data on site usage so we can optimize load times."
+      title: "2. Browser Storage We Use",
+      content: "(a) localStorage: a randomly generated visitor identifier (e.g. 'usr_k3f9a2b1x'), your theme preference, your analytics consent choice, and — only if a submission fails to reach our servers — a temporary copy of your own enquiry so it can be re-sent rather than lost. (b) sessionStorage: a random session identifier that is discarded when you close the tab. Neither contains your name, email, or password, and neither is transmitted to any advertiser."
     },
     {
-      title: "3. Types of Cookies We Use",
-      content: "We use both session cookies (which expire when you close your browser) and persistent cookies (which remain on your device for a set period). They fall into these categories: (a) Essential Cookies: Necessary for basic site rendering and security; (b) Performance & Analytics: Helping us analyze aggregate traffic behavior using services like Google Analytics."
+      title: "3. Optional Analytics and IP-Based Location",
+      content: "If, and only if, you press 'Accept analytics' on our consent banner, we record which pages you visit, your device type, browser, and referring site, together with your public IP address and the approximate city and region derived from it. The IP lookup is performed by ipapi.co (with api.ipify.org as a fallback), which means your IP address is disclosed to that provider. Records are stored on our infrastructure at Supabase. If you decline, no request is made to ipapi.co, no IP address is stored, and no location is derived."
     },
     {
-      title: "4. Controlling Cookie Preferences",
-      content: "You can control or block cookies through your browser settings. Most browsers allow you to refuse cookies, delete existing cookies, or receive a warning before a cookie is stored. Note that disabling essential cookies may impact the functionality and responsiveness of our quote forms and calculators."
+      title: "4. Changing or Withdrawing Your Choice",
+      content: "You can withdraw consent at any time by clearing this site's data in your browser settings, which removes the stored choice and causes the consent banner to appear again. Declining analytics does not affect any functionality — the quote builder, calculator, and contact forms all work exactly the same. You may also block browser storage entirely, though the site will then be unable to preserve an enquiry that fails to submit."
     }
   ]
 
@@ -41,8 +41,10 @@ export default function Cookies() {
         </div>
 
         <p className="text-foreground leading-relaxed text-base">
-          This Cookie Policy explains how Ortex Industries uses cookies and similar tracking technologies 
-          to improve your browsing experience and analyze platform performance.
+          This Cookie Policy explains what Ortex Industries stores in your browser and what we
+          collect when you use this website. We have written it to describe our actual behaviour
+          rather than a generic template — if you find a discrepancy, please tell us and we will
+          correct it.
         </p>
 
         <div className="space-y-6">

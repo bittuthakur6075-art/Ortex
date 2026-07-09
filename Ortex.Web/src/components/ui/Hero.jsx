@@ -1,43 +1,62 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { 
-  Globe, 
-  ArrowRight, 
-  LayoutGrid, 
-  ShieldCheck, 
-  Package, 
-  BarChart3, 
-  Truck, 
-  TrendingUp, 
-  FileText, 
-  RefreshCw, 
-  Sparkles, 
-  Plus, 
-  AlertCircle, 
-  Users, 
-  Check 
-} from 'lucide-react'
+import { Globe } from 'lucide-react'
 import './Hero.css'
+
+const POSTER = '/img/factory-production-workshop.jpg'
+
+/**
+ * The hero video is a large download. Only fetch it for visitors who can
+ * absorb it: on a wide viewport, off Data Saver, not on a metered/slow
+ * connection, and not asking for reduced motion. Everyone else gets the poster
+ * image, which is what the first frame shows anyway.
+ */
+function shouldLoadVideo() {
+  if (typeof window === 'undefined') return false
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
+  if (window.innerWidth < 768) return false
+
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection
+  if (connection) {
+    if (connection.saveData) return false
+    if (/^(slow-2g|2g|3g)$/.test(connection.effectiveType || '')) return false
+  }
+  return true
+}
 
 export default function Hero() {
   const [reveal, setReveal] = useState(false)
+  const [showVideo, setShowVideo] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setReveal(true), 150)
     return () => clearTimeout(t)
   }, [])
 
+  useEffect(() => {
+    // Deferred to an idle callback so the video never competes with LCP.
+    if (!shouldLoadVideo()) return
+    const schedule = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200))
+    const handle = schedule(() => setShowVideo(true))
+    return () => (window.cancelIdleCallback || clearTimeout)(handle)
+  }, [])
+
   return (
     <section className="lp-hero has-video">
-      <video 
-        className="lp-hero-video" 
-        src="/hero-bg.mp4" 
-        autoPlay 
-        muted 
-        loop 
-        playsInline
-        aria-hidden="true"
-      />
+      <img className="lp-hero-video" src={POSTER} alt="" aria-hidden="true" fetchPriority="high" />
+      {showVideo && (
+        <video
+          className="lp-hero-video"
+          src="/hero-bg.mp4"
+          poster={POSTER}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="none"
+          aria-hidden="true"
+        />
+      )}
       <div className="lp-hero-overlay" />
       <div className="lp-wrap lp-hero-inner">
         <div className={`lp-hero-copy ${reveal ? 'lp-reveal is-in' : 'lp-reveal'}`}>

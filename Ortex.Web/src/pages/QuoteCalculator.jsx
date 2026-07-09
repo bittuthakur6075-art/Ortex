@@ -6,7 +6,9 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { Link } from "react-router-dom"
-import { submitEnquiry } from "../lib/leads"
+import { submitEnquiry, newReference } from "../lib/leads"
+import { ARTWORK_ACCEPT, ARTWORK_HINT, validateArtwork, uploadArtwork } from "../lib/uploads"
+import { whatsappLink } from "../constants/site"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { PRODUCTS, CATEGORIES, CATEGORY_META, VOLUME_TIERS, priceLine } from "../constants/products"
 import { supabase, hasSupabase } from "../lib/supabaseClient"
@@ -31,8 +33,11 @@ export default function QuoteCalculator() {
     logoFile: null, logoFileName: "", message: "",
   })
   const [errors, setErrors] = useState({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [reference, setReference] = useState("")
+  // True when the enquiry couldn't reach the backend and sits in the outbox.
+  const [isQueued, setIsQueued] = useState(false)
 
   const [productsList, setProductsList] = useState(hasSupabase ? [] : PRODUCTS)
   const [categoriesList, setCategoriesList] = useState(hasSupabase ? [] : CATEGORIES)
@@ -135,17 +140,44 @@ export default function QuoteCalculator() {
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0]
-    if (file) setContactData((prev) => ({ ...prev, logoFile: file, logoFileName: file.name }))
+    if (!file) return
+
+    const problem = validateArtwork(file)
+    if (problem) {
+      toast.error(problem)
+      e.target.value = "" // let the customer re-pick the same corrected file
+      setContactData((prev) => ({ ...prev, logoFile: null, logoFileName: "" }))
+      return
+    }
+    setContactData((prev) => ({ ...prev, logoFile: file, logoFileName: file.name }))
   }
 
   const handleFormSubmit = async (e) => {
     e.preventDefault()
+    if (isSubmitting) return
     if (lines.length === 0) {
       toast.error("Your quote is empty — add at least one product.")
       setStep(1)
       return
     }
     if (!validateContact()) return
+
+    setIsSubmitting(true)
+
+    // Minted up front so the artwork lands under the same reference the
+    // customer is shown and the sales desk searches on.
+    const ref = newReference()
+
+    // Upload the artwork before the enquiry, so the enquiry can carry its path.
+    // A failed upload must never block the lead — we record it and tell the
+    // customer to send the file over WhatsApp instead.
+    let artwork = null
+    let artworkError = null
+    if (contactData.logoFile) {
+      const result = await uploadArtwork(contactData.logoFile, ref)
+      if (result.error) artworkError = result.error
+      else artwork = { path: result.path, fileName: contactData.logoFileName }
+    }
 
     const itemLines = lines.map(
       (l) => `• ${l.product.name} × ${l.qty} ${l.product.unit} @ ₹${l.product.basePrice}` +
@@ -159,11 +191,13 @@ export default function QuoteCalculator() {
       totalDiscount ? `Volume discount: −${inr(totalDiscount)}` : null,
       `Estimated total (pre-tax): ${inr(estimate)}  (+ GST as applicable)`,
       maxLeadTime > 0 ? `Est. dispatch: ~${maxLeadTime} working days after artwork approval` : null,
-      contactData.logoFileName ? `Logo file: ${contactData.logoFileName}` : null,
+      artwork ? `Artwork: ${artwork.fileName} (storage: artwork/${artwork.path})` : null,
+      artworkError ? `⚠ Artwork "${contactData.logoFileName}" failed to upload — request it from the customer.` : null,
       contactData.message ? `Notes: ${contactData.message}` : null,
     ].filter(Boolean)
 
     const res = await submitEnquiry({
+      reference: ref,
       source: "Quote calculator",
       customer: {
         name: contactData.name,
@@ -180,15 +214,21 @@ export default function QuoteCalculator() {
           gstRate: l.product.gstRate, quantity: l.qty, discountPercent: l.discountPercent, lineTotal: l.total,
         })),
         subtotal, totalDiscount, estimatePreTax: estimate,
+        artwork, artworkError,
       }),
     })
 
-    if (res.error) {
-      toast.error("Couldn't submit your quote request. Please try again or WhatsApp us.")
-      return
+    setIsSubmitting(false)
+    setReference(res.reference)
+    setIsQueued(Boolean(res.queued))
+
+    if (res.queued) {
+      toast.warning("Saved offline — we'll deliver it automatically. WhatsApp us to be certain.")
+    } else if (artworkError) {
+      toast.warning("Quote submitted, but your artwork didn't upload. Please WhatsApp the file.")
+    } else {
+      toast.success("Quote request submitted! Our sales desk will send a formal quotation.")
     }
-    setReference(Date.now().toString().slice(-6))
-    toast.success("Quote request submitted! Our sales desk will send a formal quotation.")
     setIsSubmitted(true)
   }
 
@@ -198,6 +238,8 @@ export default function QuoteCalculator() {
     setContactData({ name: "", email: "", phone: "", company: "", logoFile: null, logoFileName: "", message: "" })
     setErrors({})
     setIsSubmitted(false)
+    setIsQueued(false)
+    setReference("")
   }
 
   // ---------------------------------------------------------------- success --
@@ -210,14 +252,31 @@ export default function QuoteCalculator() {
             animate={{ opacity: 1, scale: 1 }}
             className="bg-card border border-border/80 rounded-2xl p-8 md:p-10 text-center"
           >
-            <div className="w-16 h-16 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Check className="h-9 w-9" />
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 ${
+              isQueued ? "bg-amber-500/10 text-amber-500" : "bg-emerald-500/10 text-emerald-500"
+            }`}>
+              {isQueued ? <AlertTriangle className="h-9 w-9" /> : <Check className="h-9 w-9" />}
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Quote request submitted</h1>
+            <h1 className="text-2xl font-bold text-foreground">
+              {isQueued ? "Saved — delivery pending" : "Quote request submitted"}
+            </h1>
             <p className="text-muted-foreground mt-2 max-w-md mx-auto">
-              Thanks! Your request is logged under reference <strong className="text-foreground">#{reference}</strong>.
-              Our sales desk will verify specs and send a formal GST quotation.
+              Your request is logged under reference <strong className="text-foreground">{reference}</strong>.
+              {isQueued
+                ? " We couldn't reach our servers just now, so it's saved on this device and will send automatically when the connection recovers. To be certain it reaches us today, send it over WhatsApp."
+                : " Our sales desk will verify specs and send a formal GST quotation."}
             </p>
+
+            {isQueued && (
+              <a
+                href={whatsappLink(`Hi Ortex, I submitted quote ${reference} but it may not have reached you. Estimated total ${inr(estimate)} (pre-tax).`)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+              >
+                Send this quote on WhatsApp
+              </a>
+            )}
 
             <div className="my-8 rounded-xl border border-border bg-secondary p-5 text-left">
               <h2 className="font-semibold text-foreground border-b border-border pb-2 mb-3">Your quote</h2>
@@ -578,7 +637,7 @@ export default function QuoteCalculator() {
                   <div>
                     <label className="text-sm font-semibold text-foreground">Upload logo / artwork (optional)</label>
                     <div className="mt-2 flex items-center justify-center border-2 border-dashed border-border/80 rounded-lg p-5 bg-secondary/50 hover:bg-secondary transition-colors relative">
-                      <input type="file" accept="image/*,.pdf,.svg,.ai" onChange={handleFileUpload}
+                      <input type="file" accept={ARTWORK_ACCEPT} onChange={handleFileUpload}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                       <div className="text-center space-y-1">
                         <Upload className="h-6 w-6 text-muted-foreground mx-auto" />
@@ -587,7 +646,7 @@ export default function QuoteCalculator() {
                             ? <span className="font-semibold text-primary">{contactData.logoFileName}</span>
                             : <span>Click to upload or drag & drop</span>}
                         </p>
-                        <p className="text-xs text-muted-foreground">SVG, AI, PDF or high-res PNG up to 10MB</p>
+                        <p className="text-xs text-muted-foreground">{ARTWORK_HINT}</p>
                       </div>
                     </div>
                   </div>
@@ -605,9 +664,9 @@ export default function QuoteCalculator() {
                       className="px-5 py-2.5 border border-border hover:bg-muted text-foreground font-semibold rounded-lg flex items-center gap-2 transition-colors cursor-pointer">
                       <ChevronLeft className="h-4 w-4" /> Back to catalogue
                     </button>
-                    <button type="submit"
-                      className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg flex items-center gap-2 transition-colors cursor-pointer">
-                      Submit request <Check className="h-4 w-4" />
+                    <button type="submit" disabled={isSubmitting}
+                      className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none">
+                      {isSubmitting ? "Submitting…" : <>Submit request <Check className="h-4 w-4" /></>}
                     </button>
                   </div>
                 </form>

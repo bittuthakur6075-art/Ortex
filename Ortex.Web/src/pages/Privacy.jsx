@@ -19,18 +19,22 @@ export default function Privacy() {
     },
     {
       title: "3. Data Sharing and Third-Party Disclosures",
-      content: "Ortex Industries does not sell, lease, or trade your personal data. We only share information with trusted third-party providers necessary to complete your order, including logistics partners (for PAN India and global shipping), secure payment gateways (for invoice processing), and cloud infrastructure providers. All partners are contractually bound to maintain absolute confidentiality and conform to modern data security standards."
+      content: "Ortex Industries does not sell, lease, or trade your personal data. We share information only with the providers necessary to run this website and complete your order. Named processors: Supabase (cloud database and file storage for enquiries and uploaded artwork) and, where you have consented to analytics, ipapi.co with api.ipify.org as fallback (IP-address geolocation lookup). We additionally share order data with logistics partners for PAN India and global shipping. We do not use Google Analytics, advertising pixels, or retargeting networks of any kind."
     },
     {
-      title: "4. Intellectual Property and Asset Retention",
+      title: "4. Analytics, IP Address, and Consent",
+      content: "We collect page-visit records containing your device type, browser, operating system, and referring site. If — and only if — you accept analytics on our consent banner, these records additionally include your public IP address and the approximate city, region, and country derived from it by ipapi.co. Declining means no request is sent to ipapi.co and no IP address or location is stored. You can withdraw consent at any time by clearing this site's browser storage. See our Cookie Policy for the precise list of what is stored in your browser."
+    },
+    {
+      title: "5. Intellectual Property and Asset Retention",
       content: "Custom design files, brand logos, and artwork templates uploaded through our platform are retained solely for the purpose of executing your production orders and enabling convenient re-ordering. We implement access control systems to ensure your proprietary designs are restricted to authorized design and manufacturing staff."
     },
     {
-      title: "5. Security Standards",
+      title: "6. Security Standards",
       content: "We implement robust technical and organizational security measures to prevent unauthorized access, alteration, disclosure, or destruction of your personal details and custom assets. This includes secure data transmission protocols (HTTPS), server-side encryption, and regular vulnerability checks on our local network infrastructures."
     },
     {
-      title: "6. Your Global Rights (GDPR / CCPA / DPDP)",
+      title: "7. Your Global Rights (GDPR / CCPA / DPDP)",
       content: "Depending on your location, you hold legal rights regarding your personal data. This includes the right to request a copy of your records, request the rectification of incorrect details, withdraw consent for marketing communications, or demand the deletion of your account history (subject to legal or tax audit retention requirements). To exercise these rights, contact us directly at our compliance email."
     }
   ]
@@ -67,7 +71,7 @@ export default function Privacy() {
         </div>
 
         <div className="border-t border-border pt-6 space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">7. Contact Information</h2>
+          <h2 className="text-xl font-semibold text-foreground">8. Contact Information</h2>
           <p className="text-muted-foreground leading-relaxed text-sm">
             For questions about this policy, data removal requests, or privacy concerns, please contact our data team at:
           </p>

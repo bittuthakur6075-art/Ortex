@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom"
 import { Phone, Mail, Globe, Clock } from "lucide-react"
 import { toast } from "sonner"
 import { submitEnquiry } from "../lib/leads"
+import { whatsappLink } from "../constants/site"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
 export default function Contact() {
@@ -145,11 +146,16 @@ export default function Contact() {
     })
     setIsSubmitting(false)
 
-    if (res.error) {
-      toast.error("Something went wrong sending your message. Please try again or WhatsApp us.")
-      return
+    if (res.queued) {
+      // The enquiry is safe in the outbox and will replay; say so honestly and
+      // hand the customer a channel that works right now.
+      toast.warning(
+        `Saved as ${res.reference}. We couldn't reach our servers — it will send automatically, but WhatsApp us to be certain.`,
+        { duration: 10000, action: { label: "WhatsApp", onClick: () => window.open(whatsappLink(`Hi Ortex, my enquiry ${res.reference} may not have reached you. ${formData.message}`), "_blank", "noopener") } }
+      )
+    } else {
+      toast.success(`Message sent. Your reference is ${res.reference} — we will contact you soon.`)
     }
-    toast.success("Message sent successfully. We will contact you soon.")
     setFormData({ name: "", email: "", phone: "", company: "", productInterest: "", message: "" })
     setErrors({})
   }

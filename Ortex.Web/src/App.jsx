@@ -6,7 +6,9 @@ import Footer from "./components/layout/Footer"
 import ScrollToTop from "./components/layout/ScrollToTop"
 import Chatbot from "./components/ui/Chatbot"
 import WhatsAppWidget from "./components/ui/WhatsAppWidget"
+import CookieConsent from "./components/ui/CookieConsent"
 import { trackActivity } from "./lib/tracker"
+import { flushOutbox } from "./lib/leads"
 
 // Lazy load pages to optimize bundle size and core web vitals
 const Home = lazy(() => import("./pages/Home"))
@@ -26,6 +28,13 @@ const NotFound = lazy(() => import("./pages/NotFound"))
 
 function AppLayout() {
   const location = useLocation()
+
+  // Deliver any enquiry that couldn't reach the backend when it was submitted.
+  useEffect(() => {
+    flushOutbox()
+    window.addEventListener("online", flushOutbox)
+    return () => window.removeEventListener("online", flushOutbox)
+  }, [])
 
   useEffect(() => {
     let activityType = "Home page visit"
@@ -113,6 +122,8 @@ function AppLayout() {
         <Chatbot />
         {/* Floating WhatsApp Widget */}
         <WhatsAppWidget />
+        {/* Consent gate for IP-geolocation analytics */}
+        <CookieConsent />
 
         {/* Sonner Toaster for Notifications */}
         <Toaster position="top-right" richColors />

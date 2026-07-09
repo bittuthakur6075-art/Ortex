@@ -371,3 +371,105 @@ export function computeGrowthAnalytics(
     totalActivities: acts.length,
   }
 }
+
+// ---------------------------------------------------------------------------
+// P2: Attribution — ties web behaviour to actual revenue. Contact-level join
+// (normalised email/phone) is robust even for older enquiries; enquiries stamped
+// with tracking ids (leads.js) are additionally counted as web-originated.
+// ---------------------------------------------------------------------------
+
+const emailKey = (c) => String(c?.email || "").trim().toLowerCase()
+const phoneKey = (c) => String(c?.phone || "").replace(/\D/g, "")
+const contactKeys = (c) => {
+  const out = []
+  const e = emailKey(c); if (e) out.push(`e:${e}`)
+  const p = phoneKey(c); if (p.length >= 7) out.push(`p:${p}`)
+  return out
+}
+
+export function computeAttribution(
+  { activities = [], enquiries = [], quotations = [], invoices = [], products = [] },
+  period = "mtd",
+) {
+  const { from, to } = periodBounds(period)
+
+  // Web-touched contacts + their first-touch channel, built over ALL history
+  // (a visitor touched last month may buy this month).
+  const firstChannel = new Map()
+  const firstTs = new Map()
+  const touch = (c, ts, channel) => {
+    const t = new Date(ts).getTime()
+    if (Number.isNaN(t)) return
+    for (const k of contactKeys(c)) {
+      if (!firstTs.has(k) || t < firstTs.get(k)) { firstTs.set(k, t); firstChannel.set(k, channel) }
+    }
+  }
+  activities.forEach((a) => {
+    const c = a.metadata?.customer
+    if (c && (c.email || c.phone)) touch(c, a.timestamp, channelOf(a.referrer))
+  })
+  enquiries.forEach((e) => {
+    if (e.tracking?.userId || e.tracking?.sessionId) touch(e.customer, e.submittedAt || e.createdAt, e.source || "Website")
+  })
+
+  const isWeb = (c) => contactKeys(c).some((k) => firstChannel.has(k))
+  const channelFor = (c) => {
+    for (const k of contactKeys(c)) if (firstChannel.has(k)) return firstChannel.get(k)
+    return "Unknown"
+  }
+
+  // Revenue attribution over in-period invoices.
+  const liveInvoices = invoices.filter((i) => i.status !== "cancelled")
+  const inP = liveInvoices.filter((i) => inRange(i.issueDate, from, to))
+  const totalRevenue = round2(inP.reduce((s, i) => s + (i.totals?.taxable || 0), 0))
+  const webInvoices = inP.filter((i) => isWeb(i.customer))
+  const webInfluencedRevenue = round2(webInvoices.reduce((s, i) => s + (i.totals?.taxable || 0), 0))
+  const webShare = totalRevenue > 0 ? Math.round((webInfluencedRevenue / totalRevenue) * 100) : null
+
+  const chMap = {}
+  webInvoices.forEach((i) => {
+    const ch = channelFor(i.customer)
+    chMap[ch] = round2((chMap[ch] || 0) + (i.totals?.taxable || 0))
+  })
+  const channelRevenue = Object.entries(chMap).map(([channel, revenue]) => ({ channel, revenue })).sort((a, b) => b.revenue - a.revenue)
+
+  // Tracked-enquiry conversion (needs the leads.js stamp; 0 before it ships).
+  const trackedEnquiries = enquiries.filter((e) => e.tracking?.userId || e.tracking?.sessionId)
+  const quotesByEnquiry = {}
+  quotations.forEach((q) => { if (q.enquiryId) (quotesByEnquiry[q.enquiryId] = quotesByEnquiry[q.enquiryId] || []).push(q) })
+  const trackedWon = trackedEnquiries.filter((e) =>
+    (quotesByEnquiry[e.id] || []).some((q) => q.status === "accepted" || q.status === "invoiced"),
+  ).length
+  const trackedConversion = trackedEnquiries.length ? Math.round((trackedWon / trackedEnquiries.length) * 100) : null
+
+  // Product performance: page views vs orders won.
+  const viewCount = {}
+  activities.filter((a) => classifyActivity(a) === "view").forEach((a) => {
+    const key = a.productId || a.metadata?.productName
+    if (key) viewCount[key] = (viewCount[key] || 0) + 1
+  })
+  const orderCount = {}
+  quotations
+    .filter((q) => q.status === "accepted" || q.status === "invoiced")
+    .forEach((q) => (q.lines || []).forEach((l) => { if (l.productId) orderCount[l.productId] = (orderCount[l.productId] || 0) + 1 }))
+  const productPerformance = products
+    .map((p) => {
+      const views = (viewCount[p.id] || 0) + (viewCount[p.name] || 0)
+      const orders = orderCount[p.id] || 0
+      return { name: p.name, views, orders, rate: views ? Math.round((orders / views) * 100) : null }
+    })
+    .filter((p) => p.views > 0 || p.orders > 0)
+    .sort((a, b) => b.views - a.views)
+    .slice(0, 8)
+
+  return {
+    totalRevenue,
+    webInfluencedRevenue,
+    webShare,
+    channelRevenue,
+    trackedEnquiryCount: trackedEnquiries.length,
+    trackedWon,
+    trackedConversion,
+    productPerformance,
+  }
+}

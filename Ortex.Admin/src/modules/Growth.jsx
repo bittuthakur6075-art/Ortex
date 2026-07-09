@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react"
-import { Users, Flame, TrendingUp, Search, Sparkles, MessageCircle } from "../components/icons"
+import { Users, Flame, TrendingUp, Search, Sparkles, MessageCircle, IndianRupee, Trophy } from "../components/icons"
 import { useCollections } from "../data/hooks"
-import { computeGrowthAnalytics } from "../data/analytics"
-import { formatNumber } from "../lib/format"
+import { computeGrowthAnalytics, computeAttribution } from "../data/analytics"
+import { formatNumber, formatCurrency } from "../lib/format"
 import PageHeader from "../components/PageHeader"
-import { Card, StatCard, Badge, EmptyState, Chip, PageLoader } from "../components/ui"
+import { Card, StatCard, Badge, EmptyState, Chip, PageLoader, Money } from "../components/ui"
 
 const PERIODS = [
   { id: "mtd", label: "This month" },
@@ -27,6 +27,22 @@ export default function Growth() {
   const g = useMemo(
     () =>
       computeGrowthAnalytics(
+        {
+          activities: data.user_activities || [],
+          enquiries: data.enquiries || [],
+          quotations: data.quotations || [],
+          invoices: data.invoices || [],
+          payments: data.payments || [],
+          products: data.products || [],
+        },
+        period,
+      ),
+    [data, period],
+  )
+
+  const attr = useMemo(
+    () =>
+      computeAttribution(
         {
           activities: data.user_activities || [],
           enquiries: data.enquiries || [],
@@ -107,6 +123,38 @@ export default function Growth() {
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <FunnelChart funnel={g.funnel} className="lg:col-span-2" />
         <TrendChart trend={g.trend} />
+      </div>
+
+      {/* Revenue attribution */}
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard
+          icon={IndianRupee}
+          label="Web-influenced revenue"
+          value={<Money value={attr.webInfluencedRevenue} compact />}
+          sub={attr.webShare === null
+            ? "No invoiced revenue in period"
+            : `${attr.webShare}% of ${formatCurrency(attr.totalRevenue, { compact: true })} total`}
+          accent="bg-emerald-500/10 text-emerald-500"
+        />
+        <StatCard
+          icon={Users}
+          label="Tracked enquiries"
+          value={formatNumber(attr.trackedEnquiryCount)}
+          sub={`${formatNumber(attr.trackedWon)} became orders`}
+          accent="bg-blue-500/10 text-blue-500"
+        />
+        <StatCard
+          icon={Trophy}
+          label="Tracked → order"
+          value={attr.trackedConversion === null ? "—" : `${attr.trackedConversion}%`}
+          sub="Web-originated enquiries won"
+          accent="bg-violet-500/10 text-violet-500"
+        />
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <RevenueBars title="Revenue by acquisition channel" rows={attr.channelRevenue} />
+        <ProductPerformance rows={attr.productPerformance} />
       </div>
 
       {/* Acquisition */}
@@ -234,6 +282,63 @@ function BarList({ title, rows, labelKey, unit, tone = "slate" }) {
             <div className="h-2 overflow-hidden rounded-full bg-muted">
               <div className={`h-full rounded-full ${barTone}`} style={{ width: `${(r.count / max) * 100}%` }} />
             </div>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
+  )
+}
+
+// Channel → revenue (first-touch attribution), currency bars.
+function RevenueBars({ title, rows }) {
+  if (!rows || rows.length === 0) {
+    return (
+      <SectionCard title={title}>
+        <p className="py-4 text-sm text-muted-foreground">
+          No revenue attributed to a web channel yet — invoiced customers aren't matching a tracked visit.
+        </p>
+      </SectionCard>
+    )
+  }
+  const max = Math.max(1, ...rows.map((r) => r.revenue))
+  return (
+    <SectionCard title={title}>
+      <div className="space-y-3">
+        {rows.map((r, i) => (
+          <div key={i}>
+            <div className="mb-1 flex items-center justify-between gap-2 text-sm">
+              <span className="truncate text-foreground">{r.channel}</span>
+              <span className="flex-none text-muted-foreground">{formatCurrency(r.revenue, { compact: true })}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-emerald-500/60" style={{ width: `${(r.revenue / max) * 100}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
+  )
+}
+
+// Product page views vs orders won — merchandising signal.
+function ProductPerformance({ rows }) {
+  if (!rows || rows.length === 0) {
+    return (
+      <SectionCard title="Product: views → orders">
+        <p className="py-4 text-sm text-muted-foreground">No product views recorded yet.</p>
+      </SectionCard>
+    )
+  }
+  return (
+    <SectionCard title="Product: views → orders">
+      <div className="space-y-2.5">
+        {rows.map((r, i) => (
+          <div key={i} className="flex items-center justify-between gap-3 text-sm">
+            <span className="min-w-0 truncate text-foreground">{r.name}</span>
+            <span className="flex-none text-xs text-muted-foreground">
+              {formatNumber(r.views)} views · {formatNumber(r.orders)} orders
+              {r.rate !== null && <span className="ml-1.5 font-semibold text-foreground">{r.rate}%</span>}
+            </span>
           </div>
         ))}
       </div>
