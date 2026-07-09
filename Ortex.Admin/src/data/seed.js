@@ -169,6 +169,17 @@ export async function seedDemo() {
   await repo.bulkCreate("automation_rules", RULES)
 
   // ---- User Activities ----
+  // Demo geolocation for the fake IPs below. It lives here, in the fixture,
+  // rather than in a lookup table inside the Activities table renderer — that
+  // one guessed "Delhi, India" for every IP it didn't recognise, including real
+  // visitor traffic.
+  const GEO = {
+    "103.88.22.41": { city: "Delhi", country: "India", location: "Delhi, India" },
+    "122.161.4.19": { city: "Mumbai", country: "India", location: "Mumbai, Maharashtra, India" },
+    "223.189.14.77": { city: "Bengaluru", country: "India", location: "Bengaluru, Karnataka, India" },
+    "115.241.89.5": { city: "Ahmedabad", country: "India", location: "Ahmedabad, Gujarat, India" },
+  }
+
   const ACTIVITIES = [
     { id: "act_1", userId: "usr_priya", sessionId: "sess_p1", activityType: "Home page visit", pageUrl: "/", referrer: "Google Search", timestamp: ago(4), device: "Mobile", browser: "Chrome", operatingSystem: "Android", ipAddress: "103.88.22.41", metadata: {} },
     { id: "act_2", userId: "usr_priya", sessionId: "sess_p1", activityType: "Product page visit", productId: "prod_mdf01", pageUrl: "/products?product=Custom%20MDF%20Award%20Trophy", referrer: "Home page link", timestamp: ago(4), device: "Mobile", browser: "Chrome", operatingSystem: "Android", ipAddress: "103.88.22.41", metadata: { productName: "Custom MDF Award Trophy" } },
@@ -180,7 +191,7 @@ export async function seedDemo() {
     { id: "act_8", userId: "usr_anon1", sessionId: "sess_a1", activityType: "Product page visit", productId: "prod_acr01", pageUrl: "/products?product=Acrylic%20Desk%20Standee", referrer: "Home page", timestamp: ago(2), device: "Mobile", browser: "Safari", operatingSystem: "iOS", ipAddress: "223.189.14.77", metadata: { productName: "Acrylic Desk Standee" } },
     { id: "act_9", userId: "usr_anon1", sessionId: "sess_a1", activityType: "Cart actions", pageUrl: "/quote", referrer: "Products", timestamp: ago(2), device: "Mobile", browser: "Safari", operatingSystem: "iOS", ipAddress: "223.189.14.77", metadata: { action: "add", productName: "Acrylic Desk Standee", quantity: 50 } },
     { id: "act_10", userId: "usr_anita", sessionId: "sess_an1", activityType: "PDF download", pageUrl: "/products", referrer: "Direct", timestamp: ago(1), device: "Desktop", browser: "Firefox", operatingSystem: "Linux", ipAddress: "115.241.89.5", metadata: { fileName: "Ortex_Product_Catalogue_2026.pdf" } },
-  ]
+  ].map((a) => ({ ...a, ...GEO[a.ipAddress] }))
   await repo.bulkCreate("user_activities", ACTIVITIES)
 
   // ---- Event Logs ----

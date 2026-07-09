@@ -118,18 +118,15 @@ const renderMetadata = (act, mask = true) => {
   )
 }
 
+// Report only what the tracker actually recorded. This used to fall back to a
+// four-entry IP->city table and, failing that, return "Delhi, India" for *any*
+// unrecognised address — inventing a location for real visitors and presenting
+// the guess as fact. Rows with no geolocation now say so.
 const renderLocation = (act) => {
   if (act.location) return act.location
   if (act.city && act.country) return `${act.city}, ${act.country}`
-  if (act.ipAddress === "127.0.0.1" || act.ipAddress === "::1" || !act.ipAddress) return "Localhost"
-  
-  const ips = {
-    "103.88.22.41": "Delhi, India",
-    "122.161.4.19": "Mumbai, Maharashtra, India",
-    "223.189.14.77": "Bengaluru, Karnataka, India",
-    "115.241.89.5": "Ahmedabad, Gujarat, India"
-  }
-  return ips[act.ipAddress] || "Delhi, India"
+  if (!act.ipAddress || act.ipAddress === "127.0.0.1" || act.ipAddress === "::1") return "Localhost"
+  return <span className="text-muted-foreground">Unknown</span>
 }
 
 export default function Automation() {
@@ -451,9 +448,19 @@ export default function Automation() {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
 
-    // Conversion rate: Quote requests / Total activities
-    const quoteRequests = activities.filter(a => a.activityType === "Quote request").length
-    const conversionRate = totalActivities > 0 ? ((quoteRequests / totalActivities) * 100).toFixed(1) : 0
+    // Conversion rate: share of browsing *sessions* that ended in a quote
+    // request. The denominator used to be every tracked action, so a single
+    // visitor firing ten events diluted the rate tenfold and the card's
+    // "vs page visits" caption described neither numerator nor denominator.
+    const sessionsWithQuote = new Set(
+      activities.filter(a => a.activityType === "Quote request").map(a => a.sessionId).filter(Boolean)
+    )
+    const allSessions = new Set(activities.map(a => a.sessionId).filter(Boolean))
+    const conversionRate = allSessions.size > 0
+      ? ((sessionsWithQuote.size / allSessions.size) * 100).toFixed(1)
+      : null
+    const quoteSessionCount = sessionsWithQuote.size
+    const sessionCount = allSessions.size
 
     // AI performance: generated messages vs active events
     const generatedMsgsCount = aiMessages.length
@@ -468,6 +475,8 @@ export default function Automation() {
       topSearches,
       topViews,
       conversionRate,
+      quoteSessionCount,
+      sessionCount,
       generatedMsgsCount
     }
   }, [activities, events, whatsappLogs, aiMessages])
@@ -688,8 +697,10 @@ export default function Automation() {
             <StatCard
               icon={Flame}
               label="Conversion Rate"
-              value={`${analyticsData.conversionRate}%`}
-              sub="Quote requests vs page visits"
+              value={analyticsData.conversionRate === null ? "—" : `${analyticsData.conversionRate}%`}
+              sub={analyticsData.sessionCount === 0
+                ? "No tracked sessions yet"
+                : `${analyticsData.quoteSessionCount} of ${analyticsData.sessionCount} sessions requested a quote`}
               accent="bg-amber-500/10 text-amber-600"
             />
             <StatCard
