@@ -1,13 +1,13 @@
 import { useState, useMemo, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Inbox, Plus, Search, Star, Mail, Phone, MessageCircle, Trash2, Target, Download, FileText, Printer } from "../components/icons"
+import { Inbox, Plus, Search, Star, Mail, Phone, MessageCircle, Trash2, Target, Download, FileText, Printer, AlertTriangle } from "../components/icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { convertEnquiryToLead, createQuotation, markEnquiryQuoted } from "../data/domain"
 import { useCollection, useSettings } from "../data/hooks"
 import { ENQUIRY_STATUS, LEAD_SOURCES, PRODUCT_CATEGORIES, newEnquiry } from "../data/schema"
 import { relativeTime, formatDateTime, formatCurrency } from "../lib/format"
-import { isQuoteEnquiry, parseQuoteRfq, rfqToQuotationLines } from "../lib/quoteRfq"
+import { isQuoteEnquiry, parseQuoteRfq, rfqToQuotationLines, rfqRateMismatches } from "../lib/quoteRfq"
 import { exportCsv } from "../lib/csv"
 import { cn } from "../lib/cn"
 import DocumentView from "../components/DocumentView"
@@ -46,7 +46,7 @@ export default function Enquiries() {
     const q = query.trim().toLowerCase()
     if (q) {
       rows = rows.filter((e) =>
-        [e.customer?.name, e.customer?.company, e.customer?.email, e.productInterest, e.message, e.source]
+        [e.reference, e.customer?.name, e.customer?.company, e.customer?.email, e.productInterest, e.message, e.source]
           .filter(Boolean)
           .some((v) => v.toLowerCase().includes(q)),
       )
@@ -60,6 +60,7 @@ export default function Enquiries() {
     exportCsv(
       `ortex-enquiries-${new Date().toISOString().slice(0, 10)}.csv`,
       [
+        { header: "Reference", value: (e) => e.reference },
         { header: "Date", value: (e) => formatDateTime(e.createdAt) },
         { header: "Name", value: (e) => e.customer?.name },
         { header: "Company", value: (e) => e.customer?.company },
@@ -88,7 +89,7 @@ export default function Enquiries() {
       <div className="mb-4 flex flex-col gap-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, company, message…" className="pl-10" />
+          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search reference, name, company, message…" className="pl-10" />
         </div>
         <div className="flex flex-wrap gap-1.5">
           <Chip active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
@@ -135,6 +136,9 @@ export default function Enquiries() {
                       {e.starred && <Star className="h-3.5 w-3.5 flex-none fill-amber-400 text-amber-400" />}
                     </div>
                     <div className="truncate text-xs text-muted-foreground">{e.customer?.company || e.customer?.email}</div>
+                    {e.reference && (
+                      <div className="truncate font-mono text-[10px] text-muted-foreground/70">{e.reference}</div>
+                    )}
                   </div>
                   <div className="flex flex-none flex-col items-end gap-1.5">
                     {isQuoteEnquiry(e) && (
@@ -184,6 +188,15 @@ function EnquiryDrawer({ enquiry, products = [], settings, onPrint, onClose }) {
   const [generating, setGenerating] = useState(false)
 
   const rfq = !isNew && enquiry ? parseQuoteRfq(enquiry) : null
+
+  // Submitted rates the current catalogue doesn't corroborate. The payload is
+  // visitor-supplied (enquiries accept anonymous inserts), so before its prices
+  // land on a branded quotation the admin should know which ones we can't vouch
+  // for. Recomputed against `products` so a catalogue edit updates the warning.
+  const rateMismatches = useMemo(
+    () => (rfq ? rfqRateMismatches(rfq.items, products) : []),
+    [rfq, products],
+  )
 
   useEffect(() => {
     if (!open) return
@@ -259,7 +272,11 @@ function EnquiryDrawer({ enquiry, products = [], settings, onPrint, onClose }) {
       open={open}
       onClose={onClose}
       title={isNew ? "New enquiry" : form.customer.name || "Enquiry"}
-      subtitle={isNew ? "Add a lead manually" : `${form.source} · ${formatDateTime(enquiry?.createdAt)}`}
+      subtitle={
+        isNew
+          ? "Add a lead manually"
+          : [form.source, formatDateTime(enquiry?.createdAt), enquiry?.reference].filter(Boolean).join(" · ")
+      }
       footer={
         isNew ? (
           <div className="flex justify-end gap-2">
@@ -373,6 +390,23 @@ function EnquiryDrawer({ enquiry, products = [], settings, onPrint, onClose }) {
               </div>
               <p className="text-[11px] text-muted-foreground">Customer-facing estimate · GST added on the quotation.</p>
             </div>
+            {rateMismatches.length > 0 && (
+              <div className="flex items-start gap-2 border-t border-amber-500/30 bg-amber-500/5 px-3 py-2.5 text-xs">
+                <AlertTriangle className="h-4 w-4 flex-none text-amber-500" />
+                <div className="min-w-0 space-y-1">
+                  <p className="font-semibold text-foreground">Verify these rates before generating — they don't match the current catalogue:</p>
+                  <ul className="space-y-0.5 text-muted-foreground">
+                    {rateMismatches.map((m, i) => (
+                      <li key={i} className="truncate">
+                        {m.name}: submitted {formatCurrency(m.submittedRate)}
+                        {m.catalogRate === null ? " · not in catalogue" : ` · catalogue ${formatCurrency(m.catalogRate)}`}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-[11px]">Submitted prices come from the visitor's browser. The quotation will use them as-is — adjust lines in the editor if needed.</p>
+                </div>
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-2 border-t border-primary/20 bg-muted/30 px-3 py-2.5">
               {enquiry.quotationId ? (
                 <>
