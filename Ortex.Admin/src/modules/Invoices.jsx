@@ -286,11 +286,17 @@ function InvoiceEditor({ draft, products, customers, payments, settings, onClose
   const save = async () => {
     if (!form.customer.name.trim()) return toast.error("Customer name is required")
     if (!form.lines.length) return toast.error("Add at least one line item")
+    // The editor's line items are the source of truth. Drop any aggregate
+    // `totals` carried in from a Tally import (which has no per-line breakdown)
+    // so createInvoice recomputes them from the current lines — otherwise an
+    // imported/edited invoice would save stale totals. updateInvoice already
+    // recomputes, so stripping here is a no-op for that path.
+    const { totals: _staleTotals, ...payload } = form
     if (isEdit) {
-      await updateInvoice(form.id, form)
+      await updateInvoice(form.id, payload)
       toast.success("Invoice updated")
     } else {
-      const created = await createInvoice(form)
+      const created = await createInvoice(payload)
       toast.success(`Invoice ${created.number} created`)
       const m = notifyMessage(created._notify)
       if (m) toast[m.tone === "error" ? "error" : "message"](m.text)

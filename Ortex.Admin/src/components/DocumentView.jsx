@@ -10,7 +10,9 @@ import html2pdf from "html2pdf.js"
 export default function DocumentView({ open, onClose, doc, settings, type }) {
   if (!open || !doc) return null
   const c = settings.company
-  const t = doc.totals
+  // Tally-imported invoices persist only aggregate totals (no per-line `lines`
+  // array), so default defensively — otherwise Preview/Print threw on t.lines[i].
+  const t = doc.totals || {}
   const isInvoice = type === "invoice"
   const heading = isInvoice ? "TAX INVOICE" : "QUOTATION"
   // GST place of supply follows the ship-to (consignee) state when present.
@@ -146,8 +148,8 @@ export default function DocumentView({ open, onClose, doc, settings, type }) {
             </tr>
           </thead>
           <tbody>
-            {doc.lines.map((line, i) => {
-              const cl = t.lines[i]
+            {(doc.lines || []).map((line, i) => {
+              const cl = (t.lines && t.lines[i]) || {}
               return (
                 <tr key={i}>
                   <td className="border border-[#d1d5db] px-2 py-1.5">{i + 1}</td>
