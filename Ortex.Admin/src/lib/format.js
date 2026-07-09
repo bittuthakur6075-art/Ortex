@@ -39,11 +39,14 @@ export function formatDateTime(ts) {
   })
 }
 
-// yyyy-mm-dd for <input type="date"> values.
+// yyyy-mm-dd for <input type="date"> values. Uses LOCAL date parts — the old
+// toISOString().slice(0,10) is UTC, so for IST (UTC+5:30) any time before 05:30
+// local rendered as the previous calendar day (off-by-one issue/due dates).
 export function toDateInput(ts) {
   const d = ts ? new Date(ts) : new Date()
   if (Number.isNaN(d.getTime())) return ""
-  return d.toISOString().slice(0, 10)
+  const p = (n) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
 export function relativeTime(ts) {

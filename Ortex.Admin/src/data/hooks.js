@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { repo } from "./repository"
 import { onAutoRefresh } from "./autoRefresh"
 import { PRODUCT_CATEGORIES } from "./schema"
+import { DEFAULT_SETTINGS } from "./settingsDefaults"
 
 // Subscribes a component to a collection and re-fetches whenever ANY store
 // change fires (create/update/remove in this or another tab). Coarse but
@@ -9,13 +10,25 @@ import { PRODUCT_CATEGORIES } from "./schema"
 export function useCollection(name) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const mounted = useRef(true)
 
   const load = useCallback(async () => {
-    const rows = await repo.list(name)
-    if (mounted.current) {
-      setItems(rows)
-      setLoading(false)
+    try {
+      const rows = await repo.list(name)
+      if (mounted.current) {
+        setItems(rows)
+        setError(null)
+        setLoading(false)
+      }
+    } catch (e) {
+      // Without this, a failed fetch (network / RLS deny) left loading=true
+      // forever and the list view spun with no error.
+      console.error(`Failed to load collection "${name}":`, e)
+      if (mounted.current) {
+        setError(e)
+        setLoading(false)
+      }
     }
   }, [name])
 
@@ -31,7 +44,7 @@ export function useCollection(name) {
     }
   }, [load])
 
-  return { items, loading, reload: load }
+  return { items, loading, error, reload: load }
 }
 
 // Load many collections at once (dashboard/analytics). `names` must be stable.
@@ -42,12 +55,17 @@ export function useCollections(names) {
   const mounted = useRef(true)
 
   const load = useCallback(async () => {
-    const lists = await Promise.all(names.map((n) => repo.list(n)))
-    if (mounted.current) {
-      const next = {}
-      names.forEach((n, i) => (next[n] = lists[i]))
-      setData(next)
-      setLoading(false)
+    try {
+      const lists = await Promise.all(names.map((n) => repo.list(n)))
+      if (mounted.current) {
+        const next = {}
+        names.forEach((n, i) => (next[n] = lists[i]))
+        setData(next)
+        setLoading(false)
+      }
+    } catch (e) {
+      console.error("Failed to load collections:", e)
+      if (mounted.current) setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
@@ -80,8 +98,15 @@ export function useSettings() {
   const mounted = useRef(true)
 
   const load = useCallback(async () => {
-    const s = await repo.getSettings()
-    if (mounted.current) setSettings(s)
+    try {
+      const s = await repo.getSettings()
+      if (mounted.current) setSettings(s)
+    } catch (e) {
+      // Fall back to defaults so the Settings page renders instead of hanging
+      // on <PageLoader/> forever when the fetch fails.
+      console.error("Failed to load settings:", e)
+      if (mounted.current) setSettings(DEFAULT_SETTINGS)
+    }
   }, [])
 
   useEffect(() => {

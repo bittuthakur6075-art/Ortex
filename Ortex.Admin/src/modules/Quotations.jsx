@@ -287,6 +287,7 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
   const convert = async () => {
     if (!isEdit) return toast.error("Save the quotation first")
     const inv = await convertQuotationToInvoice(form.id)
+    if (!inv) return toast.error("Could not convert this quotation to an invoice.")
     toast.success(`Invoice ${inv.number} generated`)
     const m = notifyMessage(inv._notify)
     if (m) toast[m.tone === "error" ? "error" : "message"](m.text)

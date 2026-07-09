@@ -87,6 +87,14 @@ export async function convertQuotationToInvoice(quotationId) {
   const q = await repo.get("quotations", quotationId)
   if (!q) return null
 
+  // Idempotency: if this quotation was already converted, return the existing
+  // invoice instead of minting a second invoice number / duplicate invoice
+  // (e.g. a double-click before the status flip hides the button).
+  if (q.invoiceId) {
+    const existing = await repo.get("invoices", q.invoiceId)
+    if (existing) return { ...existing, _notify: { skipped: true } }
+  }
+
   const number = await generateNumber("invoice")
   const issueDate = new Date().toISOString()
   const dueDate = new Date(Date.now() + 15 * 86400000).toISOString()
