@@ -28,6 +28,29 @@ import {
 import { toast } from "sonner"
 import { formatDate, formatDateTime } from "../lib/format"
 
+// Trigger events a rule can actually fire on. These are exactly the eventTypes
+// Ortex.Web's tracker.js emits AND the automation-engine accepts — a rule on
+// anything else can never run. Keep in sync with ALLOWED_EVENTS in
+// supabase/functions/automation-engine/index.ts.
+const TRIGGER_EVENTS = [
+  { value: "quote_requested", label: "quote_requested (Quote Builder Submission)" },
+  { value: "contact_form_submitted", label: "contact_form_submitted (Contact Inquiry)" },
+  { value: "product_visited", label: "product_visited (Product Page View)" },
+  { value: "search_performed", label: "search_performed (Product Search)" },
+  { value: "cart_added", label: "cart_added (Added to Quote Cart)" },
+  { value: "pdf_downloaded", label: "pdf_downloaded (Catalogue Download)" },
+]
+
+const EVENT_TONES = {
+  quote_requested: "amber",
+  contact_form_submitted: "blue",
+  cart_added: "cyan",
+  cart_removed: "rose",
+  product_visited: "slate",
+  search_performed: "slate",
+  pdf_downloaded: "slate",
+}
+
 const renderMetadata = (act) => {
   const meta = act.metadata || {}
   const items = []
@@ -194,6 +217,18 @@ export default function Automation() {
     }
   }
 
+  // Rules used to store the template's name in `templateId`. Map that back to a
+  // real id when editing, so an old rule is migrated on its next save. An
+  // unresolvable ref (template deleted) falls back to the built-in message.
+  const resolveTemplateId = (stored) => {
+    if (!stored) return ""
+    if (templates.some(t => t.id === stored)) return stored
+    return templates.find(t => t.name === stored)?.id || ""
+  }
+
+  const templateNameFor = (stored) =>
+    templates.find(t => t.id === stored)?.name || templates.find(t => t.name === stored)?.name || ""
+
   // Rule operations
   const handleOpenRuleDrawer = (rule = null) => {
     if (rule) {
@@ -201,14 +236,14 @@ export default function Automation() {
       setRuleForm({
         name: rule.name || "",
         triggerEvent: rule.triggerEvent || "",
-        templateId: rule.templateId || "",
+        templateId: resolveTemplateId(rule.templateId),
         delayMinutes: rule.delayMinutes || 0,
         active: rule.active !== false,
         description: rule.description || ""
       })
     } else {
       setEditingRule(null)
-      setRuleForm({ name: "", triggerEvent: "quote_requested", templateId: templates[0]?.name || "", delayMinutes: 0, active: true, description: "" })
+      setRuleForm({ name: "", triggerEvent: "quote_requested", templateId: templates[0]?.id || "", delayMinutes: 0, active: true, description: "" })
     }
     setRuleDrawerOpen(true)
   }
@@ -740,11 +775,7 @@ export default function Automation() {
                     <tr key={evt.id} className="hover:bg-muted/30">
                       <td className="whitespace-nowrap px-4 py-3 text-xs">{formatDateTime(evt.timestamp)}</td>
                       <td className="px-4 py-3">
-                        <Badge tone={
-                          evt.eventType === "quote_requested" ? "amber" :
-                          evt.eventType === "contact_form_submitted" ? "blue" :
-                          evt.eventType === "cart_abandoned" ? "rose" : "slate"
-                        }>
+                        <Badge tone={EVENT_TONES[evt.eventType] || "slate"}>
                           {evt.eventType}
                         </Badge>
                       </td>
@@ -920,9 +951,20 @@ export default function Automation() {
                         <div>{rule.name}</div>
                         <div className="text-[10px] text-muted-foreground font-normal mt-0.5">{rule.description}</div>
                       </td>
-                      <td className="px-4 py-3 text-xs font-mono text-primary">{rule.triggerEvent}</td>
+                      <td className="px-4 py-3 text-xs font-mono text-primary">
+                        {rule.triggerEvent}
+                        {!TRIGGER_EVENTS.some(ev => ev.value === rule.triggerEvent) && (
+                          <div className="text-[10px] font-sans font-semibold text-destructive mt-0.5">
+                            Unsupported event — never fires
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-xs font-bold uppercase text-emerald-600">{rule.actionType}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{rule.templateId}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {templateNameFor(rule.templateId) || (
+                          <span className="italic">Built-in message</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-xs">
                         {rule.delayMinutes === 0 ? "Immediate" : `${rule.delayMinutes} mins`}
                       </td>
@@ -1100,21 +1142,25 @@ export default function Automation() {
               value={ruleForm.triggerEvent}
               onChange={(e) => setRuleForm({ ...ruleForm, triggerEvent: e.target.value })}
             >
-              <option value="quote_requested">quote_requested (Quote Builder Submission)</option>
-              <option value="contact_form_submitted">contact_form_submitted (Contact Inquiry)</option>
-              <option value="cart_abandoned">cart_abandoned (Quote Builder Cart Abandonment)</option>
-              <option value="order_confirmed">order_confirmed (Invoice Generated)</option>
-              <option value="payment_received">payment_received (Payment Receipt Inflow)</option>
+              {TRIGGER_EVENTS.map(ev => (
+                <option key={ev.value} value={ev.value}>{ev.label}</option>
+              ))}
+              {ruleForm.triggerEvent && !TRIGGER_EVENTS.some(ev => ev.value === ruleForm.triggerEvent) && (
+                <option value={ruleForm.triggerEvent}>
+                  {ruleForm.triggerEvent} — unsupported, never fires
+                </option>
+              )}
             </Select>
           </Field>
 
-          <Field label="Message Template" required>
+          <Field label="Message Template" hint="Without a template the engine sends its built-in message for the event.">
             <Select
               value={ruleForm.templateId}
               onChange={(e) => setRuleForm({ ...ruleForm, templateId: e.target.value })}
             >
+              <option value="">No template — use built-in message</option>
               {templates.map(t => (
-                <option key={t.id} value={t.name}>{t.name} ({t.category})</option>
+                <option key={t.id} value={t.id}>{t.name} ({t.category})</option>
               ))}
             </Select>
           </Field>

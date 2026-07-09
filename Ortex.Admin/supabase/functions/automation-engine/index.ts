@@ -217,22 +217,18 @@ Deno.serve(async (req: Request) => {
     for (const ruleRow of matchingRules) {
       const ruleDoc = ruleRow.doc as Record<string, unknown>
 
-      // Find template by templateId or templateName
-      const templateId = ruleDoc.templateId as string | undefined
-      const templateName = ruleDoc.templateName as string | undefined
+      // Resolve the rule's template. The console stores `templateId` as the
+      // template's row id, but rules saved before that fix put the template
+      // *name* there instead, so accept either — matching on id alone would
+      // silently drop every legacy rule to the generic fallback message.
+      const templateRef = (ruleDoc.templateId ?? ruleDoc.templateName) as string | undefined
 
-      let matchedTemplate: { id: string; doc: Record<string, unknown> } | undefined
-
-      if (templateId) {
-        matchedTemplate = templates.find((t) => t.id === templateId)
-      }
-
-      if (!matchedTemplate && templateName) {
-        matchedTemplate = templates.find(
-          (t) =>
-            (t.doc?.name as string)?.toLowerCase() === templateName.toLowerCase(),
-        )
-      }
+      const matchedTemplate = templateRef
+        ? templates.find((t) => t.id === templateRef) ??
+          templates.find(
+            (t) => (t.doc?.name as string)?.toLowerCase() === templateRef.toLowerCase(),
+          )
+        : undefined
 
       // Resolve message body
       let body: string
@@ -281,7 +277,10 @@ Deno.serve(async (req: Request) => {
       if (phone) {
         const cleanPhone = phone.replace(/\D/g, '')
         const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(body)}`
-        const resolvedTemplateName = (matchedTemplate?.doc?.name as string) ?? (ruleDoc.templateId as string) ?? 'Auto Generated'
+        // Only name the template that actually produced this body. Falling back
+        // to the rule's templateRef here would stamp a template's name on a
+        // generic fallback message it never generated.
+        const resolvedTemplateName = (matchedTemplate?.doc?.name as string) ?? 'Auto Generated'
 
         const whatsappLogData = {
           customerName,
