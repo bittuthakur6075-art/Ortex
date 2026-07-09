@@ -52,12 +52,24 @@ export default function QuoteCalculator() {
         
         if (data) {
           const activeProducts = data
-            .map((row) => ({ ...row.doc, id: row.id }))
+            // Fill the fields the calculator relies on so an admin product doc
+            // missing e.g. `material`/`basePrice`/`moq` can't crash the filter
+            // (.toLowerCase on undefined) or produce ₹NaN estimates.
+            .map((row) => ({
+              name: "",
+              material: "",
+              category: "",
+              basePrice: 0,
+              moq: 1,
+              leadTimeDays: 0,
+              ...row.doc,
+              id: row.id,
+            }))
             .filter((p) => p.status === "active")
-          
+
           if (activeProducts.length > 0) {
             setProductsList(activeProducts)
-            const derivedCategories = [...new Set(activeProducts.map((p) => p.category))]
+            const derivedCategories = [...new Set(activeProducts.map((p) => p.category).filter(Boolean))]
             setCategoriesList(derivedCategories)
           }
         }
@@ -77,16 +89,21 @@ export default function QuoteCalculator() {
     let rows = productsList
     if (category !== "all") rows = rows.filter((p) => p.category === category)
     const q = query.trim().toLowerCase()
-    if (q) rows = rows.filter((p) => [p.name, p.material, p.category].some((v) => v.toLowerCase().includes(q)))
+    if (q) rows = rows.filter((p) => [p.name, p.material, p.category].some((v) => (v || "").toLowerCase().includes(q)))
     return rows
   }, [category, query, productsList])
 
   // Computed cart lines + totals.
   const lines = useMemo(
-    () => Object.entries(cart).map(([id, qty]) => {
-      const product = productById[id]
-      return { product, ...priceLine(product, qty) }
-    }),
+    () => Object.entries(cart)
+      // A cart id may not be in the current list (e.g. the async Supabase fetch
+      // replaced the catalogue after an item was added) — drop it instead of
+      // calling priceLine(undefined) and crashing the whole page.
+      .map(([id, qty]) => {
+        const product = productById[id]
+        return product ? { product, ...priceLine(product, qty) } : null
+      })
+      .filter(Boolean),
     [cart, productById]
   )
   const subtotal = lines.reduce((s, l) => s + l.gross, 0)
