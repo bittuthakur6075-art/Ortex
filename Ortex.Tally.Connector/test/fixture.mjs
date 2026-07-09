@@ -32,10 +32,13 @@ function balance(xml) {
   return Math.round(amounts.reduce((s, n) => s + n, 0) * 100) / 100
 }
 
+let failures = 0
+
 const show = (title, xml, checkBalance) => {
   console.log(`\n===== ${title} =====\n${xml}`)
   if (checkBalance) {
     const b = balance(xml)
+    if (b !== 0) failures++
     console.log(`   [balance check] net = ${b}  →  ${b === 0 ? "✓ balanced" : "✗ IMBALANCED"}`)
   }
 }
@@ -45,3 +48,11 @@ show("Product → Stock Item", stockItemXml(product, cfg))
 show("Invoice (intra-state, CGST+SGST) → Sales Voucher", salesVoucherXml(invoiceIntra, cfg), true)
 show("Invoice (inter-state, IGST + round-off) → Sales Voucher", salesVoucherXml(invoiceInter, cfg), true)
 show("Payment → Receipt Voucher", receiptVoucherXml(payment, cfg), true)
+
+// Exit non-zero on any imbalance so `npm run fixture` is a real regression gate
+// (used by CI) instead of a print-only script.
+if (failures > 0) {
+  console.error(`\n✗ ${failures} voucher(s) did not balance`)
+  process.exit(1)
+}
+console.log("\n✓ all voucher balance checks passed")

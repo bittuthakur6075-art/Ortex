@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [Development, main]
+  pull_request:
+    branches: [Development, main]
+
+jobs:
+  web:
+    name: Ortex.Web — lint + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Ortex.Web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Ortex.Web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  admin:
+    name: Ortex.Admin — lint + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Ortex.Admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Ortex.Admin/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  connector:
+    name: Ortex.Tally.Connector — XML fixture
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Ortex.Tally.Connector
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Ortex.Tally.Connector/package-lock.json
+      - run: npm ci
+      - run: npm run fixture
