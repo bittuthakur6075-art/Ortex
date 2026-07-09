@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   Flame,
+  TrendingUp,
 } from "./icons"
 import { logout, useAuth, useAuthReady, currentEmail } from "../lib/auth"
 import { useProfile } from "../data/profile"
@@ -83,6 +84,7 @@ const NAV = [
     section: "Automation",
     items: [
       { to: "/automation", key: "automation", label: "Automation", icon: Flame },
+      { to: "/growth", key: "growth", label: "Growth", icon: TrendingUp },
     ],
   },
   {
