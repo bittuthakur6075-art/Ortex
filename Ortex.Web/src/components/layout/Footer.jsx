@@ -71,6 +71,7 @@ export default function Footer() {
                 <li><Link to="/industries"><RollText text="Industries we serve" /></Link></li>
                 <li><Link to="/oem"><RollText text="OEM & white label" /></Link></li>
                 <li><Link to="/work"><RollText text="Our work" /></Link></li>
+                <li><Link to="/gallery"><RollText text="Photo gallery" /></Link></li>
                 <li><Link to="/faq"><RollText text="FAQs" /></Link></li>
                 <li><Link to="/about"><RollText text="About us" /></Link></li>
               </ul>

@@ -77,6 +77,7 @@ export default function Navbar() {
     { name: "Industries", path: "/industries" },
     { name: "OEM", path: "/oem" },
     { name: "Work", path: "/work" },
+    { name: "Gallery", path: "/gallery" },
     { name: "About", path: "/about" }
   ]
 

@@ -17,6 +17,7 @@ const Products = lazy(() => import("./pages/Products"))
 const ProductCategory = lazy(() => import("./pages/ProductCategory"))
 const Industries = lazy(() => import("./pages/Industries"))
 const Work = lazy(() => import("./pages/Work"))
+const Gallery = lazy(() => import("./pages/Gallery"))
 const OEM = lazy(() => import("./pages/OEM"))
 const Contact = lazy(() => import("./pages/Contact"))
 const Privacy = lazy(() => import("./pages/Privacy"))
@@ -106,6 +107,7 @@ function AppLayout() {
               <Route path="/industries" element={<Industries />} />
               <Route path="/oem" element={<OEM />} />
               <Route path="/work" element={<Work />} />
+              <Route path="/gallery" element={<Gallery />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
@@ -118,7 +120,8 @@ function AppLayout() {
                   they redirect rather than 404. Remove once Search Console shows
                   no impressions on the old paths. */}
               <Route path="/portfolio" element={<Navigate to="/work" replace />} />
-              <Route path="/photos" element={<Navigate to="/work" replace />} />
+              {/* /photos was the archive browser — /gallery is its successor. */}
+              <Route path="/photos" element={<Navigate to="/gallery" replace />} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>
