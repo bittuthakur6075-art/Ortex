@@ -3,11 +3,49 @@ import { Link } from "react-router-dom"
 import { Briefcase, Layers, ShieldCheck, Tag, Clock, Globe, ArrowRight } from "lucide-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
+const aboutSchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://www.ortexindustries.in/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "About",
+        "item": "https://www.ortexindustries.in/about"
+      }
+    ]
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    "@id": "https://www.ortexindustries.in/about#aboutpage",
+    "url": "https://www.ortexindustries.in/about",
+    "name": "About Ortex Industries — OEM Manufacturing & Branding Experts",
+    "description": "Learn about Ortex Industries' commitment to manufacturing excellence, complete customization capabilities, and global reach. Your trusted partner for premium customized products.",
+    "mainEntity": {
+      "@type": "Organization",
+      "name": "Ortex Industries",
+      "url": "https://www.ortexindustries.in/"
+    }
+  }
+]
+
 export default function About() {
   useDocumentMetadata(
-    "About Ortex Industries - Manufacturing Excellence & Customization Expertise",
+    "About Ortex Industries — OEM Manufacturing & Branding Experts",
     "Learn about Ortex Industries' commitment to manufacturing excellence, complete customization capabilities, and global reach. Your trusted partner for premium customized products.",
-    { path: "/about" }
+    { 
+      path: "/about",
+      keywords: "Ortex history, OEM manufacturing, white label production, corporate gift manufacturer, bulk manufacturing India, custom brand production",
+      schemas: aboutSchemas
+    }
   )
 
   const expertise = [

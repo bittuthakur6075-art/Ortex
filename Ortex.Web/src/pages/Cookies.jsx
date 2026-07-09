@@ -1,10 +1,36 @@
 import { motion } from "framer-motion"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
+const cookiesSchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://www.ortexindustries.in/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Cookies Policy",
+        "item": "https://www.ortexindustries.in/cookies"
+      }
+    ]
+  }
+]
+
 export default function Cookies() {
   useDocumentMetadata(
-    "Cookie Policy - Ortex Industries",
-    "Cookie Policy for Ortex Industries. Learn how we use cookies and tracking technologies to improve our platform."
+    "Cookies Policy — Ortex Industries",
+    "Learn about how Ortex Industries uses cookies, tracking technologies, and how you can manage your cookie preferences when visiting our site.",
+    { 
+      path: "/cookies",
+      keywords: "cookies policy, web tracking, local storage, cookie preference",
+      schemas: cookiesSchemas
+    }
   )
 
   const cookieInfo = [

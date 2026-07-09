@@ -26,11 +26,48 @@ const faqs = [
   },
 ]
 
+const faqSchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://www.ortexindustries.in/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "FAQ",
+        "item": "https://www.ortexindustries.in/faq"
+      }
+    ]
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqs.map(faq => ({
+      "@type": "Question",
+      "name": faq.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.answer
+      }
+    }))
+  }
+]
+
 export default function FAQ() {
   useDocumentMetadata(
-    "Frequently Asked Questions - Ortex Industries",
-    "Got questions about custom manufacturing, MOQ, sampling policies, or design files? Find answers to frequently asked questions about Ortex Industries.",
-    { path: "/faq" }
+    "Frequently Asked Questions (FAQ) — Ortex Industries",
+    "Find answers to common questions about Ortex Industries' custom manufacturing, order minimums, delivery times, export capabilities, and branding services.",
+    { 
+      path: "/faq",
+      keywords: "ortex faq, custom manufacturing faq, bulk order questions, shipping time, corporate gift faq",
+      schemas: faqSchemas
+    }
   )
 
   const [activeFaq, setActiveFaq] = useState(null)

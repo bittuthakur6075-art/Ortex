@@ -1,10 +1,36 @@
 import { motion } from "framer-motion"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
+const acceptableSchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://www.ortexindustries.in/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Acceptable Use Policy",
+        "item": "https://www.ortexindustries.in/acceptable-use"
+      }
+    ]
+  }
+]
+
 export default function AcceptableUse() {
   useDocumentMetadata(
-    "Acceptable Use Policy - Ortex Industries",
-    "Acceptable Use Policy for Ortex Industries. Read our rules regarding custom artwork uploads and platform use."
+    "Acceptable Use Policy — Ortex Industries",
+    "Read the Acceptable Use Policy of Ortex Industries. Understand the guidelines and restrictions for using our customization services and website.",
+    { 
+      path: "/acceptable-use",
+      keywords: "acceptable use policy, branding guidelines, content restrictions",
+      schemas: acceptableSchemas
+    }
   )
 
   const rules = [

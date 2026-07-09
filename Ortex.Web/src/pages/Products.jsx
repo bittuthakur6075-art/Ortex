@@ -3,11 +3,100 @@ import { Link } from "react-router-dom"
 import { Box, Diamond, Contact, Award, ClipboardList, FileText, Gift, Sparkles, ArrowRight } from "lucide-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
+const productsSchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://www.ortexindustries.in/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Products",
+        "item": "https://www.ortexindustries.in/products"
+      }
+    ]
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "Custom MDF Products",
+    "image": "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/whatsapp-image-2026-06-25-at-6.53.24-am-2-AChL5.jpeg",
+    "description": "Premium quality fridge magnets, keychains, photo frames, name plates, and office accessories with complete customization options.",
+    "brand": { "@type": "Brand", "name": "Ortex" },
+    "offers": {
+      "@type": "AggregateOffer",
+      "priceCurrency": "INR",
+      "lowPrice": "10",
+      "highPrice": "500",
+      "offerCount": "100",
+      "seller": { "@type": "Organization", "name": "Ortex Industries" }
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "Custom Acrylic Products",
+    "image": "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/whatsapp-image-2026-06-25-at-6.53.25-am-mLVQN.jpeg",
+    "description": "Crystal-clear acrylic keychains, badges, name plates, display stands, and signages with UV printing and laser engraving.",
+    "brand": { "@type": "Brand", "name": "Ortex" },
+    "offers": {
+      "@type": "AggregateOffer",
+      "priceCurrency": "INR",
+      "lowPrice": "15",
+      "highPrice": "1000",
+      "offerCount": "150",
+      "seller": { "@type": "Organization", "name": "Ortex Industries" }
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "Custom Lanyards & ID Accessories",
+    "image": "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/1c8810a9aab598f2852aa43694b1e810.jpg",
+    "description": "Polyester, satin, and woven lanyards with custom printing. Complete range of ID cards, badges, and access passes.",
+    "brand": { "@type": "Brand", "name": "Ortex" },
+    "offers": {
+      "@type": "AggregateOffer",
+      "priceCurrency": "INR",
+      "lowPrice": "5",
+      "highPrice": "200",
+      "offerCount": "200",
+      "seller": { "@type": "Organization", "name": "Ortex Industries" }
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "Custom Badges",
+    "image": "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/df12dcba362d2a4018c92cdfe42fe5ea.jpg",
+    "description": "Acrylic, magnetic, button, metal, and plastic badges for corporate, events, schools, and promotional purposes.",
+    "brand": { "@type": "Brand", "name": "Ortex" },
+    "offers": {
+      "@type": "AggregateOffer",
+      "priceCurrency": "INR",
+      "lowPrice": "8",
+      "highPrice": "150",
+      "offerCount": "120",
+      "seller": { "@type": "Organization", "name": "Ortex Industries" }
+    }
+  }
+]
+
 export default function Products() {
   useDocumentMetadata(
-    "Products & Services - Ortex Industries | MDF, Acrylic, Lanyards, Badges & More",
-    "Explore Ortex Industries' comprehensive range of customized products including MDF items, acrylic products, lanyards, badges, examination boards, corporate gifts, and branding services.",
-    { path: "/products" }
+    "Custom Manufacturing Products & Services — Ortex Industries",
+    "Explore our range of premium custom-manufactured products: MDF magnets, acrylic badges, lanyards, ID accessories, examination boards, corporate gifting & branding services.",
+    { 
+      path: "/products",
+      keywords: "MDF manufacturing, acrylic keychains, printed lanyards, custom badges, examination boards, corporate gifts, branding services, UV printing",
+      schemas: productsSchemas
+    }
   )
 
   const categories = [

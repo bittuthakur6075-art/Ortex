@@ -36,6 +36,7 @@ export default function Hero() {
         muted 
         loop 
         playsInline
+        poster="https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/whatsapp-image-2026-06-25-at-6.53.24-am-2-AChL5.jpeg"
       />
       <div className="lp-hero-overlay" />
       <div className="lp-wrap lp-hero-inner">

@@ -3,11 +3,36 @@ import { Link } from "react-router-dom"
 import { Building2, GraduationCap, Landmark, Stethoscope, Calendar, Megaphone, Heart, Flag, ShoppingBag, UserCheck, ArrowRight } from "lucide-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
+const industriesSchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://www.ortexindustries.in/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Industries",
+        "item": "https://www.ortexindustries.in/industries"
+      }
+    ]
+  }
+]
+
 export default function Industries() {
   useDocumentMetadata(
-    "Industries We Serve - Ortex Industries | Corporate, Education, Healthcare & More",
-    "Ortex Industries serves diverse sectors including corporate organizations, educational institutions, government departments, hospitals, event management, and more with customized products.",
-    { path: "/industries" }
+    "Custom Branding Solutions for Industries — Ortex Industries",
+    "Tailored manufacturing and branding solutions for Corporates, Education, Healthcare, Retail, Government, Events, NGOs & Marketing agencies. OEM & bulk delivery.",
+    { 
+      path: "/industries",
+      keywords: "corporate branding, educational stationery, healthcare badges, event merchandise, retail promotional gifts, custom corporate branding",
+      schemas: industriesSchemas
+    }
   )
 
   const industries = [

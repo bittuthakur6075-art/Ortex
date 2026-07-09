@@ -237,11 +237,107 @@ const fadeUp = {
   viewport: { once: true },
 }
 
+const homeSchema = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://www.ortexindustries.in/#organization",
+      "name": "Ortex Industries",
+      "legalName": "Ortex Industries Private Limited",
+      "url": "https://www.ortexindustries.in/",
+      "logo": {
+        "@type": "ImageObject",
+        "@id": "https://www.ortexindustries.in/#logo",
+        "url": "https://www.ortexindustries.in/img/logo.png",
+        "caption": "Ortex Industries Logo"
+      },
+      "image": {
+        "@id": "https://www.ortexindustries.in/#logo"
+      },
+      "description": "Manufacturer of premium customized products including MDF and acrylic items, lanyards, ID badges, examination boards, and corporate gifts. OEM and white-label production with PAN India delivery and worldwide export.",
+      "email": "sales@ortexindustries.in",
+      "telephone": "+91-9211947188",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "New Delhi",
+        "addressRegion": "Delhi",
+        "addressCountry": "IN"
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "telephone": "+91-9211947188",
+        "contactType": "sales",
+        "email": "sales@ortexindustries.in",
+        "areaServed": ["IN", "Worldwide"],
+        "availableLanguage": ["en", "hi"]
+      }
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://www.ortexindustries.in/#website",
+      "url": "https://www.ortexindustries.in/",
+      "name": "Ortex Industries",
+      "description": "Premium Customized Products, Manufacturing & Corporate Gifting",
+      "publisher": {
+        "@id": "https://www.ortexindustries.in/#organization"
+      },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://www.ortexindustries.in/products?search={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      },
+      "inLanguage": "en-IN"
+    },
+    {
+      "@type": "LocalBusiness",
+      "@id": "https://www.ortexindustries.in/#localbusiness",
+      "name": "Ortex Industries",
+      "image": "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/whatsapp-image-2026-06-25-at-6.53.24-am-2-AChL5.jpeg",
+      "url": "https://www.ortexindustries.in/",
+      "telephone": "+91-9211947188",
+      "priceRange": "$$",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "New Delhi",
+        "addressRegion": "Delhi",
+        "addressCountry": "IN"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": "28.6139",
+        "longitude": "77.2090"
+      },
+      "openingHoursSpecification": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday"
+        ],
+        "opens": "09:00",
+        "closes": "18:30"
+      }
+    }
+  ]
+}
+
 export default function Home() {
   useDocumentMetadata(
-    "Ortex Industries - Premium Customized Products for Businesses Worldwide",
-    "Ortex Industries specializes in manufacturing premium customized products including MDF products, acrylic items, lanyards, badges, and corporate gifts. Serving businesses across India and worldwide.",
-    { path: "/", image: HOME_OG }
+    "Ortex Industries — Custom Manufacturing, Corporate Gifting & Branding",
+    "Ortex Industries manufactures premium customized products: MDF & acrylic items, lanyards, ID badges, examination boards & corporate gifts. In-house production, OEM & worldwide export.",
+    { 
+      path: "/", 
+      image: HOME_OG,
+      keywords: "Ortex Industries, custom manufacturing, corporate gifting, MDF items, acrylic keychains, lanyards, ID badges, brand promotion, OEM manufacturing, custom branding, New Delhi",
+      schema: homeSchema
+    }
   )
 
   // Get today's auto-rotated selection of 8 photos

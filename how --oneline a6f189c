@@ -1,0 +1,43 @@
+[33mcc17ae6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mDevelopment[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;31morigin/Development[m[33m)[m HEAD@{0}: checkout: moving from Bittu_Kumar to Development
+[33mfa6e332[m[33m ([m[1;31morigin/Bittu_Kumar[m[33m, [m[1;32mBittu_Kumar[m[33m)[m HEAD@{1}: checkout: moving from Development to Bittu_Kumar
+[33mcc17ae6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mDevelopment[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;31morigin/Development[m[33m)[m HEAD@{2}: checkout: moving from Bittu_Kumar to Development
+[33mfa6e332[m[33m ([m[1;31morigin/Bittu_Kumar[m[33m, [m[1;32mBittu_Kumar[m[33m)[m HEAD@{3}: checkout: moving from Development to Bittu_Kumar
+[33mcc17ae6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mDevelopment[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;31morigin/Development[m[33m)[m HEAD@{4}: checkout: moving from Bittu_Kumar to Development
+[33mfa6e332[m[33m ([m[1;31morigin/Bittu_Kumar[m[33m, [m[1;32mBittu_Kumar[m[33m)[m HEAD@{5}: checkout: moving from Development to Bittu_Kumar
+[33mcc17ae6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mDevelopment[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;31morigin/Development[m[33m)[m HEAD@{6}: checkout: moving from Development to Development
+[33mcc17ae6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mDevelopment[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;31morigin/Development[m[33m)[m HEAD@{7}: checkout: moving from Development to Development
+[33mcc17ae6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mDevelopment[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;31morigin/Development[m[33m)[m HEAD@{8}: commit: feat: complete website updates
+[33m068668c[m[33m ([m[1;31morigin/main[m[33m, [m[1;32mmain[m[33m)[m HEAD@{9}: reset: moving to 068668cb57c1c5147781335907cd28a1e25fc8e9
+[33ma6f189c[m HEAD@{10}: pull --tags origin Development: Merge made by the 'ort' strategy.
+[33m61bbd97[m HEAD@{11}: commit: feat: complete website updates
+[33mea97f48[m[33m ([m[1;31morigin/master[m[33m)[m HEAD@{12}: reset: moving to ea97f48e22d0256018279f9c386d32976833850f
+[33m418a7cd[m HEAD@{13}: pull --tags origin Development: Fast-forward
+[33m48c81ac[m HEAD@{14}: checkout: moving from Bittu_Kumar to Development
+[33mfa6e332[m[33m ([m[1;31morigin/Bittu_Kumar[m[33m, [m[1;32mBittu_Kumar[m[33m)[m HEAD@{15}: checkout: moving from Bittu_Kumar to Bittu_Kumar
+[33mfa6e332[m[33m ([m[1;31morigin/Bittu_Kumar[m[33m, [m[1;32mBittu_Kumar[m[33m)[m HEAD@{16}: commit: Your commit message
+[33m48c81ac[m HEAD@{17}: checkout: moving from Development to Bittu_Kumar
+[33m48c81ac[m HEAD@{18}: rebase (finish): returning to refs/heads/Development
+[33m48c81ac[m HEAD@{19}: rebase (pick): docs: add workspace rule to automatically update CLAUDE.md
+[33ma6d246c[m HEAD@{20}: rebase (pick): docs: update CLAUDE.md and add .vercel to gitignore
+[33m131b925[m HEAD@{21}: rebase (pick): feat: Add Tally XML import functionality for invoices and quotations
+[33m2a2f7a3[m HEAD@{22}: rebase (pick): feat: add robots.txt and Vercel configuration for SEO management
+[33mb3a0ad8[m HEAD@{23}: rebase (continue): Add premium photo gallery page, expand product catalog for quote calculator, rename nav item to Gallery, and setup daily rotating showcase
+[33m2ad90c7[m HEAD@{24}: rebase (pick): Issue Fixed
+[33m8547207[m HEAD@{25}: rebase (pick): feat: add ShipToFields component for optional consignee address
+[33mc5098b7[m HEAD@{26}: rebase (continue): feat: add Terms of Service page, utility functions, and Vite configuration
+[33m1c90869[m HEAD@{27}: rebase (pick): feat: add Hero component with styling and RollText animation
+[33m068668c[m[33m ([m[1;31morigin/main[m[33m, [m[1;32mmain[m[33m)[m HEAD@{28}: rebase (start): checkout origin/main
+[33m571c7c5[m HEAD@{29}: checkout: moving from Development to Development
+[33m571c7c5[m HEAD@{30}: pull origin Development: Merge made by the 'ort' strategy.
+[33m4ff4389[m HEAD@{31}: commit: Add premium photo gallery page, expand product catalog for quote calculator, rename nav item to Gallery, and setup daily rotating showcase
+[33m2173276[m HEAD@{32}: commit: Issue Fixed
+[33m56baf07[m HEAD@{33}: checkout: moving from main to Development
+[33m068668c[m[33m ([m[1;31morigin/main[m[33m, [m[1;32mmain[m[33m)[m HEAD@{34}: Branch: renamed refs/heads/master to refs/heads/main
+[33m068668c[m[33m ([m[1;31morigin/main[m[33m, [m[1;32mmain[m[33m)[m HEAD@{36}: commit: feat: complete interactive factory command dashboard, settings page fix, and custom scroll animations
+[33mea97f48[m[33m ([m[1;31morigin/master[m[33m)[m HEAD@{37}: rebase (finish): returning to refs/heads/master
+[33mea97f48[m[33m ([m[1;31morigin/master[m[33m)[m HEAD@{38}: rebase (pick): Update logo branding, add background video, and fix navigation bar layout and visibility
+[33m9a0e9cd[m HEAD@{39}: rebase (start): checkout origin/master
+[33me207150[m HEAD@{40}: reset: moving to HEAD
+[33me207150[m HEAD@{41}: commit: Update logo branding, add background video, and fix navigation bar layout and visibility
+[33mdb33366[m HEAD@{42}: pull --tags origin master: Fast-forward
+[33ma6ff4eb[m HEAD@{43}: commit (initial): Initial commit: Clone Ortex Industries website with Inter font and custom container width

@@ -7,11 +7,43 @@ import { photosData } from "../constants/photos"
 
 const categories = ["All", "Keychain", "Wall Clock", "Exam Board", "Badges", "Fridge Magnet", "Flag", "Custom Promotional"]
 
+const photosSchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://www.ortexindustries.in/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Product Gallery",
+        "item": "https://www.ortexindustries.in/photos"
+      }
+    ]
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "ImageGallery",
+    "@id": "https://www.ortexindustries.in/photos#gallery",
+    "name": "Ortex Industries Product Photo Gallery",
+    "description": "High-definition product gallery showing custom keychains, wall clocks, exam boards, badges, fridge magnets, and flags manufactured by Ortex Industries."
+  }
+]
+
 export default function Photos() {
   useDocumentMetadata(
-    "Product Photo Gallery - Ortex Industries",
-    "View the high-definition product gallery of Ortex Industries. Browse our customized keychains, wall clocks, exam boards, badges, fridge magnets, flags, and promotional gifts.",
-    { path: "/photos" }
+    "Custom Product Gallery & Photos — Ortex Industries",
+    "Explore our high-quality product photo gallery. See custom MDF products, acrylic items, ID lanyards, and promotional gifts manufactured in Delhi.",
+    { 
+      path: "/photos",
+      keywords: "product photos, customized product gallery, manufacturing images, IndiaMART gallery",
+      schemas: photosSchemas
+    }
   )
 
   const [activeCategory, setActiveCategory] = useState("All")

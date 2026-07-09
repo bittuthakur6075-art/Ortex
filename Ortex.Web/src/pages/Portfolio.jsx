@@ -4,11 +4,43 @@ import { Link } from "react-router-dom"
 import { X, ChevronLeft, ChevronRight } from "lucide-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
+const portfolioSchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://www.ortexindustries.in/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Portfolio",
+        "item": "https://www.ortexindustries.in/portfolio"
+      }
+    ]
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "ImageGallery",
+    "@id": "https://www.ortexindustries.in/portfolio#gallery",
+    "name": "Ortex Industries Product Portfolio",
+    "description": "Gallery showcasing Ortex Industries' custom manufactured products including MDF magnets, acrylic keychains, printed lanyards, and corporate gifts."
+  }
+]
+
 export default function Portfolio() {
   useDocumentMetadata(
-    "Portfolio - Ortex Industries | Our Recent Work & Manufacturing Projects",
-    "Explore the Ortex Industries portfolio featuring our premium customized products, including MDF items, acrylic awards, custom lanyards, and corporate gifts.",
-    { path: "/portfolio" }
+    "Custom Products Portfolio & Client Work — Ortex Industries",
+    "Browse our custom product showcase: MDF fridge magnets, acrylic corporate keychains, custom-printed lanyards, magnetic metal badges, and corporate gifts.",
+    { 
+      path: "/portfolio",
+      keywords: "ortex portfolio, custom product showcase, client projects, printed keychains portfolio, custom lanyards gallery",
+      schemas: portfolioSchemas
+    }
   )
 
   const categories = [

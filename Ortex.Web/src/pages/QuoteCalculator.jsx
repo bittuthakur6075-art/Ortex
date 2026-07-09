@@ -14,10 +14,36 @@ import { supabase, hasSupabase } from "../lib/supabaseClient"
 const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`
 const catIcon = (name) => CATEGORY_META[name]?.icon || "📦"
 
+const quoteSchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://www.ortexindustries.in/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Quote Calculator",
+        "item": "https://www.ortexindustries.in/quote"
+      }
+    ]
+  }
+]
+
 export default function QuoteCalculator() {
   useDocumentMetadata(
-    "Get a Quote: Custom Manufacturing RFQ | Ortex Industries",
-    "Build a custom quote from Ortex Industries' real product catalogue, including MDF, acrylic, lanyards, badges, exam boards, and corporate gifts. Add products, set quantities, and get an instant bulk estimate with volume discounts."
+    "Bulk Quote Calculator — Custom Manufacturing | Ortex",
+    "Calculate custom manufacturing costs and request bulk quotes for MDF, acrylic items, lanyards, ID badges, corporate gifts, and custom branding services instantly.",
+    { 
+      path: "/quote",
+      keywords: "quote calculator, custom manufacturing price, bulk quote request, corporate gift cost estimator",
+      schemas: quoteSchemas
+    }
   )
 
   const [step, setStep] = useState(1)

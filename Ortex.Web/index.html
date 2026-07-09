@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Primary Meta Tags -->
+    <!-- Default Meta Tags (fallback, updated dynamically in React) -->
     <title>Ortex Industries — Custom Manufacturing, Corporate Gifting & Branding</title>
     <meta
       name="description"
@@ -21,7 +21,7 @@
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
 
-    <!-- Open Graph -->
+    <!-- Open Graph (fallback, updated dynamically in React) -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Ortex Industries" />
     <meta property="og:title" content="Ortex Industries — Custom Manufacturing & Corporate Gifting" />
@@ -37,7 +37,7 @@
     <meta property="og:image:alt" content="Premium customized products manufactured by Ortex Industries" />
     <meta property="og:locale" content="en_IN" />
 
-    <!-- Twitter -->
+    <!-- Twitter (fallback, updated dynamically in React) -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Ortex Industries — Custom Manufacturing & Corporate Gifting" />
     <meta
@@ -49,33 +49,46 @@
       content="https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/whatsapp-image-2026-06-25-at-6.53.24-am-2-AChL5.jpeg"
     />
 
-    <!-- Organization structured data -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        "name": "Ortex Industries",
-        "legalName": "Ortex Industries Private Limited",
-        "url": "https://www.ortexindustries.in/",
-        "logo": "https://www.ortexindustries.in/img/logo.png",
-        "description": "Manufacturer of premium customized products including MDF and acrylic items, lanyards, ID badges, examination boards, and corporate gifts. OEM and white-label production with PAN India delivery and worldwide export.",
-        "email": "sales@ortexindustries.in",
-        "telephone": "+91-9211947188",
-        "address": {
-          "@type": "PostalAddress",
-          "addressLocality": "New Delhi",
-          "addressCountry": "IN"
-        },
-        "contactPoint": {
-          "@type": "ContactPoint",
-          "telephone": "+91-9211947188",
-          "contactType": "sales",
-          "email": "sales@ortexindustries.in",
-          "areaServed": ["IN", "Worldwide"],
-          "availableLanguage": ["en", "hi"]
-        },
-        "areaServed": ["IN", "Worldwide"]
-      }
+    <!-- Preload critical resources to improve Core Web Vitals -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://horizons-cdn.hostinger.com" />
+    <link rel="preload" href="https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/whatsapp-image-2026-06-25-at-6.53.24-am-2-AChL5.jpeg" as="image" type="image/jpeg" />
+
+    <!-- Google Analytics, Clarity, & Search Console Loader -->
+    <script>
+      (function() {
+        const gaId = "%VITE_GA_MEASUREMENT_ID%";
+        const clarityId = "%VITE_CLARITY_ID%";
+        const gscId = "%VITE_GSC_VERIFICATION_CODE%";
+
+        // GSC Verification
+        if (gscId && gscId !== "%" + "VITE_GSC_VERIFICATION_CODE%" && gscId.trim() !== "") {
+          const meta = document.createElement("meta");
+          meta.name = "google-site-verification";
+          meta.content = gscId;
+          document.head.appendChild(meta);
+        }
+
+        // Google Analytics 4
+        if (gaId && gaId !== "%" + "VITE_GA_MEASUREMENT_ID%" && gaId.trim() !== "") {
+          const s1 = document.createElement("script");
+          s1.async = true;
+          s1.src = "https://www.googletagmanager.com/gtag/js?id=" + gaId;
+          document.head.appendChild(s1);
+
+          const s2 = document.createElement("script");
+          s2.text = "window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', '" + gaId + "', { page_path: window.location.pathname });";
+          document.head.appendChild(s2);
+        }
+
+        // Microsoft Clarity
+        if (clarityId && clarityId !== "%" + "VITE_CLARITY_ID%" && clarityId.trim() !== "") {
+          const s3 = document.createElement("script");
+          s3.text = "(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src='https://www.clarity.ms/tag/'+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,'clarity','script','" + clarityId + "');";
+          document.head.appendChild(s3);
+        }
+      })();
     </script>
   </head>
   <body>
@@ -83,3 +96,4 @@
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
+

@@ -1,10 +1,36 @@
 import { motion } from "framer-motion"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
+const termsSchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://www.ortexindustries.in/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Terms and Conditions",
+        "item": "https://www.ortexindustries.in/terms"
+      }
+    ]
+  }
+]
+
 export default function Terms() {
   useDocumentMetadata(
-    "Terms of Service - Ortex Industries",
-    "Terms of Service for Ortex Industries. Read our customer agreements and custom manufacturing terms."
+    "Terms and Conditions — Ortex Industries",
+    "Review the Terms and Conditions of Ortex Industries. Learn about our services, ordering process, intellectual property rights, and user responsibilities.",
+    { 
+      path: "/terms",
+      keywords: "terms and conditions, user agreement, website terms, manufacturing terms",
+      schemas: termsSchemas
+    }
   )
 
   const terms = [

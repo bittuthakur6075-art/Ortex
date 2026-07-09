@@ -1,10 +1,36 @@
 import { motion } from "framer-motion"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
+const privacySchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://www.ortexindustries.in/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Privacy Policy",
+        "item": "https://www.ortexindustries.in/privacy"
+      }
+    ]
+  }
+]
+
 export default function Privacy() {
   useDocumentMetadata(
-    "Privacy Policy - Ortex Industries",
-    "Privacy Policy for Ortex Industries. Learn how we handle customer data, custom manufacturing records, and form inquiries."
+    "Privacy Policy — Ortex Industries",
+    "Read the Privacy Policy of Ortex Industries. Understand how we collect, use, protect, and handle your personal data when using our website and services.",
+    { 
+      path: "/privacy",
+      keywords: "privacy policy, data collection, user protection, cookies policy",
+      schemas: privacySchemas
+    }
   )
 
   const sections = [

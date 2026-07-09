@@ -6,10 +6,50 @@ import { toast } from "sonner"
 import { submitEnquiry } from "../lib/leads"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
+const contactSchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://www.ortexindustries.in/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Contact",
+        "item": "https://www.ortexindustries.in/contact"
+      }
+    ]
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    "@id": "https://www.ortexindustries.in/contact#contactpage",
+    "url": "https://www.ortexindustries.in/contact",
+    "name": "Contact Ortex Industries — Get Custom Quotes & Order Bulk",
+    "description": "Contact Ortex Industries for customized product quotes. Call +91-9211947188, email sales@ortexindustries.in, or WhatsApp for immediate assistance. Serving India and worldwide.",
+    "mainEntity": {
+      "@type": "Organization",
+      "name": "Ortex Industries",
+      "telephone": "+91-9211947188",
+      "email": "sales@ortexindustries.in"
+    }
+  }
+]
+
 export default function Contact() {
   useDocumentMetadata(
-    "Contact Ortex Industries - Get Quote for Customized Products",
-    "Contact Ortex Industries for customized product quotes. Call +91-9211947188, email sales@ortexindustries.in, or WhatsApp for immediate assistance. Serving India and worldwide."
+    "Contact Ortex Industries — Get Custom Quotes & Order Bulk",
+    "Contact Ortex Industries for customized product quotes. Call +91-9211947188, email sales@ortexindustries.in, or WhatsApp for immediate assistance. Serving India and worldwide.",
+    { 
+      path: "/contact",
+      keywords: "contact Ortex, custom quote request, wholesale manufacturer Delhi, bulk order inquiry, customer support",
+      schemas: contactSchemas
+    }
   )
 
   const [formData, setFormData] = useState({

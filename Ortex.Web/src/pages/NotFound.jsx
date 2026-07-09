@@ -4,8 +4,11 @@ import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
 export default function NotFound() {
   useDocumentMetadata(
-    "Page not found (404) - Ortex Industries",
-    "The page you're looking for doesn't exist or has moved. Explore our products, portfolio, or get in touch with Ortex Industries."
+    "Page Not Found — Ortex Industries",
+    "The page you are looking for does not exist. Go back to Ortex Industries homepage to explore custom manufacturing & corporate gifting.",
+    { 
+      robots: "noindex, nofollow"
+    }
   )
 
   const links = [
