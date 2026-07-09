@@ -41,6 +41,15 @@ const TRIGGER_EVENTS = [
   { value: "pdf_downloaded", label: "pdf_downloaded (Catalogue Download)" },
 ]
 
+// Opening wa.me hands a pre-filled chat to WhatsApp Web; nothing reports back.
+// So "delivered"/"read" are only ever written by the demo seed and the local
+// mock — against Supabase a log goes queued -> sent and stops. Scoring success
+// as delivered/read therefore pinned the headline metric at 0% and made every
+// message the admin actually sent vanish from the queue tiles (`sent` matched
+// none of them). We report dispatch, which is the thing this integration knows.
+const WA_DISPATCHED = ["sent", "delivered", "read"]
+const WA_PENDING = ["queued", "sending"]
+
 const EVENT_TONES = {
   quote_requested: "amber",
   contact_form_submitted: "blue",
@@ -51,7 +60,33 @@ const EVENT_TONES = {
   pdf_downloaded: "slate",
 }
 
-const renderMetadata = (act) => {
+// PII masking. Both helpers work off digit/character positions rather than
+// matching an expected format, and mask *everything* when the value can't be
+// parsed. The previous phone mask was a single regex over `+dd-ddd dddd ddd`,
+// so a bare 10-digit number — what visitors actually type — matched nothing and
+// String.replace returned it untouched: the UI claimed PII was hidden while
+// rendering it in full. A mask that fails open is worse than no mask at all.
+const maskPhone = (phone, mask = true) => {
+  if (!phone) return ""
+  const s = String(phone)
+  if (!mask) return s
+  const digitCount = (s.match(/\d/g) || []).length
+  if (digitCount <= 4) return s.replace(/\d/g, "•")
+  const keepFrom = digitCount - 4
+  let seen = 0
+  return s.replace(/\d/g, (d) => (seen++ >= keepFrom ? d : "•"))
+}
+
+const maskEmail = (email, mask = true) => {
+  if (!email) return ""
+  const s = String(email)
+  if (!mask) return s
+  const at = s.lastIndexOf("@")
+  if (at < 1) return "•".repeat(s.length)
+  return `${s[0]}${"•".repeat(at - 1)}${s.slice(at)}`
+}
+
+const renderMetadata = (act, mask = true) => {
   const meta = act.metadata || {}
   const items = []
   if (act.productId) items.push(`Product ID: ${act.productId}`)
@@ -61,8 +96,8 @@ const renderMetadata = (act) => {
   if (meta.action) items.push(`Action: ${meta.action}`)
   if (meta.fileName) items.push(`File: ${meta.fileName}`)
   if (meta.customer?.name) items.push(`Name: ${meta.customer.name}`)
-  if (meta.customer?.email) items.push(`Email: ${meta.customer.email}`)
-  if (meta.customer?.phone) items.push(`Phone: ${meta.customer.phone}`)
+  if (meta.customer?.email) items.push(`Email: ${maskEmail(meta.customer.email, mask)}`)
+  if (meta.customer?.phone) items.push(`Phone: ${maskPhone(meta.customer.phone, mask)}`)
   if (meta.message) {
     const msg = String(meta.message)
     items.push(`Msg: "${msg.substring(0, 40)}${msg.length > 40 ? '...' : ''}"`)
@@ -179,13 +214,6 @@ export default function Automation() {
       setRateLimitCounter(prev => Math.max(0, prev - 1))
     }, 60000)
     return true
-  }
-
-  // Helper: Mask sensitive data
-  const maskPhone = (phone) => {
-    if (!phone) return ""
-    if (!maskSensitiveData) return phone
-    return phone.replace(/(\+?\d{2}-?\d{3})\d{4}(\d{3})/, "$1-XXXX-$2")
   }
 
   // Open WhatsApp Web with pre-filled message (free, no API needed)
@@ -360,7 +388,11 @@ export default function Automation() {
   }, [whatsappLogs])
 
   const queuedMessages = useMemo(() => {
-    return whatsappLogs.filter(l => l.status === "queued" || l.status === "sending")
+    return whatsappLogs.filter(l => WA_PENDING.includes(l.status))
+  }, [whatsappLogs])
+
+  const dispatchedMessages = useMemo(() => {
+    return whatsappLogs.filter(l => WA_DISPATCHED.includes(l.status))
   }, [whatsappLogs])
 
   // Analytics Computations
@@ -368,9 +400,10 @@ export default function Automation() {
     const totalActivities = activities.length
     const totalEvents = events.length
     const totalWA = whatsappLogs.length
-    const successWA = whatsappLogs.filter(l => l.status === "delivered" || l.status === "read").length
+    const dispatchedWA = whatsappLogs.filter(l => WA_DISPATCHED.includes(l.status)).length
     const failedWA = whatsappLogs.filter(l => l.status === "failed").length
-    const deliveryRate = totalWA > 0 ? Math.round((successWA / totalWA) * 100) : 100
+    // null (not 100) with no messages — an empty console shouldn't advertise success.
+    const dispatchRate = totalWA > 0 ? Math.round((dispatchedWA / totalWA) * 100) : null
 
     // Search counts
     const searches = activities.filter(a => a.activityType === "Product search")
@@ -407,7 +440,8 @@ export default function Automation() {
       totalActivities,
       totalEvents,
       totalWA,
-      deliveryRate,
+      dispatchedWA,
+      dispatchRate,
       failedWA,
       topSearches,
       topViews,
@@ -595,9 +629,11 @@ export default function Automation() {
             />
             <StatCard
               icon={MessageCircle}
-              label="WhatsApp Delivery"
-              value={`${analyticsData.deliveryRate}%`}
-              sub={`${analyticsData.totalWA} messages generated`}
+              label="WhatsApp Dispatched"
+              value={analyticsData.dispatchRate === null ? "—" : `${analyticsData.dispatchRate}%`}
+              sub={analyticsData.totalWA === 0
+                ? "No messages generated yet"
+                : `${analyticsData.dispatchedWA} of ${analyticsData.totalWA} handed to WhatsApp`}
               accent="bg-emerald-500/10 text-emerald-600"
             />
             <StatCard
@@ -648,11 +684,13 @@ export default function Automation() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="p-6 lg:col-span-2">
               <h3 className="mb-2 text-base font-bold text-foreground">WhatsApp Queue Monitor</h3>
-              <p className="mb-4 text-xs text-muted-foreground">Real-time status of message dispatcher</p>
+              <p className="mb-4 text-xs text-muted-foreground">
+                Status of the message dispatcher. WhatsApp Web returns no delivery receipt, so a message is tracked only up to hand-off.
+              </p>
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div className="rounded-lg bg-emerald-500/5 p-4 border border-emerald-500/10">
-                  <div className="text-2xl font-bold text-emerald-600">{whatsappLogs.filter(l => l.status === "delivered" || l.status === "read").length}</div>
-                  <div className="text-xs text-muted-foreground mt-1">Sent successfully</div>
+                  <div className="text-2xl font-bold text-emerald-600">{dispatchedMessages.length}</div>
+                  <div className="text-xs text-muted-foreground mt-1">Dispatched</div>
                 </div>
                 <div className="rounded-lg bg-amber-500/5 p-4 border border-amber-500/10">
                   <div className="text-2xl font-bold text-amber-600">{queuedMessages.length}</div>
@@ -741,7 +779,7 @@ export default function Automation() {
                         {act.device} ({act.operatingSystem} / {act.browser})
                       </td>
                       <td className="px-4 py-3 text-xs font-mono">{act.ipAddress}</td>
-                      <td className="px-4 py-3 max-w-md">{renderMetadata(act)}</td>
+                      <td className="px-4 py-3 max-w-md">{renderMetadata(act, maskSensitiveData)}</td>
                     </tr>
                   ))
                 )}
@@ -842,7 +880,7 @@ export default function Automation() {
                       <tr key={log.id} className="hover:bg-muted/30">
                         <td className="whitespace-nowrap px-4 py-3 text-xs">{formatDateTime(log.createdAt)}</td>
                         <td className="px-4 py-3 font-semibold text-xs">{log.customerName}</td>
-                        <td className="px-4 py-3 font-mono text-xs">{maskPhone(log.phone)}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{maskPhone(log.phone, maskSensitiveData)}</td>
                         <td className="px-4 py-3 text-xs text-primary">{log.templateName}</td>
                         <td className="px-4 py-3 text-xs text-muted-foreground max-w-sm">{log.messageText}</td>
                         <td className="px-4 py-3">
@@ -1076,8 +1114,8 @@ export default function Automation() {
             </Select>
             {selectedCustomerId && (
               <div className="space-y-2 text-xs text-muted-foreground bg-muted/40 p-3 rounded-lg">
-                <div><strong>Contact:</strong> {maskPhone(customers.find(c => c.id === selectedCustomerId)?.phone)}</div>
-                <div><strong>Email:</strong> {customers.find(c => c.id === selectedCustomerId)?.email}</div>
+                <div><strong>Contact:</strong> {maskPhone(customers.find(c => c.id === selectedCustomerId)?.phone, maskSensitiveData)}</div>
+                <div><strong>Email:</strong> {maskEmail(customers.find(c => c.id === selectedCustomerId)?.email, maskSensitiveData)}</div>
                 <div><strong>Company:</strong> {customers.find(c => c.id === selectedCustomerId)?.company || "N/A"}</div>
               </div>
             )}
