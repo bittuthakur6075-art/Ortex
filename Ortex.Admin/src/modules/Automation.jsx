@@ -312,6 +312,9 @@ export default function Automation() {
       await repo.update("whatsapp_logs", log.id, {
         status: "sent",
         sentAt: new Date().toISOString(),
+        // A retried log carries the previous failure's message; without this it
+        // renders a red API error under the fresh "sent" badge.
+        errorMessage: "",
         responsePayload: { method: "whatsapp_web", opened_at: new Date().toISOString() }
       })
       toast.success(`Opening WhatsApp for ${log.customerName}...`)
@@ -1032,7 +1035,9 @@ export default function Automation() {
                 <span className="text-xs font-semibold text-muted-foreground">Failed Deliveries</span>
                 <div className="text-lg font-bold text-destructive">{failedMessages.length} failures logged</div>
               </div>
-              <Badge tone="rose">Error Check Needed</Badge>
+              {failedMessages.length > 0
+                ? <Badge tone="rose">Error Check Needed</Badge>
+                : <Badge tone="emerald">All Clear</Badge>}
             </Card>
           </div>
 
@@ -1071,7 +1076,9 @@ export default function Automation() {
                           }>
                             {log.status}
                           </Badge>
-                          {log.errorMessage && (
+                          {/* Only failed rows show their error; rows already
+                              re-sent before this fix still carry a stale one. */}
+                          {log.errorMessage && log.status === "failed" && (
                             <div className="text-[10px] text-destructive mt-1 font-mono max-w-xs">{log.errorMessage}</div>
                           )}
                         </td>
