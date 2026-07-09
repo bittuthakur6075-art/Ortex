@@ -61,10 +61,34 @@ export const apiStore = {
     }
   },
 
-  async list(name) {
-    const { data, error } = await supabase.from(name).select("*").order("created_at", { ascending: false })
+  // PostgREST caps a single response at the project's max-rows (1000 by
+  // default) and gives no signal that it truncated — a plain .select("*") on a
+  // growing table silently returns "the newest 1000 rows", so anything counted
+  // from the result is wrong without saying so. Page explicitly instead.
+  // `limit` bounds the walk for tables that grow without bound; omit it and
+  // you really do get every row.
+  async list(name, { limit = Infinity } = {}) {
+    const PAGE = 1000
+    const rows = []
+    for (let from = 0; rows.length < limit; from += PAGE) {
+      const size = Math.min(PAGE, limit - rows.length)
+      const { data, error } = await supabase
+        .from(name)
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range(from, from + size - 1)
+      if (error) throw error
+      rows.push(...data.map(fromRow))
+      if (data.length < size) break // short page => no more rows
+    }
+    return rows
+  },
+
+  // Exact row count without transferring the rows.
+  async count(name) {
+    const { count, error } = await supabase.from(name).select("id", { count: "exact", head: true })
     if (error) throw error
-    return data.map(fromRow)
+    return count ?? 0
   },
 
   async get(name, id) {

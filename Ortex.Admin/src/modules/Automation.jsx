@@ -44,6 +44,14 @@ const TRIGGER_EVENTS = [
   { value: "pdf_downloaded", label: "pdf_downloaded (Catalogue Download)" },
 ]
 
+// user_activities and event_logs accept anonymous inserts from the public site
+// and grow without bound. We load a recent window rather than the whole table,
+// render it a page at a time, and say so on screen when the window is smaller
+// than the table — silently analysing "the newest N rows" is how a dashboard
+// starts lying. Rows per page in the two log tables.
+const LOG_WINDOW = 5000
+const PAGE_SIZE = 50
+
 // Opening wa.me hands a pre-filled chat to WhatsApp Web; nothing reports back.
 // So "delivered"/"read" are only ever written by the demo seed and the local
 // mock — against Supabase a log goes queued -> sent and stops. Scoring success
@@ -87,6 +95,37 @@ const maskEmail = (email, mask = true) => {
   const at = s.lastIndexOf("@")
   if (at < 1) return "•".repeat(s.length)
   return `${s[0]}${"•".repeat(at - 1)}${s.slice(at)}`
+}
+
+// Shown when the loaded window is smaller than the table behind it.
+const WindowNotice = ({ shown, total, what }) => (
+  <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
+    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+    <span>
+      Showing the most recent <strong className="text-foreground">{shown.toLocaleString()}</strong> of{" "}
+      <strong className="text-foreground">{total.toLocaleString()}</strong> {what}. Figures on this page cover the loaded window only.
+    </span>
+  </div>
+)
+
+const TablePager = ({ page, pageCount, total, onPage }) => {
+  if (total === 0) return null
+  const from = (page - 1) * PAGE_SIZE + 1
+  const to = Math.min(page * PAGE_SIZE, total)
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3 text-xs text-muted-foreground">
+      <span>Showing {from.toLocaleString()}–{to.toLocaleString()} of {total.toLocaleString()}</span>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" className="h-7 text-xs" disabled={page <= 1} onClick={() => onPage(page - 1)}>
+          Previous
+        </Button>
+        <span>Page {page} of {pageCount}</span>
+        <Button variant="outline" size="sm" className="h-7 text-xs" disabled={page >= pageCount} onClick={() => onPage(page + 1)}>
+          Next
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 const renderMetadata = (act, mask = true) => {
@@ -164,6 +203,13 @@ export default function Automation() {
   // Collections that failed to load (RLS denial, network) — fed to diagnostics.
   const [loadErrors, setLoadErrors] = useState([])
 
+  // True row counts, so we can tell the user when the loaded window is partial.
+  const [totals, setTotals] = useState({ user_activities: null, event_logs: null })
+
+  // Current page of each paginated log table.
+  const [activityPage, setActivityPage] = useState(1)
+  const [eventPage, setEventPage] = useState(1)
+
   const profile = useProfile()
 
   // Load all required collections on mount
@@ -177,24 +223,28 @@ export default function Automation() {
         // activities found" — indistinguishable from a table that is simply
         // empty. Security Diagnostics reports whatever lands in `failures`.
         const failures = []
-        const safeList = (name) =>
-          repo.list(name).catch((err) => {
+        const safeList = (name, opts) =>
+          repo.list(name, opts).catch((err) => {
             console.error(`Failed to load ${name}:`, err)
             failures.push(name)
             return []
           })
+        const safeCount = (name) => repo.count(name).catch(() => null)
 
-        const [actList, evtList, waList, aiList, ruleList, tmplList, custList] = await Promise.all([
-          safeList("user_activities"),
-          safeList("event_logs"),
+        const [actList, evtList, waList, aiList, ruleList, tmplList, custList, actTotal, evtTotal] = await Promise.all([
+          safeList("user_activities", { limit: LOG_WINDOW }),
+          safeList("event_logs", { limit: LOG_WINDOW }),
           safeList("whatsapp_logs"),
           safeList("ai_messages"),
           safeList("automation_rules"),
           safeList("message_templates"),
-          safeList("customers")
+          safeList("customers"),
+          safeCount("user_activities"),
+          safeCount("event_logs")
         ])
 
         setLoadErrors(failures)
+        setTotals({ user_activities: actTotal, event_logs: evtTotal })
         setActivities(actList)
         setEvents(evtList)
         setWhatsappLogs(waList)
@@ -221,6 +271,12 @@ export default function Automation() {
     })
     return () => unsubscribe()
   }, [])
+
+  // A new search or tab should start at page one, not wherever the last one left off.
+  useEffect(() => {
+    setActivityPage(1)
+    setEventPage(1)
+  }, [searchQuery, activeTab])
 
   // Throttling Rate Limiting Check
   const checkRateLimit = () => {
@@ -390,6 +446,25 @@ export default function Automation() {
       (a.metadata?.searchQuery || "").toLowerCase().includes(query)
     )
   }, [activities, searchQuery])
+
+  // Clamp rather than trust the stored page: a reload or a new search filter can
+  // shrink the result set out from under it.
+  const activityPageCount = Math.max(1, Math.ceil(filteredActivities.length / PAGE_SIZE))
+  const safeActivityPage = Math.min(activityPage, activityPageCount)
+  const pagedActivities = useMemo(
+    () => filteredActivities.slice((safeActivityPage - 1) * PAGE_SIZE, safeActivityPage * PAGE_SIZE),
+    [filteredActivities, safeActivityPage]
+  )
+
+  const eventPageCount = Math.max(1, Math.ceil(events.length / PAGE_SIZE))
+  const safeEventPage = Math.min(eventPage, eventPageCount)
+  const pagedEvents = useMemo(
+    () => events.slice((safeEventPage - 1) * PAGE_SIZE, safeEventPage * PAGE_SIZE),
+    [events, safeEventPage]
+  )
+
+  const activityTruncated = totals.user_activities !== null && totals.user_activities > activities.length
+  const eventTruncated = totals.event_logs !== null && totals.event_logs > events.length
 
   const filteredWhatsappLogs = useMemo(() => {
     if (!searchQuery) return whatsappLogs
@@ -685,13 +760,18 @@ export default function Automation() {
       {/* ---------------- 1. ANALYTICS & DASHBOARD ---------------- */}
       {activeTab === "analytics" && (
         <div className="space-y-6">
+          {activityTruncated && (
+            <WindowNotice shown={activities.length} total={totals.user_activities} what="tracked actions" />
+          )}
           {/* Summary Cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               icon={Users}
               label="Tracked Actions"
-              value={analyticsData.totalActivities}
-              sub="Across all active visitor sessions"
+              value={(totals.user_activities ?? analyticsData.totalActivities).toLocaleString()}
+              sub={activityTruncated
+                ? `Analytics below cover the newest ${activities.length.toLocaleString()}`
+                : "Across all active visitor sessions"}
               accent="bg-blue-500/10 text-blue-600"
             />
             <StatCard
@@ -811,6 +891,10 @@ export default function Automation() {
 
       {/* ---------------- 2. USER ACTIVITY LOGS ---------------- */}
       {activeTab === "activities" && (
+        <div className="space-y-3">
+        {activityTruncated && (
+          <WindowNotice shown={activities.length} total={totals.user_activities} what="tracked actions" />
+        )}
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-sm">
@@ -834,7 +918,7 @@ export default function Automation() {
                     <td colSpan="10" className="py-12 text-center text-muted-foreground">No activities found.</td>
                   </tr>
                 ) : (
-                  filteredActivities.map((act) => (
+                  pagedActivities.map((act) => (
                     <tr key={act.id} className="hover:bg-muted/30">
                       <td className="whitespace-nowrap px-4 py-3 font-medium text-xs">
                         {formatDateTime(act.timestamp)}
@@ -864,11 +948,22 @@ export default function Automation() {
               </tbody>
             </table>
           </div>
+          <TablePager
+            page={safeActivityPage}
+            pageCount={activityPageCount}
+            total={filteredActivities.length}
+            onPage={setActivityPage}
+          />
         </Card>
+        </div>
       )}
 
       {/* ---------------- 3. EVENT LOGS ---------------- */}
       {activeTab === "events" && (
+        <div className="space-y-3">
+        {eventTruncated && (
+          <WindowNotice shown={events.length} total={totals.event_logs} what="events" />
+        )}
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-sm">
@@ -887,7 +982,7 @@ export default function Automation() {
                     <td colSpan="5" className="py-12 text-center text-muted-foreground">No events generated.</td>
                   </tr>
                 ) : (
-                  events.map((evt) => (
+                  pagedEvents.map((evt) => (
                     <tr key={evt.id} className="hover:bg-muted/30">
                       <td className="whitespace-nowrap px-4 py-3 text-xs">{formatDateTime(evt.timestamp)}</td>
                       <td className="px-4 py-3">
@@ -909,7 +1004,14 @@ export default function Automation() {
               </tbody>
             </table>
           </div>
+          <TablePager
+            page={safeEventPage}
+            pageCount={eventPageCount}
+            total={events.length}
+            onPage={setEventPage}
+          />
         </Card>
+        </div>
       )}
 
       {/* ---------------- 4. WHATSAPP LOGS & QUEUE MONITOR ---------------- */}

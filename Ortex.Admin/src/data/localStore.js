@@ -56,8 +56,13 @@ export const localStore = {
     }
   },
 
-  async list(name) {
-    return readCollection(name)
+  async list(name, { limit = Infinity } = {}) {
+    const rows = readCollection(name)
+    return limit === Infinity ? rows : rows.slice(0, limit)
+  },
+
+  async count(name) {
+    return readCollection(name).length
   },
 
   async get(name, id) {

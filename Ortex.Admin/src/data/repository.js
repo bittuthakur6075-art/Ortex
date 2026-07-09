@@ -7,7 +7,7 @@
 //
 // Contract (all async):
 //   subscribe(cb) -> unsubscribe
-//   list(collection) / get(collection, id)
+//   list(collection, { limit }) / count(collection) / get(collection, id)
 //   create(collection, data) / bulkCreate(collection, items)
 //   update(collection, id, patch) / remove(collection, id)
 //   getSettings() / saveSettings(next) / nextSequence(series)
