@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { repo } from "../data/repository"
+import { hasSupabase } from "../data/supabaseClient"
+import { useProfile } from "../data/profile"
 import {
   StatCard,
   Button,
@@ -23,6 +25,7 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
+  AlertTriangle,
   Eye
 } from "../components/icons"
 import { toast } from "sonner"
@@ -161,21 +164,40 @@ export default function Automation() {
   // Rate limit simulator counter
   const [rateLimitCounter, setRateLimitCounter] = useState(0)
 
+  // Collections that failed to load (RLS denial, network) — fed to diagnostics.
+  const [loadErrors, setLoadErrors] = useState([])
+
+  const profile = useProfile()
+
   // Load all required collections on mount
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true)
+
+        // Record which collections we couldn't read instead of swallowing the
+        // error. An RLS denial used to fall back to [], rendering as "No
+        // activities found" — indistinguishable from a table that is simply
+        // empty. Security Diagnostics reports whatever lands in `failures`.
+        const failures = []
+        const safeList = (name) =>
+          repo.list(name).catch((err) => {
+            console.error(`Failed to load ${name}:`, err)
+            failures.push(name)
+            return []
+          })
+
         const [actList, evtList, waList, aiList, ruleList, tmplList, custList] = await Promise.all([
-          repo.list("user_activities").catch(() => []),
-          repo.list("event_logs").catch(() => []),
-          repo.list("whatsapp_logs").catch(() => []),
-          repo.list("ai_messages").catch(() => []),
-          repo.list("automation_rules").catch(() => []),
-          repo.list("message_templates").catch(() => []),
-          repo.list("customers").catch(() => [])
+          safeList("user_activities"),
+          safeList("event_logs"),
+          safeList("whatsapp_logs"),
+          safeList("ai_messages"),
+          safeList("automation_rules"),
+          safeList("message_templates"),
+          safeList("customers")
         ])
 
+        setLoadErrors(failures)
         setActivities(actList)
         setEvents(evtList)
         setWhatsappLogs(waList)
@@ -450,6 +472,49 @@ export default function Automation() {
     }
   }, [activities, events, whatsappLogs, aiMessages])
 
+  // Security diagnostics, computed from live state. Every entry here was
+  // previously a hardcoded green tick — the panel reported "Operational" even
+  // when the session was unauthenticated or the tables were unreadable, which
+  // is exactly when someone would consult it. A check we cannot actually
+  // verify from the browser is reported as a gap, not a pass.
+  const diagnostics = useMemo(() => {
+    const checks = []
+
+    checks.push(hasSupabase
+      ? { ok: true, label: "Authentication", detail: "Supabase Auth session active" }
+      : { ok: false, label: "Authentication", detail: "No backend configured — local mode, requests are unauthenticated" })
+
+    if (!profile) {
+      checks.push({ ok: false, label: "Module access", detail: "Profile not loaded" })
+    } else {
+      const granted = profile.role === "admin" || (profile.modules || []).includes("automation")
+      checks.push({
+        ok: granted,
+        label: "Module access",
+        detail: granted
+          ? `Signed in as ${profile.role}, automation module granted`
+          : `Signed in as ${profile.role}, automation module not granted`
+      })
+    }
+
+    // Honest: checkRateLimit() only gates opening a wa.me tab in this browser,
+    // resets on refresh, and the publicly-callable automation-engine applies no
+    // per-caller limit at all. Not something we can tick green.
+    checks.push({
+      ok: false,
+      label: "Rate limiting",
+      detail: "Browser-side send throttle only; the automation engine enforces no per-caller limit"
+    })
+
+    checks.push(loadErrors.length === 0
+      ? { ok: true, label: "Data access", detail: "All automation tables readable" }
+      : { ok: false, label: "Data access", detail: `Unreadable: ${loadErrors.join(", ")}` })
+
+    return checks
+  }, [profile, loadErrors])
+
+  const openIssues = diagnostics.filter(c => !c.ok).length
+
   // Customer Timeline Computations
   const customerTimelineEvents = useMemo(() => {
     if (!selectedCustomerId) return []
@@ -706,25 +771,27 @@ export default function Automation() {
             <Card className="p-6 flex flex-col justify-between">
               <div>
                 <h3 className="mb-1 text-base font-bold text-foreground">Security Diagnostics</h3>
-                <p className="text-xs text-muted-foreground">Role-based access & validation check</p>
+                <p className="text-xs text-muted-foreground">Live checks against the current session</p>
                 <ul className="mt-4 space-y-2.5 text-xs text-muted-foreground">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500" />
-                    <span>Role Checked: Admin console verified</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500" />
-                    <span>JWT Signature: Active Supabase token validation</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500" />
-                    <span>Rate limiting: Throttled dispatch system active</span>
-                  </li>
+                  {diagnostics.map((check) => (
+                    <li key={check.label} className="flex items-start gap-2">
+                      {check.ok ? (
+                        <CheckCircle2 className="h-4.5 w-4.5 shrink-0 text-emerald-500" />
+                      ) : (
+                        <AlertTriangle className="h-4.5 w-4.5 shrink-0 text-amber-500" />
+                      )}
+                      <span>
+                        <span className="font-semibold text-foreground">{check.label}:</span> {check.detail}
+                      </span>
+                    </li>
+                  ))}
                 </ul>
               </div>
               <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
                 <span>System status</span>
-                <span className="font-bold text-emerald-600">Operational</span>
+                <span className={`font-bold ${openIssues === 0 ? "text-emerald-600" : "text-amber-600"}`}>
+                  {openIssues === 0 ? "Operational" : `${openIssues} issue${openIssues > 1 ? "s" : ""}`}
+                </span>
               </div>
             </Card>
           </div>
