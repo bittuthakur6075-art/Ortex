@@ -25,6 +25,7 @@ import DocumentView from "../components/DocumentView"
 import ReceiptView from "../components/ReceiptView"
 import TallyInvoiceImport, { parseTallyInvoiceXml } from "../components/TallyInvoiceImport"
 import {
+  Badge,
   Button,
   Card,
   Input,
@@ -39,6 +40,35 @@ import {
   PageLoader,
   SortTh,
 } from "../components/ui"
+
+// Ortex.Tally.Connector stamps doc.tally = { status, syncedAt, voucherRef, error }
+// on every record it pushes to TallyPrime. Nothing in the console read it, so a
+// voucher Tally rejected was invisible here — the only trace was a line in the
+// connector's terminal on whichever PC it runs on. Records with no `tally` at
+// all are ones the connector has not picked up yet (it treats a missing status
+// as "pending"), which is also the state of everything if it never runs.
+function TallyBadge({ tally }) {
+  if (tally?.status === "synced") {
+    const when = tally.syncedAt ? ` · ${formatDate(tally.syncedAt)}` : ""
+    return (
+      <span title={tally.voucherRef ? `Tally voucher ${tally.voucherRef}${when}` : `Synced with Tally${when}`}>
+        <Badge tone="emerald">Synced</Badge>
+      </span>
+    )
+  }
+  if (tally?.status === "error") {
+    return (
+      <span title={tally.error || "Tally rejected this voucher"}>
+        <Badge tone="rose">Error</Badge>
+      </span>
+    )
+  }
+  return (
+    <span title="Not yet pushed to Tally by the connector">
+      <Badge tone="slate">Not synced</Badge>
+    </span>
+  )
+}
 
 const emptyDraft = (settings) => ({
   id: null,
@@ -185,6 +215,7 @@ export default function Invoices() {
                   <SortTh sortKey="grandTotal" sort={sort} onSort={onSort} align="right">Total</SortTh>
                   <SortTh sortKey="_balance" sort={sort} onSort={onSort} align="right">Balance</SortTh>
                   <SortTh sortKey="_status" sort={sort} onSort={onSort}>Status</SortTh>
+                  <th className="px-4 py-3">Tally</th>
                   <SortTh sortKey="dueDate" sort={sort} onSort={onSort}>Due</SortTh>
                   <th className="px-4 py-3" />
                 </tr>
@@ -207,6 +238,9 @@ export default function Invoices() {
                       </td>
                       <td className="px-4 py-3">
                         <StatusBadge list={INVOICE_STATUS} status={i._status} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <TallyBadge tally={i.tally} />
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         {overdue ? <span className="text-destructive">{formatDate(i.dueDate)}</span> : formatDate(i.dueDate)}
