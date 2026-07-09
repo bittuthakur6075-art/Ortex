@@ -7,6 +7,33 @@ import { resolve } from "node:path"
 import { ledgerXml, stockItemXml, salesVoucherXml, receiptVoucherXml } from "./tallyXml.js"
 import { postToTally } from "./tallyClient.js"
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+// Persist the sync result, retrying transient failures. The dangerous case is a
+// voucher that Tally accepted but whose "synced" flag we then failed to save:
+// next pass would re-post it and create a DUPLICATE financial voucher. Retrying
+// shrinks that window to near-zero; if it still fails we shout loudly with the
+// record id so the operator can set doc.tally.status manually before the next
+// pass. (For belt-and-suspenders, enable "Prevent duplicate vouchers" in Tally.)
+async function writeBackWithRetry(source, collection, id, doc, result, log, attempts = 4) {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      await source.writeBack(collection, id, doc, result)
+      return true
+    } catch (e) {
+      if (i === attempts) {
+        if (result.ok) {
+          log(`  ‼ CRITICAL: ${collection}/${id} was POSTED to Tally but its synced flag could not be saved (${e.message}). It will be re-posted next pass — set doc.tally.status="synced" manually to avoid a duplicate voucher.`)
+        } else {
+          log(`  ! writeback failed for ${collection}/${id}: ${e.message}`)
+        }
+        return false
+      }
+      await sleep(500 * i)
+    }
+  }
+}
+
 // Each pipeline: which collection, how to build XML, and a label for logs.
 const PIPELINES = [
   { key: "customers", collection: "customers", build: ledgerXml, label: (d) => d.company || d.name },
@@ -44,13 +71,9 @@ export async function runSync(cfg, source, { dryRun = false, log = console.log }
         continue
       }
 
-      const result = await postToTally(cfg.tally.url, xml)
+      const result = await postToTally(cfg.tally.url, xml, { timeoutMs: cfg.tally.timeoutMs })
       result.voucherRef = p.label(doc)
-      try {
-        await source.writeBack(p.collection, row.id, doc, result)
-      } catch (e) {
-        log(`  ! writeback failed for ${p.key}/${row.id}: ${e.message}`)
-      }
+      await writeBackWithRetry(source, p.collection, row.id, doc, result, log)
       if (result.ok) {
         log(`  ✓ ${p.key}: ${p.label(doc)}`)
         summary.pushed++

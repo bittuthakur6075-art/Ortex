@@ -9,16 +9,22 @@ function tag(xml, name) {
   return m ? m[1].trim() : null
 }
 
-export async function postToTally(url, xml) {
+export async function postToTally(url, xml, { timeoutMs = 30000 } = {}) {
   let res
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "text/xml; charset=utf-16" },
+      // fetch serializes a JS string body as UTF-8, so the charset must say
+      // utf-8 — the old "utf-16" header garbled Unicode names / the ₹ sign.
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
       body: xml,
+      // Without a timeout a hung gateway (company not open, port stuck) blocks
+      // the whole poll loop indefinitely.
+      signal: AbortSignal.timeout(timeoutMs),
     })
   } catch (e) {
-    return { ok: false, error: `Cannot reach Tally at ${url} — is TallyPrime running with the XML gateway enabled? (${e.message})` }
+    const reason = e.name === "TimeoutError" ? `no response within ${timeoutMs}ms` : e.message
+    return { ok: false, error: `Cannot reach Tally at ${url} — is TallyPrime running with the XML gateway enabled? (${reason})` }
   }
   const text = await res.text()
   if (!res.ok) return { ok: false, error: `Tally HTTP ${res.status}`, raw: text }

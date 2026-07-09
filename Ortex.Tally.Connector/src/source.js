@@ -12,10 +12,27 @@ export function makeSource(cfg) {
   })
 
   async function unsynced(collection) {
-    const { data, error } = await db.from(collection).select("id, doc").limit(1000)
-    if (error) throw new Error(`read ${collection}: ${error.message}`)
-    // Not yet synced (no tally block, or a previous error/pending state).
-    return data.filter((r) => (r.doc?.tally?.status ?? "pending") !== "synced")
+    // Page through the whole collection with a stable order. The previous
+    // single .limit(1000) with no .order() meant that once a collection grew
+    // past 1000 rows, records outside an arbitrary window were NEVER synced.
+    // The "not yet synced" test stays client-side because brand-new rows have
+    // no doc.tally block at all (a server-side JSON filter would drop those).
+    const pageSize = 1000
+    const out = []
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await db
+        .from(collection)
+        .select("id, doc")
+        .order("created_at", { ascending: true })
+        .range(from, from + pageSize - 1)
+      if (error) throw new Error(`read ${collection}: ${error.message}`)
+      if (!data || data.length === 0) break
+      for (const r of data) {
+        if ((r.doc?.tally?.status ?? "pending") !== "synced") out.push(r)
+      }
+      if (data.length < pageSize) break
+    }
+    return out
   }
 
   async function writeBack(collection, id, doc, result) {

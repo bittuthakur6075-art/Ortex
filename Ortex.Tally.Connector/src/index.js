@@ -24,7 +24,16 @@ async function main() {
 
   const ms = Math.max(30, cfg.sync.intervalSeconds || 300) * 1000
   console.log(`Polling every ${ms / 1000}s — Ctrl+C to stop.`)
-  setInterval(pass, ms)
+
+  // Self-chaining timer instead of setInterval: the next pass is scheduled only
+  // AFTER the current one finishes. A fixed setInterval would fire a second pass
+  // while a slow one is still mid-flight, and both would read the same
+  // still-unsynced rows and double-post them to Tally.
+  const loop = async () => {
+    await pass()
+    setTimeout(loop, ms)
+  }
+  setTimeout(loop, ms)
 }
 
 main().catch((e) => {
