@@ -198,3 +198,176 @@ export function computeAnalytics({ products = [], enquiries = [], quotations = [
     },
   }
 }
+
+// ---------------------------------------------------------------------------
+// Growth Intelligence — joins the behavioral top-of-funnel (user_activities /
+// event_logs from the marketing site) to the quote-to-cash sales data into one
+// funnel. P1: acquisition, engagement, demand gaps and the unified funnel.
+// ---------------------------------------------------------------------------
+
+// user_activities carry human labels ("Product search"); event_logs carry
+// machine names ("search_performed"). Classify both to one vocabulary so counts
+// don't silently miss half the data.
+export function classifyActivity(a) {
+  const t = String(a.activityType || a.eventType || "").toLowerCase()
+  if (t.includes("search")) return "search"
+  if (t.includes("cart")) return "cart"
+  if (t.includes("visit") || t.includes("view")) return "view"
+  if (t.includes("quote")) return "quote"
+  if (t.includes("contact")) return "contact"
+  if (t.includes("pdf") || t.includes("download")) return "download"
+  return "other"
+}
+
+const ENGAGED_TYPES = new Set(["search", "view", "cart", "download"])
+
+// Coarse acquisition channel from a referrer URL.
+function channelOf(ref) {
+  if (!ref || ref === "Direct") return "Direct"
+  try {
+    const host = new URL(ref).hostname.replace(/^www\./, "")
+    if (/google|bing|duckduckgo|yahoo|ecosia/.test(host)) return "Organic search"
+    if (/facebook|instagram|linkedin|twitter|t\.co|youtube|whatsapp/.test(host)) return "Social"
+    if (/indiamart|justdial|tradeindia|amazon|flipkart/.test(host)) return "Marketplace"
+    return host
+  } catch {
+    return "Referral"
+  }
+}
+
+export function computeGrowthAnalytics(
+  { activities = [], enquiries = [], quotations = [], invoices = [], payments = [], products = [] },
+  period = "mtd",
+) {
+  const { from, to } = periodBounds(period)
+  const acts = activities.filter((a) => inRange(a.timestamp, from, to))
+
+  // ---- acquisition ----
+  const visitorsSet = new Set(acts.map((a) => a.userId).filter(Boolean))
+
+  // new vs returning: a visitor is "new" if their earliest activity EVER falls
+  // in-period (computed over the full history, not just the window).
+  const firstSeen = {}
+  activities.forEach((a) => {
+    if (!a.userId) return
+    const t = new Date(a.timestamp).getTime()
+    if (Number.isNaN(t)) return
+    if (!(a.userId in firstSeen) || t < firstSeen[a.userId]) firstSeen[a.userId] = t
+  })
+  let newVisitors = 0
+  visitorsSet.forEach((u) => { if (firstSeen[u] >= from) newVisitors++ })
+  const returningVisitors = visitorsSet.size - newVisitors
+
+  // Fold activities into sessions once — reused for channel/device/engagement.
+  const bySession = {}
+  acts.forEach((a) => {
+    const s = a.sessionId
+    if (!s) return
+    const row = bySession[s] || (bySession[s] = { channel: channelOf(a.referrer), device: a.device || "Unknown", count: 0, types: new Set() })
+    row.count += 1
+    row.types.add(classifyActivity(a))
+  })
+  const sessions = Object.values(bySession)
+
+  const tally = (arr, keyFn) => {
+    const m = {}
+    arr.forEach((x) => { const k = keyFn(x); m[k] = (m[k] || 0) + 1 })
+    return m
+  }
+  const toSorted = (map, key) => Object.entries(map).map(([k, count]) => ({ [key]: k, count })).sort((a, b) => b.count - a.count)
+
+  const channels = toSorted(tally(sessions, (s) => s.channel), "channel")
+  const devices = toSorted(tally(sessions, (s) => s.device), "device")
+
+  // ---- engagement ----
+  const engagedSessions = sessions.filter((s) => [...s.types].some((t) => ENGAGED_TYPES.has(t))).length
+  const bounceSessions = sessions.filter((s) => s.count <= 1).length
+  const engagedRate = sessions.length ? Math.round((engagedSessions / sessions.length) * 100) : null
+  const bounceRate = sessions.length ? Math.round((bounceSessions / sessions.length) * 100) : null
+  const actionsPerSession = sessions.length ? round2(acts.length / sessions.length) : 0
+  const quoteSessions = new Set(acts.filter((a) => classifyActivity(a) === "quote").map((a) => a.sessionId).filter(Boolean))
+  const visitorToQuote = sessions.length ? round2((quoteSessions.size / sessions.length) * 100) : null
+
+  // ---- top searches / views ----
+  const searchMap = {}
+  acts.filter((a) => classifyActivity(a) === "search").forEach((a) => {
+    const q = String(a.metadata?.searchQuery || a.metadata?.query || "").trim().toLowerCase()
+    if (q) searchMap[q] = (searchMap[q] || 0) + 1
+  })
+  const topSearches = toSorted(searchMap, "query").slice(0, 8)
+
+  const viewMap = {}
+  acts.filter((a) => classifyActivity(a) === "view").forEach((a) => {
+    const name = a.metadata?.productName || a.productId || "Unspecified"
+    viewMap[name] = (viewMap[name] || 0) + 1
+  })
+  const topViews = toSorted(viewMap, "name").slice(0, 8)
+
+  // ---- demand gap: searched terms with no matching product (roadmap signal) ----
+  const productHay = products.map((p) => `${p.name || ""} ${p.material || ""} ${p.category || ""}`.toLowerCase())
+  const demandGaps = Object.entries(searchMap)
+    .filter(([q]) => !productHay.some((h) => h.includes(q)))
+    .map(([query, count]) => ({ query, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8)
+
+  // ---- unified funnel (each stage period-scoped by its own timestamp) ----
+  const liveInvoices = invoices.filter((i) => i.status !== "cancelled")
+  const enquiriesInP = enquiries.filter((e) => inRange(e.createdAt, from, to))
+  const quotationsInP = quotations.filter((q) => inRange(q.issueDate || q.createdAt, from, to))
+  const wonInP = quotationsInP.filter((q) => q.status === "accepted" || q.status === "invoiced")
+  const invoicedInP = liveInvoices.filter((i) => inRange(i.issueDate, from, to))
+  const paidInP = invoicedInP.filter((i) => resolveInvoiceStatus(i, payments) === "paid")
+
+  const funnel = [
+    { stage: "Visitors", count: visitorsSet.size },
+    { stage: "Sessions", count: sessions.length },
+    { stage: "Engaged", count: engagedSessions },
+    { stage: "Quote requests", count: quoteSessions.size },
+    { stage: "Enquiries", count: enquiriesInP.length },
+    { stage: "Quotations", count: quotationsInP.length },
+    { stage: "Accepted", count: wonInP.length },
+    { stage: "Invoiced", count: invoicedInP.length },
+    { stage: "Paid", count: paidInP.length },
+  ]
+
+  // ---- weekly trend (last 8 weeks): sessions + quote-requesting sessions ----
+  const weekMs = 7 * 86400000
+  const anchor = new Date(); anchor.setHours(0, 0, 0, 0)
+  const anchorMs = anchor.getTime() + 86400000 // end of today
+  const trend = []
+  for (let i = 7; i >= 0; i--) {
+    const wStart = anchorMs - (i + 1) * weekMs
+    const wEnd = anchorMs - i * weekMs
+    const wActs = activities.filter((a) => inRange(a.timestamp, wStart, wEnd))
+    const wSessions = new Set(wActs.map((a) => a.sessionId).filter(Boolean))
+    const wQuotes = new Set(wActs.filter((a) => classifyActivity(a) === "quote").map((a) => a.sessionId).filter(Boolean))
+    trend.push({
+      label: new Date(wStart).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }),
+      sessions: wSessions.size,
+      quotes: wQuotes.size,
+    })
+  }
+
+  return {
+    period,
+    visitors: visitorsSet.size,
+    newVisitors,
+    returningVisitors,
+    sessionCount: sessions.length,
+    channels,
+    devices,
+    engagedSessions,
+    engagedRate,
+    bounceRate,
+    actionsPerSession,
+    quoteSessionCount: quoteSessions.size,
+    visitorToQuote,
+    topSearches,
+    topViews,
+    demandGaps,
+    funnel,
+    trend,
+    totalActivities: acts.length,
+  }
+}
