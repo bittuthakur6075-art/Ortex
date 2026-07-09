@@ -11,7 +11,7 @@ export default function NotFound() {
 
   const links = [
     { to: "/products", label: "Products & services" },
-    { to: "/portfolio", label: "Portfolio" },
+    { to: "/work", label: "Our work" },
     { to: "/industries", label: "Industries we serve" },
     { to: "/contact", label: "Contact us" },
   ]

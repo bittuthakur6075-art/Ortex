@@ -68,14 +68,16 @@ export default function Navbar() {
     setMobileMenuOpen(false)
   }, [location.pathname])
 
+  // Ordered by the sequence a buyer evaluates us in. Labels are single words:
+  // the old sentence-length labels ("Products & services", "Industries we
+  // serve") cost scan time without adding meaning. Contact lives in the footer
+  // and in the "Get quote" CTA — a manufacturer needs one door, not two.
   const navItems = [
-    { name: "Home", path: "/" },
-    { name: "Products & services", path: "/products" },
-    { name: "Industries we serve", path: "/industries" },
-    { name: "Portfolio", path: "/portfolio" },
-    { name: "Gallery", path: "/photos" },
-    { name: "About us", path: "/about" },
-    { name: "Contact us", path: "/contact" }
+    { name: "Products", path: "/products" },
+    { name: "Industries", path: "/industries" },
+    { name: "OEM", path: "/oem" },
+    { name: "Work", path: "/work" },
+    { name: "About", path: "/about" }
   ]
 
   const isActive = (path) => location.pathname === path

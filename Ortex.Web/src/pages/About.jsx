@@ -112,8 +112,8 @@ export default function About() {
             >
               <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl">
                 <img
-                  src="https://images.unsplash.com/photo-1552581234-26160f608093?w=800&q=80&auto=format&fit=crop"
-                  alt="Ortex Industries team collaborating on customized product manufacturing"
+                  src="/img/factory-production-workshop.jpg"
+                  alt="The Ortex Industries production floor, where routing, UV printing, and assembly are carried out in-house"
                   className="w-full h-full object-cover"
                   loading="lazy"
                   decoding="async"

@@ -122,8 +122,8 @@ export default function Industries() {
             >
               <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl">
                 <img
-                  src="https://images.unsplash.com/photo-1697638164340-6c5fc558bdf2?w=800&q=80&auto=format&fit=crop"
-                  alt="Professional office environment showcasing corporate products and services"
+                  src="https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/348f14b4519831287f42e8843fa4ccf1.png"
+                  alt="Acrylic name badge manufactured by Ortex Industries with healthcare branding and magnetic backing"
                   className="w-full h-full object-cover"
                   loading="lazy"
                   decoding="async"

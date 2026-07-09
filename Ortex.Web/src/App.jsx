@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from "react"
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom"
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom"
 import { Toaster } from "sonner"
 import Navbar from "./components/layout/Navbar"
 import Footer from "./components/layout/Footer"
@@ -15,7 +15,8 @@ const Home = lazy(() => import("./pages/Home"))
 const About = lazy(() => import("./pages/About"))
 const Products = lazy(() => import("./pages/Products"))
 const Industries = lazy(() => import("./pages/Industries"))
-const Portfolio = lazy(() => import("./pages/Portfolio"))
+const Work = lazy(() => import("./pages/Work"))
+const OEM = lazy(() => import("./pages/OEM"))
 const Contact = lazy(() => import("./pages/Contact"))
 const Privacy = lazy(() => import("./pages/Privacy"))
 const Terms = lazy(() => import("./pages/Terms"))
@@ -23,7 +24,6 @@ const Cookies = lazy(() => import("./pages/Cookies"))
 const AcceptableUse = lazy(() => import("./pages/AcceptableUse"))
 const QuoteCalculator = lazy(() => import("./pages/QuoteCalculator"))
 const FAQ = lazy(() => import("./pages/FAQ"))
-const Photos = lazy(() => import("./pages/Photos"))
 const NotFound = lazy(() => import("./pages/NotFound"))
 
 function AppLayout() {
@@ -102,7 +102,8 @@ function AppLayout() {
               <Route path="/about" element={<About />} />
               <Route path="/products" element={<Products />} />
               <Route path="/industries" element={<Industries />} />
-              <Route path="/portfolio" element={<Portfolio />} />
+              <Route path="/oem" element={<OEM />} />
+              <Route path="/work" element={<Work />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
@@ -110,7 +111,13 @@ function AppLayout() {
               <Route path="/acceptable-use" element={<AcceptableUse />} />
               <Route path="/quote" element={<QuoteCalculator />} />
               <Route path="/faq" element={<FAQ />} />
-              <Route path="/photos" element={<Photos />} />
+
+              {/* /portfolio and /photos merged into /work. Both are indexed, so
+                  they redirect rather than 404. Remove once Search Console shows
+                  no impressions on the old paths. */}
+              <Route path="/portfolio" element={<Navigate to="/work" replace />} />
+              <Route path="/photos" element={<Navigate to="/work" replace />} />
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
