@@ -8,12 +8,25 @@ const SYNC_FLAG = "ortex_supabase_migrated"
 // Helper to check if a string is a valid UUID
 const isUuid = (v) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 
-// Helper to generate a UUID (standard v4 representation)
-function generateUuid() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+// Deterministic UUID derived from the old local id. Crucial for idempotency:
+// re-running the migration (e.g. after a mid-run failure) must map each old id
+// to the SAME new id so an upsert overwrites the earlier row instead of the old
+// Math.random() approach, which minted fresh ids every run and duplicated all
+// data into the shared database. Not cryptographic — just a stable, well-spread
+// hash formatted as a v4-shaped UUID.
+function deterministicUuid(str) {
+  const fnv = (seed) => {
+    let hash = seed >>> 0
+    for (let i = 0; i < str.length; i++) {
+      hash ^= str.charCodeAt(i)
+      hash = Math.imul(hash, 0x01000193) >>> 0
+    }
+    return hash >>> 0
+  }
+  const hx = (n) => (n >>> 0).toString(16).padStart(8, "0")
+  const hex = hx(fnv(0x811c9dc5)) + hx(fnv(0x01234567)) + hx(fnv(0x9e3779b9)) + hx(fnv(0x85ebca6b))
+  const variant = ((parseInt(hex[16], 16) & 0x3) | 0x8).toString(16)
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`
 }
 
 // Deep replacement helper to replace all occurrences of old IDs with new UUIDs inside documents
@@ -90,7 +103,7 @@ export async function syncLocalToSupabase() {
       const items = localData[name] || [];
       for (const item of items) {
         if (item && item.id && !isUuid(item.id)) {
-          idMap[item.id] = generateUuid();
+          idMap[item.id] = deterministicUuid(item.id);
         }
       }
     }
@@ -135,13 +148,15 @@ export async function syncLocalToSupabase() {
         };
       });
 
-      // Insert in chunks of 50 to avoid any database payload limits
+      // Upsert (not insert) in chunks so a re-run after a partial failure
+      // overwrites the rows it already wrote instead of duplicating them. Safe
+      // because ids are now deterministic.
       const chunkSize = 50;
       for (let i = 0; i < rows.length; i += chunkSize) {
         const chunk = rows.slice(i, i + chunkSize);
-        const { error } = await supabase.from(name).insert(chunk);
+        const { error } = await supabase.from(name).upsert(chunk, { onConflict: "id" });
         if (error) {
-          throw new Error(`Failed to insert chunk for ${name}: ${error.message}`);
+          throw new Error(`Failed to upsert chunk for ${name}: ${error.message}`);
         }
       }
       console.log(`Collection '${name}' migrated successfully.`);
