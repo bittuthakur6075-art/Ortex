@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Plus, Minus } from "lucide-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { fadeUp, EASE } from "../components/home/Section"
+import PageHero from "../components/ui/PageHero"
 
 const faqs = [
   {
@@ -65,21 +66,9 @@ export default function FAQ() {
   return (
     <div className="bg-background min-h-screen">
       {/* Page Header */}
-      <section className="py-[140px] bg-secondary">
-        <div className="lp-wrap text-center">
-          <motion.div {...fadeUp} className="max-w-3xl mx-auto">
-            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
-              Support
-            </span>
-            <h1 className="text-[40px] md:text-[64px] font-normal leading-[1.05] mb-6 tracking-tight text-foreground text-balance">
-              Frequently asked questions
-            </h1>
-            <p className="text-[18px] font-normal text-foreground leading-relaxed">
-              Find answers to common questions about our products, customization options, ordering processes, and shipping.
-            </p>
-          </motion.div>
-        </div>
-      </section>
+      <PageHero title="Frequently asked questions">
+        Find answers to common questions about our products, customization options, ordering processes, and shipping.
+      </PageHero>
 
       {/* Main FAQ Content */}
       <section className="py-[140px] bg-background text-left">

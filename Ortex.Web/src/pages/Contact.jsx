@@ -7,6 +7,7 @@ import { submitEnquiry } from "../lib/leads"
 import { whatsappLink } from "../constants/site"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { fadeUp, RevealWords } from "../components/home/Section"
+import PageHero from "../components/ui/PageHero"
 
 export default function Contact() {
   useDocumentMetadata(
@@ -171,21 +172,9 @@ export default function Contact() {
   return (
     <>
       {/* Page Header */}
-      <section className="py-[140px] bg-secondary">
-        <div className="lp-wrap text-center">
-          <motion.div {...fadeUp} className="max-w-3xl mx-auto">
-            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
-              Contact
-            </span>
-            <h1 className="text-[40px] md:text-[64px] font-normal leading-[1.05] mb-6 tracking-tight text-foreground text-balance">
-              Get in touch
-            </h1>
-            <p className="text-[18px] font-normal text-foreground leading-relaxed">
-              Have a project in mind? Contact our team to discuss your requirements and receive a customized quote for your business needs.
-            </p>
-          </motion.div>
-        </div>
-      </section>
+      <PageHero title="Get in touch">
+        Have a project in mind? Contact our team to discuss your requirements and receive a customized quote for your business needs.
+      </PageHero>
 
       {/* Contact Content */}
       <section className="py-[140px] bg-background text-left">

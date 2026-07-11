@@ -3,6 +3,7 @@ import { Briefcase, Layers, ShieldCheck, Tag, Clock, Globe } from "lucide-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { fadeUp, RevealWords } from "../components/home/Section"
 import PageCTA from "../components/ui/PageCTA"
+import PageHero from "../components/ui/PageHero"
 
 export default function About() {
   useDocumentMetadata(
@@ -58,21 +59,9 @@ export default function About() {
   return (
     <>
       {/* Page Header */}
-      <section className="py-[140px] bg-secondary">
-        <div className="lp-wrap text-center">
-          <motion.div {...fadeUp} className="max-w-3xl mx-auto">
-            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
-              About us
-            </span>
-            <h1 className="text-[40px] md:text-[64px] font-normal leading-[1.05] mb-6 tracking-tight text-foreground text-balance">
-              About Ortex Industries
-            </h1>
-            <p className="text-[18px] font-normal text-foreground leading-relaxed">
-              Your trusted partner for premium customized products, delivering manufacturing excellence and complete customization solutions to businesses across India and worldwide.
-            </p>
-          </motion.div>
-        </div>
-      </section>
+      <PageHero title="About Ortex Industries">
+        Your trusted partner for premium customized products, delivering manufacturing excellence and complete customization solutions to businesses across India and worldwide.
+      </PageHero>
 
       {/* Story Section */}
       <section className="py-[140px] bg-background text-left">

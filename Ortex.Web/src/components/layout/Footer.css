@@ -56,20 +56,21 @@
 }
 
 .lp-footer-logo-img {
-  height: clamp(38px, 4.5vw, 52px);
+  height: 40px;
   width: auto;
   display: block;
 }
 
 .lp-footer-tagline {
-  font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
-  font-style: italic;
-  font-size: clamp(24px, 2.8vw, 40px);
+  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  font-style: normal;
+  font-size: 42px;
   font-weight: 400;
   color: #fff;
   white-space: normal;
   margin: 0;
   line-height: 1.1;
+  letter-spacing: -0.01em;
 }
 
 @media (min-width: 768px) {
@@ -127,8 +128,14 @@
 
 @media (min-width: 992px) {
   .lp-footer-main {
-    grid-template-columns: 1.1fr 2fr;
+    grid-template-columns: 2fr 1.1fr;
     gap: clamp(24px, 4vw, 40px);
+  }
+  .lp-footer-cols {
+    order: 1;
+  }
+  .lp-footer-lead {
+    order: 2;
   }
 }
 
@@ -257,6 +264,65 @@
   }
 }
 
+/* Contact/Office groups (label + stacked values) */
+.lp-footer-cgroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.lp-footer-cgroup + .lp-footer-cgroup {
+  margin-top: 40px;
+}
+
+.lp-footer-clabel {
+  margin: 0;
+  font-size: clamp(20px, 2vw, 24px);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.lp-footer-cgroup a,
+.lp-footer-cval {
+  margin: 0;
+  font-size: clamp(15px, 1.4vw, 17px);
+  font-weight: 400;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.62);
+  text-decoration: none;
+  transition: color 0.14s;
+}
+
+.lp-footer-cgroup a:hover {
+  color: #fff;
+}
+
+.lp-footer-cval {
+  max-width: 34ch;
+}
+
+.lp-footer-cgroup a.lp-footer-email {
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.lp-footer-phones {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lp-footer-phones a {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.lp-footer-phones > span {
+  color: rgba(255, 255, 255, 0.3);
+}
+
 .lp-footer h4 {
   font-size: clamp(10px, 1.05vw, 12px);
   text-transform: uppercase;
@@ -360,6 +426,39 @@
     justify-content: space-between;
     align-items: center;
   }
+}
+
+.lp-footer-bot-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+@media (min-width: 1200px) {
+  .lp-footer-bot-left {
+    flex-direction: row;
+    align-items: center;
+    gap: clamp(16px, 3vw, 28px);
+  }
+}
+
+.lp-footer-legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+.lp-footer-legal a {
+  font-size: clamp(12px, 1.23vw, 13px);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
+  text-decoration: none;
+  transition: color 0.14s;
+}
+
+.lp-footer-legal a:hover {
+  color: #fff;
 }
 
 .lp-footer-bot .lp-footer-copy {

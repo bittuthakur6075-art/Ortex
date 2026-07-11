@@ -60,14 +60,18 @@ export const featuredProducts = [
 ]
 
 export const featuredIndustries = [
-  { icon: Building, title: "Corporate" },
-  { icon: Teacher, title: "Education" },
-  { icon: Bank, title: "Government" },
-  { icon: Activity, title: "Healthcare" },
-  { icon: Calendar, title: "Events" },
-  { icon: VolumeHigh, title: "Marketing" },
-  { icon: Heart, title: "NGOs" },
-  { icon: Bag, title: "Retail" },
+  { icon: Building, title: "Corporate Gifting" },
+  { icon: Teacher, title: "Schools & Colleges" },
+  { icon: Bank, title: "Government & PSUs" },
+  { icon: Activity, title: "Hospitals & Pharma" },
+  { icon: Calendar, title: "Events & Exhibitions" },
+  { icon: VolumeHigh, title: "Promo & Ad Agencies" },
+  { icon: Heart, title: "NGOs & Trusts" },
+  { icon: Bag, title: "Retail & Brands" },
+  { icon: Building, title: "Startups & SMEs" },
+  { icon: Building, title: "Hotels & Hospitality" },
+  { icon: Bag, title: "Resellers & OEM" },
+  { icon: Calendar, title: "Real Estate" },
 ]
 
 export const steps = [

@@ -96,11 +96,11 @@ body {
   overflow-x: clip;
 }
 
-/* Layout container wrapper. Fluid-then-capped at 1520px with responsive
-   gutters (16 / 24 / 40), matching the Otto reference layout model. */
+/* Layout container wrapper. Fluid-then-capped at 1320px (1240px content inside
+   the 40px gutters) with responsive gutters (16 / 24 / 40). */
 .lp-wrap {
   width: 100%;
-  max-width: 1520px;
+  max-width: 1320px;
   padding-left: 16px;
   padding-right: 16px;
   margin-left: auto;
@@ -871,7 +871,9 @@ a:hover > .roll-text .roll-char {
 .animate-marquee {
   display: flex;
   width: max-content;
-  animation: marquee 35s linear infinite;
+  animation: marquee 80s linear infinite;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .animate-marquee:hover {

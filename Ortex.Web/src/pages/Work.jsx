@@ -4,7 +4,8 @@ import { X, ChevronLeft, ChevronRight, MessageSquare, Tag, Grid } from "lucide-r
 import { Link } from "react-router-dom"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { workPhotos } from "../constants/home"
-import { fadeUp, EASE } from "../components/home/Section"
+import { EASE } from "../components/home/Section"
+import PageHero from "../components/ui/PageHero"
 
 /**
  * Replaces the old /portfolio and /photos pages, which were two grids of the
@@ -69,22 +70,9 @@ export default function Work() {
 
   return (
     <div className="bg-background min-h-screen">
-      <section className="py-[140px] bg-secondary border-b border-border/50">
-        <div className="lp-wrap text-center">
-          <motion.div {...fadeUp} className="max-w-3xl mx-auto">
-            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
-              Production archive
-            </span>
-            <h1 className="text-[40px] md:text-[64px] font-normal leading-[1.05] mb-4 tracking-tight text-foreground text-balance">
-              Our work
-            </h1>
-            <p className="text-[18px] font-normal text-foreground leading-relaxed">
-              Real production photography of custom promotional merchandise, corporate gifts, and office
-              accessories we manufactured. No stock imagery.
-            </p>
-          </motion.div>
-        </div>
-      </section>
+      <PageHero title="Our work">
+        Real production photography of custom promotional merchandise, corporate gifts, and office accessories we manufactured. No stock imagery.
+      </PageHero>
 
       <section className="py-[140px]">
         <div className="lp-wrap">

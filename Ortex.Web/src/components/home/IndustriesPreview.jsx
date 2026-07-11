@@ -4,7 +4,13 @@ import { featuredIndustries } from "../../constants/home"
  * Otto "We service your vehicle" banner style: a full-width deep-indigo band
  * with a large heading on the left and a short two-line supporting line on the
  * right. The industries marquee sits below, recoloured for the dark band.
+ *
+ * Seamless infinite scroll: the strip is one "half" wide enough to overfill any
+ * viewport (the base list repeated), rendered twice. The keyframe translates
+ * exactly -50%, so it wraps with no visible start, end, or gap.
  */
+const HALF = Array.from({ length: 3 }, () => featuredIndustries).flat()
+
 export default function IndustriesPreview() {
   return (
     <section className="bg-[#2f50e4] text-white py-[80px] overflow-hidden">
@@ -20,8 +26,8 @@ export default function IndustriesPreview() {
 
       {/* Industries marquee */}
       <div className="relative overflow-hidden py-4 mt-8">
-        <div className="animate-marquee flex">
-          {[...featuredIndustries, ...featuredIndustries].map((item, idx) => (
+        <div className="animate-marquee flex w-max">
+          {[...HALF, ...HALF].map((item, idx) => (
             <div
               key={`${item.title}-${idx}`}
               aria-hidden={idx >= featuredIndustries.length}
