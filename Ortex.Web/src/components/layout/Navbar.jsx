@@ -125,10 +125,10 @@ export default function Navbar() {
                     isActive(item.path)
                       ? overHero
                         ? "text-white font-semibold"
-                        : "text-[#466EFA] font-semibold"
+                        : "text-[#2f50e4] font-semibold"
                       : overHero
                         ? "text-white/80 hover:text-white font-medium"
-                        : "text-foreground/80 hover:text-[#466EFA] font-medium"
+                        : "text-foreground/80 hover:text-[#2f50e4] font-medium"
                   }`}
                 >
                   {item.name}
@@ -138,22 +138,23 @@ export default function Navbar() {
 
             {/* Desktop Actions */}
             <div className="hidden lg:flex items-center gap-3">
-              {/* WhatsApp Link */}
+              {/* WhatsApp Button */}
               <a
                 href={whatsappLink()}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Chat with us on WhatsApp"
                 title="Chat with us on WhatsApp"
-                className={`p-2.5 rounded-full transition-all duration-200 hover:scale-110 hover:brightness-110 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${overHero ? "text-white hover:bg-white/10" : "text-whatsapp hover:bg-whatsapp/10"}`}
+                className="px-5 py-2.5 font-medium text-[15px] text-white bg-whatsapp hover:brightness-95 rounded-full transition-all duration-200 active:scale-[0.98] cursor-pointer flex items-center gap-2 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.457L0 24zm6.59-4.846c1.62.962 3.21 1.468 4.797 1.469 5.378-.001 9.756-4.379 9.759-9.76.002-2.607-1.013-5.059-2.859-6.907C16.438 2.11 13.99 1.096 11.385 1.096 6.006 1.096 1.628 5.474 1.625 10.855c-.001 1.639.489 3.238 1.419 4.7l-.986 3.603 3.699-.97c1.472.842 2.87 1.34 4.545 1.34zM17.476 14.39c-.329-.165-1.948-.96-2.253-1.071-.305-.11-.527-.165-.749.165-.221.329-.857 1.071-1.05 1.29-.193.22-.387.247-.716.082-1.099-.548-1.867-1.026-2.607-2.296-.195-.334-.195-.568-.03-.733.149-.148.329-.384.494-.576.165-.192.22-.329.329-.548.11-.22.055-.412-.028-.577-.082-.165-.749-1.808-1.026-2.476-.27-.648-.544-.56-.749-.57-.193-.01-.415-.011-.637-.011-.222 0-.582.083-.887.412-.305.329-1.164 1.14-1.164 2.784 0 1.644 1.196 3.23 1.361 3.45.165.22 2.353 3.593 5.7 5.039.796.344 1.417.55 1.902.705.8.254 1.528.218 2.103.133.64-.095 1.948-.796 2.223-1.564.276-.768.276-1.426.192-1.563-.083-.138-.305-.22-.634-.385z"/>
+                <svg className="w-[18px] h-[18px] fill-current" viewBox="0 0 510 513" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path fillRule="evenodd" clipRule="evenodd" d="M435.689 74.468C387.754 26.471 324 0.025 256.071 0C116.098 0 2.18 113.906 2.131 253.916C2.107 298.674 13.808 342.361 36.029 380.862L0 512.459L134.617 477.148C171.704 497.386 213.467 508.039 255.962 508.051H256.071C396.02 508.051 509.951 394.134 509.999 254.123C510.023 186.268 483.638 122.478 435.689 74.48V74.468ZM256.071 465.168H255.986C218.118 465.157 180.97 454.976 148.558 435.751L140.851 431.174L60.965 452.127L82.285 374.238L77.268 366.251C56.143 332.646 44.978 293.804 45.002 253.929C45.051 137.563 139.731 42.883 256.157 42.883C312.53 42.908 365.521 64.886 405.371 104.786C445.224 144.674 467.152 197.713 467.128 254.099C467.078 370.476 372.4 465.157 256.071 465.157V465.168ZM371.839 307.101C365.495 303.923 334.302 288.581 328.481 286.462C322.661 284.343 318.437 283.285 314.211 289.64C309.986 295.997 297.823 310.291 294.121 314.515C290.419 318.753 286.718 319.277 280.374 316.098C274.031 312.92 253.587 306.224 229.345 284.611C210.485 267.784 197.748 247.013 194.048 240.656C190.346 234.301 193.658 230.867 196.823 227.713C199.672 224.865 203.167 220.299 206.345 216.597C209.523 212.895 210.57 210.242 212.688 206.016C214.808 201.778 213.748 198.079 212.166 194.899C210.582 191.722 197.895 160.49 192.598 147.791C187.447 135.421 182.213 137.101 178.329 136.894C174.626 136.711 170.402 136.675 166.165 136.675C161.928 136.675 155.06 138.257 149.24 144.614C143.42 150.968 127.031 166.323 127.031 197.541C127.031 228.761 149.764 258.946 152.942 263.183C156.119 267.42 197.687 331.501 261.331 358.995C276.466 365.533 288.288 369.441 297.506 372.363C312.702 377.197 326.533 376.516 337.466 374.883C349.656 373.058 375.006 359.53 380.29 344.711C385.573 329.893 385.573 317.182 383.991 314.539C382.409 311.898 378.172 310.302 371.828 307.125L371.839 307.101Z" fill="currentColor"/>
                 </svg>
+                WhatsApp
               </a>
 
               <Link to="/quote">
-                <button className="px-6 py-2.5 font-medium text-[15px] text-white bg-[#466EFA] hover:bg-[#2f57e0] rounded-full transition-all duration-200 active:scale-[0.98] cursor-pointer flex items-center gap-1.5 group whitespace-nowrap">
+                <button className="px-6 py-2.5 font-medium text-[15px] text-white bg-[#2f50e4] hover:bg-[#193ee4] rounded-full transition-all duration-200 active:scale-[0.98] cursor-pointer flex items-center gap-1.5 group whitespace-nowrap">
                   Get quote
                   <svg className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M14.4301 5.92993L20.5001 11.9999L14.4301 18.0699"/>
@@ -173,8 +174,8 @@ export default function Navbar() {
                 aria-label="Chat with us on WhatsApp"
                 className={`p-2 rounded-full transition-all duration-200 hover:scale-110 hover:brightness-110 flex items-center justify-center ${overHero ? "text-white hover:bg-white/10" : "text-whatsapp hover:bg-whatsapp/10"}`}
               >
-                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.457L0 24zm6.59-4.846c1.62.962 3.21 1.468 4.797 1.469 5.378-.001 9.756-4.379 9.759-9.76.002-2.607-1.013-5.059-2.859-6.907C16.438 2.11 13.99 1.096 11.385 1.096 6.006 1.096 1.628 5.474 1.625 10.855c-.001 1.639.489 3.238 1.419 4.7l-.986 3.603 3.699-.97c1.472.842 2.87 1.34 4.545 1.34zM17.476 14.39c-.329-.165-1.948-.96-2.253-1.071-.305-.11-.527-.165-.749.165-.221.329-.857 1.071-1.05 1.29-.193.22-.387.247-.716.082-1.099-.548-1.867-1.026-2.607-2.296-.195-.334-.195-.568-.03-.733.149-.148.329-.384.494-.576.165-.192.22-.329.329-.548.11-.22.055-.412-.028-.577-.082-.165-.749-1.808-1.026-2.476-.27-.648-.544-.56-.749-.57-.193-.01-.415-.011-.637-.011-.222 0-.582.083-.887.412-.305.329-1.164 1.14-1.164 2.784 0 1.644 1.196 3.23 1.361 3.45.165.22 2.353 3.593 5.7 5.039.796.344 1.417.55 1.902.705.8.254 1.528.218 2.103.133.64-.095 1.948-.796 2.223-1.564.276-.768.276-1.426.192-1.563-.083-.138-.305-.22-.634-.385z"/>
+                <svg className="w-5 h-5 fill-current" viewBox="0 0 510 513" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path fillRule="evenodd" clipRule="evenodd" d="M435.689 74.468C387.754 26.471 324 0.025 256.071 0C116.098 0 2.18 113.906 2.131 253.916C2.107 298.674 13.808 342.361 36.029 380.862L0 512.459L134.617 477.148C171.704 497.386 213.467 508.039 255.962 508.051H256.071C396.02 508.051 509.951 394.134 509.999 254.123C510.023 186.268 483.638 122.478 435.689 74.48V74.468ZM256.071 465.168H255.986C218.118 465.157 180.97 454.976 148.558 435.751L140.851 431.174L60.965 452.127L82.285 374.238L77.268 366.251C56.143 332.646 44.978 293.804 45.002 253.929C45.051 137.563 139.731 42.883 256.157 42.883C312.53 42.908 365.521 64.886 405.371 104.786C445.224 144.674 467.152 197.713 467.128 254.099C467.078 370.476 372.4 465.157 256.071 465.157V465.168ZM371.839 307.101C365.495 303.923 334.302 288.581 328.481 286.462C322.661 284.343 318.437 283.285 314.211 289.64C309.986 295.997 297.823 310.291 294.121 314.515C290.419 318.753 286.718 319.277 280.374 316.098C274.031 312.92 253.587 306.224 229.345 284.611C210.485 267.784 197.748 247.013 194.048 240.656C190.346 234.301 193.658 230.867 196.823 227.713C199.672 224.865 203.167 220.299 206.345 216.597C209.523 212.895 210.57 210.242 212.688 206.016C214.808 201.778 213.748 198.079 212.166 194.899C210.582 191.722 197.895 160.49 192.598 147.791C187.447 135.421 182.213 137.101 178.329 136.894C174.626 136.711 170.402 136.675 166.165 136.675C161.928 136.675 155.06 138.257 149.24 144.614C143.42 150.968 127.031 166.323 127.031 197.541C127.031 228.761 149.764 258.946 152.942 263.183C156.119 267.42 197.687 331.501 261.331 358.995C276.466 365.533 288.288 369.441 297.506 372.363C312.702 377.197 326.533 376.516 337.466 374.883C349.656 373.058 375.006 359.53 380.29 344.711C385.573 329.893 385.573 317.182 383.991 314.539C382.409 311.898 378.172 310.302 371.828 307.125L371.839 307.101Z" fill="currentColor"/>
                 </svg>
               </a>
 
@@ -230,8 +231,8 @@ export default function Navbar() {
               onClick={() => setMobileMenuOpen(false)}
               className={`block py-3.5 text-lg border-b border-border/60 transition-colors duration-200 ${
                 isActive(item.path)
-                  ? "text-[#466EFA] font-bold"
-                  : "text-foreground hover:text-[#466EFA] font-normal"
+                  ? "text-[#2f50e4] font-bold"
+                  : "text-foreground hover:text-[#2f50e4] font-normal"
               }`}
             >
               {item.name}
@@ -241,7 +242,7 @@ export default function Navbar() {
 
         {/* CTA */}
         <Link to="/quote" onClick={() => setMobileMenuOpen(false)} className="mt-6">
-          <button className="w-full bg-[#466EFA] hover:bg-[#2f57e0] text-white py-3.5 font-medium rounded-full transition-all duration-200 flex items-center justify-center gap-2 group">
+          <button className="w-full bg-[#2f50e4] hover:bg-[#193ee4] text-white py-3.5 font-medium rounded-full transition-all duration-200 flex items-center justify-center gap-2 group">
             Get quote
             <svg className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M14.4301 5.92993L20.5001 11.9999L14.4301 18.0699"/>

@@ -7,9 +7,9 @@
   overflow: hidden;
   background: #010101;
   color: rgba(255, 255, 255, 0.82);
-  padding: clamp(48px, 6vw, 80px) 0 clamp(18px, 3vw, 28px);
+  padding: clamp(48px, 6vw, 80px) 0 clamp(80px, 8vw, 104px);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
   text-align: left;
 }
 
@@ -161,9 +161,24 @@
   font-weight: 400;
 }
 
+.lp-footer-blurb {
+  margin: 20px 0 0;
+  max-width: 42ch;
+  font-size: 15px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.lp-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+}
+
 .lp-footer-seal-link {
   display: inline-flex;
-  margin-top: 24px;
   text-decoration: none;
 }
 
@@ -191,7 +206,7 @@
   padding: 6px;
   background: #fff;
   border-radius: 999px;
-  color: #2F50E4; /* brand-500 */
+  color: #2f50e4; /* brand-500 */
 }
 
 .lp-footer-seal-link:hover .lp-footer-seal {
@@ -199,23 +214,27 @@
   border-color: rgba(255, 255, 255, 0.25);
 }
 
-.lp-footer-follow {
-  display: flex;
+.lp-footer-whatsapp {
+  display: inline-flex;
   align-items: center;
-  gap: clamp(11px, 2.29vw, 16px);
-  margin-top: auto;
-  padding-top: clamp(32px, 5vw, 56px);
-}
-
-.lp-footer-follow .lp-footer-follow-link {
-  font-size: clamp(15px, 1.4vw, 16px);
-  font-weight: 500;
-  color: #fff;
+  gap: 9px;
+  padding: 9px 20px;
+  border-radius: 999px;
+  background: #25D366;
+  color: #04371f;
+  font-size: clamp(14px, 1.4vw, 15px);
+  font-weight: 700;
   text-decoration: none;
+  transition: background 0.14s, transform 0.14s;
 }
 
-.lp-footer-follow .lp-footer-follow-link:hover {
-  color: #97A8F2;
+.lp-footer-whatsapp:hover {
+  background: #1fb757;
+  transform: translateY(-1px);
+}
+
+.lp-footer-whatsapp svg {
+  flex-shrink: 0;
 }
 
 /* columns */
@@ -242,7 +261,7 @@
   font-size: clamp(10px, 1.05vw, 12px);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.6);
   font-weight: 600;
   margin: 6px 0 clamp(14px, 3vw, 22px);
 }

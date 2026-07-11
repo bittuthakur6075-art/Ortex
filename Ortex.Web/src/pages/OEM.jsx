@@ -1,9 +1,11 @@
 import { motion } from "framer-motion"
 import { Link } from "react-router-dom"
 import {
-  Building3, Slider, Award, Document, Flash, Truck, Box, ArrowRight,
+  Building3, Slider, Award, Document, Flash, Truck, Box,
 } from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
+import { fadeUp, RevealWords } from "../components/home/Section"
+import PageCTA from "../components/ui/PageCTA"
 
 /**
  * OEM / white-label is a stated business line that previously had no landing
@@ -90,36 +92,30 @@ export default function OEM() {
     <div className="bg-background">
 
       {/* Hero */}
-      <section className="py-16 md:py-24 bg-secondary border-b border-border/50">
+      <section className="py-[140px] bg-secondary border-b border-border/50">
         <div className="lp-wrap">
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="max-w-3xl"
-          >
-            <span className="text-xs font-bold text-primary tracking-widest uppercase bg-primary/10 px-3 py-1.5 rounded-full inline-block mb-5">
+          <motion.div {...fadeUp} className="max-w-3xl">
+            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
               OEM &amp; white label
             </span>
-            <h1 className="text-[32px] md:text-[44px] lg:text-[56px] font-medium leading-[1.1] mb-6 text-foreground text-balance">
+            <h1 className="text-[40px] md:text-[64px] font-normal leading-[1.05] mb-6 text-foreground text-balance tracking-tight">
               We make it. You brand it.
             </h1>
-            <p className="text-lg text-muted-foreground leading-relaxed mb-8">
+            <p className="text-[18px] font-normal text-foreground leading-relaxed mb-8">
               Ortex Industries is a contract manufacturer. Resellers, gifting companies, and brand agencies
               use our factory to produce custom MDF, acrylic, lanyard, badge, and merchandise lines under
               their own label — without owning a single machine.
             </p>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               <Link
                 to="/quote"
-                className="px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg inline-flex items-center gap-2 transition-all duration-200 active:scale-[0.98]"
+                className="px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-full inline-flex items-center justify-center transition-all duration-200 active:scale-[0.98]"
               >
                 Request OEM pricing
-                <ArrowRight size={16} color="currentColor" className="h-4 w-4" aria-hidden="true" />
               </Link>
               <Link
                 to="/work"
-                className="px-6 py-3 border-2 border-border hover:bg-muted text-foreground font-semibold rounded-lg inline-flex items-center gap-2 transition-all duration-200 active:scale-[0.98]"
+                className="px-6 py-3 border-2 border-border hover:bg-muted text-foreground font-semibold rounded-full inline-flex items-center justify-center transition-all duration-200 active:scale-[0.98]"
               >
                 See our production work
               </Link>
@@ -129,36 +125,34 @@ export default function OEM() {
       </section>
 
       {/* Why OEM with us */}
-      <section className="py-20">
+      <section className="py-[140px]">
         <div className="lp-wrap">
-          <div className="text-center max-w-2xl mx-auto mb-[50px]">
-            <span className="block text-[14px] font-medium text-primary tracking-[0.1em] uppercase mb-1">
+          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-[50px]">
+            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
               Why partner with us
             </span>
-            <h2 className="text-[32px] md:text-[42px] font-medium leading-tight mb-4 text-foreground text-balance">
-              A factory, not a reseller
+            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight mb-4 text-foreground text-balance">
+              <RevealWords text="A factory, not a reseller" />
             </h2>
-            <p className="text-[16px] text-muted-foreground">
+            <p className="text-[18px] font-normal text-foreground">
               Most suppliers in this category outsource. We route, print, assemble, and pack the goods
               ourselves, which is why we can commit to the tolerance you approve.
             </p>
-          </div>
+          </motion.div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {propositions.map((item, idx) => (
               <motion.div
                 key={item.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.45, delay: Math.min(idx, 3) * 0.08 }}
-                className="bg-card rounded-2xl p-8 border border-border hover:border-primary/40 hover:shadow-lg transition-all duration-300"
+                {...fadeUp}
+                transition={{ ...fadeUp.transition, delay: Math.min(idx, 3) * 0.08 }}
+                className="bg-card p-[30px] border border-border hover:border-primary/40 transition-colors duration-300"
               >
-                <div className="text-primary mb-5">
+                <div className="text-primary mb-6">
                   <item.icon size={32} color="currentColor" variant="Bulk" aria-hidden="true" />
                 </div>
-                <h3 className="text-[20px] font-semibold mb-2.5 text-card-foreground">{item.title}</h3>
-                <p className="text-[15px] text-muted-foreground leading-relaxed">{item.description}</p>
+                <h3 className="text-[20px] font-semibold mb-3 text-card-foreground">{item.title}</h3>
+                <p className="text-[16px] font-normal text-muted-foreground leading-relaxed">{item.description}</p>
               </motion.div>
             ))}
           </div>
@@ -166,38 +160,31 @@ export default function OEM() {
       </section>
 
       {/* How an OEM run works */}
-      <section className="py-20 bg-secondary">
+      <section className="py-[140px] bg-secondary">
         <div className="lp-wrap">
-          <div className="text-center max-w-2xl mx-auto mb-[50px]">
-            <span className="block text-[14px] font-medium text-primary tracking-[0.1em] uppercase mb-1">
+          <motion.div {...fadeUp} className="text-center max-w-2xl mx-auto mb-[50px]">
+            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
               How it runs
             </span>
-            <h2 className="text-[32px] md:text-[42px] font-medium leading-tight mb-4 text-foreground text-balance">
-              From your spec to your customer
+            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight mb-4 text-foreground text-balance">
+              <RevealWords text="From your spec to your customer" />
             </h2>
-          </div>
+          </motion.div>
 
-          <ol className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 list-none">
+          <ol className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[42px] list-none">
             {process.map((step, idx) => (
               <motion.li
                 key={step.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.45, delay: idx * 0.08 }}
-                className="bg-card rounded-[24px] p-8 shadow-lg text-left relative overflow-hidden border border-border/5 group"
+                {...fadeUp}
+                transition={{ ...fadeUp.transition, delay: idx * 0.08 }}
+                className="text-left relative overflow-hidden group"
               >
-                <div
-                  aria-hidden="true"
-                  className="absolute top-4 right-6 text-[54px] font-bold text-primary/10 select-none leading-none pointer-events-none group-hover:text-primary/20 transition-colors duration-300"
-                >
+                <div className="mb-8 text-[36px] font-semibold leading-none text-primary/50 tabular-nums">
                   0{idx + 1}
                 </div>
-                <div className="mb-6 text-primary flex items-center">
-                  <step.icon size={30} color="currentColor" variant="Bulk" aria-hidden="true" />
-                </div>
-                <h3 className="text-[20px] font-semibold mb-3 text-foreground">{step.title}</h3>
-                <p className="text-[14px] text-muted-foreground leading-relaxed">{step.description}</p>
+                <h3 className="text-[24px] font-medium text-foreground">{step.title}</h3>
+                <div className="mt-6 border-t border-primary/20" />
+                <p className="mt-6 text-[16px] font-normal text-foreground leading-relaxed">{step.description}</p>
               </motion.li>
             ))}
           </ol>
@@ -205,15 +192,15 @@ export default function OEM() {
       </section>
 
       {/* Who it suits */}
-      <section className="py-20">
+      <section className="py-[140px]">
         <div className="lp-wrap">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <span className="block text-[14px] font-medium text-primary tracking-[0.1em] uppercase mb-1">
+            <motion.div {...fadeUp}>
+              <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
                 Who this is for
               </span>
-              <h2 className="text-[32px] md:text-[42px] font-medium leading-tight mb-6 text-foreground text-balance">
-                Built for people who sell, not manufacture
+              <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight mb-6 text-foreground text-balance">
+                <RevealWords text="Built for people who sell, not manufacture" />
               </h2>
               <ul className="space-y-4">
                 {suitedFor.map((item) => (
@@ -221,60 +208,44 @@ export default function OEM() {
                     <span className="flex-shrink-0 mt-1 text-primary" aria-hidden="true">
                       <Award size={20} color="currentColor" variant="Bulk" />
                     </span>
-                    <span className="text-[16px] text-muted-foreground leading-relaxed">{item}</span>
+                    <span className="text-[16px] font-normal text-muted-foreground leading-relaxed">{item}</span>
                   </li>
                 ))}
               </ul>
-            </div>
+            </motion.div>
 
-            <div className="bg-secondary rounded-2xl p-8 md:p-10 border border-border">
+            <motion.div
+              {...fadeUp}
+              transition={{ ...fadeUp.transition, delay: 0.1 }}
+              className="bg-secondary p-[30px] md:p-10 border border-border"
+            >
               <h3 className="text-[22px] font-semibold text-foreground mb-3">
                 Volumes, lead times &amp; terms
               </h3>
-              <p className="text-[15px] text-muted-foreground leading-relaxed mb-6">
+              <p className="text-[16px] font-normal text-muted-foreground leading-relaxed mb-6">
                 Minimum order quantities and production lead times depend on the material, finish, and volume
                 of your run. We quote them explicitly, in writing, before you commit — no estimates that move
                 later.
               </p>
               <Link
                 to="/quote"
-                className="px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg inline-flex items-center gap-2 transition-all duration-200 active:scale-[0.98]"
+                className="px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-full inline-flex items-center justify-center transition-all duration-200 active:scale-[0.98]"
               >
                 Get your OEM quotation
-                <ArrowRight size={16} color="currentColor" className="h-4 w-4" aria-hidden="true" />
               </Link>
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="py-20 bg-primary text-primary-foreground">
-        <div className="lp-wrap text-center">
-          <h2 className="text-[32px] md:text-[42px] lg:text-[54px] font-medium leading-tight mb-4 text-balance text-primary-foreground">
-            Let&rsquo;s talk about your line
-          </h2>
-          <p className="text-[16px] mb-8 max-w-2xl mx-auto text-primary-foreground/90">
-            Send us your specification and we will come back with costing, a technical proof, and a
-            production window.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link
-              to="/quote"
-              className="px-6 py-3 bg-background text-foreground hover:bg-background/90 font-semibold rounded-lg inline-flex items-center gap-2 transition-all duration-200 active:scale-[0.98]"
-            >
-              Request OEM pricing
-              <ArrowRight size={20} color="currentColor" className="h-5 w-5" aria-hidden="true" />
-            </Link>
-            <Link
-              to="/contact"
-              className="px-6 py-3 border-2 border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/10 font-semibold rounded-lg inline-flex items-center gap-2 transition-all duration-200 active:scale-[0.98]"
-            >
-              Contact us
-            </Link>
-          </div>
-        </div>
-      </section>
+      <PageCTA
+        title="Let's talk about your line"
+        primary={{ to: "/quote", label: "Request pricing" }}
+        secondary={{ to: "/contact", label: "Contact us" }}
+      >
+        Send us your specification and we will come back with costing, a technical proof, and a production window.
+      </PageCTA>
 
     </div>
   )

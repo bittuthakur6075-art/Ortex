@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap");
 
 :root {
   --n-0:   #FFFFFF;
@@ -20,9 +20,9 @@
   --brand-100: #EBEEFD;
   --brand-200: #D5DCFA;
   --brand-300: #97A8F2;
-  --brand-500: #2F50E4;
-  --brand-600: #4764E4;
-  --brand-700: #193EE4;
+  --brand-500: #2f50e4;
+  --brand-600: #4764e4;
+  --brand-700: #193ee4;
   
   --success: #04B440;
   --success-bg: #E8FAEE;
@@ -47,7 +47,7 @@
   overflow: hidden;
   padding: clamp(78px, 12vw, 162px) 0 clamp(40px, 6vw, 80px);
   background: var(--n-0);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Manrope', system-ui, sans-serif;
   color: var(--n-900);
   min-height: 100vh;
   display: flex;
@@ -93,8 +93,8 @@
 }
 
 .lp-hero.has-video .lp-hero-h1 .acc {
-  color: var(--brand-300);
-  text-shadow: 0 2px 20px rgba(151, 168, 242, 0.2);
+  color: #ffffff;
+  text-shadow: none;
 }
 
 .lp-hero.has-video .lp-hero-sub {
@@ -102,9 +102,12 @@
 }
 
 .lp-hero.has-video .lp-hero-badge {
-  color: var(--brand-200);
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: none;
 }
 
 .lp-hero.has-video .lp-pill-btn.outline {
@@ -159,12 +162,13 @@
 }
 
 .lp-hero-copy {
-  max-width: 860px;
+  max-width: 1040px;
   margin: 0 auto;
   text-align: center;
 }
 
 .lp-hero-badge {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: clamp(5px, 1.14vw, 8px);
@@ -172,11 +176,19 @@
   padding: 3px clamp(10px, 2.14vw, 15px) 3px 3px;
   font-size: clamp(11px, 1.14vw, 13px);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--brand-700);
-  background: color-mix(in srgb, var(--n-0) 70%, transparent);
-  border: 1px solid var(--brand-100);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0.2));
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: var(--r-full);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.7),
+    inset 0 -1px 2px rgba(255, 255, 255, 0.25),
+    0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .lp-hero-badge-ic {
@@ -191,7 +203,7 @@
 }
 
 .lp-hero-h1 {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Manrope', system-ui, sans-serif;
   font-size: clamp(44px, 6vw, 74px);
   font-weight: 400;
   letter-spacing: -.04em;
@@ -201,17 +213,17 @@
 }
 
 .lp-hero-h1 .acc {
-  font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
-  font-style: italic;
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-style: normal;
   font-weight: 400;
   font-size: clamp(44px, 6vw, 74px);
-  color: var(--brand-500);
+  color: #ffffff;
 }
 
 .lp-hero-sub {
   margin: clamp(13px, 2.86vw, 20px) auto 0;
-  max-width: 600px;
-  font-size: clamp(15px, 1.4vw, 16px);
+  max-width: 640px;
+  font-size: 18px;
   font-weight: 400;
   line-height: 1.5;
   color: var(--n-700);
@@ -235,8 +247,7 @@
   justify-content: center;
   height: 55px;
   padding: 0 clamp(18px, 4vw, 28px);
-  border-radius: 22px;
-  corner-shape: squircle;
+  border-radius: 999px;
   font-size: clamp(14px, 1.4vw, 16px);
   font-weight: 500;
   text-decoration: none;

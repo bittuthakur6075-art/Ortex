@@ -2,7 +2,7 @@ import { motion } from "framer-motion"
 import { Link } from "react-router-dom"
 import { ArrowRight } from "iconsax-react"
 import { getDailyPhotos } from "../../constants/home"
-import { Section, SectionHeading, fadeUp } from "./Section"
+import { Section, SectionHeading, fadeUp, EASE } from "./Section"
 
 /**
  * The previous copy read "a real-time window into our manufacturing floor,
@@ -26,8 +26,8 @@ export default function WorkStrip() {
             <motion.div
               key={item.title + idx}
               {...fadeUp}
-              transition={{ duration: 0.5, delay: Math.min(idx, 3) * 0.08 }}
-              className="group overflow-hidden premium-card interactive-glow"
+              transition={{ duration: 0.6, ease: EASE, delay: Math.min(idx, 3) * 0.08 }}
+              className="group overflow-hidden premium-card interactive-glow hover:-translate-y-1.5 transition-transform duration-300"
             >
               <div className="aspect-square overflow-hidden bg-muted">
                 <img

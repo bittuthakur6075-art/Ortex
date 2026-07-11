@@ -1,7 +1,8 @@
 import { motion } from "framer-motion"
-import { Link } from "react-router-dom"
-import { Briefcase, Layers, ShieldCheck, Tag, Clock, Globe, ArrowRight } from "lucide-react"
+import { Briefcase, Layers, ShieldCheck, Tag, Clock, Globe } from "lucide-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
+import { fadeUp, RevealWords } from "../components/home/Section"
+import PageCTA from "../components/ui/PageCTA"
 
 export default function About() {
   useDocumentMetadata(
@@ -57,18 +58,16 @@ export default function About() {
   return (
     <>
       {/* Page Header */}
-      <section className="py-20 bg-secondary">
+      <section className="py-[140px] bg-secondary">
         <div className="lp-wrap text-center">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="max-w-3xl mx-auto"
-          >
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight text-foreground text-balance">
+          <motion.div {...fadeUp} className="max-w-3xl mx-auto">
+            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
+              About us
+            </span>
+            <h1 className="text-[40px] md:text-[64px] font-normal leading-[1.05] mb-6 tracking-tight text-foreground text-balance">
               About Ortex Industries
             </h1>
-            <p className="text-lg text-muted-foreground leading-relaxed">
+            <p className="text-[18px] font-normal text-foreground leading-relaxed">
               Your trusted partner for premium customized products, delivering manufacturing excellence and complete customization solutions to businesses across India and worldwide.
             </p>
           </motion.div>
@@ -76,21 +75,18 @@ export default function About() {
       </section>
 
       {/* Story Section */}
-      <section className="py-20 bg-background text-left">
+      <section className="py-[140px] bg-background text-left">
         <div className="lp-wrap">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="space-y-6"
-            >
-              <h2 className="text-3xl md:text-4xl font-bold mb-6 tracking-tight text-foreground text-balance">
-                Our story
+
+            <motion.div {...fadeUp} className="space-y-6">
+              <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase">
+                Who we are
+              </span>
+              <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-foreground text-balance">
+                <RevealWords text="Our story" />
               </h2>
-              <div className="space-y-4 text-muted-foreground leading-relaxed">
+              <div className="space-y-4 text-[16px] font-normal text-muted-foreground leading-relaxed">
                 <p>
                   Ortex Industries was founded with a vision to transform the way businesses access premium customized products. We recognized the growing need for reliable manufacturing partners who could deliver both quality and customization at scale.
                 </p>
@@ -103,14 +99,12 @@ export default function About() {
               </div>
             </motion.div>
 
-            <motion.div 
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
+            <motion.div
+              {...fadeUp}
+              transition={{ ...fadeUp.transition, delay: 0.1 }}
               className="relative"
             >
-              <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl">
+              <div className="aspect-[4/3] overflow-hidden">
                 <img
                   src="/img/factory-production-workshop.jpg"
                   alt="The Ortex Industries production floor, where routing, UV printing, and assembly are carried out in-house"
@@ -126,38 +120,33 @@ export default function About() {
       </section>
 
       {/* Expertise Section */}
-      <section className="py-20 bg-secondary">
+      <section className="py-[140px] bg-secondary">
         <div className="lp-wrap text-center">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="mb-16"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-foreground text-balance">
-              Our expertise
+          <motion.div {...fadeUp} className="mb-16">
+            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
+              What we do
+            </span>
+            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight mb-4 text-foreground text-balance">
+              <RevealWords text="Our expertise" />
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-[18px] font-normal text-foreground max-w-2xl mx-auto">
               Comprehensive manufacturing and customization capabilities to serve your business needs
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {expertise.map((item, idx) => (
-              <motion.div 
+              <motion.div
                 key={item.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: idx * 0.1 }}
-                className="bg-card rounded-xl p-6 border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg text-left"
+                {...fadeUp}
+                transition={{ ...fadeUp.transition, delay: idx * 0.1 }}
+                className="bg-card p-[30px] border border-border hover:border-primary/50 transition-colors duration-300 text-left"
               >
-                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <item.icon className="h-6 w-6 text-primary" />
+                <div className="mb-6 text-primary">
+                  <item.icon className="h-8 w-8" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2 text-card-foreground">{item.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+                <h3 className="text-[20px] font-semibold mb-3 text-card-foreground">{item.title}</h3>
+                <p className="text-[16px] font-normal text-muted-foreground leading-relaxed">{item.description}</p>
               </motion.div>
             ))}
           </div>
@@ -165,28 +154,23 @@ export default function About() {
       </section>
 
       {/* Why Choose us Checklist */}
-      <section className="py-20 bg-background text-left">
+      <section className="py-[140px] bg-background text-left">
         <div className="lp-wrap">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight text-foreground text-balance">
-              Why choose Ortex Industries
+          <motion.div {...fadeUp} className="text-center mb-12">
+            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
+              Why us
+            </span>
+            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight mb-4 text-foreground text-balance">
+              <RevealWords text="Why choose Ortex Industries" />
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-[18px] font-normal text-foreground max-w-2xl mx-auto">
               Key differentiators that make us your ideal manufacturing partner
             </p>
           </motion.div>
 
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+          <motion.div
+            {...fadeUp}
+            transition={{ ...fadeUp.transition, delay: 0.15 }}
             className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto"
           >
             {differentiators.map((text, idx) => (
@@ -194,7 +178,7 @@ export default function About() {
                 <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
                   <div className="w-2 h-2 rounded-full bg-primary" />
                 </div>
-                <p className="text-muted-foreground leading-relaxed">{text}</p>
+                <p className="text-[16px] font-normal text-muted-foreground leading-relaxed">{text}</p>
               </div>
             ))}
           </motion.div>
@@ -202,38 +186,13 @@ export default function About() {
       </section>
 
       {/* Call to Action Section */}
-      <section className="py-20 bg-primary text-primary-foreground">
-        <div className="lp-wrap text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
-            <h2 className="text-3xl md:text-4xl font-bold mb-6 text-balance text-primary-foreground">
-              Let's build something for your brand
-            </h2>
-            <p className="text-lg mb-8 max-w-2xl mx-auto opacity-90 text-primary-foreground/90">
-              Partner with a manufacturer that handles design, production, and branding under one roof.
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <Link
-                to="/quote"
-                className="px-6 py-3 bg-background text-foreground hover:bg-background/90 font-semibold rounded-lg inline-flex items-center gap-2 transition-all duration-200 active:scale-[0.98]"
-              >
-                Get a quote
-                <ArrowRight className="h-5 w-5" aria-hidden="true" />
-              </Link>
-              <Link
-                to="/contact"
-                className="px-6 py-3 border-2 border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/10 font-semibold rounded-lg inline-flex items-center gap-2 transition-all duration-200 active:scale-[0.98]"
-              >
-                Contact us
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+      <PageCTA
+        title="Let's build something for your brand"
+        primary={{ to: "/quote", label: "Get a quote" }}
+        secondary={{ to: "/contact", label: "Contact us" }}
+      >
+        Partner with a manufacturer that handles design, production, and branding under one roof.
+      </PageCTA>
     </>
   )
 }

@@ -3,10 +3,10 @@ import Hero from "../components/ui/Hero"
 import { HOME_OG } from "../constants/home"
 
 import StatsBar from "../components/home/StatsBar"
+import Welcome from "../components/home/Welcome"
 import ProductsPreview from "../components/home/ProductsPreview"
 import Capabilities from "../components/home/Capabilities"
 import IndustriesPreview from "../components/home/IndustriesPreview"
-import WorkStrip from "../components/home/WorkStrip"
 import Process from "../components/home/Process"
 import FounderNote from "../components/home/FounderNote"
 import Testimonials from "../components/home/Testimonials"
@@ -30,10 +30,10 @@ export default function Home() {
     <>
       <Hero />
       <StatsBar />
+      <Welcome />
       <ProductsPreview />
       <Capabilities />
       <IndustriesPreview />
-      <WorkStrip />
       <Process />
       <FounderNote />
       <Testimonials />

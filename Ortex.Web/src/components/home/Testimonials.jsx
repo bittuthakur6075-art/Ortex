@@ -3,23 +3,22 @@ import { SectionHeading } from "./Section"
 
 export default function Testimonials() {
   return (
-    <section className="py-20 bg-secondary overflow-hidden">
+    <section className="py-[140px] bg-[#f9fbfc] overflow-hidden">
       <div className="lp-wrap">
-        <SectionHeading eyebrow="Client reviews" title="What procurement teams say">
-          Feedback from corporate supply-chain managers, education heads, and promotional buyers on our bulk
-          delivery performance.
+        <SectionHeading eyebrow="Client reviews" title="Buyers who keep coming back" titleClassName="whitespace-nowrap">
+          What corporate, education, and promotional teams say about ordering from us at volume.
         </SectionHeading>
       </div>
 
-      <div className="marquee-container-secondary mt-8">
-        <div className="animate-marquee-slow py-4 flex gap-6">
+      <div className="marquee-container mt-[30px]">
+        <div className="animate-marquee-slow py-4 flex gap-[20px]">
           {[...testimonials, ...testimonials].map((t, idx) => (
             <figure
               key={`${t.author}-${idx}`}
               aria-hidden={idx >= testimonials.length}
-              className="w-[320px] md:w-[360px] flex-shrink-0 p-6 flex flex-col justify-between text-left bg-card rounded-2xl border border-border/40"
+              className="w-[320px] md:w-[360px] flex-shrink-0 p-[30px] flex flex-col justify-between text-left bg-card"
             >
-              <blockquote className="text-sm md:text-base text-muted-foreground leading-relaxed italic mb-6">
+              <blockquote className="text-sm md:text-base text-foreground leading-relaxed italic mb-6">
                 &ldquo;{t.quote}&rdquo;
               </blockquote>
 
@@ -32,7 +31,6 @@ export default function Testimonials() {
                   <span className="block text-xs text-muted-foreground truncate">
                     {t.location} • <span className="font-semibold text-primary">{t.product}</span>
                   </span>
-                  <span className="block text-[10px] text-muted-foreground/60">{t.date}</span>
                 </div>
               </figcaption>
             </figure>

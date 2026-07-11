@@ -9,6 +9,7 @@ import WhatsAppWidget from "./components/ui/WhatsAppWidget"
 import CookieConsent from "./components/ui/CookieConsent"
 import { trackActivity } from "./lib/tracker"
 import { flushOutbox } from "./lib/leads"
+import useSmoothScroll from "./hooks/useSmoothScroll"
 
 // Lazy load pages to optimize bundle size and core web vitals
 const Home = lazy(() => import("./pages/Home"))
@@ -30,6 +31,9 @@ const NotFound = lazy(() => import("./pages/NotFound"))
 
 function AppLayout() {
   const location = useLocation()
+
+  // Lenis momentum scrolling for the whole app.
+  useSmoothScroll()
 
   // Deliver any enquiry that couldn't reach the backend when it was submitted.
   useEffect(() => {

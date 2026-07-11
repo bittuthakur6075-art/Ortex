@@ -1,7 +1,7 @@
 import {
-  Setting2, Slider, Global,
+  Setting2, Slider,
   Box, MagicStar, Profile2User, Gift,
-  Building, Teacher, Bank, Calendar, Building3, Layer,
+  Building, Teacher, Bank, Calendar, Building3,
   Award, Document, DocumentText, Flash,
   Activity, VolumeHigh, Heart, Bag,
   Truck,
@@ -12,9 +12,9 @@ export const HOME_OG = "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8e
 
 export const stats = [
   { icon: Building3, value: "100%", label: "In-house production" },
-  { icon: Box, value: "8+", label: "Product categories" },
-  { icon: Layer, value: "10+", label: "Industries served" },
-  { icon: Global, value: "PAN-INDIA", label: "Worldwide reach" },
+  { icon: Truck, value: "4-day", label: "Dispatch turnaround" },
+  { icon: Box, value: "10-unit", label: "Minimum order" },
+  { icon: Award, value: "5-star", label: "Every customer review" },
 ]
 
 /**
@@ -26,25 +26,25 @@ export const capabilities = [
     icon: Building3,
     title: "100% in-house manufacturing",
     description:
-      "Quality control from raw material to CNC routing, direct UV printing, and packing — no subcontracting, no surprises.",
+      "Every stage stays under our own roof, from raw sheet to CNC routing, direct UV printing, assembly, and final packing. Nothing is subcontracted out, so quality is checked at each step and the batch you receive holds to one consistent standard.",
   },
   {
     icon: Slider,
     title: "Unlimited customization",
     description:
-      "Send vector artwork (.cdr, .ai, .pdf, .dxf). We match Pantone exactly across custom cuts, sheet thicknesses, and finishes.",
+      "Send your vector artwork in .cdr, .ai, .pdf, or .dxf and we build to it exactly. We match Pantone shades across custom cut shapes, sheet thicknesses, and surface finishes, so the finished run reflects your brand precisely instead of a close approximation.",
   },
   {
     icon: Award,
     title: "Factory-direct pricing",
     description:
-      "No trading agents, no middleman markup. Transparent volume-tiered pricing with formal GST invoicing.",
+      "You buy straight from the factory floor, with no trading agents and no middleman markup added along the way. Pricing stays transparent and tiered by volume, and every order ships with a formal GST invoice for clean, accountable procurement.",
   },
   {
     icon: Setting2,
     title: "Prepress proofing",
     description:
-      "An in-house design team checks dimensions and returns a virtual mockup before a single sheet is cut.",
+      "Before a single sheet is cut, our in-house design team checks your dimensions, bleed, and layout for production. You get back a virtual mockup to approve, so mistakes are caught on screen rather than discovered later in the finished batch.",
   },
 ]
 
@@ -73,23 +73,23 @@ export const featuredIndustries = [
 export const steps = [
   {
     icon: Document,
-    title: "Artwork submission",
-    description: "Upload vector formats (.cdr, .ai, .pdf, or .dxf) and spec requirements using our B2B Quote Builder.",
+    title: "You send the artwork",
+    description: "Upload your vector files and specs to our quote builder.",
   },
   {
     icon: Flash,
-    title: "Technical proofing",
-    description: "Our in-house prepress design team evaluates dimensions and sends a virtual mockup layout for approval.",
+    title: "We proof it first",
+    description: "We check your dimensions and send a mockup to approve.",
   },
   {
     icon: Building3,
-    title: "Direct manufacturing",
-    description: "Your batch undergoes printing, precision cutting, assembly, and strict manual quality assurance check.",
+    title: "We manufacture it",
+    description: "Printed, cut, assembled, and quality-checked under our own roof.",
   },
   {
     icon: Truck,
-    title: "Cargo dispatch",
-    description: "Orders are bulk-packed in heavy-duty cardboard and shipped via express courier with full tracking support.",
+    title: "We ship it to you",
+    description: "Bulk-packed and dispatched by courier with full tracking.",
   },
 ]
 

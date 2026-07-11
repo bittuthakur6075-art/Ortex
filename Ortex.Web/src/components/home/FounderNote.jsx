@@ -1,6 +1,6 @@
 import { motion } from "framer-motion"
 import { founderNote, hasFounderNote } from "../../constants/founder"
-import { Section } from "./Section"
+import { Section, EASE } from "./Section"
 
 /**
  * Renders nothing until a real note is written. See constants/founder.js —
@@ -16,10 +16,10 @@ export default function FounderNote() {
     <Section>
       <div className="lp-wrap">
         <motion.figure
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 28, filter: "blur(8px)" }}
+          whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.7, ease: EASE }}
           className="max-w-3xl mx-auto text-center"
         >
           <span className="block text-[14px] font-medium text-primary tracking-[0.1em] uppercase mb-6">

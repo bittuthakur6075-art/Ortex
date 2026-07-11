@@ -4,6 +4,7 @@ import { X, ChevronLeft, ChevronRight, MessageSquare, Tag, Grid } from "lucide-r
 import { Link } from "react-router-dom"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { workPhotos } from "../constants/home"
+import { fadeUp, EASE } from "../components/home/Section"
 
 /**
  * Replaces the old /portfolio and /photos pages, which were two grids of the
@@ -68,21 +69,16 @@ export default function Work() {
 
   return (
     <div className="bg-background min-h-screen">
-      <section className="py-12 bg-secondary border-b border-border/50">
+      <section className="py-[140px] bg-secondary border-b border-border/50">
         <div className="lp-wrap text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="max-w-3xl mx-auto"
-          >
-            <span className="text-xs font-bold text-primary tracking-widest uppercase bg-primary/10 px-3 py-1.5 rounded-full inline-block mb-4">
+          <motion.div {...fadeUp} className="max-w-3xl mx-auto">
+            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
               Production archive
             </span>
-            <h1 className="text-[32px] md:text-[42px] lg:text-5xl font-extrabold mb-4 tracking-tight text-foreground text-balance">
+            <h1 className="text-[40px] md:text-[64px] font-normal leading-[1.05] mb-4 tracking-tight text-foreground text-balance">
               Our work
             </h1>
-            <p className="text-lg text-muted-foreground leading-relaxed">
+            <p className="text-[18px] font-normal text-foreground leading-relaxed">
               Real production photography of custom promotional merchandise, corporate gifts, and office
               accessories we manufactured. No stock imagery.
             </p>
@@ -90,7 +86,7 @@ export default function Work() {
         </div>
       </section>
 
-      <section className="py-8">
+      <section className="py-[140px]">
         <div className="lp-wrap">
           <div className="flex flex-wrap justify-center gap-2 md:gap-3 mb-12">
             {categories.map((cat) => (
@@ -105,7 +101,7 @@ export default function Work() {
                 }}
                 className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer ${
                   activeCategory === cat
-                    ? "bg-[#466EFA] text-white shadow-md shadow-primary/20 scale-[1.03]"
+                    ? "bg-primary text-primary-foreground scale-[1.03]"
                     : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                 }`}
               >
@@ -119,12 +115,12 @@ export default function Work() {
               {visible.map((photo, index) => (
                 <motion.div
                   layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.3 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  transition={{ duration: 0.5, ease: EASE }}
                   key={photo.image}
-                  className="group relative bg-card border border-border/60 rounded-2xl overflow-hidden hover:shadow-xl hover:border-primary/30 transition-all duration-300 flex flex-col"
+                  className="group relative bg-card border border-border/60 overflow-hidden hover:border-primary/30 transition-colors duration-300 flex flex-col"
                 >
                   <button
                     type="button"
@@ -141,14 +137,14 @@ export default function Work() {
                     />
                     {photo.category && (
                       <span className="absolute top-3 left-3 bg-background/80 backdrop-blur-md text-foreground text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full border border-border/40 flex items-center gap-1">
-                        <Tag className="h-2.5 w-2.5 text-[#466EFA]" aria-hidden="true" />
+                        <Tag className="h-2.5 w-2.5 text-primary" aria-hidden="true" />
                         {photo.category}
                       </span>
                     )}
                   </button>
 
                   <div className="p-4 flex-grow flex flex-col justify-between items-start border-t border-border/40 bg-card/60">
-                    <h2 className="font-semibold text-sm text-foreground line-clamp-2 leading-snug group-hover:text-[#466EFA] transition-colors duration-200">
+                    <h2 className="font-semibold text-sm text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors duration-200">
                       {photo.title}
                     </h2>
                     <div className="mt-3 flex items-center justify-between w-full">
@@ -158,7 +154,7 @@ export default function Work() {
                       </span>
                       <Link
                         to={`/contact?product=${encodeURIComponent(photo.title)}&category=${encodeURIComponent(photo.category || "")}`}
-                        className="text-xs font-bold text-[#466EFA] hover:text-[#2f57e0] flex items-center gap-1.5 transition-colors duration-150"
+                        className="text-xs font-bold text-primary hover:text-primary/80 flex items-center gap-1.5 transition-colors duration-150"
                       >
                         <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
                         Inquire
@@ -175,7 +171,7 @@ export default function Work() {
               <button
                 type="button"
                 onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                className="px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg transition-all duration-200 active:scale-[0.98] cursor-pointer"
+                className="px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-full transition-all duration-200 active:scale-[0.98] cursor-pointer"
               >
                 Load more
               </button>
@@ -186,7 +182,7 @@ export default function Work() {
           )}
 
           {filtered.length === 0 && (
-            <div className="text-center py-20 bg-muted/30 rounded-2xl border border-dashed border-border">
+            <div className="text-center py-20 bg-muted/30 border border-dashed border-border">
               <p className="text-muted-foreground font-medium">No work found in this category.</p>
             </div>
           )}
@@ -229,7 +225,7 @@ export default function Work() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 10 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="max-w-4xl w-full flex flex-col md:flex-row bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl"
+              className="max-w-4xl w-full flex flex-col md:flex-row bg-neutral-900 border border-neutral-800 rounded-[16px] overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="md:w-3/5 aspect-square md:aspect-auto md:h-[550px] bg-neutral-950 relative flex items-center justify-center">
@@ -243,7 +239,7 @@ export default function Work() {
               <div className="md:w-2/5 p-6 md:p-8 flex flex-col justify-between bg-neutral-900 text-left border-t md:border-t-0 md:border-l border-neutral-800">
                 <div className="space-y-6">
                   {active.category && (
-                    <span className="bg-primary/20 text-[#466EFA] px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider inline-block">
+                    <span className="bg-primary/20 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider inline-block">
                       {active.category}
                     </span>
                   )}
@@ -261,7 +257,7 @@ export default function Work() {
                   <Link
                     to={`/contact?product=${encodeURIComponent(active.title)}&category=${encodeURIComponent(active.category || "")}`}
                     onClick={closeLightbox}
-                    className="w-full bg-[#466EFA] hover:bg-[#2f57e0] text-white py-3.5 px-6 font-semibold rounded-xl text-center transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-primary/10"
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3.5 px-6 font-semibold rounded-full text-center transition-all duration-200 flex items-center justify-center gap-2"
                   >
                     <MessageSquare className="h-5 w-5" aria-hidden="true" />
                     Enquire about this product

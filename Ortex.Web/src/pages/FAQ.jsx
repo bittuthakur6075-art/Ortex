@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Plus, Minus } from "lucide-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
+import { fadeUp, EASE } from "../components/home/Section"
 
 const faqs = [
   {
@@ -64,18 +65,16 @@ export default function FAQ() {
   return (
     <div className="bg-background min-h-screen">
       {/* Page Header */}
-      <section className="py-20 bg-secondary">
+      <section className="py-[140px] bg-secondary">
         <div className="lp-wrap text-center">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="max-w-3xl mx-auto"
-          >
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight text-foreground text-balance">
+          <motion.div {...fadeUp} className="max-w-3xl mx-auto">
+            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
+              Support
+            </span>
+            <h1 className="text-[40px] md:text-[64px] font-normal leading-[1.05] mb-6 tracking-tight text-foreground text-balance">
               Frequently asked questions
             </h1>
-            <p className="text-lg text-muted-foreground leading-relaxed">
+            <p className="text-[18px] font-normal text-foreground leading-relaxed">
               Find answers to common questions about our products, customization options, ordering processes, and shipping.
             </p>
           </motion.div>
@@ -83,7 +82,7 @@ export default function FAQ() {
       </section>
 
       {/* Main FAQ Content */}
-      <section className="py-20 bg-background text-left">
+      <section className="py-[140px] bg-background text-left">
         <div className="lp-wrap">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
             
@@ -96,14 +95,13 @@ export default function FAQ() {
                   return (
                     <motion.div
                       key={faq.question}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: idx * 0.05 }}
+                      {...fadeUp}
+                      transition={{ ...fadeUp.transition, delay: Math.min(idx, 6) * 0.05 }}
                       className="border-b border-border py-5"
                     >
                       <button
                         onClick={() => setActiveFaq(isOpen ? null : idx)}
-                        className="w-full flex items-center justify-between text-left font-bold text-foreground hover:text-primary transition-colors py-2 text-base md:text-lg gap-4"
+                        className="w-full flex items-center justify-between text-left font-semibold text-foreground hover:text-primary transition-colors py-2 text-base md:text-lg gap-4"
                         aria-expanded={isOpen}
                       >
                         <span className={`${isOpen ? "text-primary" : ""}`}>{faq.question}</span>
@@ -120,9 +118,9 @@ export default function FAQ() {
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: "auto", opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            transition={{ duration: 0.3, ease: EASE }}
                           >
-                            <p className="mt-3 text-sm md:text-base text-muted-foreground leading-relaxed">
+                            <p className="mt-3 text-[16px] text-muted-foreground leading-relaxed">
                               {faq.answer}
                             </p>
                           </motion.div>
@@ -136,8 +134,8 @@ export default function FAQ() {
 
             {/* Right Side: Illustration */}
             <div className="lg:col-span-5 relative flex justify-center lg:justify-end lg:sticky lg:top-24">
-              <div className="absolute -inset-4 bg-primary/5 rounded-3xl filter blur-2xl -z-10" />
-              <div className="w-full max-w-md lg:max-w-none aspect-[4/3] rounded-3xl overflow-hidden shadow-lg border border-border bg-card">
+              <div className="absolute -inset-4 bg-primary/5 filter blur-2xl -z-10" />
+              <div className="w-full max-w-md lg:max-w-none aspect-[4/3] overflow-hidden border border-border bg-card">
                 <img
                   src="/img/faq-illustration.jpg"
                   alt="Frequently Asked Questions Illustration"

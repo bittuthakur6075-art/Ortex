@@ -1,34 +1,35 @@
 import { motion } from "framer-motion"
 import { Link } from "react-router-dom"
-import { ArrowRight } from "iconsax-react"
-import { fadeUp } from "./Section"
+import { fadeUp, EASE } from "./Section"
 
 export default function FinalCTA() {
   return (
-    <section className="py-20 bg-primary text-primary-foreground">
-      <div className="lp-wrap text-center">
-        <motion.div {...fadeUp} transition={{ duration: 0.5 }}>
-          <span className="block text-[14px] font-medium text-primary-foreground/80 tracking-[0.1em] uppercase mb-1">
-            Get started
-          </span>
-          <h2 className="text-[32px] md:text-[42px] lg:text-[54px] font-medium leading-tight mb-4 text-balance text-primary-foreground">
-            Ready to secure your production run?
-          </h2>
-          <p className="text-[16px] font-normal mb-8 max-w-2xl mx-auto text-primary-foreground/90">
-            Get a transparent, volume-discounted quotation with a full GST breakdown. Talk directly to our
-            manufacturing engineers.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
+    <section className="py-[80px] bg-primary text-primary-foreground">
+      <div className="lp-wrap">
+        <motion.div
+          {...fadeUp}
+          transition={{ duration: 0.7, ease: EASE }}
+          className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-10"
+        >
+          <div className="lg:max-w-2xl">
+            <h2 className="text-[36px] md:text-[52px] font-normal leading-[1.05] tracking-tight mb-4 text-balance text-primary-foreground">
+              Ready to secure your production run?
+            </h2>
+            <p className="text-[16px] font-normal max-w-2xl text-primary-foreground/90">
+              Get a transparent, volume-discounted quotation with a full GST breakdown. Talk directly to our
+              manufacturing engineers.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 flex-none">
             <Link
               to="/quote"
-              className="px-6 py-3 bg-background text-foreground hover:bg-background/90 font-semibold rounded-lg inline-flex items-center gap-2 transition-all duration-200 active:scale-[0.98]"
+              className="w-full sm:w-[200px] px-6 py-3 bg-background text-foreground hover:bg-background/90 font-semibold rounded-full inline-flex items-center justify-center transition-all duration-200 active:scale-[0.98]"
             >
               Get a quote
-              <ArrowRight size={20} color="currentColor" className="h-5 w-5" aria-hidden="true" />
             </Link>
             <Link
               to="/contact"
-              className="px-6 py-3 border-2 border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/10 font-semibold rounded-lg inline-flex items-center gap-2 transition-all duration-200 active:scale-[0.98]"
+              className="w-full sm:w-[200px] px-6 py-3 border-2 border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/10 font-semibold rounded-full inline-flex items-center justify-center transition-all duration-200 active:scale-[0.98]"
             >
               Contact us
             </Link>

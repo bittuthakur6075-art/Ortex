@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { submitEnquiry } from "../lib/leads"
 import { whatsappLink } from "../constants/site"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
+import { fadeUp, RevealWords } from "../components/home/Section"
 
 export default function Contact() {
   useDocumentMetadata(
@@ -170,18 +171,16 @@ export default function Contact() {
   return (
     <>
       {/* Page Header */}
-      <section className="py-20 bg-secondary">
+      <section className="py-[140px] bg-secondary">
         <div className="lp-wrap text-center">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="max-w-3xl mx-auto"
-          >
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight text-foreground text-balance">
+          <motion.div {...fadeUp} className="max-w-3xl mx-auto">
+            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
+              Contact
+            </span>
+            <h1 className="text-[40px] md:text-[64px] font-normal leading-[1.05] mb-6 tracking-tight text-foreground text-balance">
               Get in touch
             </h1>
-            <p className="text-lg text-muted-foreground leading-relaxed">
+            <p className="text-[18px] font-normal text-foreground leading-relaxed">
               Have a project in mind? Contact our team to discuss your requirements and receive a customized quote for your business needs.
             </p>
           </motion.div>
@@ -189,21 +188,16 @@ export default function Contact() {
       </section>
 
       {/* Contact Content */}
-      <section className="py-20 bg-background text-left">
+      <section className="py-[140px] bg-background text-left">
         <div className="lp-wrap">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            
+
             {/* Form Side */}
-            <motion.div 
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-            >
-              <h2 className="text-3xl font-bold mb-6 tracking-tight text-foreground text-balance">
-                Send us a message
+            <motion.div {...fadeUp}>
+              <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] mb-6 tracking-tight text-foreground text-balance">
+                <RevealWords text="Send us a message" />
               </h2>
-              <p className="text-muted-foreground mb-8 leading-relaxed">
+              <p className="text-[18px] font-normal text-foreground mb-8 leading-relaxed">
                 Fill out the form below and our team will get back to you within 24 hours with a detailed response to your inquiry.
               </p>
               
@@ -304,7 +298,7 @@ export default function Contact() {
                 <button 
                   type="submit" 
                   disabled={isSubmitting}
-                  className="w-full md:w-auto px-6 py-3 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold rounded-lg transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                  className="w-full md:w-auto px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-full transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
                 >
                   {isSubmitting ? "Sending..." : "Send message"}
                 </button>
@@ -313,31 +307,29 @@ export default function Contact() {
             </motion.div>
 
             {/* Info Side */}
-            <motion.div 
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
+            <motion.div
+              {...fadeUp}
+              transition={{ ...fadeUp.transition, delay: 0.1 }}
               className="space-y-6"
             >
-              <h2 className="text-3xl font-bold mb-6 tracking-tight text-foreground text-balance">
-                Contact information
+              <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] mb-6 tracking-tight text-foreground text-balance">
+                <RevealWords text="Contact information" />
               </h2>
-              <p className="text-muted-foreground mb-8 leading-relaxed">
+              <p className="text-[18px] font-normal text-foreground mb-8 leading-relaxed">
                 Reach out to us directly through any of the following channels. We are here to help you with your customized product requirements.
               </p>
 
               <div className="space-y-6">
                 {contactCards.map((card, idx) => (
-                  <div key={idx} className="bg-muted rounded-xl p-6 border border-border/40">
+                  <div key={idx} className="bg-muted p-[30px] border border-border/40">
                     <div className="flex items-start space-x-4">
                       <div className="flex-shrink-0">
-                        <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <div className="w-12 h-12 bg-primary/10 flex items-center justify-center">
                           {typeof card.icon === "function" ? <card.icon /> : <card.icon className="h-6 w-6 text-primary" />}
                         </div>
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold mb-2 text-foreground">{card.title}</h3>
+                        <h3 className="text-[20px] font-semibold mb-2 text-foreground">{card.title}</h3>
                         <div className="space-y-1">
                           {card.details.map((detail, dIdx) => (
                             <div key={dIdx}>
@@ -362,15 +354,15 @@ export default function Contact() {
                 ))}
 
                 {/* Business Hours Box */}
-                <div className="bg-primary/5 rounded-xl p-6 border border-primary/20">
+                <div className="bg-primary/5 p-[30px] border border-primary/20">
                   <div className="flex items-start space-x-4">
                     <div className="flex-shrink-0">
-                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <div className="w-12 h-12 bg-primary/10 flex items-center justify-center">
                         <Clock className="h-6 w-6 text-primary" />
                       </div>
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold mb-2 text-foreground">Business hours</h3>
+                      <h3 className="text-[20px] font-semibold mb-2 text-foreground">Business hours</h3>
                       <p className="text-sm text-muted-foreground">Monday - Saturday: 9:00 AM - 6:00 PM</p>
                       <p className="text-sm text-muted-foreground mt-0.5">Sunday: Closed</p>
                     </div>
@@ -385,33 +377,30 @@ export default function Contact() {
       </section>
 
       {/* Global Services Section */}
-      <section className="py-20 bg-secondary text-center">
+      <section className="py-[140px] bg-secondary text-center">
         <div className="lp-wrap">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="max-w-3xl mx-auto"
-          >
-            <h2 className="text-3xl md:text-4xl font-bold mb-6 tracking-tight text-foreground text-balance">
-              Serving customers worldwide
+          <motion.div {...fadeUp} className="max-w-3xl mx-auto">
+            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
+              Reach
+            </span>
+            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] mb-6 tracking-tight text-foreground text-balance">
+              <RevealWords text="Serving customers worldwide" />
             </h2>
-            <p className="text-lg text-muted-foreground leading-relaxed mb-8">
+            <p className="text-[18px] font-normal text-foreground leading-relaxed mb-8">
               With comprehensive PAN India delivery network and global export capabilities, we serve businesses across India and worldwide. Our logistics partners ensure timely delivery of your orders, no matter where you are located.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
-              <div className="bg-card border border-border/50 rounded-xl p-6 shadow-md">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+              <div className="bg-card border border-border p-[30px]">
                 <Globe className="h-8 w-8 text-primary mb-4" />
-                <h3 className="text-xl font-semibold mb-2 text-foreground">India</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <h3 className="text-[20px] font-semibold mb-2 text-foreground">India</h3>
+                <p className="text-[16px] font-normal text-muted-foreground leading-relaxed">
                   Complete PAN India delivery with reliable logistics partners ensuring timely delivery across all states
                 </p>
               </div>
-              <div className="bg-card border border-border/50 rounded-xl p-6 shadow-md">
+              <div className="bg-card border border-border p-[30px]">
                 <Globe className="h-8 w-8 text-primary mb-4" />
-                <h3 className="text-xl font-semibold mb-2 text-foreground">International</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <h3 className="text-[20px] font-semibold mb-2 text-foreground">International</h3>
+                <p className="text-[16px] font-normal text-muted-foreground leading-relaxed">
                   Worldwide export support with comprehensive documentation and shipping assistance
                 </p>
               </div>

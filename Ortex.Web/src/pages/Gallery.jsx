@@ -127,7 +127,7 @@ export default function Gallery() {
                 onClick={() => applyFilter({ category: cat })}
                 className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer ${
                   activeCategory === cat
-                    ? "bg-[#466EFA] text-white shadow-md shadow-primary/20 scale-[1.03]"
+                    ? "bg-[#2f50e4] text-white shadow-md shadow-primary/20 scale-[1.03]"
                     : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                 }`}
               >
@@ -162,11 +162,11 @@ export default function Gallery() {
                   />
                 </div>
                 <div className="p-2.5 border-t border-border/40">
-                  <p className="text-xs font-semibold text-foreground line-clamp-1 group-hover:text-[#466EFA] transition-colors duration-200">
+                  <p className="text-xs font-semibold text-foreground line-clamp-1 group-hover:text-[#2f50e4] transition-colors duration-200">
                     {photo.name}
                   </p>
                   <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                    <Tag className="h-2.5 w-2.5 text-[#466EFA]" aria-hidden="true" />
+                    <Tag className="h-2.5 w-2.5 text-[#2f50e4]" aria-hidden="true" />
                     {photo.category}
                   </p>
                 </div>
@@ -197,7 +197,7 @@ export default function Gallery() {
               <button
                 type="button"
                 onClick={() => applyFilter({ category: "All", query: "" })}
-                className="mt-4 text-sm font-semibold text-[#466EFA] hover:text-[#2f57e0] transition-colors cursor-pointer"
+                className="mt-4 text-sm font-semibold text-[#2f50e4] hover:text-[#193ee4] transition-colors cursor-pointer"
               >
                 Clear filters
               </button>
@@ -251,7 +251,7 @@ export default function Gallery() {
 
               <div className="p-5 md:p-6 flex flex-col sm:flex-row sm:items-center gap-4 justify-between bg-neutral-900 border-t border-neutral-800">
                 <div>
-                  <span className="bg-primary/20 text-[#466EFA] px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider inline-block mb-1.5">
+                  <span className="bg-primary/20 text-[#2f50e4] px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider inline-block mb-1.5">
                     {active.category}
                   </span>
                   <h2 className="text-lg font-bold text-white tracking-tight leading-snug">{active.name}</h2>
@@ -259,7 +259,7 @@ export default function Gallery() {
                 <Link
                   to={`/contact?product=${encodeURIComponent(active.name)}&category=${encodeURIComponent(active.category || "")}`}
                   onClick={closeLightbox}
-                  className="flex-none bg-[#466EFA] hover:bg-[#2f57e0] text-white py-3 px-5 font-semibold rounded-xl text-center transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-primary/10"
+                  className="flex-none bg-[#2f50e4] hover:bg-[#193ee4] text-white py-3 px-5 font-semibold rounded-xl text-center transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-primary/10"
                 >
                   <MessageSquare className="h-4 w-4" aria-hidden="true" />
                   Enquire

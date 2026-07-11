@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo } from "react"
 import { motion } from "framer-motion"
 import { useParams, Link, Navigate } from "react-router-dom"
-import { Plus, Minus, ArrowRight, Clock, Package, MessageSquare } from "lucide-react"
+import { Plus, Minus, Clock, Package } from "lucide-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import {
   PRODUCT_CATEGORIES, categoryBySlug, categoryStats, categoryFaqs,
   photosForCategory, buildCategorySchema,
 } from "../constants/categories"
+import { fadeUp, RevealWords } from "../components/home/Section"
+import PageCTA from "../components/ui/PageCTA"
 
 const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`
 
@@ -48,26 +50,21 @@ export default function ProductCategory() {
   return (
     <div className="bg-background">
       {/* Hero */}
-      <section className="py-14 md:py-20 bg-secondary border-b border-border/50">
+      <section className="py-[140px] bg-secondary border-b border-border/50">
         <div className="lp-wrap">
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="max-w-3xl"
-          >
-            <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground mb-5">
+          <motion.div {...fadeUp} className="max-w-3xl">
+            <nav aria-label="Breadcrumb" className="text-[13px] text-muted-foreground mb-5">
               <Link to="/" className="hover:text-primary">Home</Link>
               <span className="mx-2" aria-hidden="true">/</span>
               <Link to="/products" className="hover:text-primary">Products</Link>
               <span className="mx-2" aria-hidden="true">/</span>
               <span className="text-foreground font-medium">{entry.name}</span>
             </nav>
-            <h1 className="text-[32px] md:text-[44px] font-medium leading-tight mb-5 text-foreground text-balance">
+            <h1 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight mb-5 text-foreground text-balance">
               {entry.name}, manufactured in-house
             </h1>
-            <p className="text-lg text-muted-foreground leading-relaxed mb-7">{entry.intro}</p>
-            <div className="flex flex-wrap gap-x-8 gap-y-3 text-sm">
+            <p className="text-[18px] font-normal text-foreground leading-relaxed mb-7">{entry.intro}</p>
+            <div className="flex flex-wrap gap-x-8 gap-y-3 text-[15px]">
               <span className="flex items-center gap-2 text-foreground">
                 <Package className="h-4 w-4 text-primary" aria-hidden="true" />
                 MOQ from <strong>{stats.moqMin} units</strong>
@@ -86,19 +83,19 @@ export default function ProductCategory() {
 
       {/* Production photos */}
       {photos.length > 0 && (
-        <section className="py-14">
+        <section className="py-[140px]">
           <div className="lp-wrap">
-            <div className="flex items-end justify-between mb-8">
-              <h2 className="text-[24px] md:text-[28px] font-medium text-foreground">
-                Recent {entry.name.toLowerCase()} we produced
+            <motion.div {...fadeUp} className="flex flex-wrap items-end justify-between gap-4 mb-8">
+              <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-foreground">
+                <RevealWords text={`Recent ${entry.name.toLowerCase()} we produced`} />
               </h2>
-              <Link to="/work" className="text-sm font-semibold text-primary hover:underline whitespace-nowrap">
+              <Link to="/work" className="text-[14px] font-semibold text-primary hover:underline whitespace-nowrap">
                 Browse all work →
               </Link>
-            </div>
+            </motion.div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {photos.map((p) => (
-                <figure key={p.url} className="group rounded-2xl overflow-hidden border border-border/60 bg-card">
+                <figure key={p.url} className="group overflow-hidden border border-border/60 bg-card">
                   <div className="aspect-square overflow-hidden bg-muted">
                     <img
                       src={p.url}
@@ -108,7 +105,7 @@ export default function ProductCategory() {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                   </div>
-                  <figcaption className="p-3 text-xs font-medium text-foreground line-clamp-1">{p.name}</figcaption>
+                  <figcaption className="p-3 text-[13px] font-medium text-foreground line-clamp-1">{p.name}</figcaption>
                 </figure>
               ))}
             </div>
@@ -117,24 +114,31 @@ export default function ProductCategory() {
       )}
 
       {/* SKUs */}
-      <section className="py-14 bg-secondary">
+      <section className="py-[140px] bg-secondary">
         <div className="lp-wrap">
-          <h2 className="text-[24px] md:text-[28px] font-medium text-foreground mb-2">
-            Catalogue products &amp; indicative pricing
-          </h2>
-          <p className="text-muted-foreground mb-8 max-w-2xl">
-            Prices are per-unit base rates before volume discounts; every order receives a formal GST quotation.
-          </p>
+          <motion.div {...fadeUp} className="mb-8">
+            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-foreground mb-2">
+              <RevealWords text="Catalogue products & indicative pricing" />
+            </h2>
+            <p className="text-[18px] font-normal text-muted-foreground max-w-2xl">
+              Prices are per-unit base rates before volume discounts; every order receives a formal GST quotation.
+            </p>
+          </motion.div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {stats.skus.map((p) => (
-              <div key={p.id} className="bg-card border border-border/60 rounded-2xl p-6 flex flex-col hover:border-primary/40 hover:shadow-lg transition-all duration-300">
-                <h3 className="font-bold text-foreground leading-snug">{p.name}</h3>
-                <p className="text-sm text-muted-foreground mt-1.5">{p.material}</p>
-                <p className="text-sm text-muted-foreground mt-2 flex-1">{p.description}</p>
+            {stats.skus.map((p, idx) => (
+              <motion.div
+                key={p.id}
+                {...fadeUp}
+                transition={{ ...fadeUp.transition, delay: Math.min(idx, 5) * 0.06 }}
+                className="bg-card border border-border p-[30px] flex flex-col hover:border-primary/40 transition-colors duration-300"
+              >
+                <h3 className="text-[18px] font-semibold text-foreground leading-snug">{p.name}</h3>
+                <p className="text-[14px] text-muted-foreground mt-1.5">{p.material}</p>
+                <p className="text-[14px] text-muted-foreground mt-2 flex-1">{p.description}</p>
                 <div className="mt-5 pt-4 border-t border-border/40 flex items-baseline justify-between">
-                  <div className="text-lg font-extrabold text-foreground">
+                  <div className="text-[18px] font-semibold text-foreground">
                     {inr(p.basePrice)}
-                    <span className="text-xs font-normal text-muted-foreground"> / {p.unit}</span>
+                    <span className="text-[12px] font-normal text-muted-foreground"> / {p.unit}</span>
                   </div>
                   <div className="text-[11px] text-muted-foreground text-right">
                     MOQ {p.moq} · {p.leadTimeDays}d dispatch
@@ -142,22 +146,22 @@ export default function ProductCategory() {
                 </div>
                 <Link
                   to={`/quote?add=${p.id}`}
-                  className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90 py-2.5 rounded-xl font-bold text-xs text-center transition-colors"
+                  className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90 py-2.5 rounded-full font-semibold text-[13px] text-center transition-colors"
                 >
                   Add to quote
                 </Link>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
       {/* FAQ */}
-      <section className="py-14">
+      <section className="py-[140px]">
         <div className="lp-wrap max-w-3xl">
-          <h2 className="text-[24px] md:text-[28px] font-medium text-foreground mb-8">
-            {entry.name} — common questions
-          </h2>
+          <motion.h2 {...fadeUp} className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-foreground mb-8">
+            <RevealWords text={`${entry.name} — common questions`} />
+          </motion.h2>
           <div className="border-t border-border">
             {faqs.map((f, idx) => {
               const isOpen = openFaq === idx
@@ -175,7 +179,7 @@ export default function ProductCategory() {
                       : <Plus className="h-5 w-5 text-muted-foreground flex-shrink-0" aria-hidden="true" />}
                   </button>
                   {isOpen && (
-                    <p className="mt-3 text-sm md:text-base text-muted-foreground leading-relaxed">{f.answer}</p>
+                    <p className="mt-3 text-[16px] text-muted-foreground leading-relaxed">{f.answer}</p>
                   )}
                 </div>
               )
@@ -187,7 +191,7 @@ export default function ProductCategory() {
       {/* Other categories — internal linking */}
       <section className="py-10 border-t border-border/50">
         <div className="lp-wrap">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-4">
+          <h2 className="text-[14px] font-semibold uppercase tracking-[0.22em] text-primary mb-4">
             Other product categories
           </h2>
           <div className="flex flex-wrap gap-2">
@@ -195,7 +199,7 @@ export default function ProductCategory() {
               <Link
                 key={c.slug}
                 to={`/products/${c.slug}`}
-                className="px-4 py-2 rounded-full text-sm font-medium bg-muted text-foreground hover:bg-primary hover:text-primary-foreground transition-colors"
+                className="px-4 py-2 rounded-full text-[14px] font-medium bg-muted text-foreground hover:bg-primary hover:text-primary-foreground transition-colors"
               >
                 {c.name}
               </Link>
@@ -205,30 +209,13 @@ export default function ProductCategory() {
       </section>
 
       {/* CTA */}
-      <section className="py-16 bg-primary text-primary-foreground">
-        <div className="lp-wrap text-center">
-          <h2 className="text-[28px] md:text-[38px] font-medium leading-tight mb-3 text-balance text-primary-foreground">
-            Need {entry.name.toLowerCase()} for your organisation?
-          </h2>
-          <p className="text-[15px] mb-7 max-w-xl mx-auto text-primary-foreground/90">
-            Build a quote in two minutes — pick products, set quantities, and our sales desk returns a formal GST quotation.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link
-              to="/quote"
-              className="px-6 py-3 bg-background text-foreground hover:bg-background/90 font-semibold rounded-lg inline-flex items-center gap-2 transition-all duration-200 active:scale-[0.98]"
-            >
-              Get a quote <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
-            <Link
-              to={`/contact?product=${encodeURIComponent(entry.name)}`}
-              className="px-6 py-3 border-2 border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/10 font-semibold rounded-lg inline-flex items-center gap-2 transition-all duration-200 active:scale-[0.98]"
-            >
-              <MessageSquare className="h-4 w-4" aria-hidden="true" /> Ask a question
-            </Link>
-          </div>
-        </div>
-      </section>
+      <PageCTA
+        title={`Need ${entry.name.toLowerCase()} for your organisation?`}
+        primary={{ to: "/quote", label: "Get a quote" }}
+        secondary={{ to: `/contact?product=${encodeURIComponent(entry.name)}`, label: "Ask a question" }}
+      >
+        Build a quote in two minutes — pick products, set quantities, and our sales desk returns a formal GST quotation.
+      </PageCTA>
     </div>
   )
 }

@@ -1,8 +1,8 @@
-@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@0,400;1,400&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@0,400;1,400&family=Manrope:wght@200..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", sans-serif;
+  --font-sans: "Manrope", sans-serif;
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-primary: hsl(var(--primary));
@@ -96,48 +96,28 @@ body {
   overflow-x: clip;
 }
 
-/* Custom layout container wrapper based on Keystone width specs */
+/* Layout container wrapper. Fluid-then-capped at 1520px with responsive
+   gutters (16 / 24 / 40), matching the Otto reference layout model. */
 .lp-wrap {
   width: 100%;
-  padding-left: 12px;
-  padding-right: 12px;
+  max-width: 1520px;
+  padding-left: 16px;
+  padding-right: 16px;
   margin-left: auto;
   margin-right: auto;
 }
 
-@media (min-width: 576px) {
+@media (min-width: 810px) {
   .lp-wrap {
-    max-width: 540px;
-  }
-}
-
-@media (min-width: 768px) {
-  .lp-wrap {
-    max-width: 720px;
-  }
-}
-
-@media (min-width: 992px) {
-  .lp-wrap {
-    max-width: 960px;
+    padding-left: 24px;
+    padding-right: 24px;
   }
 }
 
 @media (min-width: 1200px) {
   .lp-wrap {
-    max-width: 1140px;
-  }
-}
-
-@media (min-width: 1400px) {
-  .lp-wrap {
-    max-width: 1320px;
-  }
-}
-
-@media (min-width: 1590px) {
-  .lp-wrap {
-    max-width: 1440px;
+    padding-left: 40px;
+    padding-right: 40px;
   }
 }
 
@@ -364,7 +344,7 @@ body {
   background: rgba(255, 255, 255, 0.90);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  color: #2F50E4;
+  color: #2f50e4;
   cursor: pointer;
   animation: ka-border-spin 4s linear infinite;
   transition: transform 0.16s ease, background 0.16s ease, opacity 0.16s ease, color 0.16s ease;
@@ -384,7 +364,7 @@ body {
   inset: 0;
   border-radius: inherit;
   padding: 1.5px;
-  background: linear-gradient(var(--ka-angle), rgba(47, 80, 228, 0.8) 80%, rgba(139, 92, 246, 0.9));
+  background: linear-gradient(var(--ka-angle), rgba(0, 132, 209, 0.8) 80%, rgba(139, 92, 246, 0.9));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -412,7 +392,7 @@ body {
   display: none;
   font-size: 15px;
   font-weight: 700;
-  color: #2F50E4;
+  color: #2f50e4;
 }
 
 .ka-launcher-ping {
@@ -572,7 +552,7 @@ body {
   width: 38px;
   height: 38px;
   flex: none;
-  background: #2F50E4;
+  background: #2f50e4;
   border-radius: 50%;
   color: #fff;
 }
@@ -627,8 +607,8 @@ body {
 }
 
 .ka-icon-btn:hover {
-  background: rgba(47, 80, 228, 0.08);
-  color: #2F50E4;
+  background: rgba(0, 132, 209, 0.08);
+  color: #2f50e4;
 }
 
 /* Messages */
@@ -667,10 +647,10 @@ body {
 }
 
 .ka-bubble-user {
-  background: #2F50E4;
+  background: #2f50e4;
   color: #fff;
   border-bottom-right-radius: 4px;
-  border: 1px solid #2F50E4;
+  border: 1px solid #2f50e4;
 }
 
 .ka-bubble-assistant {
@@ -703,9 +683,9 @@ body {
 }
 
 .ka-chip:hover {
-  border-color: #97A8F2;
-  color: #2F50E4;
-  background: #F4F6FD;
+  border-color: #8ccdf2;
+  color: #2f50e4;
+  background: #f0f9ff;
 }
 
 .ka-input {
@@ -743,8 +723,8 @@ body {
     font-size: 18px;
   }
   .ka-icon-btn {
-    background: rgba(47, 80, 228, 0.06);
-    color: #2F50E4;
+    background: rgba(0, 132, 209, 0.06);
+    color: #2f50e4;
   }
   .ka-bubble {
     font-size: 13px;
@@ -832,34 +812,34 @@ a:hover > .roll-text .roll-char {
 
 /* Primary Button */
 .btn-primary {
-  background-color: #2F50E4;
+  background-color: #2f50e4;
   color: #ffffff;
-  border-color: #2F50E4;
+  border-color: #2f50e4;
 }
 
 .btn-primary:hover {
-  background-color: #4764E4;
-  border-color: #4764E4;
+  background-color: #4764e4;
+  border-color: #4764e4;
 }
 
 .btn-primary:active {
-  background-color: #193EE4;
-  border-color: #193EE4;
+  background-color: #193ee4;
+  border-color: #193ee4;
 }
 
 /* Secondary / Outline Button */
 .btn-outline {
   background-color: transparent;
-  color: #2F50E4;
-  border-color: #2F50E4;
+  color: #2f50e4;
+  border-color: #2f50e4;
 }
 
 .btn-outline:hover {
-  background-color: #F4F6FD;
+  background-color: #f0f9ff;
 }
 
 .btn-outline:active {
-  background-color: #EBEEFD;
+  background-color: #e0f4ff;
 }
 
 /* Ghost Button */
@@ -870,12 +850,12 @@ a:hover > .roll-text .roll-char {
 }
 
 .btn-ghost:hover {
-  background-color: rgba(47, 80, 228, 0.08);
-  color: #2F50E4;
+  background-color: rgba(0, 132, 209, 0.08);
+  color: #2f50e4;
 }
 
 .btn-ghost:active {
-  background-color: rgba(47, 80, 228, 0.14);
+  background-color: rgba(0, 132, 209, 0.14);
 }
 
 /* Infinite Marquee Animation */
@@ -976,7 +956,9 @@ a:hover > .roll-text .roll-char {
 .animate-marquee-slow {
   display: flex;
   width: max-content;
-  animation: marquee 55s linear infinite;
+  animation: marquee 90s linear infinite;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .animate-marquee-slow:hover {
