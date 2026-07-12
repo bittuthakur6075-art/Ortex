@@ -1,44 +1,83 @@
-import { useState, useEffect, useMemo, useCallback } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { X, ChevronLeft, ChevronRight, MessageSquare, Tag, Grid } from "lucide-react"
-import { Link } from "react-router-dom"
+import { useState, useMemo, useCallback } from "react"
+import { AnimatePresence } from "framer-motion"
+import { Search, X, Eye, SearchX } from "lucide-react"
+import {
+  Category, Key, Clock, Medal, Gift, ClipboardText, Flag, Sticker, Tag,
+} from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { workPhotos } from "../constants/home"
-import { EASE } from "../components/home/Section"
 import PageHero from "../components/ui/PageHero"
+import PhotoLightbox from "../components/ui/PhotoLightbox"
+
+// The photo archive has two labels for one concept ("Badges" from the main
+// dataset, "Badges & Lanyards" on a few hand-added photos). Fold them into a
+// single filter so the taxonomy is clean; lanyard photos still surface by search.
+const CATEGORY_ALIASES = { "Badges & Lanyards": "Badges" }
+const normalizeCategory = (c) => CATEGORY_ALIASES[c] || c
+
+// Leading icon per filter chip (iconsax Bulk). Unmapped categories fall back to
+// a generic tag.
+const CATEGORY_ICONS = {
+  All: Category,
+  Keychain: Key,
+  "Wall Clock": Clock,
+  Badges: Medal,
+  "Custom Promotional": Gift,
+  "Exam Board": ClipboardText,
+  Flag: Flag,
+  "Fridge Magnet": Sticker,
+}
 
 /**
- * Replaces the old /portfolio and /photos pages, which were two grids of the
- * same thing under different names. /portfolio additionally presented seven
- * Unsplash stock photos as "our recent manufacturing projects" — those are gone.
- * Everything here is a photograph of an order we actually produced.
+ * The single production-photo page. Merges the former /work (editorial showcase)
+ * and /gallery (searchable archive), which showed the same photos in two UIs:
+ * workPhotos is photosData plus a handful of extras, so /gallery was redundant
+ * and now 301-redirects here. Search by product, filter by category, page the
+ * grid, open any photo in the shared PhotoLightbox.
  */
 export default function Work() {
   useDocumentMetadata(
-    "Our Work - Ortex Industries | Custom Manufacturing Gallery",
-    "Browse real production photography from Ortex Industries: custom keychains, wall clocks, exam boards, badges, lanyards, fridge magnets, flags, and promotional merchandise.",
+    "Our Work - Ortex Industries | Custom Manufacturing Photo Gallery",
+    "Browse and search the full Ortex Industries production archive: custom keychains, wall clocks, exam boards, badges, lanyards, fridge magnets, flags, and promotional merchandise we manufactured. No stock imagery.",
     { path: "/work" }
   )
 
-  const categories = useMemo(
-    () => ["All", ...Array.from(new Set(workPhotos.map((p) => p.category).filter(Boolean))).sort()],
-    []
-  )
+  // "All" first, then categories ordered by photo count (most-used lead, so the
+  // rarest is what scrolls off if the row ever overflows).
+  const categories = useMemo(() => {
+    const counts = new Map()
+    for (const p of workPhotos) {
+      const c = normalizeCategory(p.category)
+      if (c) counts.set(c, (counts.get(c) || 0) + 1)
+    }
+    const ordered = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c)
+    return ["All", ...ordered]
+  }, [])
 
-  // 900+ photographs. Rendering them all at once produced a ~2.6 MB DOM, so the
-  // grid pages in. The lightbox still walks the full filtered set.
-  const PAGE_SIZE = 32
+  const PAGE_SIZE = 48
 
   const [activeCategory, setActiveCategory] = useState("All")
+  const [query, setQuery] = useState("")
   const [lightboxIndex, setLightboxIndex] = useState(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
-  const filtered = useMemo(
-    () => (activeCategory === "All" ? workPhotos : workPhotos.filter((p) => p.category === activeCategory)),
-    [activeCategory]
-  )
+  const filtered = useMemo(() => {
+    let rows = activeCategory === "All" ? workPhotos : workPhotos.filter((p) => normalizeCategory(p.category) === activeCategory)
+    const q = query.trim().toLowerCase()
+    if (q) rows = rows.filter((p) => (p.title || "").toLowerCase().includes(q))
+    return rows
+  }, [activeCategory, query])
 
   const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount])
+
+  // Any filter change restarts paging and closes the lightbox — its index points
+  // into `filtered`, which just changed under it.
+  const applyFilter = (patch) => {
+    if (patch.category !== undefined) setActiveCategory(patch.category)
+    if (patch.query !== undefined) setQuery(patch.query)
+    setLightboxIndex(null)
+    setVisibleCount(PAGE_SIZE)
+  }
 
   const closeLightbox = useCallback(() => setLightboxIndex(null), [])
   const showPrev = useCallback(
@@ -50,109 +89,104 @@ export default function Work() {
     [filtered.length]
   )
 
-  // The old gallery trapped users in the lightbox with no keyboard escape.
-  useEffect(() => {
-    if (lightboxIndex === null) return
-    const onKey = (e) => {
-      if (e.key === "Escape") closeLightbox()
-      else if (e.key === "ArrowLeft") showPrev()
-      else if (e.key === "ArrowRight") showNext()
-    }
-    window.addEventListener("keydown", onKey)
-    document.body.style.overflow = "hidden"
-    return () => {
-      window.removeEventListener("keydown", onKey)
-      document.body.style.overflow = ""
-    }
-  }, [lightboxIndex, closeLightbox, showPrev, showNext])
-
   const active = lightboxIndex !== null ? filtered[lightboxIndex] : null
 
   return (
     <div className="bg-background min-h-screen">
       <PageHero title="Our work">
-        Real production photography of custom promotional merchandise, corporate gifts, and office accessories we manufactured. No stock imagery.
+        Search the full archive of real production photography, every photo an order we actually
+        manufactured. No stock imagery.
       </PageHero>
 
-      <section className="py-[140px]">
+      <section className="pt-0 pb-[120px]">
         <div className="lp-wrap">
-          <div className="flex flex-wrap justify-center gap-2 md:gap-3 mb-12">
-            {categories.map((cat) => (
+          {/* Search */}
+          <div className="max-w-lg mx-auto mb-7 relative">
+            <Search
+              className="absolute left-5 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-muted-foreground transition-colors peer-focus:text-primary"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => applyFilter({ query: e.target.value })}
+              placeholder="Search products, e.g. keychain, clock, badge…"
+              aria-label="Search work photos"
+              className="peer w-full pl-12 pr-12 py-3.5 rounded-full bg-background border border-border text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
+            />
+            {query && (
               <button
-                key={cat}
                 type="button"
-                aria-pressed={activeCategory === cat}
-                onClick={() => {
-                  setActiveCategory(cat)
-                  setLightboxIndex(null)
-                  setVisibleCount(PAGE_SIZE)
-                }}
-                className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer ${
-                  activeCategory === cat
-                    ? "bg-primary text-primary-foreground scale-[1.03]"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                }`}
+                onClick={() => applyFilter({ query: "" })}
+                aria-label="Clear search"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-150 cursor-pointer"
               >
-                {cat === "All" ? "All work" : cat}
+                <X className="h-[18px] w-[18px]" />
+              </button>
+            )}
+          </div>
+
+          {/* Category filters — one row: centered when it fits, scrolls when it overflows */}
+          <div className="mb-10 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex w-max mx-auto gap-2.5 px-1">
+              {categories.map((cat) => {
+                const Icon = CATEGORY_ICONS[cat] || Tag
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    aria-pressed={activeCategory === cat}
+                    onClick={() => applyFilter({ category: cat })}
+                    className={`inline-flex flex-shrink-0 items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-semibold border whitespace-nowrap transition-colors duration-200 cursor-pointer ${
+                      activeCategory === cat
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-transparent border-border text-foreground hover:border-foreground/40"
+                    }`}
+                  >
+                    <Icon size={16} variant="Bulk" color="currentColor" aria-hidden="true" />
+                    {cat === "All" ? "All work" : cat}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Grid — clean product-tile cards (site design language) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-x-6 gap-y-9">
+            {visible.map((photo, index) => (
+              <button
+                key={`${photo.image}-${index}`}
+                type="button"
+                onClick={() => setLightboxIndex(index)}
+                aria-label={`View ${photo.title} larger`}
+                className="group text-left cursor-pointer"
+              >
+                <div className="relative aspect-square overflow-hidden bg-muted rounded-[4px]">
+                  <img
+                    src={photo.image}
+                    alt={photo.alt || photo.title}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-105"
+                  />
+                  {/* Hover cue: signals the tile opens a larger view */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/25 transition-colors duration-300">
+                    <span className="grid place-items-center h-11 w-11 rounded-full bg-white/95 text-foreground opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
+                      <Eye className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                  </div>
+                </div>
+                <div className="pt-3">
+                  <p className="text-[16px] font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors duration-200">
+                    {photo.title}
+                  </p>
+                  {photo.category && (
+                    <p className="mt-1 text-[14px] font-medium text-[#4b5675]">{photo.category}</p>
+                  )}
+                </div>
               </button>
             ))}
           </div>
-
-          <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            <AnimatePresence mode="popLayout">
-              {visible.map((photo, index) => (
-                <motion.div
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 20 }}
-                  transition={{ duration: 0.5, ease: EASE }}
-                  key={photo.image}
-                  className="group relative bg-card border border-border/60 overflow-hidden hover:border-primary/30 transition-colors duration-300 flex flex-col"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setLightboxIndex(index)}
-                    aria-label={`View ${photo.title} larger`}
-                    className="aspect-square w-full overflow-hidden bg-muted relative cursor-pointer"
-                  >
-                    <img
-                      src={photo.image}
-                      alt={photo.alt || photo.title}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-                    />
-                    {photo.category && (
-                      <span className="absolute top-3 left-3 bg-background/80 backdrop-blur-md text-foreground text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full border border-border/40 flex items-center gap-1">
-                        <Tag className="h-2.5 w-2.5 text-primary" aria-hidden="true" />
-                        {photo.category}
-                      </span>
-                    )}
-                  </button>
-
-                  <div className="p-4 flex-grow flex flex-col justify-between items-start border-t border-border/40 bg-card/60">
-                    <h2 className="font-semibold text-sm text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors duration-200">
-                      {photo.title}
-                    </h2>
-                    <div className="mt-3 flex items-center justify-between w-full">
-                      <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                        <Grid className="h-3 w-3" aria-hidden="true" />
-                        Quick view
-                      </span>
-                      <Link
-                        to={`/contact?product=${encodeURIComponent(photo.title)}&category=${encodeURIComponent(photo.category || "")}`}
-                        className="text-xs font-bold text-primary hover:text-primary/80 flex items-center gap-1.5 transition-colors duration-150"
-                      >
-                        <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
-                        Inquire
-                      </Link>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
 
           {visibleCount < filtered.length && (
             <div className="text-center mt-12">
@@ -170,8 +204,18 @@ export default function Work() {
           )}
 
           {filtered.length === 0 && (
-            <div className="text-center py-20 bg-muted/30 border border-dashed border-border">
-              <p className="text-muted-foreground font-medium">No work found in this category.</p>
+            <div className="text-center py-20 bg-muted/30 border border-dashed border-border rounded-2xl">
+              <SearchX className="h-10 w-10 mx-auto text-muted-foreground/70 mb-4" aria-hidden="true" />
+              <p className="text-muted-foreground font-medium">
+                No work matches {query ? `"${query}"` : "this category"}.
+              </p>
+              <button
+                type="button"
+                onClick={() => applyFilter({ category: "All", query: "" })}
+                className="mt-4 text-sm font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer"
+              >
+                Clear filters
+              </button>
             </div>
           )}
         </div>
@@ -179,90 +223,14 @@ export default function Work() {
 
       <AnimatePresence>
         {active && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            role="dialog"
-            aria-modal="true"
-            aria-label={active.title}
-            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
-            onClick={closeLightbox}
-          >
-            <button
-              type="button"
-              onClick={closeLightbox}
-              className="absolute top-4 right-4 text-white/75 hover:text-white p-2.5 rounded-full hover:bg-white/10 transition-colors duration-150 cursor-pointer"
-              aria-label="Close gallery"
-            >
-              <X className="h-7 w-7" />
-            </button>
-
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); showPrev() }}
-              className="absolute left-4 md:left-8 text-white/75 hover:text-white p-3 rounded-full hover:bg-white/10 transition-colors duration-150 cursor-pointer"
-              aria-label="Previous image"
-            >
-              <ChevronLeft className="h-8 w-8" />
-            </button>
-
-            <motion.div
-              initial={{ scale: 0.95, y: 10 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 10 }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="max-w-4xl w-full flex flex-col md:flex-row bg-neutral-900 border border-neutral-800 rounded-[16px] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="md:w-3/5 aspect-square md:aspect-auto md:h-[550px] bg-neutral-950 relative flex items-center justify-center">
-                <img
-                  src={active.image}
-                  alt={active.alt || active.title}
-                  className="max-w-full max-h-full object-contain p-2"
-                />
-              </div>
-
-              <div className="md:w-2/5 p-6 md:p-8 flex flex-col justify-between bg-neutral-900 text-left border-t md:border-t-0 md:border-l border-neutral-800">
-                <div className="space-y-6">
-                  {active.category && (
-                    <span className="bg-primary/20 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider inline-block">
-                      {active.category}
-                    </span>
-                  )}
-                  <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight leading-snug">
-                    {active.title}
-                  </h2>
-                  <div className="h-px bg-neutral-800 w-full" />
-                  <p className="text-neutral-400 text-sm leading-relaxed">
-                    Custom manufacturing is fully supported for this product. Request changes to size, shape,
-                    material thickness, colour scheme, and branding method (UV printing or laser engraving).
-                  </p>
-                </div>
-
-                <div className="pt-8">
-                  <Link
-                    to={`/contact?product=${encodeURIComponent(active.title)}&category=${encodeURIComponent(active.category || "")}`}
-                    onClick={closeLightbox}
-                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3.5 px-6 font-semibold rounded-full text-center transition-all duration-200 flex items-center justify-center gap-2"
-                  >
-                    <MessageSquare className="h-5 w-5" aria-hidden="true" />
-                    Enquire about this product
-                  </Link>
-                </div>
-              </div>
-            </motion.div>
-
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); showNext() }}
-              className="absolute right-4 md:right-8 text-white/75 hover:text-white p-3 rounded-full hover:bg-white/10 transition-colors duration-150 cursor-pointer"
-              aria-label="Next image"
-            >
-              <ChevronRight className="h-8 w-8" />
-            </button>
-          </motion.div>
+          <PhotoLightbox
+            item={{ src: active.image, title: active.title, category: active.category, alt: active.alt }}
+            index={lightboxIndex}
+            total={filtered.length}
+            onClose={closeLightbox}
+            onPrev={showPrev}
+            onNext={showNext}
+          />
         )}
       </AnimatePresence>
     </div>

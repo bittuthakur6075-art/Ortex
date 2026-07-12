@@ -1,20 +1,43 @@
 import { useState, useMemo, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
-  Calculator, Plus, Minus, Trash2, Check, Upload, ArrowRight,
+  Plus, Minus, Trash2, Check, Upload, ArrowRight,
   ChevronLeft, AlertTriangle, Search, ShoppingCart, Clock, Package,
 } from "lucide-react"
+import {
+  Box, Diamonds, Personalcard, Medal, ClipboardText, Gift, Category,
+  Timer1, ReceiptText, Building3, ShieldTick, DiscountShape,
+} from "iconsax-react"
 import { toast } from "sonner"
 import { Link, useSearchParams } from "react-router-dom"
 import { submitEnquiry, newReference } from "../lib/leads"
 import { ARTWORK_ACCEPT, ARTWORK_HINT, validateArtwork, uploadArtwork } from "../lib/uploads"
 import { whatsappLink } from "../constants/site"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
-import { PRODUCTS, CATEGORIES, CATEGORY_META, VOLUME_TIERS, priceLine } from "../constants/products"
+import { PRODUCTS, CATEGORIES, VOLUME_TIERS, priceLine } from "../constants/products"
 import { supabase, hasSupabase } from "../lib/supabaseClient"
 
 const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`
-const catIcon = (name) => CATEGORY_META[name]?.icon || "📦"
+
+// iconsax Bulk icon per product category (replaces the old emoji set).
+const CAT_ICONS = {
+  "MDF products": Box,
+  "Acrylic products": Diamonds,
+  "Lanyards & ID card accessories": Personalcard,
+  "Badge manufacturing": Medal,
+  "Examination boards": ClipboardText,
+  "Corporate gifting & merchandise": Gift,
+}
+const catIconComp = (name) => CAT_ICONS[name] || Box
+
+// Truthful reassurance shown under the header (all substantiated elsewhere on
+// the site — no response-time or certification claims).
+const TRUST = [
+  { icon: Building3, label: "100% in-house manufacturing" },
+  { icon: DiscountShape, label: "Automatic volume discounts" },
+  { icon: ReceiptText, label: "Formal GST quotation" },
+  { icon: ShieldTick, label: "No obligation" },
+]
 
 export default function QuoteCalculator() {
   useDocumentMetadata(
@@ -267,17 +290,17 @@ export default function QuoteCalculator() {
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-card border border-border/80 rounded-2xl p-8 md:p-10 text-center"
+            className="bg-card border border-border rounded-2xl p-8 md:p-12 text-center"
           >
             <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 ${
-              isQueued ? "bg-amber-500/10 text-amber-500" : "bg-emerald-500/10 text-emerald-500"
+              isQueued ? "bg-amber-500/10 text-amber-500" : "bg-[#04B440]/10 text-[#04B440]"
             }`}>
               {isQueued ? <AlertTriangle className="h-9 w-9" /> : <Check className="h-9 w-9" />}
             </div>
-            <h1 className="text-2xl font-bold text-foreground">
+            <h1 className="text-[28px] md:text-[32px] font-semibold tracking-tight text-foreground">
               {isQueued ? "Saved — delivery pending" : "Quote request submitted"}
             </h1>
-            <p className="text-muted-foreground mt-2 max-w-md mx-auto">
+            <p className="text-muted-foreground mt-3 max-w-md mx-auto">
               Your request is logged under reference <strong className="text-foreground">{reference}</strong>.
               {isQueued
                 ? " We couldn't reach our servers just now, so it's saved on this device and will send automatically when the connection recovers. To be certain it reaches us today, send it over WhatsApp."
@@ -289,7 +312,7 @@ export default function QuoteCalculator() {
                 href={whatsappLink(`Hi Ortex, I submitted quote ${reference} but it may not have reached you. Estimated total ${inr(estimate)} (pre-tax).`)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors"
+                className="mt-5 inline-flex items-center gap-2 px-5 py-3 bg-primary text-primary-foreground rounded-full font-semibold hover:bg-primary/90 transition-colors"
               >
                 Send this quote on WhatsApp
               </a>
@@ -319,11 +342,11 @@ export default function QuoteCalculator() {
             </div>
 
             <div className="flex flex-wrap justify-center gap-3">
-              <button onClick={resetAll} className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors cursor-pointer">
+              <button onClick={resetAll} className="px-6 py-3 bg-primary text-primary-foreground rounded-full font-semibold hover:bg-primary/90 transition-colors cursor-pointer">
                 Build another quote
               </button>
               <Link to="/">
-                <button className="px-5 py-2.5 border border-border text-foreground hover:bg-muted rounded-lg font-medium transition-colors cursor-pointer">
+                <button className="px-6 py-3 border border-border text-foreground hover:border-foreground/40 rounded-full font-semibold transition-colors cursor-pointer">
                   Return home
                 </button>
               </Link>
@@ -423,7 +446,7 @@ export default function QuoteCalculator() {
           {!compact && step === 1 && (
             <button
               onClick={() => setStep(2)}
-              className="mt-4 w-full bg-primary hover:bg-primary/90 text-primary-foreground py-2.5 font-semibold rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              className="mt-4 w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 font-semibold rounded-full flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
               Continue to details <ArrowRight className="h-4 w-4" />
             </button>
@@ -438,14 +461,27 @@ export default function QuoteCalculator() {
     <div className="min-h-screen bg-background py-12">
       <div className="lp-wrap">
         {/* Header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center p-3 rounded-full bg-primary/10 mb-4">
-            <Calculator className="h-8 w-8 text-primary" />
-          </div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">Build your custom quote</h1>
-          <p className="text-muted-foreground mt-2 max-w-xl mx-auto">
-            Add products from our catalogue, set your quantities and get an instant bulk estimate with volume discounts. Submit to receive a formal GST quotation from our sales desk.
+        <div className="text-center max-w-3xl mx-auto mb-8">
+          <span className="block text-[14px] font-semibold uppercase tracking-[0.22em] text-primary mb-3">
+            Get a quote
+          </span>
+          <h1 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-foreground">
+            Build your custom quote
+          </h1>
+          <p className="mt-5 text-[18px] font-normal text-muted-foreground leading-relaxed">
+            Add products, set your quantities, and get an instant bulk estimate with volume discounts. Submit to
+            receive a formal GST quotation from our sales desk.
           </p>
+        </div>
+
+        {/* Trust row */}
+        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 mb-12">
+          {TRUST.map((t) => (
+            <span key={t.label} className="inline-flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
+              <t.icon size={18} variant="Bulk" color="currentColor" className="text-primary" aria-hidden="true" />
+              {t.label}
+            </span>
+          ))}
         </div>
 
         {/* Step indicator */}
@@ -455,13 +491,13 @@ export default function QuoteCalculator() {
               <div className="flex items-center gap-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
                   step === s.n ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
-                    : step > s.n ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"
+                    : step > s.n ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                 }`}>
                   {step > s.n ? <Check className="h-4 w-4" /> : s.n}
                 </div>
                 <span className={`text-sm font-medium ${step === s.n ? "text-foreground" : "text-muted-foreground"}`}>{s.label}</span>
               </div>
-              {i === 0 && <div className={`h-0.5 w-8 md:w-16 rounded ${step > 1 ? "bg-emerald-500" : "bg-muted"}`} />}
+              {i === 0 && <div className={`h-0.5 w-8 md:w-16 rounded ${step > 1 ? "bg-primary" : "bg-muted"}`} />}
             </div>
           ))}
         </div>
@@ -475,32 +511,42 @@ export default function QuoteCalculator() {
             >
               {/* Catalogue */}
               <div>
-                {/* Filters */}
-                <div className="flex flex-col sm:flex-row gap-3 mb-5">
-                  <div className="relative flex-1">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      value={query} onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Search products…"
-                      className="w-full pl-10 pr-4 py-2.5 bg-card border border-border focus:border-primary rounded-lg focus:outline-none text-foreground"
-                    />
-                  </div>
+                {/* Search */}
+                <div className="relative mb-5">
+                  <Search className="pointer-events-none absolute left-5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={query} onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search products, e.g. keychain, trophy, badge…"
+                    aria-label="Search products"
+                    className="w-full pl-12 pr-5 py-3.5 rounded-full bg-background border border-border text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
+                  />
                 </div>
-                <div className="flex flex-wrap gap-2 mb-5">
+
+                {/* Category chips */}
+                <div className="flex flex-wrap gap-2 mb-6">
                   <button
                     onClick={() => setCategory("all")}
-                    className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer ${
-                      category === "all" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-foreground/80 hover:border-primary/50"
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-semibold border whitespace-nowrap transition-colors duration-200 cursor-pointer ${
+                      category === "all" ? "bg-primary text-primary-foreground border-primary" : "bg-transparent border-border text-foreground hover:border-foreground/40"
                     }`}
-                  >All products</button>
-                  {categoriesList.map((c) => (
-                    <button
-                      key={c} onClick={() => setCategory(c)}
-                      className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer ${
-                        category === c ? "bg-primary text-primary-foreground" : "bg-card border border-border text-foreground/80 hover:border-primary/50"
-                      }`}
-                    >{catIcon(c)} {c}</button>
-                  ))}
+                  >
+                    <Category size={16} variant="Bulk" color="currentColor" aria-hidden="true" />
+                    All products
+                  </button>
+                  {categoriesList.map((c) => {
+                    const Icon = catIconComp(c)
+                    return (
+                      <button
+                        key={c} onClick={() => setCategory(c)}
+                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-semibold border whitespace-nowrap transition-colors duration-200 cursor-pointer ${
+                          category === c ? "bg-primary text-primary-foreground border-primary" : "bg-transparent border-border text-foreground hover:border-foreground/40"
+                        }`}
+                      >
+                        <Icon size={16} variant="Bulk" color="currentColor" aria-hidden="true" />
+                        {c}
+                      </button>
+                    )
+                  })}
                 </div>
 
                 {/* Product grid */}
@@ -516,59 +562,59 @@ export default function QuoteCalculator() {
                     {filtered.map((p) => {
                       const inCart = cart[p.id] != null
                       return (
-                        <div key={p.id} className="bg-card border border-border/60 rounded-2xl overflow-hidden flex flex-col h-full hover:shadow-lg hover:border-primary/30 transition-all duration-300 group">
-                          {/* Image Container */}
-                          <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted/20 border-b border-border/40">
+                        <div key={p.id} className="bg-card border border-border rounded-[8px] overflow-hidden flex flex-col h-full hover:border-primary/40 transition-colors duration-300 group">
+                          {/* Image */}
+                          <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
                             {p.images && p.images.length > 0 ? (
-                              <img 
-                                src={p.images[0]} 
-                                alt={p.name} 
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              <img
+                                src={p.images[0]}
+                                alt={p.name}
+                                loading="lazy"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                               />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted/30 to-muted/10">
-                                <span className="text-4xl filter drop-shadow-sm">{catIcon(p.category)}</span>
+                              <div className="w-full h-full flex items-center justify-center text-primary/25">
+                                {(() => { const CatIcon = catIconComp(p.category); return <CatIcon size={56} variant="Bulk" color="currentColor" aria-hidden="true" /> })()}
                               </div>
                             )}
-                            {/* Category Tag Overlay */}
-                            <span className="absolute top-3 left-3 bg-background/80 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2.5 py-1 rounded-full border border-border/30 shadow-sm">
+                            <span className="absolute top-3 left-3 bg-background/85 backdrop-blur-md text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-2.5 py-1 rounded-full border border-border/40">
                               {p.category}
                             </span>
                           </div>
 
-                          {/* Content Area */}
-                          <div className="p-4 flex flex-col flex-1">
-                            <h3 className="font-bold text-foreground text-sm line-clamp-2 leading-snug group-hover:text-primary transition-colors min-h-[40px] flex-none">
+                          {/* Content */}
+                          <div className="p-5 flex flex-col flex-1">
+                            <h3 className="text-[15px] font-semibold text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors min-h-[42px]">
                               {p.name}
                             </h3>
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1 flex-1">
+                            <p className="text-[13px] text-muted-foreground mt-1 line-clamp-1 flex-1">
                               {p.material || "Standard specification"}
                             </p>
 
-                            {/* Price and Metadata Section */}
-                            <div className="mt-4 pt-3 border-t border-border/40 flex items-baseline justify-between">
+                            <div className="mt-4 pt-4 border-t border-border/60 flex items-end justify-between">
                               <div>
-                                <span className="text-[10px] font-medium text-muted-foreground block mb-0.5">Indicative Price</span>
-                                <div className="text-base font-extrabold text-foreground">
-                                  ₹{Number(p.basePrice).toLocaleString('en-IN')}
-                                  <span className="text-[11px] font-normal text-muted-foreground ml-1">/ {p.unit}</span>
+                                <span className="block text-[11px] font-medium text-muted-foreground mb-0.5">Indicative price</span>
+                                <div className="text-[20px] font-semibold text-foreground leading-none">
+                                  ₹{Number(p.basePrice).toLocaleString("en-IN")}
+                                  <span className="text-[12px] font-normal text-muted-foreground ml-1">/ {p.unit}</span>
                                 </div>
                               </div>
-                              <div className="text-[10px] text-muted-foreground flex flex-col items-end gap-1">
-                                <span className="bg-secondary px-1.5 py-0.5 rounded font-medium">MOQ {p.moq}</span>
-                                <span className="inline-flex items-center gap-1 font-medium"><Clock className="h-3 w-3 text-primary/80" /> {p.leadTimeDays}d dispatch</span>
+                              <div className="text-[11px] text-muted-foreground flex flex-col items-end gap-1.5">
+                                <span className="bg-secondary px-2 py-0.5 rounded-full font-medium">MOQ {p.moq}</span>
+                                <span className="inline-flex items-center gap-1 font-medium">
+                                  <Timer1 size={13} variant="Bulk" color="currentColor" className="text-primary" aria-hidden="true" /> {p.leadTimeDays}d dispatch
+                                </span>
                               </div>
                             </div>
 
-                            {/* Cart Action Button */}
                             {inCart ? (
-                              <div className="mt-4 w-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 py-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all text-xs">
+                              <div className="mt-5 w-full bg-[#E8FAEE] text-[#04B440] border border-[#BAEECC] py-2.5 rounded-full font-semibold flex items-center justify-center gap-1.5 text-[13px]">
                                 <Check className="h-4 w-4" /> Added to quote
                               </div>
                             ) : (
                               <button
                                 onClick={() => addToCart(p)}
-                                className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/95 py-2.5 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow-md cursor-pointer text-xs"
+                                className="mt-5 w-full bg-primary text-primary-foreground hover:bg-primary/90 py-2.5 rounded-full font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-[13px]"
                               >
                                 <Plus className="h-4 w-4" /> Add to quote
                               </button>
@@ -580,12 +626,19 @@ export default function QuoteCalculator() {
                   </div>
                 )}
 
-                {/* Volume discount table */}
-                <div className="mt-6 p-4 bg-secondary border border-border rounded-xl">
-                  <h4 className="font-semibold text-foreground text-sm mb-2">Volume discounts (applied automatically per line)</h4>
-                  <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
+                {/* Volume discount incentive */}
+                <div className="mt-6 p-5 bg-secondary border border-border rounded-[10px]">
+                  <div className="flex items-center gap-2 mb-3">
+                    <DiscountShape size={20} variant="Bulk" color="currentColor" className="text-primary" aria-hidden="true" />
+                    <h4 className="font-semibold text-foreground text-[15px]">Buy more, save more</h4>
+                    <span className="text-[12px] text-muted-foreground">applied automatically per line</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     {VOLUME_TIERS.filter((t) => t.percent > 0).slice().reverse().map((t) => (
-                      <span key={t.min}>🔹 {t.min.toLocaleString("en-IN")}+ units: <strong className="text-foreground">{t.percent}% off</strong></span>
+                      <span key={t.min} className="inline-flex items-center gap-1.5 bg-background border border-border rounded-full px-3 py-1.5 text-[12px] text-muted-foreground">
+                        {t.min.toLocaleString("en-IN")}+ units
+                        <strong className="text-primary font-semibold">{t.percent}% off</strong>
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -623,7 +676,7 @@ export default function QuoteCalculator() {
                       <input id="calcName" type="text" value={contactData.name}
                         onChange={(e) => setContactData((p) => ({ ...p, name: e.target.value }))}
                         placeholder="Full name"
-                        className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border/80 focus:border-primary rounded-lg focus:outline-none text-foreground" />
+                        className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-lg focus:outline-none text-foreground transition-all duration-200" />
                       {errors.name && <p className="text-xs text-destructive mt-1">{errors.name}</p>}
                     </div>
                     <div>
@@ -631,7 +684,7 @@ export default function QuoteCalculator() {
                       <input id="calcEmail" type="email" value={contactData.email}
                         onChange={(e) => setContactData((p) => ({ ...p, email: e.target.value }))}
                         placeholder="your.email@example.com"
-                        className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border/80 focus:border-primary rounded-lg focus:outline-none text-foreground" />
+                        className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-lg focus:outline-none text-foreground transition-all duration-200" />
                       {errors.email && <p className="text-xs text-destructive mt-1">{errors.email}</p>}
                     </div>
                     <div>
@@ -639,7 +692,7 @@ export default function QuoteCalculator() {
                       <input id="calcPhone" type="text" value={contactData.phone}
                         onChange={(e) => setContactData((p) => ({ ...p, phone: e.target.value }))}
                         placeholder="+91-XXXXXXXXXX"
-                        className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border/80 focus:border-primary rounded-lg focus:outline-none text-foreground" />
+                        className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-lg focus:outline-none text-foreground transition-all duration-200" />
                       {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
                     </div>
                     <div>
@@ -647,13 +700,13 @@ export default function QuoteCalculator() {
                       <input id="calcCompany" type="text" value={contactData.company}
                         onChange={(e) => setContactData((p) => ({ ...p, company: e.target.value }))}
                         placeholder="Your company name"
-                        className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border/80 focus:border-primary rounded-lg focus:outline-none text-foreground" />
+                        className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-lg focus:outline-none text-foreground transition-all duration-200" />
                     </div>
                   </div>
 
                   <div>
                     <label className="text-sm font-semibold text-foreground">Upload logo / artwork (optional)</label>
-                    <div className="mt-2 flex items-center justify-center border-2 border-dashed border-border/80 rounded-lg p-5 bg-secondary/50 hover:bg-secondary transition-colors relative">
+                    <div className="mt-2 flex items-center justify-center border-2 border-dashed border-border hover:border-primary/40 rounded-lg p-6 bg-secondary/50 hover:bg-secondary transition-colors relative">
                       <input type="file" accept={ARTWORK_ACCEPT} onChange={handleFileUpload}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                       <div className="text-center space-y-1">
@@ -673,18 +726,24 @@ export default function QuoteCalculator() {
                     <textarea id="calcMessage" value={contactData.message}
                       onChange={(e) => setContactData((p) => ({ ...p, message: e.target.value }))}
                       placeholder="Colours, custom shapes, branding placement, delivery timeline or packaging preferences…"
-                      className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border/80 focus:border-primary rounded-lg focus:outline-none min-h-[90px] text-foreground" />
+                      className="mt-2 w-full px-4 py-2.5 bg-secondary border border-border focus:border-primary focus:ring-4 focus:ring-primary/10 rounded-lg focus:outline-none min-h-[110px] text-foreground transition-all duration-200" />
                   </div>
 
-                  <div className="flex justify-between items-center pt-6 border-t border-border">
-                    <button type="button" onClick={() => setStep(1)}
-                      className="px-5 py-2.5 border border-border hover:bg-muted text-foreground font-semibold rounded-lg flex items-center gap-2 transition-colors cursor-pointer">
-                      <ChevronLeft className="h-4 w-4" /> Back to catalogue
-                    </button>
-                    <button type="submit" disabled={isSubmitting}
-                      className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-lg flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none">
-                      {isSubmitting ? "Submitting…" : <>Submit request <Check className="h-4 w-4" /></>}
-                    </button>
+                  <div className="pt-6 border-t border-border">
+                    <div className="flex flex-wrap-reverse gap-3 justify-between items-center">
+                      <button type="button" onClick={() => setStep(1)}
+                        className="px-5 py-3 border border-border hover:border-foreground/40 text-foreground font-semibold rounded-full flex items-center gap-2 transition-colors cursor-pointer">
+                        <ChevronLeft className="h-4 w-4" /> Back to catalogue
+                      </button>
+                      <button type="submit" disabled={isSubmitting}
+                        className="px-7 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-full flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none">
+                        {isSubmitting ? "Submitting…" : <>Get my quote <ArrowRight className="h-4 w-4" /></>}
+                      </button>
+                    </div>
+                    <p className="mt-4 text-[13px] text-muted-foreground flex items-center gap-1.5">
+                      <ShieldTick size={16} variant="Bulk" color="currentColor" className="text-primary" aria-hidden="true" />
+                      No obligation. Our sales desk replies with a formal GST quotation. We never share your details.
+                    </p>
                   </div>
                 </form>
               </div>
