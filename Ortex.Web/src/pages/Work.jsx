@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback } from "react"
 import { AnimatePresence } from "framer-motion"
-import { Search, X, Eye, SearchX } from "lucide-react"
+import { X } from "lucide-react"
 import {
-  Category, Key, Clock, Medal, Gift, ClipboardText, Flag, Sticker, Tag,
+  Category, Key, Clock, Medal, Gift, ClipboardText, Flag, Sticker, Tag, Eye, SearchNormal1,
 } from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { workPhotos } from "../constants/home"
@@ -102,8 +102,11 @@ export default function Work() {
         <div className="lp-wrap">
           {/* Search */}
           <div className="max-w-lg mx-auto mb-7 relative">
-            <Search
-              className="absolute left-5 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-muted-foreground transition-colors peer-focus:text-primary"
+            <SearchNormal1
+              size={18}
+              color="currentColor"
+              variant="Linear"
+              className="absolute left-5 top-1/2 -translate-y-1/2 text-[#78829D] transition-colors peer-focus:text-primary"
               aria-hidden="true"
             />
             <input
@@ -112,16 +115,16 @@ export default function Work() {
               onChange={(e) => applyFilter({ query: e.target.value })}
               placeholder="Search products, e.g. keychain, clock, badge…"
               aria-label="Search work photos"
-              className="peer w-full pl-12 pr-12 py-3.5 rounded-full bg-background border border-border text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
+              className="peer w-full pl-12 pr-14 py-3.5 rounded-full bg-background border border-[#EBEDF3] text-[16px] text-foreground placeholder:text-[16px] placeholder:font-medium placeholder:text-[#78829D] focus:outline-none focus:border-primary/80 transition-all duration-200 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
             />
             {query && (
               <button
                 type="button"
                 onClick={() => applyFilter({ query: "" })}
                 aria-label="Clear search"
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-150 cursor-pointer"
+                className="absolute top-1/2 -translate-y-1/2 right-3 w-[24px] h-[24px] grid place-items-center rounded-full bg-[#EBEDF3] text-[#071437] hover:bg-primary/10 hover:text-primary transition-all duration-150 cursor-pointer"
               >
-                <X className="h-[18px] w-[18px]" />
+                <X size={14} strokeWidth={2} aria-hidden="true" />
               </button>
             )}
           </div>
@@ -140,10 +143,15 @@ export default function Work() {
                     className={`inline-flex flex-shrink-0 items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-semibold border whitespace-nowrap transition-colors duration-200 cursor-pointer ${
                       activeCategory === cat
                         ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-transparent border-border text-foreground hover:border-foreground/40"
+                        : "bg-transparent border-[#EBEDF3] text-foreground hover:border-foreground/40"
                     }`}
                   >
-                    <Icon size={16} variant="Bulk" color="currentColor" aria-hidden="true" />
+                    <Icon
+                      size={16}
+                      variant="Bulk"
+                      color={activeCategory === cat ? "currentColor" : "#78829D"}
+                      aria-hidden="true"
+                    />
                     {cat === "All" ? "All work" : cat}
                   </button>
                 )
@@ -161,7 +169,7 @@ export default function Work() {
                 aria-label={`View ${photo.title} larger`}
                 className="group text-left cursor-pointer"
               >
-                <div className="relative aspect-square overflow-hidden bg-muted rounded-[4px]">
+                <div className="relative aspect-square overflow-hidden bg-muted rounded-[24px] [corner-shape:squircle]">
                   <img
                     src={photo.image}
                     alt={photo.alt || photo.title}
@@ -171,8 +179,8 @@ export default function Work() {
                   />
                   {/* Hover cue: signals the tile opens a larger view */}
                   <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/25 transition-colors duration-300">
-                    <span className="grid place-items-center h-11 w-11 rounded-full bg-white/95 text-foreground opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
-                      <Eye className="h-5 w-5" aria-hidden="true" />
+                    <span className="grid place-items-center h-11 w-11 rounded-full bg-white text-primary opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
+                      <Eye size={20} color="currentColor" variant="Bulk" aria-hidden="true" />
                     </span>
                   </div>
                 </div>
@@ -197,22 +205,24 @@ export default function Work() {
               >
                 Load more
               </button>
-              <p className="text-sm text-muted-foreground mt-4">
+              <p className="text-sm text-[#4B5675] mt-4">
                 Showing {visible.length} of {filtered.length}
               </p>
             </div>
           )}
 
           {filtered.length === 0 && (
-            <div className="text-center py-20 bg-muted/30 border border-dashed border-border rounded-2xl">
-              <SearchX className="h-10 w-10 mx-auto text-muted-foreground/70 mb-4" aria-hidden="true" />
-              <p className="text-muted-foreground font-medium">
+            <div className="text-center py-20 bg-[#F9FBFC] rounded-[30px] [corner-shape:squircle]">
+              <div className="w-[100px] h-[100px] mx-auto mb-6 grid place-items-center rounded-full bg-primary/20 text-primary">
+                <SearchNormal1 size={50} variant="Bulk" color="currentColor" aria-hidden="true" />
+              </div>
+              <p className="text-[18px] font-medium text-foreground">
                 No work matches {query ? `"${query}"` : "this category"}.
               </p>
               <button
                 type="button"
                 onClick={() => applyFilter({ category: "All", query: "" })}
-                className="mt-4 text-sm font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer"
+                className="mt-4 text-[16px] font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer"
               >
                 Clear filters
               </button>

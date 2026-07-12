@@ -4,7 +4,8 @@ import { Link } from "react-router-dom"
 import { ArrowRight } from "lucide-react"
 import { Printer, Flash, Colorfilter } from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
-import { PRODUCT_CATEGORIES, photosForCategory } from "../constants/categories"
+import { photosForCategory } from "../constants/categories"
+import { useCatalog } from "../lib/catalog"
 import { fadeUp, RevealWords } from "../components/home/Section"
 import PageCTA from "../components/ui/PageCTA"
 
@@ -115,16 +116,17 @@ export default function Products() {
     { path: "/products" }
   )
 
-  // The hub renders the real catalogue taxonomy from constants/categories.js —
-  // the same 12 categories the quote builder prices — instead of a separate
-  // hardcoded marketing list that had drifted from it.
-  const categories = PRODUCT_CATEGORIES.map((entry) => {
+  // The hub renders the live catalogue taxonomy managed in the Admin panel
+  // (with the static constants as fallback). Admin-set display name / intro /
+  // image win; otherwise the hand-tuned CARD_COPY, then the static defaults.
+  const { categories: liveCategories } = useCatalog()
+  const categories = liveCategories.map((entry) => {
     const copy = CARD_COPY[entry.slug]
     return {
       slug: entry.slug,
-      title: copy?.title || entry.name,
-      description: copy?.description || entry.seoDescription,
-      image: photosForCategory(entry, 1)[0]?.url || FALLBACK_IMAGE,
+      title: entry._live?.displayName?.trim() || copy?.title || entry.name,
+      description: entry._live?.intro?.trim() || copy?.description || entry.seoDescription,
+      image: entry.image || photosForCategory(entry, 1)[0]?.url || FALLBACK_IMAGE,
     }
   })
 
@@ -190,7 +192,7 @@ export default function Products() {
                 >
                   <Link
                     to={`/products/${item.slug}`}
-                    className="group flex flex-col h-full rounded-[4px] bg-card transition-colors duration-300 overflow-hidden"
+                    className="group flex flex-col h-full rounded-[24px] [corner-shape:squircle] bg-card transition-colors duration-300 overflow-hidden"
                   >
                     <div className="aspect-[4/3] overflow-hidden bg-muted">
                       <img
@@ -334,11 +336,11 @@ export default function Products() {
 
       {/* Call to Action Section */}
       <PageCTA
-        title="Have a product in mind?"
+        title="Spotted the one? Let's price it."
         primary={{ to: "/quote", label: "Get a quote" }}
         secondary={{ to: "/contact", label: "Talk to us" }}
       >
-        Share your requirements and we'll get back with materials, MOQ, and pricing tailored to your project.
+        Share your requirements and we'll come back with materials, MOQ, and pricing tailored to your run.
       </PageCTA>
     </>
   )

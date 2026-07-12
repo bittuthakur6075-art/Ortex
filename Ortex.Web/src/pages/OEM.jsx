@@ -140,7 +140,7 @@ export default function OEM() {
             >
               <img
                 src="/img/hero-oem.jpg"
-                alt="Ortex production floor running a white-label manufacturing batch"
+                alt="CNC laser cutting custom shapes on the Ortex production floor"
                 loading="lazy"
                 decoding="async"
                 className="w-full h-full object-cover"
@@ -306,11 +306,12 @@ export default function OEM() {
 
       {/* CTA */}
       <PageCTA
-        title="Let's talk about your line"
+        title="Your label. Our line. Zero compromise."
         primary={{ to: "/quote", label: "Request pricing" }}
         secondary={{ to: "/contact", label: "Contact us" }}
       >
-        Send us your specification and we will come back with costing, a technical proof, and a production window.
+        Send your spec, get back costing, a technical proof, and a production window. Every unit made under your
+        brand.
       </PageCTA>
 
     </div>

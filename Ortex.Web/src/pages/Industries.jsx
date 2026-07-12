@@ -283,11 +283,12 @@ export default function Industries() {
 
       {/* Call to Action Section */}
       <PageCTA
-        title="Solutions built for your sector"
+        title="One supplier. Your whole sector, covered."
         primary={{ to: "/contact", label: "Get in touch" }}
         secondary={{ to: "/products", label: "Browse products" }}
       >
-        Tell us about your industry and requirements, and we will recommend the right products, materials, and branding for your organisation.
+        Tell us your industry and volumes. We will spec the right products, materials, and branding for your
+        organisation.
       </PageCTA>
     </>
   )

@@ -59,6 +59,7 @@
   height: 40px;
   width: auto;
   display: block;
+  filter: brightness(0) invert(1);
 }
 
 .lp-footer-tagline {
@@ -228,16 +229,15 @@
   padding: 9px 20px;
   border-radius: 999px;
   background: #25D366;
-  color: #04371f;
-  font-size: clamp(14px, 1.4vw, 15px);
-  font-weight: 700;
+  color: #071437;
+  font-size: 16px;
+  font-weight: 600;
   text-decoration: none;
   transition: background 0.14s, transform 0.14s;
 }
 
 .lp-footer-whatsapp:hover {
-  background: #1fb757;
-  transform: translateY(-1px);
+  background: #1FB757;
 }
 
 .lp-footer-whatsapp svg {
@@ -278,9 +278,10 @@
 
 .lp-footer-clabel {
   margin: 0;
-  font-size: clamp(20px, 2vw, 24px);
+  font-size: 14px;
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: #fff;
 }
 
@@ -301,6 +302,28 @@
 
 .lp-footer-cval {
   max-width: 34ch;
+}
+
+.lp-footer-cgroup--row {
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+}
+
+.lp-footer-cgroup a.lp-footer-whatsapp {
+  color: #071437;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.lp-footer-cgroup a.lp-footer-whatsapp:hover {
+  color: #071437;
+}
+
+.lp-footer-whatsapp-icon {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
 }
 
 .lp-footer-cgroup a.lp-footer-email {

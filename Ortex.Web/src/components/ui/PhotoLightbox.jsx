@@ -1,7 +1,15 @@
-import { useEffect } from "react"
-import { motion } from "framer-motion"
-import { CloseCircle, ArrowLeft2, ArrowRight2, Sms } from "iconsax-react"
+import { useEffect, useRef } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { CloseCircle, ArrowLeft, ArrowRight, Sms, Ruler, Layer, Colorfilter, Printer, Flash } from "iconsax-react"
 import { Link } from "react-router-dom"
+
+// Slide-in variants for the premium image transition. `dir` is +1 when moving
+// to the next photo, -1 to the previous.
+const slide = {
+  enter: (dir) => ({ x: dir > 0 ? "55%" : "-55%", opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (dir) => ({ x: dir > 0 ? "-55%" : "55%", opacity: 0 }),
+}
 
 /**
  * Shared production-photo lightbox for the Work page. Expects a normalised
@@ -13,7 +21,13 @@ import { Link } from "react-router-dom"
 
 // Applies to every product on the site — shown as scannable chips so the panel
 // communicates real value instead of one generic paragraph.
-const CUSTOMIZABLE = ["Size & shape", "Material", "Colour", "UV printing", "Laser engraving"]
+const CUSTOMIZABLE = [
+  { label: "Size & shape", icon: Ruler },
+  { label: "Material", icon: Layer },
+  { label: "Colour", icon: Colorfilter },
+  { label: "UV printing", icon: Printer },
+  { label: "Laser engraving", icon: Flash },
+]
 
 export default function PhotoLightbox({ item, description, index, total, onClose, onPrev, onNext }) {
   useEffect(() => {
@@ -29,6 +43,13 @@ export default function PhotoLightbox({ item, description, index, total, onClose
       document.body.style.overflow = ""
     }
   }, [onClose, onPrev, onNext])
+
+  // Slide direction, derived from how the index changed since the last render.
+  const prevIndex = useRef(index)
+  const direction = typeof index === "number" && index !== prevIndex.current
+    ? (index > prevIndex.current ? 1 : -1)
+    : 1
+  useEffect(() => { prevIndex.current = index }, [index])
 
   const enquireHref = `/contact?product=${encodeURIComponent(item.title)}&category=${encodeURIComponent(item.category || "")}`
   const hasCounter = typeof index === "number" && typeof total === "number" && total > 0
@@ -57,10 +78,10 @@ export default function PhotoLightbox({ item, description, index, total, onClose
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onPrev() }}
-        className="absolute left-4 md:left-8 text-white/70 hover:text-white p-3 rounded-full hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+        className="absolute left-4 md:left-8 z-10 grid place-items-center h-12 w-12 rounded-full bg-white/20 text-white hover:bg-white hover:text-primary transition-colors duration-200 cursor-pointer"
         aria-label="Previous image"
       >
-        <ArrowLeft2 size={32} color="currentColor" />
+        <ArrowLeft size={22} color="currentColor" />
       </button>
 
       <motion.div
@@ -71,52 +92,65 @@ export default function PhotoLightbox({ item, description, index, total, onClose
         className="w-[92vw] md:w-[80vw] md:h-[80vh] flex flex-col md:flex-row bg-background rounded-none overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="w-full aspect-square md:w-auto md:h-full md:aspect-square shrink-0 bg-secondary flex items-center justify-center p-5 md:p-8">
-          <img
-            src={item.src}
-            alt={item.alt || item.title}
-            className="max-w-full max-h-full object-contain"
-          />
+        <div className="relative w-full aspect-square md:w-auto md:h-full md:aspect-square shrink-0 bg-secondary overflow-hidden">
+          <AnimatePresence initial={false} custom={direction} mode="popLayout">
+            <motion.img
+              key={item.src}
+              src={item.src}
+              alt={item.alt || item.title}
+              custom={direction}
+              variants={slide}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                x: { type: "spring", stiffness: 260, damping: 30 },
+                opacity: { duration: 0.25, ease: "easeOut" },
+              }}
+              className="absolute inset-0 w-full h-full object-contain p-5 md:p-8"
+            />
+          </AnimatePresence>
         </div>
 
         <div className="flex-1 min-w-0 p-8 md:p-10 flex flex-col text-left overflow-y-auto">
           {/* Header: category + position counter */}
           <div className="flex items-center justify-between gap-4 mb-4">
             {item.category ? (
-              <span className="text-[13px] font-semibold uppercase tracking-[0.18em] text-primary">
+              <span className="text-[16px] font-semibold uppercase tracking-[0.04em] text-primary">
                 {item.category}
               </span>
             ) : <span />}
             {hasCounter && (
-              <span className="text-[13px] font-medium text-muted-foreground tabular-nums whitespace-nowrap">
+              <span className="text-[13px] font-medium text-[#99A1B7] tabular-nums whitespace-nowrap">
                 {index + 1} / {total}
               </span>
             )}
           </div>
 
-          <h2 className="text-[26px] md:text-[30px] font-semibold text-foreground tracking-tight leading-tight">
+          <h2 className="text-[32px] font-semibold text-foreground leading-tight">
             {item.title}
           </h2>
 
-          <div className="h-px bg-border w-full my-6" />
+          <div className="h-px bg-[#EBEDF3] w-full my-6" />
 
-          <p className="text-[15px] font-normal text-muted-foreground leading-relaxed">
+          <p className="text-[18px] font-normal text-foreground leading-relaxed">
             {description ||
               "Custom manufacturing is fully supported for this product. Request changes to size, shape, material thickness, colour scheme, and branding method."}
           </p>
 
           {/* What can be customized — scannable chips */}
           <div className="mt-7">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-3">
+            <p className="text-[14px] font-medium uppercase tracking-[0.04em] text-[#4B5675] mb-3">
               Fully customizable
             </p>
             <div className="flex flex-wrap gap-2">
               {CUSTOMIZABLE.map((c) => (
                 <span
-                  key={c}
-                  className="text-[12px] font-semibold text-primary bg-primary/10 rounded-full px-3 py-[6px] whitespace-nowrap"
+                  key={c.label}
+                  className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-primary bg-primary/10 rounded-full px-3 py-[6px] whitespace-nowrap"
                 >
-                  {c}
+                  <c.icon size={16} color="currentColor" variant="Bulk" aria-hidden="true" />
+                  {c.label}
                 </span>
               ))}
             </div>
@@ -129,7 +163,7 @@ export default function PhotoLightbox({ item, description, index, total, onClose
               onClick={onClose}
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3.5 px-6 font-semibold rounded-full text-center transition-colors duration-200 flex items-center justify-center gap-2"
             >
-              <Sms size={20} color="currentColor" variant="Bulk" aria-hidden="true" />
+              <Sms size={20} color="currentColor" variant="Linear" aria-hidden="true" />
               Enquire about this product
             </Link>
             <Link
@@ -146,10 +180,10 @@ export default function PhotoLightbox({ item, description, index, total, onClose
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onNext() }}
-        className="absolute right-4 md:right-8 text-white/70 hover:text-white p-3 rounded-full hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+        className="absolute right-4 md:right-8 z-10 grid place-items-center h-12 w-12 rounded-full bg-white/20 text-white hover:bg-white hover:text-primary transition-colors duration-200 cursor-pointer"
         aria-label="Next image"
       >
-        <ArrowRight2 size={32} color="currentColor" />
+        <ArrowRight size={22} color="currentColor" />
       </button>
     </motion.div>
   )

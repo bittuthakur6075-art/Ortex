@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom"
 import RollText from "../ui/RollText"
-import { CONTACT } from "../../constants/site"
+import WhatsAppIcon from "../ui/WhatsAppIcon"
+import { CONTACT, whatsappLink } from "../../constants/site"
 import "./Footer.css"
 
 export default function Footer() {
@@ -45,10 +46,17 @@ export default function Footer() {
               </span>
             </div>
 
-            <div className="lp-footer-cgroup">
-              <h3 className="lp-footer-clabel">Office</h3>
-              <p className="lp-footer-cval">New Delhi, India</p>
-              <p className="lp-footer-cval">Open Monday to Saturday, 9:00 AM to 6:00 PM</p>
+            <div className="lp-footer-cgroup lp-footer-cgroup--row">
+              <h3 className="lp-footer-clabel">Chat with us</h3>
+              <a
+                className="lp-footer-whatsapp"
+                href={whatsappLink()}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <WhatsAppIcon className="lp-footer-whatsapp-icon" />
+                <span>Message us on WhatsApp</span>
+              </a>
             </div>
           </div>
 

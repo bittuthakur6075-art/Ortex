@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from "react"
-import { Tags, Plus, Pencil, Trash2, Sparkles } from "../components/icons"
+import { Tags, Plus, Pencil, Trash2, Sparkles, X } from "../components/icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { useCollection, useSorting } from "../data/hooks"
-import { newCategory, GST_RATES, PRODUCT_CATEGORIES } from "../data/schema"
+import { newCategory, slugifyCategory, GST_RATES, PRODUCT_CATEGORIES } from "../data/schema"
+import { uploadImage, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "../lib/imageUpload"
+import { triggerSiteRebuild } from "../lib/revalidate"
 import PageHeader from "../components/PageHeader"
 import { Button, Card, Input, Select, Textarea, Field, EmptyState, Modal, PageLoader, SortTh } from "../components/ui"
 
@@ -111,6 +113,7 @@ function CategoryForm({ open, category, usage, onClose }) {
   const isEdit = !!category
   const [form, setForm] = useState(newCategory())
   const [error, setError] = useState("")
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -121,9 +124,33 @@ function CategoryForm({ open, category, usage, onClose }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
+  const handleImage = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    if (file.size > MAX_IMAGE_BYTES) return toast.error(`Image too large — over ${MAX_IMAGE_MB}MB.`)
+    setUploading(true)
+    try {
+      const url = await uploadImage(file, "categories")
+      set("image", url)
+      toast.success("Image uploaded")
+    } catch (err) {
+      console.error("Category image upload failed:", err)
+      toast.error("Failed to upload image")
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const save = async () => {
     if (!form.name.trim()) return setError("Name is required")
-    const payload = { ...form, gstRate: Number(form.gstRate) }
+    const payload = {
+      ...form,
+      gstRate: Number(form.gstRate),
+      sortOrder: Number(form.sortOrder) || 0,
+      // Auto-derive a URL slug from the name when the admin leaves it blank.
+      slug: form.slug.trim() || slugifyCategory(form.name),
+    }
     if (isEdit) {
       await repo.update("categories", category.id, payload)
       toast.success("Category updated")
@@ -131,6 +158,7 @@ function CategoryForm({ open, category, usage, onClose }) {
       await repo.create("categories", payload)
       toast.success("Category added")
     }
+    triggerSiteRebuild()
     onClose()
   }
 
@@ -139,6 +167,7 @@ function CategoryForm({ open, category, usage, onClose }) {
     if (window.confirm(`Delete category "${category.name}"?`)) {
       await repo.remove("categories", category.id)
       toast.success("Category deleted")
+      triggerSiteRebuild()
       onClose()
     }
   }
@@ -148,7 +177,7 @@ function CategoryForm({ open, category, usage, onClose }) {
       open={open}
       onClose={onClose}
       title={isEdit ? "Edit category" : "New category"}
-      width="max-w-md"
+      width="max-w-2xl"
       footer={
         <div className="flex w-full items-center justify-between">
           {isEdit ? (
@@ -170,9 +199,15 @@ function CategoryForm({ open, category, usage, onClose }) {
       }
     >
       <div className="space-y-4">
-        <Field label="Category name" required error={error}>
-          <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Acrylic products" autoFocus />
-        </Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Category name" required error={error} hint="Must match the name on products">
+            <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Acrylic products" autoFocus />
+          </Field>
+          <Field label="URL slug" hint="Auto-filled from name if blank">
+            <Input value={form.slug} onChange={(e) => set("slug", e.target.value)} placeholder={slugifyCategory(form.name) || "acrylic-products"} />
+          </Field>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <Field label="Default HSN" hint="Pre-fills on products">
             <Input value={form.hsn} onChange={(e) => set("hsn", e.target.value)} placeholder="3926" />
@@ -187,8 +222,58 @@ function CategoryForm({ open, category, usage, onClose }) {
             </Select>
           </Field>
         </div>
-        <Field label="Description">
-          <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Optional notes" />
+
+        <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Website content</p>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={form.active !== false} onChange={(e) => set("active", e.target.checked)} />
+              Show on website
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Display heading" hint="Shown on site; falls back to name">
+              <Input value={form.displayName} onChange={(e) => set("displayName", e.target.value)} placeholder={form.name || "Custom Acrylic Products"} />
+            </Field>
+            <Field label="Sort order" hint="Lower shows first">
+              <Input type="number" value={form.sortOrder} onChange={(e) => set("sortOrder", e.target.value)} placeholder="0" />
+            </Field>
+          </div>
+
+          <Field label="Intro paragraph" hint="Marketing copy on the category page">
+            <Textarea value={form.intro} onChange={(e) => set("intro", e.target.value)} placeholder="One or two sentences describing this category…" />
+          </Field>
+
+          <Field label="Category image">
+            {form.image ? (
+              <div className="flex items-center gap-3">
+                <img src={form.image} alt="" className="h-16 w-16 rounded-md object-cover border border-border" />
+                <Button variant="outline" size="sm" onClick={() => set("image", "")}>
+                  <X className="h-4 w-4" /> Remove
+                </Button>
+              </div>
+            ) : (
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50">
+                <Plus className="h-4 w-4" />
+                {uploading ? "Uploading…" : "Upload image"}
+                <input type="file" accept="image/*" className="hidden" onChange={handleImage} disabled={uploading} />
+              </label>
+            )}
+          </Field>
+
+          <div className="grid grid-cols-1 gap-4">
+            <Field label="SEO title" hint="Browser tab + Google result title">
+              <Input value={form.seoTitle} onChange={(e) => set("seoTitle", e.target.value)} placeholder="Custom Acrylic Products Manufacturer | Ortex Industries" />
+            </Field>
+            <Field label="SEO description" hint="Google result snippet (~155 chars)">
+              <Textarea value={form.seoDescription} onChange={(e) => set("seoDescription", e.target.value)} placeholder="Short description for search engines…" />
+            </Field>
+          </div>
+        </div>
+
+        <Field label="Internal notes">
+          <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Private notes (not shown on website)" />
         </Field>
       </div>
     </Modal>

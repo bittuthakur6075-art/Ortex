@@ -15,21 +15,46 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import {
-  PRODUCT_CATEGORIES, buildCategorySchema, photosForCategory, SITE_URL,
-} from "../src/constants/categories.js"
+import { createClient } from "@supabase/supabase-js"
+import { buildCategorySchema, photosForCategory, SITE_URL } from "../src/constants/categories.js"
+import { mergeCategories, mapProduct, staticCategories } from "../src/lib/catalogData.js"
 import { STATIC_ROUTES } from "./routes-meta.mjs"
 
 const dist = resolve(dirname(fileURLToPath(import.meta.url)), "..", "dist")
 const template = readFileSync(join(dist, "index.html"), "utf8")
 
-const CATEGORY_ROUTES = PRODUCT_CATEGORIES.map((entry) => ({
-  path: `/products/${entry.slug}`,
-  title: entry.seoTitle,
-  description: entry.seoDescription,
-  image: photosForCategory(entry, 1)[0]?.url,
-  schema: buildCategorySchema(entry),
-}))
+// Pull the live, Admin-managed catalogue at build time so prerendered SEO/
+// JSON-LD reflects Admin edits. Falls back to the static constants when Supabase
+// env vars are absent (e.g. local build) or the fetch fails.
+async function loadLiveCatalogue() {
+  const url = process.env.VITE_SUPABASE_URL
+  const key = process.env.VITE_SUPABASE_ANON_KEY
+  if (!url || !key) return null
+  try {
+    const sb = createClient(url, key)
+    const [prodRes, catRes] = await Promise.all([
+      sb.from("products").select("id, doc"),
+      sb.from("categories").select("id, doc"),
+    ])
+    if (prodRes.error || catRes.error) throw prodRes.error || catRes.error
+    const products = (prodRes.data || []).map(mapProduct).filter((p) => p.status === "active")
+    const categories = mergeCategories((catRes.data || []).map((r) => ({ id: r.id, ...(r.doc || {}) })))
+    return { products: products.length ? products : undefined, categories }
+  } catch (err) {
+    console.warn("prerender: live catalogue fetch failed, using static —", err.message)
+    return null
+  }
+}
+
+function categoryRoutes(categories, products) {
+  return categories.map((entry) => ({
+    path: `/products/${entry.slug}`,
+    title: entry.seoTitle,
+    description: entry.seoDescription,
+    image: entry.image || photosForCategory(entry, 1)[0]?.url,
+    schema: buildCategorySchema(entry, products),
+  }))
+}
 
 const escapeAttr = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;")
 
@@ -87,7 +112,18 @@ function writeSitemap(routes) {
   writeFileSync(join(dist, "sitemap.xml"), lines.join("\n") + "\n")
 }
 
-const routes = [...STATIC_ROUTES, ...CATEGORY_ROUTES]
-for (const route of routes) renderRoute(route)
-writeSitemap(routes)
-console.log(`prerendered ${routes.length} routes (+ sitemap.xml with ${routes.length + 1} URLs)`)
+async function main() {
+  const live = await loadLiveCatalogue()
+  const categories = live?.categories || staticCategories()
+  const routes = [...STATIC_ROUTES, ...categoryRoutes(categories, live?.products)]
+  for (const route of routes) renderRoute(route)
+  writeSitemap(routes)
+  console.log(
+    `prerendered ${routes.length} routes (+ sitemap.xml with ${routes.length + 1} URLs)${live ? " [live catalogue]" : ""}`,
+  )
+}
+
+main().catch((err) => {
+  console.error("prerender failed:", err)
+  process.exit(1)
+})

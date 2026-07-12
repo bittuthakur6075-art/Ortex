@@ -104,7 +104,7 @@ export const UNITS = ["pcs", "set", "box", "sqft", "kg", "roll"]
 
 export const GST_RATES = [0, 5, 12, 18, 28]
 
-export const LEAD_SOURCES = ["Website contact form", "Quote calculator", "WhatsApp", "Phone", "Referral", "Trade show", "Email", "Other"]
+export const LEAD_SOURCES = ["Website contact form", "Quote calculator", "Orty chatbot", "WhatsApp", "Phone", "Referral", "Trade show", "Email", "Other"]
 
 // Captured on every lost quotation — turns losses into a fixable list.
 export const LOST_REASONS = [
@@ -265,7 +265,32 @@ export function newActivity(overrides = {}) {
 }
 
 export function newCategory(overrides = {}) {
-  return { name: "", hsn: "", gstRate: 18, description: "", ...overrides }
+  return {
+    name: "",
+    hsn: "",
+    gstRate: 18,
+    description: "",
+    // Website-facing fields (read live by Ortex.Web catalogue pages):
+    slug: "", // URL segment, e.g. "acrylic-products"; auto-derived if blank
+    displayName: "", // heading shown on site; falls back to name
+    intro: "", // marketing paragraph on the category page
+    seoTitle: "", // <title> / og:title for the category page
+    seoDescription: "", // meta description
+    image: "", // hero/card image URL (public bucket or remote)
+    sortOrder: 0, // display order on the /products hub
+    active: true, // when false, hidden from the website
+    ...overrides,
+  }
+}
+
+/** URL-safe slug from a category name ("Acrylic products" → "acrylic-products"). */
+export function slugifyCategory(name) {
+  return String(name || "")
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
 }
 
 export function newUserActivity(overrides = {}) {

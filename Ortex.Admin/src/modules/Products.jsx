@@ -1,11 +1,14 @@
 import { useState, useMemo, useEffect, useRef } from "react"
-import { Package, Plus, Search, Pencil, Trash2, Download, Upload, X } from "../components/icons"
+import { Package, Plus, Search, Pencil, Trash2, Download, Upload, X, Sparkles } from "../components/icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
+import { supabase, hasSupabase } from "../data/supabaseClient"
+import { triggerSiteRebuild } from "../lib/revalidate"
 import { useCollection, useCategories, useSorting } from "../data/hooks"
 import { PRODUCT_STATUS, UNITS, GST_RATES, newProduct, autoDetectCategory } from "../data/schema"
 import { formatCurrency, round2 } from "../lib/format"
 import { exportCsv } from "../lib/csv"
+import { uploadImage, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "../lib/imageUpload"
 import { cn } from "../lib/cn"
 import ProductImport from "../components/ProductImport"
 import PageHeader from "../components/PageHeader"
@@ -318,61 +321,8 @@ export default function Products() {
   )
 }
 
-// Upload guardrails — keep the base64 payload within localStorage/JSON limits.
+// Cap images per product. Compression + upload live in lib/imageUpload.js.
 const MAX_IMAGES = 8
-const MAX_FILE_MB = 10
-const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024
-
-// Compress and resize images to stay within localStorage / JSON size limits
-const compressImage = (file) => {
-  return new Promise((resolve) => {
-    const reader = new FileReader()
-    reader.readAsDataURL(file)
-    reader.onload = (event) => {
-      const img = new Image()
-      img.src = event.target.result
-      img.onload = () => {
-        const canvas = document.createElement("canvas")
-        const MAX_WIDTH = 600 // Good size for thumbnails / detail views
-        const MAX_HEIGHT = 600
-        let width = img.width
-        let height = img.height
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width
-            width = MAX_WIDTH
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height
-            height = MAX_HEIGHT
-          }
-        }
-
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext("2d")
-        // JPEG has no alpha channel — paint white first so transparent PNGs
-        // (cutouts, logos) don't flatten to black.
-        ctx.fillStyle = "#ffffff"
-        ctx.fillRect(0, 0, width, height)
-        ctx.drawImage(img, 0, 0, width, height)
-
-        // Output compressed JPEG to keep size minimal
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.75)
-        resolve(dataUrl)
-      }
-      img.onerror = () => {
-        // Fallback to original read if image load fails
-        resolve(event.target.result)
-      }
-    }
-    reader.onerror = () => {
-      resolve(null)
-    }
-  })
-}
 
 
 function ProductDetail({ open, product, quotations = [], invoices = [], onClose, onEdit }) {
@@ -605,6 +555,46 @@ function ProductForm({ open, product, categories = [], onClose }) {
   const [urlInput, setUrlInput] = useState("")
   const [isCompressing, setIsCompressing] = useState(false)
   const [hasManuallyChangedCategory, setHasManuallyChangedCategory] = useState(false)
+  const [aiBusy, setAiBusy] = useState(false)
+
+  // Generate SEO- and marketing-optimised title, description, and category via
+  // the product-copywriter Edge Function (Gemini, key held server-side).
+  const generateCopy = async () => {
+    if (!hasSupabase) return toast.error("Connect Supabase to use AI copy.")
+    if (!form.name.trim() && !form.material.trim()) {
+      return toast.error("Enter a product name or a few keywords first.")
+    }
+    setAiBusy(true)
+    try {
+      const allowedCategories = categories.map((c) => c.name)
+      const { data, error } = await supabase.functions.invoke("product-copywriter", {
+        body: {
+          name: form.name,
+          category: form.category,
+          material: form.material,
+          basePrice: form.basePrice,
+          unit: form.unit,
+          moq: form.moq,
+          allowedCategories,
+        },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      setForm((f) => ({
+        ...f,
+        name: data.name?.trim() || f.name,
+        description: data.description?.trim() || f.description,
+        category: allowedCategories.includes(data.category) ? data.category : f.category,
+      }))
+      if (data.category && allowedCategories.includes(data.category)) setHasManuallyChangedCategory(true)
+      toast.success("AI copy generated — review before saving")
+    } catch (err) {
+      console.error("AI copy failed:", err)
+      toast.error(err?.message || "AI generation failed")
+    } finally {
+      setAiBusy(false)
+    }
+  }
 
   const addImageUrl = () => {
     if (!urlInput.trim()) return
@@ -628,9 +618,9 @@ function ProductForm({ open, product, categories = [], onClose }) {
       toast.error(`You can add up to ${MAX_IMAGES} images per product.`)
       return
     }
-    const oversized = files.filter((f) => f.size > MAX_FILE_BYTES)
-    let accepted = files.filter((f) => f.size <= MAX_FILE_BYTES)
-    if (oversized.length) toast.error(`${oversized.length} file(s) skipped — over ${MAX_FILE_MB}MB.`)
+    const oversized = files.filter((f) => f.size > MAX_IMAGE_BYTES)
+    let accepted = files.filter((f) => f.size <= MAX_IMAGE_BYTES)
+    if (oversized.length) toast.error(`${oversized.length} file(s) skipped — over ${MAX_IMAGE_MB}MB.`)
     let trimmed = false
     if (accepted.length > room) {
       accepted = accepted.slice(0, room)
@@ -640,18 +630,20 @@ function ProductForm({ open, product, categories = [], onClose }) {
 
     setIsCompressing(true)
     try {
-      const compressedUrls = await Promise.all(accepted.map(compressImage))
-      const validUrls = compressedUrls.filter(Boolean)
+      // Compress + upload each image to Storage; store the returned public URL.
+      const results = await Promise.allSettled(accepted.map((f) => uploadImage(f, "products")))
+      const urls = results.filter((r) => r.status === "fulfilled").map((r) => r.value)
+      const failed = results.length - urls.length
       setForm((f) => ({
         ...f,
-        images: [...(f.images || []), ...validUrls]
+        images: [...(f.images || []), ...urls]
       }))
-      if (validUrls.length) toast.success(`Added ${validUrls.length} image(s)`)
-      if (validUrls.length < accepted.length) toast.error(`${accepted.length - validUrls.length} image(s) couldn't be processed.`)
+      if (urls.length) toast.success(`Added ${urls.length} image(s)`)
+      if (failed) toast.error(`${failed} image(s) failed to upload.`)
       if (trimmed) toast.error(`Only the first ${room} added — ${MAX_IMAGES}-image limit reached.`)
     } catch (err) {
-      console.error("Image upload/compression error:", err)
-      toast.error("Failed to upload/compress some images")
+      console.error("Image upload error:", err)
+      toast.error("Failed to upload some images")
     } finally {
       setIsCompressing(false)
     }
@@ -756,6 +748,7 @@ function ProductForm({ open, product, categories = [], onClose }) {
         await repo.create("products", payload)
         toast.success("Product added")
       }
+      triggerSiteRebuild()
       onClose()
     } catch (err) {
       // Most likely a localStorage quota hit from large base64 images — keep the
@@ -769,6 +762,7 @@ function ProductForm({ open, product, categories = [], onClose }) {
     if (window.confirm(`Delete "${product.name}"? This cannot be undone.`)) {
       await repo.remove("products", product.id)
       toast.success("Product deleted")
+      triggerSiteRebuild()
       onClose()
     }
   }
@@ -803,6 +797,19 @@ function ProductForm({ open, product, categories = [], onClose }) {
       }
     >
       <div className="space-y-4">
+        {/* AI copywriter — fills SEO title, marketing description, and category */}
+        {hasSupabase && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">Write with AI</p>
+              <p className="text-xs text-muted-foreground">SEO title, marketing description, and best-fit category from the name/material.</p>
+            </div>
+            <Button size="sm" onClick={generateCopy} disabled={aiBusy}>
+              <Sparkles className="h-4 w-4" /> {aiBusy ? "Writing…" : "Generate"}
+            </Button>
+          </div>
+        )}
+
         {/* 1. Product Name */}
         <Field label="Product name" required error={errors.name}>
           <Input value={form.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="e.g. Custom MDF Award Trophy" />

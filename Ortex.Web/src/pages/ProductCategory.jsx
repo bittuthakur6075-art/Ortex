@@ -7,9 +7,9 @@ import {
 } from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import {
-  PRODUCT_CATEGORIES, categoryBySlug, categoryStats, categoryFaqs,
-  photosForCategory, buildCategorySchema,
+  categoryStats, categoryFaqs, photosForCategory, buildCategorySchema,
 } from "../constants/categories"
+import { useCatalog } from "../lib/catalog"
 import { VOLUME_TIERS, volumeDiscountPercent } from "../constants/products"
 import { whatsappLink } from "../constants/site"
 import { fadeUp, RevealWords } from "../components/home/Section"
@@ -25,11 +25,13 @@ const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`
  */
 export default function ProductCategory() {
   const { slug } = useParams()
-  const entry = categoryBySlug(slug)
+  // Live, Admin-managed catalogue (static fallback baked into useCatalog).
+  const { products, categories, loading } = useCatalog()
+  const entry = useMemo(() => categories.find((c) => c.slug === slug) || null, [categories, slug])
 
   // All hooks run unconditionally; the unknown-slug redirect happens below.
-  const stats = useMemo(() => (entry ? categoryStats(entry) : null), [entry])
-  const faqs = useMemo(() => (entry ? categoryFaqs(entry) : []), [entry])
+  const stats = useMemo(() => (entry ? categoryStats(entry, products) : null), [entry, products])
+  const faqs = useMemo(() => (entry ? categoryFaqs(entry, products) : []), [entry, products])
   const photos = useMemo(() => (entry ? photosForCategory(entry, 8) : []), [entry])
   const materials = useMemo(
     () => (stats ? [...new Set(stats.skus.map((s) => s.material))] : []),
@@ -77,10 +79,10 @@ export default function ProductCategory() {
     const script = document.createElement("script")
     script.type = "application/ld+json"
     script.id = "category-schema"
-    script.innerHTML = JSON.stringify(buildCategorySchema(entry))
+    script.innerHTML = JSON.stringify(buildCategorySchema(entry, products))
     document.head.appendChild(script)
     return () => document.getElementById("category-schema")?.remove()
-  }, [entry])
+  }, [entry, products])
 
   // Shared cursor-following arrow over the photo grid, same as the Products hub.
   const areaRef = useRef(null)
@@ -106,17 +108,21 @@ export default function ProductCategory() {
     if (p) { cx.set(p.x); cy.set(p.y) }
   }
 
-  if (!entry) return <Navigate to="/products" replace />
+  // While the live catalogue is still loading, don't redirect an as-yet-unknown
+  // slug (it may be an Admin-created category not in the static fallback).
+  if (!entry) return loading ? null : <Navigate to="/products" replace />
 
-  const others = PRODUCT_CATEGORIES.filter((c) => c.slug !== entry.slug)
-  const heroImage = photos[0]?.url
+  const others = categories.filter((c) => c.slug !== entry.slug)
+  // Prefer an Admin category image, then a product's own image, then a photo.
+  const firstProductImage = stats.skus.find((s) => s.images?.[0])?.images?.[0]
+  const heroImage = entry.image || firstProductImage || photos[0]?.url
   const tiers = VOLUME_TIERS.filter((t) => t.percent > 0).sort((a, b) => a.min - b.min)
 
   // Calculator: resolve the selected SKU, apply the volume discount live.
-  const calcSku = stats.skus.find((s) => s.id === calcId) || stats.skus[0]
+  const calcSku = stats.skus.find((s) => s.id === calcId) || stats.skus[0] || null
   const calcQty = Math.max(0, Number(qty) || 0)
   const calcDiscount = volumeDiscountPercent(calcQty)
-  const calcUnit = calcSku.basePrice * (1 - calcDiscount / 100)
+  const calcUnit = calcSku ? calcSku.basePrice * (1 - calcDiscount / 100) : 0
   const calcSubtotal = calcUnit * calcQty
   const nextTier = tiers.find((t) => t.min > calcQty)
 
@@ -169,7 +175,7 @@ export default function ProductCategory() {
                   className="px-7 py-3.5 bg-primary text-primary-foreground hover:brightness-110 font-semibold text-[15px] rounded-full inline-flex items-center gap-2 transition-all duration-200 active:scale-[0.98]"
                 >
                   Get a quote
-                  <ArrowRight size={18} color="currentColor" variant="Bulk" aria-hidden="true" />
+                  <ArrowRight size={18} color="currentColor" variant="Linear" aria-hidden="true" />
                 </Link>
                 <a
                   href={whatsappLink(`Hi Ortex, I'd like a quote for ${entry.name}.`)}
@@ -300,6 +306,7 @@ export default function ProductCategory() {
       )}
 
       {/* ── Catalogue SKUs ───────────────────────────────────────────────── */}
+      {stats.count > 0 && (
       <section className="py-[140px] bg-secondary">
         <div className="lp-wrap">
           <motion.div {...fadeUp} className="mb-10">
@@ -320,8 +327,19 @@ export default function ProductCategory() {
                 key={p.id}
                 {...fadeUp}
                 transition={{ ...fadeUp.transition, delay: Math.min(idx, 5) * 0.06 }}
-                className="bg-card rounded-[6px] p-[30px] flex flex-col border border-transparent hover:border-primary/30 transition-colors duration-300"
+                className="bg-card rounded-[6px] p-[30px] flex flex-col border border-transparent hover:border-primary/30 transition-colors duration-300 overflow-hidden"
               >
+                {p.images?.[0] && (
+                  <div className="-m-[30px] mb-6 aspect-[4/3] overflow-hidden bg-muted">
+                    <img
+                      src={p.images[0]}
+                      alt={p.name}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
                 <h3 className="text-[20px] font-semibold text-foreground leading-snug">{p.name}</h3>
                 <p className="text-[13px] font-medium text-primary mt-2">{p.material}</p>
                 <p className="text-[15px] text-muted-foreground leading-relaxed mt-3 flex-1">{p.description}</p>
@@ -339,15 +357,17 @@ export default function ProductCategory() {
                   className="mt-5 w-full bg-primary text-primary-foreground hover:brightness-110 py-3 rounded-full font-semibold text-[13px] text-center transition-all active:scale-[0.98] inline-flex items-center justify-center gap-2"
                 >
                   Add to quote
-                  <ArrowRight size={15} color="currentColor" variant="Bulk" aria-hidden="true" />
+                  <ArrowRight size={15} color="currentColor" variant="Linear" aria-hidden="true" />
                 </Link>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Volume pricing + live calculator ─────────────────────────────── */}
+      {stats.count > 0 && calcSku && (
       <section className="py-[140px] bg-[#0b0c0e] text-white overflow-hidden">
         <div className="lp-wrap">
           <motion.div {...fadeUp} className="max-w-2xl mb-12">
@@ -365,7 +385,7 @@ export default function ProductCategory() {
           <div className="grid lg:grid-cols-2 gap-[10px] items-stretch">
             {/* Tiers */}
             <motion.div {...fadeUp} className="grid sm:grid-cols-3 lg:grid-cols-1 gap-[10px]">
-              {tiers.map((t, idx) => {
+              {tiers.map((t) => {
                 const reached = calcQty >= t.min
                 return (
                   <div
@@ -474,12 +494,13 @@ export default function ProductCategory() {
                 className="mt-5 w-full bg-primary text-primary-foreground hover:brightness-110 py-3.5 rounded-full font-semibold text-[14px] text-center transition-all active:scale-[0.98] inline-flex items-center justify-center gap-2"
               >
                 Add to quote
-                <ArrowRight size={16} color="currentColor" variant="Bulk" aria-hidden="true" />
+                <ArrowRight size={16} color="currentColor" variant="Linear" aria-hidden="true" />
               </Link>
             </motion.div>
           </div>
         </div>
       </section>
+      )}
 
       {/* ── Materials & customisation ────────────────────────────────────── */}
       {materials.length > 0 && (
@@ -575,11 +596,12 @@ export default function ProductCategory() {
 
       {/* ── Closing CTA ──────────────────────────────────────────────────── */}
       <PageCTA
-        title={`Need ${entry.name.toLowerCase()} for your organisation?`}
+        title={`${entry.name} in bulk, priced in minutes`}
         primary={{ to: "/quote", label: "Get a quote" }}
         secondary={{ to: `/contact?product=${encodeURIComponent(entry.name)}`, label: "Ask a question" }}
       >
-        Build a quote in two minutes: pick products, set quantities, and our sales desk returns a formal GST quotation.
+        Pick products, set quantities, and our sales desk sends a formal GST quotation. Two minutes, no
+        obligation.
       </PageCTA>
 
       {/* ── Sticky quote bar ─────────────────────────────────────────────── */}

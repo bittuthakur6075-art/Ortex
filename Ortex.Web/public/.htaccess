@@ -1,0 +1,74 @@
+# Ortex marketing site — Apache config for static hosting (e.g. Hostinger).
+# Vite copies public/ into dist/, so this ships with every build. Upload the
+# CONTENTS of dist/ into public_html.
+
+# ----------------------------------------------------------------------
+# SPA routing: serve real files/prerendered folders as-is; send everything
+# else to index.html so the React Router app can handle the route.
+# ----------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # If the request maps to a real file or directory, serve it directly.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Otherwise hand off to the SPA entry point.
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# HTTPS is best forced with hPanel's "Force HTTPS" toggle (avoids proxy redirect
+# loops). If you prefer .htaccess, uncomment:
+# <IfModule mod_rewrite.c>
+#   RewriteCond %{HTTP:X-Forwarded-Proto} !https
+#   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# </IfModule>
+
+# ----------------------------------------------------------------------
+# Compression
+# ----------------------------------------------------------------------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css application/json
+  AddOutputFilterByType DEFLATE application/javascript application/xml image/svg+xml
+</IfModule>
+
+# ----------------------------------------------------------------------
+# Caching: content-hashed assets are immutable (cache a year); HTML must
+# revalidate so deploys show up immediately.
+# ----------------------------------------------------------------------
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+  ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Long-lived, immutable hashed assets (Vite emits /assets/*.[hash].*)
+  <FilesMatch "\.(css|js|woff2|png|jpe?g|webp|svg|gif)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  # Always revalidate HTML so new deploys are picked up
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  # Baseline security headers
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Serve the correct MIME type for source maps / json if needed
+<IfModule mod_mime.c>
+  AddType application/json .json
+  AddType image/svg+xml .svg
+</IfModule>
+
+ErrorDocument 404 /index.html

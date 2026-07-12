@@ -13,11 +13,11 @@ export default function FinalCTA() {
         >
           <div className="lg:max-w-2xl">
             <h2 className="text-[36px] md:text-[52px] font-normal leading-[1.05] tracking-tight mb-4 text-balance text-primary-foreground">
-              Ready to secure your production run?
+              Your brand. Our floor. One order away.
             </h2>
             <p className="text-[16px] font-normal max-w-2xl text-primary-foreground/90">
-              Get a transparent, volume-discounted quotation with a full GST breakdown. Talk directly to our
-              manufacturing engineers.
+              Get a volume-tiered quote with a clear GST breakdown in minutes. Factory-direct pricing, no
+              middleman markup.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 flex-none">

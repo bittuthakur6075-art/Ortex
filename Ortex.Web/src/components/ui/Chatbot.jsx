@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { Link } from "react-router-dom"
-import { Send, X, Volume2, VolumeX, Sparkles, ArrowRight } from "lucide-react"
-import { cn } from "../../utils/cn"
+import { ArrowRight } from "lucide-react"
+import { VolumeHigh, VolumeSlash, CloseCircle, Send2, Refresh2 } from "iconsax-react"
 import { whatsappLink } from "../../constants/site"
+import { submitEnquiry } from "../../lib/leads"
+import { supabase, hasSupabase } from "../../lib/supabaseClient"
 import WhatsAppIcon from "./WhatsAppIcon"
 
 /* ============================================================
@@ -19,6 +22,9 @@ import WhatsAppIcon from "./WhatsAppIcon"
    - Multi-format text support (bold rendering and bullet lists)
    - WhatsApp CTA and Get Quote link integration
    ============================================================ */
+
+// Shared ease-out curve (matches the site's motion signature).
+const EASE = [0.22, 1, 0.36, 1]
 
 const GREETING = {
   role: "assistant",
@@ -87,6 +93,50 @@ function localAnswer(q) {
   return "That's a great question! For specific customizations, pricing details, or bulk catalog requests, it's best to speak with our sales representative.\n\nWould you like to [connect on WhatsApp](https://wa.me/919211947188) or send a query through our [Contact Form](/contact)?"
 }
 
+/* Lead capture. When a visitor shares a phone or email in chat, submit a lead
+   into the shared `enquiries` backend (same table the admin console reads, via
+   submitEnquiry — which handles Supabase insert, retry, and an offline outbox).
+   Tagged source "Orty chatbot" so sales can tell where it came from. */
+function extractContact(text) {
+  const phone = String(text).match(/(?:\+?\d[\d\s-]{8,}\d)/)
+  const email = String(text).match(/[\w.+-]+@[\w-]+\.[\w.-]+/)
+  return {
+    phone: phone ? phone[0].replace(/[\s-]/g, "") : null,
+    email: email ? email[0] : null,
+  }
+}
+
+/* Best-effort first name from the conversation ("my name is X", "I'm X"). */
+function extractName(history) {
+  for (const m of history) {
+    if (m.role !== "user") continue
+    const match = m.text.match(/\b(?:my name is|i am|i'm|this is|name'?s)\s+([A-Za-z][a-z]+(?:\s[A-Z][a-z]+)?)/i)
+    if (match) return match[1].trim()
+  }
+  return ""
+}
+
+/* Render the chat so far as a readable transcript for the sales team. */
+function formatTranscript(history) {
+  return history.map((m) => `${m.role === "user" ? "Customer" : "Orty"}: ${m.text}`).join("\n\n")
+}
+
+/* Ask the Gemini-backed Supabase Edge Function (orty-chat) for a reply, sending
+   recent history for context. Any failure throws so the caller can fall back to
+   the local knowledge base. Using the Edge Function keeps the site fully static
+   (host it anywhere, e.g. Hostinger) with no Node server of its own. */
+async function fetchAiAnswer(history) {
+  if (!hasSupabase) throw new Error("Assistant backend not configured")
+  const { data, error } = await supabase.functions.invoke("orty-chat", {
+    body: { messages: history.map((m) => ({ role: m.role, text: m.text })) },
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  const reply = typeof data?.reply === "string" ? data.reply.trim() : ""
+  if (!reply) throw new Error("Empty assistant reply")
+  return reply
+}
+
 /* Tiny Web Audio synthesizer for chime effects */
 function makeChime() {
   let ctx = null
@@ -113,6 +163,10 @@ function makeChime() {
         tone(783.99, 0.07, 0.22, 0.025, "sine")
       } else if (kind === "send") {
         tone(659.25, 0, 0.08, 0.02, "triangle")
+      } else if (kind === "pop") {
+        // Short, punchy "pop" — quick pitch blip with a fast decay.
+        tone(392.0, 0, 0.06, 0.05, "triangle")
+        tone(784.0, 0.015, 0.09, 0.035, "sine")
       } else {
         tone(587.33, 0, 0.12, 0.03, "sine")
         tone(880.0, 0.09, 0.22, 0.025, "sine")
@@ -130,13 +184,13 @@ function renderText(text) {
     const trimmed = line.trim()
     if (trimmed.startsWith("- ")) {
       return (
-        <li key={idx} className="ml-4 list-disc text-sm my-1 text-foreground/90">
+        <li key={idx} className="ml-4 list-disc text-[14px] font-medium my-1 text-foreground/90">
           {renderInlineBold(trimmed.substring(2))}
         </li>
       )
     }
     return (
-      <p key={idx} className="text-sm my-1 leading-relaxed text-foreground/90">
+      <p key={idx} className="text-[14px] font-medium my-1 leading-relaxed text-foreground/90">
         {renderInlineBold(line)}
       </p>
     )
@@ -212,6 +266,7 @@ export default function Chatbot() {
   const launcherRef = useRef(null)
   const chimeRef = useRef(null)
   const userActed = useRef(false)
+  const leadSubmittedRef = useRef(false)
 
   useEffect(() => {
     chimeRef.current = makeChime()
@@ -220,7 +275,7 @@ export default function Chatbot() {
     const t = window.setTimeout(() => {
       if (!userActed.current) {
         setOpen(true)
-        if (!muted) chimeRef.current?.("open")
+        if (!muted) chimeRef.current?.("pop")
       }
     }, 12000)
 
@@ -255,9 +310,22 @@ export default function Chatbot() {
     userActed.current = true
     setOpen((o) => {
       const nextState = !o
-      if (nextState) play("open")
+      play("pop")
       return nextState
     })
+  }
+
+  const closeChat = () => {
+    userActed.current = true
+    play("pop")
+    setOpen(false)
+  }
+
+  const resetChat = () => {
+    setMessages([GREETING])
+    setDraft("")
+    leadSubmittedRef.current = false
+    play("pop")
   }
 
   const handleSuggestionClick = (text) => {
@@ -272,19 +340,45 @@ export default function Chatbot() {
   async function sendText(text) {
     const message = text.trim()
     if (!message || busy) return
-    
+
     play("send")
-    setMessages((m) => [...m, { role: "user", text: message }])
+    const userMsg = { role: "user", text: message }
+    const history = [...messages, userMsg]
+    setMessages((m) => [...m, userMsg])
     setDraft("")
     setBusy(true)
 
-    // Simulate AI thinking delay for a more realistic feel
-    const delay = 600 + Math.min(message.length * 10, 800)
-    await new Promise((r) => setTimeout(r, delay))
+    // Lead capture: the first time a visitor shares a phone or email, submit the
+    // lead to the shared enquiries backend (once per chat session).
+    const contact = extractContact(message)
+    if ((contact.phone || contact.email) && !leadSubmittedRef.current) {
+      leadSubmittedRef.current = true
+      submitEnquiry({
+        source: "Orty chatbot",
+        customer: {
+          name: extractName(history),
+          email: contact.email || "",
+          phone: contact.phone || "",
+          company: "",
+        },
+        message: `Lead captured by Orty (AI assistant).\n\n${formatTranscript(history)}`,
+      }).catch(() => {
+        // submitEnquiry already queues to an offline outbox; nothing to do here.
+      })
+    }
 
-    const answer = localAnswer(message)
+    let answer
+    try {
+      // Ask the Gemini-backed proxy, passing recent conversation for context.
+      answer = await fetchAiAnswer(history)
+    } catch {
+      // Proxy unavailable (offline, misconfigured, or plain `vite dev`):
+      // fall back to the local knowledge base so Orty always replies.
+      answer = localAnswer(message)
+    }
+
     setMessages((m) => [...m, { role: "assistant", text: answer }])
-    play("receive")
+    play("pop")
     setBusy(false)
   }
 
@@ -295,188 +389,187 @@ export default function Chatbot() {
 
   return (
     <>
-      {/* Floating Action Button Launcher (Keystone Style) */}
-      <button
-        ref={launcherRef}
-        onClick={toggleOpen}
-        className={cn(
-          "ka-launcher",
-          open && "is-open"
-        )}
-        aria-label="Open AI Assistant"
-        aria-expanded={open}
-      >
-        <span className="ka-launcher-ava">
-          <Sparkles className="h-5 w-5" />
-        </span>
-        <span className="ka-launcher-label">Ask Orty</span>
-        <span className="ka-launcher-ping" />
-      </button>
-
-      {/* Backdrop (visible on mobile only) */}
-      <div
-        className={cn(
-          "ka-backdrop",
-          open && "open"
-        )}
-        onClick={() => setOpen(false)}
-        aria-hidden="true"
-      />
-
-      {/* Chat Panel Box */}
-      <div
-        className={cn(
-          "ka-panel",
-          open && "open"
-        )}
-        role="dialog"
-        aria-label="Ortex AI Assistant"
-      >
-        {/* Header (Keystone Translucent Glass Style) */}
-        <div className="ka-head">
-          <div className="ka-title">
-            <span className="ka-title-ava">
-              <Sparkles className="h-4.5 w-4.5 text-white" />
-              <i className="ka-title-live" />
-            </span>
-            <div className="ka-title-meta">
-              <strong>Hi, I'm Orty</strong>
-              <small>Ortex AI Guide • Active</small>
-            </div>
-          </div>
-          <div className="ka-head-actions">
-            {/* Sound Toggle */}
-            <button
-              onClick={() => setMuted(!muted)}
-              className="ka-icon-btn"
-              title={muted ? "Unmute Assistant" : "Mute Assistant"}
-            >
-              {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-            </button>
-            
-            {/* Contact Action Link */}
-            <Link
-              to="/contact"
-              onClick={() => setOpen(false)}
-              className="text-xs px-2.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-md font-bold transition-all duration-200"
-            >
-              Get Quote
-            </Link>
-
-            {/* Close Button */}
-            <button
-              onClick={() => setOpen(false)}
-              className="ka-icon-btn"
-              aria-label="Close Assistant"
-            >
-              <X className="h-4.5 w-4.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Message Stream */}
-        <div className="ka-msgs" ref={listRef}>
-          {messages.map((m, i) => (
-            <div
-              key={i}
-              className={cn(
-                "ka-row",
-                m.role === "user" ? "ka-row-user" : "ka-row-assistant"
-              )}
-            >
-              <div
-                className={cn(
-                  "ka-bubble",
-                  m.role === "user" ? "ka-bubble-user" : "ka-bubble-assistant"
-                )}
-              >
-                {renderText(m.text)}
-              </div>
-            </div>
-          ))}
-
-          {/* Thinking Indicator */}
-          {busy && (
-            <div className="ka-row ka-row-assistant">
-              <div className="ka-bubble ka-bubble-assistant ka-thinking">
-                <span className="ka-think-layer" aria-hidden="true" />
-                <span className="ka-dot" />
-                <span className="ka-dot" />
-                <span className="ka-dot" />
-              </div>
-            </div>
-          )}
-
-          {/* Suggestion Chips */}
-          {messages.length === 1 && !busy && (
-            <div className="pt-2">
-              <p className="text-[11px] text-muted-foreground font-semibold mb-2 ml-1">Suggested questions:</p>
-              <div className="ka-suggest">
-                {SUGGESTIONS.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => handleSuggestionClick(s)}
-                    className="ka-chip active:scale-[0.98]"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Sales / WhatsApp CTA Banner */}
-        <div className="px-4 py-2 bg-whatsapp/5 border-t border-b border-whatsapp/10 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            {/* WhatsApp Green Icon */}
-            <WhatsAppIcon className="h-5 w-5 text-whatsapp fill-current" />
-            <span className="text-[11px] font-semibold text-whatsapp-foreground">Need bulk pricing right away?</span>
-          </div>
-          <a
-            href={whatsappLink("Hi Ortex, I need a bulk pricing quote for customized products.")}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center space-x-1 text-[11px] font-bold text-whatsapp hover:underline"
+      {/* Floating launcher */}
+      <AnimatePresence>
+        {!open && (
+          <motion.button
+            ref={launcherRef}
+            onClick={toggleOpen}
+            initial={{ opacity: 0, scale: 0.8, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 10 }}
+            transition={{ duration: 0.2, ease: EASE }}
+            className="fixed right-6 bottom-6 z-40 inline-flex items-center gap-2.5 h-14 pl-[3px] pr-5 rounded-full bg-primary text-primary-foreground font-semibold transition-colors hover:bg-primary/90"
+            aria-label="Open AI Assistant"
+            aria-expanded={open}
           >
-            <span>WhatsApp Sales</span>
-            <ArrowRight className="h-3 w-3" />
-          </a>
-        </div>
+            <span className="grid justify-items-center w-[50px] h-[50px] rounded-full bg-white/20 pt-[6px] px-[6px]">
+              <img src="/img/logo-symbol.svg" alt="" aria-hidden="true" className="w-full h-auto" />
+            </span>
+            <span className="text-[15px]">Ask Orty</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
 
-        {/* Input composer with Rotating Rainbow Rim */}
-        <div className="ka-input">
-          <form className={cn("asst-box", busy && "is-busy")} onSubmit={handleSend}>
-            <span className="asst-box-glow" aria-hidden="true">
-              <i />
-            </span>
-            <span className="asst-box-face" aria-hidden="true" />
-            <span className="asst-box-field w-full flex items-center">
-              <input
-                ref={inputRef}
-                className="asst-box-input w-full bg-transparent border-none outline-none focus:ring-0 disabled:opacity-60 text-foreground"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                aria-label="Ask about Ortex"
-                disabled={busy}
-              />
-              {!draft && (
-                <span className="asst-box-ph" aria-hidden="true">
-                  {busy ? "Thinking..." : "Ask Orty..."}
-                </span>
-              )}
-            </span>
-            <button
-              type="submit"
-              className="asst-box-send ml-2 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-ring"
-              disabled={busy || !draft.trim()}
-              aria-label="Send Message"
+      <AnimatePresence>
+        {open && (
+          <>
+            {/* Mobile backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeChat}
+              className="fixed inset-0 z-40 bg-foreground/40 sm:hidden"
+              aria-hidden="true"
+            />
+
+            {/* Chat panel */}
+            <motion.div
+              role="dialog"
+              aria-label="Ortex AI Assistant"
+              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 24, scale: 0.98 }}
+              transition={{ duration: 0.25, ease: EASE }}
+              style={{ transformOrigin: "bottom right", boxShadow: "0 20px 60px rgba(0,0,0,0.18)", borderRadius: "30px", cornerShape: "squircle" }}
+              className="fixed z-50 inset-x-0 bottom-0 sm:inset-x-auto sm:right-6 sm:bottom-6 flex flex-col w-full sm:w-[400px] h-[86vh] sm:h-[620px] sm:max-h-[calc(100vh-3rem)] bg-card overflow-hidden"
             >
-              <Send className="h-4 w-4" />
-            </button>
-          </form>
-        </div>
-      </div>
+              {/* Header */}
+              <div className="flex items-center justify-between gap-3 px-4 py-3 bg-primary text-primary-foreground">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="relative grid place-items-center w-9 h-9 rounded-full bg-white/20 flex-shrink-0">
+                    <img src="/img/logo-symbol.svg" alt="" aria-hidden="true" className="w-5 h-5" />
+                  </span>
+                  <div className="leading-tight min-w-0">
+                    <strong className="block text-[20px] font-semibold">Hi, I'm Orty</strong>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={resetChat}
+                    className="grid place-items-center w-8 h-8 rounded-full text-primary-foreground/90 hover:bg-white/10 transition-colors"
+                    title="Reset chat"
+                    aria-label="Reset chat"
+                  >
+                    <Refresh2 size={18} variant="Linear" color="currentColor" />
+                  </button>
+                  <button
+                    onClick={() => setMuted(!muted)}
+                    className="grid place-items-center w-8 h-8 rounded-full text-primary-foreground/90 hover:bg-white/10 transition-colors"
+                    title={muted ? "Unmute assistant" : "Mute assistant"}
+                  >
+                    {muted
+                      ? <VolumeSlash size={18} variant="Linear" color="currentColor" />
+                      : <VolumeHigh size={18} variant="Linear" color="currentColor" />}
+                  </button>
+                  <button
+                    onClick={closeChat}
+                    className="grid place-items-center w-8 h-8 rounded-full text-primary-foreground/90 hover:bg-white/10 transition-colors"
+                    aria-label="Close assistant"
+                  >
+                    <CloseCircle size={20} variant="Linear" color="currentColor" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Message stream */}
+              <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-background">
+                {messages.map((m, i) => (
+                  <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={
+                        m.role === "user"
+                          ? "max-w-[85%] rounded-2xl rounded-tr-md bg-primary text-primary-foreground px-4 py-2.5"
+                          : "max-w-[88%] rounded-2xl rounded-tl-md bg-[#F4F6F8] text-foreground px-4 py-2.5"
+                      }
+                    >
+                      {m.role === "user" ? (
+                        <p className="text-sm leading-relaxed whitespace-pre-line">{m.text}</p>
+                      ) : (
+                        renderText(m.text)
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Thinking indicator */}
+                {busy && (
+                  <div className="flex justify-start">
+                    <div className="rounded-2xl rounded-tl-md bg-secondary border border-border px-4 py-3 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:-0.3s]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:-0.15s]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/60 animate-bounce" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Suggestion chips */}
+                {messages.length === 1 && !busy && (
+                  <div className="pt-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-2">
+                      Suggested questions
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {SUGGESTIONS.map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => handleSuggestionClick(s)}
+                          className="px-3 py-1.5 rounded-full border border-[#EBEDF3] bg-card text-[14px] font-semibold text-foreground hover:border-primary hover:text-primary transition-colors active:scale-[0.98]"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* WhatsApp CTA banner */}
+              <div className="px-4 py-2.5 bg-whatsapp/10 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <WhatsAppIcon className="h-5 w-5 flex-shrink-0 text-whatsapp fill-current" />
+                  <span className="text-[14px] font-medium text-foreground truncate">Prefer to chat with our team?</span>
+                </div>
+                <a
+                  href={whatsappLink("Hi Ortex, I need a bulk pricing quote for customized products.")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[14px] font-medium text-whatsapp hover:underline whitespace-nowrap"
+                >
+                  Message us
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </a>
+              </div>
+
+              {/* Input composer */}
+              <form onSubmit={handleSend} className="p-3 bg-card">
+                <div className="relative">
+                  <input
+                    ref={inputRef}
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    disabled={busy}
+                    placeholder={busy ? "Thinking..." : "Ask Orty anything..."}
+                    aria-label="Ask about Ortex"
+                    className="w-full min-w-0 pl-4 pr-14 py-2.5 bg-card border border-[#EBEDF3] rounded-full text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary transition-colors disabled:opacity-60"
+                  />
+                  {draft.trim() && (
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      aria-label="Send message"
+                      className="absolute top-1 right-1 bottom-1 aspect-square grid place-items-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Send2 size={18} variant="Bold" color="currentColor" />
+                    </button>
+                  )}
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   )
 }

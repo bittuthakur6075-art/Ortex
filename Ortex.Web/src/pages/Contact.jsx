@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { useSearchParams, Link } from "react-router-dom"
-import { ArrowRight } from "lucide-react"
-import { Call, Sms, Global, Clock, Airplane } from "iconsax-react"
+import { ArrowRight, Check, ChevronDown } from "lucide-react"
+import { Call, Sms, Global, Clock, Airplane, ShieldTick, TickCircle } from "iconsax-react"
 import { toast } from "sonner"
 import { submitEnquiry } from "../lib/leads"
 import { CONTACT, whatsappLink } from "../constants/site"
@@ -20,6 +20,83 @@ function WhatsAppMark() {
 }
 
 const telHref = (num) => `tel:${num.replace(/[^+\d]/g, "")}`
+
+/**
+ * Themed dropdown replacing the native <select>, whose option list is
+ * OS-rendered and can't be styled to the brand. Click / outside-click / Escape;
+ * options highlight in primary on hover and show a check when selected.
+ */
+function ThemedSelect({ id, value, placeholder, options, onChange, invalid }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false)
+    }
+    document.addEventListener("mousedown", onDown)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("mousedown", onDown)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [open])
+
+  return (
+    <div ref={ref} className="relative mt-1">
+      <button
+        type="button"
+        id={id}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className={`w-full flex items-center justify-between gap-3 px-4 py-3 bg-[#F9FBFC] border rounded-[20px] [corner-shape:squircle] text-left outline-none transition-colors duration-200 ${
+          invalid
+            ? "border-destructive"
+            : open
+              ? "border-primary/70 bg-white"
+              : "border-[#EBEDF3] focus:border-primary/70 focus:bg-white"
+        }`}
+      >
+        <span className={value ? "text-foreground" : "text-[#4B5675]"}>{value || placeholder}</span>
+        <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <ul
+          role="listbox"
+          data-lenis-prevent
+          className="absolute z-30 mt-2 w-full max-h-72 overflow-auto rounded-[20px] [corner-shape:squircle] border border-[#EBEDF3] bg-white p-1.5 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-button]:hidden [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[#EBEDF3] [&::-webkit-scrollbar-thumb]:rounded-full [scrollbar-width:thin] [scrollbar-color:#EBEDF3_transparent]"
+        >
+          {options.map((opt) => {
+            const selected = value === opt
+            return (
+              <li
+                key={opt}
+                role="option"
+                aria-selected={selected}
+                onClick={() => {
+                  onChange(opt)
+                  setOpen(false)
+                }}
+                className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-[12px] [corner-shape:squircle] text-[16px] font-semibold cursor-pointer transition-colors duration-150 ${
+                  selected ? "bg-primary/10 text-primary" : "text-foreground hover:bg-primary/10"
+                }`}
+              >
+                {opt}
+                {selected && <Check className="h-4 w-4 flex-shrink-0" />}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 export default function Contact() {
   useDocumentMetadata(
@@ -97,6 +174,7 @@ export default function Contact() {
       icon: WhatsAppMark,
       title: "WhatsApp",
       details: [{ label: CONTACT.phonePrimary, href: whatsappLink() }],
+      cta: { label: "Chat on WhatsApp", href: whatsappLink() },
     },
     {
       icon: Clock,
@@ -172,23 +250,41 @@ export default function Contact() {
   }
 
   const fieldClass =
-    "mt-2 w-full px-4 py-3 bg-secondary border border-border rounded-lg text-foreground placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15 outline-none transition-colors duration-200"
-  const labelClass = "block text-[13px] font-semibold text-foreground"
+    "mt-1 w-full px-4 py-3 bg-[#F9FBFC] border border-[#EBEDF3] rounded-[20px] [corner-shape:squircle] text-foreground placeholder:text-[#4B5675] focus:border-primary/70 focus:bg-white outline-none transition-colors duration-200"
+  const labelClass = "block text-[16px] font-medium text-foreground capitalize"
+  const optionalTag = <span className="font-normal text-[#78829D]"> Optional</span>
+  const errorBorder = "border-destructive focus:border-destructive"
 
   return (
     <>
       {/* Page Header */}
       <PageHero title="We're here to help">
-        Whether it is a product question, a custom project, or an order already in motion, reach our team directly. A real person replies within one working day.
+        Product question, custom project, or an order in motion,
+        reach our team directly and a real person replies within one working day.
       </PageHero>
+
+      {/* Full-width image strip below the hero (4:2) */}
+      <section className="pb-[140px] bg-background">
+        <div>
+          <div className="relative aspect-[4/1] overflow-hidden">
+            <img
+              src="/img/contact-strip.jpg"
+              alt="Laser engraving a custom design in the Ortex Industries workshop"
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      </section>
 
       {/* Form + contact channels */}
       <section className="pb-[140px] bg-background text-left">
         <div className="lp-wrap">
-          <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_1fr] gap-14 lg:gap-20">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.35fr] gap-14 lg:gap-20">
 
             {/* Form Side */}
-            <motion.div {...fadeUp}>
+            <motion.div {...fadeUp} className="lg:order-2">
               <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
                 Send a message
               </span>
@@ -199,108 +295,144 @@ export default function Contact() {
                 Share a few details about your project and our team will get back to you personally within one working day.
               </p>
 
-              <form onSubmit={handleSubmit} className="mt-10 space-y-6">
+              <form onSubmit={handleSubmit} noValidate className="mt-10 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label htmlFor="name" className={labelClass}>Your name *</label>
+                    <label htmlFor="name" className={labelClass}>Full name</label>
                     <input
                       id="name"
                       type="text"
+                      name="name"
+                      autoComplete="name"
+                      required
                       value={formData.name}
                       onChange={(e) => handleChange("name", e.target.value)}
-                      placeholder="So we know who we are talking to"
-                      className={fieldClass}
+                      placeholder="Enter your full name"
+                      aria-invalid={Boolean(errors.name)}
+                      aria-describedby={errors.name ? "name-error" : undefined}
+                      className={`${fieldClass} ${errors.name ? errorBorder : ""}`}
                     />
-                    {errors.name && <p className="text-sm text-destructive mt-1.5">{errors.name}</p>}
+                    {errors.name && <p id="name-error" className="text-sm text-destructive mt-1.5">{errors.name}</p>}
                   </div>
 
                   <div>
-                    <label htmlFor="email" className={labelClass}>Email *</label>
+                    <label htmlFor="email" className={labelClass}>Email</label>
                     <input
                       id="email"
                       type="email"
+                      name="email"
+                      autoComplete="email"
+                      inputMode="email"
+                      required
                       value={formData.email}
                       onChange={(e) => handleChange("email", e.target.value)}
-                      placeholder="your.email@example.com"
-                      className={fieldClass}
+                      placeholder="Enter your email address"
+                      aria-invalid={Boolean(errors.email)}
+                      aria-describedby={errors.email ? "email-error" : undefined}
+                      className={`${fieldClass} ${errors.email ? errorBorder : ""}`}
                     />
-                    {errors.email && <p className="text-sm text-destructive mt-1.5">{errors.email}</p>}
+                    {errors.email && <p id="email-error" className="text-sm text-destructive mt-1.5">{errors.email}</p>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label htmlFor="phone" className={labelClass}>Phone *</label>
+                    <label htmlFor="phone" className={labelClass}>Phone number</label>
                     <input
                       id="phone"
                       type="tel"
+                      name="phone"
+                      autoComplete="tel"
+                      inputMode="tel"
+                      required
                       value={formData.phone}
-                      onChange={(e) => handleChange("phone", e.target.value)}
-                      placeholder="+91-XXXXXXXXXX"
-                      className={fieldClass}
+                      onChange={(e) => handleChange("phone", e.target.value.replace(/[^\d+\-\s()]/g, ""))}
+                      placeholder="Enter your contact number"
+                      aria-invalid={Boolean(errors.phone)}
+                      aria-describedby={errors.phone ? "phone-error" : undefined}
+                      className={`${fieldClass} ${errors.phone ? errorBorder : ""}`}
                     />
-                    {errors.phone && <p className="text-sm text-destructive mt-1.5">{errors.phone}</p>}
+                    {errors.phone && <p id="phone-error" className="text-sm text-destructive mt-1.5">{errors.phone}</p>}
                   </div>
 
                   <div>
-                    <label htmlFor="company" className={labelClass}>Company (optional)</label>
+                    <label htmlFor="company" className={labelClass}>Company{optionalTag}</label>
                     <input
                       id="company"
                       type="text"
+                      name="organization"
+                      autoComplete="organization"
                       value={formData.company}
                       onChange={(e) => handleChange("company", e.target.value)}
-                      placeholder="Your company or brand"
+                      placeholder="Enter your company name"
                       className={fieldClass}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="productInterest" className={labelClass}>What can we make for you? *</label>
-                  <select
+                  <label htmlFor="productInterest" className={labelClass}>What can we make for you?</label>
+                  <ThemedSelect
                     id="productInterest"
                     value={formData.productInterest}
-                    onChange={(e) => handleChange("productInterest", e.target.value)}
-                    className={`${fieldClass} cursor-pointer`}
-                  >
-                    <option value="">Choose a product category</option>
-                    {productCategories.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
+                    placeholder="Select a product category"
+                    options={productCategories}
+                    onChange={(val) => handleChange("productInterest", val)}
+                    invalid={Boolean(errors.productInterest)}
+                  />
                   {errors.productInterest && <p className="text-sm text-destructive mt-1.5">{errors.productInterest}</p>}
                 </div>
 
                 <div>
-                  <label htmlFor="message" className={labelClass}>Your requirements *</label>
+                  <label htmlFor="message" className={labelClass}>Project details</label>
                   <textarea
                     id="message"
+                    name="message"
+                    required
                     value={formData.message}
                     onChange={(e) => handleChange("message", e.target.value)}
-                    placeholder="Quantities, materials, sizes, deadlines, and any artwork you already have. The more detail, the faster we can quote."
-                    className={`${fieldClass} min-h-[140px] resize-y`}
+                    placeholder="Tell us quantities, sizes, materials, and deadlines, and share any artwork you have. The more detail, the faster we quote."
+                    aria-invalid={Boolean(errors.message)}
+                    aria-describedby={errors.message ? "message-error" : undefined}
+                    className={`${fieldClass} min-h-[140px] resize-y ${errors.message ? errorBorder : ""}`}
                   />
-                  {errors.message && <p className="text-sm text-destructive mt-1.5">{errors.message}</p>}
+                  {errors.message && <p id="message-error" className="text-sm text-destructive mt-1.5">{errors.message}</p>}
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex flex-col gap-4 items-start">
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="group w-full sm:w-auto px-7 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-full inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                    className="group flex-shrink-0 w-full sm:w-auto px-8 py-3.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-full inline-flex items-center justify-center gap-2 whitespace-nowrap transition-all duration-200 active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none cursor-pointer"
                   >
                     {isSubmitting ? "Sending..." : "Send my enquiry"}
-                    {!isSubmitting && <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />}
+                    {!isSubmitting && <ArrowRight className="h-[18px] w-[18px] transition-transform duration-300 group-hover:translate-x-1" />}
                   </button>
-                  <p className="text-[13px] text-muted-foreground">
-                    Replies within one working day. Your details stay private and are never shared.
+                  <p className="text-[14px] font-normal leading-relaxed text-[#4B5675]">
+                    By sending this enquiry, you agree to our{" "}
+                    <Link to="/terms" className="text-primary font-medium hover:underline">Terms</Link>{" "}
+                    and{" "}
+                    <Link to="/privacy" className="text-primary font-medium hover:underline">Privacy Policy</Link>.
                   </p>
+
+                  <div className="flex flex-col gap-2.5">
+                    {[
+                      { icon: Clock, text: "Replies within one working day, straight from our team." },
+                      { icon: ShieldTick, text: "Your details stay private, never shared or sold." },
+                      { icon: TickCircle, text: "No spam and no sales calls, just a straight quote." },
+                    ].map(({ icon: Icon, text }) => (
+                      <p key={text} className="flex items-center gap-2.5 text-[16px] font-medium text-foreground">
+                        <Icon size={20} color="currentColor" variant="Bulk" className="flex-shrink-0 text-primary" aria-hidden="true" />
+                        {text}
+                      </p>
+                    ))}
+                  </div>
                 </div>
               </form>
             </motion.div>
 
             {/* Channels Side */}
-            <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }}>
+            <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }} className="lg:order-1">
               <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
                 Prefer to talk?
               </span>
@@ -311,38 +443,64 @@ export default function Contact() {
                 Pick whichever is easiest. Every message reaches our team directly, with no call centre in between.
               </p>
 
-              <div className="mt-8">
+              <div className="mt-8 flex flex-col gap-[32px]">
                 {channels.map((channel) => (
                   <div
                     key={channel.title}
-                    className="flex items-start gap-5 border-t border-border py-6 last:border-b"
+                    className="flex items-start gap-5"
                   >
                     <div className="flex-shrink-0 w-[50px] h-[50px] rounded-[999px] bg-primary/10 grid place-items-center text-primary">
                       <channel.icon size={24} variant="Bulk" color="currentColor" aria-hidden="true" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-[18px] font-semibold text-foreground">{channel.title}</h3>
-                      <div className="mt-1 space-y-0.5">
-                        {channel.details.map((detail) => (
-                          <div key={detail.label}>
+                      <h3 className="text-[14px] font-semibold uppercase tracking-[0.02em] text-[#4b5675]">{channel.title}</h3>
+                      <div className="mt-1 flex flex-wrap gap-x-1.5 text-[18px] font-semibold text-foreground">
+                        {channel.details.map((detail, i) => (
+                          <span key={detail.label} className="whitespace-nowrap">
                             {detail.href ? (
                               <a
                                 href={detail.href}
                                 target={detail.href.startsWith("http") ? "_blank" : undefined}
                                 rel={detail.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                                className="text-[15px] text-[#4b5675] hover:text-primary transition-colors duration-200"
+                                className="hover:text-primary transition-colors duration-200"
                               >
                                 {detail.label}
                               </a>
                             ) : (
-                              <p className="text-[15px] text-[#4b5675]">{detail.label}</p>
+                              detail.label
                             )}
-                          </div>
+                            {i < channel.details.length - 1 ? "," : ""}
+                          </span>
                         ))}
                       </div>
                     </div>
+
+                    {channel.cta && (
+                      <a
+                        href={channel.cta.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={channel.cta.label}
+                        title={channel.cta.label}
+                        className="self-center grid place-items-center flex-shrink-0 w-9 h-9 rounded-full bg-whatsapp text-white transition-all duration-200 hover:brightness-95 active:scale-[0.98]"
+                      >
+                        <WhatsAppIcon className="h-[18px] w-[18px] fill-current" />
+                      </a>
+                    )}
                   </div>
                 ))}
+              </div>
+
+              {/* Location map */}
+              <div className="mt-[50px] overflow-hidden rounded-[6px]">
+                <iframe
+                  title="Ortex Industries location on Google Maps"
+                  src="https://www.google.com/maps?q=RZ-4%20Mahindra%20Park%2C%20Uttam%20Nagar%2C%20West%20Delhi%2C%20New%20Delhi%2C%20Delhi%20110059%2C%20India&output=embed"
+                  className="w-full h-[300px] border-0 block"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  allowFullScreen
+                />
               </div>
             </motion.div>
 
@@ -350,78 +508,82 @@ export default function Contact() {
         </div>
       </section>
 
-      {/* Already know your specs — dedicated quote-builder section */}
+      {/* Already know your specs — full-width image banner with overlaid copy (OEM style) */}
       <section className="py-[140px] bg-[#f9fbfc]">
-        <div className="lp-wrap">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-14 lg:gap-20 items-center">
-            <motion.div {...fadeUp}>
-              <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
-                Already know your specs?
-              </span>
-              <h2 className="text-[40px] md:text-[56px] font-normal leading-[1.05] tracking-tight text-foreground text-balance">
-                <RevealWords text="Get pricing in minutes" />
-              </h2>
-              <p className="mt-5 text-[18px] font-normal text-[#4b5675] leading-relaxed max-w-xl">
-                Skip the back and forth. Our quote builder walks you through material, size, and quantity, then returns factory-direct pricing on the spot.
-              </p>
-              <Link
-                to="/quote"
-                className="group mt-8 inline-flex items-center gap-2 px-7 py-3 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-full transition-all duration-200 active:scale-[0.98]"
-              >
-                Open the quote builder
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-              </Link>
-            </motion.div>
-
-            <motion.div
-              {...fadeUp}
-              transition={{ ...fadeUp.transition, delay: 0.1 }}
-              className="bg-card p-[40px] md:p-[48px]"
-            >
-              <ol className="list-none">
-                {[
-                  { title: "Pick product and material", description: "Choose from MDF, acrylic, lanyards, badges, and more." },
-                  { title: "Set size and quantity", description: "Enter your dimensions and how many units you need." },
-                  { title: "See instant pricing", description: "Get volume-tiered, factory-direct pricing on the spot." },
-                ].map((step, idx, arr) => (
-                  <li
-                    key={step.title}
-                    className={`flex gap-5 ${idx < arr.length - 1 ? "pb-6 mb-6 border-b border-border" : ""}`}
-                  >
-                    <span className="flex-shrink-0 text-[15px] font-semibold text-primary tabular-nums">
-                      {String(idx + 1).padStart(2, "0")}
-                    </span>
-                    <div>
-                      <h3 className="text-[18px] font-semibold text-foreground">{step.title}</h3>
-                      <p className="mt-1 text-[15px] text-[#4b5675] leading-relaxed">{step.description}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </motion.div>
+        <div className="px-[50px]">
+          <div className="relative aspect-[4/2] overflow-hidden">
+            <img
+              src="/img/contact-banner.jpg"
+              alt="Custom laser-engraved wooden tags and keychains made by Ortex Industries"
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/10" />
+            <div className="absolute inset-0 flex items-end">
+              <motion.div {...fadeUp} className="w-full p-8 md:p-14">
+                <span className="block text-[14px] font-semibold text-white/80 tracking-[0.22em] uppercase mb-3">
+                  Have your specs ready?
+                </span>
+                <h2 className="max-w-3xl text-[32px] md:text-[52px] font-medium leading-[1.1] tracking-tight text-white text-balance">
+                  Get a quote in minutes
+                </h2>
+                <p className="mt-5 max-w-3xl text-[16px] md:text-[18px] font-normal leading-relaxed text-white/80">
+                  Skip the back and forth. Pick a product, set your size and quantity, and our team sends a fast, factory-direct quotation straight to you.
+                </p>
+                <Link
+                  to="/quote"
+                  className="group mt-8 inline-flex items-center gap-2 px-7 py-3 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-full transition-all duration-200 active:scale-[0.98]"
+                >
+                  Open the quote builder
+                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                </Link>
+              </motion.div>
+            </div>
           </div>
+
+          {/* Three steps in one dark card, attached to the banner (OEM numbered-grid design) */}
+          <motion.div
+            {...fadeUp}
+            className="bg-[#010101] p-8 md:p-12 grid grid-cols-1 md:grid-cols-3 gap-[42px]"
+          >
+            {[
+              { title: "Pick product and material", description: "Choose from MDF, acrylic, lanyards, badges, and more." },
+              { title: "Set size and quantity", description: "Enter your dimensions and how many units you need." },
+              { title: "See instant pricing", description: "Get volume-tiered, factory-direct pricing on the spot." },
+            ].map((step, idx) => (
+              <div key={step.title}>
+                <div className="mb-8 text-[36px] font-semibold leading-none text-white/40 tabular-nums">
+                  0{idx + 1}
+                </div>
+                <h3 className="text-[24px] font-medium text-white">{step.title}</h3>
+                <div className="mt-6 h-px bg-white/20" />
+                <p className="mt-6 text-[16px] font-normal text-white/60 leading-relaxed">{step.description}</p>
+              </div>
+            ))}
+          </motion.div>
         </div>
       </section>
 
       {/* Where we deliver */}
       <section className="py-[140px] bg-background text-center">
         <div className="lp-wrap">
-          <motion.div {...fadeUp} className="max-w-2xl mx-auto mb-14">
+          <motion.div {...fadeUp} className="mb-14">
             <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
-              Where we deliver
+              Delivery &amp; reach
             </span>
-            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-foreground text-balance">
-              <RevealWords text="Across India and worldwide" />
+            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-foreground lg:whitespace-nowrap">
+              <RevealWords text="Delivered where you need it" />
             </h2>
-            <p className="mt-5 text-[18px] font-normal text-[#4b5675] leading-relaxed">
-              From a single studio run to a nationwide rollout, our logistics partners get your order to the door on time.
+            <p className="mt-5 max-w-2xl mx-auto text-[18px] font-normal text-[#4b5675] leading-relaxed">
+              From a single order for a school, office, or hospital to a nationwide brand rollout, our own floor and trusted couriers get it to your door, on time.
             </p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-[20px] text-left">
             {[
-              { icon: Global, title: "PAN India delivery", description: "Tracked, reliable couriers dispatched fast from our own floor to every state in the country." },
-              { icon: Airplane, title: "Worldwide export", description: "Exporting abroad? We handle the documentation and shipping so your order clears and arrives without the hassle." },
+              { icon: Global, title: "PAN India delivery", description: "Every order ships from our own floor through tracked, reliable courier partners to all states and union territories. You get a dispatch update and a live tracking link, so you always know exactly where your consignment is." },
+              { icon: Airplane, title: "Worldwide export", description: "Exporting abroad? We handle export documentation, customs paperwork, and secure packing from end to end, then ship through trusted freight partners so your order clears customs and arrives on time, without the usual hassle." },
             ].map((item, idx) => (
               <motion.div
                 key={item.title}
@@ -443,11 +605,11 @@ export default function Contact() {
 
       {/* Closing CTA */}
       <PageCTA
-        title="Prefer to see the work first?"
+        title="See it before you say it"
         primary={{ to: "/products", label: "Browse products" }}
         secondary={{ to: "/work", label: "View our work" }}
       >
-        Explore the full catalogue and real production photography straight from the Ortex factory floor.
+        The full catalogue and real production shots, straight off the Ortex factory floor.
       </PageCTA>
     </>
   )

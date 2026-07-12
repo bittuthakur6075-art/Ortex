@@ -22,9 +22,18 @@ const ARTWORK_FORMATS = ".AI, .CDR, .DXF, .EPS, .PDF or .SVG (high-res .PNG/.JPG
 const SAMPLE_POLICY =
   "Digital mockups (2D/3D layouts) are free for every order. A physical pre-production sample can be manufactured for a nominal fee, refundable on bulk-order confirmation."
 
-/** Derived per-category stats — single source of truth is products.js. */
-function statsFor(category) {
-  const skus = PRODUCTS.filter((p) => p.category === category)
+/**
+ * Derived per-category stats. Defaults to the static products.js catalogue, but
+ * accepts a live product list (from the Admin-managed Supabase catalogue) so the
+ * same helpers work for both the build-time prerender and the live site.
+ */
+function statsFor(category, products = PRODUCTS) {
+  const skus = products.filter((p) => p.category === category)
+  if (!skus.length) {
+    // A category with no products yet (e.g. a brand-new Admin category) must not
+    // crash Math.min(...[]) → Infinity downstream.
+    return { skus: [], count: 0, moqMin: 0, leadMin: 0, leadMax: 0, leadLabel: "0", priceMin: 0, gstLabel: "18%" }
+  }
   const moqs = skus.map((p) => p.moq)
   const leads = skus.map((p) => p.leadTimeDays)
   const prices = skus.map((p) => p.basePrice)
@@ -272,14 +281,15 @@ export function categoryBySlug(slug) {
   return PRODUCT_CATEGORIES.find((c) => c.slug === slug) || null
 }
 
-export function categoryStats(entry) {
-  return statsFor(entry.category)
+export function categoryStats(entry, products = PRODUCTS) {
+  return statsFor(entry.category, products)
 }
 
-export function categoryFaqs(entry) {
-  const s = statsFor(entry.category)
+export function categoryFaqs(entry, products = PRODUCTS) {
+  const s = statsFor(entry.category, products)
   const label = entry.name.toLowerCase().replace(/^custom |^promotional /, "")
-  return [moqFaq(label, s), leadFaq(label, s), artworkFaq(label), entry.extraFaq(s)]
+  // extraFaq may return null for Admin-created categories with no bespoke FAQ.
+  return [moqFaq(label, s), leadFaq(label, s), artworkFaq(label), entry.extraFaq?.(s)].filter(Boolean)
 }
 
 /** Real production photos for a category: tagged matches first, then name matches. */
@@ -302,8 +312,8 @@ export function photosForCategory(entry, limit = 8) {
 }
 
 /** JSON-LD for a category page. Shared by the page (runtime) and prerender (build). */
-export function buildCategorySchema(entry) {
-  const s = statsFor(entry.category)
+export function buildCategorySchema(entry, products = PRODUCTS) {
+  const s = statsFor(entry.category, products)
   const url = `${SITE_URL}/products/${entry.slug}`
   const photos = photosForCategory(entry, s.count)
 
@@ -322,7 +332,7 @@ export function buildCategorySchema(entry) {
         sku: p.sku,
         description: p.description,
         material: p.material,
-        ...(photos[i] ? { image: photos[i].url } : {}),
+        ...((p.images?.[0] || photos[i]?.url) ? { image: p.images?.[0] || photos[i].url } : {}),
         brand: { "@type": "Brand", name: "Ortex Industries" },
         offers: {
           "@type": "Offer",
