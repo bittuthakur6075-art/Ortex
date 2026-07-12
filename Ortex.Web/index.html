@@ -14,6 +14,15 @@
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://www.ortexindustries.in/" />
 
+    <!-- Fonts: preconnect + single non-render-blocking stylesheet (Manrope +
+         Instrument Serif only; Inter was imported but never used). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@200..800&display=swap"
+    />
+
     <!-- Icons & Theme -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
@@ -79,6 +88,36 @@
           "https://www.linkedin.com/company/ortex-industries",
           "https://www.facebook.com/ortexindustries",
           "https://www.indiamart.com/ortex-industries-delhi/"
+        ]
+      }
+    </script>
+
+    <!-- LocalBusiness structured data (manufacturer, New Delhi) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "LocalBusiness",
+        "@id": "https://www.ortexindustries.in/#localbusiness",
+        "name": "Ortex Industries",
+        "image": "https://www.ortexindustries.in/img/logo.png",
+        "url": "https://www.ortexindustries.in/",
+        "email": "sales@ortexindustries.in",
+        "telephone": "+91-9211947188",
+        "priceRange": "$$",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "New Delhi",
+          "addressRegion": "Delhi",
+          "addressCountry": "IN"
+        },
+        "areaServed": ["IN", "Worldwide"],
+        "openingHoursSpecification": [
+          {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+            "opens": "09:00",
+            "closes": "18:00"
+          }
         ]
       }
     </script>

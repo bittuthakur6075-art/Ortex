@@ -1,18 +1,30 @@
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { useSearchParams } from "react-router-dom"
-import { Phone, Mail, Globe, Clock } from "lucide-react"
+import { useSearchParams, Link } from "react-router-dom"
+import { ArrowRight } from "lucide-react"
+import { Call, Sms, Global, Clock, Airplane } from "iconsax-react"
 import { toast } from "sonner"
 import { submitEnquiry } from "../lib/leads"
-import { whatsappLink } from "../constants/site"
+import { CONTACT, whatsappLink } from "../constants/site"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { fadeUp, RevealWords } from "../components/home/Section"
+import PageCTA from "../components/ui/PageCTA"
 import PageHero from "../components/ui/PageHero"
+import WhatsAppIcon from "../components/ui/WhatsAppIcon"
+
+/** Renders the shared WhatsApp glyph at the channel-badge size. Accepts (and
+ *  ignores) the iconsax-style props so it slots in uniformly with the other
+ *  channel icons. */
+function WhatsAppMark() {
+  return <WhatsAppIcon className="w-6 h-6 fill-current" />
+}
+
+const telHref = (num) => `tel:${num.replace(/[^+\d]/g, "")}`
 
 export default function Contact() {
   useDocumentMetadata(
-    "Contact Ortex Industries - Get Quote for Customized Products",
-    "Contact Ortex Industries for customized product quotes. Call +91-9211947188, email sales@ortexindustries.in, or WhatsApp for immediate assistance. Serving India and worldwide.",
+    "Contact Ortex Industries | Get a Custom Product Quote",
+    "Get a fast, factory-direct quote for custom MDF, acrylic, lanyards, badges, and corporate gifts. Call +91-9211947188, email sales@ortexindustries.in, or WhatsApp us. PAN India delivery and worldwide export.",
     { path: "/contact" }
   )
 
@@ -22,7 +34,7 @@ export default function Contact() {
     phone: "",
     company: "",
     productInterest: "",
-    message: ""
+    message: "",
   })
 
   const [errors, setErrors] = useState({})
@@ -33,7 +45,7 @@ export default function Contact() {
   useEffect(() => {
     const product = searchParams.get("product")
     const category = searchParams.get("category")
-    
+
     if (product) {
       const mapCategory = (cat) => {
         if (!cat) return ""
@@ -47,10 +59,10 @@ export default function Contact() {
         return "Other"
       }
 
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         message: `Hi Ortex, I am interested in your portfolio item: "${product}". Please provide a customized quote for this product.`,
-        productInterest: mapCategory(category) || prev.productInterest
+        productInterest: mapCategory(category) || prev.productInterest,
       }))
     }
   }, [searchParams])
@@ -64,44 +76,36 @@ export default function Contact() {
     "Customized clipboards & writing pads",
     "Corporate gifting & promotional merchandise",
     "Customization & branding services",
-    "Other"
+    "Other",
   ]
 
-  const contactCards = [
+  const channels = [
     {
-      icon: Phone,
-      title: "Phone",
+      icon: Call,
+      title: "Call us",
       details: [
-        { label: "+91-9211947188", href: "tel:+919211947188" },
-        { label: "+91-8448663297", href: "tel:+918448663297" }
-      ]
+        { label: CONTACT.phonePrimary, href: telHref(CONTACT.phonePrimary) },
+        { label: CONTACT.phoneSecondary, href: telHref(CONTACT.phoneSecondary) },
+      ],
     },
     {
-      icon: Mail,
-      title: "Email",
-      details: [
-        { label: "sales@ortexindustries.in", href: "mailto:sales@ortexindustries.in" }
-      ]
+      icon: Sms,
+      title: "Email us",
+      details: [{ label: CONTACT.email, href: `mailto:${CONTACT.email}` }],
     },
     {
-      icon: () => (
-        <svg className="h-6 w-6 text-primary fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.457L0 24zm6.59-4.846c1.62.962 3.21 1.468 4.797 1.469 5.378-.001 9.756-4.379 9.759-9.76.002-2.607-1.013-5.059-2.859-6.907C16.438 2.11 13.99 1.096 11.385 1.096 6.006 1.096 1.628 5.474 1.625 10.855c-.001 1.639.489 3.238 1.419 4.7l-.986 3.603 3.699-.97c1.472.842 2.87 1.34 4.545 1.34zM17.476 14.39c-.329-.165-1.948-.96-2.253-1.071-.305-.11-.527-.165-.749.165-.221.329-.857 1.071-1.05 1.29-.193.22-.387.247-.716.082-1.099-.548-1.867-1.026-2.607-2.296-.195-.334-.195-.568-.03-.733.149-.148.329-.384.494-.576.165-.192.22-.329.329-.548.11-.22.055-.412-.028-.577-.082-.165-.749-1.808-1.026-2.476-.27-.648-.544-.56-.749-.57-.193-.01-.415-.011-.637-.011-.222 0-.582.083-.887.412-.305.329-1.164 1.14-1.164 2.784 0 1.644 1.196 3.23 1.361 3.45.165.22 2.353 3.593 5.7 5.039.796.344 1.417.55 1.902.705.8.254 1.528.218 2.103.133.64-.095 1.948-.796 2.223-1.564.276-.768.276-1.426.192-1.563-.083-.138-.305-.22-.634-.385z"/>
-        </svg>
-      ),
+      icon: WhatsAppMark,
       title: "WhatsApp",
-      details: [
-        { label: "+91-9211947188", href: "https://wa.me/919211947188" }
-      ]
+      details: [{ label: CONTACT.phonePrimary, href: whatsappLink() }],
     },
     {
-      icon: Globe,
-      title: "Service areas",
+      icon: Clock,
+      title: "Business hours",
       details: [
-        { label: "PAN India delivery", href: null },
-        { label: "Worldwide export support", href: null }
-      ]
-    }
+        { label: "Mon to Sat: 9:00 AM to 6:00 PM", href: null },
+        { label: "Sunday: Closed", href: null },
+      ],
+    },
   ]
 
   const validateForm = () => {
@@ -149,14 +153,12 @@ export default function Contact() {
     setIsSubmitting(false)
 
     if (res.queued) {
-      // The enquiry is safe in the outbox and will replay; say so honestly and
-      // hand the customer a channel that works right now.
       toast.warning(
-        `Saved as ${res.reference}. We couldn't reach our servers — it will send automatically, but WhatsApp us to be certain.`,
+        `Saved as ${res.reference}. We could not reach our servers just now, so it will send automatically. WhatsApp us to be sure it lands.`,
         { duration: 10000, action: { label: "WhatsApp", onClick: () => window.open(whatsappLink(`Hi Ortex, my enquiry ${res.reference} may not have reached you. ${formData.message}`), "_blank", "noopener") } }
       )
     } else {
-      toast.success(`Message sent. Your reference is ${res.reference} — we will contact you soon.`)
+      toast.success(`Thanks, your enquiry is in. Reference ${res.reference}. We will be in touch within one working day.`)
     }
     setFormData({ name: "", email: "", phone: "", company: "", productInterest: "", message: "" })
     setErrors({})
@@ -169,195 +171,178 @@ export default function Contact() {
     }
   }
 
+  const fieldClass =
+    "mt-2 w-full px-4 py-3 bg-secondary border border-border rounded-lg text-foreground placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/15 outline-none transition-colors duration-200"
+  const labelClass = "block text-[13px] font-semibold text-foreground"
+
   return (
     <>
       {/* Page Header */}
-      <PageHero title="Get in touch">
-        Have a project in mind? Contact our team to discuss your requirements and receive a customized quote for your business needs.
+      <PageHero title="We're here to help">
+        Whether it is a product question, a custom project, or an order already in motion, reach our team directly. A real person replies within one working day.
       </PageHero>
 
-      {/* Contact Content */}
-      <section className="py-[140px] bg-background text-left">
+      {/* Form + contact channels */}
+      <section className="pb-[140px] bg-background text-left">
         <div className="lp-wrap">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_1fr] gap-14 lg:gap-20">
 
             {/* Form Side */}
             <motion.div {...fadeUp}>
-              <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] mb-6 tracking-tight text-foreground text-balance">
-                <RevealWords text="Send us a message" />
+              <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
+                Send a message
+              </span>
+              <h2 className="text-[36px] md:text-[52px] font-normal leading-[1.05] tracking-tight text-foreground text-balance">
+                <RevealWords text="Tell us what you need" />
               </h2>
-              <p className="text-[18px] font-normal text-foreground mb-8 leading-relaxed">
-                Fill out the form below and our team will get back to you within 24 hours with a detailed response to your inquiry.
+              <p className="mt-5 text-[18px] font-normal text-[#4b5675] leading-relaxed max-w-xl">
+                Share a few details about your project and our team will get back to you personally within one working day.
               </p>
-              
-              <form onSubmit={handleSubmit} className="space-y-6">
+
+              <form onSubmit={handleSubmit} className="mt-10 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
-                  {/* Name */}
                   <div>
-                    <label htmlFor="name" className="text-sm font-semibold text-foreground">Name *</label>
-                    <input 
+                    <label htmlFor="name" className={labelClass}>Your name *</label>
+                    <input
                       id="name"
-                      type="text" 
+                      type="text"
                       value={formData.name}
                       onChange={(e) => handleChange("name", e.target.value)}
-                      placeholder="Enter your full name"
-                      className="mt-2 w-full px-4 py-3 bg-card border border-border/80 focus:border-primary rounded-lg focus:outline-none transition-all duration-200 text-foreground"
+                      placeholder="So we know who we are talking to"
+                      className={fieldClass}
                     />
-                    {errors.name && <p className="text-sm text-destructive mt-1">{errors.name}</p>}
+                    {errors.name && <p className="text-sm text-destructive mt-1.5">{errors.name}</p>}
                   </div>
 
-                  {/* Email */}
                   <div>
-                    <label htmlFor="email" className="text-sm font-semibold text-foreground">Email *</label>
-                    <input 
+                    <label htmlFor="email" className={labelClass}>Email *</label>
+                    <input
                       id="email"
-                      type="email" 
+                      type="email"
                       value={formData.email}
                       onChange={(e) => handleChange("email", e.target.value)}
                       placeholder="your.email@example.com"
-                      className="mt-2 w-full px-4 py-3 bg-card border border-border/80 focus:border-primary rounded-lg focus:outline-none transition-all duration-200 text-foreground"
+                      className={fieldClass}
                     />
-                    {errors.email && <p className="text-sm text-destructive mt-1">{errors.email}</p>}
+                    {errors.email && <p className="text-sm text-destructive mt-1.5">{errors.email}</p>}
                   </div>
-
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
-                  {/* Phone */}
                   <div>
-                    <label htmlFor="phone" className="text-sm font-semibold text-foreground">Phone *</label>
-                    <input 
+                    <label htmlFor="phone" className={labelClass}>Phone *</label>
+                    <input
                       id="phone"
-                      type="tel" 
+                      type="tel"
                       value={formData.phone}
                       onChange={(e) => handleChange("phone", e.target.value)}
                       placeholder="+91-XXXXXXXXXX"
-                      className="mt-2 w-full px-4 py-3 bg-card border border-border/80 focus:border-primary rounded-lg focus:outline-none transition-all duration-200 text-foreground"
+                      className={fieldClass}
                     />
-                    {errors.phone && <p className="text-sm text-destructive mt-1">{errors.phone}</p>}
+                    {errors.phone && <p className="text-sm text-destructive mt-1.5">{errors.phone}</p>}
                   </div>
 
-                  {/* Company */}
                   <div>
-                    <label htmlFor="company" className="text-sm font-semibold text-foreground">Company</label>
-                    <input 
+                    <label htmlFor="company" className={labelClass}>Company (optional)</label>
+                    <input
                       id="company"
-                      type="text" 
+                      type="text"
                       value={formData.company}
                       onChange={(e) => handleChange("company", e.target.value)}
-                      placeholder="Your company name"
-                      className="mt-2 w-full px-4 py-3 bg-card border border-border/80 focus:border-primary rounded-lg focus:outline-none transition-all duration-200 text-foreground"
+                      placeholder="Your company or brand"
+                      className={fieldClass}
                     />
                   </div>
-
                 </div>
 
-                {/* Product Interest Select */}
                 <div>
-                  <label htmlFor="productInterest" className="text-sm font-semibold text-foreground">Product interest *</label>
-                  <select 
+                  <label htmlFor="productInterest" className={labelClass}>What can we make for you? *</label>
+                  <select
                     id="productInterest"
                     value={formData.productInterest}
                     onChange={(e) => handleChange("productInterest", e.target.value)}
-                    className="mt-2 w-full px-4 py-3 bg-card border border-border/80 focus:border-primary rounded-lg focus:outline-none transition-all duration-200 text-foreground cursor-pointer"
+                    className={`${fieldClass} cursor-pointer`}
                   >
-                    <option value="">Select a product category</option>
+                    <option value="">Choose a product category</option>
                     {productCategories.map((cat) => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
-                  {errors.productInterest && <p className="text-sm text-destructive mt-1">{errors.productInterest}</p>}
+                  {errors.productInterest && <p className="text-sm text-destructive mt-1.5">{errors.productInterest}</p>}
                 </div>
 
-                {/* Message Textarea */}
                 <div>
-                  <label htmlFor="message" className="text-sm font-semibold text-foreground">Message *</label>
-                  <textarea 
+                  <label htmlFor="message" className={labelClass}>Your requirements *</label>
+                  <textarea
                     id="message"
                     value={formData.message}
                     onChange={(e) => handleChange("message", e.target.value)}
-                    placeholder="Tell us about your requirements..."
-                    className="mt-2 w-full px-4 py-3 bg-card border border-border/80 focus:border-primary rounded-lg focus:outline-none min-h-[120px] transition-all duration-200 text-foreground"
+                    placeholder="Quantities, materials, sizes, deadlines, and any artwork you already have. The more detail, the faster we can quote."
+                    className={`${fieldClass} min-h-[140px] resize-y`}
                   />
-                  {errors.message && <p className="text-sm text-destructive mt-1">{errors.message}</p>}
+                  {errors.message && <p className="text-sm text-destructive mt-1.5">{errors.message}</p>}
                 </div>
 
-                <button 
-                  type="submit" 
-                  disabled={isSubmitting}
-                  className="w-full md:w-auto px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-full transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
-                >
-                  {isSubmitting ? "Sending..." : "Send message"}
-                </button>
-
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="group w-full sm:w-auto px-7 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-full inline-flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                  >
+                    {isSubmitting ? "Sending..." : "Send my enquiry"}
+                    {!isSubmitting && <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />}
+                  </button>
+                  <p className="text-[13px] text-muted-foreground">
+                    Replies within one working day. Your details stay private and are never shared.
+                  </p>
+                </div>
               </form>
             </motion.div>
 
-            {/* Info Side */}
-            <motion.div
-              {...fadeUp}
-              transition={{ ...fadeUp.transition, delay: 0.1 }}
-              className="space-y-6"
-            >
-              <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] mb-6 tracking-tight text-foreground text-balance">
-                <RevealWords text="Contact information" />
+            {/* Channels Side */}
+            <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }}>
+              <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
+                Prefer to talk?
+              </span>
+              <h2 className="text-[36px] md:text-[52px] font-normal leading-[1.05] tracking-tight text-foreground text-balance">
+                <RevealWords text="Reach us directly" />
               </h2>
-              <p className="text-[18px] font-normal text-foreground mb-8 leading-relaxed">
-                Reach out to us directly through any of the following channels. We are here to help you with your customized product requirements.
+              <p className="mt-5 text-[18px] font-normal text-[#4b5675] leading-relaxed">
+                Pick whichever is easiest. Every message reaches our team directly, with no call centre in between.
               </p>
 
-              <div className="space-y-6">
-                {contactCards.map((card, idx) => (
-                  <div key={idx} className="bg-muted p-[30px] border border-border/40">
-                    <div className="flex items-start space-x-4">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 bg-primary/10 flex items-center justify-center">
-                          {typeof card.icon === "function" ? <card.icon /> : <card.icon className="h-6 w-6 text-primary" />}
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-[20px] font-semibold mb-2 text-foreground">{card.title}</h3>
-                        <div className="space-y-1">
-                          {card.details.map((detail, dIdx) => (
-                            <div key={dIdx}>
-                              {detail.href ? (
-                                <a 
-                                  href={detail.href} 
-                                  target={detail.href.startsWith("http") ? "_blank" : undefined}
-                                  rel={detail.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                                  className="text-sm text-muted-foreground hover:text-primary transition-all duration-200"
-                                >
-                                  {detail.label}
-                                </a>
-                              ) : (
-                                <p className="text-sm text-muted-foreground">{detail.label}</p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+              <div className="mt-8">
+                {channels.map((channel) => (
+                  <div
+                    key={channel.title}
+                    className="flex items-start gap-5 border-t border-border py-6 last:border-b"
+                  >
+                    <div className="flex-shrink-0 w-[50px] h-[50px] rounded-[999px] bg-primary/10 grid place-items-center text-primary">
+                      <channel.icon size={24} variant="Bulk" color="currentColor" aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-[18px] font-semibold text-foreground">{channel.title}</h3>
+                      <div className="mt-1 space-y-0.5">
+                        {channel.details.map((detail) => (
+                          <div key={detail.label}>
+                            {detail.href ? (
+                              <a
+                                href={detail.href}
+                                target={detail.href.startsWith("http") ? "_blank" : undefined}
+                                rel={detail.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                                className="text-[15px] text-[#4b5675] hover:text-primary transition-colors duration-200"
+                              >
+                                {detail.label}
+                              </a>
+                            ) : (
+                              <p className="text-[15px] text-[#4b5675]">{detail.label}</p>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
                 ))}
-
-                {/* Business Hours Box */}
-                <div className="bg-primary/5 p-[30px] border border-primary/20">
-                  <div className="flex items-start space-x-4">
-                    <div className="flex-shrink-0">
-                      <div className="w-12 h-12 bg-primary/10 flex items-center justify-center">
-                        <Clock className="h-6 w-6 text-primary" />
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-[20px] font-semibold mb-2 text-foreground">Business hours</h3>
-                      <p className="text-sm text-muted-foreground">Monday - Saturday: 9:00 AM - 6:00 PM</p>
-                      <p className="text-sm text-muted-foreground mt-0.5">Sunday: Closed</p>
-                    </div>
-                  </div>
-                </div>
-
               </div>
             </motion.div>
 
@@ -365,38 +350,105 @@ export default function Contact() {
         </div>
       </section>
 
-      {/* Global Services Section */}
-      <section className="py-[140px] bg-secondary text-center">
+      {/* Already know your specs — dedicated quote-builder section */}
+      <section className="py-[140px] bg-[#f9fbfc]">
         <div className="lp-wrap">
-          <motion.div {...fadeUp} className="max-w-3xl mx-auto">
-            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
-              Reach
-            </span>
-            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] mb-6 tracking-tight text-foreground text-balance">
-              <RevealWords text="Serving customers worldwide" />
-            </h2>
-            <p className="text-[18px] font-normal text-foreground leading-relaxed mb-8">
-              With comprehensive PAN India delivery network and global export capabilities, we serve businesses across India and worldwide. Our logistics partners ensure timely delivery of your orders, no matter where you are located.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-              <div className="bg-card border border-border p-[30px]">
-                <Globe className="h-8 w-8 text-primary mb-4" />
-                <h3 className="text-[20px] font-semibold mb-2 text-foreground">India</h3>
-                <p className="text-[16px] font-normal text-muted-foreground leading-relaxed">
-                  Complete PAN India delivery with reliable logistics partners ensuring timely delivery across all states
-                </p>
-              </div>
-              <div className="bg-card border border-border p-[30px]">
-                <Globe className="h-8 w-8 text-primary mb-4" />
-                <h3 className="text-[20px] font-semibold mb-2 text-foreground">International</h3>
-                <p className="text-[16px] font-normal text-muted-foreground leading-relaxed">
-                  Worldwide export support with comprehensive documentation and shipping assistance
-                </p>
-              </div>
-            </div>
-          </motion.div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-14 lg:gap-20 items-center">
+            <motion.div {...fadeUp}>
+              <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
+                Already know your specs?
+              </span>
+              <h2 className="text-[40px] md:text-[56px] font-normal leading-[1.05] tracking-tight text-foreground text-balance">
+                <RevealWords text="Get pricing in minutes" />
+              </h2>
+              <p className="mt-5 text-[18px] font-normal text-[#4b5675] leading-relaxed max-w-xl">
+                Skip the back and forth. Our quote builder walks you through material, size, and quantity, then returns factory-direct pricing on the spot.
+              </p>
+              <Link
+                to="/quote"
+                className="group mt-8 inline-flex items-center gap-2 px-7 py-3 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-full transition-all duration-200 active:scale-[0.98]"
+              >
+                Open the quote builder
+                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+              </Link>
+            </motion.div>
+
+            <motion.div
+              {...fadeUp}
+              transition={{ ...fadeUp.transition, delay: 0.1 }}
+              className="bg-card p-[40px] md:p-[48px]"
+            >
+              <ol className="list-none">
+                {[
+                  { title: "Pick product and material", description: "Choose from MDF, acrylic, lanyards, badges, and more." },
+                  { title: "Set size and quantity", description: "Enter your dimensions and how many units you need." },
+                  { title: "See instant pricing", description: "Get volume-tiered, factory-direct pricing on the spot." },
+                ].map((step, idx, arr) => (
+                  <li
+                    key={step.title}
+                    className={`flex gap-5 ${idx < arr.length - 1 ? "pb-6 mb-6 border-b border-border" : ""}`}
+                  >
+                    <span className="flex-shrink-0 text-[15px] font-semibold text-primary tabular-nums">
+                      {String(idx + 1).padStart(2, "0")}
+                    </span>
+                    <div>
+                      <h3 className="text-[18px] font-semibold text-foreground">{step.title}</h3>
+                      <p className="mt-1 text-[15px] text-[#4b5675] leading-relaxed">{step.description}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </motion.div>
+          </div>
         </div>
       </section>
+
+      {/* Where we deliver */}
+      <section className="py-[140px] bg-background text-center">
+        <div className="lp-wrap">
+          <motion.div {...fadeUp} className="max-w-2xl mx-auto mb-14">
+            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
+              Where we deliver
+            </span>
+            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-foreground text-balance">
+              <RevealWords text="Across India and worldwide" />
+            </h2>
+            <p className="mt-5 text-[18px] font-normal text-[#4b5675] leading-relaxed">
+              From a single studio run to a nationwide rollout, our logistics partners get your order to the door on time.
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-[20px] text-left">
+            {[
+              { icon: Global, title: "PAN India delivery", description: "Tracked, reliable couriers dispatched fast from our own floor to every state in the country." },
+              { icon: Airplane, title: "Worldwide export", description: "Exporting abroad? We handle the documentation and shipping so your order clears and arrives without the hassle." },
+            ].map((item, idx) => (
+              <motion.div
+                key={item.title}
+                {...fadeUp}
+                transition={{ ...fadeUp.transition, delay: idx * 0.08 }}
+                className="bg-card p-[40px]"
+              >
+                <div className="w-[50px] h-[50px] rounded-[999px] bg-primary/10 grid place-items-center text-primary mb-6">
+                  <item.icon size={24} variant="Bulk" color="currentColor" aria-hidden="true" />
+                </div>
+                <h3 className="text-[24px] font-semibold text-foreground">{item.title}</h3>
+                <div className="mt-6 border-t border-primary/20" />
+                <p className="mt-6 text-[16px] font-normal text-[#4b5675] leading-relaxed">{item.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Closing CTA */}
+      <PageCTA
+        title="Prefer to see the work first?"
+        primary={{ to: "/products", label: "Browse products" }}
+        secondary={{ to: "/work", label: "View our work" }}
+      >
+        Explore the full catalogue and real production photography straight from the Ortex factory floor.
+      </PageCTA>
     </>
   )
 }

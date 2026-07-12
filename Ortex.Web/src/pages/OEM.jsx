@@ -82,10 +82,10 @@ const process = [
 
 const suitedFor = [
   "Promotional product resellers and trading houses",
-  "Corporate gifting companies with their own catalogues",
-  "Brand agencies producing client merchandise",
-  "Retailers building a private-label accessory range",
-  "Event organisers requiring unbranded bulk supply",
+  "Corporate gifting firms with their own catalogue",
+  "Brand and creative agencies producing client merch",
+  "Retailers launching a private-label accessory range",
+  "Event and exhibition organisers buying in bulk",
 ]
 
 export default function OEM() {
@@ -127,12 +127,12 @@ export default function OEM() {
 
       {/* Hero */}
       <PageHero title="We make it. You brand it." nowrap>
-        We are the contract factory behind other people's brands. Produce custom MDF, acrylic, lanyard, and badge lines under your own label, without owning a single machine.
+        We are the contract factory behind other brands, making custom MDF, acrylic, lanyard, and badge lines under your own label.
       </PageHero>
 
-      {/* Image with scroll parallax, Otto /products style, inset to the wrap */}
+      {/* Image with scroll parallax, Otto /products style, 50px side padding */}
       <section ref={bannerRef}>
-        <div className="lp-wrap">
+        <div className="px-[50px]">
           <div className="relative h-[75vh] min-h-[520px] overflow-hidden">
             <motion.div
               style={{ y: bannerY }}
@@ -254,7 +254,7 @@ export default function OEM() {
                 Who this is for
               </span>
               <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-foreground text-balance">
-                <RevealWords text="Built for people who sell, not manufacture" />
+                <RevealWords text="You sell it, we make it" />
               </h2>
 
               {/* Numbered, divided audience list */}
@@ -264,38 +264,41 @@ export default function OEM() {
                     key={item}
                     className="flex items-center gap-5 border-t border-border py-5 last:border-b"
                   >
-                    <span className="flex-shrink-0 w-7 text-[13px] font-semibold text-primary tabular-nums">
+                    <span className="flex-shrink-0 w-10 text-[24px] font-medium text-primary tabular-nums">
                       {String(idx + 1).padStart(2, "0")}
                     </span>
-                    <span className="text-[17px] font-medium text-foreground leading-snug">{item}</span>
+                    <span className="text-[20px] font-medium text-foreground leading-snug">{item}</span>
                   </li>
                 ))}
               </ul>
             </motion.div>
 
-            <motion.div
-              {...fadeUp}
-              transition={{ ...fadeUp.transition, delay: 0.1 }}
-              className="bg-secondary p-[40px] md:p-[48px] border border-border"
-            >
-              <div className="w-[50px] h-[50px] rounded-[999px] bg-primary/10 grid place-items-center text-primary mb-8">
-                <Document size={24} color="currentColor" variant="Bulk" aria-hidden="true" />
+            <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }}>
+              <div className="overflow-hidden">
+                <img
+                  src="/img/factory-production-workshop.jpg"
+                  alt="Ortex Industries manufacturing floor with in-house CNC routing and UV printing"
+                  loading="lazy"
+                  decoding="async"
+                  className="w-full aspect-[4/2] object-cover"
+                />
               </div>
-              <h3 className="text-[24px] font-semibold text-foreground mb-4">
-                Volumes, lead times &amp; terms
-              </h3>
-              <p className="text-[16px] font-normal text-muted-foreground leading-relaxed mb-8">
-                Minimum order quantities and production lead times depend on the material, finish, and volume
-                of your run. We quote them explicitly, in writing, before you commit, with no estimates that
-                move later.
-              </p>
-              <Link
-                to="/quote"
-                className="group inline-flex items-center gap-2 text-[15px] font-semibold text-foreground transition-colors hover:text-primary"
-              >
-                Get your OEM quotation
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-              </Link>
+
+              <div className="bg-[#010101] text-white p-[30px]">
+                <h3 className="text-[24px] font-semibold text-white mb-2">
+                  Clear terms, quoted upfront
+                </h3>
+                <p className="text-[16px] font-normal text-white/70 mb-6 whitespace-nowrap">
+                  Volumes, lead times, and pricing confirmed in writing before you commit.
+                </p>
+                <Link
+                  to="/quote"
+                  className="group inline-flex items-center gap-2 text-[16px] font-semibold text-white transition-colors hover:text-primary"
+                >
+                  Request OEM pricing
+                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                </Link>
+              </div>
             </motion.div>
           </div>
         </div>

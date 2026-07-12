@@ -18,25 +18,10 @@ import { fileURLToPath } from "node:url"
 import {
   PRODUCT_CATEGORIES, buildCategorySchema, photosForCategory, SITE_URL,
 } from "../src/constants/categories.js"
+import { STATIC_ROUTES } from "./routes-meta.mjs"
 
 const dist = resolve(dirname(fileURLToPath(import.meta.url)), "..", "dist")
 const template = readFileSync(join(dist, "index.html"), "utf8")
-
-// Mirrors src/pages/*.jsx useDocumentMetadata calls.
-const STATIC_ROUTES = [
-  { path: "/about", title: "About Ortex Industries - Manufacturing Excellence & Customization Expertise", description: "Learn about Ortex Industries' commitment to manufacturing excellence, complete customization capabilities, and global reach. Your trusted partner for premium customized products." },
-  { path: "/products", title: "Products & Services - Ortex Industries | MDF, Acrylic, Lanyards, Badges & More", description: "Explore Ortex Industries' comprehensive range of customized products including MDF items, acrylic products, lanyards, badges, examination boards, corporate gifts, and branding services." },
-  { path: "/industries", title: "Industries We Serve - Ortex Industries | Corporate, Education, Healthcare & More", description: "Ortex Industries serves diverse sectors including corporate organizations, educational institutions, government departments, hospitals, event management, and more with customized products." },
-  { path: "/oem", title: "OEM & White Label Manufacturing - Ortex Industries", description: "Contract OEM and white-label manufacturing for MDF, acrylic, lanyards, badges, and corporate merchandise. Produced in-house under your brand, with factory-direct pricing and GST invoicing." },
-  { path: "/work", title: "Our Work - Ortex Industries | Custom Manufacturing Gallery", description: "Browse real production photography from Ortex Industries: custom keychains, wall clocks, exam boards, badges, lanyards, fridge magnets, flags, and promotional merchandise." },
-  { path: "/contact", title: "Contact Ortex Industries - Get Quote for Customized Products", description: "Contact Ortex Industries for customized product quotes. Call +91-9211947188, email sales@ortexindustries.in, or WhatsApp for immediate assistance. Serving India and worldwide." },
-  { path: "/quote", title: "Get a Quote: Custom Manufacturing RFQ | Ortex Industries", description: "Build a custom quote from Ortex Industries' real product catalogue, including MDF, acrylic, lanyards, badges, exam boards, and corporate gifts. Add products, set quantities, and get an instant bulk estimate with volume discounts." },
-  { path: "/faq", title: "Frequently Asked Questions - Ortex Industries", description: "Got questions about custom manufacturing, MOQ, sampling policies, or design files? Find answers to frequently asked questions about Ortex Industries." },
-  { path: "/privacy", title: "Privacy Policy - Ortex Industries", description: "Privacy Policy for Ortex Industries. Learn how we handle customer data, custom manufacturing records, and form inquiries." },
-  { path: "/terms", title: "Terms of Service - Ortex Industries", description: "Terms of Service for Ortex Industries. Read our customer agreements and custom manufacturing terms." },
-  { path: "/cookies", title: "Cookie Policy - Ortex Industries", description: "Cookie Policy for Ortex Industries. Learn how we use cookies and tracking technologies to improve our platform." },
-  { path: "/acceptable-use", title: "Acceptable Use Policy - Ortex Industries", description: "Acceptable Use Policy for Ortex Industries. Read our rules regarding custom artwork uploads and platform use." },
-]
 
 const CATEGORY_ROUTES = PRODUCT_CATEGORIES.map((entry) => ({
   path: `/products/${entry.slug}`,

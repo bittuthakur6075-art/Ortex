@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap");
+/* Fonts loaded once in index.html <head>; this duplicate @import is removed. */
 
 :root {
   --n-0:   #FFFFFF;

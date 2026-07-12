@@ -4,12 +4,15 @@ import { Toaster } from "sonner"
 import Navbar from "./components/layout/Navbar"
 import Footer from "./components/layout/Footer"
 import ScrollToTop from "./components/layout/ScrollToTop"
-import Chatbot from "./components/ui/Chatbot"
-import WhatsAppWidget from "./components/ui/WhatsAppWidget"
-import CookieConsent from "./components/ui/CookieConsent"
 import { trackActivity } from "./lib/tracker"
 import { flushOutbox } from "./lib/leads"
 import useSmoothScroll from "./hooks/useSmoothScroll"
+
+// Below-the-fold, non-critical UI: defer out of the initial bundle so it does
+// not block first paint / Core Web Vitals.
+const Chatbot = lazy(() => import("./components/ui/Chatbot"))
+const WhatsAppWidget = lazy(() => import("./components/ui/WhatsAppWidget"))
+const CookieConsent = lazy(() => import("./components/ui/CookieConsent"))
 
 // Lazy load pages to optimize bundle size and core web vitals
 const Home = lazy(() => import("./pages/Home"))
@@ -18,7 +21,6 @@ const Products = lazy(() => import("./pages/Products"))
 const ProductCategory = lazy(() => import("./pages/ProductCategory"))
 const Industries = lazy(() => import("./pages/Industries"))
 const Work = lazy(() => import("./pages/Work"))
-const Gallery = lazy(() => import("./pages/Gallery"))
 const OEM = lazy(() => import("./pages/OEM"))
 const Contact = lazy(() => import("./pages/Contact"))
 const Privacy = lazy(() => import("./pages/Privacy"))
@@ -111,7 +113,6 @@ function AppLayout() {
               <Route path="/industries" element={<Industries />} />
               <Route path="/oem" element={<OEM />} />
               <Route path="/work" element={<Work />} />
-              <Route path="/gallery" element={<Gallery />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
@@ -120,12 +121,12 @@ function AppLayout() {
               <Route path="/quote" element={<QuoteCalculator />} />
               <Route path="/faq" element={<FAQ />} />
 
-              {/* /portfolio and /photos merged into /work. Both are indexed, so
-                  they redirect rather than 404. Remove once Search Console shows
-                  no impressions on the old paths. */}
+              {/* /portfolio, /photos and /gallery all merged into /work. All are
+                  indexed, so they redirect rather than 404. Remove once Search
+                  Console shows no impressions on the old paths. */}
               <Route path="/portfolio" element={<Navigate to="/work" replace />} />
-              {/* /photos was the archive browser — /gallery is its successor. */}
-              <Route path="/photos" element={<Navigate to="/gallery" replace />} />
+              <Route path="/photos" element={<Navigate to="/work" replace />} />
+              <Route path="/gallery" element={<Navigate to="/work" replace />} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>
@@ -134,12 +135,16 @@ function AppLayout() {
 
         {/* Footer */}
         <Footer />
-        {/* Ortex AI Chatbot Guide */}
-        <Chatbot />
-        {/* Floating WhatsApp Widget */}
-        <WhatsAppWidget />
-        {/* Consent gate for IP-geolocation analytics */}
-        <CookieConsent />
+
+        {/* Deferred, non-critical floating UI */}
+        <Suspense fallback={null}>
+          {/* Ortex AI Chatbot Guide */}
+          <Chatbot />
+          {/* Floating WhatsApp Widget */}
+          <WhatsAppWidget />
+          {/* Consent gate for IP-geolocation analytics */}
+          <CookieConsent />
+        </Suspense>
 
         {/* Sonner Toaster for Notifications */}
         <Toaster position="top-right" richColors />
