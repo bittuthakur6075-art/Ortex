@@ -13,10 +13,12 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",
+    "apexcharts": "^5.16.0",
     "clsx": "^2.1.1",
     "html2pdf.js": "^0.14.0",
     "iconsax-react": "^0.0.8",
     "react": "^19.2.7",
+    "react-apexcharts": "^2.1.1",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",
     "sonner": "^2.0.7",

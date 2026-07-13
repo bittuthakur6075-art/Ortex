@@ -7,6 +7,7 @@
 // (inherits text colour) and `variant="Bulk"` unless a caller overrides them.
 
 import {
+  Notification as NotificationIcon,
   Warning2,
   ArrowDown2,
   ArrowRight2,
@@ -100,6 +101,7 @@ export const Lock = wrap(Lock1)
 export const LogOut = wrap(LogoutCurve)
 export const Mail = wrap(Sms)
 export const Menu = wrap(HambergerMenu)
+export const Bell = wrap(NotificationIcon)
 export const MessageCircle = wrap(Whatsapp)
 export const Moon = wrap(MoonIcon)
 export const Package = wrap(Box1)

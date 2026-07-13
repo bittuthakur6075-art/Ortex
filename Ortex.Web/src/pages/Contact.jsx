@@ -513,8 +513,8 @@ export default function Contact() {
         <div className="px-[50px]">
           <div className="relative aspect-[4/2] overflow-hidden">
             <img
-              src="/img/contact-banner.jpg"
-              alt="Custom laser-engraved wooden tags and keychains made by Ortex Industries"
+              src="/img/contact-products.avif"
+              alt="Custom lanyards, acrylic keychains, badges and MDF items made by Ortex Industries"
               loading="lazy"
               decoding="async"
               className="absolute inset-0 w-full h-full object-cover"

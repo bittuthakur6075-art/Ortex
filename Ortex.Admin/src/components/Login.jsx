@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Lock, Mail, ShieldCheck, ArrowRight, Inbox, CheckCircle2, Database, LayoutGrid, Eye, EyeOff } from "./icons"
+import { Lock, Mail, ShieldCheck, Inbox, CheckCircle2, Database, LayoutGrid, Eye, EyeOff } from "./icons"
 import { login, isAuthed } from "../lib/auth"
 import { hasSupabase } from "../data/supabaseClient"
 import { Button, Input } from "./ui"
@@ -40,23 +40,17 @@ export default function Login() {
 
         {/* ---- Left: sign-in/up form ---- */}
         <section className="lgn-left">
-          <div className="lgn-top">
-            <a href="/" className="lgn-brand" aria-label="Ortex Industries home">
-              <img src="/img/logo.svg" alt="Ortex Industries" className="h-7 w-auto" />
-            </a>
-            <div className="lgn-tophelp">
-              Need help? <a href="mailto:sales@ortexindustries.in">Contact IT</a>
-            </div>
-          </div>
-
           <div className="lgn-body">
+            <a href="/" className="lgn-brand lgn-brand-top" aria-label="Ortex Industries home">
+              <img src="/img/logo.svg" alt="Ortex Industries" className="h-10 w-auto" />
+            </a>
             <h1 className="lgn-title">Admin Console</h1>
             <p className="lgn-sub">
-              Sign in to manage enquiries, quotations, invoicing and payments for Ortex Industries.
+              Manage enquiries, quotations, invoices and payments.
             </p>
 
             <form onSubmit={handleSubmit} noValidate className="lgn-form">
-              <div className="mb-4">
+              <div className="mb-5">
                 <label htmlFor="email" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Email
                 </label>
@@ -100,29 +94,15 @@ export default function Login() {
 
               {error && <p className="mt-2 text-sm text-destructive" role="alert">{error}</p>}
 
-              <Button type="submit" className="mt-5 w-full justify-center" disabled={busy}>
+              <Button type="submit" className="mt-8 w-full justify-center" disabled={busy}>
                 {busy ? "Signing in…" : "Sign In"}
-                <ArrowRight className="h-4 w-4" />
               </Button>
 
-              {hasSupabase && (
-                <p className="mt-4 text-center text-xs text-muted-foreground">
-                  Accounts are created by an administrator.{" "}
-                  <a href="mailto:sales@ortexindustries.in" className="text-primary hover:underline font-medium">
-                    Request access
-                  </a>
-                </p>
-              )}
-            </form>
+              <div className="lgn-tophelp lgn-help-below">
+                Need help? <a href="mailto:sales@ortexindustries.in">Contact IT</a>
+              </div>
 
-            <div className="lgn-secure">
-              <ShieldCheck size={16} />
-              <span>
-                {hasSupabase
-                  ? "Encrypted sign-in, secured by Supabase Auth."
-                  : "Database and authentication not configured. Set Supabase keys in .env"}
-              </span>
-            </div>
+            </form>
           </div>
 
           <div className="lgn-copyright">
@@ -137,36 +117,8 @@ export default function Login() {
 
         {/* ---- Right: decorative operations-insight panel ---- */}
         <aside className="lgn-right" aria-hidden="true">
-          <img className="lgn-img" src="/img/login-glass.webp" alt="" />
+          <img className="lgn-img" src="/img/login-laser.jpg" alt="" />
           <div className="lgn-overlay">
-
-            <div className="lgn-stat">
-              <span className="lgn-stat-l">Quotations this quarter</span>
-              <div className="lgn-stat-v">₹18,42,600 <span className="lgn-stat-d">↑ 12%</span></div>
-              <div className="lgn-stat-chart">
-                <div className="lgn-donut" />
-                <ul className="lgn-legend">
-                  <li><i style={{ background: "hsl(var(--primary))" }} /> Enquiries <b>42%</b></li>
-                  <li><i style={{ background: "#12B886" }} /> Quotes <b>26%</b></li>
-                  <li><i style={{ background: "#F59E0B" }} /> Invoices <b>20%</b></li>
-                  <li><i style={{ background: "#7C3AED" }} /> Payments <b>12%</b></li>
-                </ul>
-              </div>
-              <div className="lgn-stat-foot">
-                <div className="lgn-stat-foot-item">
-                  <span className="lgn-stat-foot-l">Period</span>
-                  <span className="lgn-stat-foot-v">Q2 FY26</span>
-                </div>
-                <div className="lgn-stat-foot-item">
-                  <span className="lgn-stat-foot-l">Open enquiries</span>
-                  <span className="lgn-stat-foot-v">37</span>
-                </div>
-                <div className="lgn-stat-foot-item">
-                  <span className="lgn-stat-foot-l">Status</span>
-                  <span className="lgn-stat-foot-v lgn-stat-foot-ok">Reconciled</span>
-                </div>
-              </div>
-            </div>
 
             <div className="lgn-acts">
               <div className="lgn-act">
@@ -193,8 +145,8 @@ export default function Login() {
             </div>
 
             <div className="lgn-caption">
-              <h2>Run Ortex operations from one console</h2>
-              <p>Track and reconcile enquiries, quotations, invoicing, and payments in one unified workspace.</p>
+              <h2>Run your operation from one console</h2>
+              <p>Track and reconcile enquiries, quotations, invoices, and payments in one workspace.</p>
             </div>
 
           </div>

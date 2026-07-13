@@ -202,8 +202,8 @@ export default function About() {
             >
               <div className="aspect-[4/3] overflow-hidden">
                 <img
-                  src="/img/factory-production-workshop.jpg"
-                  alt="The Ortex Industries production floor, where routing, UV printing, and assembly are carried out in-house"
+                  src="/img/about-production.avif"
+                  alt="Close-up of laser engraving in progress on the Ortex Industries production floor"
                   className="w-full h-full object-cover"
                   loading="lazy"
                   decoding="async"

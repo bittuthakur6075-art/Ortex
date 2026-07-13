@@ -16,6 +16,9 @@ export default function Hero() {
   return (
     <section className="lp-hero has-video">
       <img className="lp-hero-video" src={BACKGROUND} alt="" aria-hidden="true" fetchPriority="high" />
+      {/* Darkening overlay so the white logo/nav/headline stay legible over the
+          vivid laser-engraving photo. */}
+      <div className="lp-hero-scrim" aria-hidden="true" />
       <div className="lp-wrap lp-hero-inner">
         <div className={`lp-hero-copy ${reveal ? 'lp-reveal is-in' : 'lp-reveal'}`}>
           <span className="lp-hero-badge">

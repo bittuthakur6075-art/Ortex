@@ -1,12 +1,12 @@
-// Edge Function: product-copywriter
+// Edge Function: work-copywriter
 //
-// Generates SEO- and marketing-optimised product copy (title, description, and
-// best-fit category) with Gemini. Callable ONLY by a signed-in, active staff
+// Generates an SEO-friendly caption (title) and accessibility alt text for a
+// Work showcase photo with Gemini. Callable ONLY by a signed-in, active staff
 // member — the caller's JWT is checked against their profile before the Gemini
 // key is used. The key never reaches the browser.
 //
 // Deploy:
-//   supabase functions deploy product-copywriter
+//   supabase functions deploy work-copywriter
 //   supabase secrets set GEMINI_API_KEY=your-google-ai-studio-key
 //   (optional) supabase secrets set GEMINI_MODEL=gemini-flash-lite-latest
 // SUPABASE_URL / SUPABASE_ANON_KEY are injected by the platform automatically.
@@ -24,8 +24,6 @@ const json = (body: unknown, status = 200) =>
 
 const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-flash-lite-latest"
 
-// Record token usage (best-effort) for the Admin usage panel. Service-role key
-// bypasses RLS.
 async function logUsage(usage: Record<string, number> | undefined) {
   try {
     if (!usage) return
@@ -35,7 +33,7 @@ async function logUsage(usage: Record<string, number> | undefined) {
     const client = createClient(url, service)
     await client.from("ai_usage").insert({
       doc: {
-        feature: "copywriter",
+        feature: "work-copywriter",
         model: MODEL,
         promptTokens: usage.promptTokenCount || 0,
         outputTokens: usage.candidatesTokenCount || 0,
@@ -48,22 +46,21 @@ async function logUsage(usage: Record<string, number> | undefined) {
   }
 }
 
-function buildPrompt(input: Record<string, unknown>, allowed: string[]) {
-  return `You are an expert e-commerce SEO copywriter for Ortex Industries, an Indian manufacturer of customized products (MDF, acrylic, lanyards, badges, corporate gifts, and more). Write copy that ranks on Google and converts B2B buyers.
+function buildPrompt(input: Record<string, unknown>) {
+  return `You are an expert SEO copywriter for Ortex Industries, an Indian manufacturer of customized products (MDF, acrylic, lanyards, badges, corporate gifts, and more). You are writing captions for the photo gallery on the company's "Our work" page, which showcases real production photography.
 
-Write copy for this product based on the details provided:
-- Draft name / keywords: ${input.name || "(none given)"}
-- Current category: ${input.category || "(unknown)"}
-- Material / spec: ${input.material || "(unknown)"}
-- Base price: ${input.basePrice ? "Rs " + input.basePrice : "(unknown)"} per ${input.unit || "pc"}
-- MOQ: ${input.moq || "(unknown)"}
+Write copy for ONE work photo based on these details:
+- Category / product type: ${input.category || "(unknown)"}
+- Draft title / keywords: ${input.title || "(none given)"}
+- Notes: ${input.notes || "(none)"}
 
 Produce:
-1. "name": a concise, keyword-rich product title (max ~60 characters). Front-load the primary keyword buyers search for. Title Case. No ALL CAPS, no emojis, no quotes.
-2. "description": 2 to 4 sentences of persuasive, benefit-led marketing copy that also reads well for SEO. Mention the material and a key use-case or benefit. Indian English. Do NOT invent prices, discounts, certifications, or specs not implied by the inputs. No em dashes.
-3. "category": choose the single best-fit category, and it MUST be EXACTLY one of this allowed list: ${JSON.stringify(allowed)}.
+1. "title": a short, specific, keyword-rich caption (3 to 6 words, Title Case) that a buyer would search for. No quotes, no emojis, no trailing punctuation.
+2. "alt": a descriptive accessibility alt text (one sentence, ~12 to 20 words) that plainly describes what the photo shows, including the product, material, and any branding cue. Indian English. No em dashes.
 
-Return ONLY a JSON object with exactly these keys: "name", "description", "category". No markdown, no code fences, no extra text.`
+Do NOT invent client names, prices, or specifics you cannot infer from the inputs. Keep it grounded in the category.
+
+Return ONLY a JSON object with exactly these keys: "title", "alt". No markdown, no code fences, no extra text.`
 }
 
 Deno.serve(async (req) => {
@@ -77,9 +74,6 @@ Deno.serve(async (req) => {
     if (!apiKey) return json({ error: "Copywriter is not configured (missing GEMINI_API_KEY)." }, 500)
 
     // 1) Authenticate the caller and confirm they are active staff.
-    //    Validate the token explicitly (more reliable than a global-header
-    //    client), then read the profile with the service-role key so RLS can
-    //    never hide it (which previously produced a false 403).
     const authHeader = req.headers.get("Authorization") ?? ""
     const jwt = authHeader.replace(/^bearer\s+/i, "").trim()
     if (!jwt) return json({ error: "Not authenticated" }, 401)
@@ -99,10 +93,8 @@ Deno.serve(async (req) => {
 
     // 2) Validate input.
     const body = await req.json().catch(() => ({}))
-    const allowed: string[] = Array.isArray(body.allowedCategories) ? body.allowedCategories.filter(Boolean) : []
-    if (!allowed.length) return json({ error: "No categories provided" }, 400)
-    if (!body.name && !body.material && !body.category) {
-      return json({ error: "Enter a product name, keywords, or material first." }, 400)
+    if (!body.category && !body.title && !body.notes) {
+      return json({ error: "Pick a category or enter a few keywords first." }, 400)
     }
 
     // 3) Call Gemini, asking for strict JSON.
@@ -113,10 +105,10 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: buildPrompt(body, allowed) }] }],
+          contents: [{ role: "user", parts: [{ text: buildPrompt(body) }] }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 600,
+            maxOutputTokens: 300,
             responseMimeType: "application/json",
           },
         }),
@@ -134,27 +126,22 @@ Deno.serve(async (req) => {
       .join("")
       .trim()
 
-    // Strip any accidental code fences, then parse.
     const cleaned = raw.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim()
-    let parsed: { name?: string; description?: string; category?: string }
+    let parsed: { title?: string; alt?: string }
     try {
       parsed = JSON.parse(cleaned)
     } catch {
       return json({ error: "Could not parse AI response." }, 502)
     }
 
-    // Constrain the category to the allowed list (case-insensitive match).
-    const match = allowed.find((c) => c.toLowerCase() === String(parsed.category || "").toLowerCase())
-
     await logUsage(data?.usageMetadata)
 
     return json({
-      name: (parsed.name || "").trim(),
-      description: (parsed.description || "").trim(),
-      category: match || body.category || allowed[0],
+      title: (parsed.title || "").trim(),
+      alt: (parsed.alt || "").trim(),
     })
   } catch (err) {
-    console.error("product-copywriter error", err)
+    console.error("work-copywriter error", err)
     return json({ error: "Something went wrong." }, 500)
   }
 })

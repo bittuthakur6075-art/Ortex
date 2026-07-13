@@ -6,6 +6,7 @@ import { useCollection, useSorting } from "../data/hooks"
 import { newCategory, slugifyCategory, GST_RATES, PRODUCT_CATEGORIES } from "../data/schema"
 import { uploadImage, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "../lib/imageUpload"
 import { triggerSiteRebuild } from "../lib/revalidate"
+import { supabase, hasSupabase } from "../data/supabaseClient"
 import PageHeader from "../components/PageHeader"
 import { Button, Card, Input, Select, Textarea, Field, EmptyState, Modal, PageLoader, SortTh } from "../components/ui"
 
@@ -114,15 +115,60 @@ function CategoryForm({ open, category, usage, onClose }) {
   const [form, setForm] = useState(newCategory())
   const [error, setError] = useState("")
   const [uploading, setUploading] = useState(false)
+  const [aiBusy, setAiBusy] = useState(false)
+  const [urlInput, setUrlInput] = useState("")
 
   useEffect(() => {
     if (open) {
       setForm(category ? { ...newCategory(), ...category } : newCategory())
       setError("")
+      setUrlInput("")
     }
   }, [open, category])
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  // Generate the intro paragraph + SEO title/description with Gemini via the
+  // category-copywriter Edge Function (key held server-side).
+  const generateCopy = async () => {
+    if (!hasSupabase) return toast.error("Connect Supabase to use the AI writer.")
+    if (!form.name.trim() && !form.displayName.trim() && !form.description.trim()) {
+      return toast.error("Enter a category name or a few keywords first.")
+    }
+    setAiBusy(true)
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke("category-copywriter", {
+        body: {
+          name: form.name,
+          displayName: form.displayName,
+          hsn: form.hsn,
+          description: form.description,
+        },
+      })
+      if (fnErr) throw fnErr
+      if (data?.error) throw new Error(data.error)
+      setForm((f) => ({
+        ...f,
+        intro: data.intro?.trim() || f.intro,
+        seoTitle: data.seoTitle?.trim() || f.seoTitle,
+        seoDescription: data.seoDescription?.trim() || f.seoDescription,
+      }))
+      toast.success("AI copy generated — review before saving")
+    } catch (err) {
+      console.error("Category AI copy failed:", err)
+      toast.error(err?.message || "AI generation failed")
+    } finally {
+      setAiBusy(false)
+    }
+  }
+
+  const addImageUrl = () => {
+    const url = urlInput.trim()
+    if (!url) return
+    if (!/^https?:\/\//i.test(url)) return toast.error("Enter a valid image URL (http/https).")
+    set("image", url)
+    setUrlInput("")
+  }
 
   const handleImage = async (e) => {
     const file = e.target.files?.[0]
@@ -224,8 +270,13 @@ function CategoryForm({ open, category, usage, onClose }) {
         </div>
 
         <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Website content</p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Website content</p>
+              <Button variant="outline" size="sm" onClick={generateCopy} disabled={aiBusy}>
+                <Sparkles className="h-4 w-4" /> {aiBusy ? "Writing…" : "AI writer"}
+              </Button>
+            </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.active !== false} onChange={(e) => set("active", e.target.checked)} />
               Show on website
@@ -254,11 +305,24 @@ function CategoryForm({ open, category, usage, onClose }) {
                 </Button>
               </div>
             ) : (
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50">
-                <Plus className="h-4 w-4" />
-                {uploading ? "Uploading…" : "Upload image"}
-                <input type="file" accept="image/*" className="hidden" onChange={handleImage} disabled={uploading} />
-              </label>
+              <div className="space-y-2">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50">
+                  <Plus className="h-4 w-4" />
+                  {uploading ? "Uploading…" : "Upload image"}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleImage} disabled={uploading} />
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addImageUrl() } }}
+                    placeholder="or paste an image URL"
+                  />
+                  <Button variant="outline" size="sm" onClick={addImageUrl} disabled={!urlInput.trim()}>
+                    Add URL
+                  </Button>
+                </div>
+              </div>
             )}
           </Field>
 

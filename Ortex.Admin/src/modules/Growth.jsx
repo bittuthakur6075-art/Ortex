@@ -5,6 +5,7 @@ import { computeGrowthAnalytics, computeAttribution, computeVelocity, computeCoh
 import { formatNumber, formatCurrency } from "../lib/format"
 import PageHeader from "../components/PageHeader"
 import { Card, StatCard, Badge, EmptyState, Chip, PageLoader, Money } from "../components/ui"
+import { BarChart, AreaChart, CHART_COLORS } from "../components/Chart"
 
 const PERIODS = [
   { id: "mtd", label: "This month" },
@@ -226,38 +227,19 @@ function SectionCard({ title, action, children, className = "" }) {
   )
 }
 
-// Vertical conversion funnel with step-to-step drop-off %.
+// Conversion funnel by stage count.
 function FunnelChart({ funnel, className }) {
-  const max = Math.max(1, ...funnel.map((f) => f.count))
   return (
     <SectionCard title="Visitor-to-cash funnel" className={className}>
-      <div className="space-y-3">
-        {funnel.map((f, i) => {
-          const prev = i > 0 ? funnel[i - 1].count : null
-          const conv = prev ? Math.round((f.count / prev) * 100) : null
-          const isBehavioral = i < 4
-          return (
-            <div key={f.stage}>
-              <div className="mb-1 flex items-center justify-between text-sm">
-                <span className="text-foreground">{f.stage}</span>
-                <span className="text-muted-foreground">
-                  {formatNumber(f.count)}
-                  {conv !== null && <span className="ml-1.5 text-xs">({conv}%)</span>}
-                </span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={`h-full rounded-full ${isBehavioral ? "bg-blue-500/60" : "bg-primary/70"}`}
-                  style={{ width: `${(f.count / max) * 100}%` }}
-                />
-              </div>
-            </div>
-          )
-        })}
-      </div>
+      <BarChart
+        height={Math.max(240, funnel.length * 42)}
+        categories={funnel.map((f) => f.stage)}
+        series={[{ name: "Count", data: funnel.map((f) => f.count) }]}
+        valueFormatter={(v) => formatNumber(v)}
+      />
       <p className="mt-3 text-xs text-muted-foreground">
-        Behavioral stages (blue) are session-based; sales stages (accent) are period-scoped by document date, so
-        cross-stage rates are directional.
+        Behavioral stages are session-based; sales stages are period-scoped by document date, so cross-stage rates
+        are directional.
       </p>
     </SectionCard>
   )
@@ -265,32 +247,18 @@ function FunnelChart({ funnel, className }) {
 
 // 8-week sessions vs quote-requesting sessions.
 function TrendChart({ trend }) {
-  const max = Math.max(1, ...trend.map((t) => Math.max(t.sessions, t.quotes)))
   return (
     <SectionCard title="Weekly sessions vs quotes">
-      <div className="flex h-40 items-end gap-2">
-        {trend.map((t, i) => (
-          <div key={i} className="group flex flex-1 flex-col items-center justify-end gap-1.5">
-            <div className="flex w-full items-end justify-center gap-0.5" style={{ height: "100%" }}>
-              <div
-                className="w-1/2 rounded-t bg-blue-500/60 transition-all group-hover:bg-blue-500"
-                style={{ height: `${(t.sessions / max) * 100}%` }}
-                title={`${t.sessions} sessions`}
-              />
-              <div
-                className="w-1/2 rounded-t bg-amber-500/70 transition-all group-hover:bg-amber-500"
-                style={{ height: `${(t.quotes / max) * 100}%` }}
-                title={`${t.quotes} quote requests`}
-              />
-            </div>
-            <span className="text-[10px] text-muted-foreground">{t.label}</span>
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-blue-500/60" /> Sessions</span>
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-amber-500/70" /> Quote requests</span>
-      </div>
+      <AreaChart
+        height={220}
+        categories={trend.map((t) => t.label)}
+        series={[
+          { name: "Sessions", data: trend.map((t) => t.sessions) },
+          { name: "Quote requests", data: trend.map((t) => t.quotes) },
+        ]}
+        colors={[CHART_COLORS.blue, CHART_COLORS.amber]}
+        valueFormatter={(v) => formatNumber(v)}
+      />
     </SectionCard>
   )
 }
@@ -303,25 +271,16 @@ function BarList({ title, rows, labelKey, unit, tone = "slate" }) {
       </SectionCard>
     )
   }
-  const max = Math.max(1, ...rows.map((r) => r.count))
-  const barTone = tone === "blue" ? "bg-blue-500/60" : tone === "emerald" ? "bg-emerald-500/60" : "bg-primary/60"
+  const color = tone === "blue" ? CHART_COLORS.blue : tone === "emerald" ? CHART_COLORS.emerald : undefined
   return (
     <SectionCard title={title}>
-      <div className="space-y-3">
-        {rows.map((r, i) => (
-          <div key={i}>
-            <div className="mb-1 flex items-center justify-between gap-2 text-sm">
-              <span className="truncate text-foreground">{r[labelKey] || "—"}</span>
-              <span className="flex-none text-muted-foreground">
-                {formatNumber(r.count)} <span className="text-xs">{unit}</span>
-              </span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div className={`h-full rounded-full ${barTone}`} style={{ width: `${(r.count / max) * 100}%` }} />
-            </div>
-          </div>
-        ))}
-      </div>
+      <BarChart
+        height={Math.max(200, rows.length * 42)}
+        categories={rows.map((r) => r[labelKey] || "—")}
+        series={[{ name: unit, data: rows.map((r) => r.count) }]}
+        colors={color ? [color] : undefined}
+        valueFormatter={(v) => formatNumber(v)}
+      />
     </SectionCard>
   )
 }
@@ -337,22 +296,15 @@ function RevenueBars({ title, rows }) {
       </SectionCard>
     )
   }
-  const max = Math.max(1, ...rows.map((r) => r.revenue))
   return (
     <SectionCard title={title}>
-      <div className="space-y-3">
-        {rows.map((r, i) => (
-          <div key={i}>
-            <div className="mb-1 flex items-center justify-between gap-2 text-sm">
-              <span className="truncate text-foreground">{r.channel}</span>
-              <span className="flex-none text-muted-foreground">{formatCurrency(r.revenue, { compact: true })}</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-emerald-500/60" style={{ width: `${(r.revenue / max) * 100}%` }} />
-            </div>
-          </div>
-        ))}
-      </div>
+      <BarChart
+        height={Math.max(200, rows.length * 42)}
+        categories={rows.map((r) => r.channel)}
+        series={[{ name: "Revenue", data: rows.map((r) => Math.round(r.revenue)) }]}
+        colors={[CHART_COLORS.emerald]}
+        valueFormatter={(v) => formatCurrency(v, { compact: true })}
+      />
     </SectionCard>
   )
 }

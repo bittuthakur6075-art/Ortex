@@ -68,8 +68,8 @@ export default function Welcome() {
             className="lg:col-span-6 overflow-hidden"
           >
             <motion.img
-              src="/img/factory-production-workshop.jpg"
-              alt="Inside the Ortex Industries production workshop"
+              src="/img/welcome-workshop.avif"
+              alt="Inside the Ortex Industries production workshop, with UV-printed keychains, lanyard racks, and a laser engraver"
               loading="lazy"
               initial={{ scale: 1.08 }}
               whileInView={{ scale: 1 }}

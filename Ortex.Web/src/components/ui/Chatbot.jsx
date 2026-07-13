@@ -474,7 +474,7 @@ export default function Chatbot() {
               </div>
 
               {/* Message stream */}
-              <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-background">
+              <div ref={listRef} data-lenis-prevent className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-background">
                 {messages.map((m, i) => (
                   <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                     <div

@@ -1,6 +1,5 @@
 import { motion } from "framer-motion"
 import { capabilities, testimonials } from "../../constants/home"
-import { PRODUCT_CATEGORIES, photosForCategory } from "../../constants/categories"
 import { EASE } from "./Section"
 
 /**
@@ -11,23 +10,15 @@ import { EASE } from "./Section"
  * visible (increasing top offset per card). Degrades to a plain stack on mobile.
  */
 
-const FALLBACK_IMAGE = "/img/factory-production-workshop.jpg"
-
-// One distinct real order photo per standard (deduped across categories).
-const rowImages = (() => {
-  const seen = new Set()
-  const pool = []
-  for (const c of PRODUCT_CATEGORIES) {
-    for (const p of photosForCategory(c, 4)) {
-      if (p?.url && !seen.has(p.url)) {
-        seen.add(p.url)
-        pool.push(p.url)
-      }
-    }
-    if (pool.length >= capabilities.length) break
-  }
-  return capabilities.map((_, i) => pool[i] || FALLBACK_IMAGE)
-})()
+// One production/process photo per capability, ordered to match `capabilities`:
+// in-house manufacturing, unlimited customization, factory-direct pricing,
+// prepress proofing.
+const rowImages = [
+  "/img/build-manufacturing.avif",
+  "/img/build-customization.avif",
+  "/img/build-pricing.avif",
+  "/img/build-proofing.avif",
+]
 
 const featured = testimonials[0]
 const initials = featured.author

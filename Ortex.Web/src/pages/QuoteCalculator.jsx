@@ -23,7 +23,7 @@ import { PRODUCTS, CATEGORIES } from "../constants/products"
 import { PRODUCT_CATEGORIES, photosForCategory } from "../constants/categories"
 import { supabase, hasSupabase } from "../lib/supabaseClient"
 
-const FALLBACK_IMAGE = "/img/factory-production-workshop.jpg"
+const FALLBACK_IMAGE = "/img/welcome-workshop.avif"
 
 // Real production photos per category (same source as the Work / Products
 // pages), so each quote tile shows an actual product photo instead of an icon.

@@ -20,19 +20,19 @@ const heroCards = [
     eyebrow: "Premium products",
     title: "Custom made, start to finish.",
     cta: "Browse products",
-    image: "/img/hero-products.jpg",
+    image: "/img/products-hero.avif",
     to: "/products",
   },
   {
     eyebrow: "OEM & white-label",
     title: "Your brand, built by us.",
     cta: "Our services",
-    image: "/img/hero-oem.jpg",
+    image: "/img/hero-oem.avif",
     to: "/oem",
   },
 ]
 
-const FALLBACK_IMAGE = "/img/factory-production-workshop.jpg"
+const FALLBACK_IMAGE = "/img/welcome-workshop.avif"
 
 /** Image card with overlaid text. The cursor arrow is shared at section level. */
 function OverlayCard({ to, image, eyebrow, title, cta, big }) {

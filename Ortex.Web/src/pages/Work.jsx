@@ -5,7 +5,7 @@ import {
   Category, Key, Clock, Medal, Gift, ClipboardText, Flag, Sticker, Tag, Eye, SearchNormal1,
 } from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
-import { workPhotos } from "../constants/home"
+import { useWork } from "../lib/useWork"
 import PageHero from "../components/ui/PageHero"
 import PhotoLightbox from "../components/ui/PhotoLightbox"
 
@@ -42,6 +42,10 @@ export default function Work() {
     { path: "/work" }
   )
 
+  // Live "Work" photos managed in the Admin panel, merged with the static
+  // production archive (see useWork). Falls back to the static list.
+  const { photos: workPhotos } = useWork()
+
   // "All" first, then categories ordered by photo count (most-used lead, so the
   // rarest is what scrolls off if the row ever overflows).
   const categories = useMemo(() => {
@@ -52,7 +56,7 @@ export default function Work() {
     }
     const ordered = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c)
     return ["All", ...ordered]
-  }, [])
+  }, [workPhotos])
 
   const PAGE_SIZE = 48
 
@@ -66,7 +70,7 @@ export default function Work() {
     const q = query.trim().toLowerCase()
     if (q) rows = rows.filter((p) => (p.title || "").toLowerCase().includes(q))
     return rows
-  }, [activeCategory, query])
+  }, [activeCategory, query, workPhotos])
 
   const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount])
 

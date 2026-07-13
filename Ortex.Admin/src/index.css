@@ -31,7 +31,7 @@
 }
 
 :root {
-  --background: 240 6% 97%;
+  --background: 210 23% 96.5%; /* #F4F6F8 */
   --foreground: 222 47% 11%;
   --primary: 229 77% 54%;
   --primary-foreground: 0 0% 100%;
@@ -100,7 +100,7 @@ body {
 @keyframes lgn-cardin { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .lgn-card { animation: none; } }
 
-.lgn { height: 100dvh; overflow: hidden; background: hsl(var(--card)); }
+.lgn { height: 100dvh; overflow: hidden; background: hsl(var(--card)); font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif; }
 .lgn-card { width: 100%; height: 100dvh; display: grid; grid-template-columns: 1fr 1fr; align-items: stretch; background: hsl(var(--card)); overflow: hidden; animation: lgn-cardin .42s cubic-bezier(.2, .8, .2, 1); }
 
 /* Left: form column */
@@ -108,7 +108,7 @@ body {
 @media (min-width: 992px) and (max-height: 860px) {
   .lgn-left { padding-top: 24px; padding-bottom: 20px; }
   .lgn-body { padding-top: 16px; }
-  .lgn-title { font-size: clamp(30px, 3.4vw, 42px); }
+  .lgn-title { font-size: 32px; }
   .lgn-form { margin-top: clamp(18px, 2.8vh, 28px); }
   .lgn-copyright { padding-top: 24px; }
   .lgn-botlinks { margin-top: 10px; }
@@ -118,13 +118,17 @@ body {
 .lgn-tophelp { font-size: clamp(14px, 1.4vw, 16px); font-weight: 400; color: hsl(var(--muted-foreground)); }
 .lgn-tophelp a { margin-left: 4px; font-weight: 500; color: hsl(var(--primary)); text-decoration: none; }
 .lgn-tophelp a:hover { text-decoration: underline; }
+.lgn-brand-top { display: flex; justify-content: center; margin-bottom: 32px; }
+.lgn-help-below { margin-top: 50px; text-align: center; }
 .lgn-botlinks { margin-top: clamp(12px, 2.5vw, 16px); display: flex; flex-wrap: wrap; justify-content: center; gap: 8px clamp(16px, 3.2vw, 24px); }
 .lgn-botlinks a { font-size: clamp(12px, 1vw, 14px); font-weight: 500; color: hsl(var(--primary)); text-decoration: none; white-space: nowrap; background: none; border: 0; cursor: pointer; }
 .lgn-botlinks a:hover { text-decoration: underline; }
 .lgn-body { margin-top: auto; padding-top: clamp(20px, 4.5vh, 56px); max-width: 460px; width: 100%; align-self: center; text-align: center; }
-.lgn-title { font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif; font-size: clamp(32px, 4.4vw, 54px); font-weight: 500; letter-spacing: -.01em; line-height: 1.04; color: hsl(var(--foreground)); }
-.lgn-sub { margin: 8px auto 0; max-width: 44ch; font-size: clamp(14px, 1vw, 16px); line-height: 1.5; color: hsl(var(--muted-foreground)); }
+.lgn-title { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; font-size: 32px; font-weight: 400; letter-spacing: -.01em; line-height: 1.15; color: #071437; white-space: nowrap; }
+.lgn-sub { margin: 4px auto 0; max-width: none; font-size: 16px; font-weight: 400; line-height: 1.5; color: #4B5675; }
 .lgn-form { margin-top: clamp(20px, 4vh, 40px); text-align: left; }
+.lgn-form input { height: 50px; border-radius: 20px; corner-shape: squircle; }
+.lgn-form button[type="submit"] { height: 50px; border-radius: 20px; corner-shape: squircle; }
 .lgn-secure { display: inline-block; text-align: center; margin-top: clamp(14px, 2.5vw, 18px); padding: 8px 18px; border-radius: 999px; background: color-mix(in srgb, hsl(var(--primary)) 8%, transparent); color: hsl(var(--foreground)); font-size: 14px; font-weight: 400; line-height: 1.5; max-width: 100%; }
 .lgn-secure svg { color: hsl(var(--primary)); vertical-align: middle; margin-right: 8px; display: inline; }
 .lgn-copyright { margin-top: auto; padding-top: clamp(24px, 6vh, 100px); font-size: clamp(12px, 1.2vw, 14px); font-weight: 400; color: hsl(var(--muted-foreground)); text-align: center; }
@@ -132,7 +136,7 @@ body {
 
 /* Right: image column with decorative glass widgets. */
 .lgn-right { position: relative; overflow: hidden; background: hsl(var(--primary)); }
-.lgn-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.lgn-img { display: block; width: 100%; height: 100%; object-fit: cover; filter: brightness(.74) saturate(1.05); }
 /* Single centered column: caption → stat → actions. Capped widths keep it
    inside the half-panel at any width; the panel never scrolls — on short
    viewports the height media queries below drop the lowest-priority cards so
@@ -166,9 +170,9 @@ body {
 .lgn-trust-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
 .lgn-trust-list li { display: flex; align-items: center; gap: 9px; font-size: clamp(12px, 1vw, 13px); font-weight: 500; color: #2b3548; }
 .lgn-trust-list li svg { color: hsl(var(--primary)); flex: none; }
-.lgn-caption { order: -1; width: min(460px, 100%); margin: 0; text-align: center; padding: 0 8px; color: #071437; }
-.lgn-caption h2 { margin: 0; font-size: clamp(20px, 2.4vw, 34px); font-weight: 600; letter-spacing: -.02em; line-height: 1.1; color: #071437; }
-.lgn-caption p { margin: 10px auto 0; max-width: 42ch; font-size: clamp(14px, 1.4vw, 17px); font-weight: 400; line-height: 1.5; color: #252f4a; }
+.lgn-caption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 50px; text-align: left; color: #fff; text-shadow: 0 2px 18px rgba(0, 0, 0, .55); background: linear-gradient(to top, rgba(0, 0, 0, .62) 0%, rgba(0, 0, 0, 0) 100%); }
+.lgn-caption h2 { margin: 0; max-width: none; white-space: nowrap; font-size: 28px; font-weight: 400; letter-spacing: -.01em; line-height: 1.2; color: #fff; }
+.lgn-caption p { margin: 10px 0 0; max-width: 42ch; font-size: 16px; font-weight: 400; line-height: 1.5; color: rgba(255, 255, 255, .88); }
 
 /* Desktop, short viewports: dynamically scale down elements on shorter laptop screens 
    to prevent vertical clipping, and hide lower-priority items as height decreases. */

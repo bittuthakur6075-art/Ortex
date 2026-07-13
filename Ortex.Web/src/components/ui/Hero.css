@@ -67,6 +67,18 @@
   pointer-events: none;
 }
 
+.lp-hero-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* Overall darkening + a soft dark pool behind the centred copy so the white
+     headline and CTAs stay legible. */
+  background:
+    linear-gradient(180deg, rgba(4, 8, 22, 0.50) 0%, rgba(4, 8, 22, 0.45) 45%, rgba(4, 8, 22, 0.62) 100%),
+    radial-gradient(75% 65% at 50% 52%, rgba(4, 8, 22, 0.45) 0%, rgba(4, 8, 22, 0) 72%);
+}
+
 .lp-hero-overlay {
   position: absolute;
   top: 0;

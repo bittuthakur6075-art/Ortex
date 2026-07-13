@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Building2, KeyRound, Percent, Hash, Database, Sparkles, Trash2, Info, Save, Mail, Inbox } from "../components/icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
-import { useSettings, useCollections } from "../data/hooks"
+import { useSettings, useCollections, useCollection } from "../data/hooks"
 import { seedDemo } from "../data/seed"
 import { login, changePassword, currentEmail } from "../lib/auth"
 import { syncIndiaMart } from "../data/integrations"
@@ -84,6 +84,8 @@ export default function Settings() {
             </p>
           </div>
         </div>
+
+        <AiUsageCard />
 
         <SettingsCard icon={Building2} title="Company profile" description="Appears on quotation and invoice documents.">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -300,6 +302,115 @@ export default function Settings() {
         </SettingsCard>
       </div>
     </div>
+  )
+}
+
+function AiUsageCard() {
+  const { items } = useCollection("ai_usage")
+
+  const stats = useMemo(() => {
+    const rows = items || []
+    const sum = (key) => rows.reduce((a, r) => a + (Number(r[key]) || 0), 0)
+    const today = new Date().toDateString()
+    const requestsToday = rows.filter((r) => r.createdAt && new Date(r.createdAt).toDateString() === today).length
+    const feat = (f) => rows.filter((r) => r.feature === f)
+    const featTokens = (f) => feat(f).reduce((a, r) => a + (Number(r.totalTokens) || 0), 0)
+    const lastAt = rows.reduce((m, r) => (r.createdAt && (!m || r.createdAt > m) ? r.createdAt : m), null)
+    return {
+      requests: rows.length,
+      requestsToday,
+      promptTokens: sum("promptTokens"),
+      outputTokens: sum("outputTokens"),
+      totalTokens: sum("totalTokens"),
+      chatbot: { n: feat("chatbot").length, t: featTokens("chatbot") },
+      copywriter: { n: feat("copywriter").length, t: featTokens("copywriter") },
+      lastAt,
+      model: rows.find((r) => r.model)?.model || "gemini-flash-lite-latest",
+    }
+  }, [items])
+
+  const nf = (n) => (Number(n) || 0).toLocaleString("en-IN")
+
+  return (
+    <SettingsCard
+      icon={Sparkles}
+      title="AI assistant (LLM)"
+      description="Google Gemini powers Orty (website chat) and the product copywriter. Token usage is tracked per call."
+    >
+      {/* Configuration */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          ["Model", stats.model],
+          ["Provider", "Google AI Studio"],
+          ["Chatbot function", "orty-chat"],
+          ["Copywriter function", "product-copywriter"],
+        ].map(([k, v]) => (
+          <div key={k} className="rounded-lg border border-border bg-muted/30 p-3">
+            <div className="text-xs text-muted-foreground">{k}</div>
+            <div className="mt-0.5 truncate text-sm font-semibold text-foreground" title={v}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Token totals */}
+      <p className="mt-5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Token usage (all time)</p>
+      <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          ["Total requests", nf(stats.requests)],
+          ["Total tokens", nf(stats.totalTokens)],
+          ["Input tokens", nf(stats.promptTokens)],
+          ["Output tokens", nf(stats.outputTokens)],
+        ].map(([k, v]) => (
+          <div key={k} className="rounded-lg border border-border bg-muted/30 p-3">
+            <div className="text-2xl font-bold text-foreground">{v}</div>
+            <div className="text-xs text-muted-foreground">{k}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Per feature */}
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-border bg-muted/30 p-3">
+          <div className="text-sm font-semibold text-foreground">Orty chatbot</div>
+          <div className="mt-1 text-xs text-muted-foreground">{nf(stats.chatbot.n)} requests · {nf(stats.chatbot.t)} tokens</div>
+        </div>
+        <div className="rounded-lg border border-border bg-muted/30 p-3">
+          <div className="text-sm font-semibold text-foreground">AI copywriter</div>
+          <div className="mt-1 text-xs text-muted-foreground">{nf(stats.copywriter.n)} requests · {nf(stats.copywriter.t)} tokens</div>
+        </div>
+      </div>
+
+      {/* Free-tier limits */}
+      <p className="mt-5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Free-tier limits (Gemini Flash-Lite)</p>
+      <div className="mt-2 grid grid-cols-3 gap-3">
+        {[
+          ["Requests / min", "15", null],
+          ["Tokens / min", "250,000", null],
+          ["Requests / day", "1,000", stats.requestsToday],
+        ].map(([k, v, used]) => (
+          <div key={k} className="rounded-lg border border-border bg-muted/30 p-3">
+            <div className="text-lg font-bold text-foreground">{v}</div>
+            <div className="text-xs text-muted-foreground">
+              {k}
+              {used != null ? ` · ${nf(used)} used today` : ""}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+        {stats.lastAt && <span>Last used: {new Date(stats.lastAt).toLocaleString("en-IN")}</span>}
+        {stats.requests === 0 && <span>No AI calls recorded yet — usage appears here after the functions run.</span>}
+        <a
+          href="https://aistudio.google.com/usage"
+          target="_blank"
+          rel="noreferrer"
+          className="font-semibold text-primary hover:underline"
+        >
+          View usage in Google AI Studio →
+        </a>
+      </div>
+    </SettingsCard>
   )
 }
 

@@ -87,7 +87,7 @@ export const PRODUCT_CATEGORIES = [
     photoKeywords: /keychain|key ring|key chain/i,
     extraFaq: (s) => ({
       question: "Which keychain material should I choose?",
-      answer: `Acrylic (from ₹${s.skus.find((p) => p.sku === "KEY-ACR-01")?.basePrice ?? s.priceMin}/pc) suits full-colour logos and custom shapes; leather suits executive gifting with debossed branding; silicone and soft PVC suit high-volume promotions with moulded 3D detail; satin is the lightest and most economical. All variants take a metal ring or clasp.`,
+      answer: `Acrylic suits full-colour logos and custom shapes; leather suits executive gifting with debossed branding; silicone and soft PVC suit high-volume promotions with moulded 3D detail; satin is the lightest and most economical. All variants take a metal ring or clasp.`,
     }),
   },
   {
@@ -188,7 +188,7 @@ export const PRODUCT_CATEGORIES = [
     photoKeywords: /clock/i,
     extraFaq: (s) => ({
       question: "What sizes do promotional wall clocks come in?",
-      answer: `Catalogue sizes run from 7.5-inch squares (from ₹${s.priceMin}/pc at volume) through 8-inch rounds to 15-inch designer pieces, plus premium wooden and acrylic constructions. Every dial is custom-printed to your artwork.`,
+      answer: `Catalogue sizes run from 7.5-inch squares through 8-inch rounds to 15-inch designer pieces, plus premium wooden and acrylic constructions. Every dial is custom-printed to your artwork.`,
     }),
   },
   {
@@ -336,8 +336,6 @@ export function buildCategorySchema(entry, products = PRODUCTS) {
         brand: { "@type": "Brand", name: "Ortex Industries" },
         offers: {
           "@type": "Offer",
-          price: p.basePrice,
-          priceCurrency: "INR",
           availability: "https://schema.org/InStock",
           eligibleQuantity: { "@type": "QuantitativeValue", minValue: p.moq, unitText: p.unit },
         },

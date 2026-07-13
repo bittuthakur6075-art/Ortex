@@ -13,6 +13,7 @@ export const MODULES = [
   { key: "customers", path: "/customers", label: "Customers", section: "CRM" },
   { key: "products", path: "/products", label: "Products", section: "Catalog" },
   { key: "categories", path: "/categories", label: "Categories", section: "Catalog" },
+  { key: "work", path: "/work", label: "Work", section: "Catalog" },
   { key: "quotations", path: "/quotations", label: "Quotations", section: "Sales" },
   { key: "invoices", path: "/invoices", label: "Invoices", section: "Sales" },
   { key: "payments", path: "/payments", label: "Payments", section: "Sales" },

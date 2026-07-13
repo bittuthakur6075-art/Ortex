@@ -8,6 +8,7 @@ import Enquiries from "./modules/Enquiries"
 import Customers from "./modules/Customers"
 import Products from "./modules/Products"
 import Categories from "./modules/Categories"
+import Work from "./modules/Work"
 import Quotations from "./modules/Quotations"
 import Invoices from "./modules/Invoices"
 import Payments from "./modules/Payments"
@@ -44,6 +45,7 @@ export default function App() {
           <Route path="customers" element={guard("customers", <Customers />)} />
           <Route path="products" element={guard("products", <Products />)} />
           <Route path="categories" element={guard("categories", <Categories />)} />
+          <Route path="work" element={guard("work", <Work />)} />
           <Route path="quotations" element={guard("quotations", <Quotations />)} />
           <Route path="invoices" element={guard("invoices", <Invoices />)} />
           <Route path="payments" element={guard("payments", <Payments />)} />

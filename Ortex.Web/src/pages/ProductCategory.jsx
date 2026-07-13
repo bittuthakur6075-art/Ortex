@@ -10,12 +10,9 @@ import {
   categoryStats, categoryFaqs, photosForCategory, buildCategorySchema,
 } from "../constants/categories"
 import { useCatalog } from "../lib/catalog"
-import { VOLUME_TIERS, volumeDiscountPercent } from "../constants/products"
 import { whatsappLink } from "../constants/site"
 import { fadeUp, RevealWords } from "../components/home/Section"
 import PageCTA from "../components/ui/PageCTA"
-
-const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`
 
 /**
  * SEO landing page per catalogue category. Everything rendered here is derived
@@ -38,10 +35,6 @@ export default function ProductCategory() {
     [stats]
   )
   const [openFaq, setOpenFaq] = useState(0)
-
-  // Interactive bulk-price calculator (uses the real pricing engine).
-  const [calcId, setCalcId] = useState(null)
-  const [qty, setQty] = useState(1000)
 
   // Sticky quote bar appears once the hero scrolls away.
   const [showBar, setShowBar] = useState(false)
@@ -116,20 +109,10 @@ export default function ProductCategory() {
   // Prefer an Admin category image, then a product's own image, then a photo.
   const firstProductImage = stats.skus.find((s) => s.images?.[0])?.images?.[0]
   const heroImage = entry.image || firstProductImage || photos[0]?.url
-  const tiers = VOLUME_TIERS.filter((t) => t.percent > 0).sort((a, b) => a.min - b.min)
-
-  // Calculator: resolve the selected SKU, apply the volume discount live.
-  const calcSku = stats.skus.find((s) => s.id === calcId) || stats.skus[0] || null
-  const calcQty = Math.max(0, Number(qty) || 0)
-  const calcDiscount = volumeDiscountPercent(calcQty)
-  const calcUnit = calcSku ? calcSku.basePrice * (1 - calcDiscount / 100) : 0
-  const calcSubtotal = calcUnit * calcQty
-  const nextTier = tiers.find((t) => t.min > calcQty)
-
   const specs = [
     { icon: Box, label: "Minimum order", value: `${stats.moqMin} units` },
     { icon: Clock, label: "Dispatch", value: `${stats.leadLabel} working days` },
-    { icon: DiscountShape, label: "From", value: `${inr(stats.priceMin)}/unit` },
+    { icon: DiscountShape, label: "Pricing", value: "On quote" },
     { icon: ReceiptText, label: "Invoicing", value: `${stats.gstLabel} GST` },
   ]
 
@@ -314,11 +297,11 @@ export default function ProductCategory() {
               The catalogue
             </span>
             <h2 className="text-[40px] md:text-[56px] font-normal leading-[1.05] tracking-tight text-foreground mb-3">
-              <RevealWords text="Products & indicative pricing" />
+              <RevealWords text="Products in this range" />
             </h2>
             <p className="text-[18px] font-normal text-muted-foreground max-w-2xl">
-              Per-unit base rates before volume discounts. Add anything to your quote and our sales desk
-              returns a formal GST quotation.
+              Add anything to your quote and our sales desk returns a formal GST quotation with
+              volume-tiered pricing for your run.
             </p>
           </motion.div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-[10px]">
@@ -343,14 +326,16 @@ export default function ProductCategory() {
                 <h3 className="text-[20px] font-semibold text-foreground leading-snug">{p.name}</h3>
                 <p className="text-[13px] font-medium text-primary mt-2">{p.material}</p>
                 <p className="text-[15px] text-muted-foreground leading-relaxed mt-3 flex-1">{p.description}</p>
-                <div className="mt-6 pt-5 border-t border-border/70 flex items-baseline justify-between">
-                  <div className="text-[20px] font-semibold text-foreground">
-                    {inr(p.basePrice)}
-                    <span className="text-[12px] font-normal text-muted-foreground"> / {p.unit}</span>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground text-right leading-relaxed">
-                    MOQ {p.moq}<br />{p.leadTimeDays}d dispatch
-                  </div>
+                <div className="mt-6 pt-5 border-t border-border/70 flex flex-wrap items-center gap-2 text-[12px] font-semibold text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Box size={15} color="currentColor" variant="Bulk" className="text-primary" aria-hidden="true" />
+                    MOQ {p.moq}
+                  </span>
+                  <span className="text-border" aria-hidden="true">·</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clock size={15} color="currentColor" variant="Bulk" className="text-primary" aria-hidden="true" />
+                    {p.leadTimeDays}d dispatch
+                  </span>
                 </div>
                 <Link
                   to={`/quote?add=${p.id}`}
@@ -361,142 +346,6 @@ export default function ProductCategory() {
                 </Link>
               </motion.div>
             ))}
-          </div>
-        </div>
-      </section>
-      )}
-
-      {/* ── Volume pricing + live calculator ─────────────────────────────── */}
-      {stats.count > 0 && calcSku && (
-      <section className="py-[140px] bg-[#0b0c0e] text-white overflow-hidden">
-        <div className="lp-wrap">
-          <motion.div {...fadeUp} className="max-w-2xl mb-12">
-            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
-              Volume pricing
-            </span>
-            <h2 className="text-[40px] md:text-[56px] font-normal leading-[1.05] tracking-tight text-white mb-4">
-              <RevealWords text="The more you order, the less you pay" />
-            </h2>
-            <p className="text-[18px] text-white/70">
-              Discounts apply automatically on your quote as your quantity crosses each tier. Try it below.
-            </p>
-          </motion.div>
-
-          <div className="grid lg:grid-cols-2 gap-[10px] items-stretch">
-            {/* Tiers */}
-            <motion.div {...fadeUp} className="grid sm:grid-cols-3 lg:grid-cols-1 gap-[10px]">
-              {tiers.map((t) => {
-                const reached = calcQty >= t.min
-                return (
-                  <div
-                    key={t.min}
-                    className={`rounded-[6px] p-6 border transition-colors duration-300 flex items-center gap-5 ${
-                      reached ? "bg-primary/15 border-primary/60" : "bg-white/[0.04] border-white/10"
-                    }`}
-                  >
-                    <div className={`text-[40px] font-medium leading-none tracking-tight ${reached ? "text-white" : "text-white/80"}`}>
-                      {t.percent}<span className="text-[20px] align-top">%</span>
-                    </div>
-                    <div>
-                      <p className="text-[14px] font-semibold text-white">off base price</p>
-                      <p className="text-[13px] text-white/55">
-                        On <span className="text-white/90 font-medium">{t.min.toLocaleString("en-IN")}+ units</span>
-                      </p>
-                    </div>
-                    {reached && (
-                      <span className="ml-auto text-[11px] font-semibold uppercase tracking-wide text-primary">
-                        Active
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
-            </motion.div>
-
-            {/* Live calculator */}
-            <motion.div
-              {...fadeUp}
-              transition={{ ...fadeUp.transition, delay: 0.1 }}
-              className="rounded-[6px] bg-white/[0.04] border border-white/10 p-8 flex flex-col"
-            >
-              <h3 className="text-[13px] font-semibold uppercase tracking-[0.14em] text-white/60 mb-6">
-                Estimate your price
-              </h3>
-
-              <label className="block text-[13px] text-white/60 mb-2">Product</label>
-              <select
-                value={calcSku.id}
-                onChange={(e) => setCalcId(e.target.value)}
-                className="w-full mb-5 bg-[#0b0c0e] border border-white/15 rounded-[6px] px-4 py-3 text-[15px] text-white focus:outline-none focus:border-primary transition-colors"
-              >
-                {stats.skus.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} — {inr(s.basePrice)}/{s.unit}</option>
-                ))}
-              </select>
-
-              <label className="block text-[13px] text-white/60 mb-2">Quantity</label>
-              <div className="flex items-center gap-2 mb-6">
-                <button
-                  type="button"
-                  aria-label="Decrease quantity"
-                  onClick={() => setQty((q) => Math.max(0, (Number(q) || 0) - 100))}
-                  className="w-11 h-11 flex-none grid place-items-center rounded-[6px] border border-white/15 hover:border-primary text-white transition-colors"
-                >
-                  <Minus size={18} color="currentColor" variant="Bulk" />
-                </button>
-                <input
-                  type="number"
-                  min="0"
-                  value={qty}
-                  onChange={(e) => setQty(e.target.value)}
-                  className="flex-1 min-w-0 bg-[#0b0c0e] border border-white/15 rounded-[6px] px-4 py-3 text-[15px] text-white text-center focus:outline-none focus:border-primary transition-colors"
-                />
-                <button
-                  type="button"
-                  aria-label="Increase quantity"
-                  onClick={() => setQty((q) => (Number(q) || 0) + 100)}
-                  className="w-11 h-11 flex-none grid place-items-center rounded-[6px] border border-white/15 hover:border-primary text-white transition-colors"
-                >
-                  <Add size={18} color="currentColor" variant="Bulk" />
-                </button>
-              </div>
-
-              <div className="mt-auto rounded-[6px] bg-white/[0.04] p-5 space-y-2.5">
-                <div className="flex items-center justify-between text-[14px]">
-                  <span className="text-white/60">Base price</span>
-                  <span className="text-white/80">{inr(calcSku.basePrice)} / {calcSku.unit}</span>
-                </div>
-                <div className="flex items-center justify-between text-[14px]">
-                  <span className="text-white/60">Volume discount</span>
-                  <span className={calcDiscount > 0 ? "text-primary font-semibold" : "text-white/80"}>
-                    {calcDiscount > 0 ? `−${calcDiscount}%` : "None yet"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between border-t border-white/10 pt-3">
-                  <span className="text-[14px] text-white/60">Effective unit price</span>
-                  <span className="text-[22px] font-semibold text-white">{inr(calcUnit)}</span>
-                </div>
-                <div className="flex items-center justify-between text-[14px]">
-                  <span className="text-white/60">Subtotal ({calcQty.toLocaleString("en-IN")} {calcSku.unit})</span>
-                  <span className="text-white/80">{inr(calcSubtotal)}</span>
-                </div>
-              </div>
-
-              <p className="mt-3 text-[12px] text-white/45">
-                Indicative, pre-GST.{" "}
-                {nextTier
-                  ? `Add ${(nextTier.min - calcQty).toLocaleString("en-IN")} more to unlock ${nextTier.percent}% off.`
-                  : "You're at the best tier."}
-              </p>
-
-              <Link
-                to={`/quote?add=${calcSku.id}`}
-                className="mt-5 w-full bg-primary text-primary-foreground hover:brightness-110 py-3.5 rounded-full font-semibold text-[14px] text-center transition-all active:scale-[0.98] inline-flex items-center justify-center gap-2"
-              >
-                Add to quote
-                <ArrowRight size={16} color="currentColor" variant="Linear" aria-hidden="true" />
-              </Link>
-            </motion.div>
           </div>
         </div>
       </section>
@@ -596,7 +445,7 @@ export default function ProductCategory() {
 
       {/* ── Closing CTA ──────────────────────────────────────────────────── */}
       <PageCTA
-        title={`${entry.name} in bulk, priced in minutes`}
+        title={`${entry.name} in bulk, quoted in minutes`}
         primary={{ to: "/quote", label: "Get a quote" }}
         secondary={{ to: `/contact?product=${encodeURIComponent(entry.name)}`, label: "Ask a question" }}
       >
@@ -615,7 +464,7 @@ export default function ProductCategory() {
             <div className="min-w-0 flex-1">
               <p className="text-[14px] font-semibold truncate">{entry.name}</p>
               <p className="text-[12px] opacity-70 truncate">
-                From {inr(stats.priceMin)}/unit · MOQ {stats.moqMin} · {stats.leadLabel}d dispatch
+                MOQ {stats.moqMin} · {stats.leadLabel}d dispatch · Free digital mockup
               </p>
             </div>
             <a

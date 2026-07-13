@@ -71,14 +71,14 @@ export default function Navbar() {
 
   // Ordered by the sequence a buyer evaluates us in. Labels are single words:
   // the old sentence-length labels ("Products & services", "Industries we
-  // serve") cost scan time without adding meaning. Contact lives in the footer
-  // and in the "Get quote" CTA — a manufacturer needs one door, not two.
+  // serve") cost scan time without adding meaning.
   const navItems = [
     { name: "Products", path: "/products" },
     { name: "Industries", path: "/industries" },
     { name: "OEM", path: "/oem" },
     { name: "Work", path: "/work" },
-    { name: "About", path: "/about" }
+    { name: "About", path: "/about" },
+    { name: "Contact", path: "/contact" }
   ]
 
   const isActive = (path) => location.pathname === path

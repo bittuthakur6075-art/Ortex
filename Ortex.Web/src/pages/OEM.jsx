@@ -139,8 +139,8 @@ export default function OEM() {
               className="absolute left-0 right-0 top-[-20%] h-[140%] will-change-transform"
             >
               <img
-                src="/img/hero-oem.jpg"
-                alt="CNC laser cutting custom shapes on the Ortex production floor"
+                src="/img/hero-oem.avif"
+                alt="Laser engraving custom parts on the Ortex production floor"
                 loading="lazy"
                 decoding="async"
                 className="w-full h-full object-cover"
@@ -276,8 +276,8 @@ export default function OEM() {
             <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }}>
               <div className="overflow-hidden">
                 <img
-                  src="/img/factory-production-workshop.jpg"
-                  alt="Ortex Industries manufacturing floor with in-house CNC routing and UV printing"
+                  src="/img/oem-floor.avif"
+                  alt="Ortex Industries manufacturing floor with in-house UV printing and laser engraving"
                   loading="lazy"
                   decoding="async"
                   className="w-full aspect-[4/2] object-cover"

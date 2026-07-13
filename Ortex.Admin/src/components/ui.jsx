@@ -43,7 +43,7 @@ export function Button({ variant = "primary", size = "md", className, children, 
 
 export function Card({ className, children, ...props }) {
   return (
-    <div className={cn("rounded-xl border border-border bg-card", className)} {...props}>
+    <div className={cn("rounded-xl bg-card", className)} {...props}>
       {children}
     </div>
   )
@@ -51,21 +51,22 @@ export function Card({ className, children, ...props }) {
 
 // ---- Badges ----------------------------------------------------------------
 
+// Minimal-style "soft" labels: tinted fill + colored text, no border.
 const TONE = {
-  blue: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
-  amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
-  violet: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20",
-  emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-  rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
-  cyan: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20",
-  slate: "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20",
+  blue: "bg-blue-500/12 text-blue-600 dark:text-blue-400",
+  amber: "bg-amber-500/14 text-amber-600 dark:text-amber-400",
+  violet: "bg-violet-500/12 text-violet-600 dark:text-violet-400",
+  emerald: "bg-emerald-500/14 text-emerald-600 dark:text-emerald-400",
+  rose: "bg-rose-500/12 text-rose-600 dark:text-rose-400",
+  cyan: "bg-cyan-500/12 text-cyan-600 dark:text-cyan-400",
+  slate: "bg-slate-500/12 text-slate-600 dark:text-slate-300",
 }
 
 export function Badge({ tone = "slate", className, children }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-semibold leading-5",
         TONE[tone] || TONE.slate,
         className,
       )}
@@ -93,8 +94,8 @@ export function StatCard({ icon: Icon, label, value, sub, accent = "bg-primary/1
       <div className="flex items-start justify-between">
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
         {Icon && (
-          <span className={cn("flex h-9 w-9 flex-none items-center justify-center rounded-lg", accent)}>
-            <Icon className="h-4.5 w-4.5" />
+          <span className={cn("flex h-11 w-11 flex-none items-center justify-center rounded-2xl", accent)}>
+            <Icon className="h-5 w-5" />
           </span>
         )}
       </div>
@@ -170,15 +171,19 @@ export function Field({ label, hint, error, required, className, children }) {
 
 export function EmptyState({ icon: Icon, title, description, action }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 py-16 text-center">
       {Icon && (
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-          <Icon className="h-6 w-6 text-muted-foreground" />
+        <div className="mb-5 grid place-items-center">
+          {/* Soft "illustration": layered tinted rings behind the glyph. */}
+          <span className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-primary/15 to-primary/5">
+            <span className="absolute inset-2 rounded-full bg-gradient-to-br from-primary/15 to-transparent" />
+            <Icon className="relative h-8 w-8 text-primary" />
+          </span>
         </div>
       )}
       <h3 className="text-base font-semibold text-foreground">{title}</h3>
-      {description && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>}
-      {action && <div className="mt-5">{action}</div>}
+      {description && <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{description}</p>}
+      {action && <div className="mt-6">{action}</div>}
     </div>
   )
 }

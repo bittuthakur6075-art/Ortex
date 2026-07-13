@@ -11,6 +11,7 @@
 export const COLLECTIONS = [
   "products",
   "categories",
+  "work",
   "customers",
   "enquiries",
   "leads",
@@ -21,6 +22,7 @@ export const COLLECTIONS = [
   "event_logs",
   "whatsapp_logs",
   "ai_messages",
+  "ai_usage",
   "automation_rules",
   "message_templates"
 ]
@@ -278,6 +280,18 @@ export function newCategory(overrides = {}) {
     seoDescription: "", // meta description
     image: "", // hero/card image URL (public bucket or remote)
     sortOrder: 0, // display order on the /products hub
+    active: true, // when false, hidden from the website
+    ...overrides,
+  }
+}
+
+export function newWork(overrides = {}) {
+  return {
+    title: "", // caption shown on the /work photo
+    category: "", // filter bucket on the /work page
+    image: "", // public bucket URL or remote image URL
+    alt: "", // accessibility text; falls back to title
+    sortOrder: 0, // lower shows first
     active: true, // when false, hidden from the website
     ...overrides,
   }

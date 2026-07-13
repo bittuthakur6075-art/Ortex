@@ -9,7 +9,7 @@ import { useCatalog } from "../lib/catalog"
 import { fadeUp, RevealWords } from "../components/home/Section"
 import PageCTA from "../components/ui/PageCTA"
 
-const FALLBACK_IMAGE = "/img/factory-production-workshop.jpg"
+const FALLBACK_IMAGE = "/img/welcome-workshop.avif"
 
 // Card-specific copy: short titles that hold one line, and descriptions sized
 // to fill ~3 lines. Kept here (not in the shared SEO data) so it only affects
