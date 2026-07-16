@@ -10,7 +10,6 @@ import useSmoothScroll from "./hooks/useSmoothScroll"
 
 // Below-the-fold, non-critical UI: defer out of the initial bundle so it does
 // not block first paint / Core Web Vitals.
-const Chatbot = lazy(() => import("./components/ui/Chatbot"))
 const LiveOrty = lazy(() => import("./components/ui/LiveOrty"))
 const CookieConsent = lazy(() => import("./components/ui/CookieConsent"))
 
@@ -138,8 +137,6 @@ function AppLayout() {
 
         {/* Deferred, non-critical floating UI */}
         <Suspense fallback={null}>
-          {/* Ortex AI Chatbot Guide */}
-          <Chatbot />
           {/* Live voice assistant (Gemini Live API) */}
           <LiveOrty />
           {/* Consent gate for IP-geolocation analytics */}
