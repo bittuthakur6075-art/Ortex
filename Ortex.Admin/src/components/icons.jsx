@@ -63,6 +63,12 @@ import {
   Profile2User,
   Wallet3,
   CloseCircle,
+  Instagram as InstagramIcon,
+  Facebook as FacebookIcon,
+  Send2,
+  Gallery,
+  Calendar1,
+  Refresh2,
 } from "iconsax-react"
 
 function wrap(Cmp) {
@@ -128,6 +134,12 @@ export const Upload = wrap(DocumentUpload)
 export const Users = wrap(Profile2User)
 export const Wallet = wrap(Wallet3)
 export const X = wrap(CloseCircle)
+export const Instagram = wrap(InstagramIcon)
+export const Facebook = wrap(FacebookIcon)
+export const Send = wrap(Send2)
+export const ImageIcon = wrap(Gallery)
+export const Calendar = wrap(Calendar1)
+export const RefreshCw = wrap(Refresh2)
 
 // A spinner (lucide's Loader2 replacement) — a CSS ring, so it spins cleanly.
 export function Loader2({ className = "" }) {

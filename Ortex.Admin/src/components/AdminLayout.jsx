@@ -19,6 +19,7 @@ import {
   Flame,
   TrendingUp,
   Bell,
+  Instagram,
 } from "./icons"
 import { logout, useAuth, useAuthReady, currentEmail } from "../lib/auth"
 import { useProfile } from "../data/profile"
@@ -239,6 +240,7 @@ const NAV = [
   {
     section: "Automation",
     items: [
+      { to: "/social", key: "social", label: "Social", icon: Instagram },
       { to: "/automation", key: "automation", label: "Automation", icon: Flame },
       { to: "/growth", key: "growth", label: "Growth", icon: TrendingUp },
     ],
@@ -260,6 +262,10 @@ function useDarkMode() {
   return [false, () => {}]
 }
 
+// Non-production environments (e.g. Staging on Vercel) set VITE_ENV_LABEL so the
+// console shows an unmistakable badge — prevents test actions on the wrong env.
+const ENV_LABEL = import.meta.env.VITE_ENV_LABEL || ""
+
 function Brand() {
   return (
     <NavLink to="/" className="flex items-center gap-2.5 focus:outline-none">
@@ -267,6 +273,11 @@ function Brand() {
       <div className="flex flex-col leading-none border-l border-border pl-2.5">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Admin console</span>
       </div>
+      {ENV_LABEL && (
+        <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700 ring-1 ring-amber-300">
+          {ENV_LABEL}
+        </span>
+      )}
     </NavLink>
   )
 }

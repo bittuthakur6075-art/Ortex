@@ -29,7 +29,7 @@ import {
   Eye
 } from "../components/icons"
 import { toast } from "sonner"
-import { formatDate, formatDateTime } from "../lib/format"
+import { formatDateTime } from "../lib/format"
 
 // Trigger events a rule can actually fire on. These are exactly the eventTypes
 // Ortex.Web's tracker.js emits AND the automation-engine accepts — a rule on

@@ -9,6 +9,7 @@
 export const MODULES = [
   { key: "dashboard", path: "/", label: "Dashboard", section: null, always: true },
   { key: "leads", path: "/leads", label: "Leads", section: "CRM" },
+  { key: "voice-leads", path: "/voice-leads", label: "Voice Leads", section: "CRM" },
   { key: "enquiries", path: "/enquiries", label: "Enquiries", section: "CRM" },
   { key: "customers", path: "/customers", label: "Customers", section: "CRM" },
   { key: "products", path: "/products", label: "Products", section: "Catalog" },
@@ -19,6 +20,7 @@ export const MODULES = [
   { key: "payments", path: "/payments", label: "Payments", section: "Sales" },
   { key: "users", path: "/users", label: "Users", section: "System", adminOnly: true },
   { key: "settings", path: "/settings", label: "Settings", section: "System", adminOnly: true },
+  { key: "social", path: "/social", label: "Social", section: "Automation" },
   { key: "growth", path: "/growth", label: "Growth", section: "Automation", adminOnly: true },
   { key: "automation", path: "/automation", label: "Automation", section: "Automation", adminOnly: true },
 ]
@@ -27,7 +29,7 @@ export const MODULES = [
 export const ASSIGNABLE_MODULES = MODULES.filter((m) => !m.always && !m.adminOnly)
 
 // Default checklist for a newly-created Sales Executive.
-export const SALES_DEFAULT_MODULES = ["leads", "enquiries", "customers", "quotations"]
+export const SALES_DEFAULT_MODULES = ["leads", "voice-leads", "enquiries", "customers", "quotations"]
 
 // Every grantable key — an admin implicitly has all of these.
 export const ALL_MODULE_KEYS = ASSIGNABLE_MODULES.map((m) => m.key)

@@ -12,6 +12,7 @@ export const COLLECTIONS = [
   "products",
   "categories",
   "work",
+  "social",
   "customers",
   "enquiries",
   "leads",
@@ -55,6 +56,24 @@ export const INVOICE_STATUS = [
   { id: "paid", label: "Paid", tone: "emerald" },
   { id: "overdue", label: "Overdue", tone: "rose" },
   { id: "cancelled", label: "Cancelled", tone: "slate" },
+]
+
+// Social post pipeline: idea → draft → review → approved → published.
+// Nothing reaches Meta without passing through `approved`, which only an admin
+// can set — see the social-publish Edge Function.
+export const SOCIAL_STATUS = [
+  { id: "idea", label: "Idea", tone: "slate" },
+  { id: "draft", label: "Draft", tone: "blue" },
+  { id: "review", label: "In review", tone: "amber" },
+  { id: "approved", label: "Approved", tone: "violet" },
+  { id: "scheduled", label: "Scheduled", tone: "cyan" },
+  { id: "published", label: "Published", tone: "emerald" },
+  { id: "failed", label: "Failed", tone: "rose" },
+]
+
+export const SOCIAL_PLATFORMS = [
+  { id: "instagram", label: "Instagram" },
+  { id: "facebook", label: "Facebook Page" },
 ]
 
 export const PRODUCT_STATUS = [
@@ -106,7 +125,7 @@ export const UNITS = ["pcs", "set", "box", "sqft", "kg", "roll"]
 
 export const GST_RATES = [0, 5, 12, 18, 28]
 
-export const LEAD_SOURCES = ["Website contact form", "Quote calculator", "Orty chatbot", "WhatsApp", "Phone", "Referral", "Trade show", "Email", "Other"]
+export const LEAD_SOURCES = ["Website contact form", "Quote calculator", "Orty chatbot", "Voice assistant (Anu)", "WhatsApp", "Phone", "Referral", "Trade show", "Email", "Other"]
 
 // Captured on every lost quotation — turns losses into a fixable list.
 export const LOST_REASONS = [
@@ -295,6 +314,34 @@ export function newWork(overrides = {}) {
     active: true, // when false, hidden from the website
     ...overrides,
   }
+}
+
+export function newSocialPost(overrides = {}) {
+  return {
+    status: "idea",
+    topic: "", // the research angle, e.g. "Exam board bulk orders for schools"
+    hook: "", // one-line reason this post is worth making
+    caption: "", // the copy that ships to Meta
+    hashtags: [], // stored without the leading '#'
+    imagePrompt: "", // what social-creative feeds Gemini
+    image: "", // PUBLIC bucket URL — Meta fetches this itself
+    platforms: ["instagram", "facebook"],
+    productId: null, // optional catalogue link the idea was grounded in
+    scheduledFor: null, // ISO string; null means publish on approval
+    approvedBy: "",
+    approvedAt: null,
+    publishedAt: null,
+    // Per-platform outcome: { instagram: { id, permalink }, facebook: { id } }
+    results: {},
+    error: "",
+    ...overrides,
+  }
+}
+
+/** Caption + hashtags as Meta receives them. */
+export function socialCaptionText(post) {
+  const tags = (post?.hashtags || []).filter(Boolean).map((t) => `#${String(t).replace(/^#/, "")}`)
+  return [String(post?.caption || "").trim(), tags.join(" ")].filter(Boolean).join("\n\n")
 }
 
 /** URL-safe slug from a category name ("Acrylic products" → "acrylic-products"). */

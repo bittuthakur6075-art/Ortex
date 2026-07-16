@@ -5,10 +5,12 @@ import Login from "./components/Login"
 import Dashboard from "./modules/Dashboard"
 import Leads from "./modules/Leads"
 import Enquiries from "./modules/Enquiries"
+import VoiceLeads from "./modules/VoiceLeads"
 import Customers from "./modules/Customers"
 import Products from "./modules/Products"
 import Categories from "./modules/Categories"
 import Work from "./modules/Work"
+import Social from "./modules/Social"
 import Quotations from "./modules/Quotations"
 import Invoices from "./modules/Invoices"
 import Payments from "./modules/Payments"
@@ -41,11 +43,13 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="profile" element={<Profile />} />
           <Route path="leads" element={guard("leads", <Leads />)} />
+          <Route path="voice-leads" element={guard("voice-leads", <VoiceLeads />)} />
           <Route path="enquiries" element={guard("enquiries", <Enquiries />)} />
           <Route path="customers" element={guard("customers", <Customers />)} />
           <Route path="products" element={guard("products", <Products />)} />
           <Route path="categories" element={guard("categories", <Categories />)} />
           <Route path="work" element={guard("work", <Work />)} />
+          <Route path="social" element={guard("social", <Social />)} />
           <Route path="quotations" element={guard("quotations", <Quotations />)} />
           <Route path="invoices" element={guard("invoices", <Invoices />)} />
           <Route path="payments" element={guard("payments", <Payments />)} />

@@ -41,7 +41,7 @@ async function logUsage(usage: Record<string, number> | undefined) {
         totalTokens: usage.totalTokenCount || 0,
       },
     })
-  } catch (_) {
+  } catch {
     /* usage logging must never break the response */
   }
 }

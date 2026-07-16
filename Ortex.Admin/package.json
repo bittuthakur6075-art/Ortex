@@ -6,7 +6,10 @@
   "description": "Ortex Industries — business operations admin console (Enquiries, Products, Quotations, Invoicing, Payments).",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "dev:staging": "vite --mode staging",
+    "build": "vite build --mode production",
+    "build:staging": "vite build --mode staging",
+    "build:production": "vite build --mode production",
     "lint": "oxlint",
     "test": "vitest run",
     "preview": "vite preview"

@@ -156,7 +156,7 @@ export const apiStore = {
   async clearAll() {
     // Guarded destructive op — wipes every business table for this project.
     const tables = [
-      "products", "categories", "customers", "enquiries", "leads", "quotations", "invoices", "payments", "notifications",
+      "products", "categories", "social", "customers", "enquiries", "leads", "quotations", "invoices", "payments", "notifications",
       "user_activities", "event_logs", "whatsapp_logs", "ai_messages", "automation_rules", "message_templates"
     ]
     for (const t of tables) {
@@ -169,7 +169,7 @@ export const apiStore = {
 
   async exportAll() {
     const tables = [
-      "products", "categories", "customers", "enquiries", "leads", "quotations", "invoices", "payments", "notifications",
+      "products", "categories", "social", "customers", "enquiries", "leads", "quotations", "invoices", "payments", "notifications",
       "user_activities", "event_logs", "whatsapp_logs", "ai_messages", "automation_rules", "message_templates"
     ]
     const out = {}

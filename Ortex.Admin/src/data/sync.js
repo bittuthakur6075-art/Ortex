@@ -135,7 +135,7 @@ export async function syncLocalToSupabase() {
         const newId = idMap[item.id] || item.id;
         
         // Strip out database-managed fields from the doc payload
-        const { id, createdAt, updatedAt, created_at, updated_at, ...doc } = item;
+        const { id: _id, createdAt, updatedAt, created_at, updated_at, ...doc } = item;
         
         // Replace all internal references in the document body
         const cleanDoc = replaceIds(doc, idMap);
