@@ -51,7 +51,7 @@ function StackCard({ index, title, description, image }) {
         <span className="flex-none text-[18px] font-medium tracking-[0.3em] text-white tabular-nums">
           0{index + 1}
         </span>
-        <span className="text-[24px] font-semibold leading-tight text-white">{title}</span>
+        <span className="text-[20px] md:text-[24px] font-semibold leading-tight text-white">{title}</span>
       </div>
       <div className="overflow-hidden mt-7">
         <img src={image} alt={title} loading="lazy" className="aspect-[4/2] w-full object-cover" />
@@ -63,7 +63,7 @@ function StackCard({ index, title, description, image }) {
 
 export default function Capabilities() {
   return (
-    <section className="relative py-[140px] bg-white text-neutral-900">
+    <section className="relative section-y bg-white text-neutral-900">
       <div className="relative z-10 lp-wrap">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-16 gap-y-14 items-start">
 

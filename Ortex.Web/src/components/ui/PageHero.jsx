@@ -10,14 +10,14 @@ import { fadeUp } from "../home/Section"
  */
 export default function PageHero({ title, children, actions, nowrap = false }) {
   return (
-    <section className="py-[150px] bg-background">
+    <section className="section-y-hero bg-background">
       <div className="lp-wrap text-center">
-        <motion.div {...fadeUp} className={`mx-auto ${nowrap ? "max-w-none" : "max-w-3xl"}`}>
-          <h1 className={`text-[48px] md:text-[82px] font-medium leading-[1.05] mb-8 tracking-tight text-foreground ${nowrap ? "whitespace-nowrap" : "text-balance"}`}>
+        <motion.div {...fadeUp} className={`mx-auto ${nowrap ? "max-w-3xl lg:max-w-none" : "max-w-3xl"}`}>
+          <h1 className={`text-[36px] sm:text-[48px] md:text-[82px] font-medium leading-[1.05] mb-8 tracking-tight text-foreground ${nowrap ? "text-balance lg:whitespace-nowrap" : "text-balance"}`}>
             {title}
           </h1>
           {children && (
-            <p className="text-[20px] font-normal text-foreground leading-relaxed max-w-2xl mx-auto">
+            <p className="text-[17px] md:text-[20px] font-normal text-foreground leading-relaxed max-w-2xl mx-auto">
               {children}
             </p>
           )}

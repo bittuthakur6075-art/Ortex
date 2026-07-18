@@ -32,7 +32,7 @@ export default function CookieConsent() {
           transition={{ duration: 0.25 }}
           role="dialog"
           aria-label="Analytics consent"
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[90] w-[calc(100%-2rem)] max-w-2xl"
+          className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-[90] w-[calc(100%-2rem)] max-w-2xl"
         >
           <div className="bg-card border border-border shadow-2xl rounded-2xl p-5 sm:p-6">
             <h2 className="font-semibold text-foreground">Analytics &amp; your data</h2>

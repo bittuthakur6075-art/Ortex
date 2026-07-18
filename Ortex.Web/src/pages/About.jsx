@@ -168,7 +168,7 @@ export default function About() {
       </PageHero>
 
       {/* Story Section */}
-      <section className="py-[140px] bg-[#0b0c0e] text-left">
+      <section className="section-y bg-[#0b0c0e] text-left">
         <div className="lp-wrap">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
 
@@ -226,7 +226,7 @@ export default function About() {
                 transition={{ ...fadeUp.transition, delay: idx * 0.08 }}
                 className="flex flex-col items-center text-center"
               >
-                <div className="text-[32px] font-medium text-white capitalize leading-none">{stat.value}</div>
+                <div className="text-[26px] md:text-[32px] font-medium text-white capitalize leading-none">{stat.value}</div>
                 <p className="text-[16px] font-medium uppercase text-white/60 mt-3 tracking-wide">{stat.label}</p>
               </motion.div>
             ))}
@@ -235,7 +235,7 @@ export default function About() {
       </section>
 
       {/* How We Started - Journey / Timeline */}
-      <section className="py-[140px] bg-background text-left">
+      <section className="section-y bg-background text-left">
         <div className="lp-wrap">
           <motion.div
             {...fadeUp}
@@ -289,7 +289,7 @@ export default function About() {
       </section>
 
       {/* Expertise Section — what we do (moved up: the reader needs the "what" before the "why") */}
-      <section className="py-[140px] bg-[#f9fbfc]">
+      <section className="section-y bg-[#f9fbfc]">
         <div className="lp-wrap text-center">
           <motion.div {...fadeUp} className="mb-16">
             <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
@@ -323,7 +323,7 @@ export default function About() {
       </section>
 
       {/* Quality We Deliver — OEM "Why partner with us" icon-grid design */}
-      <section className="py-[140px] bg-background">
+      <section className="section-y bg-background">
         <div className="lp-wrap">
           <motion.div {...fadeUp} className="mb-[50px] max-w-2xl mx-auto text-center">
             <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
@@ -360,7 +360,7 @@ export default function About() {
       </section>
 
       {/* Why Choose Ortex — trust pillars + differentiators (Trust section merged in here) */}
-      <section className="py-[140px] bg-[#f9fbfc] text-left">
+      <section className="section-y bg-[#f9fbfc] text-left">
         <div className="lp-wrap">
           <motion.div
             {...fadeUp}
@@ -391,7 +391,7 @@ export default function About() {
                 <div className="mb-8 w-[50px] h-[50px] rounded-[999px] bg-primary/10 flex items-center justify-center text-primary">
                   <item.icon size={24} color="currentColor" variant="Bulk" aria-hidden="true" />
                 </div>
-                <h3 className="text-[24px] font-medium mb-3 text-card-foreground whitespace-nowrap">{item.title}</h3>
+                <h3 className="text-[20px] md:text-[24px] font-medium mb-3 text-card-foreground">{item.title}</h3>
                 <p className="text-[16px] font-normal text-[#4B5675] leading-relaxed">{item.description}</p>
               </motion.div>
             ))}

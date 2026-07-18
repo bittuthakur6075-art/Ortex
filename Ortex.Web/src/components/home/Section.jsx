@@ -85,7 +85,7 @@ export function SectionHeading({ eyebrow, title, children, align = "center", tit
 export function Section({ tone = "background", className = "", children, ...rest }) {
   const bg = tone === "secondary" ? "bg-secondary" : tone === "primary" ? "bg-primary text-primary-foreground" : "bg-background"
   return (
-    <section className={`py-[140px] ${bg} ${className}`} {...rest}>
+    <section className={`section-y ${bg} ${className}`} {...rest}>
       {children}
     </section>
   )

@@ -23,7 +23,7 @@ export default function Process() {
                 0{idx + 1}
               </div>
 
-              <h3 className="text-[24px] font-medium text-foreground">{step.title}</h3>
+              <h3 className="text-[20px] md:text-[24px] font-medium text-foreground">{step.title}</h3>
               <div className="mt-6 border-t border-primary/40" />
               <p className="mt-6 text-[16px] font-normal text-foreground leading-relaxed line-clamp-2">{step.description}</p>
             </motion.li>

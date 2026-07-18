@@ -229,7 +229,7 @@ export default function ProductCategory() {
 
       {/* ── Production photos ────────────────────────────────────────────── */}
       {photos.length > 0 && (
-        <section className="py-[140px]">
+        <section className="section-y">
           <div className="lp-wrap">
             <motion.div {...fadeUp} className="flex flex-wrap items-end justify-between gap-4 mb-10">
               <div>
@@ -290,7 +290,7 @@ export default function ProductCategory() {
 
       {/* ── Catalogue SKUs ───────────────────────────────────────────────── */}
       {stats.count > 0 && (
-      <section className="py-[140px] bg-secondary">
+      <section className="section-y bg-secondary">
         <div className="lp-wrap">
           <motion.div {...fadeUp} className="mb-10">
             <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
@@ -353,7 +353,7 @@ export default function ProductCategory() {
 
       {/* ── Materials & customisation ────────────────────────────────────── */}
       {materials.length > 0 && (
-        <section className="py-[140px]">
+        <section className="section-y">
           <div className="lp-wrap grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">
             <motion.div {...fadeUp}>
               <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
@@ -387,7 +387,7 @@ export default function ProductCategory() {
       )}
 
       {/* ── FAQ ──────────────────────────────────────────────────────────── */}
-      <section className="py-[140px] bg-secondary">
+      <section className="section-y bg-secondary">
         <div className="lp-wrap max-w-3xl">
           <motion.div {...fadeUp} className="mb-10">
             <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">

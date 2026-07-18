@@ -158,10 +158,10 @@ export default function Products() {
   return (
     <>
       {/* Page Header */}
-      <section className="py-[150px] bg-background">
+      <section className="section-y-hero bg-background">
         <div className="lp-wrap text-center">
           <motion.div {...fadeUp} className="max-w-3xl mx-auto">
-            <h1 className="text-[48px] md:text-[82px] font-medium leading-[1.05] mb-8 tracking-tight text-foreground whitespace-nowrap">
+            <h1 className="text-[36px] sm:text-[48px] md:text-[82px] font-medium leading-[1.05] mb-8 tracking-tight text-foreground text-balance">
               Products & Services
             </h1>
             <p className="text-[20px] font-normal text-foreground leading-relaxed max-w-2xl mx-auto">
@@ -172,7 +172,7 @@ export default function Products() {
       </section>
 
       {/* Main Content Section — lead with the catalogue buyers came for */}
-      <section className="pt-0 pb-[140px] bg-background text-left">
+      <section className="pt-0 pb-[72px] sm:pb-[96px] lg:pb-[140px] bg-background text-left">
         <div className="lp-wrap">
 
           {/* Product Categories — Otto "Our Services" numbered cards */}
@@ -232,13 +232,13 @@ export default function Products() {
       </section>
 
       {/* Customization — home "Workflow process" numbered grid, on footer-dark bg */}
-      <section className="py-[140px] bg-[#010101] text-left">
+      <section className="section-y bg-[#010101] text-left">
         <div className="lp-wrap">
           <motion.div {...fadeUp} className="mb-[50px] max-w-2xl mx-auto text-center">
             <span className="block text-[14px] font-semibold text-white/50 tracking-[0.22em] uppercase mb-3">
               Customization
             </span>
-            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-white whitespace-nowrap">
+            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-white text-balance">
               <RevealWords text="Built to your spec" />
             </h2>
           </motion.div>
@@ -301,13 +301,13 @@ export default function Products() {
       </section>
 
       {/* Branding services — home "Workflow process" numbered-grid design */}
-      <section className="py-[140px] bg-secondary text-left">
+      <section className="section-y bg-secondary text-left">
         <div className="lp-wrap">
           <motion.div {...fadeUp} className="mb-[50px] max-w-2xl mx-auto text-center">
             <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
               Finishing
             </span>
-            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-foreground whitespace-nowrap">
+            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-foreground text-balance">
               <RevealWords text="Put your brand on anything" />
             </h2>
           </motion.div>

@@ -4,7 +4,7 @@ import { fadeUp, EASE } from "./Section"
 
 export default function FinalCTA() {
   return (
-    <section className="py-[80px] bg-primary text-primary-foreground">
+    <section className="section-y-cta bg-primary text-primary-foreground">
       <div className="lp-wrap">
         <motion.div
           {...fadeUp}

@@ -59,16 +59,17 @@ function OverlayCard({ to, image, eyebrow, title, cta, big }) {
           </span>
         )}
         <h3
-          className={`mt-2 font-medium text-white leading-snug ${
-            big ? "text-[24px] whitespace-nowrap" : "text-[20px] max-w-[18ch]"
+          className={`mt-2 font-medium text-white leading-snug text-balance ${
+            big ? "text-[22px] md:text-[24px]" : "text-[18px] md:text-[20px] max-w-[18ch]"
           }`}
         >
           {title}
         </h3>
       </div>
 
-      {/* Bottom-left CTA: slides up + fades in on hover */}
-      <span className={`absolute text-[11px] font-semibold uppercase tracking-[0.14em] text-white opacity-0 translate-y-3 transition-all duration-500 ease-out group-hover:opacity-100 group-hover:translate-y-0 whitespace-nowrap ${big ? "left-[30px] bottom-[30px]" : "left-[18px] bottom-[18px]"}`}>
+      {/* Bottom-left CTA: visible by default on touch (no hover to reveal it);
+          on hover-capable screens it starts hidden and slides up on hover. */}
+      <span className={`absolute text-[11px] font-semibold uppercase tracking-[0.14em] text-white opacity-100 translate-y-0 md:opacity-0 md:translate-y-3 transition-all duration-500 ease-out md:group-hover:opacity-100 md:group-hover:translate-y-0 whitespace-nowrap ${big ? "left-[30px] bottom-[30px]" : "left-[18px] bottom-[18px]"}`}>
         {cta}
       </span>
     </Link>
@@ -127,7 +128,7 @@ export default function ProductsPreview() {
   const size = big ? 60 : 48
 
   return (
-    <section className="py-[140px] bg-[#0b0c0e] text-white overflow-hidden">
+    <section className="section-y bg-[#0b0c0e] text-white overflow-hidden">
       <div className="lp-wrap">
         {/* Heading top-left */}
         <motion.div {...fadeUp} transition={{ duration: 0.7, ease: EASE }}>
@@ -145,7 +146,7 @@ export default function ProductsPreview() {
           onMouseEnter={handleEnter}
           onMouseMove={handleMove}
           onMouseLeave={() => setShow(false)}
-          className="relative mt-12 md:mt-16 cursor-none"
+          className="relative mt-12 md:mt-16 md:cursor-none"
         >
           {/* Two hero gateway cards — expanding panels on hover */}
           <div className="flex flex-col lg:flex-row gap-[10px] lg:h-[460px]">

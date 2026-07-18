@@ -27,7 +27,7 @@ export default function WhatsAppWidget() {
   const link = whatsappLink(customMessage)
 
   return (
-    <div className="fixed left-6 bottom-6 z-40 flex items-center">
+    <div className="fixed left-6 bottom-[calc(1.5rem+env(safe-area-inset-bottom))] z-40 flex items-center">
       {/* Tooltip */}
       <AnimatePresence>
         {showTooltip && (

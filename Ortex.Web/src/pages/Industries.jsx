@@ -130,7 +130,7 @@ export default function Industries() {
       </PageHero>
 
       {/* Industry cards grid (onething 3-column pattern) */}
-      <section className="pt-[150px] pb-[140px] bg-[#f9fbfc]">
+      <section className="pt-[88px] sm:pt-[112px] lg:pt-[150px] pb-[72px] sm:pb-[96px] lg:pb-[140px] bg-[#f9fbfc]">
         <div className="lp-wrap">
           {/* Section intro: heading left, supporting copy right */}
           <motion.div
@@ -192,7 +192,7 @@ export default function Industries() {
                       >
                         <div className="pb-12 flex flex-col lg:flex-row gap-10">
                           {/* Three production photos */}
-                          <div className="grid grid-cols-3 gap-[10px] lg:w-1/2 flex-shrink-0">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-[10px] lg:w-1/2 flex-shrink-0">
                             {photos.map((p, k) => (
                               <div key={k} className="aspect-square overflow-hidden bg-secondary">
                                 <img
@@ -248,13 +248,13 @@ export default function Industries() {
       </section>
 
       {/* Expertise Section — home "Finishing" numbered-grid design */}
-      <section className="py-[140px] bg-background text-left">
+      <section className="section-y bg-background text-left">
         <div className="lp-wrap">
           <motion.div {...fadeUp} className="mb-[50px] max-w-2xl mx-auto text-center">
             <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
               Why choose us
             </span>
-            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-foreground whitespace-nowrap">
+            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-foreground text-balance">
               <RevealWords text="Everything under one roof" />
             </h2>
           </motion.div>

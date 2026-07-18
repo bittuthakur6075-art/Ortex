@@ -49,13 +49,13 @@ function RevealHeading({ text, className }) {
 
 export default function Welcome() {
   return (
-    <section className="py-[140px] bg-background overflow-hidden">
+    <section className="section-y bg-background overflow-hidden">
       <div className="lp-wrap">
         {/* Top-left greeting */}
         <motion.h2
           {...fadeUp}
           transition={{ duration: 0.7, ease: EASE }}
-          className="text-[48px] font-medium leading-[1.08] text-foreground tracking-tight"
+          className="text-[30px] sm:text-[40px] md:text-[48px] font-medium leading-[1.08] text-foreground tracking-tight"
         >
           Welcome to <span className="text-primary">Ortex Industries</span>
         </motion.h2>

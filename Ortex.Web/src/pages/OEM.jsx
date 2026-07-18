@@ -132,7 +132,7 @@ export default function OEM() {
 
       {/* Image with scroll parallax, Otto /products style, 50px side padding */}
       <section ref={bannerRef}>
-        <div className="px-[50px]">
+        <div className="px-4 sm:px-6 lg:px-[50px]">
           <div className="relative h-[75vh] min-h-[520px] overflow-hidden">
             <motion.div
               style={{ y: bannerY }}
@@ -174,13 +174,13 @@ export default function OEM() {
       </section>
 
       {/* Why OEM with us — Industries "Why choose us" numbered-grid design */}
-      <section className="py-[140px] bg-background">
+      <section className="section-y bg-background">
         <div className="lp-wrap">
           <motion.div {...fadeUp} className="mb-[50px] max-w-2xl mx-auto text-center">
             <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
               Why partner with us
             </span>
-            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight mb-6 text-foreground whitespace-nowrap">
+            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight mb-6 text-foreground text-balance">
               <RevealWords text="A factory, not a middleman" />
             </h2>
             <p className="text-[18px] font-normal text-foreground leading-relaxed">
@@ -211,13 +211,13 @@ export default function OEM() {
       </section>
 
       {/* How an OEM run works — dark numbered-grid (Otto customization design) */}
-      <section className="py-[140px] bg-[#0b0c0e] text-white">
+      <section className="section-y bg-[#0b0c0e] text-white">
         <div className="lp-wrap">
           <motion.div {...fadeUp} className="text-center mb-[50px]">
             <span className="block text-[14px] font-semibold text-white/50 tracking-[0.22em] uppercase mb-3">
               How it runs
             </span>
-            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight mb-6 text-white whitespace-nowrap">
+            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight mb-6 text-white text-balance">
               <RevealWords text="From your spec to dispatch" />
             </h2>
             <p className="text-[18px] font-normal text-white/60 leading-relaxed max-w-2xl mx-auto">
@@ -246,7 +246,7 @@ export default function OEM() {
       </section>
 
       {/* Who it suits */}
-      <section className="py-[140px]">
+      <section className="section-y">
         <div className="lp-wrap">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
             <motion.div {...fadeUp}>
@@ -288,7 +288,7 @@ export default function OEM() {
                 <h3 className="text-[24px] font-semibold text-white mb-2">
                   Clear terms, quoted upfront
                 </h3>
-                <p className="text-[16px] font-normal text-white/70 mb-6 whitespace-nowrap">
+                <p className="text-[16px] font-normal text-white/70 mb-6">
                   Volumes, lead times, and pricing confirmed in writing before you commit.
                 </p>
                 <Link

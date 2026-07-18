@@ -234,7 +234,7 @@ export default function FAQ() {
         Everything about ordering, customization, materials, delivery, OEM, and payment, answered in one place.
       </PageHero>
 
-      <section className="pb-[140px] bg-background text-left">
+      <section className="pb-[72px] sm:pb-[96px] lg:pb-[140px] bg-background text-left">
         <div className="lp-wrap">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-x-16 gap-y-12 items-start">
 
@@ -329,8 +329,8 @@ export default function FAQ() {
       </section>
 
       {/* Closing CTA banner */}
-      <section className="pb-[140px] bg-background">
-        <div className="px-[50px]">
+      <section className="pb-[72px] sm:pb-[96px] lg:pb-[140px] bg-background">
+        <div className="px-4 sm:px-6 lg:px-[50px]">
           <div className="relative min-h-[380px] overflow-hidden rounded-[28px] [corner-shape:squircle]">
             <img
               src="/img/faq-production.avif"

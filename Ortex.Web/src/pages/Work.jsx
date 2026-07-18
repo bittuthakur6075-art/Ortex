@@ -102,7 +102,7 @@ export default function Work() {
         manufactured. No stock imagery.
       </PageHero>
 
-      <section className="pt-0 pb-[120px]">
+      <section className="pt-0 pb-[64px] sm:pb-[88px] lg:pb-[120px]">
         <div className="lp-wrap">
           {/* Search */}
           <div className="max-w-lg mx-auto mb-7 relative">

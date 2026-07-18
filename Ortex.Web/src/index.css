@@ -124,6 +124,57 @@ body {
   }
 }
 
+/* Vertical section rhythm — the vertical companion to .lp-wrap's horizontal
+   gutters. Mobile-first: the largest (desktop) step is the literal px value the
+   sections used before, so desktop spacing is unchanged while phones/tablets get
+   a proportionate reduction. Swap a raw py-[140px]/py-[150px]/py-[80px] for the
+   matching class.
+     .section-y      standard section  → 72 / 96 / 140
+     .section-y-hero page hero          → 88 / 112 / 150
+     .section-y-cta  closing CTA band   → 56 / 64 / 80 */
+.section-y {
+  padding-top: 72px;
+  padding-bottom: 72px;
+}
+.section-y-hero {
+  padding-top: 88px;
+  padding-bottom: 88px;
+}
+.section-y-cta {
+  padding-top: 56px;
+  padding-bottom: 56px;
+}
+
+@media (min-width: 640px) {
+  .section-y {
+    padding-top: 96px;
+    padding-bottom: 96px;
+  }
+  .section-y-hero {
+    padding-top: 112px;
+    padding-bottom: 112px;
+  }
+  .section-y-cta {
+    padding-top: 64px;
+    padding-bottom: 64px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .section-y {
+    padding-top: 140px;
+    padding-bottom: 140px;
+  }
+  .section-y-hero {
+    padding-top: 150px;
+    padding-bottom: 150px;
+  }
+  .section-y-cta {
+    padding-top: 80px;
+    padding-bottom: 80px;
+  }
+}
+
 /* ============================================================
    RollText — per-character rolling text hover animation (from Keystone)
    ============================================================ */

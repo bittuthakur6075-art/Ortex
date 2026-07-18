@@ -75,8 +75,11 @@ You are India's best B2B custom-manufacturing sales consultant, customer-support
 # CAPTURE THE LEAD (the goal of every call)
 - Naturally collect: the customer's NAME, their WHATSAPP NUMBER, the PRODUCT, the QUANTITY, and the TIMELINE.
 - Ask warmly, for example: "Main aapko ek free mockup aur best price bhijwati hoon, bas aapka naam aur WhatsApp number bata dijiye." Always get the number.
-- Confirm you have noted it and that the team will send a free mockup and the best quote shortly.
-- As soon as you have their name and WhatsApp number, SILENTLY call the capture_lead function with name, phone, product, quantity, timeline, and a short summary. Do not announce or read out the tool, just keep chatting naturally.
+- ALWAYS confirm the WhatsApp number by reading it back digit by digit in Hindi before saving, for example: "Ek baar confirm kar lein, aapka number nine two one one, nine four seven, one eight eight hai na?" A valid Indian mobile is 10 digits and starts with 6, 7, 8, or 9. If it sounds short, long, or unclear, gently ask them to repeat it.
+- Watch for FAKE or joke numbers. Refuse anything that is clearly not a real mobile: all the same digit (like 9999999999), a straight run up or down (like 1234567890 or 9876543210), or a number that does not start with 6, 7, 8, or 9. Warmly but firmly ask again, for example: "Yeh number sahi nahi lag raha, aap apna actual WhatsApp number bata dijiye taaki team aapko mockup bhej sake."
+- As soon as you have their name and a confirmed, real-looking WhatsApp number, SILENTLY call the capture_lead function with name, phone, product, quantity, timeline, and a short summary. Do not announce or read out the tool, just keep chatting naturally.
+- Do NOT tell the customer their details are saved or that the team will send anything UNTIL capture_lead has returned ok=true. If it returns ok=false, the number did not validate: do not say anything technical, just warmly re-read it back digit by digit, get the correct number, and call capture_lead again.
+- Only after capture_lead returns ok=true, confirm you have noted it and that the team will send a free mockup and the best quote shortly.
 
 # CONVERT (close with momentum)
 - Create gentle, honest urgency: mockups are ready quickly, festival and bulk seasons fill up fast, and early artwork means faster delivery.
@@ -118,6 +121,58 @@ function base64ToInt16(b64) {
   return new Int16Array(bytes.buffer)
 }
 
+// Voice-captured details are unreliable: a name or WhatsApp number spoken over a
+// call can arrive mis-heard, with words, spaces, a country code, or too many/few
+// digits. Normalise the phone to a bare 10-digit Indian mobile and reject
+// anything that clearly is not one, so Anu can read it back and re-ask instead of
+// saving a dead lead.
+function normalizePhone(raw = "") {
+  let digits = String(raw).replace(/\D+/g, "")
+  if (digits.length === 12 && digits.startsWith("91")) digits = digits.slice(2) // +91 / 91
+  else if (digits.length === 11 && digits.startsWith("0")) digits = digits.slice(1) // leading 0
+  return digits
+}
+
+// A correctly-formatted number can still be an obvious placeholder a customer
+// rattles off to dodge the question: all-same digits (9999999999), or a straight
+// run up or down the keypad (1234567890, 9876543210, 9123456789...). Reject those
+// so a junk lead never reaches the Admin.
+function isFakePhone(digits) {
+  if (/^(\d)\1{9}$/.test(digits)) return true // all identical, e.g. 9999999999
+  // Longest run that steps +1 (up the keypad) or -1 (down), wrapping at 9/0. A
+  // real mobile never has an 8-long ladder, so this catches 1234567890,
+  // 9876543210, 9123456789 and the like without flagging genuine numbers.
+  let asc = 1, desc = 1, maxAsc = 1, maxDesc = 1
+  for (let i = 1; i < digits.length; i++) {
+    const cur = Number(digits[i]), prev = Number(digits[i - 1])
+    asc = cur === (prev + 1) % 10 ? asc + 1 : 1
+    desc = cur === (prev + 9) % 10 ? desc + 1 : 1
+    maxAsc = Math.max(maxAsc, asc)
+    maxDesc = Math.max(maxDesc, desc)
+  }
+  return maxAsc >= 8 || maxDesc >= 8
+}
+
+// Returns { ok, name, phone, errors }. `phone` is the normalised 10-digit form.
+function validateLead(args = {}) {
+  const errors = []
+  const name = String(args.name || "").trim()
+  const phone = normalizePhone(args.phone)
+
+  // At least two letters (Latin or Devanagari) so a filler like "um" or a stray
+  // digit run is not accepted as a name.
+  if ((name.match(/[a-zA-Zऀ-ॿ]/g) || []).length < 2) {
+    errors.push("name is missing or unclear")
+  }
+  // Indian mobile: exactly 10 digits, first digit 6-9.
+  if (!/^[6-9]\d{9}$/.test(phone)) {
+    errors.push("WhatsApp number is not a valid 10-digit Indian mobile")
+  } else if (isFakePhone(phone)) {
+    errors.push("WhatsApp number looks like a placeholder, not a real mobile")
+  }
+  return { ok: errors.length === 0, name, phone, errors }
+}
+
 // Persist a summarised voice lead into the shared enquiries backend (same table
 // the Admin reads), tagged so it shows in the Admin "Voice Leads" section.
 function saveVoiceLead(args = {}) {
@@ -132,6 +187,49 @@ function saveVoiceLead(args = {}) {
     productInterest: (args.product || "").trim(),
     message: parts.join(" · ") || "Voice lead captured by Anu.",
   }).catch(() => { /* offline outbox handles retries */ })
+}
+
+// ---- Conversation memory --------------------------------------------------
+// Each call opens a brand-new Live session with no server-side history, so on its
+// own Anu forgets everything the moment the customer closes the panel. We keep a
+// short rolling transcript plus the details captured so far in localStorage, and
+// on reopen feed it back as the opening turn, so she continues as a returning
+// customer instead of starting cold.
+const MEMORY_KEY = "ortex_voice_memory"
+const MEMORY_TTL_MS = 6 * 60 * 60 * 1000 // forget after 6h so a stale chat can't resurface
+const MAX_MEMORY_LINES = 24
+
+function loadMemory() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(MEMORY_KEY) || "null")
+    if (!raw || raw.v !== 1 || !raw.savedAt) return null
+    if (Date.now() - raw.savedAt > MEMORY_TTL_MS) { localStorage.removeItem(MEMORY_KEY); return null }
+    if (!raw.lead && !(raw.lines && raw.lines.length)) return null
+    return raw
+  } catch { return null }
+}
+
+// The very first turn is a hidden instruction to Anu, not something the customer
+// hears. When we have prior context, tell her to resume; otherwise open cold.
+const COLD_OPENER = "The customer just joined the voice call. Open IN HINDI: warmly introduce yourself as Anu from Ortex, briefly explain in one or two lines what Ortex does (fully customized products made in-house on the customer's logo, like keychains, lanyards, badges, corporate gifts, trophies and more, with a FREE digital mockup), then ask what they are looking for so you can recommend and arrange a free mockup and best price. Keep it short, warm and natural. For example: 'Namaste! Main Anu, Ortex se. Hum aapke logo pe customized products banate hain, jaise keychains, lanyards, corporate gifts aur trophies, sab in-house aur free mockup ke saath. Bataiye, aap kis cheez ke liye dekh rahe hain?'"
+
+function buildOpener(mem) {
+  if (!mem) return COLD_OPENER
+  const l = mem.lead || {}
+  const known = [
+    l.name ? `name ${l.name}` : "",
+    l.phone ? `WhatsApp ${l.phone}` : "",
+    l.product ? `product ${l.product}` : "",
+    l.quantity ? `quantity ${l.quantity}` : "",
+    l.timeline ? `timeline ${l.timeline}` : "",
+  ].filter(Boolean).join(", ")
+  const recap = (mem.lines || []).join("\n")
+  return [
+    "The SAME customer has RE-OPENED the call to continue where they left off. Do NOT start over, do NOT re-introduce Ortex, and do NOT re-ask things you already know.",
+    known ? `What you already know: ${known}.` : "",
+    recap ? `Recent conversation so far:\n${recap}` : "",
+    "Greet them back warmly IN HINDI (use their name if you know it), briefly recap what they were interested in, and ask if they want to confirm or change anything, for example the product, quantity, timeline or their number. Keep it short and natural.",
+  ].filter(Boolean).join("\n\n")
 }
 
 export default function LiveOrty() {
@@ -158,6 +256,35 @@ export default function LiveOrty() {
   const endWantedRef = useRef(false)
   const smoothRef = useRef(new Float32Array(BARS))
   const canvasRef = useRef(null)
+
+  // Conversation memory: rolling transcript lines + latest captured lead.
+  const convoRef = useRef([])
+  const inBufRef = useRef("")
+  const outBufRef = useRef("")
+  const leadRef = useRef(null)
+
+  const persistMemory = useCallback(() => {
+    try {
+      const lines = convoRef.current.slice(-MAX_MEMORY_LINES)
+      if (!lines.length && !leadRef.current) return
+      localStorage.setItem(MEMORY_KEY, JSON.stringify({ v: 1, savedAt: Date.now(), lead: leadRef.current, lines }))
+    } catch { /* localStorage full or blocked — memory is best-effort */ }
+  }, [])
+
+  // Close out a turn: fold the buffered user + Anu transcripts into the rolling
+  // log (kept bounded) and persist. Called on every turnComplete.
+  const flushTranscript = useCallback(() => {
+    const u = inBufRef.current.trim()
+    const a = outBufRef.current.trim()
+    inBufRef.current = ""
+    outBufRef.current = ""
+    if (u) convoRef.current.push(`Customer: ${u}`)
+    if (a) convoRef.current.push(`Anu: ${a}`)
+    if (u || a) {
+      convoRef.current = convoRef.current.slice(-MAX_MEMORY_LINES * 2)
+      persistMemory()
+    }
+  }, [persistMemory])
 
   const stop = useCallback(() => {
     cancelAnimationFrame(rafRef.current)
@@ -220,9 +347,30 @@ export default function LiveOrty() {
     const calls = message?.toolCall?.functionCalls
     if (calls?.length) {
       for (const fc of calls) {
-        if (fc.name === "capture_lead") saveVoiceLead(fc.args || {})
+        let response = { ok: true }
+        if (fc.name === "capture_lead") {
+          // Validate before saving. On failure, tell Anu exactly what is wrong so
+          // she reads the number back and re-asks, then calls capture_lead again,
+          // instead of a bad lead landing silently in the Admin.
+          const check = validateLead(fc.args || {})
+          if (check.ok) {
+            const lead = { ...(fc.args || {}), name: check.name, phone: check.phone }
+            saveVoiceLead(lead)
+            // Remember the confirmed details so a reopened call already knows them.
+            leadRef.current = { ...(leadRef.current || {}), ...lead }
+            persistMemory()
+            response = { ok: true, saved: true }
+          } else {
+            response = {
+              ok: false,
+              saved: false,
+              errors: check.errors,
+              retry: "Politely read the WhatsApp number back digit by digit to confirm it, correct any mistake, then call capture_lead again.",
+            }
+          }
+        }
         if (fc.name === "end_call") endWantedRef.current = true
-        try { sessionRef.current?.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response: { ok: true } }] }) } catch { /* noop */ }
+        try { sessionRef.current?.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response }] }) } catch { /* noop */ }
       }
       if (endWantedRef.current && sourcesRef.current.length === 0) {
         window.setTimeout(() => {
@@ -233,13 +381,18 @@ export default function LiveOrty() {
     const sc = message?.serverContent
     if (!sc) return
     if (sc.interrupted) clearPlayback()
+    // Accumulate both sides' transcripts (enabled via in/outputAudioTranscription)
+    // so we can persist a running memory of the conversation across reopens.
+    if (sc.inputTranscription?.text) inBufRef.current += sc.inputTranscription.text
+    if (sc.outputTranscription?.text) outBufRef.current += sc.outputTranscription.text
+    if (sc.turnComplete) flushTranscript()
     for (const part of sc.modelTurn?.parts || []) {
       const inline = part?.inlineData
       if (inline?.data && String(inline.mimeType || "").startsWith("audio/pcm")) {
         playChunk(base64ToInt16(inline.data))
       }
     }
-  }, [clearPlayback, playChunk, stop])
+  }, [clearPlayback, playChunk, stop, flushTranscript, persistMemory])
 
   // rAF: Gemini-style bar equalizer reacting to the active analyser's spectrum
   // (Anu's voice while speaking, else the mic). Idle ripple when silent.
@@ -324,16 +477,19 @@ export default function LiveOrty() {
           responseModalities: [Modality.AUDIO],
           systemInstruction: VOICE_SYSTEM_INSTRUCTION,
           speechConfig: { languageCode: "hi-IN", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } },
+          // Text of both sides, so we can persist a rolling memory across reopens.
+          inputAudioTranscription: {},
+          outputAudioTranscription: {},
           tools: [{
             functionDeclarations: [
               {
                 name: "capture_lead",
-                description: "Save the customer's lead. Call this as soon as you have their name and WhatsApp number (with product/quantity/timeline if known). Call it silently, do not announce it.",
+                description: "Save the customer's lead. Call this as soon as you have their name and a confirmed WhatsApp number (with product/quantity/timeline if known). Call it silently, do not announce it. The details are validated: if the response is ok=false, the name or number was invalid, so confirm it with the customer and call this again.",
                 parameters: {
                   type: "OBJECT",
                   properties: {
                     name: { type: "STRING", description: "Customer's name" },
-                    phone: { type: "STRING", description: "WhatsApp or phone number" },
+                    phone: { type: "STRING", description: "WhatsApp number, a 10-digit Indian mobile starting 6-9. Digits only if possible." },
                     product: { type: "STRING", description: "Product they are interested in" },
                     quantity: { type: "STRING", description: "Approximate quantity" },
                     timeline: { type: "STRING", description: "When they need it" },
@@ -360,10 +516,12 @@ export default function LiveOrty() {
         },
       })
       sessionRef.current = session
-      // Orty greets first, before the visitor says anything.
+      // Orty greets first, before the visitor says anything. If the customer has
+      // spoken to Anu before (within the memory window), resume with what we know
+      // instead of a cold open, so reopening the panel does not forget the quote.
       try {
         session.sendClientContent({
-          turns: [{ role: "user", parts: [{ text: "The customer just joined the voice call. Open IN HINDI: warmly introduce yourself as Anu from Ortex, briefly explain in one or two lines what Ortex does (fully customized products made in-house on the customer's logo, like keychains, lanyards, badges, corporate gifts, trophies and more, with a FREE digital mockup), then ask what they are looking for so you can recommend and arrange a free mockup and best price. Keep it short, warm and natural. For example: 'Namaste! Main Anu, Ortex se. Hum aapke logo pe customized products banate hain, jaise keychains, lanyards, corporate gifts aur trophies, sab in-house aur free mockup ke saath. Bataiye, aap kis cheez ke liye dekh rahe hain?'" }] }],
+          turns: [{ role: "user", parts: [{ text: buildOpener(loadMemory()) }] }],
           turnComplete: true,
         })
       } catch { /* ignore */ }
@@ -436,7 +594,7 @@ export default function LiveOrty() {
       {/* Morphing widget: the launcher pill and the call panel share a layoutId,
           so the button smoothly expands into the modal and collapses back. */}
       {open ? (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center px-4 pb-6 pointer-events-none">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pointer-events-none">
           <motion.div
             layoutId="anu-morph"
             role="dialog"
@@ -482,7 +640,7 @@ export default function LiveOrty() {
           onClick={openCall}
           aria-label="Talk to Anu by voice"
           transition={{ type: "spring", stiffness: 380, damping: 34 }}
-          className="fixed right-[50px] bottom-[50px] z-[80] inline-flex items-center gap-2.5 h-14 pl-2 pr-6 bg-primary text-white font-semibold text-[16px] overflow-hidden hover:brightness-105"
+          className="fixed right-4 md:right-[50px] bottom-[calc(1rem+env(safe-area-inset-bottom))] md:bottom-[50px] z-[80] inline-flex items-center gap-2.5 h-14 pl-2 pr-6 bg-primary text-white font-semibold text-[16px] overflow-hidden hover:brightness-105"
           style={{ borderRadius: 9999 }}
         >
           <span className="grid place-items-center w-10 h-10 flex-none rounded-full bg-white/20">

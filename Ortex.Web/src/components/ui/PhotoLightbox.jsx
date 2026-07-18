@@ -127,7 +127,7 @@ export default function PhotoLightbox({ item, description, index, total, onClose
             )}
           </div>
 
-          <h2 className="text-[32px] font-semibold text-foreground leading-tight">
+          <h2 className="text-[26px] md:text-[32px] font-semibold text-foreground leading-tight">
             {item.title}
           </h2>
 

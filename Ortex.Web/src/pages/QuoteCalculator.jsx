@@ -413,16 +413,16 @@ export default function QuoteCalculator() {
                 </div>
                 <div className="flex items-center gap-3 mt-3">
                   <div className="inline-flex items-center gap-2">
-                    <button onClick={() => bumpQty(l.product.id, -25)} aria-label="Decrease quantity" className="w-9 h-9 rounded-full border border-[#EBEDF3] grid place-items-center text-[#4B5675] hover:bg-[#F4F6F8] hover:text-primary transition-colors cursor-pointer">
+                    <button onClick={() => bumpQty(l.product.id, -25)} aria-label="Decrease quantity" className="w-11 h-11 md:w-9 md:h-9 rounded-full border border-[#EBEDF3] grid place-items-center text-[#4B5675] hover:bg-[#F4F6F8] hover:text-primary transition-colors cursor-pointer">
                       <Minus className="h-4 w-4" />
                     </button>
                     <input
                       type="number" min="0" value={l.qty}
                       onChange={(e) => setQty(l.product.id, e.target.value)}
-                      className="w-12 h-9 text-center text-[15px] font-semibold text-foreground bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className="w-12 h-11 md:h-9 text-center text-[15px] font-semibold text-foreground bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       aria-label={`Quantity for ${l.product.name}`}
                     />
-                    <button onClick={() => bumpQty(l.product.id, 25)} aria-label="Increase quantity" className="w-9 h-9 rounded-full border border-[#EBEDF3] grid place-items-center text-[#4B5675] hover:bg-[#F4F6F8] hover:text-primary transition-colors cursor-pointer">
+                    <button onClick={() => bumpQty(l.product.id, 25)} aria-label="Increase quantity" className="w-11 h-11 md:w-9 md:h-9 rounded-full border border-[#EBEDF3] grid place-items-center text-[#4B5675] hover:bg-[#F4F6F8] hover:text-primary transition-colors cursor-pointer">
                       <Plus className="h-4 w-4" />
                     </button>
                   </div>

@@ -3,9 +3,9 @@ import { SectionHeading } from "./Section"
 
 export default function Testimonials() {
   return (
-    <section className="py-[140px] bg-[#f9fbfc] overflow-hidden">
+    <section className="section-y bg-[#f9fbfc] overflow-hidden">
       <div className="lp-wrap">
-        <SectionHeading eyebrow="Client reviews" title="Buyers who keep coming back" titleClassName="whitespace-nowrap">
+        <SectionHeading eyebrow="Client reviews" title="Buyers who keep coming back">
           What corporate, education, and promotional teams say about ordering from us at volume.
         </SectionHeading>
       </div>

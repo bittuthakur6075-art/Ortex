@@ -14,7 +14,7 @@ export default function StatsBar() {
               transition={{ duration: 0.6, ease: EASE, delay: idx * 0.1 }}
               className="flex flex-col items-center text-center"
             >
-              <div className="text-[32px] font-medium text-white capitalize leading-none">{stat.value}</div>
+              <div className="text-[26px] md:text-[32px] font-medium text-white capitalize leading-none">{stat.value}</div>
               <p className="text-[16px] font-medium uppercase text-white/60 mt-3 tracking-wide">{stat.label}</p>
             </motion.div>
           ))}

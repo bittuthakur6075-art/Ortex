@@ -264,7 +264,7 @@ export default function Contact() {
       </PageHero>
 
       {/* Full-width image strip below the hero (4:2) */}
-      <section className="pb-[140px] bg-background">
+      <section className="pb-[72px] sm:pb-[96px] lg:pb-[140px] bg-background">
         <div>
           <div className="relative aspect-[4/1] overflow-hidden">
             <img
@@ -279,7 +279,7 @@ export default function Contact() {
       </section>
 
       {/* Form + contact channels */}
-      <section className="pb-[140px] bg-background text-left">
+      <section className="pb-[72px] sm:pb-[96px] lg:pb-[140px] bg-background text-left">
         <div className="lp-wrap">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.35fr] gap-14 lg:gap-20">
 
@@ -456,7 +456,7 @@ export default function Contact() {
                       <h3 className="text-[14px] font-semibold uppercase tracking-[0.02em] text-[#4b5675]">{channel.title}</h3>
                       <div className="mt-1 flex flex-wrap gap-x-1.5 text-[18px] font-semibold text-foreground">
                         {channel.details.map((detail, i) => (
-                          <span key={detail.label} className="whitespace-nowrap">
+                          <span key={detail.label} className="min-w-0 break-words [overflow-wrap:anywhere]">
                             {detail.href ? (
                               <a
                                 href={detail.href}
@@ -509,8 +509,8 @@ export default function Contact() {
       </section>
 
       {/* Already know your specs — full-width image banner with overlaid copy (OEM style) */}
-      <section className="py-[140px] bg-[#f9fbfc]">
-        <div className="px-[50px]">
+      <section className="section-y bg-[#f9fbfc]">
+        <div className="px-4 sm:px-6 lg:px-[50px]">
           <div className="relative aspect-[4/2] overflow-hidden">
             <img
               src="/img/contact-products.avif"
@@ -566,7 +566,7 @@ export default function Contact() {
       </section>
 
       {/* Where we deliver */}
-      <section className="py-[140px] bg-background text-center">
+      <section className="section-y bg-background text-center">
         <div className="lp-wrap">
           <motion.div {...fadeUp} className="mb-14">
             <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">

@@ -13,7 +13,7 @@ const HALF = Array.from({ length: 3 }, () => featuredIndustries).flat()
 
 export default function IndustriesPreview() {
   return (
-    <section className="bg-[#2f50e4] text-white py-[80px] overflow-hidden">
+    <section className="bg-[#2f50e4] text-white section-y-cta overflow-hidden">
       {/* Banner header: heading left, supporting copy right */}
       <div className="lp-wrap flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
         <h2 className="text-[36px] md:text-[52px] font-normal leading-[1.05] tracking-tight text-white max-w-2xl">
@@ -33,7 +33,7 @@ export default function IndustriesPreview() {
               aria-hidden={idx >= featuredIndustries.length}
               className="flex-shrink-0 flex items-center rounded-full bg-white/[0.06] px-7 py-[10px] mr-[10px]"
             >
-              <h3 className="text-[18px] font-semibold text-white whitespace-nowrap">{item.title}</h3>
+              <h3 className="text-[18px] font-semibold text-white">{item.title}</h3>
             </div>
           ))}
         </div>

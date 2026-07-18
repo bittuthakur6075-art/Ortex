@@ -9,7 +9,7 @@ import { fadeUp } from "../home/Section"
  */
 export default function PageCTA({ title, children, primary, secondary }) {
   return (
-    <section className="py-[80px] bg-primary text-primary-foreground">
+    <section className="section-y-cta bg-primary text-primary-foreground">
       <div className="lp-wrap">
         <motion.div
           {...fadeUp}
