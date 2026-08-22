@@ -9,7 +9,7 @@
 // is stable across both modes; callers don't care which is active.
 
 import { useSyncExternalStore } from "react"
-import { supabase, hasSupabase } from "../data/supabaseClient"
+import { supabase, hasSupabase, createEphemeralClient } from "../data/supabaseClient"
 
 // ---- Supabase-backed session (cached synchronously for useSyncExternalStore) ----
 let currentSession = null
@@ -60,6 +60,50 @@ export async function login(email, password) {
     return { ok: true }
   }
   return { error: "Incorrect password. Please try again." }
+}
+
+// ---- Two-step sign-in: password, then a code emailed to the same address ----
+//
+// NOTE ON WHAT THIS DOES AND DOESN'T BUY YOU. This is a UI-level second step,
+// not a cryptographic second factor. Supabase issues a session the moment the
+// password is accepted, so someone holding a valid password can obtain a token
+// from their own client without ever seeing the emailed code. What this flow
+// does give you: the code check happens off a throwaway client (see
+// createEphemeralClient), so the *console* never holds a session until the code
+// is verified, and a stolen password alone will not sign anyone in through this
+// UI. For an enforceable factor that RLS can check, use Supabase MFA (TOTP).
+
+// Step 1. Check the password without letting the session reach the app.
+export async function verifyPassword(email, password) {
+  if (!hasSupabase) return login(email, password)
+
+  const client = createEphemeralClient()
+  const { error } = await client.auth.signInWithPassword({ email, password })
+  // Drop the token immediately; nothing downstream should ever see it.
+  await client.auth.signOut()
+  return error ? { error: error.message } : { ok: true }
+}
+
+// Step 2. Mail a one-time code. shouldCreateUser:false keeps the console
+// invite-only — without it, any typed address would be created and emailed a
+// working code against the public anon key.
+export async function sendEmailOtp(email) {
+  if (!hasSupabase) return { error: "Email codes require Supabase to be configured." }
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false },
+  })
+  return error ? { error: error.message } : { ok: true }
+}
+
+// Step 3. Exchange the code for the real session. This is what actually signs
+// the user in: onAuthStateChange fires and useAuth() flips the app over.
+export async function verifyEmailOtp(email, token) {
+  if (!hasSupabase) return { error: "Email codes require Supabase to be configured." }
+
+  const { error } = await supabase.auth.verifyOtp({ email, token: token.trim(), type: "email" })
+  return error ? { error: error.message } : { ok: true }
 }
 
 // There is deliberately no signUp() here. The console is invite-only: accounts

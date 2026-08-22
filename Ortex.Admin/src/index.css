@@ -116,10 +116,12 @@ body {
 .lgn-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .lgn-brand { display: inline-flex; align-items: center; gap: 11px; text-decoration: none; color: hsl(var(--foreground)); }
 .lgn-tophelp { font-size: clamp(14px, 1.4vw, 16px); font-weight: 400; color: hsl(var(--muted-foreground)); }
-.lgn-tophelp a { margin-left: 4px; font-weight: 500; color: hsl(var(--primary)); text-decoration: none; }
-.lgn-tophelp a:hover { text-decoration: underline; }
+.lgn-tophelp a, .lgn-tophelp button { margin-left: 4px; font-weight: 500; color: hsl(var(--primary)); text-decoration: none; background: none; border: 0; padding: 0; font-size: inherit; cursor: pointer; }
+.lgn-tophelp a:hover, .lgn-tophelp button:hover:not(:disabled) { text-decoration: underline; }
+.lgn-tophelp button:disabled { color: hsl(var(--muted-foreground)); cursor: default; }
 .lgn-brand-top { display: flex; justify-content: center; margin-bottom: 32px; }
 .lgn-help-below { margin-top: 50px; text-align: center; }
+.lgn-help-alt { margin-top: 10px; text-align: center; }
 .lgn-botlinks { margin-top: clamp(12px, 2.5vw, 16px); display: flex; flex-wrap: wrap; justify-content: center; gap: 8px clamp(16px, 3.2vw, 24px); }
 .lgn-botlinks a { font-size: clamp(12px, 1vw, 14px); font-weight: 500; color: hsl(var(--primary)); text-decoration: none; white-space: nowrap; background: none; border: 0; cursor: pointer; }
 .lgn-botlinks a:hover { text-decoration: underline; }

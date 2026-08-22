@@ -8,7 +8,7 @@ import { repo } from "../data/repository"
 import { useCollection } from "../data/hooks"
 import { useProfile } from "../data/profile"
 import { newSocialPost, socialCaptionText, SOCIAL_STATUS, SOCIAL_PLATFORMS, statusMeta } from "../data/schema"
-import { supabase, hasSupabase } from "../data/supabaseClient"
+import { supabase, hasSupabase, functionErrorMessage } from "../data/supabaseClient"
 import PageHeader from "../components/PageHeader"
 import {
   Button, Card, Input, Textarea, Select, Field, EmptyState, Modal, PageLoader, StatusBadge, Chip,
@@ -182,7 +182,7 @@ function ResearchModal({ open, onClose }) {
       const { data, error } = await supabase.functions.invoke("social-researcher", {
         body: { angle, count: Number(count) },
       })
-      if (error) throw error
+      if (error) throw new Error(await functionErrorMessage(error, "Research failed"))
       if (data?.error) throw new Error(data.error)
       setIdeas(data.ideas || [])
     } catch (err) {
@@ -311,7 +311,8 @@ function SocialEditor({ post, onClose }) {
     onClose()
   }
 
-  // Render the creative with Gemini via the social-creative Edge Function.
+  // Render the creative via the social-creative Edge Function (Pollinations,
+  // free, no key). A cold render can take up to a minute.
   const generate = async () => {
     if (!hasSupabase) return toast.error("Connect Supabase to generate creatives.")
     if (!form.imagePrompt.trim()) return toast.error("Write an image prompt first")
@@ -320,7 +321,7 @@ function SocialEditor({ post, onClose }) {
       const { data, error } = await supabase.functions.invoke("social-creative", {
         body: { imagePrompt: form.imagePrompt, format },
       })
-      if (error) throw error
+      if (error) throw new Error(await functionErrorMessage(error, "Creative generation failed"))
       if (data?.error) throw new Error(data.error)
       setForm((f) => ({ ...f, image: data.image, status: f.status === "idea" ? "draft" : f.status }))
       toast.success("Creative generated — review it before approving")
@@ -357,7 +358,7 @@ function SocialEditor({ post, onClose }) {
     try {
       const id = await persist()
       const { data, error } = await supabase.functions.invoke("social-publish", { body: { postId: id } })
-      if (error) throw error
+      if (error) throw new Error(await functionErrorMessage(error, "Publish failed"))
       if (data?.error) throw new Error(data.error)
       toast.success("Published")
       onClose()

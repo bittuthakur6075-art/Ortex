@@ -69,6 +69,10 @@ export default function Quotations() {
       setEditing({
         ...emptyDraft(settings),
         customer: { ...newCustomer(), ...src.customer },
+        // A voice lead arrives with the product and quantity Anu captured, so it
+        // can seed the first line and leave only the rate to fill in. Sources
+        // without line detail keep the empty draft's blank row.
+        lines: src.lines?.length ? src.lines : emptyDraft(settings).lines,
         enquiryId: fromEnquiry?.id || null,
         leadId: fromLead?.id || null,
         notes: src.message ? `Ref: ${src.message}` : "",

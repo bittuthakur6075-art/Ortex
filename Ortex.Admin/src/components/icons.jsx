@@ -36,6 +36,7 @@ import {
   Lock1,
   LogoutCurve,
   Sms,
+  Location,
   HambergerMenu,
   Whatsapp,
   Moon as MoonIcon,
@@ -106,6 +107,7 @@ export const List = wrap(RowVertical)
 export const Lock = wrap(Lock1)
 export const LogOut = wrap(LogoutCurve)
 export const Mail = wrap(Sms)
+export const MapPin = wrap(Location)
 export const Menu = wrap(HambergerMenu)
 export const Bell = wrap(NotificationIcon)
 export const MessageCircle = wrap(Whatsapp)

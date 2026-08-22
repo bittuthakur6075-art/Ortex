@@ -54,7 +54,8 @@ You are India's best B2B custom-manufacturing sales consultant, customer-support
 # SALES PLAYBOOK (be a top closer)
 1. DISCOVER: find the use-case (corporate gifting, event, exhibition, school, promotion, or festival gifting like Diwali, Rakhi, New Year), the quantity, the timeline, and whether they have a logo ready. One question at a time.
 2. RECOMMEND: suggest the best-fit product with a quick reason (material, finish, use-case). If two fit, contrast briefly and suggest one.
-3. GROW THE ORDER: cross-sell naturally when it helps (lanyards with ID holders and badges; gift hampers combining bottles, diaries, and keychains; event kits with badges, lanyards, popsockets). Gently note that bigger quantities get much better factory-direct rates, so a slightly larger order gives better value.
+3. GROW THE ORDER: cross-sell naturally when it helps (lanyards with ID holders and badges; gift hampers combining bottles, diaries, pens, and keychains; event kits with badges, lanyards, popsockets). Gently note that bigger quantities get much better factory-direct rates, so a slightly larger order gives better value.
+   THE MOMENT THE CUSTOMER ACCEPTS A CROSS-SELL, IT IS PART OF THE ORDER. Ask its quantity, then call capture_lead again with the FULL items list including the original product. An accepted add-on that never reaches capture_lead is a sale the team never quotes.
 4. INDIAN-MARKET INSTINCTS: reassure on quality (in-house, checked against the approved sample), trust (1,200+ brands, 98% on-time), samples before bulk, and GST billing. Respect budget; position Ortex as factory-direct with no middleman.
 
 # PRICING (be careful)
@@ -73,11 +74,15 @@ You are India's best B2B custom-manufacturing sales consultant, customer-support
 - Artwork: we accept vector files and provide a free mockup and Pantone colour matching.
 
 # CAPTURE THE LEAD (the goal of every call)
-- Naturally collect: the customer's NAME, their WHATSAPP NUMBER, the PRODUCT, the QUANTITY, and the TIMELINE.
+- You must collect ALL SIX of these before the call ends: NAME, WHATSAPP NUMBER, ITEMS (each product with its quantity), TIMELINE, and DELIVERY CITY. Ask for them one at a time, woven into the conversation, never as a form.
+- DELIVERY CITY is required, not optional. Ask it as part of the delivery promise once you know what they want, for example: "Delivery kis city mein karni hogi?" Never end the call without it. If they also offer a full delivery address, or a company name for the GST invoice, take those too, but do not push for them.
+- ORDERS CAN HAVE MORE THAN ONE ITEM. If the customer asks for two or more products, or accepts a cross-sell, record EVERY item with its own quantity, not just the first one.
 - Ask warmly, for example: "Main aapko ek free mockup aur best price bhijwati hoon, bas aapka naam aur WhatsApp number bata dijiye." Always get the number.
 - ALWAYS confirm the WhatsApp number by reading it back digit by digit in Hindi before saving, for example: "Ek baar confirm kar lein, aapka number nine two one one, nine four seven, one eight eight hai na?" A valid Indian mobile is 10 digits and starts with 6, 7, 8, or 9. If it sounds short, long, or unclear, gently ask them to repeat it.
 - Watch for FAKE or joke numbers. Refuse anything that is clearly not a real mobile: all the same digit (like 9999999999), a straight run up or down (like 1234567890 or 9876543210), or a number that does not start with 6, 7, 8, or 9. Warmly but firmly ask again, for example: "Yeh number sahi nahi lag raha, aap apna actual WhatsApp number bata dijiye taaki team aapko mockup bhej sake."
-- As soon as you have their name and a confirmed, real-looking WhatsApp number, SILENTLY call the capture_lead function with name, phone, product, quantity, timeline, and a short summary. Do not announce or read out the tool, just keep chatting naturally.
+- As soon as you have their name and a confirmed, real-looking WhatsApp number, SILENTLY call the capture_lead function. Do not announce or read out the tool, just keep chatting naturally. Then KEEP GOING and collect whatever is still missing, especially the delivery city.
+- CALL capture_lead AGAIN EVERY TIME ANYTHING CHANGES OR IS ADDED: a new item, a changed product, a corrected quantity, a timeline, the delivery city, a company name. A detail the customer gave you that never reached capture_lead is a detail the team never sees.
+- EVERY capture_lead call must carry the COMPLETE current picture, not just the new part. Always re-send the name, phone, the full items list, timeline, city and everything else you know so far. Sending only what just changed WIPES the rest, so never send a partial call.
 - Do NOT tell the customer their details are saved or that the team will send anything UNTIL capture_lead has returned ok=true. If it returns ok=false, the number did not validate: do not say anything technical, just warmly re-read it back digit by digit, get the correct number, and call capture_lead again.
 - Only after capture_lead returns ok=true, confirm you have noted it and that the team will send a free mockup and the best quote shortly.
 
@@ -87,6 +92,7 @@ You are India's best B2B custom-manufacturing sales consultant, customer-support
 - Ask for the sale when interest is clear. Never let the call dead-end.
 
 # ENDING THE CALL
+- BEFORE you end, check what is still missing from the six required details, above all the DELIVERY CITY and the QUANTITY for every item. If something is missing, ask for it now instead of wrapping up, then call capture_lead one final time with the complete picture.
 - When the conversation is complete (the customer is done, has said bye, or you have captured their details and wrapped up), say a short warm goodbye in Hindi (for example: "Bahut dhanyavaad! Hamari team aapko WhatsApp pe free mockup aur best price bhej degi. Phir baat karte hain, alvida!"), and THEN call the end_call function to end the call.
 
 # RULES
@@ -96,7 +102,7 @@ You are India's best B2B custom-manufacturing sales consultant, customer-support
 - Do not use em dashes.
 
 # HOW TO OPEN THE CALL
-Do not wait to be asked. Open proactively IN HINDI: introduce yourself as Anu from Ortex, briefly explain what Ortex makes and the free digital mockup (one or two short lines, not a long list), and immediately ask what they are looking for so you can recommend the right product and start capturing their details for a free mockup and best quote. Keep the opener short and inviting, then lead the conversation toward their name, WhatsApp number, product, quantity, and timeline.`
+Do not wait to be asked. Open proactively IN HINDI: introduce yourself as Anu from Ortex, briefly explain what Ortex makes and the free digital mockup (one or two short lines, not a long list), and immediately ask what they are looking for so you can recommend the right product and start capturing their details for a free mockup and best quote. Keep the opener short and inviting, then lead the conversation toward their name, WhatsApp number, every item they want with its quantity, the timeline, and the delivery city.`
 
 // ---- PCM helpers ----------------------------------------------------------
 function floatTo16BitPCM(float32) {
@@ -175,16 +181,52 @@ function validateLead(args = {}) {
 
 // Persist a summarised voice lead into the shared enquiries backend (same table
 // the Admin reads), tagged so it shows in the Admin "Voice Leads" section.
+// An order is a list, not a single product: a customer who takes the lanyard
+// cross-sell wants lanyards AND ID holders. Anu sends `items` for those, and the
+// bare `product`/`quantity` pair for a one-line order, so fold both into the
+// same shape and let the Admin render one list either way.
+function normalizeItems(args = {}) {
+  const listed = (Array.isArray(args.items) ? args.items : [])
+    .map((it) => ({
+      product: String(it?.product || "").trim(),
+      quantity: String(it?.quantity || "").trim(),
+      notes: String(it?.notes || "").trim(),
+    }))
+    .filter((it) => it.product)
+  if (listed.length) return listed
+  const product = String(args.product || "").trim()
+  return product ? [{ product, quantity: String(args.quantity || "").trim(), notes: "" }] : []
+}
+
 function saveVoiceLead(args = {}) {
+  const items = normalizeItems(args)
+  // A one-line order keeps the original "Qty: x" suffix so the Admin's fallback
+  // parse and every lead saved before `items` existed still read correctly.
+  // Multi-item orders ride on the structured array and get a readable digest.
   const parts = [
     args.summary,
-    args.quantity ? `Qty: ${args.quantity}` : "",
+    items.length > 1
+      ? `Items: ${items.map((i) => [i.quantity, i.product].filter(Boolean).join(" x ")).join("; ")}`
+      : "",
+    items.length === 1 && items[0].quantity ? `Qty: ${items[0].quantity}` : "",
     args.timeline ? `Timeline: ${args.timeline}` : "",
   ].filter(Boolean)
+  // Address and company go into the standard `customer` fields the Admin already
+  // renders everywhere, so a voice lead converts to a customer record without
+  // anyone re-keying the delivery address. City is folded into the address line
+  // because a call rarely yields a clean two-part address.
+  const address = [args.address, args.city].map((v) => (v || "").trim()).filter(Boolean).join(", ")
   submitEnquiry({
     source: "Voice assistant (Anu)",
-    customer: { name: (args.name || "").trim(), phone: (args.phone || "").trim(), email: "", company: "" },
-    productInterest: (args.product || "").trim(),
+    customer: {
+      name: (args.name || "").trim(),
+      phone: (args.phone || "").trim(),
+      email: (args.email || "").trim(),
+      company: (args.company || "").trim(),
+      address,
+    },
+    items,
+    productInterest: items.map((i) => i.product).join(", "),
     message: parts.join(" · ") || "Voice lead captured by Anu.",
   }).catch(() => { /* offline outbox handles retries */ })
 }
@@ -222,6 +264,8 @@ function buildOpener(mem) {
     l.product ? `product ${l.product}` : "",
     l.quantity ? `quantity ${l.quantity}` : "",
     l.timeline ? `timeline ${l.timeline}` : "",
+    l.city ? `delivery city ${l.city}` : "",
+    l.company ? `company ${l.company}` : "",
   ].filter(Boolean).join(", ")
   const recap = (mem.lines || []).join("\n")
   return [
@@ -484,15 +528,32 @@ export default function LiveOrty() {
             functionDeclarations: [
               {
                 name: "capture_lead",
-                description: "Save the customer's lead. Call this as soon as you have their name and a confirmed WhatsApp number (with product/quantity/timeline if known). Call it silently, do not announce it. The details are validated: if the response is ok=false, the name or number was invalid, so confirm it with the customer and call this again.",
+                description: "Save or UPDATE the customer's lead. Call this as soon as you have their name and a confirmed WhatsApp number, and again every single time any detail changes or is added (a new item, a corrected quantity, the timeline, the delivery city). ALWAYS send the complete current picture, never just the part that changed, because each call replaces the previous one. Call it silently, do not announce it. The details are validated: if the response is ok=false, the name or number was invalid, so confirm it with the customer and call this again.",
                 parameters: {
                   type: "OBJECT",
                   properties: {
                     name: { type: "STRING", description: "Customer's name" },
                     phone: { type: "STRING", description: "WhatsApp number, a 10-digit Indian mobile starting 6-9. Digits only if possible." },
-                    product: { type: "STRING", description: "Product they are interested in" },
-                    quantity: { type: "STRING", description: "Approximate quantity" },
+                    items: {
+                      type: "ARRAY",
+                      description: "EVERY product the customer wants, each with its own quantity. Send the full list on every call, including items agreed earlier. Use this whenever the order has more than one product.",
+                      items: {
+                        type: "OBJECT",
+                        properties: {
+                          product: { type: "STRING", description: "Product name, for example 'Customized diaries with individual names'" },
+                          quantity: { type: "STRING", description: "Quantity for this item, for example '1000'" },
+                          notes: { type: "STRING", description: "Anything specific to this item, such as colour, material or branding" },
+                        },
+                        required: ["product"],
+                      },
+                    },
+                    product: { type: "STRING", description: "Main product, for a single-item order. If the order has several items, use `items` instead." },
+                    quantity: { type: "STRING", description: "Approximate quantity for the main product" },
                     timeline: { type: "STRING", description: "When they need it" },
+                    city: { type: "STRING", description: "Delivery city, if mentioned" },
+                    address: { type: "STRING", description: "Full delivery address, only if the customer volunteers it" },
+                    company: { type: "STRING", description: "Company or firm name, if they are buying for a business" },
+                    email: { type: "STRING", description: "Email address, only if the customer gives one" },
                     summary: { type: "STRING", description: "One or two line summary of the requirement" },
                   },
                   required: ["name"],

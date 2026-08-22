@@ -1,7 +1,13 @@
 // Edge Function: social-creative
 //
-// Step 2 of the social pipeline. Renders one advertising creative with Gemini's
-// image model and puts it in the PUBLIC social-media bucket, returning the URL.
+// Step 2 of the social pipeline. Renders one advertising creative and puts it in
+// the PUBLIC social-media bucket, returning the URL.
+//
+// Provider is Pollinations (FLUX), which is free and needs no API key. Gemini's
+// image model was the original choice but it has NO free tier — an unbilled key
+// is capped at `limit: 0`, so every call 429s no matter how long you wait.
+// Pollinations has no such wall. It is slower (5-45s) and a little less polished,
+// and the creative is reviewed by a human before publishing anyway.
 //
 // It has to land in a public bucket because Instagram's publishing API fetches
 // the image from a URL we hand it — Meta's servers must be able to read it
@@ -12,8 +18,7 @@
 //
 // Deploy:
 //   supabase functions deploy social-creative
-//   supabase secrets set GEMINI_API_KEY=your-google-ai-studio-key
-//   (optional) supabase secrets set GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
+//   (optional) supabase secrets set IMAGE_MODEL=flux
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
@@ -26,19 +31,30 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } })
 
-const MODEL = Deno.env.get("GEMINI_IMAGE_MODEL") || "gemini-2.5-flash-image"
+const MODEL = Deno.env.get("IMAGE_MODEL") || "flux"
 const BUCKET = "social-media"
 
-// Instagram feed accepts 1:1, 4:5 (portrait) and 1.91:1 (landscape).
-const RATIOS: Record<string, string> = {
-  square: "1:1",
-  portrait: "4:5",
-  landscape: "1.91:1",
+// Instagram feed accepts 1:1, 4:5 (portrait) and 1.91:1 (landscape). Pollinations
+// takes pixels rather than a ratio, so these are the ratios at feed resolution.
+const SIZES: Record<string, [number, number]> = {
+  square: [1024, 1024],
+  portrait: [1024, 1280],
+  landscape: [1200, 628],
 }
 
-async function logUsage(usage: Record<string, number> | undefined) {
+// The bucket only accepts these three (migration 0013).
+const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp"]
+
+// A cold render can take ~45s. Give one attempt room to finish, but keep the
+// total under the platform's ~150s wall-clock cap or the whole call is killed
+// and the caller gets a connection error instead of our message.
+const RENDER_TIMEOUT_MS = 60_000
+const TOTAL_DEADLINE_MS = 130_000
+
+// Pollinations bills nothing and reports no tokens, but the Settings usage card
+// counts rows, so keep logging one row per render to preserve the request count.
+async function logUsage() {
   try {
-    if (!usage) return
     const url = Deno.env.get("SUPABASE_URL")
     const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
     if (!url || !service) return
@@ -46,10 +62,10 @@ async function logUsage(usage: Record<string, number> | undefined) {
     await client.from("ai_usage").insert({
       doc: {
         feature: "social-creative",
-        model: MODEL,
-        promptTokens: usage.promptTokenCount || 0,
-        outputTokens: usage.candidatesTokenCount || 0,
-        totalTokens: usage.totalTokenCount || 0,
+        model: `pollinations/${MODEL}`,
+        promptTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
       },
     })
   } catch {
@@ -57,25 +73,18 @@ async function logUsage(usage: Record<string, number> | undefined) {
   }
 }
 
+// The prompt travels in the URL path, so it stays on one line and stays short.
 function buildPrompt(imagePrompt: string) {
-  return `Create a single photorealistic advertising creative for Ortex Industries, an Indian manufacturer of customized MDF, acrylic, lanyard, badge and corporate gift products.
-
-The shot: ${imagePrompt}
-
-Requirements:
-- Photorealistic commercial product photography. Believable materials, real surface texture, accurate scale.
-- Clean studio or contextual setting, soft directional key light, gentle shadow, shallow depth of field.
-- Composition leaves calm negative space; the product is unmistakably the subject.
-- NO text, letters, numbers, words, logos, watermarks, signatures, or UI of any kind anywhere in the image.
-- No people's faces in focus. No recognisable third-party brand marks.
-- Nothing implying an award, certification, rating, or price.`
-}
-
-function decodeBase64(b64: string): Uint8Array {
-  const bin = atob(b64)
-  const bytes = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  return bytes
+  return [
+    "Photorealistic commercial advertising product photography for Ortex Industries,",
+    "an Indian manufacturer of customized MDF, acrylic, lanyard, badge and corporate gift products.",
+    `The shot: ${imagePrompt}.`,
+    "Believable materials, real surface texture, accurate scale.",
+    "Clean studio or contextual setting, soft directional key light, gentle shadow, shallow depth of field.",
+    "Calm negative space, the product is unmistakably the subject.",
+    "No text, no letters, no numbers, no words, no logos, no watermarks, no signatures.",
+    "No faces in focus, no third-party brand marks, nothing implying an award or price.",
+  ].join(" ")
 }
 
 Deno.serve(async (req) => {
@@ -85,9 +94,6 @@ Deno.serve(async (req) => {
   try {
     const url = Deno.env.get("SUPABASE_URL")!
     const anon = Deno.env.get("SUPABASE_ANON_KEY")!
-    const apiKey = Deno.env.get("GEMINI_API_KEY")
-    if (!apiKey) return json({ error: "Creative generation is not configured (missing GEMINI_API_KEY)." }, 500)
-
     const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
     if (!service) return json({ error: "Creative generation is not configured (missing service role)." }, 500)
 
@@ -110,50 +116,57 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     const imagePrompt = String(body.imagePrompt || "").trim()
     if (!imagePrompt) return json({ error: "An image prompt is required." }, 400)
-    const aspectRatio = RATIOS[String(body.format || "square")] || RATIOS.square
+    const [width, height] = SIZES[String(body.format || "square")] || SIZES.square
 
-    // 3) Render.
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`
-    let gemRes: Response | undefined
+    // 3) Render. Pollinations takes the whole prompt in the URL path and streams
+    //    the image straight back, so there is no JSON envelope to unwrap.
+    const prompt = buildPrompt(imagePrompt.slice(0, 600))
+    let bytes: Uint8Array | undefined
+    let mime = "image/jpeg"
+    let lastDetail = ""
+    const startedAt = Date.now()
+
     for (let attempt = 0; attempt < 3; attempt++) {
-      gemRes = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: buildPrompt(imagePrompt) }] }],
-          generationConfig: {
-            responseModalities: ["IMAGE"],
-            imageConfig: { aspectRatio },
-          },
-        }),
-      })
-      if (gemRes.ok || (gemRes.status !== 500 && gemRes.status !== 503)) break
-    }
-    if (!gemRes || !gemRes.ok) {
-      const detail = await gemRes?.text().catch(() => "")
-      console.error("social-creative gemini error", gemRes?.status, detail)
-      return json({ error: "Creative generation is temporarily unavailable." }, 502)
+      // Never start an attempt that cannot finish before the platform kills us.
+      if (attempt > 0 && Date.now() - startedAt > TOTAL_DEADLINE_MS - RENDER_TIMEOUT_MS) break
+
+      // A fresh seed each attempt, so a retry is a genuinely new render rather
+      // than the same cached image coming back.
+      const seed = crypto.getRandomValues(new Uint32Array(1))[0]
+      const endpoint =
+        `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}` +
+        `?width=${width}&height=${height}&model=${encodeURIComponent(MODEL)}` +
+        `&nologo=true&seed=${seed}&referrer=ortex-industries`
+
+      const abort = AbortSignal.timeout(RENDER_TIMEOUT_MS)
+      try {
+        const res = await fetch(endpoint, { signal: abort })
+        const type = (res.headers.get("content-type") || "").split(";")[0].trim()
+        if (!res.ok) {
+          lastDetail = `${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`
+          continue
+        }
+        // An overloaded node can answer 200 with an HTML error page. Only bytes
+        // the bucket will actually accept count as success.
+        if (!ALLOWED_MIME.includes(type)) {
+          lastDetail = `unexpected content-type ${type}`
+          continue
+        }
+        bytes = new Uint8Array(await res.arrayBuffer())
+        mime = type
+        if (bytes.length > 0) break
+        lastDetail = "empty image body"
+        bytes = undefined
+      } catch (e) {
+        lastDetail = e instanceof Error ? e.message : String(e)
+      }
     }
 
-    const data = await gemRes.json()
-
-    // The model may refuse (safety) and return only text — treat that as a real
-    // failure rather than uploading nothing.
-    const parts = data?.candidates?.[0]?.content?.parts || []
-    const imgPart = parts.find((p: { inlineData?: { data?: string } }) => p?.inlineData?.data)
-    if (!imgPart) {
-      const text = parts.map((p: { text?: string }) => p.text || "").join(" ").trim()
-      const reason = data?.candidates?.[0]?.finishReason
-      console.error("social-creative no image", reason, text.slice(0, 300))
-      return json({
-        error: reason === "IMAGE_SAFETY" || reason === "SAFETY"
-          ? "The image model refused this prompt. Reword the creative brief and try again."
-          : "The model returned no image. Try again.",
-      }, 502)
+    if (!bytes) {
+      console.error("social-creative render failed", lastDetail)
+      return json({ error: "The image generator did not respond. Try again in a moment." }, 502)
     }
 
-    const mime = imgPart.inlineData.mimeType || "image/png"
-    const bytes = decodeBase64(imgPart.inlineData.data)
     const ext = mime.includes("jpeg") ? "jpg" : mime.includes("webp") ? "webp" : "png"
     const path = `creatives/${crypto.randomUUID()}.${ext}`
 
@@ -169,7 +182,7 @@ Deno.serve(async (req) => {
 
     const { data: pub } = admin.storage.from(BUCKET).getPublicUrl(path)
 
-    await logUsage(data?.usageMetadata)
+    await logUsage()
 
     return json({ image: pub.publicUrl })
   } catch (err) {

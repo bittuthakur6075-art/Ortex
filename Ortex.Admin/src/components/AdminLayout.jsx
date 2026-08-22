@@ -20,6 +20,7 @@ import {
   TrendingUp,
   Bell,
   Instagram,
+  Sparkles,
 } from "./icons"
 import { logout, useAuth, useAuthReady, currentEmail } from "../lib/auth"
 import { useProfile } from "../data/profile"
@@ -217,6 +218,7 @@ const NAV = [
     section: "CRM",
     items: [
       { to: "/leads", key: "leads", label: "Leads", icon: Target },
+      { to: "/voice-leads", key: "voice-leads", label: "Voice Leads", icon: Sparkles },
       { to: "/enquiries", key: "enquiries", label: "Enquiries", icon: Inbox },
       { to: "/customers", key: "customers", label: "Customers", icon: Users },
     ],

@@ -118,6 +118,7 @@ export async function submitEnquiry({
   source,
   customer,
   productInterest = "",
+  items = [],
   message = "",
   notes = "",
   reference = newReference(),
@@ -135,6 +136,10 @@ export async function submitEnquiry({
     owner: "",
     customer,
     productInterest,
+    // Every product on the order, each with its own quantity. `productInterest`
+    // stays the flat comma-joined string every existing screen and search box
+    // already reads; `items` is what a multi-line order actually rides on.
+    items,
     message,
     notes,
     submittedAt: new Date().toISOString(),
