@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from "react"
 import { AnimatePresence } from "framer-motion"
-import { X } from "lucide-react"
+import { X } from "../components/ui/Icons"
 import {
   Category, Key, Clock, Medal, Gift, ClipboardText, Flag, Sticker, Tag, Eye, SearchNormal1,
 } from "iconsax-react"

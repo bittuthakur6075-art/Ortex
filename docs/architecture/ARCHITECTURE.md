@@ -31,7 +31,7 @@ The project is built on a modern frontend React-based single-page application se
     *   **Tailwind CSS 4** (`^4.3.2`) with Vite integration via `@tailwindcss/vite` (`^4.3.2`).
 *   **Icons & Motion**:
     *   **Framer Motion 12** (`^12.42.2`) for scroll/fade animations and modal transitions.
-    *   **Lucide React 1** (`^1.23.0`) for clean vector icons.
+    *   **Iconsax React** (`^0.0.8`) for icons, wrapped by `src/components/ui/Icons.jsx` so the marketing site and Admin share one icon set.
 *   **UI Components / Utilities**:
     *   **Sonner** (`^2.0.7`) for rich, customizable toast alerts.
     *   **Oxlint** (`^1.71.0`) as the linter.

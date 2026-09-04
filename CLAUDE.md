@@ -34,7 +34,7 @@ npm run lint      # oxlint
 ### Architecture
 * **Routing**: Defined in `src/App.jsx` (pages lazy-loaded). Route SEO metadata is mirrored in `scripts/routes-meta.mjs`; `check-meta.mjs` fails the build if the two drift, and `prerender.mjs` writes real `<title>`/OG tags per route.
 * **SEO**: Every page calls `useDocumentMetadata` at the top.
-* **Layout**: `components/layout/` (Navbar, Footer, ScrollToTop); shared blocks in `components/ui/` (`PageHero`, `PageCTA`, `Section` = Framer Motion primitives); Home-only sections in `components/home/`.
+* **Layout**: `components/layout/` (Navbar, Footer, ScrollToTop); shared blocks in `components/ui/` (`PageHero`, `PageCTA`, `Section` = Framer Motion primitives, `Icons.jsx` = Iconsax adapter — the only icon library; import icons from there, not from a package); Home-only sections in `components/home/`.
 * **Data**: No server of its own. `lib/supabaseClient.js` reads the live catalogue/work photos and inserts leads; the quote wizard and contact form queue to `localStorage` when offline (`lib/leads.js`). Live Orty (`components/ui/LiveOrty.jsx`, lazy) uses `@google/genai` with a token minted by the `orty-live-token` edge function.
 * **Deploy**: `vercel.json` (Vercel) and `public/.htaccess` + `docs/DEPLOY_HOSTINGER.md` (Apache static hosting).
 

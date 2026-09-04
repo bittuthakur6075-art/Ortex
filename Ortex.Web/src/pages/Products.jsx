@@ -1,7 +1,7 @@
 import { useRef, useState } from "react"
 import { motion, useMotionValue, useSpring } from "framer-motion"
 import { Link } from "react-router-dom"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight } from "../components/ui/Icons"
 import { Printer, Flash, Colorfilter } from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { photosForCategory } from "../constants/categories"

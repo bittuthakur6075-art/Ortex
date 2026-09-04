@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-import { ArrowRight, Home } from "lucide-react"
+import { ArrowRight, Home } from "../components/ui/Icons"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
 export default function NotFound() {

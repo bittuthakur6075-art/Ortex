@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Link } from "react-router-dom"
-import { ArrowRight, Plus } from "lucide-react"
+import { ArrowRight, Plus } from "../components/ui/Icons"
 import { Building, Teacher, Bank, Hospital, Calendar, VolumeHigh, Heart, Shop, Flash, Building3, Slider, Setting2, Award, Truck, ShieldTick } from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { fadeUp, EASE, RevealWords } from "../components/ui/Section"

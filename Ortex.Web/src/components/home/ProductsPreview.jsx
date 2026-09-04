@@ -1,7 +1,7 @@
 import { useRef, useState } from "react"
 import { motion, useMotionValue, useSpring } from "framer-motion"
 import { Link } from "react-router-dom"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight } from "../ui/Icons"
 import { PRODUCT_CATEGORIES, photosForCategory, categoryStats } from "../../constants/categories"
 import { fadeUp, EASE } from "../ui/Section"
 

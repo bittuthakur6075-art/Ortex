@@ -1,7 +1,7 @@
 import { useRef, useEffect } from "react"
 import { motion, useMotionValue } from "framer-motion"
 import { Link } from "react-router-dom"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight } from "../components/ui/Icons"
 import {
   Building3, Slider, Award, Document, Flash, Truck, Box,
 } from "iconsax-react"

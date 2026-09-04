@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { Menu, X } from "lucide-react"
+import { Menu, X } from "../ui/Icons"
 import { whatsappLink } from "../../constants/site"
 import WhatsAppIcon from "../ui/WhatsAppIcon"
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { useSearchParams, Link } from "react-router-dom"
-import { ArrowRight, Check, ChevronDown } from "lucide-react"
+import { ArrowRight, Check, ChevronDown } from "../components/ui/Icons"
 import { Call, Sms, Global, Clock, Airplane, ShieldTick, TickCircle } from "iconsax-react"
 import { toast } from "sonner"
 import { submitEnquiry } from "../lib/leads"

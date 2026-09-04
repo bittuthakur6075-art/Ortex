@@ -27,5 +27,15 @@
     ],
     "import/no-duplicates": "warn",
     "import/no-self-import": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/components/ui/Icons.jsx"
+      ],
+      "rules": {
+        "react/only-export-components": "off"
+      }
+    }
+  ]
 }
