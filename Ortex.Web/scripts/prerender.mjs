@@ -56,10 +56,36 @@ function categoryRoutes(categories, products) {
   }))
 }
 
-const escapeAttr = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;")
+// Everything below is sourced from the live catalogue (products/categories
+// tables), which any staff account with those modules can edit. It is written
+// into raw HTML here, outside React's escaping, so every value must be
+// neutralised before it touches the template.
+const escapeAttr = (s) =>
+  String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
 
-function replaceTag(html, pattern, replacement, route, what) {
-  const next = html.replace(pattern, replacement)
+// JSON inside a <script> block must never contain "</script>" or "<!--".
+// Escaping < > & as \uXXXX keeps it valid JSON while making it inert in HTML.
+const jsonForScript = (value) =>
+  JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029")
+
+// Only a plain http(s) URL may become a social-card image; anything else is
+// dropped rather than rendered.
+const safeImageUrl = (u) => (/^https?:\/\/[^\s"'<>]+$/.test(String(u ?? "")) ? u : null)
+
+// The pattern must capture the opening and closing markup as groups 1 and 2.
+// The value is inserted via a replacer function so "$&", "$'" and friends
+// inside data are never interpreted by String.prototype.replace.
+function replaceTag(html, pattern, value, route, what) {
+  const next = html.replace(pattern, (_m, open, close) => `${open}${value}${close}`)
   if (next === html) throw new Error(`prerender: could not rewrite ${what} for ${route} — index.html head changed?`)
   return next
 }
@@ -70,24 +96,23 @@ function renderRoute(route) {
   const description = escapeAttr(route.description)
 
   let html = template
-  html = replaceTag(html, /<title>[\s\S]*?<\/title>/, `<title>${title}</title>`, route.path, "<title>")
-  html = replaceTag(html, /(<meta\s+name="description"\s+content=")[\s\S]*?(")/, `$1${description}$2`, route.path, "description")
-  html = replaceTag(html, /(<link rel="canonical" href=")[^"]*(")/, `$1${url}$2`, route.path, "canonical")
-  html = replaceTag(html, /(<meta property="og:title" content=")[^"]*(")/, `$1${title}$2`, route.path, "og:title")
-  html = replaceTag(html, /(<meta\s+property="og:description"\s+content=")[\s\S]*?(")/, `$1${description}$2`, route.path, "og:description")
-  html = replaceTag(html, /(<meta property="og:url" content=")[^"]*(")/, `$1${url}$2`, route.path, "og:url")
-  html = replaceTag(html, /(<meta name="twitter:title" content=")[^"]*(")/, `$1${title}$2`, route.path, "twitter:title")
-  html = replaceTag(html, /(<meta\s+name="twitter:description"\s+content=")[\s\S]*?(")/, `$1${description}$2`, route.path, "twitter:description")
-  if (route.image) {
-    html = html
-      .replace(/(<meta\s+property="og:image"\s+content=")[^"]*(")/, `$1${route.image}$2`)
-      .replace(/(<meta\s+name="twitter:image"\s+content=")[^"]*(")/, `$1${route.image}$2`)
+  html = replaceTag(html, /(<title>)[\s\S]*?(<\/title>)/, title, route.path, "<title>")
+  html = replaceTag(html, /(<meta\s+name="description"\s+content=")[\s\S]*?(")/, description, route.path, "description")
+  html = replaceTag(html, /(<link rel="canonical" href=")[^"]*(")/, url, route.path, "canonical")
+  html = replaceTag(html, /(<meta property="og:title" content=")[^"]*(")/, title, route.path, "og:title")
+  html = replaceTag(html, /(<meta\s+property="og:description"\s+content=")[\s\S]*?(")/, description, route.path, "og:description")
+  html = replaceTag(html, /(<meta property="og:url" content=")[^"]*(")/, url, route.path, "og:url")
+  html = replaceTag(html, /(<meta name="twitter:title" content=")[^"]*(")/, title, route.path, "twitter:title")
+  html = replaceTag(html, /(<meta\s+name="twitter:description"\s+content=")[\s\S]*?(")/, description, route.path, "twitter:description")
+  const image = safeImageUrl(route.image)
+  if (image) {
+    const img = escapeAttr(image)
+    html = replaceTag(html, /(<meta\s+property="og:image"\s+content=")[^"]*(")/, img, route.path, "og:image")
+    html = replaceTag(html, /(<meta\s+name="twitter:image"\s+content=")[^"]*(")/, img, route.path, "twitter:image")
   }
   if (route.schema) {
-    html = html.replace(
-      "</head>",
-      `<script type="application/ld+json">${JSON.stringify(route.schema)}</script>\n</head>`
-    )
+    const ld = jsonForScript(route.schema)
+    html = html.replace("</head>", () => `<script type="application/ld+json">${ld}</script>\n</head>`)
   }
 
   const out = join(dist, ...route.path.split("/").filter(Boolean), "index.html")

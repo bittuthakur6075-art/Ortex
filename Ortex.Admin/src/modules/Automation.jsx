@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { repo } from "../data/repository"
 import { hasSupabase } from "../data/supabaseClient"
-import { useProfile } from "../data/profile"
+import { useProfile } from "../hooks/useProfile"
 import {
   StatCard,
   Button,
@@ -301,11 +301,12 @@ export default function Automation() {
       return
     }
 
-    // Use stored whatsappUrl or build it
-    const url = log.whatsappUrl ||
-      `https://wa.me/${phone}?text=${encodeURIComponent(log.messageText || "")}`
+    // Always rebuild the link from the digit-only phone and the message text.
+    // whatsapp_logs.whatsappUrl is a DB field, so it is never passed to
+    // window.open verbatim (a "javascript:" value would run in this origin).
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(log.messageText || "")}`
 
-    window.open(url, "_blank")
+    window.open(url, "_blank", "noopener")
 
     // Mark as sent in DB
     try {

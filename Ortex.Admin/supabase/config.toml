@@ -1,0 +1,8 @@
+# Supabase project settings tracked in git.
+#
+# Accounts are invite-only: staff are created by an admin through the
+# admin-create-user Edge Function. Public self-signup must stay disabled so the
+# public anon key cannot be used to create a login. Mirror this in the
+# dashboard: Authentication -> Providers -> Email -> "Allow new users to sign up" = off.
+[auth]
+enable_signup = false

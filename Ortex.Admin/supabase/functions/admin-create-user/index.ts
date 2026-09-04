@@ -59,11 +59,13 @@ Deno.serve(async (req) => {
     const id = data.user?.id
     if (!id) return json({ error: "User created but no id returned" }, 500)
 
-    // 4) Grant the requested role/modules — only reachable behind the admin
-    //    check above. Service-role client bypasses RLS.
+    // 4) Grant the requested role/modules and activate the account — only
+    //    reachable behind the admin check above. Service-role client bypasses
+    //    RLS. Profiles are created inactive (migration 0015) so that an
+    //    uninvited public signup never passes is_active_staff().
     const { error: grantErr } = await admin
       .from("profiles")
-      .update({ role, modules: Array.isArray(modules) ? modules : [] })
+      .update({ role, modules: Array.isArray(modules) ? modules : [], active: true })
       .eq("id", id)
     if (grantErr) {
       // Don't leave a half-provisioned login behind.
