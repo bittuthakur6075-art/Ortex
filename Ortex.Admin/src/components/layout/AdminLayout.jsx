@@ -21,14 +21,14 @@ import {
   Bell,
   Instagram,
   Sparkles,
-} from "./Icons"
-import { logout, useAuth, useAuthReady, currentEmail } from "../lib/auth"
-import { useProfile } from "../hooks/useProfile"
-import { canAccess } from "../data/modules"
-import { useCollections } from "../hooks/useCollection"
-import { OPEN_LEAD_STAGES } from "../data/schema"
-import { daysUntil } from "../lib/format"
-import { cn } from "../lib/cn"
+} from "../ui/Icons"
+import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
+import { useProfile } from "../../hooks/useProfile"
+import { canAccess } from "../../data/domain/modules"
+import { useCollections } from "../../hooks/useCollection"
+import { OPEN_LEAD_STAGES } from "../../data/domain/schema"
+import { daysUntil } from "../../lib/format"
+import { cn } from "../../lib/cn"
 
 const ROLE_LABEL = { admin: "Admin", sales: "Sales Executive" }
 
@@ -328,7 +328,7 @@ function NavItems({ onNavigate }) {
   )
 }
 
-import { syncLocalToSupabase } from "../data/sync"
+import { syncLocalToSupabase } from "../../data/store/sync"
 
 export default function AdminLayout() {
   const authed = useAuth()

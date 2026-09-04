@@ -56,24 +56,31 @@ Ortex/
 │       │   ├── layout/             # Navbar, Footer, ScrollToTop
 │       │   └── ui/                 # PageHero, PageCTA, Section (motion primitives),
 │       │                           # Hero, LiveOrty, PhotoLightbox, CookieConsent …
-│       ├── constants/              # site.js, categories.js, products.js, photos.js, home.js
+│       ├── constants/              # site.js, categories.js, products.js, photos.json, home.js
 │       ├── hooks/                  # useDocumentMetadata, useSmoothScroll, useWork
 │       ├── lib/                    # supabaseClient, catalog/catalogCore, leads, tracker, uploads, consent
 │       └── pages/                  # one component per route
 ├── Ortex.Admin/                    # admin console
 │   ├── supabase/
 │   │   ├── migrations/             # schema, RLS, storage policies
-│   │   └── functions/              # Deno edge functions; _shared/http.ts = CORS + json()
+│   │   └── functions/              # Deno edge functions; _shared/{http,auth,gemini}.ts
 │   ├── test/fixtures/              # sample TallyPrime XML
 │   ├── docs/                       # PRD, ENVIRONMENTS, GROWTH_TRACKING, LEADS_AND_RECEIPTS
 │   └── src/
 │       ├── App.jsx                 # auth gate + module routing
-│       ├── components/             # AdminLayout, Login, Ui.jsx kit, Icons.jsx adapter,
-│       │                           # editors (LineItemsEditor, CustomerFields …), DocumentView
-│       ├── data/                   # repository facade, apiStore/localStore, schema, domain, seed
+│       ├── components/
+│       │   ├── layout/             # AdminLayout, PageHeader
+│       │   ├── ui/                 # Ui.jsx kit, Icons.jsx Iconsax adapter, Chart
+│       │   ├── editors/            # CustomerFields, ShipToFields, LineItemsEditor, imports
+│       │   └── documents/          # DocumentView, ReceiptView (A4 print/PDF)
+│       ├── data/
+│       │   ├── store/              # repository facade, apiStore/localStore, supabaseClient, sync
+│       │   ├── domain/             # schema, domain rules, settings defaults, module registry
+│       │   └── seed/               # demo data
+│       ├── services/               # notify, users, integrations
 │       ├── hooks/                  # useCollection(s)/useSettings/useSorting, useProfile
 │       ├── lib/                    # pricing, analytics, format, id, csv, auth, imageUpload
-│       └── pages/                  # one page per business module
+│       └── pages/                  # Login + one page per business module
 ├── Ortex.Tally.Connector/          # Node CLI: src/{config,source,sync,tallyClient,tallyXml}.js
 ├── docs/                           # this file, PM backlog/roadmap, guides
 └── .github/workflows/ci.yml        # lint + build (Web, Admin), fixture (Connector)
@@ -128,7 +135,7 @@ The custom hook `src/hooks/useDocumentMetadata.js` dynamically updates `<title>`
 2.  `<Navbar />` (Sticky header).
 3.  `<main className="flex-grow">` containing route paths: `/`, `/about`, `/products`, `/industries`, `/portfolio`, `/contact`, `/quote` (interactive quote builder), `/privacy`, and `/terms`.
 4.  `<Footer />`
-5.  `<Chatbot />` for automated helper guidance.
+5.  `<LiveOrty />` (lazy-loaded) — the voice assistant.
 6.  `<Toaster />` from `sonner` for application notifications.
 
 ### 5.3. Contact Submissions Form (`src/pages/Contact.jsx`)

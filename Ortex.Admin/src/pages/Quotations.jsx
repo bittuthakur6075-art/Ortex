@@ -1,19 +1,19 @@
 import { useState, useMemo, useEffect } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { FileText, Plus, Search, Eye, FileCheck2, Trash2, Download, AlertTriangle } from "../components/Icons"
+import { FileText, Plus, Search, Eye, FileCheck2, Trash2, Download, AlertTriangle } from "../components/ui/Icons"
 import { toast } from "sonner"
-import { repo } from "../data/repository"
+import { repo } from "../data/store/repository"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
-import { createQuotation, updateQuotation, convertQuotationToInvoice, markEnquiryQuoted, markLeadQuoted, isInterState } from "../data/domain"
-import { notifyMessage } from "../data/notify"
-import { QUOTATION_STATUS, LOST_REASONS, newCustomer, newLine } from "../data/schema"
+import { createQuotation, updateQuotation, convertQuotationToInvoice, markEnquiryQuoted, markLeadQuoted, isInterState } from "../data/domain/domain"
+import { notifyMessage } from "../services/notify"
+import { QUOTATION_STATUS, LOST_REASONS, newCustomer, newLine } from "../data/domain/schema"
 import { formatDate, toDateInput, daysUntil } from "../lib/format"
 import { exportCsv } from "../lib/csv"
-import PageHeader from "../components/PageHeader"
-import CustomerFields from "../components/CustomerFields"
-import ShipToFields from "../components/ShipToFields"
-import LineItemsEditor from "../components/LineItemsEditor"
-import DocumentView from "../components/DocumentView"
+import PageHeader from "../components/layout/PageHeader"
+import CustomerFields from "../components/editors/CustomerFields"
+import ShipToFields from "../components/editors/ShipToFields"
+import LineItemsEditor from "../components/editors/LineItemsEditor"
+import DocumentView from "../components/documents/DocumentView"
 import {
   Button,
   Card,
@@ -27,7 +27,7 @@ import {
   Modal,
   PageLoader,
   SortTh,
-} from "../components/Ui"
+} from "../components/ui/Ui"
 
 const emptyDraft = (settings) => ({
   id: null,

@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
-import { ShieldCheck, KeyRound, Save } from "../components/Icons"
-import { Button, Card, Input, Field, Badge, PageLoader } from "../components/Ui"
-import PageHeader from "../components/PageHeader"
+import { ShieldCheck, KeyRound, Save } from "../components/ui/Icons"
+import { Button, Card, Input, Field, Badge, PageLoader } from "../components/ui/Ui"
+import PageHeader from "../components/layout/PageHeader"
 import { useProfile } from "../hooks/useProfile"
-import { updateMyProfile } from "../data/users"
+import { updateMyProfile } from "../services/users"
 import { login, changePassword, currentEmail, currentUserId } from "../lib/auth"
-import { hasSupabase } from "../data/supabaseClient"
-import { MODULES } from "../data/modules"
+import { hasSupabase } from "../data/store/supabaseClient"
+import { MODULES } from "../data/domain/modules"
 
 const ROLE_LABEL = { admin: "Admin", sales: "Sales Executive" }
 const moduleLabel = (key) => MODULES.find((m) => m.key === key)?.label || key

@@ -2,17 +2,17 @@ import { useState, useEffect, useMemo } from "react"
 import {
   Instagram, Facebook, Plus, Trash2, Sparkles, Search, Send, ImageIcon,
   Calendar, RefreshCw, CheckCircle2, ArrowUpRight, X,
-} from "../components/Icons"
+} from "../components/ui/Icons"
 import { toast } from "sonner"
-import { repo } from "../data/repository"
+import { repo } from "../data/store/repository"
 import { useCollection } from "../hooks/useCollection"
 import { useProfile } from "../hooks/useProfile"
-import { newSocialPost, socialCaptionText, SOCIAL_STATUS, SOCIAL_PLATFORMS, statusMeta } from "../data/schema"
-import { supabase, hasSupabase, functionErrorMessage } from "../data/supabaseClient"
-import PageHeader from "../components/PageHeader"
+import { newSocialPost, socialCaptionText, SOCIAL_STATUS, SOCIAL_PLATFORMS, statusMeta } from "../data/domain/schema"
+import { supabase, hasSupabase, functionErrorMessage } from "../data/store/supabaseClient"
+import PageHeader from "../components/layout/PageHeader"
 import {
   Button, Card, Input, Textarea, Select, Field, EmptyState, Modal, PageLoader, StatusBadge, Chip,
-} from "../components/Ui"
+} from "../components/ui/Ui"
 
 const PLATFORM_ICON = { instagram: Instagram, facebook: Facebook }
 

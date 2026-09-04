@@ -8,7 +8,7 @@
 // other rows' ids, exactly as they did in localStore.
 
 import { supabase } from "./supabaseClient"
-import { mergeSettings, DEFAULT_SETTINGS } from "./settingsDefaults"
+import { mergeSettings, DEFAULT_SETTINGS } from "../domain/settingsDefaults"
 
 const SETTINGS_ROW_ID = true // single-row settings table (id boolean primary key)
 

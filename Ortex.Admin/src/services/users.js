@@ -2,7 +2,7 @@
 // (guarded by RLS — admin only); creating a brand-new login goes through the
 // admin-create-user Edge Function, which holds the service-role key.
 
-import { supabase } from "./supabaseClient"
+import { supabase } from "../data/store/supabaseClient"
 
 export async function listProfiles() {
   const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: true })

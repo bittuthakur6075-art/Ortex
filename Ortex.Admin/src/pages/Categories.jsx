@@ -1,14 +1,14 @@
 import { useState, useEffect, useMemo } from "react"
-import { Tags, Plus, Pencil, Trash2, Sparkles, X } from "../components/Icons"
+import { Tags, Plus, Pencil, Trash2, Sparkles, X } from "../components/ui/Icons"
 import { toast } from "sonner"
-import { repo } from "../data/repository"
+import { repo } from "../data/store/repository"
 import { useCollection, useSorting } from "../hooks/useCollection"
-import { newCategory, slugifyCategory, GST_RATES, PRODUCT_CATEGORIES } from "../data/schema"
+import { newCategory, slugifyCategory, GST_RATES, PRODUCT_CATEGORIES } from "../data/domain/schema"
 import { uploadImage, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "../lib/imageUpload"
 import { triggerSiteRebuild } from "../lib/revalidate"
-import { supabase, hasSupabase } from "../data/supabaseClient"
-import PageHeader from "../components/PageHeader"
-import { Button, Card, Input, Select, Textarea, Field, EmptyState, Modal, PageLoader, SortTh } from "../components/Ui"
+import { supabase, hasSupabase } from "../data/store/supabaseClient"
+import PageHeader from "../components/layout/PageHeader"
+import { Button, Card, Input, Select, Textarea, Field, EmptyState, Modal, PageLoader, SortTh } from "../components/ui/Ui"
 
 export default function Categories() {
   const { items, loading } = useCollection("categories")

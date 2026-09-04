@@ -10,33 +10,19 @@
 //  automatically by the platform — no manual secrets needed.)
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-}
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } })
+import { cors, json } from "../_shared/http.ts"
+import { requireStaff } from "../_shared/auth.ts"
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors })
 
   try {
     const url = Deno.env.get("SUPABASE_URL")!
-    const anon = Deno.env.get("SUPABASE_ANON_KEY")!
     const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    const authHeader = req.headers.get("Authorization") ?? ""
 
     // 1) Identify the caller and confirm they are an active admin.
-    const caller = createClient(url, anon, { global: { headers: { Authorization: authHeader } } })
-    const { data: userData, error: userErr } = await caller.auth.getUser()
-    if (userErr || !userData.user) return json({ error: "Not authenticated" }, 401)
-
-    const { data: prof } = await caller
-      .from("profiles").select("role, active").eq("id", userData.user.id).maybeSingle()
-    if (!prof || prof.role !== "admin" || !prof.active) return json({ error: "Admin access required" }, 403)
+    const staff = await requireStaff(req, ["admin"], "Admin access required")
+    if (staff instanceof Response) return staff
 
     // 2) Validate input.
     const { email, password, name, role, modules } = await req.json()

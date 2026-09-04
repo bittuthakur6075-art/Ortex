@@ -6,9 +6,9 @@
 // pricing engine the live app uses, then the numbering counters are advanced
 // so freshly-created documents continue the sequence cleanly.
 
-import { repo } from "./repository"
-import { computeDocument } from "../lib/pricing"
-import { documentNumber } from "../lib/id"
+import { repo } from "../store/repository"
+import { computeDocument } from "../../lib/pricing"
+import { documentNumber } from "../../lib/id"
 
 const day = 86400000
 const ago = (d) => new Date(Date.now() - d * day).toISOString()

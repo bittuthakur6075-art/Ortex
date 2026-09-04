@@ -3,12 +3,12 @@
 // numbering, quote→invoice conversion, payment reconciliation, GST split) live
 // in one place.
 
-import { repo } from "./repository"
-import { computeDocument } from "../lib/pricing"
-import { documentNumber, uid } from "../lib/id"
-import { round2, daysUntil } from "../lib/format"
+import { repo } from "../store/repository"
+import { computeDocument } from "../../lib/pricing"
+import { documentNumber, uid } from "../../lib/id"
+import { round2, daysUntil } from "../../lib/format"
 import { stageProbability } from "./schema"
-import { notifyInvoiceCreated } from "./notify"
+import { notifyInvoiceCreated } from "../../services/notify"
 
 // Intra-state (CGST+SGST) vs inter-state (IGST) is decided by comparing the
 // customer's state code to the company's registered state code.

@@ -10,17 +10,17 @@ import {
   ArrowUpRight,
   AlertTriangle,
   Users,
-} from "../components/Icons"
+} from "../components/ui/Icons"
 import { toast } from "sonner"
 import { useCollections } from "../hooks/useCollection"
 import { computeAnalytics } from "../lib/analytics"
-import { weightedLeadValue } from "../data/domain"
-import { LEAD_STAGES, OPEN_LEAD_STAGES } from "../data/schema"
-import { seedDemo } from "../data/seed"
+import { weightedLeadValue } from "../data/domain/domain"
+import { LEAD_STAGES, OPEN_LEAD_STAGES } from "../data/domain/schema"
+import { seedDemo } from "../data/seed/seed"
 import { formatCurrency, formatNumber, daysUntil, round2 } from "../lib/format"
-import PageHeader from "../components/PageHeader"
-import { Card, StatCard, StatusBadge, Money, EmptyState, Button, Chip, PageLoader } from "../components/Ui"
-import { BarChart, AreaChart, CHART_COLORS } from "../components/Chart"
+import PageHeader from "../components/layout/PageHeader"
+import { Card, StatCard, StatusBadge, Money, EmptyState, Button, Chip, PageLoader } from "../components/ui/Ui"
+import { BarChart, AreaChart, CHART_COLORS } from "../components/ui/Chart"
 
 const PERIODS = [
   { id: "mtd", label: "This month" },

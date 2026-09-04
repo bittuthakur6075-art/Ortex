@@ -16,14 +16,14 @@ import {
   Phone,
   Sparkles,
   Users,
-} from "../components/Icons"
-import { repo } from "../data/repository"
+} from "../components/ui/Icons"
+import { repo } from "../data/store/repository"
 import { useCollection } from "../hooks/useCollection"
-import { ENQUIRY_STATUS, newLine } from "../data/schema"
+import { ENQUIRY_STATUS, newLine } from "../data/domain/schema"
 import { relativeTime, formatDateTime } from "../lib/format"
 import { exportCsv } from "../lib/csv"
 import { cn } from "../lib/cn"
-import PageHeader from "../components/PageHeader"
+import PageHeader from "../components/layout/PageHeader"
 import {
   Avatar,
   Badge,
@@ -37,7 +37,7 @@ import {
   Select,
   StatCard,
   StatusBadge,
-} from "../components/Ui"
+} from "../components/ui/Ui"
 
 // Leads captured by Anu, the website AI voice assistant. They live in the shared
 // `enquiries` collection tagged with this source (see Ortex.Web LiveOrty

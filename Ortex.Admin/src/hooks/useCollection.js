@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react"
-import { repo } from "../data/repository"
-import { onAutoRefresh } from "../data/autoRefresh"
-import { PRODUCT_CATEGORIES } from "../data/schema"
-import { DEFAULT_SETTINGS } from "../data/settingsDefaults"
+import { repo } from "../data/store/repository"
+import { onAutoRefresh } from "../data/store/autoRefresh"
+import { PRODUCT_CATEGORIES } from "../data/domain/schema"
+import { DEFAULT_SETTINGS } from "../data/domain/settingsDefaults"
 
 // Subscribes a component to a collection and re-fetches whenever ANY store
 // change fires (create/update/remove in this or another tab). Coarse but

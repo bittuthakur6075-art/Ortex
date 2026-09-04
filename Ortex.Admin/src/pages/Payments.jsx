@@ -1,14 +1,14 @@
 import { useState, useMemo } from "react"
-import { Wallet, Plus, Search, ArrowDownLeft, ArrowUpRight, Download, Trash2, ReceiptText } from "../components/Icons"
+import { Wallet, Plus, Search, ArrowDownLeft, ArrowUpRight, Download, Trash2, ReceiptText } from "../components/ui/Icons"
 import { toast } from "sonner"
-import { repo } from "../data/repository"
+import { repo } from "../data/store/repository"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
-import { recordPayment, paidForInvoice, invoiceBalance } from "../data/domain"
-import { PAYMENT_TYPE, PAYMENT_METHODS, statusMeta } from "../data/schema"
-import ReceiptView from "../components/ReceiptView"
+import { recordPayment, paidForInvoice, invoiceBalance } from "../data/domain/domain"
+import { PAYMENT_TYPE, PAYMENT_METHODS, statusMeta } from "../data/domain/schema"
+import ReceiptView from "../components/documents/ReceiptView"
 import { formatDate, toDateInput, formatCurrency, round2 } from "../lib/format"
 import { exportCsv } from "../lib/csv"
-import PageHeader from "../components/PageHeader"
+import PageHeader from "../components/layout/PageHeader"
 import {
   Button,
   Card,
@@ -24,7 +24,7 @@ import {
   Modal,
   PageLoader,
   SortTh,
-} from "../components/Ui"
+} from "../components/ui/Ui"
 
 export default function Payments() {
   const { items, loading } = useCollection("payments")

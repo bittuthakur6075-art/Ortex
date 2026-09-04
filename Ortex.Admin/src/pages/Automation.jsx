@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react"
-import { repo } from "../data/repository"
-import { hasSupabase } from "../data/supabaseClient"
+import { repo } from "../data/store/repository"
+import { hasSupabase } from "../data/store/supabaseClient"
 import { useProfile } from "../hooks/useProfile"
 import {
   StatCard,
@@ -14,7 +14,7 @@ import {
   EmptyState,
   PageLoader,
   Drawer
-} from "../components/Ui"
+} from "../components/ui/Ui"
 import {
   Flame,
   Clock,
@@ -27,7 +27,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Eye
-} from "../components/Icons"
+} from "../components/ui/Icons"
 import { toast } from "sonner"
 import { formatDateTime } from "../lib/format"
 

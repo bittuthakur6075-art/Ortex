@@ -1,15 +1,15 @@
 import { useState, useEffect, useMemo } from "react"
-import { LayoutGrid, Plus, Pencil, Trash2, Sparkles, X } from "../components/Icons"
+import { LayoutGrid, Plus, Pencil, Trash2, Sparkles, X } from "../components/ui/Icons"
 import { toast } from "sonner"
-import { repo } from "../data/repository"
+import { repo } from "../data/store/repository"
 import { useCollection } from "../hooks/useCollection"
-import { newWork } from "../data/schema"
+import { newWork } from "../data/domain/schema"
 import { uploadImage, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "../lib/imageUpload"
 import { triggerSiteRebuild } from "../lib/revalidate"
-import { supabase, hasSupabase } from "../data/supabaseClient"
-import { WORK_SEED } from "../data/workSeed"
-import PageHeader from "../components/PageHeader"
-import { Button, Card, Input, Textarea, Field, EmptyState, Modal, PageLoader } from "../components/Ui"
+import { supabase, hasSupabase } from "../data/store/supabaseClient"
+import { WORK_SEED } from "../data/seed/workSeed"
+import PageHeader from "../components/layout/PageHeader"
+import { Button, Card, Input, Textarea, Field, EmptyState, Modal, PageLoader } from "../components/ui/Ui"
 
 export default function Work() {
   const { items, loading } = useCollection("work")

@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react"
-import { ReceiptIndianRupee, Plus, Search, Eye, Trash2, Download, IndianRupee, AlertTriangle, ReceiptText, Mail, Upload } from "../components/Icons"
+import { ReceiptIndianRupee, Plus, Search, Eye, Trash2, Download, IndianRupee, AlertTriangle, ReceiptText, Mail, Upload } from "../components/ui/Icons"
 import { toast } from "sonner"
-import { repo } from "../data/repository"
+import { repo } from "../data/store/repository"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
 import {
   createInvoice,
@@ -12,18 +12,18 @@ import {
   resolveInvoiceStatus,
   emailInvoice,
   isInterState,
-} from "../data/domain"
-import { notifyMessage } from "../data/notify"
-import { INVOICE_STATUS, PAYMENT_METHODS, newCustomer, newLine, statusMeta } from "../data/schema"
+} from "../data/domain/domain"
+import { notifyMessage } from "../services/notify"
+import { INVOICE_STATUS, PAYMENT_METHODS, newCustomer, newLine, statusMeta } from "../data/domain/schema"
 import { formatDate, toDateInput, formatCurrency } from "../lib/format"
 import { exportCsv } from "../lib/csv"
-import PageHeader from "../components/PageHeader"
-import CustomerFields from "../components/CustomerFields"
-import ShipToFields from "../components/ShipToFields"
-import LineItemsEditor from "../components/LineItemsEditor"
-import DocumentView from "../components/DocumentView"
-import ReceiptView from "../components/ReceiptView"
-import TallyInvoiceImport, { parseTallyInvoiceXml } from "../components/TallyInvoiceImport"
+import PageHeader from "../components/layout/PageHeader"
+import CustomerFields from "../components/editors/CustomerFields"
+import ShipToFields from "../components/editors/ShipToFields"
+import LineItemsEditor from "../components/editors/LineItemsEditor"
+import DocumentView from "../components/documents/DocumentView"
+import ReceiptView from "../components/documents/ReceiptView"
+import TallyInvoiceImport, { parseTallyInvoiceXml } from "../components/editors/TallyInvoiceImport"
 import {
   Badge,
   Button,
@@ -39,7 +39,7 @@ import {
   Modal,
   PageLoader,
   SortTh,
-} from "../components/Ui"
+} from "../components/ui/Ui"
 
 // Ortex.Tally.Connector stamps doc.tally = { status, syncedAt, voucherRef, error }
 // on every record it pushes to TallyPrime. Nothing in the console read it, so a

@@ -4,7 +4,7 @@
 // tracked separately, per the growth spec.
 
 import { round2, daysUntil } from "./format"
-import { resolveInvoiceStatus, invoiceBalance } from "../data/domain"
+import { resolveInvoiceStatus, invoiceBalance } from "../data/domain/domain"
 
 const inRange = (ts, from, to) => {
   const t = new Date(ts).getTime()

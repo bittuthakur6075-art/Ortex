@@ -31,7 +31,7 @@
   "overrides": [
     {
       "files": [
-        "src/components/Icons.jsx"
+        "src/components/ui/Icons.jsx"
       ],
       "rules": {
         "react/only-export-components": "off"

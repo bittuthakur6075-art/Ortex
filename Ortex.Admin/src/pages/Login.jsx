@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Lock, Mail, ShieldCheck, Inbox, CheckCircle2, Database, LayoutGrid, Eye, EyeOff } from "./Icons"
+import { Lock, Mail, ShieldCheck, Inbox, CheckCircle2, Database, LayoutGrid, Eye, EyeOff } from "../components/ui/Icons"
 import { verifyPassword, sendEmailOtp, verifyEmailOtp, isAuthed } from "../lib/auth"
-import { hasSupabase } from "../data/supabaseClient"
-import { Button, Input } from "./Ui"
+import { hasSupabase } from "../data/store/supabaseClient"
+import { Button, Input } from "../components/ui/Ui"
 
 // Supabase rate-limits repeat sends to the same address; keep the resend button
 // disabled a little longer than that so a click can't fail for hitting it.

@@ -1,8 +1,8 @@
 import { useEffect } from "react"
 import { X, ArrowUpDown, Loader2 } from "./Icons"
-import { cn } from "../lib/cn"
-import { statusMeta } from "../data/schema"
-import { initials, formatCurrency } from "../lib/format"
+import { cn } from "../../lib/cn"
+import { statusMeta } from "../../data/domain/schema"
+import { initials, formatCurrency } from "../../lib/format"
 
 // ---- Button ----------------------------------------------------------------
 

@@ -11,32 +11,11 @@
 //   (optional) supabase secrets set GEMINI_MODEL=gemini-flash-lite-latest
 // SUPABASE_URL / SUPABASE_ANON_KEY are injected by the platform automatically.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
+import { requireStaff } from "../_shared/auth.ts"
+import { generateContent, extractText, logAiUsage } from "../_shared/gemini.ts"
 
 const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-flash-lite-latest"
-
-async function logUsage(usage: Record<string, number> | undefined) {
-  try {
-    if (!usage) return
-    const url = Deno.env.get("SUPABASE_URL")
-    const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
-    if (!url || !service) return
-    const client = createClient(url, service)
-    await client.from("ai_usage").insert({
-      doc: {
-        feature: "work-copywriter",
-        model: MODEL,
-        promptTokens: usage.promptTokenCount || 0,
-        outputTokens: usage.candidatesTokenCount || 0,
-        thoughtTokens: usage.thoughtsTokenCount || 0,
-        totalTokens: usage.totalTokenCount || 0,
-      },
-    })
-  } catch {
-    /* usage logging must never break the response */
-  }
-}
 
 function buildPrompt(input: Record<string, unknown>) {
   return `You are an expert SEO copywriter for Ortex Industries, an Indian manufacturer of customized products (MDF, acrylic, lanyards, badges, corporate gifts, and more). You are writing captions for the photo gallery on the company's "Our work" page, which showcases real production photography.
@@ -60,28 +39,12 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405)
 
   try {
-    const url = Deno.env.get("SUPABASE_URL")!
-    const anon = Deno.env.get("SUPABASE_ANON_KEY")!
     const apiKey = Deno.env.get("GEMINI_API_KEY")
     if (!apiKey) return json({ error: "Copywriter is not configured (missing GEMINI_API_KEY)." }, 500)
 
     // 1) Authenticate the caller and confirm they are active staff.
-    const authHeader = req.headers.get("Authorization") ?? ""
-    const jwt = authHeader.replace(/^bearer\s+/i, "").trim()
-    if (!jwt) return json({ error: "Not authenticated" }, 401)
-
-    const { data: userData, error: userErr } = await createClient(url, anon).auth.getUser(jwt)
-    if (userErr || !userData?.user) return json({ error: "Not authenticated" }, 401)
-
-    const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
-    const reader = service
-      ? createClient(url, service)
-      : createClient(url, anon, { global: { headers: { Authorization: authHeader } } })
-    const { data: prof } = await reader
-      .from("profiles").select("role, active").eq("id", userData.user.id).maybeSingle()
-    if (!prof || prof.active === false || !["admin", "sales"].includes(prof.role)) {
-      return json({ error: "Staff access required" }, 403)
-    }
+    const staff = await requireStaff(req)
+    if (staff instanceof Response) return staff
 
     // 2) Validate input.
     const body = await req.json().catch(() => ({}))
@@ -90,33 +53,20 @@ Deno.serve(async (req) => {
     }
 
     // 3) Call Gemini, asking for strict JSON.
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`
-    let gemRes: Response | undefined
-    for (let attempt = 0; attempt < 3; attempt++) {
-      gemRes = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: buildPrompt(body) }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 300,
-            responseMimeType: "application/json",
-          },
-        }),
-      })
-      if (gemRes.ok || (gemRes.status !== 500 && gemRes.status !== 503)) break
-    }
+    const gemRes = await generateContent(MODEL, apiKey, {
+      contents: [{ role: "user", parts: [{ text: buildPrompt(body) }] }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 300,
+        responseMimeType: "application/json",
+      },
+    })
     if (!gemRes || !gemRes.ok) {
       return json({ error: "Copywriter is temporarily unavailable." }, 502)
     }
 
     const data = await gemRes.json()
-    const raw = (data?.candidates?.[0]?.content?.parts || [])
-      .filter((p: { thought?: boolean }) => !p.thought)
-      .map((p: { text?: string }) => p.text || "")
-      .join("")
-      .trim()
+    const raw = extractText(data)
 
     const cleaned = raw.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim()
     let parsed: { title?: string; alt?: string }
@@ -126,7 +76,7 @@ Deno.serve(async (req) => {
       return json({ error: "Could not parse AI response." }, 502)
     }
 
-    await logUsage(data?.usageMetadata)
+    await logAiUsage("work-copywriter", MODEL, data?.usageMetadata)
 
     return json({
       title: (parsed.title || "").trim(),

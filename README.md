@@ -48,12 +48,13 @@ Ortex/
 │   ├── docs/                  # PRD, environments, growth + leads specs
 │   ├── public/
 │   ├── supabase/
-│   │   ├── functions/         # Deno edge functions (+ _shared helpers)
+│   │   ├── functions/         # Deno edge functions (+ _shared: http, auth, gemini)
 │   │   └── migrations/
 │   ├── test/fixtures/         # sample TallyPrime XML for the import flow
 │   └── src/
-│       ├── components/        # shell, UI kit, editors, document views
-│       ├── data/              # repository facade, stores, schema, domain rules
+│       ├── components/{layout,ui,editors,documents}/
+│       ├── data/{store,domain,seed}/   # repository facade + stores, schema/rules, demo data
+│       ├── services/          # notify, users, integrations
 │       ├── hooks/             # useCollection, useProfile …
 │       ├── lib/               # pure helpers: pricing, analytics, format, auth
 │       └── pages/             # one file per admin page
@@ -71,7 +72,7 @@ Ortex/
   endings (`.gitattributes`). `npm run lint` runs oxlint with each app's `.oxlintrc.json`.
 - **Files**: components `PascalCase.jsx`; hooks `useThing.js`; everything else
   `camelCase.js`. Pure logic lives in `lib/`, React state in `hooks/`, persistence in
-  `data/`.
+  `data/`, outbound integrations in `services/`.
 - **Never commit** build archives, screenshots or `.env` files — the root `.gitignore`
   covers all three apps.
 

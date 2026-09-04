@@ -9,7 +9,7 @@
 // is stable across both modes; callers don't care which is active.
 
 import { useSyncExternalStore } from "react"
-import { supabase, hasSupabase, createEphemeralClient } from "../data/supabaseClient"
+import { supabase, hasSupabase, createEphemeralClient } from "../data/store/supabaseClient"
 
 // ---- Supabase-backed session (cached synchronously for useSyncExternalStore) ----
 let currentSession = null

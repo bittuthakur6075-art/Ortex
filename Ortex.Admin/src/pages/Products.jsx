@@ -1,17 +1,17 @@
 import { useState, useMemo, useEffect, useRef } from "react"
-import { Package, Plus, Search, Pencil, Trash2, Download, Upload, X, Sparkles } from "../components/Icons"
+import { Package, Plus, Search, Pencil, Trash2, Download, Upload, X, Sparkles } from "../components/ui/Icons"
 import { toast } from "sonner"
-import { repo } from "../data/repository"
-import { supabase, hasSupabase } from "../data/supabaseClient"
+import { repo } from "../data/store/repository"
+import { supabase, hasSupabase } from "../data/store/supabaseClient"
 import { triggerSiteRebuild } from "../lib/revalidate"
 import { useCollection, useCategories, useSorting } from "../hooks/useCollection"
-import { PRODUCT_STATUS, UNITS, GST_RATES, newProduct, autoDetectCategory } from "../data/schema"
+import { PRODUCT_STATUS, UNITS, GST_RATES, newProduct, autoDetectCategory } from "../data/domain/schema"
 import { formatCurrency, round2 } from "../lib/format"
 import { exportCsv } from "../lib/csv"
 import { uploadImage, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "../lib/imageUpload"
 import { cn } from "../lib/cn"
-import ProductImport from "../components/ProductImport"
-import PageHeader from "../components/PageHeader"
+import ProductImport from "../components/editors/ProductImport"
+import PageHeader from "../components/layout/PageHeader"
 import {
   Button,
   Card,
@@ -25,7 +25,7 @@ import {
   Drawer,
   PageLoader,
   SortTh,
-} from "../components/Ui"
+} from "../components/ui/Ui"
 
 export default function Products() {
   const { items, loading, reload } = useCollection("products")

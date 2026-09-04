@@ -22,6 +22,8 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
+import { requireStaff } from "../_shared/auth.ts"
+import { logAiUsage } from "../_shared/gemini.ts"
 
 const MODEL = Deno.env.get("IMAGE_MODEL") || "flux"
 const BUCKET = "social-media"
@@ -45,26 +47,6 @@ const TOTAL_DEADLINE_MS = 130_000
 
 // Pollinations bills nothing and reports no tokens, but the Settings usage card
 // counts rows, so keep logging one row per render to preserve the request count.
-async function logUsage() {
-  try {
-    const url = Deno.env.get("SUPABASE_URL")
-    const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
-    if (!url || !service) return
-    const client = createClient(url, service)
-    await client.from("ai_usage").insert({
-      doc: {
-        feature: "social-creative",
-        model: `pollinations/${MODEL}`,
-        promptTokens: 0,
-        outputTokens: 0,
-        totalTokens: 0,
-      },
-    })
-  } catch {
-    /* usage logging must never break the response */
-  }
-}
-
 // The prompt travels in the URL path, so it stays on one line and stays short.
 function buildPrompt(imagePrompt: string) {
   return [
@@ -85,24 +67,14 @@ Deno.serve(async (req) => {
 
   try {
     const url = Deno.env.get("SUPABASE_URL")!
-    const anon = Deno.env.get("SUPABASE_ANON_KEY")!
     const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
     if (!service) return json({ error: "Creative generation is not configured (missing service role)." }, 500)
 
     // 1) Authenticate the caller and confirm they are active staff.
-    const authHeader = req.headers.get("Authorization") ?? ""
-    const jwt = authHeader.replace(/^bearer\s+/i, "").trim()
-    if (!jwt) return json({ error: "Not authenticated" }, 401)
-
-    const { data: userData, error: userErr } = await createClient(url, anon).auth.getUser(jwt)
-    if (userErr || !userData?.user) return json({ error: "Not authenticated" }, 401)
+    const staff = await requireStaff(req)
+    if (staff instanceof Response) return staff
 
     const admin = createClient(url, service)
-    const { data: prof } = await admin
-      .from("profiles").select("role, active").eq("id", userData.user.id).maybeSingle()
-    if (!prof || prof.active === false || !["admin", "sales"].includes(prof.role)) {
-      return json({ error: "Staff access required" }, 403)
-    }
 
     // 2) Validate input.
     const body = await req.json().catch(() => ({}))
@@ -175,7 +147,7 @@ Deno.serve(async (req) => {
 
     const { data: pub } = admin.storage.from(BUCKET).getPublicUrl(path)
 
-    await logUsage()
+    await logAiUsage("social-creative", `pollinations/${MODEL}`, undefined)
 
     return json({ image: pub.publicUrl })
   } catch (err) {

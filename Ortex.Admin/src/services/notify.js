@@ -12,7 +12,7 @@
 // `notifications` collection for an audit trail (Settings shows recent sends).
 // To send server-side later, add an `api` branch here — nothing else changes.
 
-import { repo } from "./repository"
+import { repo } from "../data/store/repository"
 import { formatCurrency, formatDate } from "../lib/format"
 
 const EMAILJS_ENDPOINT = "https://api.emailjs.com/api/v1.0/email/send"

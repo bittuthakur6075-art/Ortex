@@ -4,9 +4,9 @@
 // admin with every module — the app stays fully usable without Supabase.
 
 import { useState, useEffect } from "react"
-import { supabase, hasSupabase } from "../data/supabaseClient"
+import { supabase, hasSupabase } from "../data/store/supabaseClient"
 import { useAuth, currentUserId } from "../lib/auth"
-import { ALL_MODULE_KEYS } from "../data/modules"
+import { ALL_MODULE_KEYS } from "../data/domain/modules"
 
 const LOCAL_ADMIN = { role: "admin", modules: ALL_MODULE_KEYS, name: "Local", email: "" }
 

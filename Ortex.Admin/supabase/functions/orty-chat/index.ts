@@ -14,32 +14,8 @@
 //   supabase secrets set GEMINI_API_KEY=your-google-ai-studio-key
 //   (optional) supabase secrets set GEMINI_MODEL=gemini-flash-lite-latest
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
-
-// Record token usage (best-effort) so the Admin can show real LLM usage. Uses
-// the service-role key, which bypasses RLS.
-async function logUsage(usage: Record<string, number> | undefined, feature: string, model: string) {
-  try {
-    if (!usage) return
-    const url = Deno.env.get("SUPABASE_URL")
-    const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
-    if (!url || !service) return
-    const client = createClient(url, service)
-    await client.from("ai_usage").insert({
-      doc: {
-        feature,
-        model,
-        promptTokens: usage.promptTokenCount || 0,
-        outputTokens: usage.candidatesTokenCount || 0,
-        thoughtTokens: usage.thoughtsTokenCount || 0,
-        totalTokens: usage.totalTokenCount || 0,
-      },
-    })
-  } catch {
-    /* usage logging must never break the reply */
-  }
-}
+import { generateContent, extractText, logAiUsage } from "../_shared/gemini.ts"
 
 const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash"
 const MAX_TURNS = 12
@@ -243,17 +219,7 @@ Deno.serve(async (req) => {
       payload.systemInstruction = { parts: [{ text: SYSTEM_INSTRUCTION }] }
     }
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`
-
-    let gemRes: Response | undefined
-    for (let attempt = 0; attempt < 3; attempt++) {
-      gemRes = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-      if (gemRes.ok || (gemRes.status !== 500 && gemRes.status !== 503)) break
-    }
+    const gemRes = await generateContent(MODEL, apiKey, payload)
 
     if (!gemRes || !gemRes.ok) {
       console.error("Gemini error", gemRes?.status)
@@ -261,11 +227,7 @@ Deno.serve(async (req) => {
     }
 
     const data = await gemRes.json()
-    const raw = (data?.candidates?.[0]?.content?.parts || [])
-      .filter((p: { thought?: boolean }) => !p.thought)
-      .map((p: { text?: string }) => p.text || "")
-      .join("")
-      .trim()
+    const raw = extractText(data)
 
     // Hard guarantee: strip any long dash the model slips in (the prompt forbids
     // them, but gemini-flash-lite occasionally emits one). Covers figure dash,
@@ -275,7 +237,7 @@ Deno.serve(async (req) => {
     const reply = raw.replace(new RegExp("\\s*[\\u2012\\u2013\\u2014\\u2015\\u2212]\\s*", "g"), ", ")
 
     if (!reply) return json({ error: "Empty response from assistant." }, 502)
-    await logUsage(data?.usageMetadata, "chatbot", MODEL)
+    await logAiUsage("chatbot", MODEL, data?.usageMetadata)
     return json({ reply })
   } catch (err) {
     console.error("orty-chat failure", err)

@@ -25,19 +25,20 @@ npm test           # vitest — pure analytics/pricing tests
 
 | Area | Path |
 |---|---|
-| App shell, routing, auth gate | `src/App.jsx`, `src/components/AdminLayout.jsx`, `src/components/Login.jsx` |
+| App shell, routing, auth gate | `src/App.jsx`, `src/components/layout/AdminLayout.jsx`, `src/pages/Login.jsx` |
 | Modules (pages) | `src/pages/` — Dashboard, Leads, Enquiries, VoiceLeads, Customers, Products, Categories, Quotations, Invoices, Payments, Work, Social, Automation, Growth, Users, Profile, Settings |
-| Shared UI kit | `src/components/Ui.jsx`, `Icons.jsx` + `PageHeader`, `CustomerFields`, `ShipToFields`, `LineItemsEditor`, `DocumentView`, `ReceiptView`, `TallyInvoiceImport`, `ProductImport` |
-| Data layer | `src/data/` — `repository.js` (facade) → `apiStore.js` (Supabase) or `localStore.js` (offline fallback); `schema.js`, `domain.js`, `seed.js`, `sync.js`, `notify.js`, `users.js` |
+| Components | `src/components/ui/` (`Ui.jsx` kit, `Icons.jsx`, `Chart`), `layout/` (`AdminLayout`, `PageHeader`), `editors/` (`CustomerFields`, `ShipToFields`, `LineItemsEditor`, `ProductImport`, `TallyInvoiceImport`), `documents/` (`DocumentView`, `ReceiptView`) |
+| Data layer | `src/data/store/` — `repository.js` (facade) → `apiStore.js` (Supabase) or `localStore.js` (offline fallback), `supabaseClient.js`, `sync.js`; `src/data/domain/` — `schema.js`, `domain.js`, `settingsDefaults.js`, `modules.js`; `src/data/seed/` — demo data |
+| Services | `src/services/` — `notify.js`, `users.js`, `integrations.js` |
 | Hooks | `src/hooks/` — `useCollection.js` (`useCollection`, `useCollections`, `useSettings`, `useSorting`), `useProfile.js` |
 | Helpers | `src/lib/` — `pricing.js` (GST engine), `analytics.js` (+ tests), `format.js`, `id.js`, `csv.js`, `cn.js`, `auth.js`, `imageUpload.js`, `quoteRfq.js`, `revalidate.js` |
-| Backend | `supabase/migrations/` (schema + RLS), `supabase/functions/` (Deno edge functions; shared CORS/JSON helpers in `_shared/`) |
+| Backend | `supabase/migrations/` (schema + RLS), `supabase/functions/` (Deno edge functions; shared `_shared/http.ts`, `auth.ts`, `gemini.ts`) |
 | Fixtures | `test/fixtures/tally-sales-invoice.xml` — sample TallyPrime export for the invoice import |
 | Docs | `docs/PRD.md`, `docs/ENVIRONMENTS.md`, `docs/GROWTH_TRACKING.md`, `docs/LEADS_AND_RECEIPTS.md` |
 
 ## Architecture notes
 
-**One repository interface.** All persistence goes through `data/repository.js`. When Supabase env vars are present it resolves to `apiStore` (Postgres + RLS); without them it falls back to `localStore` (browser `localStorage`) so the UI still runs offline. Modules never import a store directly.
+**One repository interface.** All persistence goes through `data/store/repository.js`. When Supabase env vars are present it resolves to `apiStore` (Postgres + RLS); without them it falls back to `localStore` (browser `localStorage`) so the UI still runs offline. Modules never import a store directly.
 
 **Shared backend with the website.** Both apps talk to the same Supabase project: website enquiries, quote-wizard RFQs and Live Orty calls land in tables the admin reads; the admin's published catalogue and work photos feed the website.
 

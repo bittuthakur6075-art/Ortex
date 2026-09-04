@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { Toaster } from "sonner"
-import AdminLayout from "./components/AdminLayout"
-import Login from "./components/Login"
+import AdminLayout from "./components/layout/AdminLayout"
+import Login from "./pages/Login"
 import Dashboard from "./pages/Dashboard"
 import Leads from "./pages/Leads"
 import Enquiries from "./pages/Enquiries"
@@ -20,7 +20,7 @@ import Profile from "./pages/Profile"
 import AutomationPage from "./pages/Automation"
 import Growth from "./pages/Growth"
 import { useProfile } from "./hooks/useProfile"
-import { canAccess } from "./data/modules"
+import { canAccess } from "./data/domain/modules"
 
 // Route-level access gate — mirrors the sidebar filtering so a blocked module
 // can't be reached by typing its URL. Redirects home while the profile loads

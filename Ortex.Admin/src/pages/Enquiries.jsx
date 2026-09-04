@@ -1,17 +1,17 @@
 import { useState, useMemo, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Inbox, Plus, Search, Star, Mail, Phone, MessageCircle, Trash2, Target, Download, FileText, Printer, AlertTriangle } from "../components/Icons"
+import { Inbox, Plus, Search, Star, Mail, Phone, MessageCircle, Trash2, Target, Download, FileText, Printer, AlertTriangle } from "../components/ui/Icons"
 import { toast } from "sonner"
-import { repo } from "../data/repository"
-import { convertEnquiryToLead, createQuotation, markEnquiryQuoted } from "../data/domain"
+import { repo } from "../data/store/repository"
+import { convertEnquiryToLead, createQuotation, markEnquiryQuoted } from "../data/domain/domain"
 import { useCollection, useSettings } from "../hooks/useCollection"
-import { ENQUIRY_STATUS, LEAD_SOURCES, PRODUCT_CATEGORIES, newEnquiry } from "../data/schema"
+import { ENQUIRY_STATUS, LEAD_SOURCES, PRODUCT_CATEGORIES, newEnquiry } from "../data/domain/schema"
 import { relativeTime, formatDateTime, formatCurrency } from "../lib/format"
 import { isQuoteEnquiry, parseQuoteRfq, rfqToQuotationLines, rfqRateMismatches } from "../lib/quoteRfq"
 import { exportCsv } from "../lib/csv"
 import { cn } from "../lib/cn"
-import DocumentView from "../components/DocumentView"
-import PageHeader from "../components/PageHeader"
+import DocumentView from "../components/documents/DocumentView"
+import PageHeader from "../components/layout/PageHeader"
 import {
   Button,
   Card,
@@ -25,7 +25,7 @@ import {
   Chip,
   Drawer,
   PageLoader,
-} from "../components/Ui"
+} from "../components/ui/Ui"
 
 export default function Enquiries() {
   const { items, loading } = useCollection("enquiries")

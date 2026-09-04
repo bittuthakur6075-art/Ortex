@@ -1,14 +1,14 @@
 import { useState, useEffect, useMemo } from "react"
-import { Building2, KeyRound, Percent, Hash, Database, Sparkles, Trash2, Info, Save, Mail, Inbox } from "../components/Icons"
+import { Building2, KeyRound, Percent, Hash, Database, Sparkles, Trash2, Info, Save, Mail, Inbox } from "../components/ui/Icons"
 import { toast } from "sonner"
-import { repo } from "../data/repository"
+import { repo } from "../data/store/repository"
 import { useSettings, useCollections, useCollection } from "../hooks/useCollection"
-import { seedDemo } from "../data/seed"
+import { seedDemo } from "../data/seed/seed"
 import { login, changePassword, currentEmail } from "../lib/auth"
-import { syncIndiaMart } from "../data/integrations"
-import { GST_RATES } from "../data/schema"
-import PageHeader from "../components/PageHeader"
-import { Button, Card, Input, Select, Textarea, Field, PageLoader } from "../components/Ui"
+import { syncIndiaMart } from "../services/integrations"
+import { GST_RATES } from "../data/domain/schema"
+import PageHeader from "../components/layout/PageHeader"
+import { Button, Card, Input, Select, Textarea, Field, PageLoader } from "../components/ui/Ui"
 
 function SettingsCard({ icon: Icon, title, description, tone = "primary", children }) {
   const toneClass = tone === "danger" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
@@ -77,10 +77,10 @@ export default function Settings() {
           <div className="flex gap-3">
             <Info className="h-5 w-5 flex-none text-blue-500" />
             <p className="text-sm text-foreground">
-              This console is fully client-side — all data lives in this browser&apos;s{" "}
-              <span className="font-mono text-xs">localStorage</span>. It is API-ready: swap the store implementation in{" "}
-              <span className="font-mono text-xs">data/repository.js</span> to move to a real backend. Payment gateways,
-              vendor payouts and GST e-invoicing (IRN) require that backend.
+              Data is stored in Supabase (Postgres with row-level security) through{" "}
+              <span className="font-mono text-xs">data/store/repository.js</span>; without backend credentials the console
+              falls back to this browser&apos;s local storage for demos. Payment gateways, vendor payouts and GST
+              e-invoicing (IRN) are integrations still to be connected.
             </p>
           </div>
         </div>

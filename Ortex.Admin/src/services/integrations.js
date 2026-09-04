@@ -1,6 +1,6 @@
 // Third-party integration triggers that run server-side (Edge Functions).
 
-import { supabase, hasSupabase } from "./supabaseClient"
+import { supabase, hasSupabase } from "../data/store/supabaseClient"
 
 // Kick off an IndiaMART lead pull now. Returns the function result:
 // { ok, total, inserted, duplicates } | { skipped, reason } | { error }.

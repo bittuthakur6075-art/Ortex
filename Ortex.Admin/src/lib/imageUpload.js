@@ -6,7 +6,7 @@
 // Falls back to a base64 data-URL when Supabase is not configured (local
 // no-backend mode), so the Admin still works offline for demos.
 
-import { supabase, hasSupabase } from "../data/supabaseClient"
+import { supabase, hasSupabase } from "../data/store/supabaseClient"
 
 const BUCKET = "product-images"
 const MAX_DIM = 1000 // px — good quality for product detail views

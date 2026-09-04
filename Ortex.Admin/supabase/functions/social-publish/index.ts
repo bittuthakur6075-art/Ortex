@@ -23,6 +23,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
+import { requireStaff } from "../_shared/auth.ts"
 
 const GRAPH = Deno.env.get("META_GRAPH_VERSION") || "v21.0"
 const api = (path: string) => `https://graph.facebook.com/${GRAPH}/${path}`
@@ -171,7 +172,6 @@ Deno.serve(async (req) => {
 
   try {
     const url = Deno.env.get("SUPABASE_URL")!
-    const anon = Deno.env.get("SUPABASE_ANON_KEY")!
     const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
     if (!service) return json({ error: "Publishing is not configured (missing service role)." }, 500)
     if (!Deno.env.get("META_ACCESS_TOKEN")) {
@@ -222,14 +222,8 @@ Deno.serve(async (req) => {
     }
 
     // --- a) Interactive: an admin pressing Publish ---------------------------
-    const { data: userData, error: userErr } = await createClient(url, anon).auth.getUser(bearer)
-    if (userErr || !userData?.user) return json({ error: "Not authenticated" }, 401)
-
-    const { data: prof } = await admin
-      .from("profiles").select("role, active").eq("id", userData.user.id).maybeSingle()
-    if (!prof || prof.active === false || prof.role !== "admin") {
-      return json({ error: "Only an admin can publish to the company profile." }, 403)
-    }
+    const staff = await requireStaff(req, ["admin"], "Only an admin can publish to the company profile.")
+    if (staff instanceof Response) return staff
 
     const postId = String(body.postId || "")
     if (!postId) return json({ error: "postId is required" }, 400)

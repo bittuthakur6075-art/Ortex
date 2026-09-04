@@ -15,21 +15,21 @@ import {
   Phone,
   MessageCircle,
   Mail,
-} from "../components/Icons"
+} from "../components/ui/Icons"
 import { toast } from "sonner"
-import { repo } from "../data/repository"
+import { repo } from "../data/store/repository"
 import { useCollection, useSorting } from "../hooks/useCollection"
 import {
   computeLeadScore,
   weightedLeadValue,
   setLeadStage,
   addLeadActivity,
-} from "../data/domain"
-import { LEAD_STAGES, OPEN_LEAD_STAGES, ACTIVITY_TYPES, LEAD_SOURCES, LOST_REASONS, PRODUCT_CATEGORIES, newLead, stageProbability } from "../data/schema"
+} from "../data/domain/domain"
+import { LEAD_STAGES, OPEN_LEAD_STAGES, ACTIVITY_TYPES, LEAD_SOURCES, LOST_REASONS, PRODUCT_CATEGORIES, newLead, stageProbability } from "../data/domain/schema"
 import { formatCurrency, formatDate, toDateInput, daysUntil, relativeTime, round2 } from "../lib/format"
 import { cn } from "../lib/cn"
-import PageHeader from "../components/PageHeader"
-import { Button, Card, Input, Select, Textarea, Field, Badge, StatCard, StatusBadge, EmptyState, Avatar, Money, Chip, Drawer, Modal, PageLoader, SortTh } from "../components/Ui"
+import PageHeader from "../components/layout/PageHeader"
+import { Button, Card, Input, Select, Textarea, Field, Badge, StatCard, StatusBadge, EmptyState, Avatar, Money, Chip, Drawer, Modal, PageLoader, SortTh } from "../components/ui/Ui"
 
 // Follow-up urgency from the nextFollowUp date.
 function followState(lead) {

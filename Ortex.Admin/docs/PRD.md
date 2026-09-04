@@ -4,7 +4,7 @@
 
 A back-office operations console for **Ortex Industries** (B2B manufacturer of customized products). It manages the full **quote-to-cash** lifecycle — Enquiries → Products → Quotations → GST Invoices → Payments/Payouts — and surfaces a **growth dashboard** of the metrics that matter (win rate, cash collected, receivables aging, funnel, margin by category).
 
-It is a **standalone application** (`Ortex.Admin/`), separate from the marketing site, so it can evolve on its own release cadence. It is **client-side and API-ready**: today all data lives in the browser behind a repository interface; moving to a real backend is a one-file swap.
+It is a **standalone application** (`Ortex.Admin/`), separate from the marketing site, so it can evolve on its own release cadence. All data access goes through one repository interface backed by Supabase (Postgres + RLS), with a browser-local fallback for offline demos.
 
 ## 2. Goals & non-goals
 
@@ -47,8 +47,8 @@ It is a **standalone application** (`Ortex.Admin/`), separate from the marketing
 
 ## 6. Architecture
 - **Standalone Vite + React 19 app**, Tailwind v4, React Router 7, Lucide, Sonner. Brand tokens shared with the marketing site.
-- **Repository pattern** (`data/repository.js`) — all I/O is async and behind one interface. `localStore` (browser) today; implement `apiStore` with the same surface to go live. See `README.md`.
-- **Domain layer** (`data/domain.js`) — cross-entity operations (numbering, quote→invoice, payment reconciliation, GST).
+- **Repository pattern** (`data/store/repository.js`) — all I/O is async and behind one interface; `apiStore` (Supabase) when configured, `localStore` (browser) as the offline fallback. See `README.md`.
+- **Domain layer** (`data/domain/domain.js`) — cross-entity operations (numbering, quote→invoice, payment reconciliation, GST).
 - **Analytics** (`lib/analytics.js`) — pure functions computing every dashboard metric.
 - **Reactive hooks** (`hooks/useCollection.js`) — components re-render on any store change (this tab or another).
 

@@ -1,4 +1,4 @@
-import { Input, Field, Select } from "./Ui"
+import { Input, Field, Select } from "../ui/Ui"
 
 // Reusable customer detail grid used by the quotation and invoice editors.
 // `value` is a customer object; `onChange` receives the full updated object.

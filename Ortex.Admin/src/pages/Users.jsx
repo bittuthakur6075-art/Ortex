@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { toast } from "sonner"
-import { ShieldCheck, Plus, Users as UsersIcon } from "../components/Icons"
-import { Button, Card, Input, Select, Field, Modal, Badge, PageLoader, EmptyState, SortTh } from "../components/Ui"
-import PageHeader from "../components/PageHeader"
-import { listProfiles, updateProfile, createUser } from "../data/users"
+import { ShieldCheck, Plus, Users as UsersIcon } from "../components/ui/Icons"
+import { Button, Card, Input, Select, Field, Modal, Badge, PageLoader, EmptyState, SortTh } from "../components/ui/Ui"
+import PageHeader from "../components/layout/PageHeader"
+import { listProfiles, updateProfile, createUser } from "../services/users"
 import { useSorting } from "../hooks/useCollection"
-import { ASSIGNABLE_MODULES, SALES_DEFAULT_MODULES, MODULES } from "../data/modules"
+import { ASSIGNABLE_MODULES, SALES_DEFAULT_MODULES, MODULES } from "../data/domain/modules"
 import { currentUserId } from "../lib/auth"
 
 const ROLE_LABEL = { admin: "Admin", sales: "Sales Executive" }

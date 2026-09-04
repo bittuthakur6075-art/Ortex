@@ -1,5 +1,5 @@
 import CustomerFields from "./CustomerFields"
-import { newCustomer } from "../data/schema"
+import { newCustomer } from "../../data/domain/schema"
 
 // Optional consignee (ship-to) block. When "same as billing" is checked, the
 // value is null and the document ships to the bill-to party. Unchecking reveals

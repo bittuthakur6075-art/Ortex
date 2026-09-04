@@ -1,5 +1,5 @@
-import { uid } from "../lib/id"
-import { DEFAULT_SETTINGS, mergeSettings } from "./settingsDefaults"
+import { uid } from "../../lib/id"
+import { DEFAULT_SETTINGS, mergeSettings } from "../domain/settingsDefaults"
 
 // LocalStore — the browser-backed implementation of the repository contract.
 //

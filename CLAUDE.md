@@ -13,7 +13,7 @@ This repository contains the digital infrastructure for **Ortex Industries** (ma
 ## Repo-wide conventions
 
 * **Style**: double quotes, no semicolons, 2-space indent (`.editorconfig`), LF endings (`.gitattributes`). Run `npm run lint` (oxlint, per-app `.oxlintrc.json`) before committing.
-* **Naming**: components `PascalCase.jsx`; hooks `useThing.js` in `src/hooks/`; pure helpers in `src/lib/`; persistence/stores in `src/data/` (Admin); static content in `src/constants/` (Web).
+* **Naming**: components `PascalCase.jsx`; hooks `useThing.js` in `src/hooks/`; pure helpers in `src/lib/`; persistence in `src/data/{store,domain,seed}/` and outbound services in `src/services/` (Admin); static content in `src/constants/` (Web).
 * **Imports**: relative paths are the norm; `@/` → `src/` is configured in both front-ends (`vite.config.js` + `jsconfig.json`) for new code. Avoid barrel `index.js` files (they hurt Vite tree-shaking).
 * **Never commit** build archives (`*.zip`), screenshots, or `.env*` (except `*.example`). The single root `.gitignore` covers all apps.
 * Keep this file and the root `README.md` in sync when adding modules, routes, dependencies or commands.
@@ -55,9 +55,9 @@ npm test                # vitest — pure tests (src/lib/analytics.test.js)
 ```
 
 ### Architecture
-* **Database & Auth**: Supabase. `src/data/repository.js` resolves to `apiStore` when env vars are present, else `localStore` (offline fallback). Auth is password + emailed OTP (`src/lib/auth.js`), invite-only signups, RLS in migrations.
-* **Source layout**: `src/pages/` one page per business module; `src/components/` shell + UI kit (`Ui.jsx`, `Icons.jsx` Iconsax adapter) + editors/document views; `src/hooks/` (`useCollection.js`, `useProfile.js`); `src/lib/` pure helpers (`pricing.js` GST engine, `analytics.js`, `format.js`, `id.js`); `src/data/` stores, `schema.js`, `domain.js`, `seed.js`.
-* **Edge functions**: `supabase/functions/<name>/index.ts`, each deployable alone. Shared CORS headers and the `json()` response helper live in `supabase/functions/_shared/http.ts` — import from there instead of redefining them.
+* **Database & Auth**: Supabase. `src/data/store/repository.js` resolves to `apiStore` when env vars are present, else `localStore` (offline fallback). Auth is password + emailed OTP (`src/lib/auth.js`), invite-only signups, RLS in migrations.
+* **Source layout**: `src/pages/` one page per business module (plus `Login`); `src/components/{layout,ui,editors,documents}/` — `layout/` AdminLayout + PageHeader, `ui/` (`Ui.jsx` kit, `Icons.jsx` Iconsax adapter, `Chart`), `editors/` (CustomerFields, ShipToFields, LineItemsEditor, ProductImport, TallyInvoiceImport), `documents/` (DocumentView, ReceiptView); `src/hooks/` (`useCollection.js`, `useProfile.js`); `src/lib/` pure helpers (`pricing.js` GST engine, `analytics.js`, `format.js`, `id.js`); `src/data/{store,domain,seed}/` — `store/` repository facade + apiStore/localStore/supabaseClient/sync, `domain/` schema, domain rules, settings defaults, module registry, `seed/` demo data; `src/services/` outbound integrations (notify, users, integrations).
+* **Edge functions**: `supabase/functions/<name>/index.ts`, each deployable alone. Shared code lives in `supabase/functions/_shared/`: `http.ts` (CORS + `json()`), `auth.ts` (`requireStaff(req)` staff gate), `gemini.ts` (`generateContent`, `extractText`, `logAiUsage`). Import from there instead of redefining. Type-check with `npx deno@2 check supabase/functions/*/index.ts`.
 * **Key Features**:
   * **Full-Page Editors**: Quotation and Invoice creators use clean full-page dashboards rather than modal views; layout is a 2/3 (Details & Line Items) and 1/3 (Settings & Notes) split, with the Line Items grid occupying a full-width section.
   * **Spacious Line Items Editor**: `LineItemsEditor` uses a strict `table-fixed` layout with a `min-w-[1024px]` viewport, aligning headers and input cells with matched width classes (`w-24`, `w-20`, etc.).
