@@ -150,6 +150,7 @@ Deno.serve(async (req) => {
         // the bucket will actually accept count as success.
         if (!ALLOWED_MIME.includes(type)) {
           lastDetail = `unexpected content-type ${type}`
+          await res.body?.cancel().catch(() => {})
           continue
         }
         bytes = new Uint8Array(await res.arrayBuffer())

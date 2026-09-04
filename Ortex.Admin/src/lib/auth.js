@@ -80,7 +80,7 @@ export async function verifyPassword(email, password) {
   const client = createEphemeralClient()
   const { error } = await client.auth.signInWithPassword({ email, password })
   // Drop the token immediately; nothing downstream should ever see it.
-  await client.auth.signOut()
+  await client.auth.signOut({ scope: "local" })
   return error ? { error: error.message } : { ok: true }
 }
 

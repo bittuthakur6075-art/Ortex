@@ -143,7 +143,7 @@ function itemsFor(row) {
   if (!names.length) return []
   return names.map((product, i) => ({
     product,
-    quantity: names.length === 1 || i === 0 ? row.quantity || "" : "",
+    quantity: names.length === 1 ? row.quantity || "" : "",
     notes: "",
   }))
 }
