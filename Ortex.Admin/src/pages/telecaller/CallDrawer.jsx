@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { CheckCircle2, MessageCircle, Phone, RefreshCw } from "../../components/ui/Icons"
@@ -6,7 +6,7 @@ import { Badge, Button, Drawer } from "../../components/ui/Ui"
 import { repo } from "../../data/store/repository"
 import { formatCurrency, formatDateTime } from "../../lib/format"
 import { cn } from "../../lib/cn"
-import { dialNow } from "../../services/telecaller"
+import { dialNow, recordingUrl } from "../../services/telecaller"
 import { duration, kindMeta, outcomeMeta, prettyPhone } from "./helpers"
 
 function Row({ label, children }) {
@@ -25,6 +25,14 @@ function Row({ label, children }) {
 export default function CallDrawer({ call, onClose }) {
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
+  const [audioUrl, setAudioUrl] = useState(null)
+  useEffect(() => {
+    let alive = true
+    setAudioUrl(null)
+    if (call?.recordingPath) recordingUrl(call.recordingPath).then((u) => { if (alive) setAudioUrl(u) })
+    else if (call?.recordingUrl) setAudioUrl(call.recordingUrl)
+    return () => { alive = false }
+  }, [call?.id, call?.recordingPath, call?.recordingUrl])
   if (!call) return null
   const a = call.analysis || {}
   const o = outcomeMeta(a.outcome)
@@ -75,7 +83,14 @@ export default function CallDrawer({ call, onClose }) {
           <span className="ml-auto text-xs text-muted-foreground"><Phone className="mr-1 inline h-3.5 w-3.5" />{prettyPhone(call.phone)}</span>
         </div>
 
-        {call.error && <div className="rounded-lg bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300">{call.error}</div>}
+        {audioUrl && (
+          <div>
+            <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recording</h4>
+            <audio controls preload="none" src={audioUrl} className="w-full" />
+          </div>
+        )}
+
+        {call.error && <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive-text">{call.error}</div>}
 
         {a.summary && (
           <div className="rounded-lg bg-muted/40 p-4">

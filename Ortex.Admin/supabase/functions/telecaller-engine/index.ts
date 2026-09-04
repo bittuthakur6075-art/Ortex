@@ -26,6 +26,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
 import { requireStaff } from "../_shared/auth.ts"
 import { sweep } from "../_shared/telecaller.ts"
+import { refreshPulse } from "../_shared/telecallerPulse.ts"
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors })
@@ -49,8 +50,12 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}))
-    const mode = body.mode === "enqueue" ? "enqueue" : "sweep"
+    const mode = body.mode === "enqueue" ? "enqueue" : body.mode === "pulse" ? "pulse" : "sweep"
     const db = createClient(url, service)
+    if (mode === "pulse") {
+      const pulse = await refreshPulse(db)
+      return json({ ok: true, mode, pulse })
+    }
     const report = await sweep(db, { force, dial: mode === "sweep" })
     return json({ ok: true, mode, ...report })
   } catch (e) {

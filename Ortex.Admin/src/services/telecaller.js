@@ -38,6 +38,27 @@ export function briefFor({ jobId, target } = {}) {
 }
 
 /** Store + analyse the transcript of a browser practice call. */
-export function recordLiveCall({ jobId, transcript, durationSec, startedAt, practice = true }) {
-  return invoke("telecaller-dial", { jobId, transcript, durationSec, startedAt, practice, mode: "record" })
+export function recordLiveCall({ jobId, transcript, durationSec, startedAt, practice = true, recordingPath }) {
+  return invoke("telecaller-dial", { jobId, transcript, durationSec, startedAt, practice, recordingPath, mode: "record" })
+}
+
+/** Regenerate today's India business pulse (Gemini + Google Search). */
+export function refreshPulse() {
+  return invoke("telecaller-engine", { mode: "pulse" })
+}
+
+/** Upload a practice-call recording; returns the storage path or null. */
+export async function uploadRecording(blob, jobId) {
+  if (!hasSupabase || !blob || !blob.size) return null
+  const path = `practice/${jobId}/${Date.now()}.webm`
+  const { error } = await supabase.storage.from("telecaller-recordings").upload(path, blob, { contentType: blob.type || "audio/webm", upsert: false })
+  if (error) { console.warn("recording upload failed:", error.message); return null }
+  return path
+}
+
+/** Short-lived playback URL for a stored recording. */
+export async function recordingUrl(path) {
+  if (!hasSupabase || !path) return null
+  const { data, error } = await supabase.storage.from("telecaller-recordings").createSignedUrl(path, 3600)
+  return error ? null : data?.signedUrl || null
 }

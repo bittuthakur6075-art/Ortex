@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
         .map((t: { role?: string; text?: string }) => ({ role: t.role === "customer" ? "customer" : "agent", text: String(t.text).slice(0, 1200) }))
         .slice(0, 400)
       if (!turns.length) return json({ error: "No transcript captured — nothing to analyse." }, 400)
-      const result = await recordLiveCall(staff.db, jobId, { transcript: turns, durationSec: Number(body.durationSec) || 0, startedAt: body.startedAt, practice: body.practice !== false, by: staff.email || staff.userId })
+      const result = await recordLiveCall(staff.db, jobId, { transcript: turns, durationSec: Number(body.durationSec) || 0, startedAt: body.startedAt, practice: body.practice !== false, by: staff.email || staff.userId, recordingPath: typeof body.recordingPath === "string" ? body.recordingPath : undefined })
       return json({ ok: true, jobId, ...result, simulated: true })
     }
 

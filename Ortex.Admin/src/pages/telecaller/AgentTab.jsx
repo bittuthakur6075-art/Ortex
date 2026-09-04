@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import { Mic, Save, Sparkles } from "../../components/ui/Icons"
+import { Mic, RefreshCw, Save, Sparkles } from "../../components/ui/Icons"
 import { TELECALL_KINDS } from "../../data/domain/schema"
 import { TELECALL_LANGUAGES } from "../../data/domain/telecallerLanguages"
 import { Button, Card, Field, Input, Select, Textarea } from "../../components/ui/Ui"
 import { DEFAULT_SETTINGS } from "../../data/domain/settingsDefaults"
 import { repo } from "../../data/store/repository"
 import { useSettings } from "../../hooks/useCollection"
+import { refreshPulse } from "../../services/telecaller"
+import { formatDateTime } from "../../lib/format"
 
 const Section = ({ title, hint, children }) => (
   <Card className="p-5 ring-1 ring-border/60">
@@ -37,6 +39,15 @@ export default function AgentTab({ isAdmin, onPractice }) {
   const settings = useSettings()
   const [t, setT] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [pulsing, setPulsing] = useState(false)
+  const pulse = settings?.telecaller?.pulse
+  const doPulse = async () => {
+    setPulsing(true)
+    const res = await refreshPulse()
+    setPulsing(false)
+    if (res.error) return toast.error(res.error)
+    toast.success("Pulse refreshed")
+  }
 
   useEffect(() => { if (settings && !t) setT(settings.telecaller || DEFAULT_SETTINGS.telecaller) }, [settings, t])
   if (!t) return null
@@ -126,9 +137,26 @@ export default function AgentTab({ isAdmin, onPractice }) {
         )}
       </Section>
 
+      <Section title="India business pulse" hint="A daily research brief (news, events, market mood) that Sneha weaves into calls as openers. Refreshed automatically once a day with Google Search; refresh now after big news.">
+        <div className="sm:col-span-2">
+          {pulse?.text ? (
+            <pre className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 font-sans text-sm text-foreground">{pulse.text}</pre>
+          ) : (
+            <p className="text-sm text-muted-foreground">Not generated yet. It appears after the first call or sweep, or press Refresh.</p>
+          )}
+          <div className="mt-2 flex items-center gap-3">
+            <Button variant="outline" size="sm" disabled={pulsing} onClick={doPulse}><RefreshCw className="h-4 w-4" /> {pulsing ? "Researching…" : "Refresh pulse"}</Button>
+            {pulse?.at && <span className="text-xs text-muted-foreground">Updated {formatDateTime(pulse.at)}</span>}
+          </div>
+        </div>
+      </Section>
+
       <Section title="Pitch notes" hint="Current offers, seasonal pushes, products to lead with, things to never say. The agent reads this before every call.">
         <Field className="sm:col-span-2">
           <Textarea rows={5} value={t.pitchNotes} onChange={(e) => set("pitchNotes", e.target.value)} placeholder="e.g. Diwali gifting bookings open — push gift hampers (bottle + diary + pen). 10% off on 500+ lanyards this month. Never promise delivery under 4 days." />
+        </Field>
+        <Field label="Your upcoming occasions" hint="Sneha already knows the Indian festival calendar, IST time and regional festivals by city. Add your own dates here, one per line: YYYY-MM-DD Name — what to pitch (e.g. 2026-10-15 Delhi Corporate Gifting Expo — invite buyers to the stall, offer exhibition pricing)." className="sm:col-span-2">
+          <Textarea rows={3} value={t.occasions || ""} onChange={(e) => set("occasions", e.target.value)} placeholder="2026-10-15 Delhi Corporate Gifting Expo — invite buyers to our stall, exhibition-only rates" />
         </Field>
         <Field label="Do not call" hint="One number per line. Anyone who asks not to be called is added here automatically." className="sm:col-span-2">
           <Textarea rows={3} value={(t.doNotCall || []).join("\n")} onChange={(e) => set("doNotCall", e.target.value.split(/\n/).map((s) => s.trim()).filter(Boolean))} />

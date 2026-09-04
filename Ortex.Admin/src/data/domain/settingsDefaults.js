@@ -69,6 +69,8 @@ export const DEFAULT_SETTINGS = {
     feedback: { enabled: true, daysAfterInvoice: 7 },
     upsell: { enabled: true, daysAfterInvoice: 30, repeatEveryDays: 90 },
     pitchNotes: "",
+    occasions: "", // team-added dates, one per line: "YYYY-MM-DD Name — what to pitch"
+    pulse: null, // { text, at, sources } — daily India business pulse written by the engine
     doNotCall: [],
     // Training scripts: persona notes + per-call-type objectives (blank = default).
     scripts: { ...DEFAULT_SCRIPTS },

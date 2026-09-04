@@ -48,6 +48,9 @@ export function useLiveCall() {
   const turnsRef = useRef([])
   const inBufRef = useRef("")
   const outBufRef = useRef("")
+  const recorderRef = useRef(null)
+  const chunksRef = useRef([])
+  const recordingRef = useRef(null) // Blob once the recorder has stopped
 
   const flushTranscript = useCallback(() => {
     const u = inBufRef.current.trim()
@@ -63,6 +66,11 @@ export function useLiveCall() {
   const stop = useCallback((finalStatus = "ended") => {
     cancelAnimationFrame(rafRef.current)
     clearInterval(timerRef.current)
+    try {
+      const rec = recorderRef.current
+      if (rec && rec.state !== "inactive") rec.stop() // onstop assembles the blob
+    } catch { /* noop */ }
+    recorderRef.current = null
     try { procRef.current?.disconnect() } catch { /* noop */ }
     try { streamRef.current?.getTracks().forEach((t) => t.stop()) } catch { /* noop */ }
     try { sessionRef.current?.close() } catch { /* noop */ }
@@ -194,6 +202,24 @@ export function useLiveCall() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
 
+      // Record both sides: the agent's playback (via the analyser) and the mic,
+      // mixed in the output context so one Opus file holds the whole call.
+      try {
+        const mix = outCtxRef.current.createMediaStreamDestination()
+        outAnalyser.connect(mix)
+        outCtxRef.current.createMediaStreamSource(stream).connect(mix)
+        const mime = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"].find((m) => window.MediaRecorder?.isTypeSupported?.(m))
+        if (mime) {
+          chunksRef.current = []
+          recordingRef.current = null
+          const rec = new MediaRecorder(mix.stream, { mimeType: mime, audioBitsPerSecond: 48000 })
+          rec.ondataavailable = (e) => { if (e.data?.size) chunksRef.current.push(e.data) }
+          rec.onstop = () => { recordingRef.current = new Blob(chunksRef.current, { type: mime.split(";")[0] }) }
+          rec.start(1000)
+          recorderRef.current = rec
+        }
+      } catch (e) { console.warn("recording unavailable:", e) }
+
       const ai = new GoogleGenAI({ apiKey: data.token, httpOptions: { apiVersion: "v1alpha" } })
       const session = await ai.live.connect({
         model: LIVE_MODEL,
@@ -249,11 +275,19 @@ export function useLiveCall() {
   }, [draw, handleMessage, stop])
 
   const hangUp = useCallback(() => stop("ended"), [stop])
+  /** The recorded call as a Blob (resolves once the recorder has flushed), or null. */
+  const getRecording = useCallback(() => new Promise((resolve) => {
+    const tick = (n) => {
+      if (recordingRef.current || n > 20) return resolve(recordingRef.current)
+      window.setTimeout(() => tick(n + 1), 100)
+    }
+    tick(0)
+  }), [])
   const reset = useCallback(() => { stop("idle"); setStatus("idle"); setTurns([]); turnsRef.current = []; setSeconds(0); setErrorMsg("") }, [stop])
 
   return {
     status, speaking, errorMsg, seconds, turns, live, canvasRef,
     startedAt: startedAtRef.current,
-    start, hangUp, reset,
+    start, hangUp, reset, getRecording,
   }
 }

@@ -4,7 +4,7 @@ import { Mic, Phone, Sparkles, X } from "../../components/ui/Icons"
 import { Badge, Button, Field, Input, Modal, Select } from "../../components/ui/Ui"
 import { TELECALL_KINDS } from "../../data/domain/schema"
 import { cn } from "../../lib/cn"
-import { briefFor, recordLiveCall } from "../../services/telecaller"
+import { briefFor, recordLiveCall, uploadRecording } from "../../services/telecaller"
 import { duration, isValidMobile, kindMeta, prettyPhone } from "./helpers"
 import { useLiveCall } from "./useLiveCall"
 
@@ -46,7 +46,9 @@ export default function PracticeModal({ open, job, onClose, onRecorded }) {
     const turns = call.turns
     if (!turns.length) { toast.warning("Nothing was said — not saved."); onClose(); return }
     setPhase("saving")
-    const res = await recordLiveCall({ jobId: brief.jobId, transcript: turns, durationSec: call.seconds, startedAt: call.startedAt })
+    const blob = await call.getRecording()
+    const recordingPath = blob ? await uploadRecording(blob, brief.jobId) : null
+    const res = await recordLiveCall({ jobId: brief.jobId, transcript: turns, durationSec: call.seconds, startedAt: call.startedAt, recordingPath })
     if (res.error) { toast.error(res.error); setPhase("call"); return }
     toast.success(`Practice call analysed — ${String(res.analysis?.outcome || "").replace(/_/g, " ")}`)
     onRecorded?.(res)

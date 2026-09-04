@@ -29,6 +29,9 @@
 import { generateContent, extractText, logAiUsage } from "./gemini.ts"
 import type { Db } from "./auth.ts"
 import { DEFAULT_SCRIPTS } from "./telecallerScripts.ts"
+import { calendarBrief, parseCustomOccasions } from "./telecallerCalendar.ts"
+import { ensurePulse } from "./telecallerPulse.ts"
+import { detectRegion, regionBrief } from "./telecallerRegion.ts"
 
 // deno-lint-ignore no-explicit-any
 export type Doc = Record<string, any>
@@ -75,6 +78,8 @@ export const DEFAULT_TELECALLER = {
   feedback: { enabled: true, daysAfterInvoice: 7 },
   upsell: { enabled: true, daysAfterInvoice: 30, repeatEveryDays: 90 },
   pitchNotes: "",
+  // Team-added occasions, one per line: "YYYY-MM-DD Name — what to pitch".
+  occasions: "",
   doNotCall: [] as string[],
   // Training: free-text overrides written by the team. `persona` is appended to
   // the identity block; the per-kind entries REPLACE the default objective.
@@ -220,7 +225,7 @@ export type Brief = { systemPrompt: string; firstMessage: string; contextText: s
 
 export async function buildBrief(db: Db, job: Doc, settings: TelecallerSettings, company: Doc): Promise<Brief> {
   const phone = job.phone
-  const [lead, enquiry, invoice, products, priorCalls, leads, enquiries, invoices] = await Promise.all([
+  const [lead, enquiry, invoice, products, priorCalls, leads, enquiries, invoices, pulse] = await Promise.all([
     job.leadId ? getDoc(db, "leads", job.leadId) : null,
     job.enquiryId ? getDoc(db, "enquiries", job.enquiryId) : null,
     job.invoiceId ? getDoc(db, "invoices", job.invoiceId) : null,
@@ -229,6 +234,7 @@ export async function buildBrief(db: Db, job: Doc, settings: TelecallerSettings,
     all(db, "leads", 1500),
     all(db, "enquiries", 1500),
     all(db, "invoices", 1500),
+    ensurePulse(db),
   ])
 
   const samePhone = (d: Doc) => normalizePhone(d?.customer?.phone) === phone
@@ -249,6 +255,13 @@ export async function buildBrief(db: Db, job: Doc, settings: TelecallerSettings,
   }
 
   const ctx = job.context || {}
+  const people = [lead?.customer, enquiry?.customer, invoice?.customer, ...leads.filter(samePhone).map((l) => l.customer), ...enquiries.filter(samePhone).map((e) => e.customer), ...invoices.filter(samePhone).map((i) => i.customer)].filter(Boolean)
+  const region = detectRegion({
+    stateCodes: [...people.map((c) => c.stateCode), ...people.map((c) => c.gstin), invoice?.shipTo?.stateCode],
+    texts: [ctx.city, ...people.map((c) => c.address), invoice?.shipTo?.address, job.company, ...people.map((c) => c.company)],
+    priorLanguage: priorCalls.find((c) => c.phone === phone && c.analysis?.language)?.analysis?.language || null,
+  })
+  const regionHints = region ? [...region.hints, region.language] : []
   const target = [
     `Name: ${job.contactName || lead?.customer?.name || enquiry?.customer?.name || "unknown (ask politely)"}`,
     job.company || lead?.customer?.company || enquiry?.customer?.company ? `Company: ${job.company || lead?.customer?.company || enquiry?.customer?.company}` : "",
@@ -305,6 +318,19 @@ ${clip(settings.scripts?.persona?.trim() || DEFAULT_SCRIPTS.persona, 4000)}
 - Complaints / order problems: listen, apologise, note exact details, promise a human callback the same day. Do not argue.
 - If they ask not to be called again, respect it immediately and end warmly.
 
+# CUSTOMER REGION
+${regionBrief(region, settings.language === "auto")}
+
+# TODAY, TIME AND UPCOMING OCCASIONS
+${calendarBrief({
+    hints: [...regionHints, job.context?.city, lead?.customer?.address, enquiry?.customer?.address, invoice?.customer?.address, invoice?.shipTo?.address, job.company].filter(Boolean).map(String),
+    custom: parseCustomOccasions(settings.occasions),
+  })}
+
+${pulse ? `# INDIA BUSINESS PULSE (research desk, ${pulse.at.slice(0, 10)})\n${clip(pulse.text, 3000)}\nUse at most ONE of these as a natural conversation opener or to relate the customer's plans to what is happening; never recite it, never quote stock levels.\n` : ""}
+# REFERRALS
+- On every positive call, once the next step is agreed, ask ONCE, lightly, whether a colleague, vendor, friend or another branch might need customised gifts or merchandise ("aapke contacts mein koi aur ho jinko is season mein gifting chahiye, toh naam aur number bata dijiye, main unhe bhi free mockup bhijwa dungi"). Take the name, company and number, read the number back, and thank them. Never push twice.
+
 # ABOUT ORTEX
 - In-house design, cutting, UV printing, laser engraving, finishing in New Delhi. PAN-India delivery, export, OEM welcome, proper GST invoicing.
 - Free digital mockup before production; physical sample possible before bulk.
@@ -354,6 +380,8 @@ const ANALYSIS_SCHEMA = {
     feedbackNotes: { type: "STRING" },
     upsellAccepted: { type: "BOOLEAN" },
     sendWhatsapp: { type: "BOOLEAN", description: "true if the customer expects a mockup/quote on WhatsApp" },
+    language: { type: "STRING", description: "language the CUSTOMER mainly spoke: one of hi, en, bn, ta, te, mr, gu, kn, ml, pa, or, as, ur, hinglish" },
+    referrals: { type: "ARRAY", description: "people the customer referred, with a phone number if given", items: { type: "OBJECT", properties: { name: { type: "STRING" }, phone: { type: "STRING" }, company: { type: "STRING" }, note: { type: "STRING" } } } },
   },
   required: ["outcome", "summary", "interest", "sentiment", "nextAction"],
 }
@@ -367,7 +395,7 @@ export async function analyzeTranscript(transcriptText: string, job: Doc, endedR
   const now = new Date().toISOString()
   const prompt = `You are the sales operations analyst for Ortex Industries. Read this outbound telecaller transcript and return a strict JSON analysis.
 Call type: ${job.kind}. Contact: ${job.contactName || "unknown"}. Now: ${now} (Asia/Kolkata). Provider ended reason: ${endedReason || "n/a"}.
-Rules: "deal_closed" only if the customer clearly agreed to proceed with the order / mockup + quotation with quantities. "callback" when a specific later time was agreed (fill callbackAt in ISO with +05:30). "complaint" for any delivery/quality/service problem. "do_not_call" if they asked never to be called. Wrong person = "wrong_number". Silence / only the agent speaking = "no_answer".
+Capture any referral the customer gave (name, company, phone) in referrals. Rules: "deal_closed" only if the customer clearly agreed to proceed with the order / mockup + quotation with quantities. "callback" when a specific later time was agreed (fill callbackAt in ISO with +05:30). "complaint" for any delivery/quality/service problem. "do_not_call" if they asked never to be called. Wrong person = "wrong_number". Silence / only the agent speaking = "no_answer".
 
 TRANSCRIPT:
 ${clip(transcriptText, 24000)}`
@@ -381,7 +409,7 @@ ${clip(transcriptText, 24000)}`
   await logAiUsage("telecaller-analysis", MODEL, data?.usageMetadata)
   try {
     const parsed = JSON.parse(extractText(data))
-    return { ...fallback, ...parsed, items: Array.isArray(parsed.items) ? parsed.items : [] }
+    return { ...fallback, ...parsed, items: Array.isArray(parsed.items) ? parsed.items : [], referrals: Array.isArray(parsed.referrals) ? parsed.referrals : [] }
   } catch {
     return fallback
   }
@@ -502,7 +530,7 @@ export async function briefForJob(db: Db, jobId: string): Promise<{ job: Doc; br
   return { job, brief, settings }
 }
 
-export async function recordLiveCall(db: Db, jobId: string, input: { transcript: { role: string; text: string }[]; durationSec?: number; startedAt?: string; practice?: boolean; by?: string }): Promise<{ callId: string; analysis: Doc }> {
+export async function recordLiveCall(db: Db, jobId: string, input: { transcript: { role: string; text: string }[]; durationSec?: number; startedAt?: string; practice?: boolean; by?: string; recordingPath?: string }): Promise<{ callId: string; analysis: Doc }> {
   const job = await getDoc(db, "telecaller_jobs", jobId)
   if (!job) throw new Error("Job not found")
   const { telecaller: settings, company } = await loadSettings(db)
@@ -513,6 +541,7 @@ export async function recordLiveCall(db: Db, jobId: string, input: { transcript:
     status: "dialing", attempt: (job.attempts || 0) + 1,
     startedAt: input.startedAt || new Date().toISOString(), endedAt: null, durationSec: input.durationSec || 0,
     providerCallId: null, brief: { firstMessage: brief.firstMessage, context: brief.contextText },
+    recordingPath: input.recordingPath && /^[\w./-]{1,200}$/.test(input.recordingPath) ? input.recordingPath : null,
     transcript: [], transcriptText: "", analysis: null,
   })
   await patchDoc(db, "telecaller_jobs", jobId, { status: "in_progress", attempts: (job.attempts || 0) + 1, lastCallId: call.id, lastAttemptAt: new Date().toISOString() })
@@ -710,6 +739,38 @@ async function applyOutcome(db: Db, job: Doc, call: Doc, a: Doc) {
     if (inv) await patchDoc(db, "invoices", job.invoiceId, { feedback: { rating: a.feedbackRating || 0, notes: a.feedbackNotes || a.summary, outcome, at: now.toISOString(), callId: call.id } })
   }
 
+  // 3b. referrals become leads and get their own pitch call
+  const referrals = (Array.isArray(a.referrals) ? a.referrals : []) as Doc[]
+  if (referrals.length) {
+    const existing = await all(db, "leads", 2000)
+    const known = new Set(existing.map((l) => normalizePhone(l.customer?.phone)).filter(Boolean))
+    let created = 0
+    for (const r of referrals.slice(0, 5)) {
+      const phone = normalizePhone(r.phone)
+      if (!isIndianMobile(phone) || known.has(phone) || s.doNotCall.includes(phone) || phone === job.phone) continue
+      known.add(phone)
+      const referrer = job.contactName || job.company || "an existing customer"
+      const lead = await insertDoc(db, "leads", {
+        enquiryId: null,
+        customer: { name: clip(r.name, 120), company: clip(r.company, 160), email: "", phone, gstin: "", stateCode: "", address: "" },
+        source: "Referral (AI telecaller)",
+        productInterest: clip(r.note, 200),
+        quantityEstimate: "", estimatedValue: 0, stage: "new", score: 0, owner: "", nextFollowUp: null,
+        lastActivityAt: now.toISOString(), lostReason: "", linkedQuotationId: null,
+        activities: [{ type: "Note", direction: "inbound", owner: `${s.agentName || "Sneha"} (AI)`, at: now.toISOString(), summary: `Referred by ${referrer} on a ${job.kind} call. ${clip(r.note, 200)}` }],
+        notes: `Referred by ${referrer}.`,
+      })
+      await insertDoc(db, "telecaller_jobs", newJob({
+        kind: "pitch", phone, contactName: r.name, company: r.company, leadId: lead.id, source: "referral", createdBy: "engine", maxAttempts: s.maxAttempts,
+        context: { productInterest: r.note, summary: `Referred by ${referrer}` },
+        scheduledAt: nextCallingSlot(s, new Date(now.getTime() + hours(20))).toISOString(),
+        objective: `Referral from ${referrer}: open by mentioning them ("${referrer} ne aapka number diya, unhone bola aapko bhi gifting chahiye ho sakti hai"). Discover the need and offer a free mockup.`,
+      }))
+      created += 1
+    }
+    if (created) await patchDoc(db, "telecaller_jobs", job.id, { result: { ...result, referralsCreated: created } })
+  }
+
   // 4. what comes next
   if (jobStatus !== "completed") return
   const base = { phone: job.phone, contactName: job.contactName, company: job.company, leadId: job.leadId, enquiryId: job.enquiryId, customerId: job.customerId, invoiceId: job.invoiceId, createdBy: "engine" }
@@ -734,6 +795,7 @@ export type SweepReport = { enqueued: Record<string, number>; dialed: number; sk
 export async function sweep(db: Db, opts: { force?: boolean; dial?: boolean } = {}): Promise<SweepReport> {
   const report: SweepReport = { enqueued: { followup: 0, feedback: 0, upsell: 0 }, dialed: 0, skipped: [], errors: [] }
   const { telecaller: s } = await loadSettings(db)
+  await ensurePulse(db) // daily research brief, cheap, useful for practice calls too
   if (!s.enabled && !opts.force) { report.skipped.push("telecaller disabled in Settings"); return report }
 
   const [jobs, leads, enquiries, invoices] = await Promise.all([

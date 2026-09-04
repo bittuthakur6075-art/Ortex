@@ -104,6 +104,33 @@ regional languages use Deepgram's multilingual model and Google's multilingual
 voice; Hindi and English use fixed-language models. The list lives in
 `src/data/domain/telecallerLanguages.js` and `LANGUAGES` in the shared module.
 
+**Context Sneha carries into every call** (all server-side, in
+`supabase/functions/_shared/`):
+
+* **Time and calendar** (`telecallerCalendar.ts`): the current IST date, time of
+  day and weekday; the Indian festival calendar (fixed dates plus per-year
+  movable dates, 2026 verified, 2027 provisional) with what to pitch for each,
+  regional weighting, and an order-by date worked back from production lead
+  time; business seasons (wedding, exhibitions, joining, year-end). Your own
+  dates go in Agent → "Your upcoming occasions", one per line:
+  `YYYY-MM-DD Name — what to pitch`.
+* **Region** (`telecallerRegion.ts`): the customer's state from the GST state
+  code, a GSTIN prefix, or city / address text, never from the phone number
+  (number portability makes prefixes unreliable). Sets the local language, the
+  opener (English-first in Tamil Nadu, Kerala, Karnataka, the North-East) and
+  which regional festivals surface.
+* **India business pulse** (`telecallerPulse.ts`): a 12-line research brief on
+  national news, events and market mood, generated once a day with Gemini +
+  Google Search grounding and cached on `settings.telecaller.pulse`. Shown and
+  refreshable under Agent → India business pulse. No stock prices by design.
+* **Referrals**: Sneha asks once on positive calls; any referred contact with a
+  valid mobile becomes a new lead (source "Referral (AI telecaller)") and gets
+  its own pitch call the next working day.
+* **Recordings**: real calls keep the provider's recording link; practice calls
+  are recorded in the browser (both sides, Opus) and uploaded to the private
+  `telecaller-recordings` bucket (migration 0018). Both play in the call
+  drawer through a short-lived signed URL.
+
 Gemini Live cannot reach the telephone network; to ring a real phone you need
 a telephony provider (section 3).
 
