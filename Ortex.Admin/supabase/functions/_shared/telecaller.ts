@@ -32,6 +32,8 @@ import { DEFAULT_SCRIPTS } from "./telecallerScripts.ts"
 import { calendarBrief, parseCustomOccasions } from "./telecallerCalendar.ts"
 import { ensurePulse } from "./telecallerPulse.ts"
 import { detectRegion, regionBrief } from "./telecallerRegion.ts"
+import { pickForDial, planCandidates, writeObjectives } from "./telecallerPlanner.ts"
+import { readPulse } from "./telecallerPulse.ts"
 
 // deno-lint-ignore no-explicit-any
 export type Doc = Record<string, any>
@@ -201,6 +203,8 @@ export function newJob(input: Doc): Doc {
     maxAttempts: Number(input.maxAttempts) || DEFAULT_TELECALLER.maxAttempts,
     round: Number(input.round) || 1,
     source: clip(input.source || "manual", 40),
+    priority: Math.max(0, Math.min(100, Number(input.priority) || 50)),
+    reason: clip(input.reason, 300),
     createdBy: input.createdBy || "engine",
     lastCallId: null,
     result: null,
@@ -761,7 +765,7 @@ async function applyOutcome(db: Db, job: Doc, call: Doc, a: Doc) {
         notes: `Referred by ${referrer}.`,
       })
       await insertDoc(db, "telecaller_jobs", newJob({
-        kind: "pitch", phone, contactName: r.name, company: r.company, leadId: lead.id, source: "referral", createdBy: "engine", maxAttempts: s.maxAttempts,
+        kind: "pitch", phone, contactName: r.name, company: r.company, leadId: lead.id, source: "referral", createdBy: "engine", maxAttempts: s.maxAttempts, priority: 72, reason: `referred by ${referrer}`,
         context: { productInterest: r.note, summary: `Referred by ${referrer}` },
         scheduledAt: nextCallingSlot(s, new Date(now.getTime() + hours(20))).toISOString(),
         objective: `Referral from ${referrer}: open by mentioning them ("${referrer} ne aapka number diya, unhone bola aapko bhi gifting chahiye ho sakti hai"). Discover the need and offer a free mockup.`,
@@ -777,7 +781,7 @@ async function applyOutcome(db: Db, job: Doc, call: Doc, a: Doc) {
   const ctx = { ...(job.context || {}), items: a.items?.length ? a.items : job.context?.items, timeline: a.timeline || job.context?.timeline, city: a.city || job.context?.city, summary: a.summary }
 
   if (outcome === "callback" && a.callbackAt) {
-    await insertDoc(db, "telecaller_jobs", newJob({ ...base, kind: job.kind === "manual" ? "followup" : job.kind, round: job.round, context: ctx, scheduledAt: nextCallingSlot(s, new Date(a.callbackAt)).toISOString(), source: "callback", objective: `Callback agreed on the previous call. ${a.nextAction || ""}`, maxAttempts: s.maxAttempts }))
+    await insertDoc(db, "telecaller_jobs", newJob({ ...base, kind: job.kind === "manual" ? "followup" : job.kind, round: job.round, context: ctx, scheduledAt: nextCallingSlot(s, new Date(a.callbackAt)).toISOString(), source: "callback", priority: 85, reason: "customer asked for this callback time", objective: `Callback agreed on the previous call. ${a.nextAction || ""}`, maxAttempts: s.maxAttempts }))
   } else if (["interested", "needs_quote"].includes(outcome) && ["followup", "pitch", "upsell", "manual"].includes(job.kind) && s.followUp.enabled && (job.round || 1) < s.followUp.maxRounds) {
     await insertDoc(db, "telecaller_jobs", newJob({ ...base, kind: "followup", round: (job.round || 1) + 1, context: ctx, scheduledAt: nextCallingSlot(s, new Date(now.getTime() + hours(s.followUp.delayHours))).toISOString(), source: "followup-round", objective: `Round ${(job.round || 1) + 1}: check they received the mockup / quotation and close. Last time: ${a.nextAction || a.summary}`, maxAttempts: s.maxAttempts }))
   } else if (outcome === "deal_closed" && s.feedback.enabled) {
@@ -793,56 +797,30 @@ async function applyOutcome(db: Db, job: Doc, call: Doc, a: Doc) {
 export type SweepReport = { enqueued: Record<string, number>; dialed: number; skipped: string[]; errors: string[] }
 
 export async function sweep(db: Db, opts: { force?: boolean; dial?: boolean } = {}): Promise<SweepReport> {
-  const report: SweepReport = { enqueued: { followup: 0, feedback: 0, upsell: 0 }, dialed: 0, skipped: [], errors: [] }
+  const report: SweepReport = { enqueued: { followup: 0, feedback: 0, upsell: 0, network: 0 }, dialed: 0, skipped: [], errors: [] }
   const { telecaller: s } = await loadSettings(db)
   await ensurePulse(db) // daily research brief, cheap, useful for practice calls too
   if (!s.enabled && !opts.force) { report.skipped.push("telecaller disabled in Settings"); return report }
 
-  const [jobs, leads, enquiries, invoices] = await Promise.all([
-    all(db, "telecaller_jobs", 3000), all(db, "leads", 2000), all(db, "enquiries", 2000), all(db, "invoices", 2000),
+  const [jobs, leads, enquiries, invoices, calls] = await Promise.all([
+    all(db, "telecaller_jobs", 3000), all(db, "leads", 2000), all(db, "enquiries", 2000), all(db, "invoices", 2000), all(db, "telecaller_calls", 1500),
   ])
   const now = Date.now()
-  const hasOpenJob = (phone: string) => jobs.some((j) => j.phone === phone && OPEN_JOB.includes(j.status))
-  const hasJob = (pred: (j: Doc) => boolean) => jobs.some(pred)
-  const dnc = new Set(s.doNotCall)
-  const okPhone = (p: string) => isIndianMobile(p) && !dnc.has(p)
-  const queue = async (input: Doc, bucket: string) => {
-    await insertDoc(db, "telecaller_jobs", newJob({ ...input, maxAttempts: s.maxAttempts, createdBy: "engine" }))
-    report.enqueued[bucket] = (report.enqueued[bucket] || 0) + 1
-  }
 
-  // a) new leads + voice / website enquiries → follow-up call
-  if (s.autoQueueNewLeads) {
-    for (const l of leads) {
-      const phone = normalizePhone(l.customer?.phone)
-      if (!okPhone(phone) || !["new", "contacted"].includes(l.stage || "new")) continue
-      if (hasOpenJob(phone) || hasJob((j) => j.leadId === l.id)) continue
-      if (l.nextFollowUp && new Date(l.nextFollowUp).getTime() > now) continue
-      await queue({ kind: "followup", phone, contactName: l.customer?.name, company: l.customer?.company, leadId: l.id, enquiryId: l.enquiryId || null, source: "auto-lead", context: { productInterest: l.productInterest, quantity: l.quantityEstimate, summary: l.notes }, scheduledAt: nextCallingSlot(s).toISOString() }, "followup")
-    }
-    for (const e of enquiries) {
-      const phone = normalizePhone(e.customer?.phone)
-      if (!okPhone(phone) || (e.status || "new") !== "new") continue
-      if (hasOpenJob(phone) || hasJob((j) => j.enquiryId === e.id)) continue
-      if (now - new Date(e.createdAt).getTime() < hours(2)) continue // give the human team first shot
-      await queue({ kind: "followup", phone, contactName: e.customer?.name, company: e.customer?.company, enquiryId: e.id, source: e.source || "auto-enquiry", context: { productInterest: e.productInterest, summary: e.message, city: e.customer?.address }, scheduledAt: nextCallingSlot(s).toISOString() }, "followup")
-    }
-  }
-
-  // b) feedback N days after an invoice; c) upsell M days after
-  for (const inv of invoices) {
-    const phone = normalizePhone(inv.customer?.phone)
-    if (!okPhone(phone) || ["draft", "cancelled"].includes(inv.status)) continue
-    const age = now - new Date(inv.issueDate || inv.createdAt).getTime()
-    if (s.feedback.enabled && age >= days(s.feedback.daysAfterInvoice) && !hasJob((j) => j.invoiceId === inv.id && j.kind === "feedback") && !hasOpenJob(phone)) {
-      await queue({ kind: "feedback", phone, contactName: inv.customer?.name, company: inv.customer?.company, invoiceId: inv.id, source: "auto-feedback", context: { items: (inv.lines || []).map((l: Doc) => ({ product: l.description, quantity: l.quantity })), summary: `Invoice ${inv.number}` }, scheduledAt: nextCallingSlot(s).toISOString() }, "feedback")
-      continue
-    }
-    if (s.upsell.enabled && age >= days(s.upsell.daysAfterInvoice)) {
-      const recentUpsell = jobs.some((j) => j.phone === phone && j.kind === "upsell" && now - new Date(j.createdAt).getTime() < days(s.upsell.repeatEveryDays))
-      const newerOrder = invoices.some((o) => o.id !== inv.id && normalizePhone(o.customer?.phone) === phone && new Date(o.issueDate || o.createdAt) > new Date(inv.issueDate || inv.createdAt))
-      if (recentUpsell || newerOrder || hasOpenJob(phone)) continue
-      await queue({ kind: "upsell", phone, contactName: inv.customer?.name, company: inv.customer?.company, invoiceId: inv.id, source: "auto-upsell", context: { items: (inv.lines || []).map((l: Doc) => ({ product: l.description, quantity: l.quantity })), summary: `Last order ${inv.number} on ${String(inv.issueDate || inv.createdAt).slice(0, 10)}` }, scheduledAt: nextCallingSlot(s).toISOString() }, "upsell")
+  // a) plan: score every lead / enquiry / customer, decide the call kind and
+  //    priority, then let Gemini write a one-line objective per new job.
+  const { candidates, forHuman } = planCandidates({
+    leads, enquiries, invoices, jobs, calls, settings: s, normalizePhone, isIndianMobile, nextSlot: (from) => nextCallingSlot(s, from), now,
+  })
+  for (const h of forHuman.slice(0, 10)) report.skipped.push(`for a human: ${h.who} (${h.why})`)
+  const batch = candidates.slice(0, 25) // one planning batch per tick keeps the Gemini call small
+  if (batch.length) {
+    const pulse = await readPulse(db)
+    const withObjectives = await writeObjectives(batch, MODEL, pulse?.text)
+    for (const c of withObjectives) {
+      await insertDoc(db, "telecaller_jobs", newJob({ ...c, maxAttempts: s.maxAttempts, createdBy: "engine" }))
+      const bucket = c.source === "planner-network" ? "network" : c.kind
+      report.enqueued[bucket] = (report.enqueued[bucket] || 0) + 1
     }
   }
 
@@ -854,10 +832,10 @@ export async function sweep(db: Db, opts: { force?: boolean; dial?: boolean } = 
   if (!remaining) { report.skipped.push("daily cap reached"); return report }
   const inFlight = jobs.filter((j) => j.status === "in_progress" && now - new Date(j.lastAttemptAt || j.createdAt).getTime() < hours(1)).length
   const fresh = await all(db, "telecaller_jobs", 3000)
-  const due = fresh
-    .filter((j) => j.status === "queued" && new Date(j.scheduledAt || 0).getTime() <= now)
-    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
-    .slice(0, Math.min(remaining, Math.max(0, 3 - inFlight), 5))
+  const due = pickForDial(
+    fresh.filter((j) => j.status === "queued" && new Date(j.scheduledAt || 0).getTime() <= now),
+    Math.min(remaining, Math.max(0, 3 - inFlight), 5),
+  )
   for (const j of due) {
     try {
       const r = await dialJob(db, j.id)

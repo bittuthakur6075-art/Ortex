@@ -84,7 +84,7 @@ export default function QueueTab({ jobs, onOpenCall, onPractice }) {
                 const overdue = j.status === "queued" && new Date(j.scheduledAt) <= new Date()
                 const k = kindMeta(j.kind)
                 return (
-                  <tr key={j.id} className="hover:bg-muted/30">
+                  <tr key={j.id} className="hover:bg-subtle">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Avatar name={j.contactName || "?"} />
@@ -95,14 +95,18 @@ export default function QueueTab({ jobs, onOpenCall, onPractice }) {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <Badge tone={k.tone}>{k.label}{j.round > 1 ? ` · round ${j.round}` : ""}</Badge>
+                      <div className="flex flex-col items-start gap-1">
+                        <Badge tone={k.tone}>{k.label}{j.round > 1 ? ` · round ${j.round}` : ""}</Badge>
+                        {j.priority != null && <Badge tone={j.priority >= 75 ? "rose" : j.priority >= 55 ? "amber" : "slate"}>P{j.priority}</Badge>}
+                      </div>
                     </td>
-                    <td className="max-w-[280px] px-4 py-3 text-muted-foreground">
+                    <td className="max-w-[320px] px-4 py-3 text-muted-foreground">
+                      {j.reason && <div className="mb-0.5 line-clamp-1 text-xs font-medium text-foreground">{j.reason}</div>}
                       <div className="line-clamp-2 text-xs">{j.objective || j.context?.productInterest || j.context?.summary || j.source}</div>
-                      {j.lastError && <div className="mt-1 line-clamp-1 text-xs text-rose-600">{j.lastError}</div>}
+                      {j.lastError && <div className="mt-1 line-clamp-1 text-xs text-destructive-text">{j.lastError}</div>}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className={overdue ? "font-medium text-amber-600" : "text-foreground"}>{relativeTime(j.scheduledAt)}</div>
+                      <div className={overdue ? "font-medium text-warning-text" : "text-foreground"}>{relativeTime(j.scheduledAt)}</div>
                       <div className="text-xs text-muted-foreground">
                         {formatDateTime(j.scheduledAt)}{j.attempts ? ` · attempt ${j.attempts}/${j.maxAttempts}` : ""}
                       </div>

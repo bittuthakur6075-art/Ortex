@@ -34,7 +34,13 @@ export function useTelecallerData() {
   }, [jobs.items, calls.items])
 
   const openJobs = useMemo(
-    () => jobs.items.filter((j) => OPEN_JOB.includes(j.status)).sort((a, b) => new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0)),
+    () => {
+      const now = Date.now()
+      const due = (j) => new Date(j.scheduledAt || 0).getTime() <= now
+      return jobs.items
+        .filter((j) => OPEN_JOB.includes(j.status))
+        .sort((a, b) => (due(b) - due(a)) || ((b.priority ?? 50) - (a.priority ?? 50)) || (new Date(a.scheduledAt || 0) - new Date(b.scheduledAt || 0)))
+    },
     [jobs.items],
   )
 

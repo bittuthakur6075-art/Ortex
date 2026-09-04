@@ -186,8 +186,19 @@ select cron.schedule(
 );
 ```
 
-Each tick, inside the calling window (default 10:00–19:00 IST, never Sunday)
-and under the daily cap, the engine:
+Each tick the **planner** (`telecallerPlanner.ts`) scores every lead, enquiry
+and customer 0-100 and writes a reason: fresh enquiries and overdue or
+negotiating leads rank highest, then feedback in the post-delivery window, then
+reorder / key-account network calls (repeat customers, high lifetime value, a
+festival order window opening). Complaint-like records are skipped and listed
+"for a human" in the sweep report. Gemini then writes a one-line objective and
+pitch angle per new job in one batch call. Dialing goes by priority with a mix
+per tick (roughly half enquiry / lead follow-ups, a quarter reorders, the rest
+feedback and referrals) so care calls are never starved. Callbacks a customer
+asked for (P85) and referrals (P72) jump the queue.
+
+Inside the calling window (default 10:00–19:00 IST, never Sunday) and under
+the daily cap, the sources are:
 
 | Source | Rule | Job |
 | --- | --- | --- |
