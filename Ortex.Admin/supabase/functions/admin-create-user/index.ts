@@ -49,14 +49,21 @@ Deno.serve(async (req) => {
     //    reachable behind the admin check above. Service-role client bypasses
     //    RLS. Profiles are created inactive (migration 0015) so that an
     //    uninvited public signup never passes is_active_staff().
-    const { error: grantErr } = await admin
+    //    The profile row is created by the on_auth_user_created trigger; select
+    //    it back so a missing row (trigger absent on this environment) is an
+    //    error rather than a silently inactive login.
+    const { data: granted, error: grantErr } = await admin
       .from("profiles")
       .update({ role, modules: Array.isArray(modules) ? modules : [], active: true })
       .eq("id", id)
-    if (grantErr) {
+      .select("id")
+    if (grantErr || !granted?.length) {
       // Don't leave a half-provisioned login behind.
       await admin.auth.admin.deleteUser(id)
-      return json({ error: `Could not apply role: ${grantErr.message}` }, 500)
+      const reason = grantErr
+        ? grantErr.message
+        : "profile row was not created (is the on_auth_user_created trigger installed?)"
+      return json({ error: `Could not apply role: ${reason}` }, 500)
     }
 
     return json({ ok: true, id })

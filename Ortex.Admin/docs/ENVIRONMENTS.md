@@ -113,3 +113,10 @@ Production is a **static upload** (no git auto-deploy):
 - [ ] New migrations and Edge Functions were applied to **both** projects.
 - [ ] `.env.production` is never committed and never uploaded to Hostinger (only
       the built `dist/` is).
+- [ ] **Public signup is off in both projects**: Authentication → Providers →
+      Email → "Allow new users to sign up" = off. The database enforces
+      invite-only access regardless (profiles start inactive since migration
+      0015/0016, and only `admin-create-user` activates them), but disabling
+      signup also stops strangers from creating orphan auth users with the
+      public anon key. This is a dashboard setting; `supabase/config.toml` is
+      per-checkout CLI link state and is not committed.
