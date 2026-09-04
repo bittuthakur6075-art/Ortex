@@ -37,7 +37,7 @@ import { detectRegion, regionBrief } from "./telecallerRegion.ts"
 export type Doc = Record<string, any>
 export type Row = { id: string; doc: Doc; created_at: string; updated_at: string }
 
-export const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash"
+export const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-3.6-flash"
 
 // Mirrors src/data/domain/telecallerLanguages.js. `name` is what the prompt
 // says; `speech` the TTS locale; `stt` the Deepgram code for Vapi calls
@@ -464,7 +464,7 @@ async function startVapiCall(job: Doc, brief: Brief, settings: TelecallerSetting
     ...(modelOpener ? { firstMessageMode: "assistant-speaks-first-with-model-generated-message" } : { firstMessage: brief.firstMessage }),
     model: {
       provider: "google",
-      model: "gemini-2.5-flash",
+      model: Deno.env.get("GEMINI_MODEL") || "gemini-3.6-flash",
       temperature: 0.6,
       messages: [{ role: "system", content: brief.systemPrompt }],
     },

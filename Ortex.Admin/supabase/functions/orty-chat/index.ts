@@ -17,7 +17,7 @@
 import { cors, json } from "../_shared/http.ts"
 import { generateContent, extractText, logAiUsage } from "../_shared/gemini.ts"
 
-const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash"
+const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-3.6-flash"
 const MAX_TURNS = 12
 // Gemma models have no system role, so the grounding is folded into turn 1.
 const IS_GEMMA = /^gemma/i.test(MODEL)

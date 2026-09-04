@@ -9,7 +9,7 @@ import { generateContent, extractText, logAiUsage } from "./gemini.ts"
 import type { Db } from "./auth.ts"
 import { nowInIndia } from "./telecallerCalendar.ts"
 
-const PULSE_MODEL = Deno.env.get("GEMINI_PULSE_MODEL") || "gemini-2.5-flash"
+const PULSE_MODEL = Deno.env.get("GEMINI_PULSE_MODEL") || "gemini-3.6-flash"
 const FRESH_MS = 20 * 60 * 60 * 1000
 
 export type Pulse = { text: string; at: string; model?: string; sources?: string[] }
