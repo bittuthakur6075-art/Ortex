@@ -13,7 +13,7 @@ import {
 } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { useCollections } from "../hooks/useCollection"
-import { computeAnalytics } from "../lib/analytics"
+import { computeAnalytics } from "../lib/analytics/dashboard"
 import { weightedLeadValue } from "../data/domain/domain"
 import { LEAD_STAGES, OPEN_LEAD_STAGES } from "../data/domain/schema"
 import { seedDemo } from "../data/seed/seed"

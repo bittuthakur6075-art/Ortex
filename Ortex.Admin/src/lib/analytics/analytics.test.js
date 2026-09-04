@@ -6,16 +6,12 @@
 // an explicit `now` for the same reason.
 
 import { describe, it, expect } from "vitest"
-import {
-  computeAnalytics,
-  computeGrowthAnalytics,
-  computeAttribution,
-  computeVelocity,
-  computeCohorts,
-  computeMessagingImpact,
-  classifyActivity,
-  median,
-} from "./analytics"
+import { computeAnalytics } from "./dashboard"
+import { computeGrowthAnalytics, computeAttribution } from "./growth"
+import { computeVelocity, computeCohorts } from "./velocity"
+import { computeMessagingImpact } from "./messaging"
+import { classifyActivity } from "./activity"
+import { median } from "./stats"
 
 const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString()
 
