@@ -1,3 +1,5 @@
+import { DEFAULT_SCRIPTS } from "./telecallerScripts"
+
 // Default settings + merge logic, shared by every repository implementation
 // (localStore, apiStore) so a saved settings blob is reconciled against the
 // current defaults identically no matter where it's persisted.
@@ -55,7 +57,7 @@ export const DEFAULT_SETTINGS = {
   telecaller: {
     enabled: false, // master switch for the automatic sweep (manual "AI call" always works)
     provider: "simulate", // "simulate" (Gemini role-play, no phone) | "vapi" (real outbound calls)
-    agentName: "Anu",
+    agentName: "Sneha",
     language: "hinglish", // hinglish | hi | en
     callingHours: { start: "10:00", end: "19:00" },
     timezone: "Asia/Kolkata",
@@ -69,7 +71,7 @@ export const DEFAULT_SETTINGS = {
     pitchNotes: "",
     doNotCall: [],
     // Training scripts: persona notes + per-call-type objectives (blank = default).
-    scripts: { persona: "", followup: "", pitch: "", feedback: "", upsell: "" },
+    scripts: { ...DEFAULT_SCRIPTS },
   },
 }
 

@@ -81,6 +81,15 @@ practice call, and the lead / next job move exactly as they would after a real
 call, so rehearse against a scratch contact (your own number is fine, nothing
 rings) unless you mean it.
 
+The built-in training (persona and scripts written for Indian B2B buyers) lives
+in `src/data/domain/telecallerScripts.js` and is mirrored to
+`supabase/functions/_shared/telecallerScripts.ts`. After editing the JS file,
+regenerate the mirror before deploying:
+
+```bash
+node -e "import('file:///'+process.cwd().replace(/\\/g,'/')+'/src/data/domain/telecallerScripts.js').then(({DEFAULT_SCRIPTS})=>require('fs').writeFileSync('supabase/functions/_shared/telecallerScripts.ts','// GENERATED from src/data/domain/telecallerScripts.js\n\nexport const DEFAULT_SCRIPTS: Record<string, string> = '+JSON.stringify(DEFAULT_SCRIPTS,null,2)+'\n'))"
+```
+
 Training is prompt work, not model training. Under **Agent → Training** you
 can write the persona (tone, phrases to use and avoid, language switching) and
 a script per call type (follow-up, pitch, feedback, upsell). Blank fields keep

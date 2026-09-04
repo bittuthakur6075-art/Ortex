@@ -28,6 +28,7 @@
 
 import { generateContent, extractText, logAiUsage } from "./gemini.ts"
 import type { Db } from "./auth.ts"
+import { DEFAULT_SCRIPTS } from "./telecallerScripts.ts"
 
 // deno-lint-ignore no-explicit-any
 export type Doc = Record<string, any>
@@ -40,7 +41,7 @@ export const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash"
 export const DEFAULT_TELECALLER = {
   enabled: false,
   provider: "simulate",
-  agentName: "Anu",
+  agentName: "Sneha",
   language: "hinglish",
   callingHours: { start: "10:00", end: "19:00" },
   timezone: "Asia/Kolkata",
@@ -55,7 +56,7 @@ export const DEFAULT_TELECALLER = {
   doNotCall: [] as string[],
   // Training: free-text overrides written by the team. `persona` is appended to
   // the identity block; the per-kind entries REPLACE the default objective.
-  scripts: { persona: "", followup: "", pitch: "", feedback: "", upsell: "" } as Record<string, string>,
+  scripts: { ...DEFAULT_SCRIPTS } as Record<string, string>,
 }
 export type TelecallerSettings = typeof DEFAULT_TELECALLER
 
@@ -70,7 +71,7 @@ export async function loadSettings(db: Db): Promise<{ telecaller: TelecallerSett
     feedback: { ...DEFAULT_TELECALLER.feedback, ...saved.feedback },
     upsell: { ...DEFAULT_TELECALLER.upsell, ...saved.upsell },
     doNotCall: Array.isArray(saved.doNotCall) ? saved.doNotCall.map(normalizePhone).filter(Boolean) : [],
-    scripts: { ...DEFAULT_TELECALLER.scripts, ...(saved.scripts || {}) },
+    scripts: Object.fromEntries(Object.keys(DEFAULT_SCRIPTS).map((k) => [k, String(saved.scripts?.[k] || "").trim() || DEFAULT_SCRIPTS[k]])),
   }
   return { telecaller, company: data?.doc?.company || {} }
 }
@@ -248,20 +249,20 @@ export async function buildBrief(db: Db, job: Doc, settings: TelecallerSettings,
       ? "Speak warm, conversational Hindi (Devanagari-free Hinglish is fine for product names)."
       : "Speak natural Hinglish: conversational Hindi with English product and business words, the way Indian sales people actually talk. Switch fully to English if the customer prefers it."
 
-  const agentName = settings.agentName || "Anu"
+  const agentName = settings.agentName || "Sneha"
   const contextText = [target, history.length ? "\nHISTORY:\n" + history.join("\n") : ""].join("\n").trim()
 
   const systemPrompt = `You are "${agentName}", the AI sales telecaller of ${company.name || "Ortex Industries"}, a New Delhi manufacturer of fully customised products (keychains, acrylic and MDF items, lanyards, badges, clocks, corporate gift sets, OEM/white-label), made in-house. You are on an OUTBOUND PHONE CALL that you placed.
 
 # THIS CALL
-${clip(settings.scripts?.[job.kind], 3000).trim() || KIND_OBJECTIVE[job.kind] || KIND_OBJECTIVE.manual}
+${clip(settings.scripts?.[job.kind], 4000).trim() || DEFAULT_SCRIPTS[job.kind] || KIND_OBJECTIVE[job.kind] || KIND_OBJECTIVE.manual}
 ${job.objective ? `Team's objective for this call: ${job.objective}` : ""}
 
 # WHO YOU ARE CALLING
 ${contextText || "No prior details — discover the requirement."}
-${settings.scripts?.persona ? `
-# HOW THE TEAM WANTS YOU TO SOUND
-${clip(settings.scripts.persona, 3000)}` : ""}
+
+# HOW YOU SOUND (team training)
+${clip(settings.scripts?.persona?.trim() || DEFAULT_SCRIPTS.persona, 4000)}
 
 # LANGUAGE & DELIVERY
 - ${lang}
@@ -633,7 +634,7 @@ async function applyOutcome(db: Db, job: Doc, call: Doc, a: Doc) {
 
   // 3. reflect on the CRM record the job came from
   const activity = {
-    type: "Call", direction: "outbound", owner: `${s.agentName || "Anu"} (AI)`, at: now.toISOString(),
+    type: "Call", direction: "outbound", owner: `${s.agentName || "Sneha"} (AI)`, at: now.toISOString(),
     summary: `[${outcome.replace(/_/g, " ")}] ${a.summary}${a.nextAction ? ` Next: ${a.nextAction}` : ""}`,
   }
   const stageFor: Partial<Record<Outcome, string>> = {

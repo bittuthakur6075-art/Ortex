@@ -64,7 +64,7 @@ export default function Telecaller() {
     <div>
       <PageHeader
         title="Telecaller"
-        subtitle={`${t?.agentName || "Anu"} rings leads to follow up and close, then comes back for feedback and upsell — every call lands here with a transcript`}
+        subtitle={`${t?.agentName || "Sneha"} rings leads to follow up and close, then comes back for feedback and upsell — every call lands here with a transcript`}
       >
         <div className="flex flex-wrap items-center gap-2">
           {t && (
