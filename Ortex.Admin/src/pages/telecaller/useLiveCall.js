@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { GoogleGenAI, Modality } from "@google/genai"
 import { supabase, hasSupabase } from "../../data/store/supabaseClient"
 import { INPUT_RATE, OUTPUT_RATE, floatTo16BitPCM, int16ToBase64, base64ToInt16 } from "./audio"
+import { languageMeta } from "../../data/domain/telecallerLanguages"
 
 /* ============================================================
    useLiveCall — a browser practice call with the telecaller agent.
@@ -167,8 +168,8 @@ export function useLiveCall() {
     rafRef.current = requestAnimationFrame(draw)
   }, [])
 
-  /** brief: { systemPrompt, firstMessage }, language: "hinglish" | "hi" | "en" */
-  const start = useCallback(async (brief, language = "hinglish") => {
+  /** brief: { systemPrompt, firstMessage }, language: id from telecallerLanguages.js */
+  const start = useCallback(async (brief, language = "auto") => {
     if (!hasSupabase) { setErrorMsg("Backend not configured."); setStatus("error"); return }
     setStatus("connecting"); setErrorMsg("")
     setTurns([]); turnsRef.current = []; inBufRef.current = ""; outBufRef.current = ""
@@ -199,7 +200,7 @@ export function useLiveCall() {
         config: {
           responseModalities: [Modality.AUDIO],
           systemInstruction: `${brief.systemPrompt}\n\n# VOICE CALL MECHANICS\n- You placed this call; the other person just picked up. Speak your opening line first.\n- When the conversation is over, say a short goodbye and then call the end_call function.`,
-          speechConfig: { languageCode: language === "en" ? "en-IN" : "hi-IN", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } },
+          speechConfig: { languageCode: languageMeta(language).speech, voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } },
           inputAudioTranscription: {},
           outputAudioTranscription: {},
           tools: END_TOOL,
@@ -217,7 +218,7 @@ export function useLiveCall() {
       sessionRef.current = session
       try {
         session.sendClientContent({
-          turns: [{ role: "user", parts: [{ text: `[The customer has just answered the phone. Open the call now with: "${brief.firstMessage}"]` }] }],
+          turns: [{ role: "user", parts: [{ text: brief.firstMessage.startsWith("[") ? `[The customer has just answered the phone. ${brief.firstMessage.slice(1)}` : `[The customer has just answered the phone. Open the call now with: "${brief.firstMessage}"]` }] }],
           turnComplete: true,
         })
       } catch { /* ignore */ }

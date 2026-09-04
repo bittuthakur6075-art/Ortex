@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { Mic, Save, Sparkles } from "../../components/ui/Icons"
 import { TELECALL_KINDS } from "../../data/domain/schema"
+import { TELECALL_LANGUAGES } from "../../data/domain/telecallerLanguages"
 import { Button, Card, Field, Input, Select, Textarea } from "../../components/ui/Ui"
 import { DEFAULT_SETTINGS } from "../../data/domain/settingsDefaults"
 import { repo } from "../../data/store/repository"
@@ -61,11 +62,9 @@ export default function AgentTab({ isAdmin, onPractice }) {
     <div className="space-y-4">
       <Section title="Agent" hint="Who calls, in which language, and whether the scheduler is allowed to dial on its own.">
         <Field label="Agent name"><Input value={t.agentName} onChange={(e) => set("agentName", e.target.value)} /></Field>
-        <Field label="Language">
+        <Field label="Language" hint={t.language === "auto" ? "Sneha opens in Hinglish and switches to whatever the customer speaks: Tamil, Bengali, Marathi, English…" : "Fixed language for every call. Auto is recommended."}>
           <Select value={t.language} onChange={(e) => set("language", e.target.value)}>
-            <option value="hinglish">Hinglish (Hindi + English)</option>
-            <option value="hi">Hindi</option>
-            <option value="en">English</option>
+            {TELECALL_LANGUAGES.map((l) => <option key={l.id} value={l.id}>{l.label}{l.tier === "basic" ? " (basic)" : ""}</option>)}
           </Select>
         </Field>
         <Field label="Provider" hint={t.provider === "simulate" ? "Simulate: Gemini role-plays the customer, no phone rings. Switch to Vapi once the keys are set." : "Vapi places real calls from the number configured in the Edge Function secrets."}>

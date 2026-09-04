@@ -58,7 +58,7 @@ export const DEFAULT_SETTINGS = {
     enabled: false, // master switch for the automatic sweep (manual "AI call" always works)
     provider: "simulate", // "simulate" (Gemini role-play, no phone) | "vapi" (real outbound calls)
     agentName: "Sneha",
-    language: "hinglish", // hinglish | hi | en
+    language: "auto", // see telecallerLanguages.js
     callingHours: { start: "10:00", end: "19:00" },
     timezone: "Asia/Kolkata",
     dailyCap: 40,

@@ -36,13 +36,35 @@ export type Row = { id: string; doc: Doc; created_at: string; updated_at: string
 
 export const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash"
 
+// Mirrors src/data/domain/telecallerLanguages.js. `name` is what the prompt
+// says; `speech` the TTS locale; `stt` the Deepgram code for Vapi calls
+// ("multi" = language-agnostic model, needed for auto and regional languages).
+export const LANGUAGES: Record<string, { name: string; speech: string; stt: string; opener: string }> = {
+  auto: { name: "Hinglish, switching to whatever language the customer speaks", speech: "hi-IN", stt: "multi", opener: "hi" },
+  hinglish: { name: "Hinglish (Hindi with English business words)", speech: "hi-IN", stt: "hi", opener: "hi" },
+  hi: { name: "Hindi", speech: "hi-IN", stt: "hi", opener: "hi" },
+  en: { name: "Indian English", speech: "en-IN", stt: "en-IN", opener: "en" },
+  bn: { name: "Bengali", speech: "bn-IN", stt: "multi", opener: "model" },
+  ta: { name: "Tamil", speech: "ta-IN", stt: "multi", opener: "model" },
+  te: { name: "Telugu", speech: "te-IN", stt: "multi", opener: "model" },
+  mr: { name: "Marathi", speech: "mr-IN", stt: "multi", opener: "model" },
+  gu: { name: "Gujarati", speech: "gu-IN", stt: "multi", opener: "model" },
+  kn: { name: "Kannada", speech: "kn-IN", stt: "multi", opener: "model" },
+  ml: { name: "Malayalam", speech: "ml-IN", stt: "multi", opener: "model" },
+  pa: { name: "Punjabi", speech: "hi-IN", stt: "multi", opener: "model" },
+  or: { name: "Odia", speech: "hi-IN", stt: "multi", opener: "model" },
+  as: { name: "Assamese", speech: "hi-IN", stt: "multi", opener: "model" },
+  ur: { name: "Urdu", speech: "hi-IN", stt: "multi", opener: "model" },
+}
+export const languageOf = (id: string) => LANGUAGES[id] || LANGUAGES.auto
+
 // ---- settings ---------------------------------------------------------------
 // Mirrors DEFAULT_SETTINGS.telecaller in src/data/domain/settingsDefaults.js.
 export const DEFAULT_TELECALLER = {
   enabled: false,
   provider: "simulate",
   agentName: "Sneha",
-  language: "hinglish",
+  language: "auto",
   callingHours: { start: "10:00", end: "19:00" },
   timezone: "Asia/Kolkata",
   dailyCap: 40,
@@ -243,11 +265,16 @@ export async function buildBrief(db: Db, job: Doc, settings: TelecallerSettings,
     .map((p) => `- ${p.name}${p.category ? ` (${p.category})` : ""}${p.moq ? `, MOQ ${p.moq}` : ""}${p.leadTimeDays ? `, ~${p.leadTimeDays} days` : ""}`)
     .join("\n")
 
-  const lang = settings.language === "en"
-    ? "Speak natural Indian English."
-    : settings.language === "hi"
-      ? "Speak warm, conversational Hindi (Devanagari-free Hinglish is fine for product names)."
-      : "Speak natural Hinglish: conversational Hindi with English product and business words, the way Indian sales people actually talk. Switch fully to English if the customer prefers it."
+  const L = languageOf(settings.language)
+  const lang = settings.language === "auto"
+    ? "Open in natural Hinglish (conversational Hindi with English product and business words). Then MATCH THE CUSTOMER: if they answer in Tamil, Telugu, Bengali, Marathi, Gujarati, Kannada, Malayalam, Punjabi, Odia, Assamese, Urdu, English or any other language, switch fully to that language for the rest of the call and stay in it. Keep product names and business words (mockup, quotation, GST invoice, MOQ, delivery) in English in every language."
+    : settings.language === "en"
+      ? "Speak natural Indian English throughout."
+      : settings.language === "hi"
+        ? "Speak warm, conversational Hindi (English is fine for product and business words). Switch to English only if the customer clearly prefers it."
+        : settings.language === "hinglish"
+          ? "Speak natural Hinglish: conversational Hindi with English product and business words, the way Indian sales people actually talk. Switch fully to English if the customer prefers it."
+          : `Speak ${L.name} throughout, naturally and respectfully, keeping product and business words (mockup, quotation, GST invoice, MOQ, delivery) in English. If the customer clearly prefers Hindi or English, switch to that.`
 
   const agentName = settings.agentName || "Sneha"
   const contextText = [target, history.length ? "\nHISTORY:\n" + history.join("\n") : ""].join("\n").trim()
@@ -296,9 +323,14 @@ ${catalogue || "- Custom keychains, acrylic standees, MDF trophies, lanyards, ba
 - Never reveal you are following a script; if asked, you may say you are ${agentName}, ${company.name || "Ortex"}'s AI sales assistant.`
 
   const firstName = (job.contactName || "").split(" ")[0]
-  const firstMessage = settings.language === "en"
+  // Openers exist for Hindi and English; other languages let the model compose
+  // the greeting in that language (Vapi: model-generated first message; Live:
+  // the bracketed instruction is passed as an instruction, never read aloud).
+  const firstMessage = L.opener === "en"
     ? `Hello${firstName ? ` ${firstName}` : ""}, this is ${agentName} calling from ${company.name || "Ortex Industries"}. Am I speaking with ${job.contactName || "the right person"}? Is this a good time for two minutes?`
-    : `Namaste${firstName ? ` ${firstName} ji` : ""}, main ${agentName} bol rahi hoon ${company.name || "Ortex Industries"} se. Kya main ${job.contactName || "aap"} se baat kar rahi hoon? Do minute baat karne ka sahi time hai?`
+    : L.opener === "hi"
+      ? `Namaste${firstName ? ` ${firstName} ji` : ""}, main ${agentName} bol rahi hoon ${company.name || "Ortex Industries"} se. Kya main ${job.contactName || "aap"} se baat kar rahi hoon? Do minute baat karne ka sahi time hai?`
+      : `[Greet in ${L.name}: say you are ${agentName} from ${company.name || "Ortex Industries"}, confirm you are speaking with ${job.contactName || "the right person"}, and ask if this is a good time for two minutes.]`
 
   return { systemPrompt, firstMessage, contextText, agentName }
 }
@@ -395,10 +427,13 @@ async function startVapiCall(job: Doc, brief: Brief, settings: TelecallerSetting
   const assistantId = Deno.env.get("VAPI_ASSISTANT_ID")
   const serverUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/telecaller-webhook`
   const secret = Deno.env.get("TELECALLER_WEBHOOK_SECRET") || ""
-  const lang = settings.language === "en" ? "en-IN" : "hi"
+  const L = languageOf(settings.language)
+  const modelOpener = L.opener === "model"
 
-  const assistantCore = {
-    firstMessage: brief.firstMessage,
+  const assistantCore: Doc = {
+    // For languages without a canned opener the model composes the greeting in
+    // that language; the bracketed instruction is never read aloud.
+    ...(modelOpener ? { firstMessageMode: "assistant-speaks-first-with-model-generated-message" } : { firstMessage: brief.firstMessage }),
     model: {
       provider: "google",
       model: "gemini-2.5-flash",
@@ -432,8 +467,12 @@ async function startVapiCall(job: Doc, brief: Brief, settings: TelecallerSetting
     body.assistant = {
       name: brief.agentName,
       ...assistantCore,
-      transcriber: { provider: "deepgram", model: "nova-2", language: lang },
-      voice: { provider: "azure", voiceId: settings.language === "en" ? "en-IN-NeerjaNeural" : "hi-IN-SwaraNeural" },
+      // "multi" = Deepgram's language-agnostic model: needed for auto-detect and
+      // regional languages, slightly pricier per minute than a fixed language.
+      transcriber: L.stt === "multi" ? { provider: "deepgram", model: "nova-3", language: "multi" } : { provider: "deepgram", model: "nova-2", language: L.stt },
+      // Google's multilingual voices speak every Indian language above; a fixed
+      // Azure voice would only cover Hindi and English.
+      voice: { provider: "google", voiceId: L.speech === "en-IN" ? "en-IN-Chirp3-HD-Aoede" : "hi-IN-Chirp3-HD-Aoede" },
       recordingEnabled: true,
     }
   }

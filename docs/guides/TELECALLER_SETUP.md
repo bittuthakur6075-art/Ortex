@@ -96,6 +96,14 @@ a script per call type (follow-up, pitch, feedback, upsell). Blank fields keep
 the built-in playbook. Pitch notes carry current offers. The loop: save,
 practice, read the transcript and analysis, refine, repeat.
 
+**Languages.** Agent → Language defaults to Auto: Sneha opens in Hinglish and
+switches to whatever the customer speaks. Strong: Hindi, English, Bengali,
+Tamil, Telugu, Marathi, Gujarati, Kannada, Malayalam. Basic: Punjabi, Odia,
+Assamese, Urdu. A fixed language can be chosen instead. On Vapi calls, Auto and
+regional languages use Deepgram's multilingual model and Google's multilingual
+voice; Hindi and English use fixed-language models. The list lives in
+`src/data/domain/telecallerLanguages.js` and `LANGUAGES` in the shared module.
+
 Gemini Live cannot reach the telephone network; to ring a real phone you need
 a telephony provider (section 3).
 
