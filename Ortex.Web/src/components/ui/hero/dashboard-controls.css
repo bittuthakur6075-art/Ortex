@@ -1,0 +1,198 @@
+/* Greeting */
+.lp-dgreet h3 {
+  font-size: clamp(16px, 1.67vw, 19px);
+  font-weight: 800;
+  letter-spacing: -.02em;
+  color: var(--n-900);
+  margin: 0;
+}
+
+.lp-dgreet .lp-grad {
+  background: linear-gradient(90deg, var(--brand-500), #7C3AED);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.lp-dgreet p {
+  font-size: clamp(10px, 1.05vw, 12px);
+  color: var(--n-500);
+  margin-top: 3px;
+  margin-bottom: 0;
+}
+
+/* Dashboard controls: tabs */
+.lp-dbar {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1.71vw, 12px);
+}
+
+.lp-dtabs {
+  display: flex;
+  gap: 3px;
+  padding: 4px;
+  border-radius: var(--r-full);
+  background: var(--n-100);
+}
+
+.lp-dtabs span {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(4px, 0.86vw, 6px);
+  font-size: clamp(10px, 1.01vw, 11.5px);
+  font-weight: 600;
+  color: var(--n-500);
+  padding: clamp(4px, 0.86vw, 6px) clamp(8px, 1.71vw, 12px);
+  border-radius: var(--r-full);
+}
+
+.lp-dtabs span svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.lp-dtabs span.on {
+  background: var(--n-0);
+  color: var(--brand-700);
+}
+
+.lp-dbuild {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  padding: clamp(5px, 1vw, 7px) clamp(9px, 1.9vw, 13px);
+  border-radius: var(--r-full);
+  background: var(--brand-500);
+  color: #fff;
+  font-size: clamp(9px, 0.96vw, 11px);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Filters row */
+.lp-dfilters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: clamp(5px, 1vw, 7px);
+  margin-top: clamp(6px, 1.29vw, 9px);
+}
+
+.lp-dfilters .sp {
+  flex: 1;
+}
+
+.lp-dchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: clamp(3px, 0.7vw, 5px) clamp(7px, 1.4vw, 10px);
+  border: 1px solid var(--n-150);
+  border-radius: var(--r-full);
+  background: var(--n-0);
+  font-size: clamp(8px, 0.88vw, 10px);
+  font-weight: 600;
+  color: var(--n-700);
+  white-space: nowrap;
+}
+
+.lp-dchip small {
+  color: var(--n-500);
+  font-weight: 500;
+  font-size: inherit;
+}
+
+.lp-dchip i {
+  width: 0;
+  height: 0;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-top: 4px solid var(--n-400);
+}
+
+.lp-dchip svg {
+  flex: none;
+  color: var(--n-500);
+}
+
+.lp-dcount {
+  font-size: clamp(8px, 0.88vw, 10px);
+  color: var(--n-500);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* KPIs grid */
+.lp-dkpis {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: clamp(6px, 1.29vw, 9px);
+}
+
+.lp-dkpi {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(10px, 1.8vw, 12px) clamp(11px, 2vw, 13px);
+  border: none;
+  border-radius: 32px;
+  background: var(--n-0);
+}
+
+.lp-dkpi-ic {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-full);
+  margin-bottom: clamp(6px, 1.29vw, 9px);
+  color: var(--brand-500);
+  background: color-mix(in srgb, currentColor 12%, var(--n-0));
+}
+
+.lp-dkpi-ic svg {
+  width: 20px;
+  height: 20px;
+}
+
+.lp-dkpi-l {
+  font-size: clamp(9px, 0.96vw, 11px);
+  font-weight: 600;
+  color: var(--n-500);
+}
+
+.lp-dkpi strong {
+  font-size: clamp(17px, 1.75vw, 20px);
+  font-weight: 800;
+  letter-spacing: -.025em;
+  color: var(--n-900);
+  margin-top: 3px;
+  line-height: 1.1;
+}
+
+.lp-dkpi small {
+  font-size: clamp(9px, 0.88vw, 10px);
+  color: var(--n-400);
+  margin-top: 3px;
+}
+
+.lp-dkpi.hero {
+  background: var(--brand-500);
+}
+
+.lp-dkpi.hero .lp-dkpi-ic {
+  background: rgba(255, 255, 255, .2);
+  color: #fff;
+}
+
+.lp-dkpi.hero .lp-dkpi-l,
+.lp-dkpi.hero small {
+  color: rgba(255, 255, 255, .82);
+}
+
+.lp-dkpi.hero strong {
+  color: #fff;
+}
+

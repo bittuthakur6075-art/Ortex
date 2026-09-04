@@ -1,0 +1,117 @@
+/* Dashboard surface */
+.lp-app {
+  background: #F4F6F8;
+  border: 1px solid var(--n-150);
+  border-radius: 18px;
+  overflow: hidden;
+  text-align: left;
+}
+
+/* App top bar */
+.lp-appbar {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 2.57vw, 18px);
+  padding: clamp(7px, 1.57vw, 11px) clamp(12px, 2.57vw, 18px);
+  background: var(--n-0);
+  border-bottom: 1px solid var(--n-150);
+}
+
+.lp-appbar-logo {
+  display: flex;
+  align-items: center;
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 0.05em;
+  color: var(--n-900);
+}
+
+.lp-appnav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lp-appnav span {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(5px, 1vw, 7px);
+  font-size: clamp(11px, 1.1vw, 12.5px);
+  font-weight: 600;
+  color: var(--n-500);
+  padding: clamp(4px, 0.86vw, 6px) clamp(7px, 1.57vw, 11px);
+  border-radius: var(--r-full);
+}
+
+.lp-appnav span svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.lp-appnav span.on {
+  color: var(--brand-700);
+  background: var(--brand-50);
+}
+
+.lp-appbar-sp {
+  flex: 1;
+}
+
+.lp-appbar-ic {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--n-150);
+  color: var(--n-500);
+  background: var(--n-0);
+}
+
+.lp-appbar-ic svg {
+  width: 16px;
+  height: 16px;
+}
+
+.lp-appbar-seal {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #17C653 9%, transparent);
+  border: 1px solid color-mix(in srgb, #17C653 25%, transparent);
+  color: #0BA33F;
+  font-size: clamp(8px, 0.88vw, 10px);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.lp-appbar-seal svg {
+  color: #17C653;
+  flex: none;
+}
+
+.lp-appbar-ava {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: clamp(9px, 0.96vw, 11px);
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: #fff;
+  background: var(--brand-500);
+}
+
+/* Dashboard main content */
+.lp-dmain {
+  padding: clamp(12px, 2.5vw, 18px) clamp(12px, 3vw, 20px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.6vw, 14px);
+  min-width: 0;
+}
+

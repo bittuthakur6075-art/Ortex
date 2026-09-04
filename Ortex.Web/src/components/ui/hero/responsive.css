@@ -1,0 +1,60 @@
+/* Responsiveness tweaks for mockup */
+.lp-dkpis > .lp-dkpi:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.lp-dbar {
+  flex-wrap: wrap;
+}
+
+.lp-win-title {
+  display: none;
+}
+
+.lp-appnav {
+  display: none;
+}
+
+.lp-dtabs {
+  flex-wrap: wrap;
+}
+
+.lp-dtabs span {
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .lp-dkpis {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .lp-dkpis > .lp-dkpi:last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+  .lp-dkpis > .lp-dkpi:last-child:nth-child(3n + 2) {
+    grid-column: span 2;
+  }
+  .lp-dbar {
+    flex-wrap: nowrap;
+  }
+  .lp-win-title {
+    display: inline;
+  }
+  .lp-appnav {
+    display: flex;
+  }
+  .lp-dtabs {
+    flex-wrap: nowrap;
+  }
+}
+
+@media (min-width: 992px) {
+  .lp-dkpis {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .lp-dkpis > .lp-dkpi:last-child:nth-child(3n + 2) {
+    grid-column: auto;
+  }
+  .lp-dlower {
+    grid-template-columns: 1.2fr 1fr;
+  }
+}
