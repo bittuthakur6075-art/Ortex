@@ -11,6 +11,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { json } from "../_shared/http.ts"
+import type { Db } from "../_shared/auth.ts"
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 const pad = (n: number) => String(n).padStart(2, "0")
@@ -108,7 +109,7 @@ Deno.serve(async (req) => {
 })
 
 // Persist the last-pull timestamp + a short human result back into settings.
-async function saveResult(db: ReturnType<typeof createClient>, doc: Record<string, unknown>, end: Date, result: string) {
+async function saveResult(db: Db, doc: Record<string, unknown>, end: Date, result: string) {
   const integrations = (doc.integrations as Record<string, unknown>) || {}
   const indiamart = (integrations.indiamart as Record<string, unknown>) || {}
   const nextDoc = {

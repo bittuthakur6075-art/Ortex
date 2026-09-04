@@ -9,12 +9,18 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { json } from "./http.ts"
 
+// Untyped client: the functions work on JSON documents, and the bare
+// SupabaseClient / ReturnType<typeof createClient> types collapse every table
+// to never under supabase-js 2.115 typings.
+// deno-lint-ignore no-explicit-any
+export type Db = SupabaseClient<any, any, any, any, any>
+
 export type Staff = {
   userId: string
   email: string | undefined
   role: string
   /** Service-role client when the key is configured, otherwise the caller's own session. */
-  db: SupabaseClient
+  db: Db
 }
 
 /**

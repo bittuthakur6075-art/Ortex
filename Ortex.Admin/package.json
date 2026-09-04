@@ -12,7 +12,8 @@
     "build:production": "vite build --mode production",
     "lint": "oxlint",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:functions": "npx --yes deno@2 check supabase/functions/*/index.ts supabase/functions/_shared/*.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",

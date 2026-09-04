@@ -41,6 +41,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - run: npm run check:functions   # Deno 2 fetched via npx
 
   connector:
     name: Ortex.Tally.Connector — XML fixture

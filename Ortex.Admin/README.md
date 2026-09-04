@@ -19,6 +19,7 @@ npm run build      # production build to dist/
 npm run preview    # serve the build
 npm run lint       # oxlint (.oxlintrc.json)
 npm test           # vitest — pure analytics/pricing tests
+npm run check:functions  # deno check on supabase/functions (Deno 2 via npx)
 ```
 
 ## What's inside

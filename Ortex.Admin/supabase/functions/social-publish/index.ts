@@ -23,7 +23,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
-import { requireStaff } from "../_shared/auth.ts"
+import { requireStaff, type Db } from "../_shared/auth.ts"
 
 const GRAPH = Deno.env.get("META_GRAPH_VERSION") || "v21.0"
 const api = (path: string) => `https://graph.facebook.com/${GRAPH}/${path}`
@@ -95,7 +95,7 @@ async function publishFacebook(pageId: string, imageUrl: string, caption: string
 }
 
 /** Publish one row across its selected platforms and write the outcome back. */
-async function publishOne(admin: ReturnType<typeof createClient>, row: { id: string; doc: Post }) {
+async function publishOne(admin: Db, row: { id: string; doc: Post }) {
   const doc = row.doc || {}
   const igUserId = Deno.env.get("META_IG_USER_ID")
   const pageId = Deno.env.get("META_PAGE_ID")
@@ -158,7 +158,7 @@ async function publishOne(admin: ReturnType<typeof createClient>, row: { id: str
  * `approvedBy` and require it to be an account that is *currently* an active
  * admin. Anything else is skipped, never published.
  */
-async function approvedByActiveAdmin(admin: ReturnType<typeof createClient>, doc: Post): Promise<boolean> {
+async function approvedByActiveAdmin(admin: Db, doc: Post): Promise<boolean> {
   const approvedBy = String(doc.approvedBy || "").trim()
   if (!approvedBy || !doc.approvedAt) return false
   const { data: prof } = await admin
