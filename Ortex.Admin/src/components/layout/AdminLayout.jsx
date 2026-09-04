@@ -20,6 +20,7 @@ import {
   TrendingUp,
   Bell,
   Instagram,
+  Phone,
   Sparkles,
 } from "../ui/Icons"
 import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
@@ -243,6 +244,7 @@ const NAV = [
     section: "Automation",
     items: [
       { to: "/social", key: "social", label: "Social", icon: Instagram },
+      { to: "/telecaller", key: "telecaller", label: "Telecaller", icon: Phone },
       { to: "/automation", key: "automation", label: "Automation", icon: Flame },
       { to: "/growth", key: "growth", label: "Growth", icon: TrendingUp },
     ],

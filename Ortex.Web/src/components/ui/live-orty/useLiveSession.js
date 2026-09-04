@@ -229,7 +229,7 @@ export function useLiveSession() {
   }, [])
 
   const start = useCallback(async () => {
-    if (!hasSupabase) { setErrorMsg("Voice assistant not configured."); setStatus("error"); return }
+    if (!hasSupabase) { setErrorMsg("Voice assistant not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Ortex.Web/.env and restart the dev server."); setStatus("error"); return }
     setStatus("connecting"); setErrorMsg("")
     rafRef.current = requestAnimationFrame(draw) // start the orb loop
     try {

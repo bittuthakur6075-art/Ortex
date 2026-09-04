@@ -48,16 +48,16 @@ Ortex/
 │   ├── docs/                  # PRD, environments, growth + leads specs
 │   ├── public/
 │   ├── supabase/
-│   │   ├── functions/         # Deno edge functions (+ _shared: http, auth, gemini)
+│   │   ├── functions/         # Deno edge functions (+ _shared: http, auth, gemini, telecaller)
 │   │   └── migrations/
 │   ├── test/fixtures/         # sample TallyPrime XML for the import flow
 │   └── src/
 │       ├── components/{layout,ui,editors,documents}/
 │       ├── data/{store,domain,seed}/   # repository facade + stores, schema/rules, demo data
-│       ├── services/          # notify, users, integrations
+│       ├── services/          # notify, users, integrations, telecaller
 │       ├── hooks/             # useCollection, useProfile …
 │       ├── lib/               # pure helpers: pricing, analytics, format, auth
-│       └── pages/             # one file per admin page
+│       └── pages/             # one file per admin page (+ telecaller/ AI caller module)
 ├── Ortex.Tally.Connector/     # Node CLI (src/, test/)
 ├── docs/                      # cross-cutting: architecture, backlog, guides
 ├── .github/workflows/ci.yml

@@ -7,6 +7,8 @@ import CallBadges from "./CallBadges"
 import ContactRow from "./ContactRow"
 import Detail from "./Detail"
 import ItemsList from "./ItemsList"
+import AiCallButton from "../telecaller/AiCallButton"
+import { targetFromVoiceCall } from "../telecaller/helpers"
 
 export default function CallCard({ call, onOpen }) {
   const f = call.flags
@@ -57,12 +59,15 @@ export default function CallCard({ call, onOpen }) {
 
       <div className="mt-4 space-y-2">
         <ContactRow call={call} />
-        <button
-          onClick={() => onOpen(call.id)}
-          className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-        >
-          Open call
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onOpen(call.id)}
+            className="flex-1 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+          >
+            Open call
+          </button>
+          {!f.support && <AiCallButton size="md" target={targetFromVoiceCall(call)} />}
+        </div>
       </div>
 
       <div className="mt-4 border-t border-border pt-2.5 text-xs text-muted-foreground">

@@ -16,6 +16,7 @@
     "check:functions": "npx --yes deno@2 check supabase/functions/*/index.ts supabase/functions/_shared/*.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.21.0",
     "@supabase/supabase-js": "^2.110.0",
     "apexcharts": "^5.16.0",
     "clsx": "^2.1.1",

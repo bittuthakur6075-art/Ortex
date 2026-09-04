@@ -11,6 +11,7 @@ import Products from "./pages/Products"
 import Categories from "./pages/Categories"
 import Work from "./pages/Work"
 import Social from "./pages/Social"
+import Telecaller from "./pages/Telecaller"
 import Quotations from "./pages/Quotations"
 import Invoices from "./pages/Invoices"
 import Payments from "./pages/Payments"
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="categories" element={guard("categories", <Categories />)} />
           <Route path="work" element={guard("work", <Work />)} />
           <Route path="social" element={guard("social", <Social />)} />
+          <Route path="telecaller" element={guard("telecaller", <Telecaller />)} />
           <Route path="quotations" element={guard("quotations", <Quotations />)} />
           <Route path="invoices" element={guard("invoices", <Invoices />)} />
           <Route path="payments" element={guard("payments", <Payments />)} />

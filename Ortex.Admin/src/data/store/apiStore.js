@@ -157,7 +157,8 @@ export const apiStore = {
     // Guarded destructive op — wipes every business table for this project.
     const tables = [
       "products", "categories", "social", "customers", "enquiries", "leads", "quotations", "invoices", "payments", "notifications",
-      "user_activities", "event_logs", "whatsapp_logs", "ai_messages", "automation_rules", "message_templates"
+      "user_activities", "event_logs", "whatsapp_logs", "ai_messages", "automation_rules", "message_templates",
+      "telecaller_jobs", "telecaller_calls"
     ]
     for (const t of tables) {
       const { error } = await supabase.from(t).delete().neq("id", "00000000-0000-0000-0000-000000000000")
@@ -170,7 +171,8 @@ export const apiStore = {
   async exportAll() {
     const tables = [
       "products", "categories", "social", "customers", "enquiries", "leads", "quotations", "invoices", "payments", "notifications",
-      "user_activities", "event_logs", "whatsapp_logs", "ai_messages", "automation_rules", "message_templates"
+      "user_activities", "event_logs", "whatsapp_logs", "ai_messages", "automation_rules", "message_templates",
+      "telecaller_jobs", "telecaller_calls"
     ]
     const out = {}
     for (const t of tables) out[t] = await this.list(t)

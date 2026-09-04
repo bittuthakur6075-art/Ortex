@@ -25,7 +25,9 @@ export const COLLECTIONS = [
   "ai_messages",
   "ai_usage",
   "automation_rules",
-  "message_templates"
+  "message_templates",
+  "telecaller_jobs",
+  "telecaller_calls",
 ]
 
 // ---- shared status vocabularies -------------------------------------------
@@ -74,6 +76,42 @@ export const SOCIAL_STATUS = [
 export const SOCIAL_PLATFORMS = [
   { id: "instagram", label: "Instagram" },
   { id: "facebook", label: "Facebook Page" },
+]
+
+// ---- AI telecaller ---------------------------------------------------------
+// Mirrors supabase/functions/_shared/telecaller.ts. A JOB is one thing to do
+// (follow up, feedback, upsell); each dial attempt is a CALL with an outcome.
+export const TELECALL_KINDS = [
+  { id: "followup", label: "Follow-up", tone: "blue" },
+  { id: "pitch", label: "Pitch", tone: "violet" },
+  { id: "feedback", label: "Feedback", tone: "cyan" },
+  { id: "upsell", label: "Upsell", tone: "emerald" },
+  { id: "manual", label: "Manual", tone: "slate" },
+]
+
+export const TELECALL_JOB_STATUS = [
+  { id: "queued", label: "Queued", tone: "slate" },
+  { id: "dialing", label: "Dialing", tone: "amber" },
+  { id: "in_progress", label: "On call", tone: "amber" },
+  { id: "completed", label: "Done", tone: "emerald" },
+  { id: "failed", label: "Failed", tone: "rose" },
+  { id: "skipped", label: "Skipped", tone: "slate" },
+  { id: "cancelled", label: "Cancelled", tone: "slate" },
+]
+
+export const TELECALL_OUTCOMES = [
+  { id: "deal_closed", label: "Deal closed", tone: "emerald" },
+  { id: "interested", label: "Interested", tone: "blue" },
+  { id: "needs_quote", label: "Needs quote", tone: "violet" },
+  { id: "callback", label: "Callback", tone: "amber" },
+  { id: "not_interested", label: "Not interested", tone: "slate" },
+  { id: "no_answer", label: "No answer", tone: "slate" },
+  { id: "busy", label: "Busy", tone: "slate" },
+  { id: "voicemail", label: "Voicemail", tone: "slate" },
+  { id: "wrong_number", label: "Wrong number", tone: "rose" },
+  { id: "complaint", label: "Complaint", tone: "rose" },
+  { id: "do_not_call", label: "Do not call", tone: "rose" },
+  { id: "failed", label: "Failed", tone: "rose" },
 ]
 
 export const PRODUCT_STATUS = [

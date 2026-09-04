@@ -21,6 +21,7 @@ export const MODULES = [
   { key: "users", path: "/users", label: "Users", section: "System", adminOnly: true },
   { key: "settings", path: "/settings", label: "Settings", section: "System", adminOnly: true },
   { key: "social", path: "/social", label: "Social", section: "Automation" },
+  { key: "telecaller", path: "/telecaller", label: "Telecaller", section: "Automation" },
   { key: "growth", path: "/growth", label: "Growth", section: "Automation", adminOnly: true },
   { key: "automation", path: "/automation", label: "Automation", section: "Automation", adminOnly: true },
 ]

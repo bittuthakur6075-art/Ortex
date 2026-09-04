@@ -18,6 +18,8 @@ import {
 } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
+import AiCallButton from "./telecaller/AiCallButton"
+import { targetFromLead } from "./telecaller/helpers"
 import { useCollection, useSorting } from "../hooks/useCollection"
 import {
   computeLeadScore,
@@ -407,6 +409,7 @@ function LeadDrawer({ lead, onClose }) {
                 <a href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-[hsl(var(--success))] hover:bg-[hsl(var(--success))]/10">
                   <MessageCircle className="h-4 w-4" /> WhatsApp
                 </a>
+                {!isNew && <AiCallButton size="sm" target={targetFromLead({ ...lead, ...form })} />}
               </>
             )}
           </div>

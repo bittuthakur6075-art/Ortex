@@ -70,6 +70,10 @@ import {
   Gallery,
   Calendar1,
   Refresh2,
+  CallCalling,
+  Headphone,
+  Microphone2,
+  Play,
 } from "iconsax-react"
 
 function wrap(Cmp) {
@@ -142,6 +146,10 @@ export const Send = wrap(Send2)
 export const ImageIcon = wrap(Gallery)
 export const Calendar = wrap(Calendar1)
 export const RefreshCw = wrap(Refresh2)
+export const PhoneOutgoing = wrap(CallCalling)
+export const Headset = wrap(Headphone)
+export const Mic = wrap(Microphone2)
+export const PlayIcon = wrap(Play)
 
 // A spinner (lucide's Loader2 replacement) — a CSS ring, so it spins cleanly.
 export function Loader2({ className = "" }) {

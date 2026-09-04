@@ -50,6 +50,27 @@ export const DEFAULT_SETTINGS = {
     // buyer enquiries into the Enquiries module. lastPull tracks the sync window.
     indiamart: { crmKey: "", enabled: false, lastPull: null, lastResult: "" },
   },
+  // AI telecaller (Telecaller module). Mirrored by DEFAULT_TELECALLER in
+  // supabase/functions/_shared/telecaller.ts — keep the two in step.
+  telecaller: {
+    enabled: false, // master switch for the automatic sweep (manual "AI call" always works)
+    provider: "simulate", // "simulate" (Gemini role-play, no phone) | "vapi" (real outbound calls)
+    agentName: "Anu",
+    language: "hinglish", // hinglish | hi | en
+    callingHours: { start: "10:00", end: "19:00" },
+    timezone: "Asia/Kolkata",
+    dailyCap: 40,
+    maxAttempts: 3,
+    retryGapHours: 24,
+    autoQueueNewLeads: true,
+    followUp: { enabled: true, delayHours: 24, maxRounds: 3 },
+    feedback: { enabled: true, daysAfterInvoice: 7 },
+    upsell: { enabled: true, daysAfterInvoice: 30, repeatEveryDays: 90 },
+    pitchNotes: "",
+    doNotCall: [],
+    // Training scripts: persona notes + per-call-type objectives (blank = default).
+    scripts: { persona: "", followup: "", pitch: "", feedback: "", upsell: "" },
+  },
 }
 
 // Deep-merge a saved settings object over the defaults so new default keys
@@ -70,6 +91,16 @@ export function mergeSettings(saved) {
       ...DEFAULT_SETTINGS.integrations,
       ...saved.integrations,
       indiamart: { ...DEFAULT_SETTINGS.integrations.indiamart, ...saved.integrations?.indiamart },
+    },
+    telecaller: {
+      ...DEFAULT_SETTINGS.telecaller,
+      ...saved.telecaller,
+      callingHours: { ...DEFAULT_SETTINGS.telecaller.callingHours, ...saved.telecaller?.callingHours },
+      followUp: { ...DEFAULT_SETTINGS.telecaller.followUp, ...saved.telecaller?.followUp },
+      feedback: { ...DEFAULT_SETTINGS.telecaller.feedback, ...saved.telecaller?.feedback },
+      upsell: { ...DEFAULT_SETTINGS.telecaller.upsell, ...saved.telecaller?.upsell },
+      doNotCall: Array.isArray(saved.telecaller?.doNotCall) ? saved.telecaller.doNotCall : [],
+      scripts: { ...DEFAULT_SETTINGS.telecaller.scripts, ...saved.telecaller?.scripts },
     },
   }
 }

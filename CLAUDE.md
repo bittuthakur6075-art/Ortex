@@ -7,7 +7,7 @@ This file provides guidance to AI coding assistants when working with code in th
 This repository contains the digital infrastructure for **Ortex Industries** (manufacturer of customized MDF/acrylic items, lanyards, corporate gifts, OEM/white-label production). It is split into three **independent npm projects** (no root workspace); the root `README.md` has the full directory tree and conventions.
 
 1. **`Ortex.Web`**: The marketing/lead-gen single-page app (React 19 + Vite 8 + Tailwind CSS v4). Brand showcase, product catalog, quote wizard, lead capture, Live Orty voice assistant.
-2. **`Ortex.Admin`**: The business admin dashboard (React 19 + Vite 8 + Tailwind CSS v4 + Supabase). Manages leads, quotations, invoices, payments, customers, catalogue, social and automation. Owns the Supabase schema (`supabase/migrations`) and Deno edge functions (`supabase/functions`).
+2. **`Ortex.Admin`**: The business admin dashboard (React 19 + Vite 8 + Tailwind CSS v4 + Supabase). Manages leads, quotations, invoices, payments, customers, catalogue, social, automation and the AI telecaller. Owns the Supabase schema (`supabase/migrations`) and Deno edge functions (`supabase/functions`).
 3. **`Ortex.Tally.Connector`**: A **standalone** Node CLI (outbound: Admin → Tally). It is not imported or launched by `Ortex.Admin`. It must run on the Windows PC where TallyPrime is open, because Tally's XML gateway only listens on `localhost:9000`. It reads Supabase with a `service_role` key, pushes customers/products/invoices/payments as Tally vouchers/masters, and writes `doc.tally` back onto each record. The two apps communicate only through that field.
 
 ## Repo-wide conventions
@@ -62,6 +62,7 @@ npm test                # vitest — pure tests (src/lib/analytics.test.js)
   * **Full-Page Editors**: Quotation and Invoice creators use clean full-page dashboards rather than modal views; layout is a 2/3 (Details & Line Items) and 1/3 (Settings & Notes) split, with the Line Items grid occupying a full-width section.
   * **Spacious Line Items Editor**: `LineItemsEditor` uses a strict `table-fixed` layout with a `min-w-[1024px]` viewport, aligning headers and input cells with matched width classes (`w-24`, `w-20`, etc.).
   * **A4 Print Engine**: Print (`window.print()`) and PDF Download (`html2pdf.js`). Documents fit A4 (`210mm x 297mm`) with computer-generated notes locked to the bottom via CSS flex (`mt-auto`).
+  * **AI Telecaller** (`/telecaller`, module key `telecaller`): outbound AI sales calls. `telecaller_jobs` (what to call and why: followup / pitch / feedback / upsell / manual) and `telecaller_calls` (each dial with transcript + Gemini analysis). Engine lives in `supabase/functions/_shared/telecaller.ts` (brief → provider → analysis → lead/enquiry update → next job); functions `telecaller-dial` (staff "call now"), `telecaller-engine` (pg_cron sweep: auto-queue + dial due), `telecaller-webhook` (provider end-of-call). Providers: `simulate` (Gemini role-play, default) and `vapi` (real calls). Settings block `settings.telecaller` is mirrored by `DEFAULT_TELECALLER` in the shared module — keep them in step. `AiCallButton` (in `src/pages/telecaller/`) is reused on Voice Leads cards and the Lead drawer. `PracticeModal` + `useLiveCall` run a browser practice call over Gemini Live (mic in, voice out, same `orty-live-token` flow as the website) and post the transcript to `telecaller-dial` `{ mode: "record" }`; `{ mode: "brief" }` returns the prompt. `settings.telecaller.scripts` holds persona + per-kind script overrides used by `buildBrief`. Setup: `docs/guides/TELECALLER_SETUP.md`.
   * **Tally XML Import** (inbound, Invoices only): parses TallyPrime Sales Voucher XML — bulk via the import drawer, or to auto-fill the invoice editor. Sample export: `test/fixtures/tally-sales-invoice.xml`. Imported invoices carry **aggregate totals only** (no per-line `lines` array, so `DocumentView` must default defensively) and are stamped `doc.tally.status = "synced"` so the connector does not push them back as duplicates. The Invoices list shows `doc.tally.status` as a badge.
 
 ---
@@ -83,6 +84,6 @@ npm run fixture   # XML builder self-test (also run in CI)
 * `README.md` — repo map, quick start, conventions.
 * `docs/architecture/ARCHITECTURE.md` — narratives, directories, data flows, design system.
 * `docs/pm/PRODUCT_BACKLOG.md`, `docs/pm/GROWTH_ROADMAP.md` — backlog and release progress.
-* `docs/guides/GETTING_STARTED.md`, `docs/guides/META_SETUP.md` — setup guides.
+* `docs/guides/GETTING_STARTED.md`, `docs/guides/META_SETUP.md`, `docs/guides/TELECALLER_SETUP.md` — setup guides.
 * `Ortex.Admin/docs/` — PRD, environments, growth tracking, leads & receipts.
 * `Ortex.Web/docs/DEPLOY_HOSTINGER.md` — static deploy guide.
