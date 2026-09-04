@@ -12,7 +12,6 @@
   "dependencies": {
     "@google/genai": "^2.11.0",
     "@supabase/supabase-js": "^2.110.0",
-    "clsx": "^2.1.1",
     "framer-motion": "^12.42.2",
     "iconsax-react": "^0.0.8",
     "lenis": "^1.3.25",
@@ -20,13 +19,10 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",
-    "sonner": "^2.0.7",
-    "tailwind-merge": "^3.6.0"
+    "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.2",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",
     "tailwindcss": "^4.3.2",

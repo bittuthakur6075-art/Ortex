@@ -16,7 +16,7 @@ import {
   TickCircle,
 } from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
-import { fadeUp, RevealWords } from "../components/home/Section"
+import { fadeUp, RevealWords } from "../components/ui/Section"
 import PageCTA from "../components/ui/PageCTA"
 import PageHero from "../components/ui/PageHero"
 

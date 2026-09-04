@@ -1,6 +1,6 @@
 import { motion } from "framer-motion"
 import { stats } from "../../constants/home"
-import { fadeUp, EASE } from "./Section"
+import { fadeUp, EASE } from "../ui/Section"
 
 export default function StatsBar() {
   return (

@@ -1,6 +1,6 @@
 import { motion } from "framer-motion"
 import { capabilities, testimonials } from "../../constants/home"
-import { EASE } from "./Section"
+import { EASE } from "../ui/Section"
 
 /**
  * Otto "Our Core Values" clone for Production standards. The left column

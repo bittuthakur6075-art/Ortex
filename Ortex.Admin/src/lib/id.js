@@ -14,7 +14,7 @@ export function uid(prefix = "id") {
 }
 
 // Indian financial year code for a date, e.g. 2025-07 -> "2526".
-export function financialYearCode(date = new Date()) {
+function financialYearCode(date = new Date()) {
   const d = new Date(date)
   const year = d.getFullYear()
   const startYear = d.getMonth() >= 3 ? year : year - 1 // FY starts in April

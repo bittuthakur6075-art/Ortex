@@ -1,6 +1,6 @@
 import { motion } from "framer-motion"
 import { Link } from "react-router-dom"
-import { fadeUp, EASE } from "./Section"
+import { fadeUp, EASE } from "../ui/Section"
 
 export default function FinalCTA() {
   return (

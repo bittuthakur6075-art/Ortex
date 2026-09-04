@@ -80,7 +80,7 @@ export async function uploadImage(file, folder = "products") {
 }
 
 /** True if a stored image value lives in our bucket (vs. a base64 or remote URL). */
-export function isBucketUrl(url) {
+function isBucketUrl(url) {
   return typeof url === "string" && url.includes(`/${BUCKET}/`)
 }
 

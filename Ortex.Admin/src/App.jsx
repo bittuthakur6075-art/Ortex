@@ -19,7 +19,7 @@ import Users from "./modules/Users"
 import Profile from "./modules/Profile"
 import AutomationPage from "./modules/Automation"
 import Growth from "./modules/Growth"
-import { useProfile } from "./data/profile"
+import { useProfile } from "./hooks/useProfile"
 import { canAccess } from "./data/modules"
 
 // Route-level access gate — mirrors the sidebar filtering so a blocked module

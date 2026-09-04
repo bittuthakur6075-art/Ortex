@@ -8,35 +8,6 @@
 // table, this static list can be swapped for a live fetch — the object shape
 // already matches the admin model (basePrice / moq / gstRate / hsn / …).
 
-// Volume-discount tiers — identical to the admin pricing engine
-// (Ortex.Admin/src/lib/pricing.js) so quotes and back-office documents agree.
-export const VOLUME_TIERS = [
-  { min: 5000, percent: 30 },
-  { min: 1000, percent: 20 },
-  { min: 300, percent: 10 },
-  { min: 0, percent: 0 },
-]
-
-export function volumeDiscountPercent(quantity) {
-  return (VOLUME_TIERS.find((t) => quantity >= t.min) || { percent: 0 }).percent
-}
-
-// Category display metadata (emoji) for the catalogue UI.
-export const CATEGORY_META = {
-  "MDF products": { icon: "🪵" },
-  "Acrylic products": { icon: "💎" },
-  "Lanyards & ID card accessories": { icon: "🎗️" },
-  "Badge manufacturing": { icon: "🎖️" },
-  "Examination boards": { icon: "📋" },
-  "Corporate gifting & merchandise": { icon: "🎁" },
-  "Clipboards & writing pads": { icon: "📝" },
-  "Keychains": { icon: "🔑" },
-  "Wall clocks": { icon: "🕐" },
-  "Fridge magnets": { icon: "🧲" },
-  "Flags & banners": { icon: "🚩" },
-  "Promotional merchandise": { icon: "🧢" },
-}
-
 // Active products only (the admin "draft" items are hidden from the public site).
 export const PRODUCTS = [
   // ── MDF products ─────────────────────────────────────────────────────────
@@ -107,17 +78,4 @@ export const PRODUCTS = [
 
 // Categories in catalogue order (derived from PRODUCTS, de-duplicated).
 export const CATEGORIES = [...new Set(PRODUCTS.map((p) => p.category))]
-
-// Per-line pre-tax pricing: gross → volume discount → line total.
-// GST is deliberately NOT applied here — the site shows an indicative pre-tax
-// estimate with a "+ GST as applicable" note; the admin applies GST at quoting.
-export function priceLine(product, quantity) {
-  const qty = Math.max(0, Number(quantity) || 0)
-  const gross = product.basePrice * qty
-  const discountPercent = volumeDiscountPercent(qty)
-  const discount = Math.round((gross * discountPercent) / 100)
-  const total = Math.round(gross - discount)
-  const unitEffective = qty > 0 ? total / qty : product.basePrice
-  return { qty, unitPrice: product.basePrice, unitEffective, gross: Math.round(gross), discountPercent, discount, total }
-}
 

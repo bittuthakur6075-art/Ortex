@@ -18,7 +18,7 @@ import {
   Users,
 } from "../components/icons"
 import { repo } from "../data/repository"
-import { useCollection } from "../data/hooks"
+import { useCollection } from "../hooks/useCollection"
 import { ENQUIRY_STATUS, newLine } from "../data/schema"
 import { relativeTime, formatDateTime } from "../lib/format"
 import { exportCsv } from "../lib/csv"
@@ -141,7 +141,7 @@ function itemsFor(row) {
   // have can only be attributed when there is exactly one product.
   const names = String(row.productInterest || "").split(",").map((s) => s.trim()).filter(Boolean)
   if (!names.length) return []
-  return names.map((product, i) => ({
+  return names.map((product) => ({
     product,
     quantity: names.length === 1 ? row.quantity || "" : "",
     notes: "",

@@ -18,7 +18,7 @@ import {
 } from "../components/icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
-import { useCollection, useSorting } from "../data/hooks"
+import { useCollection, useSorting } from "../hooks/useCollection"
 import {
   computeLeadScore,
   weightedLeadValue,

@@ -1,8 +1,8 @@
 import {
   Setting2, Slider,
-  Box, MagicStar, Profile2User, Gift,
+  Box,
   Building, Teacher, Bank, Calendar, Building3,
-  Award, Document, DocumentText, Flash,
+  Award, Document, Flash,
   Activity, VolumeHigh, Heart, Bag,
   Truck,
 } from "iconsax-react"
@@ -46,17 +46,6 @@ export const capabilities = [
     description:
       "Before a single sheet is cut, our in-house design team checks your dimensions, bleed, and layout for production. You get back a virtual mockup to approve, so mistakes are caught on screen rather than discovered later in the finished batch.",
   },
-]
-
-export const featuredProducts = [
-  { icon: Box, title: "MDF manufacturing", description: "Custom shape keychains, magnets, and desk organizers cut from high-density 3.2mm/5.5mm MDF sheet." },
-  { icon: MagicStar, title: "Acrylic customization", description: "Sandwich-layered keychains (scratch prevention), laser-polished badges, and name displays." },
-  { icon: Profile2User, title: "Lanyards & ID straps", description: "Textured polyester and satin-finish lanyards (12mm/16mm/20mm) with breakaway safety attachments." },
-  { icon: Award, title: "Badge production", description: "Laser-cut acrylic, custom-printed tinplate button, magnetic, and plastic molded badges." },
-  { icon: Document, title: "Examination boards", description: "High-impact PVC and ABS examination clipboards with custom surface-branding overlays." },
-  { icon: DocumentText, title: "Corporate clipboards", description: "Custom-branded writing pads and rigid clipboards cut to custom sizes with spring clips." },
-  { icon: Gift, title: "Custom merchandise", description: "Fully customized executive diary sets, bottles, thermal mugs, and branding accessories." },
-  { icon: Flash, title: "Industrial branding", description: "Advanced flatbed UV printing, precise laser engraving, dye-sublimation, and thermo-embossing." },
 ]
 
 export const featuredIndustries = [

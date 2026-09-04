@@ -7,12 +7,12 @@
 
 import { supabase, hasSupabase } from "./supabaseClient"
 
-export const ARTWORK_BUCKET = "artwork"
-export const MAX_ARTWORK_BYTES = 10 * 1024 * 1024
+const ARTWORK_BUCKET = "artwork"
+const MAX_ARTWORK_BYTES = 10 * 1024 * 1024
 
 // .cdr and .dxf are the formats Indian print and CNC shops actually receive;
 // the old picker rejected both while the homepage promised them.
-export const ARTWORK_EXTENSIONS = [
+const ARTWORK_EXTENSIONS = [
   ".ai", ".cdr", ".dxf", ".eps", ".pdf", ".svg", ".png", ".jpg", ".jpeg",
 ]
 export const ARTWORK_ACCEPT = ARTWORK_EXTENSIONS.join(",")

@@ -2,7 +2,7 @@
 
 Back-office operations console for **Ortex Industries** — a standalone app managing the full **quote-to-cash** lifecycle: Enquiries → Products → Quotations → GST Invoices → Payments/Payouts, with a growth dashboard.
 
-This is a **separate application** from the marketing site (which lives in the repo's `src/`). Everything for the admin is inside this `Ortex.Admin/` folder.
+This is a **separate application** from the marketing site (`Ortex.Web/`). Everything for the admin is inside this `Ortex.Admin/` folder; the Supabase schema and edge functions live in `supabase/`.
 
 ## Quick start
 
@@ -12,12 +12,13 @@ npm install
 npm run dev        # http://localhost:5180
 ```
 
-Sign in with the demo password **`ortex@admin`**, then open **Settings → Load demo data** (or the Dashboard's "Load demo data" button) to populate a full sample dataset.
+Copy `.env.example` to `.env` with your Supabase project URL/anon key (see `docs/ENVIRONMENTS.md` for staging vs production). Sign in with a staff account invited from **Users**; there is no demo password.
 
 ```bash
 npm run build      # production build to dist/
 npm run preview    # serve the build
-npm run lint       # oxlint
+npm run lint       # oxlint (.oxlintrc.json)
+npm test           # vitest — pure analytics/pricing tests
 ```
 
 ## What's inside
@@ -25,20 +26,23 @@ npm run lint       # oxlint
 | Area | Path |
 |---|---|
 | App shell, routing, auth gate | `src/App.jsx`, `src/components/AdminLayout.jsx`, `src/components/Login.jsx` |
-| Modules (pages) | `src/modules/` — Dashboard, Enquiries, Products, Quotations, Invoices, Payments, Settings |
-| Shared UI kit | `src/components/ui.jsx` + `PageHeader`, `CustomerFields`, `LineItemsEditor`, `DocumentView` |
-| Data layer | `src/data/` — `repository.js`, `localStore.js`, `schema.js`, `domain.js`, `analytics.js`, `seed.js`, `hooks.js` |
-| Helpers | `src/lib/` — `pricing.js` (GST engine), `format.js`, `id.js`, `csv.js`, `cn.js`, `auth.js` |
-| Docs | `docs/PRD.md`, `docs/GROWTH_TRACKING.md` |
+| Modules (pages) | `src/modules/` — Dashboard, Leads, Enquiries, VoiceLeads, Customers, Products, Categories, Quotations, Invoices, Payments, Work, Social, Automation, Growth, Users, Profile, Settings |
+| Shared UI kit | `src/components/ui.jsx`, `icons.jsx` + `PageHeader`, `CustomerFields`, `ShipToFields`, `LineItemsEditor`, `DocumentView`, `ReceiptView`, `TallyInvoiceImport`, `ProductImport` |
+| Data layer | `src/data/` — `repository.js` (facade) → `apiStore.js` (Supabase) or `localStore.js` (offline fallback); `schema.js`, `domain.js`, `seed.js`, `sync.js`, `notify.js`, `users.js` |
+| Hooks | `src/hooks/` — `useCollection.js` (`useCollection`, `useCollections`, `useSettings`, `useSorting`), `useProfile.js` |
+| Helpers | `src/lib/` — `pricing.js` (GST engine), `analytics.js` (+ tests), `format.js`, `id.js`, `csv.js`, `cn.js`, `auth.js`, `imageUpload.js`, `quoteRfq.js`, `revalidate.js` |
+| Backend | `supabase/migrations/` (schema + RLS), `supabase/functions/` (Deno edge functions; shared CORS/JSON helpers in `_shared/`) |
+| Fixtures | `test/fixtures/tally-sales-invoice.xml` — sample TallyPrime export for the invoice import |
+| Docs | `docs/PRD.md`, `docs/ENVIRONMENTS.md`, `docs/GROWTH_TRACKING.md`, `docs/LEADS_AND_RECEIPTS.md` |
 
 ## Architecture notes
 
-**Client-side, API-ready.** All persistence goes through one async repository interface (`data/repository.js`). Today it's backed by `localStore` (browser `localStorage`). To go live against a real backend, implement the same async surface (`list/get/create/update/remove/getSettings/saveSettings/nextSequence/subscribe/...`) in an `apiStore` and change the single export in `repository.js` — **no module or component changes required**.
+**One repository interface.** All persistence goes through `data/repository.js`. When Supabase env vars are present it resolves to `apiStore` (Postgres + RLS); without them it falls back to `localStore` (browser `localStorage`) so the UI still runs offline. Modules never import a store directly.
 
-**Why standalone / localStorage caveat.** Because this runs on its own origin, it keeps its own data store; it does not read the marketing site's `localStorage`. In production, connect both to a shared backend (or serve the admin under the same origin) so website enquiries flow into the console. All data is per-browser and wipeable — fine for demo/staging, **not** a system of record until a backend is added.
+**Shared backend with the website.** Both apps talk to the same Supabase project: website enquiries, quote-wizard RFQs and Live Orty calls land in tables the admin reads; the admin's published catalogue and work photos feed the website.
 
 **GST engine** (`lib/pricing.js`): per-line discount → taxable → GST; whole-document discount; intra-state CGST+SGST vs inter-state IGST based on state codes; round-off. Shared by quotations and invoices so a quote and its converted invoice total identically.
 
-**Security.** The login is a client-side passphrase gate for demo/staging only — **not** a security boundary. Add real authentication before exposing live customer or financial data.
+**Security.** Supabase Auth with a password + emailed one-time code step (`lib/auth.js`), invite-only signups, and row-level security enforced by the migrations. Edge functions re-check the caller's staff profile before using any server-side key.
 
 See `docs/PRD.md` for the full product spec and `docs/GROWTH_TRACKING.md` for the metrics/KPI reference (India GST, payments/payouts, dashboard spec).

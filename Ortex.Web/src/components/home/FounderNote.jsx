@@ -1,6 +1,6 @@
 import { motion } from "framer-motion"
 import { founderNote, hasFounderNote } from "../../constants/founder"
-import { Section, EASE } from "./Section"
+import { Section, EASE } from "../ui/Section"
 
 /**
  * Renders nothing until a real note is written. See constants/founder.js —

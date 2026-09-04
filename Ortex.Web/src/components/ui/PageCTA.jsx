@@ -1,6 +1,6 @@
 import { motion } from "framer-motion"
 import { Link } from "react-router-dom"
-import { fadeUp } from "../home/Section"
+import { fadeUp } from "./Section"
 
 /**
  * The shared closing CTA used across marketing pages, matching the home

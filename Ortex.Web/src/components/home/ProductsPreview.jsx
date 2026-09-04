@@ -3,7 +3,7 @@ import { motion, useMotionValue, useSpring } from "framer-motion"
 import { Link } from "react-router-dom"
 import { ArrowRight } from "lucide-react"
 import { PRODUCT_CATEGORIES, photosForCategory, categoryStats } from "../../constants/categories"
-import { fadeUp, EASE } from "./Section"
+import { fadeUp, EASE } from "../ui/Section"
 
 /**
  * Otto "Our Services & Products" clone: dark section, a large heading top-left,

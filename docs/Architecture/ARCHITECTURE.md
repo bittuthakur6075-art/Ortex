@@ -41,43 +41,43 @@ The project is built on a modern frontend React-based single-page application se
 
 ## 3. Directory Structure
 
+The repository holds three independent npm projects plus shared docs (see the root
+`README.md` for the full tree and conventions).
+
 ```text
 Ortex/
-├── .git/
-├── .gitignore
-├── .oxlintrc.json
-├── package.json
-├── package-lock.json
-├── README.md
-├── index.html
-├── vite.config.js
-├── public/
-└── src/
-    ├── App.css
-    ├── index.css
-    ├── main.jsx
-    ├── App.jsx
-    ├── assets/
-    ├── components/
-    │   ├── Navbar.jsx          # Sticky header navigation, theme toggler + WhatsApp template configuration
-    │   ├── Footer.jsx          # Bottom section containing links, contacts, and WhatsApp integration
-    │   ├── ScrollToTop.jsx     # Auto-scrolls user to top on route updates
-    │   ├── Hero.jsx            # Interactive hero landing component with KPI metrics
-    │   └── Chatbot.jsx         # Custom integrated client chatbot component
-    ├── hooks/
-    │   └── useDocumentMetadata.js  # Dynamic SEO manager for titles & description tags
-    ├── utils/
-    │   └── cn.js               # Helper combining clsx and tailwind-merge
-    └── pages/
-        ├── Home.jsx            # Home wrapper rendering Hero, capabilities & CTA
-        ├── About.jsx           # Mission statement, storytelling & differentiators
-        ├── Products.jsx        # Grid of product offerings and custom service specs
-        ├── Industries.jsx      # Targeted industry sectors & statistics counter
-        ├── Portfolio.jsx       # Custom gallery with filters and detailed lightbox
-        ├── Contact.jsx         # Pre-filled validation form from portfolio inquiries
-        ├── QuoteCalculator.jsx # Step-by-step custom quote estimator & mock RFQ builder
-        ├── Privacy.jsx         # Legal privacy statement
-        └── Terms.jsx           # Legal terms of service
+├── Ortex.Web/                      # marketing SPA (React 19 + Vite 8 + Tailwind v4)
+│   ├── scripts/                    # routes-meta.mjs, check-meta.mjs, prerender.mjs
+│   ├── public/                     # favicon, manifest, robots, .htaccess, img/
+│   ├── docs/DEPLOY_HOSTINGER.md
+│   └── src/
+│       ├── App.jsx                 # route table; pages + LiveOrty are lazy-loaded
+│       ├── components/
+│       │   ├── home/               # Home-only sections (Welcome, Capabilities, Process …)
+│       │   ├── layout/             # Navbar, Footer, ScrollToTop
+│       │   └── ui/                 # PageHero, PageCTA, Section (motion primitives),
+│       │                           # Hero, LiveOrty, PhotoLightbox, CookieConsent …
+│       ├── constants/              # site.js, categories.js, products.js, photos.js, home.js
+│       ├── hooks/                  # useDocumentMetadata, useSmoothScroll, useWork
+│       ├── lib/                    # supabaseClient, catalog(+Data), leads, tracker, uploads, consent
+│       └── pages/                  # one component per route
+├── Ortex.Admin/                    # admin console
+│   ├── supabase/
+│   │   ├── migrations/             # schema, RLS, storage policies
+│   │   └── functions/              # Deno edge functions; _shared/http.ts = CORS + json()
+│   ├── test/fixtures/              # sample TallyPrime XML
+│   ├── docs/                       # PRD, ENVIRONMENTS, GROWTH_TRACKING, LEADS_AND_RECEIPTS
+│   └── src/
+│       ├── App.jsx                 # auth gate + module routing
+│       ├── components/             # AdminLayout, Login, ui.jsx kit, icons.jsx adapter,
+│       │                           # editors (LineItemsEditor, CustomerFields …), DocumentView
+│       ├── data/                   # repository facade, apiStore/localStore, schema, domain, seed
+│       ├── hooks/                  # useCollection(s)/useSettings/useSorting, useProfile
+│       ├── lib/                    # pricing, analytics, format, id, csv, auth, imageUpload
+│       └── modules/                # one page per business module
+├── Ortex.Tally.Connector/          # Node CLI: src/{config,source,sync,tallyClient,tallyXml}.js
+├── docs/                           # this file, PM backlog/roadmap, guides
+└── .github/workflows/ci.yml        # lint + build (Web, Admin), fixture (Connector)
 ```
 
 ---
@@ -142,6 +142,6 @@ The custom hook `src/hooks/useDocumentMetadata.js` dynamically updates `<title>`
 *   **Pricing Engine**: Evaluates base costs + material specs additions * quantities, applying custom tier discounts (10% to 30%).
 *   **Logo Attachment**: Supports file upload (SVGs, PDFs, High-Res PNGs) and saves structured RFQs to local storage key `"ortex_quotes"`.
 
-### 5.5. Theme Switcher Context (`src/components/Navbar.jsx`)
+### 5.5. Theme Switcher Context (`src/components/layout/Navbar.jsx`)
 *   Monitors `darkMode` state reading from local storage preferences or OS presets.
 *   Fires side-effect to add/remove `.dark` class from `document.documentElement`, shifting global HSL variables instantly.

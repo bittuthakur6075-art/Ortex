@@ -1,5 +1,5 @@
 import { testimonials } from "../../constants/home"
-import { SectionHeading } from "./Section"
+import { SectionHeading } from "../ui/Section"
 
 export default function Testimonials() {
   return (

@@ -4,7 +4,7 @@ import { ShieldCheck, Plus, Users as UsersIcon } from "../components/icons"
 import { Button, Card, Input, Select, Field, Modal, Badge, PageLoader, EmptyState, SortTh } from "../components/ui"
 import PageHeader from "../components/PageHeader"
 import { listProfiles, updateProfile, createUser } from "../data/users"
-import { useSorting } from "../data/hooks"
+import { useSorting } from "../hooks/useCollection"
 import { ASSIGNABLE_MODULES, SALES_DEFAULT_MODULES, MODULES } from "../data/modules"
 import { currentUserId } from "../lib/auth"
 

@@ -11,10 +11,10 @@ export const CONTACT = {
 }
 
 // Digits-only number used to build WhatsApp deep links.
-export const WHATSAPP_NUMBER = "919211947188"
+const WHATSAPP_NUMBER = "919211947188"
 
 // Default pre-filled WhatsApp enquiry message.
-export const WHATSAPP_DEFAULT_MESSAGE =
+const WHATSAPP_DEFAULT_MESSAGE =
   "Hi Ortex Industries, I would like to get a quote for customized products."
 
 /**

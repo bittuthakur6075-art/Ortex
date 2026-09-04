@@ -15,15 +15,7 @@
 //   (optional) supabase secrets set GEMINI_MODEL=gemini-flash-lite-latest
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-}
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } })
+import { cors, json } from "../_shared/http.ts"
 
 // Record token usage (best-effort) so the Admin can show real LLM usage. Uses
 // the service-role key, which bypasses RLS.

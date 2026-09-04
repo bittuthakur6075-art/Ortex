@@ -23,9 +23,9 @@ import {
   Sparkles,
 } from "./icons"
 import { logout, useAuth, useAuthReady, currentEmail } from "../lib/auth"
-import { useProfile } from "../data/profile"
+import { useProfile } from "../hooks/useProfile"
 import { canAccess } from "../data/modules"
-import { useCollections } from "../data/hooks"
+import { useCollections } from "../hooks/useCollection"
 import { OPEN_LEAD_STAGES } from "../data/schema"
 import { daysUntil } from "../lib/format"
 import { cn } from "../lib/cn"

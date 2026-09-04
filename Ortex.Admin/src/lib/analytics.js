@@ -3,8 +3,8 @@
 // place. Revenue/margin figures are GST-exclusive (taxable value); tax is
 // tracked separately, per the growth spec.
 
-import { round2, daysUntil } from "../lib/format"
-import { resolveInvoiceStatus, invoiceBalance } from "./domain"
+import { round2, daysUntil } from "./format"
+import { resolveInvoiceStatus, invoiceBalance } from "../data/domain"
 
 const inRange = (ts, from, to) => {
   const t = new Date(ts).getTime()

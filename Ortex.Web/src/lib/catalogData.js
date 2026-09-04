@@ -3,7 +3,6 @@
 // It merges Admin-managed Supabase categories over the static marketing
 // defaults and maps product rows to the website shape. No side effects.
 
-import { PRODUCTS } from "../constants/products.js"
 import { PRODUCT_CATEGORIES } from "../constants/categories.js"
 
 export function slugify(s) {
@@ -92,5 +91,3 @@ export function mergeCategories(liveCats) {
     .sort((a, b) => a._order - b._order)
 }
 
-/** Fallback product list when Supabase is unavailable. */
-export const STATIC_PRODUCTS = PRODUCTS

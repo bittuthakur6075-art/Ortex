@@ -1,6 +1,6 @@
 import { motion } from "framer-motion"
 import { steps } from "../../constants/home"
-import { Section, SectionHeading, fadeUp, EASE } from "./Section"
+import { Section, SectionHeading, fadeUp, EASE } from "../ui/Section"
 
 export default function Process() {
   return (

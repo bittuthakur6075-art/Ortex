@@ -5,7 +5,7 @@ import {
   Category, Key, Clock, Medal, Gift, ClipboardText, Flag, Sticker, Tag, Eye, SearchNormal1,
 } from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
-import { useWork } from "../lib/useWork"
+import { useWork } from "../hooks/useWork"
 import PageHero from "../components/ui/PageHero"
 import PhotoLightbox from "../components/ui/PhotoLightbox"
 

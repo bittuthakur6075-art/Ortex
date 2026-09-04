@@ -4,7 +4,7 @@ import { Inbox, Plus, Search, Star, Mail, Phone, MessageCircle, Trash2, Target, 
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { convertEnquiryToLead, createQuotation, markEnquiryQuoted } from "../data/domain"
-import { useCollection, useSettings } from "../data/hooks"
+import { useCollection, useSettings } from "../hooks/useCollection"
 import { ENQUIRY_STATUS, LEAD_SOURCES, PRODUCT_CATEGORIES, newEnquiry } from "../data/schema"
 import { relativeTime, formatDateTime, formatCurrency } from "../lib/format"
 import { isQuoteEnquiry, parseQuoteRfq, rfqToQuotationLines, rfqRateMismatches } from "../lib/quoteRfq"

@@ -6,7 +6,7 @@ import {
   Building3, ReceiptText, ShieldTick, ArrowRight,
 } from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
-import { fadeUp, EASE } from "../components/home/Section"
+import { fadeUp, EASE } from "../components/ui/Section"
 import PageHero from "../components/ui/PageHero"
 import { whatsappLink, CONTACT } from "../constants/site"
 

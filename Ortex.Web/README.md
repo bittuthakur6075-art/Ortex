@@ -1,16 +1,47 @@
-# React + Vite
+# Ortex.Web — Marketing Site
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Public website for Ortex Industries: brand story, product catalogue, industries,
+quote calculator, contact/lead capture and the **Live Orty** voice assistant.
 
-Currently, two official plugins are available:
+- **Stack**: React 19, Vite 8, Tailwind CSS v4, React Router v7, Framer Motion, Lenis.
+- **Backend**: none of its own. Reads the live catalogue and writes leads through the
+  browser Supabase client (`src/lib/supabaseClient.js`); the voice assistant talks to the
+  `orty-live-token` / `orty-chat` edge functions deployed from `Ortex.Admin/supabase`.
+- **Static output**: `npm run build` verifies route metadata, builds to `dist/` and
+  prerenders every static route so crawlers get real `<title>`/OG tags.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Commands
 
-## React Compiler
+```bash
+npm install
+npm run dev       # Vite dev server with HMR
+npm run build     # check-meta → vite build → prerender
+npm run preview   # serve dist/ locally
+npm run lint      # oxlint (.oxlintrc.json)
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Copy `.env.example` to `.env` and fill in the Supabase URL/anon key to enable the live
+catalogue, lead submission and Live Orty locally.
 
-## Expanding the Oxlint configuration
+## Source layout
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+```text
+src/
+├── App.jsx                 # route table, lazy pages, Live Orty mount
+├── main.jsx
+├── index.css               # Tailwind v4 @theme tokens + global styles
+├── components/
+│   ├── home/               # sections used only by the Home page
+│   ├── layout/             # Navbar, Footer, ScrollToTop
+│   └── ui/                 # shared: PageHero, PageCTA, Section (motion), LiveOrty …
+├── constants/              # site.js (contact), categories, products, photos, founder
+├── hooks/                  # useDocumentMetadata, useSmoothScroll, useWork
+├── lib/                    # supabaseClient, catalog, leads, tracker, uploads, consent
+└── pages/                  # one file per route
+scripts/                    # routes-meta.mjs (single source of route SEO), check-meta, prerender
+public/                     # favicon, manifest, robots, .htaccess, img/
+docs/DEPLOY_HOSTINGER.md    # static hosting guide (Apache); vercel.json covers Vercel
+```
+
+Every page calls `useDocumentMetadata()` first. When adding a route, register it in
+`src/App.jsx` **and** `scripts/routes-meta.mjs`; `npm run build` fails if they drift.

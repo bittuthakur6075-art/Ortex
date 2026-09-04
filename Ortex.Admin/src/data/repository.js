@@ -1,9 +1,8 @@
 // Repository facade.
 //
 // The whole app imports `repo` from here and never touches a storage
-// implementation directly. Today it points at `localStore`; to go live against
-// a real backend, implement the same async surface in an `apiStore` and change
-// the one assignment below — no component or module changes required.
+// implementation directly. `apiStore` (Supabase) is used whenever the env vars
+// are configured; `localStore` (browser localStorage) is the offline fallback.
 //
 // Contract (all async):
 //   subscribe(cb) -> unsubscribe
@@ -21,5 +20,3 @@ import { hasSupabase } from "./supabaseClient"
 // otherwise fall back to browser localStorage so the app still runs with no
 // backend. Both implement the identical async contract above.
 export const repo = hasSupabase ? apiStore : localStore
-
-export const activeStoreKind = repo.kind

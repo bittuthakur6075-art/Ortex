@@ -1,6 +1,6 @@
 import { useRef } from "react"
 import { motion, useScroll, useTransform } from "framer-motion"
-import { fadeUp, EASE } from "./Section"
+import { fadeUp, EASE } from "../ui/Section"
 
 /**
  * Cloned from the Otto "Welcome" section: a two-line greeting top-left, a large

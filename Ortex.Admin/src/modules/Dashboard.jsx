@@ -12,8 +12,8 @@ import {
   Users,
 } from "../components/icons"
 import { toast } from "sonner"
-import { useCollections } from "../data/hooks"
-import { computeAnalytics } from "../data/analytics"
+import { useCollections } from "../hooks/useCollection"
+import { computeAnalytics } from "../lib/analytics"
 import { weightedLeadValue } from "../data/domain"
 import { LEAD_STAGES, OPEN_LEAD_STAGES } from "../data/schema"
 import { seedDemo } from "../data/seed"

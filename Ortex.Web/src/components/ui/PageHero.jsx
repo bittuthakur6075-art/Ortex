@@ -1,5 +1,5 @@
 import { motion } from "framer-motion"
-import { fadeUp } from "../home/Section"
+import { fadeUp } from "./Section"
 
 /**
  * Shared page hero, matching the Products page: 150px vertical padding on a

@@ -8,6 +8,8 @@ import html2pdf from "html2pdf.js"
 // `type` is "quotation" | "invoice". Uses the .print-area / .no-print hooks in
 // index.css so window.print() emits just the document on white paper.
 export default function DocumentView({ open, onClose, doc, settings, type }) {
+  // Hooks must run unconditionally, so the ref is created before the early return.
+  const reportRef = useRef(null)
   if (!open || !doc) return null
   const c = settings.company
   // Tally-imported invoices persist only aggregate totals (no per-line `lines`
@@ -18,7 +20,6 @@ export default function DocumentView({ open, onClose, doc, settings, type }) {
   // GST place of supply follows the ship-to (consignee) state when present.
   const psState = doc.shipTo?.stateCode || doc.customer?.stateCode
 
-  const reportRef = useRef(null)
 
   const handleDownloadPDF = () => {
     const element = reportRef.current

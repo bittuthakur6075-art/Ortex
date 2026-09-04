@@ -11,7 +11,7 @@ import {
 } from "../constants/categories"
 import { useCatalog } from "../lib/catalog"
 import { whatsappLink } from "../constants/site"
-import { fadeUp, RevealWords } from "../components/home/Section"
+import { fadeUp, RevealWords } from "../components/ui/Section"
 import PageCTA from "../components/ui/PageCTA"
 
 /**

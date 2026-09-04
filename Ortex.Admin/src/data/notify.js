@@ -18,7 +18,7 @@ import { formatCurrency, formatDate } from "../lib/format"
 const EMAILJS_ENDPOINT = "https://api.emailjs.com/api/v1.0/email/send"
 
 // Build the subject + plain-text body for an invoice.
-export function composeInvoiceEmail(invoice, settings) {
+function composeInvoiceEmail(invoice, settings) {
   const c = settings.company
   const t = invoice.totals || {}
   const cust = invoice.customer || {}

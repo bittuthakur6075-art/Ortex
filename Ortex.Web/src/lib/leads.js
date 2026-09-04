@@ -82,10 +82,6 @@ function dequeue(reference) {
   writeOutbox(readOutbox().filter((d) => d.reference !== reference))
 }
 
-export function pendingEnquiryCount() {
-  return readOutbox().length
-}
-
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /** One insert attempt. Resolves to null on success, or an error message. */

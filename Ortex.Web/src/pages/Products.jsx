@@ -6,7 +6,7 @@ import { Printer, Flash, Colorfilter } from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { photosForCategory } from "../constants/categories"
 import { useCatalog } from "../lib/catalog"
-import { fadeUp, RevealWords } from "../components/home/Section"
+import { fadeUp, RevealWords } from "../components/ui/Section"
 import PageCTA from "../components/ui/PageCTA"
 
 const FALLBACK_IMAGE = "/img/welcome-workshop.avif"

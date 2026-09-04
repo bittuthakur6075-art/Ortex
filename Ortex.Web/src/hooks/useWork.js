@@ -5,7 +5,7 @@
 // configured or a fetch fails, so /work always renders.
 
 import { useEffect, useState } from "react"
-import { supabase, hasSupabase } from "./supabaseClient"
+import { supabase, hasSupabase } from "../lib/supabaseClient"
 import { workPhotos } from "../constants/home"
 
 /** Merge live items ahead of the static archive, deduped by image URL. */

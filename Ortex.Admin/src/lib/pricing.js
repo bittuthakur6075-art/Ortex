@@ -4,19 +4,6 @@ import { round2 } from "./format"
 // and the invoice it converts to always total identically.
 //
 // A line item: { description, hsn, quantity, rate, discountPercent, gstRate }
-// Volume discount tiers mirror the public quote calculator so customer-facing
-// estimates and back-office documents stay consistent.
-
-export const VOLUME_TIERS = [
-  { min: 5000, percent: 30 },
-  { min: 1000, percent: 20 },
-  { min: 300, percent: 10 },
-  { min: 0, percent: 0 },
-]
-
-export function volumeDiscountPercent(quantity) {
-  return (VOLUME_TIERS.find((t) => quantity >= t.min) || { percent: 0 }).percent
-}
 
 // Per-line math: gross → line discount → taxable → GST amount.
 export function computeLine(line) {

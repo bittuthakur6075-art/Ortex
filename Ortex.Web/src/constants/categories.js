@@ -277,10 +277,6 @@ export const PRODUCT_CATEGORIES = [
   },
 ]
 
-export function categoryBySlug(slug) {
-  return PRODUCT_CATEGORIES.find((c) => c.slug === slug) || null
-}
-
 export function categoryStats(entry, products = PRODUCTS) {
   return statsFor(entry.category, products)
 }
