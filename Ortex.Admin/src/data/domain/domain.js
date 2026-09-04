@@ -181,19 +181,23 @@ export async function markEnquiryQuoted(enquiryId) {
 
 // ---- customers master ------------------------------------------------------
 
+// True when two customer records (a master row and/or a document snapshot)
+// refer to the same party: matched on email first, then on phone digits.
+export function sameCustomer(a, b) {
+  const email = (a?.email || "").trim().toLowerCase()
+  const phone = (a?.phone || "").replace(/\D/g, "")
+  if (email && (b?.email || "").trim().toLowerCase() === email) return true
+  if (phone && (b?.phone || "").replace(/\D/g, "") === phone) return true
+  return false
+}
+
 // Insert or update a customer in the master, matched on email then phone, so a
 // customer captured while making a quote/invoice appears in the Customers list
 // without manual re-entry. Returns the master record.
 export async function upsertCustomer(customer) {
   if (!customer || (!customer.name && !customer.company)) return null
   const all = await repo.list("customers")
-  const email = (customer.email || "").trim().toLowerCase()
-  const phone = (customer.phone || "").replace(/\D/g, "")
-  const match = all.find(
-    (c) =>
-      (email && (c.email || "").trim().toLowerCase() === email) ||
-      (phone && (c.phone || "").replace(/\D/g, "") === phone),
-  )
+  const match = all.find((c) => sameCustomer(customer, c))
   if (match) {
     // Fill only blanks — never clobber curated master data with a sparse doc.
     const patch = {}
@@ -333,13 +337,25 @@ export async function recordPayment(draft) {
   })
 
   // Keep the linked invoice's cached amountPaid/status in sync for list views.
-  if (payment.type === "inflow" && payment.invoiceId) {
-    const invoice = await repo.get("invoices", payment.invoiceId)
-    if (invoice) {
-      const all = await repo.list("payments")
-      const status = resolveInvoiceStatus(invoice, all)
-      await repo.update("invoices", invoice.id, { amountPaid: paidForInvoice(invoice.id, all), status })
-    }
-  }
+  if (payment.type === "inflow" && payment.invoiceId) await syncInvoicePaid(payment.invoiceId)
   return payment
+}
+
+// Recompute an invoice's cached amountPaid/status from its current payments.
+export async function syncInvoicePaid(invoiceId) {
+  const invoice = await repo.get("invoices", invoiceId)
+  if (!invoice) return null
+  const all = await repo.list("payments")
+  const patch = { amountPaid: paidForInvoice(invoice.id, all), status: resolveInvoiceStatus(invoice, all) }
+  // A stored "paid"/"partial" whose payments were removed falls back to "sent".
+  if (patch.amountPaid === 0 && ["paid", "partial"].includes(invoice.status)) {
+    patch.status = resolveInvoiceStatus({ ...invoice, status: "sent" }, all)
+  }
+  return repo.update("invoices", invoice.id, patch)
+}
+
+// Delete a payment and re-sync the invoice it was allocated to (if any).
+export async function removePayment(payment) {
+  await repo.remove("payments", payment.id)
+  if (payment.type === "inflow" && payment.invoiceId) await syncInvoicePaid(payment.invoiceId)
 }

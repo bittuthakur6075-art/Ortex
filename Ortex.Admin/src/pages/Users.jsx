@@ -5,11 +5,10 @@ import { Button, Card, Input, Select, Field, Modal, Badge, PageLoader, EmptyStat
 import PageHeader from "../components/layout/PageHeader"
 import { listProfiles, updateProfile, createUser } from "../services/users"
 import { useSorting } from "../hooks/useCollection"
-import { ASSIGNABLE_MODULES, SALES_DEFAULT_MODULES, MODULES } from "../data/domain/modules"
+import { ASSIGNABLE_MODULES, SALES_DEFAULT_MODULES } from "../data/domain/modules"
 import { currentUserId } from "../lib/auth"
+import { roleLabel, moduleLabel } from "../lib/roles"
 
-const ROLE_LABEL = { admin: "Admin", sales: "Sales Executive" }
-const moduleLabel = (key) => MODULES.find((m) => m.key === key)?.label || key
 const randomPassword = () => "Ox-" + Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 6).toUpperCase()
 
 export default function Users() {
@@ -64,8 +63,8 @@ export default function Users() {
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
+                <tr className="text-left">
                   <SortTh sortKey="name" sort={sort} onSort={onSort}>Name</SortTh>
                   <SortTh sortKey="email" sort={sort} onSort={onSort}>Email</SortTh>
                   <SortTh sortKey="role" sort={sort} onSort={onSort}>Role</SortTh>
@@ -77,7 +76,7 @@ export default function Users() {
                 {sortedUsers.map((p) => (
                   <tr
                     key={p.id}
-                    className="cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-muted/40"
+                    className="cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-subtle"
                     onClick={() => setEditing(p)}
                   >
                     <td className="px-4 py-3 font-medium text-foreground">
@@ -85,7 +84,7 @@ export default function Users() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{p.email}</td>
                     <td className="px-4 py-3">
-                      <Badge tone={p.role === "admin" ? "violet" : "blue"}>{ROLE_LABEL[p.role] || p.role}</Badge>
+                      <Badge tone={p.role === "admin" ? "violet" : "blue"}>{roleLabel(p.role)}</Badge>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {p.role === "admin" ? "All modules" : `${(p.modules || []).length} module${(p.modules || []).length === 1 ? "" : "s"}`}

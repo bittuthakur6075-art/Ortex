@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { Link } from "react-router-dom"
 import { Package, Pencil } from "../../components/ui/Icons"
 import { PRODUCT_STATUS } from "../../data/domain/schema"
 import { formatCurrency, round2 } from "../../lib/format"
@@ -185,10 +186,16 @@ export default function ProductDetail({ open, product, quotations = [], invoices
               {linkedQuotes.length > 0 && (
                 <div className="mt-2.5 space-y-1.5 border-t border-border/60 pt-2">
                   {linkedQuotes.slice(0, 3).map((q) => (
-                    <div key={q.id} className="text-xs flex justify-between text-muted-foreground">
-                      <span className="font-medium truncate max-w-[120px]">{q.quoteNumber || "Quote"}</span>
+                    <Link
+                      key={q.id}
+                      to="/quotations"
+                      state={{ openId: q.id }}
+                      className="text-xs flex justify-between text-muted-foreground hover:text-primary"
+                      title={`Open quotation ${q.number || ""}`}
+                    >
+                      <span className="font-medium truncate max-w-[120px]">{q.number || "Quote"}</span>
                       <span className="truncate max-w-[100px]">{q.customer?.company || q.customer?.name || "Customer"}</span>
-                    </div>
+                    </Link>
                   ))}
                   {linkedQuotes.length > 3 && (
                     <div className="text-[10px] text-muted-foreground/75 italic">
@@ -208,10 +215,16 @@ export default function ProductDetail({ open, product, quotations = [], invoices
               {linkedInvoices.length > 0 && (
                 <div className="mt-2.5 space-y-1.5 border-t border-border/60 pt-2">
                   {linkedInvoices.slice(0, 3).map((i) => (
-                    <div key={i.id} className="text-xs flex justify-between text-muted-foreground">
-                      <span className="font-medium truncate max-w-[120px]">{i.invoiceNumber || "Invoice"}</span>
+                    <Link
+                      key={i.id}
+                      to="/billing?tab=invoices"
+                      state={{ openId: i.id }}
+                      className="text-xs flex justify-between text-muted-foreground hover:text-primary"
+                      title={`Open invoice ${i.number || ""}`}
+                    >
+                      <span className="font-medium truncate max-w-[120px]">{i.number || "Invoice"}</span>
                       <span className="truncate max-w-[100px]">{i.customer?.company || i.customer?.name || "Customer"}</span>
-                    </div>
+                    </Link>
                   ))}
                   {linkedInvoices.length > 3 && (
                     <div className="text-[10px] text-muted-foreground/75 italic">

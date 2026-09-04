@@ -9,6 +9,7 @@
 import { repo } from "../store/repository"
 import { computeDocument } from "../../lib/pricing"
 import { documentNumber } from "../../lib/id"
+import { toast } from "sonner"
 
 const day = 86400000
 const ago = (d) => new Date(Date.now() - d * day).toISOString()
@@ -231,4 +232,11 @@ export async function seedDemo() {
     ...settings,
     numbering: { ...settings.numbering, quotationSeq: 8, invoiceSeq: 6, paymentSeq: 6 },
   })
+}
+
+// UI entry point used by both the Dashboard empty state and Settings → Data:
+// seed everything and confirm with a toast.
+export async function loadDemoData() {
+  await seedDemo()
+  toast.success("Demo data loaded")
 }

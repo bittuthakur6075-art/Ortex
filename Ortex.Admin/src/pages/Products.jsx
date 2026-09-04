@@ -5,7 +5,7 @@ import { repo } from "../data/store/repository"
 import { useCollection, useCategories, useSorting } from "../hooks/useCollection"
 import { exportCsv } from "../lib/csv"
 import ProductImport from "../components/editors/ProductImport"
-import PageHeader from "../components/layout/PageHeader"
+import PageHeader, { ActionBar } from "../components/layout/PageHeader"
 import { Button, EmptyState, PageLoader } from "../components/ui/Ui"
 import ProductFilters from "./products/ProductFilters"
 import BulkActionsBar from "./products/BulkActionsBar"
@@ -14,7 +14,8 @@ import ProductDetail from "./products/ProductDetail"
 import ProductForm from "./products/ProductForm"
 import { filterAndSortProducts, PRODUCT_CSV_COLUMNS, productsCsvFile, IM_COLUMNS, imFile } from "./products/helpers"
 
-export default function Products() {
+export default function Products({ embedded = false }) {
+  const Header = embedded ? ActionBar : PageHeader
   const { items, loading, reload } = useCollection("products")
   const categories = useCategories()
   const { items: quotations } = useCollection("quotations")
@@ -74,7 +75,7 @@ export default function Products() {
 
   return (
     <div>
-      <PageHeader title="Product master" subtitle={`${items.length} products · pricing, HSN & GST reference for quotes and invoices`}>
+      <Header title="Product master" subtitle={`${items.length} products · pricing, HSN & GST reference for quotes and invoices`}>
         <Button variant="outline" size="sm" onClick={handleExport} disabled={!filtered.length}>
           <Download className="h-4 w-4" /> Export
         </Button>
@@ -87,7 +88,7 @@ export default function Products() {
         <Button size="sm" onClick={() => setEditing("new")}>
           <Plus className="h-4 w-4" /> New product
         </Button>
-      </PageHeader>
+      </Header>
 
       <ProductFilters
         query={query}

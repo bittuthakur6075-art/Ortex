@@ -19,7 +19,7 @@ export default function ProductTable({
     <Card className="overflow-hidden">
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
-        <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+        <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
           <tr>
             <th className="w-10 px-4 py-3">
               <input
@@ -40,14 +40,14 @@ export default function ProductTable({
             <th className="px-4 py-3" />
           </tr>
         </thead>
-        <tbody className="divide-y divide-border">
+        <tbody className="divide-y divide-border rows-in">
           {rows.map((p) => {
             const margin = round2(p.basePrice - p.costPrice)
             const marginPct = p.basePrice ? Math.round((margin / p.basePrice) * 100) : 0
             return (
               <tr
                 key={p.id}
-                className={cn("cursor-pointer transition-colors hover:bg-muted/40", selected.has(p.id) && "bg-primary/5")}
+                className={cn("cursor-pointer transition-colors hover:bg-subtle", selected.has(p.id) && "bg-primary/5")}
                 onClick={() => onView(p)}
               >
                 <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>

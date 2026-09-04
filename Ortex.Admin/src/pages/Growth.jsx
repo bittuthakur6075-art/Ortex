@@ -5,18 +5,14 @@ import { computeGrowthAnalytics, computeAttribution } from "../lib/analytics/gro
 import { computeVelocity, computeCohorts } from "../lib/analytics/velocity"
 import { computeMessagingImpact } from "../lib/analytics/messaging"
 import { formatNumber, formatCurrency } from "../lib/format"
-import PageHeader from "../components/layout/PageHeader"
-import { Card, StatCard, Badge, EmptyState, Chip, PageLoader, Money } from "../components/ui/Ui"
+import { PERIODS } from "../lib/periods"
+import PageHeader, { ActionBar } from "../components/layout/PageHeader"
+import { StatCard, Badge, EmptyState, Segmented, PageLoader, Money } from "../components/ui/Ui"
+import SectionCard from "../components/ui/SectionCard"
 import { BarChart, AreaChart, CHART_COLORS } from "../components/ui/Chart"
 
-const PERIODS = [
-  { id: "mtd", label: "This month" },
-  { id: "qtd", label: "This quarter" },
-  { id: "ytd", label: "This year" },
-  { id: "30d", label: "Last 30 days" },
-]
-
-export default function Growth() {
+export default function Growth({ embedded = false }) {
+  const Header = embedded ? ActionBar : PageHeader
   const { data, loading } = useCollections([
     "user_activities",
     "enquiries",
@@ -94,7 +90,7 @@ export default function Growth() {
   if (noTracking) {
     return (
       <div>
-        <PageHeader title="Growth intelligence" subtitle="Visitor-to-cash funnel" />
+        <Header title="Growth" subtitle="Visitor-to-cash funnel" />
         <EmptyState
           icon={TrendingUp}
           title="No visitor activity yet"
@@ -108,15 +104,9 @@ export default function Growth() {
 
   return (
     <div>
-      <PageHeader title="Growth intelligence" subtitle="Visitor-to-cash funnel & demand signals">
-        <div className="flex flex-wrap gap-1.5">
-          {PERIODS.map((p) => (
-            <Chip key={p.id} active={period === p.id} onClick={() => setPeriod(p.id)}>
-              {p.label}
-            </Chip>
-          ))}
-        </div>
-      </PageHeader>
+      <Header title="Growth" subtitle="Visitor-to-cash funnel & demand signals">
+        <Segmented items={PERIODS} value={period} onChange={setPeriod} />
+      </Header>
 
       {/* North-star row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -125,28 +115,28 @@ export default function Growth() {
           label="Visitors"
           value={formatNumber(g.visitors)}
           sub={`${formatNumber(g.newVisitors)} new · ${formatNumber(g.returningVisitors)} returning`}
-          accent="bg-blue-500/10 text-blue-500"
+          accent="bg-info/10 text-info-text"
         />
         <StatCard
           icon={Flame}
           label="Visitor → Quote"
           value={pct(g.visitorToQuote)}
           sub={`${formatNumber(g.quoteSessionCount)} of ${formatNumber(g.sessionCount)} sessions`}
-          accent="bg-amber-500/10 text-amber-500"
+          accent="bg-warning/10 text-warning-text"
         />
         <StatCard
           icon={Sparkles}
           label="Engaged sessions"
           value={pct(g.engagedRate)}
           sub={`Bounce ${pct(g.bounceRate)} · ${g.actionsPerSession} actions/session`}
-          accent="bg-violet-500/10 text-violet-500"
+          accent="bg-primary/10 text-primary"
         />
         <StatCard
           icon={MessageCircle}
           label="Tracked actions"
           value={formatNumber(g.totalActivities)}
           sub={`${formatNumber(g.sessionCount)} sessions in period`}
-          accent="bg-emerald-500/10 text-emerald-500"
+          accent="bg-success/10 text-success-text"
         />
       </div>
 
@@ -165,21 +155,21 @@ export default function Growth() {
           sub={attr.webShare === null
             ? "No invoiced revenue in period"
             : `${attr.webShare}% of ${formatCurrency(attr.totalRevenue, { compact: true })} total`}
-          accent="bg-emerald-500/10 text-emerald-500"
+          accent="bg-success/10 text-success-text"
         />
         <StatCard
           icon={Users}
           label="Tracked enquiries"
           value={formatNumber(attr.trackedEnquiryCount)}
           sub={`${formatNumber(attr.trackedWon)} became orders`}
-          accent="bg-blue-500/10 text-blue-500"
+          accent="bg-info/10 text-info-text"
         />
         <StatCard
           icon={Trophy}
           label="Tracked → order"
           value={attr.trackedConversion === null ? "—" : `${attr.trackedConversion}%`}
           sub="Web-originated enquiries won"
-          accent="bg-violet-500/10 text-violet-500"
+          accent="bg-primary/10 text-primary"
         />
       </div>
 
@@ -214,18 +204,6 @@ export default function Growth() {
         <MessagingImpact m={messaging} />
       </div>
     </div>
-  )
-}
-
-function SectionCard({ title, action, children, className = "" }) {
-  return (
-    <Card className={`p-5 ${className}`}>
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-foreground">{title}</h3>
-        {action}
-      </div>
-      {children}
-    </Card>
   )
 }
 
@@ -381,14 +359,14 @@ function CohortTable({ rows }) {
       ) : (
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border text-left text-xs font-semibold uppercase text-muted-foreground">
+            <tr className="border-b border-border text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground">
               <th className="py-2">Month</th>
               <th className="py-2 text-right">Enquiries</th>
               <th className="py-2 text-right">Quoted</th>
               <th className="py-2 text-right">Won</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody className="divide-y divide-border rows-in">
             {rows.map((r) => (
               <tr key={r.label}>
                 <td className="py-2 font-medium text-foreground">{r.label}</td>
@@ -432,7 +410,7 @@ function MessagingImpact({ m }) {
             </div>
             <div className="rounded-lg border border-border bg-muted/30 p-3">
               <div className="text-xs text-muted-foreground">Ordered afterwards</div>
-              <div className="mt-0.5 text-xl font-bold text-emerald-600">{formatNumber(m.orderedAfter)}</div>
+              <div className="mt-0.5 text-xl font-bold text-success-text">{formatNumber(m.orderedAfter)}</div>
             </div>
           </div>
           <div className="space-y-2">
@@ -473,7 +451,7 @@ function DemandGaps({ rows }) {
       ) : (
         <div className="flex flex-wrap gap-2">
           {rows.map((r, i) => (
-            <span key={i} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 px-2.5 py-1.5 text-sm">
+            <span key={i} className="inline-flex items-center gap-1.5 rounded-lg border border-warning/20 bg-warning/5 px-2.5 py-1.5 text-sm">
               <span className="font-medium text-foreground">"{r.query}"</span>
               <Badge tone="amber">{r.count}</Badge>
             </span>

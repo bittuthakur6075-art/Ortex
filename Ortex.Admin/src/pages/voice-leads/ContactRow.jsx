@@ -21,7 +21,7 @@ export default function ContactRow({ call, size = "md" }) {
         rel="noreferrer"
         aria-label={`Message ${call.customer.name || "caller"} on WhatsApp`}
         className={cn(
-          "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-500/12 font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/20",
+          "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-success/12 font-semibold text-success-text transition-colors hover:bg-success/20",
           pad,
         )}
       >

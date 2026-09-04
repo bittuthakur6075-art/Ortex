@@ -30,8 +30,8 @@ import {
 import { LEAD_STAGES, OPEN_LEAD_STAGES, ACTIVITY_TYPES, LEAD_SOURCES, LOST_REASONS, PRODUCT_CATEGORIES, newLead, stageProbability } from "../data/domain/schema"
 import { formatCurrency, formatDate, toDateInput, daysUntil, relativeTime, round2 } from "../lib/format"
 import { cn } from "../lib/cn"
-import PageHeader from "../components/layout/PageHeader"
-import { Button, Card, Input, Select, Textarea, Field, Badge, StatCard, StatusBadge, EmptyState, Avatar, Money, Chip, Drawer, Modal, PageLoader, SortTh } from "../components/ui/Ui"
+import PageHeader, { ActionBar } from "../components/layout/PageHeader"
+import { Button, Card, Input, Select, Textarea, Field, Badge, StatCard, StatusBadge, EmptyState, Avatar, Money, Chip, Drawer, Modal, PageLoader, SortTh, Segmented } from "../components/ui/Ui"
 
 // Follow-up urgency from the nextFollowUp date.
 function followState(lead) {
@@ -43,7 +43,8 @@ function followState(lead) {
   return null
 }
 
-export default function Leads() {
+export default function Leads({ embedded = false }) {
+  const Header = embedded ? ActionBar : PageHeader
   const { items, loading } = useCollection("leads")
   const location = useLocation()
   const navigate = useNavigate()
@@ -57,7 +58,7 @@ export default function Leads() {
     const id = location.state?.openLeadId
     if (id) {
       setSelected({ id })
-      navigate(location.pathname, { replace: true })
+      navigate(location.pathname + location.search, { replace: true })
     }
   }, [location, navigate])
 
@@ -96,30 +97,31 @@ export default function Leads() {
 
   return (
     <div>
-      <PageHeader title="Leads" subtitle="Sales pipeline — qualify, follow up and convert to quotes">
-        <div className="flex overflow-hidden rounded-lg border border-border">
-          <button onClick={() => setView("board")} className={cn("flex items-center gap-1.5 px-3 py-2 text-sm font-medium", view === "board" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}>
-            <LayoutGrid className="h-4 w-4" /> Board
-          </button>
-          <button onClick={() => setView("list")} className={cn("flex items-center gap-1.5 px-3 py-2 text-sm font-medium", view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}>
-            <ListIcon className="h-4 w-4" /> List
-          </button>
-        </div>
+      <Header title="Leads" subtitle="Sales pipeline — qualify, follow up and convert to quotes">
+        <Segmented
+          size="md"
+          value={view}
+          onChange={setView}
+          items={[
+            { value: "board", label: "Board", icon: LayoutGrid },
+            { value: "list", label: "List", icon: ListIcon },
+          ]}
+        />
         <Button size="sm" onClick={() => setSelected("new")}>
           <Plus className="h-4 w-4" /> New lead
         </Button>
-      </PageHeader>
+      </Header>
 
       {/* KPI strip */}
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard icon={TrendingUp} label="Weighted pipeline" value={<Money value={stats.weighted} compact />} sub={`of ${formatCurrency(stats.raw)} raw`} accent="bg-primary/10 text-primary" />
-        <StatCard icon={Target} label="Open leads" value={stats.openCount} accent="bg-violet-500/10 text-violet-500" />
-        <StatCard icon={Clock} label="Follow-ups overdue" value={stats.overdue} accent="bg-rose-500/10 text-rose-500" />
-        <StatCard icon={CalendarClock} label="Due today" value={stats.today} accent="bg-amber-500/10 text-amber-500" />
+        <StatCard icon={Target} label="Open leads" value={stats.openCount} accent="bg-primary/10 text-primary" />
+        <StatCard icon={Clock} label="Follow-ups overdue" value={stats.overdue} accent="bg-destructive/10 text-destructive-text" />
+        <StatCard icon={CalendarClock} label="Due today" value={stats.today} accent="bg-warning/10 text-warning-text" />
       </div>
 
-      <div className="mb-4 relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <div className="relative mb-4 md:w-[360px]">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle-foreground" />
         <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search lead, company, owner…" className="pl-10" />
       </div>
 
@@ -182,18 +184,21 @@ function Board({ leads, onOpen, onMove }) {
                 setDragId(null)
                 setOverStage(null)
               }}
-              className={cn("w-64 flex-none rounded-xl border p-2 transition-colors", overStage === stage.id ? "border-primary bg-primary/5" : "border-border bg-muted/20")}
+              className={cn("flex w-[272px] flex-none flex-col rounded-lg p-2 transition-[background-color,box-shadow]", overStage === stage.id ? "bg-primary/5 ring-2 ring-primary/40" : "bg-subtle")}
             >
-              <div className="mb-2 flex items-center justify-between px-2 pt-1">
-                <StatusBadge list={LEAD_STAGES} status={stage.id} />
-                <span className="text-xs text-muted-foreground">{cards.length}</span>
+              <div className="mb-1 flex items-center justify-between px-1.5 pt-1">
+                <div className="flex items-center gap-2">
+                  <StatusBadge list={LEAD_STAGES} status={stage.id} dot={false} />
+                  <span className="text-xs font-medium text-muted-foreground tabular">{cards.length}</span>
+                </div>
+                <span className="text-[11px] text-subtle-foreground">{stageProbability(stage.id)}%</span>
               </div>
-              <div className="px-2 pb-2 text-[11px] text-muted-foreground">{formatCurrency(value)} · {stageProbability(stage.id)}%</div>
-              <div className="space-y-2">
+              <div className="px-1.5 pb-2 text-[12px] font-medium text-foreground tabular">{formatCurrency(value, { compact: true })}</div>
+              <div className="space-y-1.5">
                 {cards.map((l) => (
                   <LeadCard key={l.id} lead={l} onOpen={onOpen} onDragStart={() => setDragId(l.id)} dragging={dragId === l.id} />
                 ))}
-                {cards.length === 0 && <div className="rounded-lg border border-dashed border-border py-6 text-center text-xs text-muted-foreground">Drop here</div>}
+                {cards.length === 0 && <div className="rounded-md border border-dashed border-border-strong py-6 text-center text-xs text-subtle-foreground">Drop here</div>}
               </div>
             </div>
           )
@@ -211,18 +216,18 @@ function LeadCard({ lead, onOpen, onDragStart, dragging }) {
       draggable
       onDragStart={onDragStart}
       onClick={() => onOpen(lead)}
-      className={cn("cursor-pointer rounded-lg border border-border bg-card p-3 transition-shadow hover:border-primary/40", dragging && "opacity-40")}
+      className={cn("cursor-pointer rounded-md bg-card p-3 shadow-card transition-[box-shadow] hover:border-border-strong hover:shadow-md", dragging && "opacity-40")}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-foreground">{lead.customer?.company || lead.customer?.name || "Unnamed lead"}</div>
+          <div className="truncate text-[13px] font-semibold text-foreground">{lead.customer?.company || lead.customer?.name || "Unnamed lead"}</div>
           <div className="truncate text-xs text-muted-foreground">{lead.customer?.name && lead.customer?.company ? lead.customer.name : lead.productInterest}</div>
         </div>
-        {score >= 60 && <Flame className="h-4 w-4 flex-none text-orange-500" title={`Hot · score ${score}`} />}
+        {score >= 60 && <Flame className="h-4 w-4 flex-none text-warning-text" title={`Hot · score ${score}`} />}
       </div>
-      <div className="mt-2 flex items-center justify-between">
-        <span className="text-sm font-bold text-foreground">{formatCurrency(lead.estimatedValue)}</span>
-        <span className="text-[11px] text-muted-foreground">Score {score}</span>
+      <div className="mt-2.5 flex items-center justify-between">
+        <span className="text-[13px] font-semibold text-foreground tabular">{formatCurrency(lead.estimatedValue)}</span>
+        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground tabular">Score {score}</span>
       </div>
       {fu && (
         <div className="mt-2">
@@ -255,7 +260,7 @@ function LeadList({ leads, onOpen }) {
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+          <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
             <tr>
               <SortTh sortKey="customer" sort={sort} onSort={onSort}>Lead</SortTh>
               <SortTh sortKey="stage" sort={sort} onSort={onSort}>Stage</SortTh>
@@ -265,11 +270,11 @@ function LeadList({ leads, onOpen }) {
               <SortTh sortKey="owner" sort={sort} onSort={onSort}>Owner</SortTh>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody className="divide-y divide-border rows-in">
             {sorted.map((l) => {
               const fu = followState(l)
               return (
-                <tr key={l.id} className="cursor-pointer transition-colors hover:bg-muted/40" onClick={() => onOpen(l)}>
+                <tr key={l.id} className="cursor-pointer transition-colors hover:bg-subtle" onClick={() => onOpen(l)}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <Avatar name={l.customer?.company || l.customer?.name} />
@@ -366,7 +371,7 @@ function LeadDrawer({ lead, onClose }) {
       title={
         <div className="flex items-center gap-2">
           <span>{isNew ? "New lead" : form.customer.company || form.customer.name || "Lead"}</span>
-          {!isNew && score >= 60 && <Flame className="h-4 w-4 text-orange-500" />}
+          {!isNew && score >= 60 && <Flame className="h-4 w-4 text-warning-text" />}
         </div>
       }
       subtitle={isNew ? "Add to the pipeline" : `Score ${score} · ${form.source}`}

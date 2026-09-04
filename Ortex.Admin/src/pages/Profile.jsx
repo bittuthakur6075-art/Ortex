@@ -1,16 +1,14 @@
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
-import { ShieldCheck, KeyRound, Save } from "../components/ui/Icons"
+import { ShieldCheck, Save } from "../components/ui/Icons"
 import { Button, Card, Input, Field, Badge, PageLoader } from "../components/ui/Ui"
 import PageHeader from "../components/layout/PageHeader"
+import PasswordCard from "../components/ui/PasswordCard"
 import { useProfile } from "../hooks/useProfile"
 import { updateMyProfile } from "../services/users"
-import { login, changePassword, currentEmail, currentUserId } from "../lib/auth"
+import { currentEmail, currentUserId } from "../lib/auth"
 import { hasSupabase } from "../data/store/supabaseClient"
-import { MODULES } from "../data/domain/modules"
-
-const ROLE_LABEL = { admin: "Admin", sales: "Sales Executive" }
-const moduleLabel = (key) => MODULES.find((m) => m.key === key)?.label || key
+import { roleLabel, moduleLabel } from "../lib/roles"
 
 export default function Profile() {
   const profile = useProfile()
@@ -44,7 +42,7 @@ function ProfileHeader({ profile }) {
           <div className="truncate text-sm text-muted-foreground">{email}</div>
         </div>
         <Badge tone={isAdmin ? "violet" : "blue"} className="sm:mb-2">
-          {ROLE_LABEL[profile.role] || profile.role}
+          {roleLabel(profile.role)}
         </Badge>
       </div>
     </Card>
@@ -102,50 +100,3 @@ function AccountCard({ profile }) {
   )
 }
 
-function PasswordCard() {
-  const [current, setCurrent] = useState("")
-  const [next, setNext] = useState("")
-  const [confirm, setConfirm] = useState("")
-  const [busy, setBusy] = useState(false)
-
-  const submit = async (e) => {
-    e.preventDefault()
-    if (next.length < 6) return toast.error("New password must be at least 6 characters")
-    if (next !== confirm) return toast.error("Passwords do not match")
-    setBusy(true)
-    const check = await login(currentEmail() || "", current)
-    if (check.error) {
-      setBusy(false)
-      return toast.error("Current password is incorrect")
-    }
-    const res = await changePassword(next)
-    setBusy(false)
-    if (res?.error) return toast.error(res.error)
-    setCurrent("")
-    setNext("")
-    setConfirm("")
-    toast.success("Password updated")
-  }
-
-  return (
-    <Card className="p-5 sm:p-6">
-      <div className="mb-4 flex items-center gap-3">
-        <span className="flex h-10 w-10 flex-none items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <KeyRound className="h-5 w-5" />
-        </span>
-        <div>
-          <h3 className="font-semibold text-foreground">Change password</h3>
-          <p className="text-sm text-muted-foreground">Update the password you sign in with.</p>
-        </div>
-      </div>
-      <form onSubmit={submit} className="grid gap-3">
-        <Input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} placeholder="Current password" autoComplete="current-password" />
-        <Input type="password" value={next} onChange={(e) => setNext(e.target.value)} placeholder="New password" autoComplete="new-password" />
-        <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirm new password" autoComplete="new-password" />
-        <Button type="submit" size="sm" className="justify-self-start" disabled={busy}>
-          {busy ? "Updating…" : "Update password"}
-        </Button>
-      </form>
-    </Card>
-  )
-}

@@ -30,7 +30,7 @@ export default function TimelineTab({ customers, selectedCustomerId, onSelectCus
       l.phone === customerPhone || l.customerName === customerName
     )
 
-    // Match AI Messages
+    // Match suggested messages
     const matchedAI = aiMessages.filter(m =>
       m.customerName === customerName
     )
@@ -71,8 +71,8 @@ export default function TimelineTab({ customers, selectedCustomerId, onSelectCus
     matchedAI.forEach(m => {
       timeline.push({
         type: "ai",
-        title: "AI Message Generated",
-        desc: `AI synthesized suggestion based on: "${m.context}"`,
+        title: "Suggested message drafted",
+        desc: `Suggested follow-up based on: "${m.context}"`,
         timestamp: m.createdAt,
         meta: `Generated Message: "${m.generatedMessage}"`,
         icon: Sparkles,
@@ -123,7 +123,7 @@ export default function TimelineTab({ customers, selectedCustomerId, onSelectCus
             {customerTimelineEvents.map((evt, i) => (
               <div key={i} className="relative">
                 {/* Circle Node */}
-                <span className={`absolute -left-9.5 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-card border border-border shadow-sm`}>
+                <span className={`absolute -left-9.5 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-card border border-border`}>
                   <evt.icon className={`h-3.5 w-3.5 text-foreground`} />
                 </span>
                 <div className="space-y-1">

@@ -8,7 +8,8 @@ import { PRODUCT_STATUS, UNITS, GST_RATES, newProduct, autoDetectCategory } from
 import { formatCurrency, round2 } from "../../lib/format"
 import { Button, Input, Select, Textarea, Field, Drawer } from "../../components/ui/Ui"
 import AiCopyPanel from "./AiCopyPanel"
-import ImageUploader from "./ImageUploader"
+import ImageField from "../../components/editors/ImageField"
+import { MAX_IMAGES } from "./helpers"
 
 export default function ProductForm({ open, product, categories = [], onClose }) {
   const isEdit = !!product
@@ -279,7 +280,7 @@ export default function ProductForm({ open, product, categories = [], onClose })
           </Field>
         </div>
 
-        <ImageUploader images={form.images} setForm={setForm} />
+        <ImageField images={form.images || []} onChange={(images) => set("images", images)} bucket="products" label="Product images" max={MAX_IMAGES} />
 
         <Field label="Description">
           <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Short description / production notes" />

@@ -1,29 +1,29 @@
 import { useState, useEffect, useMemo } from "react"
-import { Building2, KeyRound, Percent, Hash, Database, Sparkles, Trash2, Info, Save, Mail, Inbox } from "../components/ui/Icons"
+import { Building2, Percent, Hash, Database, Sparkles, Trash2, Info, Save, Mail, Inbox } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { useSettings, useCollections, useCollection } from "../hooks/useCollection"
-import { seedDemo } from "../data/seed/seed"
-import { login, changePassword, currentEmail } from "../lib/auth"
+import { loadDemoData } from "../data/seed/seed"
 import { syncIndiaMart } from "../services/integrations"
 import { GST_RATES } from "../data/domain/schema"
 import PageHeader from "../components/layout/PageHeader"
+import PasswordCard from "../components/ui/PasswordCard"
 import { Button, Card, Input, Select, Textarea, Field, PageLoader } from "../components/ui/Ui"
 
 function SettingsCard({ icon: Icon, title, description, tone = "primary", children }) {
-  const toneClass = tone === "danger" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
+  const toneClass = tone === "danger" ? "bg-destructive/10 text-destructive-text" : "bg-muted text-muted-foreground"
   return (
-    <Card className="p-5 sm:p-6">
-      <div className="flex items-start gap-3">
-        <span className={`flex h-10 w-10 flex-none items-center justify-center rounded-lg ${toneClass}`}>
-          <Icon className="h-5 w-5" />
+    <Card className={tone === "danger" ? "border-destructive/30" : undefined}>
+      <div className="flex items-start gap-3 border-b border-border px-5 py-4">
+        <span className={`grid h-8 w-8 flex-none place-items-center rounded-md ${toneClass}`}>
+          <Icon className="h-4 w-4" />
         </span>
-        <div className="flex-1">
-          <h3 className="font-semibold text-foreground">{title}</h3>
-          {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
-          <div className="mt-4">{children}</div>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-[15px] font-semibold leading-5 text-foreground">{title}</h3>
+          {description && <p className="mt-0.5 text-[13px] text-muted-foreground">{description}</p>}
         </div>
       </div>
+      <div className="px-5 py-5">{children}</div>
     </Card>
   )
 }
@@ -73,9 +73,9 @@ export default function Settings() {
       </PageHeader>
 
       <div className="space-y-4">
-        <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+        <div className="rounded-xl border border-info/20 bg-info/5 p-4">
           <div className="flex gap-3">
-            <Info className="h-5 w-5 flex-none text-blue-500" />
+            <Info className="h-5 w-5 flex-none text-info-text" />
             <p className="text-sm text-foreground">
               Data is stored in Supabase (Postgres with row-level security) through{" "}
               <span className="font-mono text-xs">data/store/repository.js</span>; without backend credentials the console
@@ -255,7 +255,7 @@ export default function Settings() {
           </p>
         </SettingsCard>
 
-        <PasswordCard />
+        <PasswordCard title="Account password" description="Change the password you sign in with." />
 
         <SettingsCard icon={Database} title="Data" description="Storage overview and demo data.">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -273,14 +273,7 @@ export default function Settings() {
             ))}
           </div>
           <div className="mt-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                await seedDemo()
-                toast.success("Demo data loaded")
-              }}
-            >
+            <Button variant="outline" size="sm" onClick={loadDemoData}>
               <Sparkles className="h-4 w-4" /> Load demo data
             </Button>
           </div>
@@ -414,36 +407,3 @@ function AiUsageCard() {
   )
 }
 
-function PasswordCard() {
-  const [current, setCurrent] = useState("")
-  const [next, setNext] = useState("")
-  const [confirm, setConfirm] = useState("")
-
-  const submit = async (e) => {
-    e.preventDefault()
-    if (next.length < 6) return toast.error("New password must be at least 6 characters")
-    if (next !== confirm) return toast.error("Passwords do not match")
-    // Verify the current password by re-authenticating, then update it.
-    const check = await login(currentEmail() || "", current)
-    if (check.error) return toast.error("Current password is incorrect")
-    const res = await changePassword(next)
-    if (res?.error) return toast.error(res.error)
-    setCurrent("")
-    setNext("")
-    setConfirm("")
-    toast.success("Password updated")
-  }
-
-  return (
-    <SettingsCard icon={KeyRound} title="Account password" description="Change the password you sign in with.">
-      <form onSubmit={submit} className="grid max-w-md gap-3">
-        <Input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} placeholder="Current password" autoComplete="current-password" />
-        <Input type="password" value={next} onChange={(e) => setNext(e.target.value)} placeholder="New password" autoComplete="new-password" />
-        <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirm new password" autoComplete="new-password" />
-        <Button type="submit" size="sm" className="justify-self-start">
-          Update password
-        </Button>
-      </form>
-    </SettingsCard>
-  )
-}

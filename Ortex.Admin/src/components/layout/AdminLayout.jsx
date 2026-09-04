@@ -2,44 +2,151 @@ import { useState, useEffect, useRef, useMemo } from "react"
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard,
-  Target,
-  Inbox,
+  UserSearch,
   Users,
   Package,
-  Tags,
-  LayoutGrid,
   FileText,
   ReceiptIndianRupee,
-  Wallet,
   Settings,
   ShieldCheck,
   LogOut,
   Menu,
   X,
-  Flame,
   TrendingUp,
-  Bell,
   Instagram,
   Phone,
-  Sparkles,
+  Search,
 } from "../ui/Icons"
+import { Kbd } from "../ui/Ui"
 import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
 import { useProfile } from "../../hooks/useProfile"
+import { NotificationsDrawer } from "./NotificationsDrawer"
+import { CommandPalette } from "./CommandPalette"
 import { canAccess } from "../../data/domain/modules"
-import { useCollections } from "../../hooks/useCollection"
-import { OPEN_LEAD_STAGES } from "../../data/domain/schema"
-import { daysUntil } from "../../lib/format"
+import { syncLocalToSupabase } from "../../data/store/sync"
 import { cn } from "../../lib/cn"
 
 const ROLE_LABEL = { admin: "Admin", sales: "Sales Executive" }
+const SIDEBAR_W = "w-[240px]"
+const SIDEBAR_PAD = "lg:pl-[240px]"
 
-// Top-right account menu (Minimal-style popover): avatar → profile card + links.
-function AccountMenu({ onSignOut }) {
+// Grouped navigation. `key` / `keys` map each item to a module so the sidebar
+// hides what a user isn't allowed to access.
+const NAV = [
+  { section: null, items: [{ to: "/", end: true, key: "dashboard", label: "Dashboard", icon: LayoutDashboard }] },
+  {
+    section: "CRM",
+    items: [
+      { to: "/crm", keys: ["leads", "enquiries", "voice-leads"], label: "CRM", icon: UserSearch },
+      { to: "/customers", key: "customers", label: "Customers", icon: Users },
+    ],
+  },
+  {
+    section: "Catalog",
+    items: [
+      { to: "/catalog", keys: ["products", "categories", "work"], label: "Catalog", icon: Package },
+    ],
+  },
+  {
+    section: "Sales",
+    items: [
+      { to: "/quotations", key: "quotations", label: "Quotations", icon: FileText },
+      { to: "/billing", keys: ["invoices", "payments"], label: "Billing", icon: ReceiptIndianRupee },
+    ],
+  },
+  {
+    section: "Automation",
+    items: [
+      { to: "/social", key: "social", label: "Social", icon: Instagram },
+      { to: "/telecaller", key: "telecaller", label: "Telecaller", icon: Phone },
+      { to: "/insights", keys: ["growth", "automation"], label: "Growth", icon: TrendingUp },
+    ],
+  },
+  {
+    section: "System",
+    items: [
+      { to: "/users", key: "users", label: "Users", icon: ShieldCheck },
+      { to: "/settings", key: "settings", label: "Settings", icon: Settings },
+    ],
+  },
+]
+
+// Non-production environments (e.g. Staging on Vercel) set VITE_ENV_LABEL so the
+// console shows an unmistakable badge — prevents test actions on the wrong env.
+const ENV_LABEL = import.meta.env.VITE_ENV_LABEL || ""
+
+function useDarkMode() {
+  useEffect(() => {
+    document.documentElement.classList.remove("dark")
+    localStorage.setItem("ortex_admin_theme", "light")
+  }, [])
+}
+
+function useAllowedNav() {
+  const profile = useProfile()
+  return useMemo(() => {
+    const allowed = (it) => (it.keys ? it.keys.some((k) => canAccess(profile, k)) : canAccess(profile, it.key))
+    return NAV.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length)
+  }, [profile])
+}
+
+function Brand({ compact = false }) {
+  return (
+    <NavLink to="/" className="flex min-w-0 items-center gap-2.5 focus:outline-none">
+      <img src="/img/logo.svg" alt="Ortex Industries" className="h-7 w-auto flex-none object-contain" />
+      {!compact && (
+        <span className="truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-subtle-foreground">Console</span>
+      )}
+      {ENV_LABEL && (
+        <span className="rounded-md bg-warning/12 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warning-text">{ENV_LABEL}</span>
+      )}
+    </NavLink>
+  )
+}
+
+function NavItems({ groups, onNavigate }) {
+  return (
+    <nav className="flex flex-col gap-4">
+      {groups.map((group, gi) => (
+        <div key={gi} className="flex flex-col gap-0.5">
+          {group.section && (
+            <span className="px-2.5 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-subtle-foreground">{group.section}</span>
+          )}
+          {group.items.map(({ to, end, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              onClick={onNavigate}
+              className={({ isActive }) =>
+                cn(
+                  "group relative flex h-[34px] items-center gap-2.5 rounded-nav px-2.5 text-[13.5px] font-medium transition-colors duration-[100ms]",
+                  isActive ? "bg-card text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:bg-card/70 hover:text-foreground",
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <Icon className={cn("h-[18px] w-[18px] flex-none", isActive ? "text-primary" : "text-subtle-foreground group-hover:text-foreground")} />
+                  {label}
+                </>
+              )}
+            </NavLink>
+          ))}
+        </div>
+      ))}
+    </nav>
+  )
+}
+
+// Pinned to the sidebar foot: avatar, name, role, with a popover for profile,
+// settings and sign out (Fibery / GitBook pattern).
+function UserCard({ onSignOut }) {
   const profile = useProfile()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const email = profile?.email || currentEmail() || ""
-  const name = profile?.name || email
+  const name = profile?.name || email || "Account"
   const role = profile ? ROLE_LABEL[profile.role] || profile.role : ""
 
   useEffect(() => {
@@ -56,305 +163,100 @@ function AccountMenu({ onSignOut }) {
 
   return (
     <div ref={ref} className="relative">
+      {open && (
+        <div className="absolute bottom-full left-0 mb-2 w-full rounded-lg border border-border bg-card p-1 shadow-overlay-lg animate-pop-in">
+          <div className="px-2.5 py-2">
+            <p className="truncate text-[13px] font-semibold text-foreground">{name}</p>
+            {email && <p className="truncate text-xs text-muted-foreground">{email}</p>}
+          </div>
+          <div className="my-1 h-px bg-border" />
+          <NavLink to="/profile" onClick={() => setOpen(false)} className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium text-foreground hover:bg-muted">
+            <Users className="h-4 w-4 text-muted-foreground" /> Profile
+          </NavLink>
+          {canAccess(profile, "settings") && (
+            <NavLink to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium text-foreground hover:bg-muted">
+              <Settings className="h-4 w-4 text-muted-foreground" /> Settings
+            </NavLink>
+          )}
+          <div className="my-1 h-px bg-border" />
+          <button onClick={() => { setOpen(false); onSignOut() }} className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium text-destructive-text hover:bg-destructive/10">
+            <LogOut className="h-4 w-4" /> Sign out
+          </button>
+        </div>
+      )}
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Account menu"
         aria-expanded={open}
         className={cn(
-          "flex h-9 w-9 flex-none items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary ring-2 transition-all hover:bg-primary/15",
-          open ? "ring-primary/40" : "ring-transparent",
+          "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-card/70",
+          open && "bg-card shadow-sm ring-1 ring-border",
         )}
       >
-        {(name || "?").slice(0, 1).toUpperCase()}
-      </button>
-
-      {open && (
-        <div className="absolute right-0 mt-2 w-60 origin-top-right rounded-2xl border border-border bg-card p-1.5 shadow-xl shadow-black/10">
-          <div className="px-3 py-2.5">
-            <p className="truncate text-sm font-semibold text-foreground">{name || "My Profile"}</p>
-            {email && <p className="truncate text-xs text-muted-foreground">{email}</p>}
-            {role && (
-              <span className="mt-2 inline-flex items-center rounded-md bg-primary/12 px-2 py-0.5 text-[11px] font-semibold leading-5 text-primary">
-                {role}
-              </span>
-            )}
-          </div>
-          <div className="my-1 h-px bg-border" />
-          <NavLink
-            to="/profile"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-          >
-            <Users className="h-4 w-4 text-muted-foreground" /> Profile
-          </NavLink>
-          {canAccess(profile, "settings") && (
-            <NavLink
-              to="/settings"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-            >
-              <Settings className="h-4 w-4 text-muted-foreground" /> Settings
-            </NavLink>
-          )}
-          <div className="my-1 h-px bg-border" />
-          <button
-            onClick={() => { setOpen(false); onSignOut() }}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
-          >
-            <LogOut className="h-4 w-4" /> Sign out
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Top-nav notifications: a bell + Minimal popover, driven by real signals
-// (new website enquiries and overdue lead follow-ups).
-function Notifications() {
-  const { data } = useCollections(["enquiries", "leads"])
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  const items = useMemo(() => {
-    const out = []
-    for (const e of data.enquiries || []) {
-      if (e.status === "new") {
-        out.push({
-          id: `enq-${e.id}`,
-          to: "/enquiries",
-          title: "New enquiry",
-          body: e.customer?.name || e.customer?.company || "New website enquiry",
-          when: e.createdAt,
-        })
-      }
-    }
-    for (const l of data.leads || []) {
-      if (OPEN_LEAD_STAGES.includes(l.stage) && l.nextFollowUp && daysUntil(l.nextFollowUp) < 0) {
-        out.push({
-          id: `lead-${l.id}`,
-          to: "/leads",
-          title: "Follow-up overdue",
-          body: l.customer?.name || l.customer?.company || "Lead follow-up is overdue",
-          when: l.nextFollowUp,
-        })
-      }
-    }
-    return out.sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0)).slice(0, 8)
-  }, [data])
-
-  const count = items.length
-
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    const onKey = (e) => { if (e.key === "Escape") setOpen(false) }
-    document.addEventListener("mousedown", onDown)
-    document.addEventListener("keydown", onKey)
-    return () => {
-      document.removeEventListener("mousedown", onDown)
-      document.removeEventListener("keydown", onKey)
-    }
-  }, [open])
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-label={`Notifications${count ? ` (${count})` : ""}`}
-        aria-expanded={open}
-        className="relative grid h-9 w-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
-      >
-        <Bell className="h-5 w-5" />
-        {count > 0 && (
-          <span className="absolute right-0.5 top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-none text-white">
-            {count > 9 ? "9+" : count}
-          </span>
-        )}
-      </button>
-
-      {open && (
-        <div className="absolute right-0 mt-2 w-80 origin-top-right rounded-2xl border border-border bg-card p-1.5 shadow-xl shadow-black/10">
-          <div className="flex items-center justify-between px-3 py-2">
-            <span className="text-sm font-semibold text-foreground">Notifications</span>
-            {count > 0 && (
-              <span className="inline-flex items-center rounded-md bg-primary/12 px-2 py-0.5 text-[11px] font-semibold leading-5 text-primary">
-                {count} new
-              </span>
-            )}
-          </div>
-          <div className="my-1 h-px bg-border" />
-          {count === 0 ? (
-            <div className="px-3 py-10 text-center text-sm text-muted-foreground">You're all caught up.</div>
-          ) : (
-            <div className="max-h-80 overflow-y-auto">
-              {items.map((n) => (
-                <NavLink
-                  key={n.id}
-                  to={n.to}
-                  onClick={() => setOpen(false)}
-                  className="flex gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted"
-                >
-                  <span className="mt-1.5 h-2 w-2 flex-none rounded-full bg-primary" aria-hidden="true" />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium text-foreground">{n.title}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{n.body}</span>
-                  </span>
-                </NavLink>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Grouped navigation — the console spans CRM, catalog and sales, so section
-// labels keep the growing sidebar scannable. `key` maps each item to a module
-// so the sidebar can hide what a user isn't allowed to access.
-const NAV = [
-  { section: null, items: [{ to: "/", end: true, key: "dashboard", label: "Dashboard", icon: LayoutDashboard }] },
-  {
-    section: "CRM",
-    items: [
-      { to: "/leads", key: "leads", label: "Leads", icon: Target },
-      { to: "/voice-leads", key: "voice-leads", label: "Voice Leads", icon: Sparkles },
-      { to: "/enquiries", key: "enquiries", label: "Enquiries", icon: Inbox },
-      { to: "/customers", key: "customers", label: "Customers", icon: Users },
-    ],
-  },
-  {
-    section: "Catalog",
-    items: [
-      { to: "/products", key: "products", label: "Products", icon: Package },
-      { to: "/categories", key: "categories", label: "Categories", icon: Tags },
-      { to: "/work", key: "work", label: "Work", icon: LayoutGrid },
-    ],
-  },
-  {
-    section: "Sales",
-    items: [
-      { to: "/quotations", key: "quotations", label: "Quotations", icon: FileText },
-      { to: "/invoices", key: "invoices", label: "Invoices", icon: ReceiptIndianRupee },
-      { to: "/payments", key: "payments", label: "Payments", icon: Wallet },
-    ],
-  },
-  {
-    section: "Automation",
-    items: [
-      { to: "/social", key: "social", label: "Social", icon: Instagram },
-      { to: "/telecaller", key: "telecaller", label: "Telecaller", icon: Phone },
-      { to: "/automation", key: "automation", label: "Automation", icon: Flame },
-      { to: "/growth", key: "growth", label: "Growth", icon: TrendingUp },
-    ],
-  },
-  {
-    section: "System",
-    items: [
-      { to: "/users", key: "users", label: "Users", icon: ShieldCheck },
-      { to: "/settings", key: "settings", label: "Settings", icon: Settings },
-    ],
-  },
-]
-
-function useDarkMode() {
-  useEffect(() => {
-    document.documentElement.classList.remove("dark")
-    localStorage.setItem("ortex_admin_theme", "light")
-  }, [])
-  return [false, () => {}]
-}
-
-// Non-production environments (e.g. Staging on Vercel) set VITE_ENV_LABEL so the
-// console shows an unmistakable badge — prevents test actions on the wrong env.
-const ENV_LABEL = import.meta.env.VITE_ENV_LABEL || ""
-
-function Brand() {
-  return (
-    <NavLink to="/" className="flex items-center gap-2.5 focus:outline-none">
-      <img src="/img/logo.svg" alt="Ortex Industries" className="h-8 w-auto object-contain" />
-      <div className="flex flex-col leading-none border-l border-border pl-2.5">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Admin console</span>
-      </div>
-      {ENV_LABEL && (
-        <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700 ring-1 ring-amber-300">
-          {ENV_LABEL}
+        <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-primary text-xs font-semibold text-white">
+          {(name || "?").slice(0, 1).toUpperCase()}
         </span>
-      )}
-    </NavLink>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-medium text-foreground">{name}</span>
+          {role && <span className="block truncate text-[11px] text-muted-foreground">{role}</span>}
+        </span>
+      </button>
+    </div>
   )
 }
 
-function NavItems({ onNavigate }) {
-  const profile = useProfile()
-  const groups = NAV.map((g) => ({ ...g, items: g.items.filter((it) => canAccess(profile, it.key)) })).filter(
-    (g) => g.items.length,
-  )
+function SidebarBody({ groups, onNavigate, onSignOut }) {
   return (
-    <nav className="flex flex-col gap-4">
-      {groups.map((group, gi) => (
-        <div key={gi} className="flex flex-col gap-1">
-          {group.section && (
-            <span className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">{group.section}</span>
-          )}
-          {group.items.map(({ to, end, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              onClick={onNavigate}
-              className={({ isActive }) =>
-                cn(
-                  "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-primary/10 font-semibold text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" aria-hidden="true" />
-                  )}
-                  <Icon className={cn("h-5 w-5 flex-none", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
-                  {label}
-                </>
-              )}
-            </NavLink>
-          ))}
-        </div>
-      ))}
-    </nav>
+    <>
+      <div className="scroll-thin flex-1 overflow-y-auto px-3 pb-4 pt-2">
+        <NavItems groups={groups} onNavigate={onNavigate} />
+      </div>
+      <div className="border-t border-border p-2">
+        <UserCard onSignOut={onSignOut} />
+      </div>
+    </>
   )
 }
-
-import { syncLocalToSupabase } from "../../data/store/sync"
 
 export default function AdminLayout() {
   const authed = useAuth()
   const navigate = useNavigate()
   useDarkMode()
   const [mobileOpen, setMobileOpen] = useState(false)
-
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const groups = useAllowedNav()
   const ready = useAuthReady()
+
+  const pages = useMemo(
+    () => groups.flatMap((g) => g.items.map((it) => ({ to: it.to, label: it.label, icon: it.icon, section: g.section || "General" }))),
+    [groups],
+  )
 
   useEffect(() => {
     if (ready && !authed) navigate("/login", { replace: true })
   }, [ready, authed, navigate])
 
   useEffect(() => {
-    if (authed) {
-      syncLocalToSupabase()
-    }
+    if (authed) syncLocalToSupabase()
   }, [authed])
+
+  // Ctrl/⌘ K opens global search from anywhere.
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault()
+        setPaletteOpen((o) => !o)
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
 
   // Wait for the session to resolve before deciding — avoids a login flash on refresh.
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
+        <div className="h-7 w-7 animate-spin rounded-full border-2 border-muted border-t-primary" />
       </div>
     )
   }
@@ -368,56 +270,65 @@ export default function AdminLayout() {
   return (
     <div className="min-h-screen bg-background">
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-card lg:flex">
-        <div className="flex h-[60px] items-center border-b border-border px-5">
+      <aside className={cn("no-print fixed inset-y-0 left-0 z-30 hidden flex-col bg-card lg:flex", SIDEBAR_W)}>
+        <div className="flex h-14 items-center px-4">
           <Brand />
         </div>
-        <div className="scroll-thin flex-1 overflow-y-auto p-4">
-          <NavItems />
-        </div>
+        <SidebarBody groups={groups} onSignOut={handleLogout} />
       </aside>
 
       {/* Mobile drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 flex w-64 flex-col border-r border-border bg-card">
-            <div className="flex h-[60px] items-center justify-between border-b border-border px-5">
+          <div className="absolute inset-0 bg-[rgb(15_23_42/0.45)] animate-fade-in" onClick={() => setMobileOpen(false)} />
+          <aside className={cn("absolute inset-y-0 left-0 flex flex-col bg-card shadow-overlay-lg", SIDEBAR_W)}>
+            <div className="flex h-14 items-center justify-between px-4">
               <Brand />
-              <button onClick={() => setMobileOpen(false)} className="text-muted-foreground">
-                <X className="h-5 w-5" />
+              <button onClick={() => setMobileOpen(false)} className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close menu">
+                <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="scroll-thin flex-1 overflow-y-auto p-4">
-              <NavItems onNavigate={() => setMobileOpen(false)} />
-            </div>
+            <SidebarBody groups={groups} onNavigate={() => setMobileOpen(false)} onSignOut={handleLogout} />
           </aside>
         </div>
       )}
 
       {/* Main column */}
-      <div className="lg:pl-64">
-        <header className="no-print sticky top-0 z-20 flex h-[60px] items-center justify-between border-b border-border bg-white px-4 sm:px-6">
+      <div className={SIDEBAR_PAD}>
+        <header className="no-print sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-card px-4 sm:px-6">
           <button
             onClick={() => setMobileOpen(true)}
-            className="rounded-lg p-2 text-muted-foreground hover:bg-muted lg:hidden"
+            className="grid h-9 w-9 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
             aria-label="Open menu"
           >
             <Menu className="h-5 w-5" />
           </button>
           <div className="lg:hidden">
-            <Brand />
+            <Brand compact />
           </div>
-          <div className="ml-auto flex items-center gap-1.5">
-            <Notifications />
-            <AccountMenu onSignOut={handleLogout} />
+
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="ml-auto flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card text-subtle-foreground shadow-sm transition-colors hover:border-border-strong hover:text-foreground sm:ml-0 sm:w-[300px] sm:justify-start sm:gap-2.5 sm:px-3 lg:w-[360px]"
+            aria-label="Search"
+          >
+            <Search className="h-4 w-4 flex-none" />
+            <span className="hidden flex-1 text-left text-[13px] sm:block">Search customers, quotes, invoices…</span>
+            <span className="hidden items-center gap-0.5 sm:flex"><Kbd>Ctrl</Kbd><Kbd>K</Kbd></span>
+          </button>
+
+          <div className="flex items-center gap-1 sm:ml-auto">
+            <NotificationsDrawer />
           </div>
         </header>
 
-        <main className="p-4 sm:p-6 lg:p-8">
+        <main className="mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-6 sm:py-6">
           <Outlet />
         </main>
       </div>
+
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} pages={pages} />
     </div>
   )
 }

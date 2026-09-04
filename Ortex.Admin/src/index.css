@@ -1,14 +1,30 @@
 @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
 @import "tailwindcss";
 
-/* Tailwind v4 theme — brand tokens shared with the Ortex marketing site so the
-   admin feels like the same product. Tokens are HSL channels behind CSS vars;
-   consume them through Tailwind colour utilities, never hard-coded hex. */
+/* ============================================================
+   Tailwind v4 theme — the Ortex "Console" design system.
+
+   Direction (from a Mobbin survey of Attio, Linear, Stripe, Midday,
+   Jobber, HoneyBook, Twenty): a quiet, dense, high-contrast B2B
+   console. Cool neutral canvas, white cards with a hairline border
+   and a whisper of shadow, 8–12px corners, 36px controls, 11px
+   uppercase table heads, one indigo brand hue used sparingly as
+   ink and as low-alpha tints. Pages consume tokens through Tailwind
+   utilities (bg-card, text-muted-foreground, rounded-card …); never
+   hard-code hex in components.
+   ============================================================ */
 @theme {
-  --font-sans: "Inter", sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
+  --color-subtle-foreground: hsl(var(--subtle-foreground));
   --color-primary: hsl(var(--primary));
+  --color-primary-hover: hsl(var(--primary-hover));
+  --color-primary-pressed: hsl(var(--primary-pressed));
+  --color-primary-soft: hsl(var(--primary-soft));
   --color-primary-foreground: hsl(var(--primary-foreground));
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
@@ -16,74 +32,255 @@
   --color-accent-foreground: hsl(var(--accent-foreground));
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-subtle: hsl(var(--subtle));
+  --color-field: hsl(var(--field));
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
   --color-border: hsl(var(--border));
+  --color-border-strong: hsl(var(--border-strong));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
   --color-destructive: hsl(var(--destructive));
+  --color-destructive-strong: hsl(var(--destructive-strong));
+  --color-destructive-text: hsl(var(--destructive-text));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-success: hsl(var(--success));
+  --color-success-text: hsl(var(--success-text));
   --color-warning: hsl(var(--warning));
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
+  --color-warning-text: hsl(var(--warning-text));
+  --color-info: hsl(var(--info));
+  --color-info-text: hsl(var(--info-text));
+
+  /* Radius ladder: tight and consistent. Cards 12, controls 8, chips 6. */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 14px;
+  --radius-3xl: 16px;
+  --radius-field: 8px;
+  --radius-btn: 8px;
+  --radius-btn-sm: 7px;
+  --radius-btn-lg: 10px;
+  --radius-nav: 8px;
+  --radius-card: 12px;
+
+  /* Surfaces: hairline + a whisper of depth; floating UI gets real shadow. */
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-md: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 12px -4px rgb(15 23 42 / 0.06);
+  --shadow-lg: 0 2px 4px rgb(15 23 42 / 0.04), 0 12px 24px -8px rgb(15 23 42 / 0.10);
+  --shadow-xl: 0 24px 48px -12px rgb(15 23 42 / 0.18);
+  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-overlay: 0 0 0 1px rgb(15 23 42 / 0.06), 0 8px 24px -6px rgb(15 23 42 / 0.16);
+  --shadow-overlay-lg: 0 0 0 1px rgb(15 23 42 / 0.08), 0 24px 60px -16px rgb(15 23 42 / 0.28);
+
+  --ease-out-quart: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-ui: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-elastic: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --animate-card-in: ks-card-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  --animate-row-in: ks-row-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pop-in: ks-pop-in 0.16s cubic-bezier(0.32, 0.72, 0, 1) both;
+  --animate-drawer-in: ks-drawer-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-fade-in: ks-fade-in 0.18s ease both;
+
+  @keyframes ks-card-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @keyframes ks-row-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @keyframes ks-pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+  @keyframes ks-drawer-in { from { transform: translateX(100%); } to { transform: none; } }
+  @keyframes ks-fade-in { from { opacity: 0; } to { opacity: 1; } }
 }
 
+/* Light (default). Cool slate neutrals; indigo brand. */
 :root {
-  --background: 210 23% 96.5%; /* #F4F6F8 */
-  --foreground: 222 47% 11%;
-  --primary: 229 77% 54%;
+  --background: 220 20% 97.5%;      /* #F6F7F9 canvas */
+  --foreground: 222 47% 11%;        /* #0F172A ink */
+  --subtle-foreground: 220 9% 46%;  /* #6B7280 hints, table heads */
+  --primary: 229 77% 54%;           /* #2F50E4 brand indigo */
+  --primary-hover: 229 74% 50%;     /* #2343D9 */
+  --primary-pressed: 229 80% 45%;   /* #1737CC */
+  --primary-soft: 229 77% 86%;      /* #C1CBF7 focus border */
   --primary-foreground: 0 0% 100%;
-  --secondary: 200 33.3% 98.2%;
+  --secondary: 220 20% 96%;         /* #F3F4F7 */
   --secondary-foreground: 222 47% 11%;
-  --accent: 262 83% 58%;
+  --accent: 229 77% 54%;
   --accent-foreground: 0 0% 100%;
-  --muted: 240 5% 94%;
-  --muted-foreground: 240 4% 46%;
+  --muted: 220 16% 95%;             /* #F1F2F5 */
+  --muted-foreground: 220 12% 38%;  /* #56606E body-secondary */
+  --subtle: 220 20% 97%;            /* #F5F6F8 row hover */
+  --field: 0 0% 100%;               /* inputs are white on the grey canvas */
   --card: 0 0% 100%;
   --card-foreground: 222 47% 11%;
-  --border: 240 6% 90%;
-  --input: 240 6% 90%;
+  --border: 220 14% 91%;            /* #E5E7EB hairline */
+  --border-strong: 220 13% 84%;     /* #D2D6DE */
+  --input: 220 14% 91%;
   --ring: 229 77% 54%;
-  --destructive: 0 84% 60%;
+  --destructive: 350 89% 60%;       /* #F43F5E */
+  --destructive-strong: 347 77% 50%; /* #E11D48 */
+  --destructive-text: 347 77% 40%;  /* #BE123C */
   --destructive-foreground: 0 0% 100%;
-  --success: 152 69% 40%;
-  --warning: 38 92% 50%;
-  --radius: 0.65rem;
+  --success: 160 84% 39%;           /* #10B981 */
+  --success-text: 161 94% 24%;      /* #047857 */
+  --warning: 38 92% 50%;            /* #F59E0B */
+  --warning-text: 26 90% 34%;       /* #B45309 */
+  --info: 217 91% 60%;              /* #3B82F6 */
+  --info-text: 224 76% 42%;         /* #1D4ED8 */
+  --radius: 0.5rem;
 }
 
+/* Dark ramp (kept for parity; the shell currently pins light). */
 .dark {
-  --background: 224 47% 8%;
-  --foreground: 0 0% 98%;
-  --primary: 229 77% 60%;
+  --background: 222 40% 7%;
+  --foreground: 210 40% 96%;
+  --subtle-foreground: 217 15% 62%;
+  --primary: 229 80% 64%;
+  --primary-hover: 229 84% 68%;
+  --primary-pressed: 229 77% 58%;
+  --primary-soft: 229 50% 38%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 222 40% 16%;
-  --secondary-foreground: 0 0% 98%;
-  --accent: 262 83% 66%;
+  --secondary: 222 30% 12%;
+  --secondary-foreground: 210 40% 96%;
+  --accent: 229 80% 64%;
   --accent-foreground: 0 0% 100%;
-  --muted: 222 40% 15%;
-  --muted-foreground: 240 5% 65%;
-  --card: 222 44% 11%;
-  --card-foreground: 0 0% 98%;
-  --border: 222 30% 20%;
-  --input: 222 30% 20%;
-  --ring: 229 77% 60%;
-  --destructive: 0 74% 58%;
+  --muted: 222 26% 16%;
+  --muted-foreground: 217 20% 74%;
+  --subtle: 222 30% 12%;
+  --field: 222 30% 10%;
+  --card: 222 34% 9.5%;
+  --card-foreground: 210 40% 96%;
+  --border: 222 22% 19%;
+  --border-strong: 222 20% 26%;
+  --input: 222 22% 19%;
+  --ring: 229 80% 64%;
+  --destructive: 350 89% 64%;
+  --destructive-strong: 347 77% 54%;
+  --destructive-text: 350 90% 74%;
   --destructive-foreground: 0 0% 100%;
-  --success: 152 60% 45%;
+  --success: 160 84% 45%;
+  --success-text: 158 64% 66%;
   --warning: 38 92% 55%;
+  --warning-text: 40 95% 70%;
+  --info: 217 91% 64%;
+  --info-text: 213 94% 82%;
 }
 
-* {
-  border-color: hsl(var(--border));
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01", "tnum";
+    font-optical-sizing: auto;
+    font-size: 14px;
+    line-height: 1.5;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    letter-spacing: -0.01em;
+  }
+
+  /* Keyboard focus is a 2px brand outline everywhere except fields,
+     where the border colour is the whole cue. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+  input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: none;
+  }
+
+  /* Keystone scrollbars: thin, pill-shaped, muted. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border-strong)) rgba(128, 140, 165, 0.16);
+  }
+  ::-webkit-scrollbar { width: 12px; height: 12px; }
+  ::-webkit-scrollbar-track { background: rgba(128, 140, 165, 0.14); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border-strong));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    min-height: 44px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--subtle-foreground)); background-clip: padding-box; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
 }
 
-body {
+@utility squircle {
+  corner-shape: squircle;
+}
+
+/* Table rows fade in on mount. */
+@utility rows-in {
+  & > tr { animation: ks-row-in 0.44s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  & > tr:nth-child(1) { animation-delay: 0.02s; }
+  & > tr:nth-child(2) { animation-delay: 0.05s; }
+  & > tr:nth-child(3) { animation-delay: 0.08s; }
+  & > tr:nth-child(4) { animation-delay: 0.11s; }
+  & > tr:nth-child(5) { animation-delay: 0.14s; }
+  & > tr:nth-child(6) { animation-delay: 0.17s; }
+  & > tr:nth-child(7) { animation-delay: 0.20s; }
+  & > tr:nth-child(8) { animation-delay: 0.23s; }
+  & > tr:nth-child(9) { animation-delay: 0.26s; }
+  & > tr:nth-child(n + 10) { animation-delay: 0.29s; }
+}
+
+/* Data-table skin shared by every list page: 11px uppercase heads, 48px rows,
+   hairline dividers, subtle hover. Apply to <table>. */
+@utility table-console {
+  & thead th {
+    height: 40px;
+    padding: 0 16px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: hsl(var(--subtle-foreground));
+    background: hsl(var(--subtle));
+    border-bottom: 1px solid hsl(var(--border));
+    white-space: nowrap;
+  }
+  & tbody td {
+    padding: 0 16px;
+    height: 48px;
+    border-bottom: 1px solid hsl(var(--border));
+    vertical-align: middle;
+  }
+  & tbody tr:last-child td { border-bottom: 0; }
+  & tbody tr:hover td { background: hsl(var(--subtle)); }
+}
+
+/* Keyboard hint chip (Ctrl K etc.). */
+@utility kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 5px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
   font-family: var(--font-sans);
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  -webkit-font-smoothing: antialiased;
+  font-size: 11px;
+  font-weight: 500;
+  color: hsl(var(--subtle-foreground));
+  line-height: 1;
+}
+
+/* Legacy no-op: earlier buttons carried a hover gloss; the console kit is flat. */
+@utility btn-sheen {
+  position: relative;
 }
 
 /* Numeric columns line up nicely (money, quantities). */
@@ -108,7 +305,7 @@ body {
 @media (min-width: 992px) and (max-height: 860px) {
   .lgn-left { padding-top: 24px; padding-bottom: 20px; }
   .lgn-body { padding-top: 16px; }
-  .lgn-title { font-size: 32px; }
+  .lgn-title { font-size: clamp(30px, 3.6vw, 44px); }
   .lgn-form { margin-top: clamp(18px, 2.8vh, 28px); }
   .lgn-copyright { padding-top: 24px; }
   .lgn-botlinks { margin-top: 10px; }
@@ -126,7 +323,7 @@ body {
 .lgn-botlinks a { font-size: clamp(12px, 1vw, 14px); font-weight: 500; color: hsl(var(--primary)); text-decoration: none; white-space: nowrap; background: none; border: 0; cursor: pointer; }
 .lgn-botlinks a:hover { text-decoration: underline; }
 .lgn-body { margin-top: auto; padding-top: clamp(20px, 4.5vh, 56px); max-width: 460px; width: 100%; align-self: center; text-align: center; }
-.lgn-title { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; font-size: 32px; font-weight: 400; letter-spacing: -.01em; line-height: 1.15; color: #071437; white-space: nowrap; }
+.lgn-title { font-family: 'Instrument Serif', Georgia, serif; font-size: clamp(32px, 4.4vw, 54px); font-weight: 500; letter-spacing: -.01em; line-height: 1.04; color: #071437; white-space: nowrap; }
 .lgn-sub { margin: 4px auto 0; max-width: none; font-size: 16px; font-weight: 400; line-height: 1.5; color: #4B5675; }
 .lgn-form { margin-top: clamp(20px, 4vh, 40px); text-align: left; }
 .lgn-form input { height: 50px; border-radius: 20px; corner-shape: squircle; }
@@ -297,3 +494,118 @@ body {
     margin: 0;
   }
 }
+
+/* ============================================================
+   Document overlay + A4 sheet — Quotation / Tax invoice.
+   Ported from the Keystone invoice document (.invoice-doc / .iv-*):
+   dark fixed toolbar, a true 210mm × 297mm sheet, one solid black rule
+   under the line-table head, #EBEBEB hairlines everywhere else, right-half
+   totals, and a footer pinned to the bottom edge of the sheet. Colours are
+   intentionally fixed hex (not theme tokens) so print/PDF never inherit the
+   app theme. Used by components/documents/DocumentView.jsx.
+   ============================================================ */
+.doc-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: flex; flex-direction: column; overscroll-behavior: contain; }
+.doc-toolbar { flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 14px 12px 18px; background: #000; }
+.doc-toolbar-title { flex: 1 1 auto; min-width: 0; font-weight: 700; font-size: 14px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc-toolbar-title small { font-weight: 500; color: rgba(255, 255, 255, 0.6); margin-left: 8px; }
+.doc-tb-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: background 150ms ease, color 150ms ease; }
+.doc-tb-btn.ghost { background: transparent; color: #fff; border-color: rgba(255, 255, 255, 0.22); }
+.doc-tb-btn.ghost:hover { background: rgba(255, 255, 255, 0.1); }
+.doc-tb-btn.primary { background: hsl(var(--primary)); color: #fff; }
+.doc-tb-btn.primary:hover { background: hsl(var(--primary-hover)); }
+.doc-tb-btn:disabled { opacity: 0.6; cursor: default; }
+.doc-tb-close { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border: none; background: rgba(255, 255, 255, 0.12); color: #fff; border-radius: 999px; cursor: pointer; transition: background 150ms ease; }
+.doc-tb-close:hover { background: rgba(225, 29, 72, 0.6); }
+.doc-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 32px 16px 56px; }
+
+.doc-sheet {
+  /* Keystone InvoicePdfDocument (QuestPDF), reproduced in points: 30pt page
+     margin; body 9pt on 1.5 leading (13.5pt) which sets the vertical rhythm;
+     the line-table head rule is solid black, every other rule is #EBEBEB;
+     numeric columns right-aligned to the page's right margin. Ink is pure
+     black; the only grey in the document is the hairline. */
+  --ink: #000000; --rule: #EBEBEB; --rule-ink: #000000;
+  box-sizing: border-box; width: 210mm; min-height: 297mm; margin: 0 auto; display: flex; flex-direction: column;
+  background: #fff; color: var(--ink); padding: 30pt; box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.55);
+  font-family: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 9pt; line-height: 1.5;
+  font-feature-settings: normal; font-variant-numeric: normal;
+}
+.doc-sheet p, .doc-sheet h4 { margin: 0; }
+
+/* Masthead: title bottom-aligned left, 24pt-high brand mark top-right. */
+.doc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24pt; }
+.doc-title { align-self: flex-end; font-size: 18pt; font-weight: 600; line-height: 1.2; letter-spacing: 0; text-transform: uppercase; color: var(--ink); }
+.doc-logo { height: 24pt; width: auto; flex: none; }
+
+/* Meta: 85pt label column, value takes the rest; lead row semibold, rest medium. */
+.doc-keys { margin-top: 17pt; display: grid; grid-template-columns: 85pt 1fr; column-gap: 0; row-gap: 0; font-size: 9pt; font-weight: 500; max-width: 340pt; }
+.doc-keys .k, .doc-keys .v { color: var(--ink); }
+.doc-keys .v.strong { font-weight: 600; }
+.doc-keys .k.strong { font-weight: 600; }
+
+/* Parties: supplier left, buyer right (20pt gutter); names semibold. */
+.doc-parties { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20pt; row-gap: 12pt; margin-top: 17.5pt; }
+.doc-parties.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.doc-party { font-size: 9pt; color: var(--ink); line-height: 1.5; }
+.doc-party-label, .doc-party-name { font-weight: 600; }
+
+/* Headline: the amount, stated once at reading size. */
+.doc-headline { margin-top: 24.5pt; font-size: 13.5pt; font-weight: 600; line-height: 1.5; color: var(--ink); }
+.doc-headline-sub { margin-top: 2pt; font-size: 9pt; color: var(--ink); }
+.doc-headline-sub b { font-weight: 600; }
+
+/* Line table: 7.5pt head, one 0.75pt black rule, unruled rows. */
+.doc-table { width: 100%; border-collapse: collapse; margin-top: 26.5pt; table-layout: fixed; }
+.doc-table thead th { text-align: right; font-weight: 400; font-size: 7.5pt; line-height: 1.5; color: var(--ink); padding: 0 0 5.7pt 0; border-bottom: 0.75pt solid var(--rule-ink); white-space: nowrap; }
+.doc-table thead th:first-child { text-align: left; }
+.doc-table col.c-qty { width: 40pt; }
+.doc-table col.c-unit { width: 92pt; }
+.doc-table col.c-tax { width: 52pt; }
+.doc-table col.c-amt { width: 96pt; }
+.doc-table tbody td { text-align: right; font-size: 9pt; line-height: 1.5; color: var(--ink); padding: 9pt 0 0 0; vertical-align: top; border: 0; white-space: nowrap; }
+.doc-table tbody tr:first-child td { padding-top: 4.8pt; }
+.doc-table tbody td:first-child { text-align: left; padding-right: 12pt; white-space: normal; }
+.doc-item-name { color: var(--ink); }
+.doc-item-detail { color: var(--ink); }
+
+/* Totals: right half (266pt), each row carries a hairline above it. */
+.doc-after { display: flex; justify-content: flex-end; margin-top: 16.5pt; }
+.doc-words { flex: 1; min-width: 0; font-size: 9pt; color: var(--ink); }
+.doc-words b { display: block; font-weight: 600; }
+.doc-totals { width: 266pt; flex: none; }
+.doc-total-row { display: flex; justify-content: space-between; gap: 12pt; padding: 1.8pt 0 3.7pt; font-size: 9pt; line-height: 1.5; color: var(--ink); border-top: 0.75pt solid var(--rule); }
+.doc-total-row span:first-child { width: 150pt; flex: none; }
+.doc-total-row span:last-child { flex: 1; text-align: right; }
+.doc-total-row.grand { font-weight: 600; }
+
+/* Notes: HSN/SAC, declaration, then the document's own text. */
+.doc-notes { margin-top: 25pt; padding-bottom: 14pt; font-size: 9pt; color: var(--ink); }
+.doc-notes h4 { font-size: 9pt; font-weight: 600; margin-top: 11.5pt; }
+.doc-notes p { white-space: pre-wrap; }
+.doc-notes .ref { margin-top: 11.5pt; font-size: 7.5pt; }
+
+/* Footer: hairline, 7.5pt, pinned to the bottom of the sheet. */
+.doc-foot { margin-top: auto; padding-top: 6pt; border-top: 0.75pt solid var(--rule); display: flex; justify-content: space-between; gap: 12pt; font-size: 7.5pt; line-height: 1.5; color: var(--ink); }
+
+@media (max-width: 860px) {
+  .doc-scroll { padding: 0; }
+  .doc-sheet { width: 100%; min-height: 0; margin: 0; box-shadow: none; }
+  .doc-foot { margin-top: 48px; }
+}
+@media (max-width: 640px) {
+  .doc-sheet { padding: 18pt; }
+  .doc-parties, .doc-parties.three { grid-template-columns: 1fr; gap: 16px; }
+  .doc-totals { width: 100%; }
+  .doc-notes { grid-template-columns: 1fr; }
+}
+
+/* Print: the overlay is portaled to <body>, a sibling of the app root, so
+   the whole shell can be dropped with display:none and only the sheet prints. */
+@media print {
+  body.doc-open > :not(.doc-overlay) { display: none !important; }
+  .doc-overlay { position: static; background: #fff; backdrop-filter: none; display: block; }
+  .doc-toolbar { display: none !important; }
+  .doc-scroll { padding: 0; overflow: visible; }
+  .doc-sheet { width: 210mm; min-height: 297mm; margin: 0; padding: 30pt; box-shadow: none; }
+}
+

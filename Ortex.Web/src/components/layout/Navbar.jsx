@@ -98,7 +98,7 @@ export default function Navbar() {
         } ${
           overHero
             ? "bg-transparent"
-            : "bg-background/80 backdrop-blur-md border-b border-border/50"
+            : "bg-white border-b border-border/50"
         }`}
       >
         <div className="lp-wrap">

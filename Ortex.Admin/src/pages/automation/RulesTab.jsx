@@ -9,7 +9,7 @@ export default function RulesTab({ rules, templateNameFor, onEdit, onDelete }) {
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left text-sm">
-          <thead className="border-b border-border bg-muted/50 text-xs font-semibold uppercase text-muted-foreground">
+          <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
             <tr>
               <th className="px-4 py-3">Rule Name</th>
               <th className="px-4 py-3">Trigger Event</th>
@@ -20,14 +20,14 @@ export default function RulesTab({ rules, templateNameFor, onEdit, onDelete }) {
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border text-foreground">
+          <tbody className="divide-y divide-border rows-in text-foreground">
             {rules.length === 0 ? (
               <tr>
                 <td colSpan="7" className="py-12 text-center text-muted-foreground">No rules configured.</td>
               </tr>
             ) : (
               rules.map((rule) => (
-                <tr key={rule.id} className="hover:bg-muted/30">
+                <tr key={rule.id} className="hover:bg-subtle">
                   <td className="px-4 py-3 font-semibold text-xs text-foreground">
                     <div>{rule.name}</div>
                     <div className="text-[10px] text-muted-foreground font-normal mt-0.5">{rule.description}</div>
@@ -40,7 +40,7 @@ export default function RulesTab({ rules, templateNameFor, onEdit, onDelete }) {
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs font-bold uppercase text-emerald-600">{rule.actionType}</td>
+                  <td className="px-4 py-3 text-xs font-bold uppercase text-success-text">{rule.actionType}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
                     {templateNameFor(rule.templateId) || (
                       <span className="italic">Built-in message</span>

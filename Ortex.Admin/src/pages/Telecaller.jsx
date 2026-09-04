@@ -96,7 +96,7 @@ export default function Telecaller() {
                 key={x.id}
                 onClick={() => setTab(x.id)}
                 className={cn(
-                  "-mb-px border-b-2 px-4 py-2 text-sm font-semibold transition-colors",
+                  "border-b-2 px-4 py-2 text-sm font-semibold transition-colors",
                   tab === x.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
                 )}
               >

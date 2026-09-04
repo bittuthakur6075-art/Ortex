@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react"
-import { useProfile } from "../hooks/useProfile"
-import { Button, Input, PageLoader } from "../components/ui/Ui"
-import { Search, Plus, Eye } from "../components/ui/Icons"
+import PageHeader, { ActionBar } from "../components/layout/PageHeader"
+import { Button, Input, PageLoader, Tabs } from "../components/ui/Ui"
+import { Search, Plus, Eye, AlertTriangle } from "../components/ui/Icons"
 import { useAutomationData } from "./automation/useAutomationData"
 import { useWhatsAppDispatch } from "./automation/useWhatsAppDispatch"
 import { useRuleEditor } from "./automation/useRuleEditor"
 import { useTemplateEditor } from "./automation/useTemplateEditor"
-import AnalyticsTab from "./automation/AnalyticsTab"
 import ActivityLogsTab from "./automation/ActivityLogsTab"
 import EventLogsTab from "./automation/EventLogsTab"
 import WhatsAppTab from "./automation/WhatsAppTab"
@@ -17,8 +16,25 @@ import TimelineTab from "./automation/TimelineTab"
 import RuleEditorDrawer from "./automation/RuleEditorDrawer"
 import TemplateEditorDrawer from "./automation/TemplateEditorDrawer"
 
-export default function Automation() {
-  const [activeTab, setActiveTab] = useState("analytics")
+// A viewer over the tables the marketing site's tracker writes (activities,
+// event logs, WhatsApp queue, suggested messages) plus the rules and
+// templates that drive the queue. The period-scoped analytics over the same
+// data live on the Growth tab of the Insights hub.
+const TABS = [
+  { value: "activities", label: "User activity" },
+  { value: "events", label: "Event logs" },
+  { value: "whatsapp", label: "WhatsApp & queue" },
+  { value: "ai", label: "Suggested messages" },
+  { value: "rules", label: "Automation rules" },
+  { value: "templates", label: "Message templates" },
+  { value: "timeline", label: "Customer timeline" },
+]
+
+const SEARCHABLE = ["activities", "events", "whatsapp", "ai"]
+
+export default function Automation({ embedded = false }) {
+  const Header = embedded ? ActionBar : PageHeader
+  const [activeTab, setActiveTab] = useState("activities")
 
   const [searchQuery, setSearchQuery] = useState("")
   const [maskSensitiveData, setMaskSensitiveData] = useState(true)
@@ -26,8 +42,6 @@ export default function Automation() {
   // Current page of each paginated log table.
   const [activityPage, setActivityPage] = useState(1)
   const [eventPage, setEventPage] = useState(1)
-
-  const profile = useProfile()
 
   const {
     loading,
@@ -41,7 +55,7 @@ export default function Automation() {
     selectedCustomerId,
     setSelectedCustomerId,
     loadErrors,
-    totals
+    totals,
   } = useAutomationData()
 
   const { handleOpenWhatsApp } = useWhatsAppDispatch()
@@ -55,7 +69,7 @@ export default function Automation() {
     templateNameFor,
     handleOpenRuleDrawer,
     handleSaveRule,
-    handleDeleteRule
+    handleDeleteRule,
   } = useRuleEditor(templates)
 
   const {
@@ -66,7 +80,7 @@ export default function Automation() {
     setTemplateForm,
     handleOpenTemplateDrawer,
     handleSaveTemplate,
-    handleDeleteTemplate
+    handleDeleteTemplate,
   } = useTemplateEditor()
 
   // A new search or tab should start at page one, not wherever the last one left off.
@@ -81,97 +95,61 @@ export default function Automation() {
   if (loading) return <PageLoader />
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Automation Console</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage user activity tracking, AI message triggers, and automated WhatsApp Business templates.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setMaskSensitiveData(!maskSensitiveData)}
-            className="text-xs"
-          >
-            <Eye className="h-4 w-4" />
-            {maskSensitiveData ? "Reveal PII Data" : "Mask PII Data"}
+    <div className="space-y-5">
+      <Header
+        title="Web events"
+        subtitle="Visitor activity, event logs, the WhatsApp queue and the rules and templates that feed it"
+      >
+        <Button variant="outline" size="sm" onClick={() => setMaskSensitiveData(!maskSensitiveData)}>
+          <Eye className="h-4 w-4" />
+          {maskSensitiveData ? "Reveal PII" : "Mask PII"}
+        </Button>
+        {activeTab === "rules" && (
+          <Button size="sm" onClick={() => handleOpenRuleDrawer()}>
+            <Plus className="h-4 w-4" />
+            New rule
           </Button>
-          {activeTab === "rules" && (
-            <Button size="sm" onClick={() => handleOpenRuleDrawer()}>
-              <Plus className="h-4 w-4" />
-              New Rule
-            </Button>
-          )}
-          {activeTab === "templates" && (
-            <Button size="sm" onClick={() => handleOpenTemplateDrawer()}>
-              <Plus className="h-4 w-4" />
-              New Template
-            </Button>
-          )}
+        )}
+        {activeTab === "templates" && (
+          <Button size="sm" onClick={() => handleOpenTemplateDrawer()}>
+            <Plus className="h-4 w-4" />
+            New template
+          </Button>
+        )}
+      </Header>
+
+      {/* The one diagnostic worth surfacing: a table the console could not read
+          (RLS denial, network) silently empties the tabs below. */}
+      {loadErrors.length > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-muted-foreground">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-warning-text" />
+          <span>
+            Could not read <strong className="text-foreground">{loadErrors.join(", ")}</strong>. Figures on this page exclude those tables.
+          </span>
         </div>
-      </div>
+      )}
 
-      {/* Tabs Menu */}
-      <div className="flex flex-wrap gap-2 border-b border-border pb-3">
-        {[
-          { id: "analytics", label: "Analytics & KPI" },
-          { id: "activities", label: "User Activity" },
-          { id: "events", label: "Event Logs" },
-          { id: "whatsapp", label: "WhatsApp & Queue" },
-          { id: "ai", label: "AI Suggested Messages" },
-          { id: "rules", label: "Automation Rules" },
-          { id: "templates", label: "Message Templates" },
-          { id: "timeline", label: "Customer Timeline" }
-        ].map(t => (
-          <button
-            key={t.id}
-            onClick={() => {
-              setActiveTab(t.id)
-              setSearchQuery("")
-            }}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
-              activeTab === t.id
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        items={TABS}
+        value={activeTab}
+        onChange={(v) => {
+          setActiveTab(v)
+          setSearchQuery("")
+        }}
+      />
 
-      {/* SEARCH INPUT FOR DATATABLES */}
-      {["activities", "events", "whatsapp", "ai"].includes(activeTab) && (
+      {SEARCHABLE.includes(activeTab) && (
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search logs..."
-            className="pl-10"
+            className="pl-8"
           />
         </div>
       )}
 
-      {/* ---------------- 1. ANALYTICS & DASHBOARD ---------------- */}
-      {activeTab === "analytics" && (
-        <AnalyticsTab
-          activities={activities}
-          events={events}
-          whatsappLogs={whatsappLogs}
-          aiMessages={aiMessages}
-          totals={totals}
-          activityTruncated={activityTruncated}
-          profile={profile}
-          loadErrors={loadErrors}
-        />
-      )}
-
-      {/* ---------------- 2. USER ACTIVITY LOGS ---------------- */}
       {activeTab === "activities" && (
         <ActivityLogsTab
           activities={activities}
@@ -184,7 +162,6 @@ export default function Automation() {
         />
       )}
 
-      {/* ---------------- 3. EVENT LOGS ---------------- */}
       {activeTab === "events" && (
         <EventLogsTab
           events={events}
@@ -195,7 +172,6 @@ export default function Automation() {
         />
       )}
 
-      {/* ---------------- 4. WHATSAPP LOGS & QUEUE MONITOR ---------------- */}
       {activeTab === "whatsapp" && (
         <WhatsAppTab
           whatsappLogs={whatsappLogs}
@@ -205,10 +181,8 @@ export default function Automation() {
         />
       )}
 
-      {/* ---------------- 5. AI MESSAGE LOGS ---------------- */}
       {activeTab === "ai" && <AiMessagesTab aiMessages={aiMessages} />}
 
-      {/* ---------------- 6. AUTOMATION RULES ---------------- */}
       {activeTab === "rules" && (
         <RulesTab
           rules={rules}
@@ -218,7 +192,6 @@ export default function Automation() {
         />
       )}
 
-      {/* ---------------- 7. MESSAGE TEMPLATES ---------------- */}
       {activeTab === "templates" && (
         <TemplatesTab
           templates={templates}
@@ -227,7 +200,6 @@ export default function Automation() {
         />
       )}
 
-      {/* ---------------- 8. CUSTOMER TIMELINE ---------------- */}
       {activeTab === "timeline" && (
         <TimelineTab
           customers={customers}
@@ -240,7 +212,6 @@ export default function Automation() {
         />
       )}
 
-      {/* ---------------- RULE DRAWER ---------------- */}
       <RuleEditorDrawer
         open={ruleDrawerOpen}
         onClose={() => setRuleDrawerOpen(false)}
@@ -251,7 +222,6 @@ export default function Automation() {
         templates={templates}
       />
 
-      {/* ---------------- TEMPLATE DRAWER ---------------- */}
       <TemplateEditorDrawer
         open={templateDrawerOpen}
         onClose={() => setTemplateDrawerOpen(false)}
@@ -260,7 +230,6 @@ export default function Automation() {
         setTemplateForm={setTemplateForm}
         onSubmit={handleSaveTemplate}
       />
-
     </div>
   )
 }

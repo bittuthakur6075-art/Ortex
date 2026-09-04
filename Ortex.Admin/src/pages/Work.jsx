@@ -1,17 +1,21 @@
 import { useState, useEffect, useMemo } from "react"
-import { LayoutGrid, Plus, Pencil, Trash2, Sparkles, X } from "../components/ui/Icons"
+import { LayoutGrid, Plus, Pencil, Trash2, Sparkles } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
-import { useCollection } from "../hooks/useCollection"
+import { useCollection, useCategories } from "../hooks/useCollection"
 import { newWork } from "../data/domain/schema"
-import { uploadImage, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "../lib/imageUpload"
 import { triggerSiteRebuild } from "../lib/revalidate"
 import { supabase, hasSupabase } from "../data/store/supabaseClient"
 import { WORK_SEED } from "../data/seed/workSeed"
-import PageHeader from "../components/layout/PageHeader"
-import { Button, Card, Input, Textarea, Field, EmptyState, Modal, PageLoader } from "../components/ui/Ui"
+import PageHeader, { ActionBar } from "../components/layout/PageHeader"
+import ImageField from "../components/editors/ImageField"
+import { Button, Card, Input, Select, Textarea, Field, EmptyState, Modal, PageLoader } from "../components/ui/Ui"
 
-export default function Work() {
+// Sentinel option in the category dropdown that reveals a free-text input.
+const OTHER = "__other"
+
+export default function Work({ embedded = false }) {
+  const Header = embedded ? ActionBar : PageHeader
   const { items, loading } = useCollection("work")
   const [editing, setEditing] = useState(null) // work | "new" | null
 
@@ -33,13 +37,13 @@ export default function Work() {
 
   return (
     <div>
-      <PageHeader title="Work showcase" subtitle="Photos shown on the website /work page — add, caption, and reorder">
+      <Header title="Work showcase" subtitle="Photos shown on the website /work page — add, caption, and reorder">
         {items.length > 0 && (
           <Button size="sm" onClick={() => setEditing("new")}>
             <Plus className="h-4 w-4" /> New work item
           </Button>
         )}
-      </PageHeader>
+      </Header>
 
       {loading ? (
         <PageLoader />
@@ -100,46 +104,37 @@ export default function Work() {
 
 function WorkForm({ open, work, onClose }) {
   const isEdit = !!work
+  const categories = useCategories()
   const [form, setForm] = useState(newWork())
   const [error, setError] = useState("")
-  const [uploading, setUploading] = useState(false)
   const [aiBusy, setAiBusy] = useState(false)
-  const [urlInput, setUrlInput] = useState("")
+  // True once the admin picks "Other" — keeps the free-text input visible even
+  // while it is empty (otherwise an empty value would snap back to the select).
+  const [customCategory, setCustomCategory] = useState(false)
 
   useEffect(() => {
     if (open) {
       setForm(work ? { ...newWork(), ...work } : newWork())
       setError("")
-      setUrlInput("")
+      setCustomCategory(false)
     }
   }, [open, work])
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  const handleImage = async (e) => {
-    const file = e.target.files?.[0]
-    e.target.value = ""
-    if (!file) return
-    if (file.size > MAX_IMAGE_BYTES) return toast.error(`Image too large — over ${MAX_IMAGE_MB}MB.`)
-    setUploading(true)
-    try {
-      const url = await uploadImage(file, "work")
-      set("image", url)
-      toast.success("Image uploaded")
-    } catch (err) {
-      console.error("Work image upload failed:", err)
-      toast.error("Failed to upload image")
-    } finally {
-      setUploading(false)
+  // Gallery filters on the website line up with catalogue categories, so the
+  // dropdown offers the category master; "Other" falls back to free text (and
+  // is auto-selected for legacy rows whose category no longer matches).
+  const categoryNames = categories.map((c) => c.name)
+  const isCustom = customCategory || (!!form.category && !categoryNames.includes(form.category))
+  const onCategorySelect = (v) => {
+    if (v === OTHER) {
+      setCustomCategory(true)
+      set("category", "")
+    } else {
+      setCustomCategory(false)
+      set("category", v)
     }
-  }
-
-  const addImageUrl = () => {
-    const url = urlInput.trim()
-    if (!url) return
-    if (!/^https?:\/\//i.test(url)) return toast.error("Enter a valid image URL (http/https).")
-    set("image", url)
-    setUrlInput("")
   }
 
   // Generate an SEO caption + alt text with the work-copywriter Edge Function.
@@ -224,35 +219,7 @@ function WorkForm({ open, work, onClose }) {
       }
     >
       <div className="space-y-4">
-        <Field label="Image" required error={error && !form.image ? error : ""}>
-          {form.image ? (
-            <div className="flex items-center gap-3">
-              <img src={form.image} alt="" className="h-20 w-20 rounded-md object-cover border border-border" />
-              <Button variant="outline" size="sm" onClick={() => set("image", "")}>
-                <X className="h-4 w-4" /> Remove
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50">
-                <Plus className="h-4 w-4" />
-                {uploading ? "Uploading…" : "Upload image"}
-                <input type="file" accept="image/*" className="hidden" onChange={handleImage} disabled={uploading} />
-              </label>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addImageUrl() } }}
-                  placeholder="or paste an image URL"
-                />
-                <Button variant="outline" size="sm" onClick={addImageUrl} disabled={!urlInput.trim()}>
-                  Add URL
-                </Button>
-              </div>
-            </div>
-          )}
-        </Field>
+        <ImageField label="Image" required error={error && !form.image ? error : ""} value={form.image} onChange={(url) => set("image", url)} bucket="work" />
 
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Caption &amp; SEO</p>
@@ -265,8 +232,21 @@ function WorkForm({ open, work, onClose }) {
           <Field label="Title" required error={error && form.image && !form.title.trim() ? error : ""} hint="Caption shown on the photo">
             <Input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Custom printed lanyards" autoFocus />
           </Field>
-          <Field label="Category" hint="Filter bucket on /work">
-            <Input value={form.category} onChange={(e) => set("category", e.target.value)} placeholder="e.g. Badges & Lanyards" />
+          <Field label="Category" hint="Filter bucket on /work — matches catalogue categories">
+            <div className="space-y-2">
+              <Select value={isCustom ? OTHER : form.category} onChange={(e) => onCategorySelect(e.target.value)}>
+                <option value="">— Select —</option>
+                {categoryNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+                <option value={OTHER}>Other…</option>
+              </Select>
+              {isCustom && (
+                <Input value={form.category} onChange={(e) => set("category", e.target.value)} placeholder="Custom category name" autoFocus />
+              )}
+            </div>
           </Field>
         </div>
 

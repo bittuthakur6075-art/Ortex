@@ -1,32 +1,18 @@
 import { useState, useMemo } from "react"
 import { Wallet, Plus, Search, ArrowDownLeft, ArrowUpRight, Download, Trash2, ReceiptText } from "../components/ui/Icons"
 import { toast } from "sonner"
-import { repo } from "../data/store/repository"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
-import { recordPayment, paidForInvoice, invoiceBalance } from "../data/domain/domain"
-import { PAYMENT_TYPE, PAYMENT_METHODS, statusMeta } from "../data/domain/schema"
+import { removePayment, paidForInvoice, invoiceBalance } from "../data/domain/domain"
+import { PAYMENT_TYPE, statusMeta } from "../data/domain/schema"
 import ReceiptView from "../components/documents/ReceiptView"
-import { formatDate, toDateInput, formatCurrency, round2 } from "../lib/format"
+import { formatDate, formatCurrency, round2 } from "../lib/format"
 import { exportCsv } from "../lib/csv"
-import PageHeader from "../components/layout/PageHeader"
-import {
-  Button,
-  Card,
-  Input,
-  Select,
-  Textarea,
-  Field,
-  Badge,
-  StatCard,
-  EmptyState,
-  Money,
-  Chip,
-  Modal,
-  PageLoader,
-  SortTh,
-} from "../components/ui/Ui"
+import PageHeader, { ActionBar } from "../components/layout/PageHeader"
+import RecordPaymentModal from "./invoices/RecordPaymentModal"
+import { Button, Card, Input, Badge, StatCard, EmptyState, Money, Chip, PageLoader, SortTh } from "../components/ui/Ui"
 
-export default function Payments() {
+export default function Payments({ embedded = false }) {
+  const Header = embedded ? ActionBar : PageHeader
   const { items, loading } = useCollection("payments")
   const { items: invoices } = useCollection("invoices")
   const settings = useSettings()
@@ -86,7 +72,7 @@ export default function Payments() {
 
   return (
     <div>
-      <PageHeader title="Payments & payouts" subtitle="Money received from customers and paid to vendors">
+      <Header title="Payments & payouts" subtitle="Money received from customers and paid to vendors">
         <Button variant="outline" size="sm" onClick={handleExport} disabled={!filtered.length}>
           <Download className="h-4 w-4" /> Export
         </Button>
@@ -96,17 +82,17 @@ export default function Payments() {
         <Button size="sm" onClick={() => setNewPayment("inflow")}>
           <Plus className="h-4 w-4" /> Record receipt
         </Button>
-      </PageHeader>
+      </Header>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard icon={ArrowDownLeft} label="Total received" value={<Money value={totals.inflow} />} accent="bg-emerald-500/10 text-emerald-500" />
-        <StatCard icon={ArrowUpRight} label="Total paid out" value={<Money value={totals.payout} />} accent="bg-rose-500/10 text-rose-500" />
+        <StatCard icon={ArrowDownLeft} label="Total received" value={<Money value={totals.inflow} />} accent="bg-success/10 text-success-text" />
+        <StatCard icon={ArrowUpRight} label="Total paid out" value={<Money value={totals.payout} />} accent="bg-destructive/10 text-destructive-text" />
         <StatCard icon={Wallet} label="Net position" value={<Money value={totals.net} />} accent="bg-primary/10 text-primary" />
       </div>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="relative w-full sm:w-[320px]">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle-foreground" />
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search party, invoice, reference…" className="pl-10" />
         </div>
         <div className="flex gap-1.5">
@@ -140,7 +126,7 @@ export default function Payments() {
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
                 <tr>
                   <SortTh sortKey="number" sort={sort} onSort={onSort}>Ref</SortTh>
                   <SortTh sortKey="party" sort={sort} onSort={onSort}>Party</SortTh>
@@ -151,11 +137,11 @@ export default function Payments() {
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border rows-in">
                 {filtered.map((p) => {
                   const meta = statusMeta(PAYMENT_TYPE, p.type)
                   return (
-                    <tr key={p.id} className="transition-colors hover:bg-muted/40">
+                    <tr key={p.id} className="transition-colors hover:bg-subtle">
                       <td className="px-4 py-3">
                         <div className="font-medium tabular text-foreground">{p.number}</div>
                         {p.invoiceNumber && <div className="text-xs text-muted-foreground">{p.invoiceNumber}</div>}
@@ -190,7 +176,7 @@ export default function Payments() {
                           <button
                             onClick={async () => {
                               if (window.confirm("Delete this payment entry?")) {
-                                await repo.remove("payments", p.id)
+                                await removePayment(p)
                                 toast.success("Entry deleted")
                               }
                             }}
@@ -210,7 +196,15 @@ export default function Payments() {
         </Card>
       )}
 
-      {newPayment && <PaymentModal type={newPayment} onClose={() => setNewPayment(null)} />}
+      {newPayment && (
+        <RecordPaymentModal
+          type={newPayment}
+          invoices={invoices}
+          payments={items}
+          onClose={() => setNewPayment(null)}
+          onDone={() => setNewPayment(null)}
+        />
+      )}
 
       {settings && receiptFor && (
         <ReceiptView
@@ -233,85 +227,3 @@ export default function Payments() {
   )
 }
 
-function PaymentModal({ type, onClose }) {
-  const isPayout = type === "payout"
-  const [form, setForm] = useState({
-    amount: "",
-    method: PAYMENT_METHODS[0],
-    date: toDateInput(new Date().toISOString()),
-    party: "",
-    reference: "",
-    note: "",
-  })
-  const set = (key, v) => setForm((f) => ({ ...f, [key]: v }))
-
-  const submit = async () => {
-    const amt = Number(form.amount)
-    if (!amt || amt <= 0) return toast.error("Enter a valid amount")
-    if (!form.party.trim()) return toast.error(isPayout ? "Enter the payee" : "Enter the payer")
-    await recordPayment({
-      type,
-      amount: amt,
-      method: form.method,
-      date: new Date(form.date).toISOString(),
-      party: form.party,
-      reference: form.reference,
-      note: form.note,
-    })
-    toast.success(isPayout ? "Payout recorded" : "Receipt recorded")
-    onClose()
-  }
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={isPayout ? "Record payout" : "Record receipt"}
-      width="max-w-sm"
-      footer={
-        <>
-          <Button variant="outline" size="sm" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button size="sm" onClick={submit}>
-            Save
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        <Field label={isPayout ? "Paid to (vendor / party)" : "Received from"} required>
-          <Input value={form.party} onChange={(e) => set("party", e.target.value)} placeholder={isPayout ? "Vendor name" : "Customer name"} autoFocus />
-        </Field>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Amount (₹)" required>
-            <Input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => set("amount", e.target.value)} />
-          </Field>
-          <Field label="Date">
-            <Input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} />
-          </Field>
-        </div>
-        <Field label="Method">
-          <Select value={form.method} onChange={(e) => set("method", e.target.value)}>
-            {PAYMENT_METHODS.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Reference / txn ID">
-          <Input value={form.reference} onChange={(e) => set("reference", e.target.value)} placeholder="UPI ref, PO no.…" />
-        </Field>
-        <Field label="Note">
-          <Textarea value={form.note} onChange={(e) => set("note", e.target.value)} placeholder="What is this for?" />
-        </Field>
-        {isPayout && (
-          <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            Vendor payouts are recorded manually here. Automated bank payouts (RazorpayX, etc.) require a backend integration.
-          </p>
-        )}
-      </div>
-    </Modal>
-  )
-}

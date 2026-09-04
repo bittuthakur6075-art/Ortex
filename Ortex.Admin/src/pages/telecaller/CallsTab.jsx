@@ -46,8 +46,8 @@ export default function CallsTab({ calls, onOpen }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative mr-2 w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-10" placeholder="Search name, phone, summary, transcript…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle-foreground" />
+          <Input className="pl-8" placeholder="Search name, phone, summary, transcript…" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
         <Chip active={view === "all"} onClick={() => setView("all")}>All ({calls.length})</Chip>
         <Chip active={view === "action"} onClick={() => setView("action")}>Needs a human ({counts.action})</Chip>
@@ -68,7 +68,7 @@ export default function CallsTab({ calls, onOpen }) {
               tabIndex={0}
               onClick={() => onOpen(c.id)}
               onKeyDown={(e) => e.key === "Enter" && onOpen(c.id)}
-              className={cn("cursor-pointer p-4 ring-1 ring-border/60 transition-shadow hover:shadow-md", live && "ring-amber-500/40")}
+              className={cn("cursor-pointer p-4 ring-1 ring-border/60 transition-shadow hover:shadow-md", live && "ring-warning/40")}
             >
               <div className="flex items-start gap-3">
                 <Avatar name={c.contactName || "?"} />
@@ -85,7 +85,7 @@ export default function CallsTab({ calls, onOpen }) {
                 </div>
               </div>
               {(c.analysis?.summary || c.error) && (
-                <p className={cn("mt-3 line-clamp-3 text-sm leading-relaxed", c.error ? "text-rose-600" : "text-muted-foreground")}>
+                <p className={cn("mt-3 line-clamp-3 text-sm leading-relaxed", c.error ? "text-destructive-text" : "text-muted-foreground")}>
                   {c.error || c.analysis.summary}
                 </p>
               )}

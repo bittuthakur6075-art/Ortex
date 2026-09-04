@@ -29,7 +29,7 @@ export default function ItemsList({ items, dense = false }) {
             {it.quantity ? (
               <span className="tabular flex-none font-semibold text-foreground">{it.quantity}</span>
             ) : (
-              <span className="flex-none text-xs font-medium text-amber-600">Qty missing</span>
+              <span className="flex-none text-xs font-medium text-warning-text">Qty missing</span>
             )}
           </li>
         ))}

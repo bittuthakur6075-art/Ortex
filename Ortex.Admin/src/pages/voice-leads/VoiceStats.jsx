@@ -15,14 +15,14 @@ export default function VoiceStats({ stats }) {
         label="Last 7 days"
         value={stats.week}
         sub={stats.week ? "Freshest intent, call these first" : "Nothing new this week"}
-        accent="bg-emerald-500/14 text-emerald-600"
+        accent="bg-success/14 text-success-text"
       />
       <StatCard
         icon={AlertTriangle}
         label="Support issues"
         value={stats.support}
         sub={stats.support ? "Route to support, do not pitch" : "None flagged"}
-        accent={stats.support ? "bg-rose-500/12 text-rose-600" : "bg-slate-500/12 text-slate-500"}
+        accent={stats.support ? "bg-destructive/12 text-destructive-text" : "bg-muted text-muted-foreground"}
       />
       <StatCard
         icon={Package}
@@ -33,7 +33,7 @@ export default function VoiceStats({ stats }) {
           </span>
         }
         sub={stats.topCount ? `${stats.topCount} call${stats.topCount === 1 ? "" : "s"}` : ""}
-        accent="bg-amber-500/14 text-amber-600"
+        accent="bg-warning/14 text-warning-text"
       />
     </div>
   )

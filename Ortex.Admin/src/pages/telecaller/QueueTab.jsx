@@ -69,7 +69,7 @@ export default function QueueTab({ jobs, onOpenCall, onPractice }) {
       <Card className="overflow-hidden ring-1 ring-border/60">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-sm">
-            <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
               <tr>
                 <th className="px-4 py-3 font-semibold">Who</th>
                 <th className="px-4 py-3 font-semibold">Call</th>

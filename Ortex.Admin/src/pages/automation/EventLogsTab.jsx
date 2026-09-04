@@ -22,7 +22,7 @@ export default function EventLogsTab({ events, totals, eventTruncated, page, onP
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left text-sm">
-          <thead className="border-b border-border bg-muted/50 text-xs font-semibold uppercase text-muted-foreground">
+          <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
             <tr>
               <th className="px-4 py-3">Timestamp</th>
               <th className="px-4 py-3">Event Type</th>
@@ -31,14 +31,14 @@ export default function EventLogsTab({ events, totals, eventTruncated, page, onP
               <th className="px-4 py-3">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border text-foreground">
+          <tbody className="divide-y divide-border rows-in text-foreground">
             {events.length === 0 ? (
               <tr>
                 <td colSpan="5" className="py-12 text-center text-muted-foreground">No events generated.</td>
               </tr>
             ) : (
               pagedEvents.map((evt) => (
-                <tr key={evt.id} className="hover:bg-muted/30">
+                <tr key={evt.id} className="hover:bg-subtle">
                   <td className="whitespace-nowrap px-4 py-3 text-xs">{formatDateTime(evt.timestamp)}</td>
                   <td className="px-4 py-3">
                     <Badge tone={EVENT_TONES[evt.eventType] || "slate"}>
@@ -48,7 +48,7 @@ export default function EventLogsTab({ events, totals, eventTruncated, page, onP
                   <td className="px-4 py-3 text-xs font-semibold">{evt.userId}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{evt.description}</td>
                   <td className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-semibold">
+                    <span className="inline-flex items-center gap-1 text-xs text-success-text font-semibold">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Processed
                     </span>

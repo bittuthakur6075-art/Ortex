@@ -1,16 +1,17 @@
 import { useState, useEffect, useMemo } from "react"
-import { Tags, Plus, Pencil, Trash2, Sparkles, X } from "../components/ui/Icons"
+import { Tags, Plus, Pencil, Trash2, Sparkles } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { useCollection, useSorting } from "../hooks/useCollection"
 import { newCategory, slugifyCategory, GST_RATES, PRODUCT_CATEGORIES } from "../data/domain/schema"
-import { uploadImage, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "../lib/imageUpload"
 import { triggerSiteRebuild } from "../lib/revalidate"
 import { supabase, hasSupabase } from "../data/store/supabaseClient"
-import PageHeader from "../components/layout/PageHeader"
+import PageHeader, { ActionBar } from "../components/layout/PageHeader"
+import ImageField from "../components/editors/ImageField"
 import { Button, Card, Input, Select, Textarea, Field, EmptyState, Modal, PageLoader, SortTh } from "../components/ui/Ui"
 
-export default function Categories() {
+export default function Categories({ embedded = false }) {
+  const Header = embedded ? ActionBar : PageHeader
   const { items, loading } = useCollection("categories")
   const { items: products } = useCollection("products")
   const [editing, setEditing] = useState(null) // category | "new" | null
@@ -45,13 +46,13 @@ export default function Categories() {
 
   return (
     <div>
-      <PageHeader title="Product categories" subtitle="Master list with default HSN & GST — auto-fills onto products">
+      <Header title="Product categories" subtitle="Master list with default HSN & GST — auto-fills onto products">
         {items.length > 0 && (
           <Button size="sm" onClick={() => setEditing("new")}>
             <Plus className="h-4 w-4" /> New category
           </Button>
         )}
-      </PageHeader>
+      </Header>
 
       {loading ? (
         <PageLoader />
@@ -75,7 +76,7 @@ export default function Categories() {
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
                 <tr>
                   <SortTh sortKey="name" sort={sort} onSort={onSort}>Category</SortTh>
                   <SortTh sortKey="hsn" sort={sort} onSort={onSort}>Default HSN</SortTh>
@@ -84,9 +85,9 @@ export default function Categories() {
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border rows-in">
                 {sortedItems.map((c) => (
-                  <tr key={c.id} className="cursor-pointer transition-colors hover:bg-muted/40" onClick={() => setEditing(c)}>
+                  <tr key={c.id} className="cursor-pointer transition-colors hover:bg-subtle" onClick={() => setEditing(c)}>
                     <td className="px-4 py-3">
                       <div className="font-medium text-foreground">{c.name}</div>
                       {c.description && <div className="max-w-md truncate text-xs text-muted-foreground">{c.description}</div>}
@@ -105,24 +106,27 @@ export default function Categories() {
         </Card>
       )}
 
-      <CategoryForm open={editing !== null} category={editing === "new" ? null : editing} usage={editing && editing !== "new" ? countFor(editing.name) : 0} onClose={() => setEditing(null)} />
+      <CategoryForm
+        open={editing !== null}
+        category={editing === "new" ? null : editing}
+        products={products}
+        usage={editing && editing !== "new" ? countFor(editing.name) : 0}
+        onClose={() => setEditing(null)}
+      />
     </div>
   )
 }
 
-function CategoryForm({ open, category, usage, onClose }) {
+function CategoryForm({ open, category, products, usage, onClose }) {
   const isEdit = !!category
   const [form, setForm] = useState(newCategory())
   const [error, setError] = useState("")
-  const [uploading, setUploading] = useState(false)
   const [aiBusy, setAiBusy] = useState(false)
-  const [urlInput, setUrlInput] = useState("")
 
   useEffect(() => {
     if (open) {
       setForm(category ? { ...newCategory(), ...category } : newCategory())
       setError("")
-      setUrlInput("")
     }
   }, [open, category])
 
@@ -162,44 +166,33 @@ function CategoryForm({ open, category, usage, onClose }) {
     }
   }
 
-  const addImageUrl = () => {
-    const url = urlInput.trim()
-    if (!url) return
-    if (!/^https?:\/\//i.test(url)) return toast.error("Enter a valid image URL (http/https).")
-    set("image", url)
-    setUrlInput("")
-  }
-
-  const handleImage = async (e) => {
-    const file = e.target.files?.[0]
-    e.target.value = ""
-    if (!file) return
-    if (file.size > MAX_IMAGE_BYTES) return toast.error(`Image too large — over ${MAX_IMAGE_MB}MB.`)
-    setUploading(true)
-    try {
-      const url = await uploadImage(file, "categories")
-      set("image", url)
-      toast.success("Image uploaded")
-    } catch (err) {
-      console.error("Category image upload failed:", err)
-      toast.error("Failed to upload image")
-    } finally {
-      setUploading(false)
-    }
-  }
-
   const save = async () => {
-    if (!form.name.trim()) return setError("Name is required")
+    const name = form.name.trim()
+    if (!name) return setError("Name is required")
     const payload = {
       ...form,
+      name,
       gstRate: Number(form.gstRate),
       sortOrder: Number(form.sortOrder) || 0,
       // Auto-derive a URL slug from the name when the admin leaves it blank.
-      slug: form.slug.trim() || slugifyCategory(form.name),
+      slug: form.slug.trim() || slugifyCategory(name),
     }
     if (isEdit) {
       await repo.update("categories", category.id, payload)
-      toast.success("Category updated")
+      // Products reference categories by name, so a rename would orphan them
+      // (they'd drop out of the category filter and product counts). Move
+      // every product still on the old name across to the new one.
+      if (name !== category.name) {
+        const orphans = (products || []).filter((p) => p.category === category.name)
+        if (orphans.length) {
+          await Promise.all(orphans.map((p) => repo.update("products", p.id, { category: name })))
+          toast.success(`Category renamed — ${orphans.length} product(s) moved to "${name}"`)
+        } else {
+          toast.success("Category renamed")
+        }
+      } else {
+        toast.success("Category updated")
+      }
     } else {
       await repo.create("categories", payload)
       toast.success("Category added")
@@ -296,35 +289,7 @@ function CategoryForm({ open, category, usage, onClose }) {
             <Textarea value={form.intro} onChange={(e) => set("intro", e.target.value)} placeholder="One or two sentences describing this category…" />
           </Field>
 
-          <Field label="Category image">
-            {form.image ? (
-              <div className="flex items-center gap-3">
-                <img src={form.image} alt="" className="h-16 w-16 rounded-md object-cover border border-border" />
-                <Button variant="outline" size="sm" onClick={() => set("image", "")}>
-                  <X className="h-4 w-4" /> Remove
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50">
-                  <Plus className="h-4 w-4" />
-                  {uploading ? "Uploading…" : "Upload image"}
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImage} disabled={uploading} />
-                </label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={urlInput}
-                    onChange={(e) => setUrlInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addImageUrl() } }}
-                    placeholder="or paste an image URL"
-                  />
-                  <Button variant="outline" size="sm" onClick={addImageUrl} disabled={!urlInput.trim()}>
-                    Add URL
-                  </Button>
-                </div>
-              </div>
-            )}
-          </Field>
+          <ImageField label="Category image" value={form.image} onChange={(url) => set("image", url)} bucket="categories" />
 
           <div className="grid grid-cols-1 gap-4">
             <Field label="SEO title" hint="Browser tab + Google result title">

@@ -143,7 +143,7 @@ export default function ProductImport({ open, onClose }) {
       <div className="space-y-5">
         {/* Steps */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <button onClick={downloadTemplate} className="flex flex-col items-start gap-2 rounded-xl border border-border p-4 text-left transition-colors hover:bg-muted/40">
+          <button onClick={downloadTemplate} className="flex flex-col items-start gap-2 rounded-xl border border-border p-4 text-left transition-colors hover:bg-subtle">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Download className="h-4.5 w-4.5" />
             </span>
@@ -157,7 +157,7 @@ export default function ProductImport({ open, onClose }) {
             <span className="font-semibold text-foreground">2. Fill it in</span>
             <span className="text-xs text-muted-foreground">One product per row. Keep the header row.</span>
           </div>
-          <label className="flex cursor-pointer flex-col items-start gap-2 rounded-xl border border-border p-4 transition-colors hover:bg-muted/40">
+          <label className="flex cursor-pointer flex-col items-start gap-2 rounded-xl border border-border p-4 transition-colors hover:bg-subtle">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Upload className="h-4.5 w-4.5" />
             </span>
@@ -177,7 +177,7 @@ export default function ProductImport({ open, onClose }) {
             </div>
             <div className="max-h-72 overflow-auto rounded-xl border border-border">
               <table className="w-full text-left text-sm">
-                <thead className="sticky top-0 border-b border-border bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+                <thead className="sticky top-0 z-10 bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
                   <tr>
                     <th className="px-3 py-2 font-medium">#</th>
                     <th className="px-3 py-2 font-medium">Name</th>
@@ -187,7 +187,7 @@ export default function ProductImport({ open, onClose }) {
                     <th className="px-3 py-2 font-medium">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-border rows-in">
                   {rows.map((r, i) => (
                     <tr key={i} className={r.valid ? "" : "bg-destructive/5"}>
                       <td className="px-3 py-2 text-muted-foreground">

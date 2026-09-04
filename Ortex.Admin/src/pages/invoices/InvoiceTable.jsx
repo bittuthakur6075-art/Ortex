@@ -9,7 +9,7 @@ export default function InvoiceTable({ rows, sort, onSort, onEdit, onPreview }) 
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+          <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
             <tr>
               <SortTh sortKey="number" sort={sort} onSort={onSort}>Number</SortTh>
               <SortTh sortKey="customer" sort={sort} onSort={onSort}>Customer</SortTh>
@@ -21,11 +21,11 @@ export default function InvoiceTable({ rows, sort, onSort, onEdit, onPreview }) 
               <th className="px-4 py-3" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody className="divide-y divide-border rows-in">
             {rows.map((i) => {
               const overdue = i._status === "overdue"
               return (
-                <tr key={i.id} className="cursor-pointer transition-colors hover:bg-muted/40" onClick={() => onEdit({ ...i })}>
+                <tr key={i.id} className="cursor-pointer transition-colors hover:bg-subtle" onClick={() => onEdit({ ...i })}>
                   <td className="px-4 py-3 font-medium tabular text-foreground">{i.number}</td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-foreground">{i.customer?.company || i.customer?.name}</div>
@@ -35,7 +35,7 @@ export default function InvoiceTable({ rows, sort, onSort, onEdit, onPreview }) 
                     <Money value={i.totals?.grandTotal} />
                   </td>
                   <td className="px-4 py-3 text-right tabular">
-                    {i._balance > 0.5 ? <span className="font-medium text-amber-600 dark:text-amber-400">{formatCurrency(i._balance)}</span> : <span className="text-[hsl(var(--success))]">Settled</span>}
+                    {i._balance > 0.5 ? <span className="font-medium text-warning-text">{formatCurrency(i._balance)}</span> : <span className="text-[hsl(var(--success))]">Settled</span>}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge list={INVOICE_STATUS} status={i._status} />

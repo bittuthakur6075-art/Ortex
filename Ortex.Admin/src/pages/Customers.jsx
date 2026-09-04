@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from "react"
+import { Link, useNavigate } from "react-router-dom"
 import { Users, Plus, Search, Mail, Phone, MessageCircle, Trash2, FileText, ReceiptIndianRupee } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { useCollection, useSorting } from "../hooks/useCollection"
-import { invoiceBalance } from "../data/domain/domain"
+import { invoiceBalance, sameCustomer } from "../data/domain/domain"
 import { newCustomer } from "../data/domain/schema"
 import { formatCurrency, round2 } from "../lib/format"
 import { exportCsv } from "../lib/csv"
@@ -11,15 +12,8 @@ import { cn } from "../lib/cn"
 import PageHeader from "../components/layout/PageHeader"
 import { Button, Card, Input, Field, EmptyState, Avatar, Money, Drawer, PageLoader, SortTh } from "../components/ui/Ui"
 
-// Match a stored document customer snapshot to a master customer by email → phone.
-function matches(customer, doc) {
-  const email = (customer.email || "").trim().toLowerCase()
-  const phone = (customer.phone || "").replace(/\D/g, "")
-  const dc = doc.customer || {}
-  if (email && (dc.email || "").trim().toLowerCase() === email) return true
-  if (phone && (dc.phone || "").replace(/\D/g, "") === phone) return true
-  return false
-}
+// Match a stored document customer snapshot to a master customer (email → phone).
+const matches = (customer, doc) => sameCustomer(customer, doc.customer)
 
 export default function Customers() {
   const { items, loading } = useCollection("customers")
@@ -93,8 +87,8 @@ export default function Customers() {
         </Button>
       </PageHeader>
 
-      <div className="mb-4 relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <div className="relative mb-4 md:w-[360px]">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle-foreground" />
         <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, company, GSTIN…" className="pl-10" />
       </div>
 
@@ -115,7 +109,7 @@ export default function Customers() {
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
                 <tr>
                   <SortTh sortKey="name" sort={sort} onSort={onSort}>Customer</SortTh>
                   <SortTh sortKey="gstin" sort={sort} onSort={onSort}>GSTIN</SortTh>
@@ -124,9 +118,9 @@ export default function Customers() {
                   <SortTh sortKey="_outstanding" sort={sort} onSort={onSort} align="right">Outstanding</SortTh>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border rows-in">
                 {filtered.map((c) => (
-                  <tr key={c.id} className="cursor-pointer transition-colors hover:bg-muted/40" onClick={() => setSelected(c)}>
+                  <tr key={c.id} className="cursor-pointer transition-colors hover:bg-subtle" onClick={() => setSelected(c)}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Avatar name={c.company || c.name} />
@@ -142,7 +136,7 @@ export default function Customers() {
                       <Money value={c._business} />
                     </td>
                     <td className="px-4 py-3 text-right tabular">
-                      {c._outstanding > 0.5 ? <span className="font-medium text-amber-600 dark:text-amber-400">{formatCurrency(c._outstanding)}</span> : <span className="text-muted-foreground">—</span>}
+                      {c._outstanding > 0.5 ? <span className="font-medium text-warning-text">{formatCurrency(c._outstanding)}</span> : <span className="text-muted-foreground">—</span>}
                     </td>
                   </tr>
                 ))}
@@ -160,6 +154,7 @@ export default function Customers() {
 function CustomerDrawer({ customer, onClose }) {
   const isNew = customer === "new"
   const open = customer !== null
+  const navigate = useNavigate()
   const [form, setForm] = useState(newCustomer())
 
   useEffect(() => {
@@ -186,6 +181,14 @@ function CustomerDrawer({ customer, onClose }) {
 
   const phoneDigits = (form.phone || "").replace(/\D/g, "")
   const wa = phoneDigits.length === 10 ? "91" + phoneDigits : phoneDigits
+
+  // Start a quotation for this customer: hand Quotations a clean snapshot
+  // (master fields only, none of the derived `_` stats).
+  const startQuotation = () => {
+    const snapshot = { ...newCustomer() }
+    for (const k of Object.keys(snapshot)) if (form[k] !== undefined) snapshot[k] = form[k]
+    navigate("/quotations", { state: { fromCustomer: snapshot } })
+  }
 
   return (
     <Drawer
@@ -234,6 +237,13 @@ function CustomerDrawer({ customer, onClose }) {
                   </a>
                 </>
               )}
+              <button
+                type="button"
+                onClick={startQuotation}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-primary hover:bg-muted"
+              >
+                <FileText className="h-4 w-4" /> New quotation
+              </button>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -273,18 +283,30 @@ function CustomerDrawer({ customer, onClose }) {
             <h3 className="mb-2 text-sm font-semibold text-foreground">History</h3>
             <div className="divide-y divide-border rounded-xl border border-border">
               {customer._invs.map((i) => (
-                <div key={i.id} className="flex items-center gap-2 px-4 py-2.5 text-sm">
+                <Link
+                  key={i.id}
+                  to="/billing?tab=invoices"
+                  state={{ openId: i.id }}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:bg-subtle"
+                  title={`Open invoice ${i.number}`}
+                >
                   <ReceiptIndianRupee className="h-4 w-4 flex-none text-muted-foreground" />
                   <span className="font-medium text-foreground">{i.number}</span>
                   <span className="ml-auto text-muted-foreground">{formatCurrency(i.totals?.grandTotal)}</span>
-                </div>
+                </Link>
               ))}
               {customer._quotes.map((q) => (
-                <div key={q.id} className="flex items-center gap-2 px-4 py-2.5 text-sm">
+                <Link
+                  key={q.id}
+                  to="/quotations"
+                  state={{ openId: q.id }}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:bg-subtle"
+                  title={`Open quotation ${q.number}`}
+                >
                   <FileText className="h-4 w-4 flex-none text-muted-foreground" />
                   <span className="font-medium text-foreground">{q.number}</span>
                   <span className="ml-auto text-muted-foreground">{formatCurrency(q.totals?.grandTotal)}</span>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
@@ -298,7 +320,7 @@ function Stat({ label, value, tone }) {
   return (
     <div className="rounded-lg border border-border bg-muted/30 p-3">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={cn("mt-0.5 text-base font-bold text-foreground", tone === "amber" && "text-amber-600 dark:text-amber-400")}>{value}</div>
+      <div className={cn("mt-0.5 text-base font-bold text-foreground", tone === "amber" && "text-warning-text")}>{value}</div>
     </div>
   )
 }

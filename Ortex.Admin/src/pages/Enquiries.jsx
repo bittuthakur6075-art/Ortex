@@ -11,7 +11,7 @@ import { isQuoteEnquiry, parseQuoteRfq, rfqToQuotationLines, rfqRateMismatches }
 import { exportCsv } from "../lib/csv"
 import { cn } from "../lib/cn"
 import DocumentView from "../components/documents/DocumentView"
-import PageHeader from "../components/layout/PageHeader"
+import PageHeader, { ActionBar } from "../components/layout/PageHeader"
 import {
   Button,
   Card,
@@ -27,7 +27,8 @@ import {
   PageLoader,
 } from "../components/ui/Ui"
 
-export default function Enquiries() {
+export default function Enquiries({ embedded = false }) {
+  const Header = embedded ? ActionBar : PageHeader
   const { items, loading } = useCollection("enquiries")
   const { items: products } = useCollection("products")
   const settings = useSettings()
@@ -77,18 +78,18 @@ export default function Enquiries() {
 
   return (
     <div>
-      <PageHeader title="Enquiries" subtitle={`${items.length} leads across all sources`}>
+      <Header title="Enquiries" subtitle={`${items.length} enquiries across all sources`}>
         <Button variant="outline" size="sm" onClick={handleExport} disabled={!filtered.length}>
           <Download className="h-4 w-4" /> Export
         </Button>
         <Button size="sm" onClick={() => setSelected("new")}>
           <Plus className="h-4 w-4" /> New enquiry
         </Button>
-      </PageHeader>
+      </Header>
 
-      <div className="mb-4 flex flex-col gap-3">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="relative md:w-[320px]">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle-foreground" />
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search reference, name, company, message…" className="pl-10" />
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -133,7 +134,7 @@ export default function Enquiries() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate font-semibold text-foreground">{e.customer?.name || "Unknown"}</span>
-                      {e.starred && <Star className="h-3.5 w-3.5 flex-none fill-amber-400 text-amber-400" />}
+                      {e.starred && <Star className="h-3.5 w-3.5 flex-none fill-amber-400 text-warning-text" />}
                     </div>
                     <div className="truncate text-xs text-muted-foreground">{e.customer?.company || e.customer?.email}</div>
                     {e.reference && (
@@ -231,7 +232,7 @@ function EnquiryDrawer({ enquiry, products = [], settings, onPrint, onClose }) {
     const lead = await convertEnquiryToLead(enquiry.id)
     toast.success("Converted to lead")
     onClose()
-    navigate("/leads", { state: { openLeadId: lead.id } })
+    navigate("/crm?tab=leads", { state: { openLeadId: lead.id } })
   }
 
   // Build a formal quotation from the customer's RFQ line items, link it back to
@@ -322,10 +323,10 @@ function EnquiryDrawer({ enquiry, products = [], settings, onPrint, onClose }) {
                 onClick={() => patch({ starred: !form.starred })}
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted",
-                  form.starred && "text-amber-500",
+                  form.starred && "text-warning-text",
                 )}
               >
-                <Star className={cn("h-4 w-4", form.starred && "fill-amber-400 text-amber-400")} /> Star
+                <Star className={cn("h-4 w-4", form.starred && "fill-amber-400 text-warning-text")} /> Star
               </button>
             </div>
 
@@ -351,7 +352,7 @@ function EnquiryDrawer({ enquiry, products = [], settings, onPrint, onClose }) {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
                   <tr>
                     <th className="px-3 py-2 font-medium">Product</th>
                     <th className="px-3 py-2 text-right font-medium">Qty</th>
@@ -360,7 +361,7 @@ function EnquiryDrawer({ enquiry, products = [], settings, onPrint, onClose }) {
                     <th className="px-3 py-2 text-right font-medium">Total</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-border rows-in">
                   {rfq.items.map((it, i) => (
                     <tr key={i}>
                       <td className="px-3 py-2">
@@ -391,8 +392,8 @@ function EnquiryDrawer({ enquiry, products = [], settings, onPrint, onClose }) {
               <p className="text-[11px] text-muted-foreground">Customer-facing estimate · GST added on the quotation.</p>
             </div>
             {rateMismatches.length > 0 && (
-              <div className="flex items-start gap-2 border-t border-amber-500/30 bg-amber-500/5 px-3 py-2.5 text-xs">
-                <AlertTriangle className="h-4 w-4 flex-none text-amber-500" />
+              <div className="flex items-start gap-2 border-t border-warning/30 bg-warning/5 px-3 py-2.5 text-xs">
+                <AlertTriangle className="h-4 w-4 flex-none text-warning-text" />
                 <div className="min-w-0 space-y-1">
                   <p className="font-semibold text-foreground">Verify these rates before generating — they don't match the current catalogue:</p>
                   <ul className="space-y-0.5 text-muted-foreground">

@@ -81,7 +81,7 @@ export default function ActivityLogsTab({ activities, totals, activityTruncated,
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left text-sm">
-          <thead className="border-b border-border bg-muted/50 text-xs font-semibold uppercase text-muted-foreground">
+          <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
             <tr>
               <th className="px-4 py-3">Timestamp</th>
               <th className="px-4 py-3">User ID</th>
@@ -95,14 +95,14 @@ export default function ActivityLogsTab({ activities, totals, activityTruncated,
               <th className="px-4 py-3">Metadata / Details</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border text-foreground">
+          <tbody className="divide-y divide-border rows-in text-foreground">
             {filteredActivities.length === 0 ? (
               <tr>
                 <td colSpan="10" className="py-12 text-center text-muted-foreground">No activities found.</td>
               </tr>
             ) : (
               pagedActivities.map((act) => (
-                <tr key={act.id} className="hover:bg-muted/30">
+                <tr key={act.id} className="hover:bg-subtle">
                   <td className="whitespace-nowrap px-4 py-3 font-medium text-xs">
                     {formatDateTime(act.timestamp)}
                   </td>

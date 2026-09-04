@@ -18,11 +18,11 @@ export default function CallCard({ call, onOpen }) {
     <Card
       className={cn(
         "flex flex-col p-5 ring-1 transition-shadow hover:shadow-md",
-        f.support ? "ring-rose-500/30" : "ring-border/60",
+        f.support ? "ring-destructive/30" : "ring-border/60",
       )}
     >
       <div className="flex items-start gap-3">
-        <Avatar name={call.named ? call.name : "?"} className={f.support ? "bg-rose-500/10 text-rose-600" : ""} />
+        <Avatar name={call.named ? call.name : "?"} className={f.support ? "bg-destructive/10 text-destructive-text" : ""} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className={cn("truncate font-semibold", call.named ? "text-foreground" : "text-muted-foreground")}>

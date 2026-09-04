@@ -49,7 +49,7 @@ export default function WhatsAppTab({ whatsappLogs, searchQuery, maskSensitiveDa
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-sm">
-            <thead className="border-b border-border bg-muted/50 text-xs font-semibold uppercase text-muted-foreground">
+            <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
               <tr>
                 <th className="px-4 py-3">Created</th>
                 <th className="px-4 py-3">Customer</th>
@@ -60,14 +60,14 @@ export default function WhatsAppTab({ whatsappLogs, searchQuery, maskSensitiveDa
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border text-foreground">
+            <tbody className="divide-y divide-border rows-in text-foreground">
               {filteredWhatsappLogs.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="py-12 text-center text-muted-foreground">No WhatsApp logs found.</td>
                 </tr>
               ) : (
                 filteredWhatsappLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-muted/30">
+                  <tr key={log.id} className="hover:bg-subtle">
                     <td className="whitespace-nowrap px-4 py-3 text-xs">{formatDateTime(log.createdAt)}</td>
                     <td className="px-4 py-3 font-semibold text-xs">{log.customerName}</td>
                     <td className="px-4 py-3 font-mono text-xs">{maskPhone(log.phone, maskSensitiveData)}</td>
@@ -93,7 +93,7 @@ export default function WhatsAppTab({ whatsappLogs, searchQuery, maskSensitiveDa
                           variant="outline"
                           size="sm"
                           onClick={() => onOpenWhatsApp(log)}
-                          className="h-7 text-[11px] border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+                          className="h-7 text-[11px] border-success text-success-text hover:bg-success/10"
                         >
                           📱 Send via WhatsApp
                         </Button>
@@ -102,7 +102,7 @@ export default function WhatsAppTab({ whatsappLogs, searchQuery, maskSensitiveDa
                         <span className="text-xs text-muted-foreground italic">Sent via WhatsApp Web</span>
                       )}
                       {log.status === "delivered" && (
-                        <span className="text-xs text-emerald-600 font-semibold">✓ Delivered</span>
+                        <span className="text-xs text-success-text font-semibold">✓ Delivered</span>
                       )}
                     </td>
                   </tr>

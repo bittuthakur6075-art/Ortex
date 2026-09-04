@@ -46,7 +46,7 @@ export default function CallDrawer({ active, saving, onClose, onStatus, onQuotat
       {active && (
         <div className="space-y-5">
           {active.flags.support && (
-            <div className="flex gap-2.5 rounded-lg bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300">
+            <div className="flex gap-2.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive-text">
               <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
               <p>
                 This call mentions a complaint or cancellation. Handle it as support before any sales follow-up, a
@@ -71,7 +71,7 @@ export default function CallDrawer({ active, saving, onClose, onStatus, onQuotat
               <Detail icon={Mail} label="Email" value={active.customer.email} />
               <Detail icon={MapPin} label="Deliver to" value={active.customer.address} />
               {!active.customer.address && (
-                <div className="flex gap-2.5 text-sm text-amber-600">
+                <div className="flex gap-2.5 text-sm text-warning-text">
                   <MapPin className="mt-0.5 h-4 w-4 flex-none" />
                   <span>Delivery city not captured. Ask for it before quoting freight.</span>
                 </div>
@@ -80,14 +80,14 @@ export default function CallDrawer({ active, saving, onClose, onStatus, onQuotat
           </div>
 
           {active.flags.incomplete && active.itemsList.length > 0 && (
-            <div className="rounded-lg bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
+            <div className="rounded-lg bg-warning/10 p-3 text-sm text-warning-text">
               One or more items have no quantity. Confirm them before quoting, a line without a quantity cannot be
               priced.
             </div>
           )}
 
           {active.flags.hugeQty && (
-            <div className="rounded-lg bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
+            <div className="rounded-lg bg-warning/10 p-3 text-sm text-warning-text">
               The quantity on this call is unusually large. Confirm it before it is used for pricing, spoken figures
               like this are often a slip of the tongue.
             </div>
@@ -96,7 +96,7 @@ export default function CallDrawer({ active, saving, onClose, onStatus, onQuotat
           <CallTimeline call={active} />
 
           {active.callTotal > 1 && (
-            <div className="flex gap-2.5 rounded-lg bg-violet-500/10 p-3 text-sm text-violet-700 dark:text-violet-300">
+            <div className="flex gap-2.5 rounded-lg bg-primary/10 p-3 text-sm text-primary">
               <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none" />
               <p>
                 This customer has called {active.callTotal} times. Repeat callers convert far better than first-time

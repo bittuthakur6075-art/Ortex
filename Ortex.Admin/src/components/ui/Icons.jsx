@@ -10,6 +10,7 @@ import {
   Notification as NotificationIcon,
   Warning2,
   ArrowDown2,
+  ArrowLeft2,
   ArrowRight2,
   ArrowRight3,
   ArrowSwapVertical,
@@ -27,6 +28,7 @@ import {
   Flash,
   Hashtag,
   DirectInbox,
+  UserSearch as UserSearchIcon,
   Money,
   InfoCircle,
   Key,
@@ -85,6 +87,7 @@ function wrap(Cmp) {
 // lucide name -> Iconsax Bulk equivalent
 export const AlertTriangle = wrap(Warning2)
 export const ArrowDownLeft = wrap(ArrowDown2)
+export const ArrowLeft = wrap(ArrowLeft2)
 export const ArrowRight = wrap(ArrowRight2)
 export const ArrowUpRight = wrap(ArrowRight3)
 export const ArrowUpDown = wrap(ArrowSwapVertical)
@@ -102,6 +105,7 @@ export const FileText = wrap(DocumentText)
 export const Flame = wrap(Flash)
 export const Hash = wrap(Hashtag)
 export const Inbox = wrap(DirectInbox)
+export const UserSearch = wrap(UserSearchIcon)
 export const IndianRupee = wrap(Money)
 export const Info = wrap(InfoCircle)
 export const KeyRound = wrap(Key)

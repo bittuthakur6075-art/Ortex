@@ -483,7 +483,7 @@ export default function TallyInvoiceImport({ open, onClose, onImportDone }) {
             
             <div className="max-h-96 overflow-auto rounded-xl border border-border">
               <table className="w-full text-left text-sm">
-                <thead className="sticky top-0 border-b border-border bg-muted/80 text-xs uppercase tracking-wide text-muted-foreground z-10 font-sans">
+                <thead className="sticky top-0 z-10 bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
                   <tr>
                     <th className="px-3 py-3 w-10 font-medium">Select</th>
                     <th className="px-3 py-3 font-medium">Inv Number</th>
@@ -493,14 +493,14 @@ export default function TallyInvoiceImport({ open, onClose, onImportDone }) {
                     <th className="px-3 py-3 font-medium">Import Action / Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-border rows-in">
                   {invoices.map((inv, idx) => {
                     const isDup = existingList.some((ex) => ex.number.toLowerCase() === inv.number.toLowerCase())
                     const isChecked = selectedIndices.has(idx)
                     const action = duplicateActions[idx] || "new"
                     
                     return (
-                      <tr key={idx} className={`hover:bg-muted/30 transition-colors ${isDup && action === "skip" ? "opacity-60" : ""}`}>
+                      <tr key={idx} className={`hover:bg-subtle transition-colors ${isDup && action === "skip" ? "opacity-60" : ""}`}>
                         <td className="px-3 py-3 text-center">
                           <input 
                             type="checkbox"
@@ -521,7 +521,7 @@ export default function TallyInvoiceImport({ open, onClose, onImportDone }) {
                         <td className="px-3 py-3">
                           {isDup ? (
                             <div className="flex items-center gap-2">
-                              <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                              <span className="flex items-center gap-1 text-xs text-warning-text">
                                 <AlertTriangle className="h-3.5 w-3.5" /> Duplicate
                               </span>
                               <select
