@@ -11,6 +11,8 @@ import html2pdf from "html2pdf.js"
 // `allocation` (optional) = { cumulative, balance } lets the receipt show how
 // this payment sits against the invoice total.
 export default function ReceiptView({ open, onClose, payment, invoice, settings, allocation }) {
+  // Hooks must run unconditionally, so the ref is created before the early return.
+  const receiptRef = useRef(null)
   if (!open || !payment) return null
   const c = settings.company
   const isAdvance = !payment.invoiceId
@@ -20,7 +22,6 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
     : "Advance against order"
   const isPartial = allocation && allocation.balance > 0.5
 
-  const receiptRef = useRef(null)
 
   const handleDownloadPDF = () => {
     const element = receiptRef.current

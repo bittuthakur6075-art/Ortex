@@ -14,9 +14,7 @@
 //   supabase secrets set INDIAMART_PUSH_KEY=<random-secret>
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
+import { json } from "../_shared/http.ts"
 
 // Length-independent, constant-time-ish string comparison so the shared-secret
 // check doesn't leak the key one byte at a time via response timing.

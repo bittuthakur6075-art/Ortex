@@ -39,7 +39,7 @@ It is a **standalone application** (`Ortex.Admin/`), separate from the marketing
 
 ## 5. Key business rules
 - **GST split** — intra-state (buyer state == company state) → CGST+SGST (each half rate); inter-state → IGST. Driven by state codes.
-- **Volume discount tiers** mirror the public quote calculator (10% ≥300, 20% ≥1000, 30% ≥5000 units) for consistency.
+- **Discounts** are entered per line and per document by the salesperson; there are no automatic volume tiers.
 - **Document numbering** — `PREFIX-<FY>-<0001>`, sequential per Indian financial year (Apr–Mar), gap-free.
 - **Invoice status is derived** from payments + due date (paid/partial/overdue) rather than only stored, so it stays live.
 - **Revenue/margin are GST-exclusive** (taxable value); tax is tracked separately.
@@ -49,8 +49,8 @@ It is a **standalone application** (`Ortex.Admin/`), separate from the marketing
 - **Standalone Vite + React 19 app**, Tailwind v4, React Router 7, Lucide, Sonner. Brand tokens shared with the marketing site.
 - **Repository pattern** (`data/repository.js`) — all I/O is async and behind one interface. `localStore` (browser) today; implement `apiStore` with the same surface to go live. See `README.md`.
 - **Domain layer** (`data/domain.js`) — cross-entity operations (numbering, quote→invoice, payment reconciliation, GST).
-- **Analytics** (`data/analytics.js`) — pure functions computing every dashboard metric.
-- **Reactive hooks** (`data/hooks.js`) — components re-render on any store change (this tab or another).
+- **Analytics** (`lib/analytics.js`) — pure functions computing every dashboard metric.
+- **Reactive hooks** (`hooks/useCollection.js`) — components re-render on any store change (this tab or another).
 
 ## 7. Data model (collections)
 - `products` — master data.

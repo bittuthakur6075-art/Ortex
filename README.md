@@ -26,8 +26,8 @@ cd Ortex.Admin && npm install && npm run dev
 cd Ortex.Tally.Connector && npm install && cp config.example.json config.json && npm run dry-run
 ```
 
-Every app exposes the same script names: `dev`, `build`, `preview`, `lint`
-(Admin also has `test`). CI (`.github/workflows/ci.yml`) runs lint + build for both
+Both front-ends expose `dev`, `build`, `preview` and `lint` (Admin also has `test`);
+the connector has `start`, `once`, `dry-run` and `fixture`. CI (`.github/workflows/ci.yml`) runs lint + build for both
 front-ends and the XML fixture for the connector on every push to `Development` / `main`.
 
 ## Repository layout
@@ -68,7 +68,7 @@ Ortex/
 - **Imports**: relative paths today; both front-ends also resolve `@/` to `src/`
   (`vite.config.js` + `jsconfig.json`) for new code.
 - **Style**: double quotes, no semicolons, 2-space indent (`.editorconfig`), LF line
-  endings (`.gitattributes`). `npm run lint` runs oxlint with the shared `.oxlintrc.json`.
+  endings (`.gitattributes`). `npm run lint` runs oxlint with each app's `.oxlintrc.json`.
 - **Files**: components `PascalCase.jsx`; hooks `useThing.js`; everything else
   `camelCase.js`. Pure logic lives in `lib/`, React state in `hooks/`, persistence in
   `data/`.

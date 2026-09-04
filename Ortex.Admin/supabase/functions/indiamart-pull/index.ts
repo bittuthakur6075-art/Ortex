@@ -10,9 +10,7 @@
 // (pg_cron) which passes the service-role key. Deploy normally (verify_jwt on).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
+import { json } from "../_shared/http.ts"
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 const pad = (n: number) => String(n).padStart(2, "0")

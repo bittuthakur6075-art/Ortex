@@ -29,7 +29,6 @@ The project is built on a modern frontend React-based single-page application se
     *   **React Router DOM 7** (`^7.18.1`) for page navigation.
 *   **Styling & Merging**:
     *   **Tailwind CSS 4** (`^4.3.2`) with Vite integration via `@tailwindcss/vite` (`^4.3.2`).
-    *   `clsx` (`^2.1.1`) and `tailwind-merge` (`^3.6.0`) for dynamic CSS class utility parsing.
 *   **Icons & Motion**:
     *   **Framer Motion 12** (`^12.42.2`) for scroll/fade animations and modal transitions.
     *   **Lucide React 1** (`^1.23.0`) for clean vector icons.
@@ -138,8 +137,8 @@ The custom hook `src/hooks/useDocumentMetadata.js` dynamically updates `<title>`
 *   **Data Handling**: Saves mock JSON objects in local storage under key `"ortex_submissions"`.
 
 ### 5.4. Quote Calculator (`src/pages/QuoteCalculator.jsx`)
-*   **Multi-step Wizard**: Guides B2B buyers through 4 stages: Product Selection, Custom Design Specs configuration (thickness, size, outer-shape cut, materials), Quantity definition (MOQ warnings & dynamic volume discounts), and Buyer Info capture.
-*   **Pricing Engine**: Evaluates base costs + material specs additions * quantities, applying custom tier discounts (10% to 30%).
+*   **Multi-step Wizard**: Guides B2B buyers through 4 stages: Product Selection, Custom Design Specs configuration (thickness, size, outer-shape cut, materials), Quantity definition (MOQ warnings), and Buyer Info capture.
+*   **Estimate**: Indicative pre-tax total from catalogue base prices × quantity; final pricing and any discounts are set in the Admin quotation.
 *   **Logo Attachment**: Supports file upload (SVGs, PDFs, High-Res PNGs) and saves structured RFQs to local storage key `"ortex_quotes"`.
 
 ### 5.5. Theme Switcher Context (`src/components/layout/Navbar.jsx`)
