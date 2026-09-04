@@ -56,7 +56,7 @@ Ortex/
 │       ├── data/              # repository facade, stores, schema, domain rules
 │       ├── hooks/             # useCollection, useProfile …
 │       ├── lib/               # pure helpers: pricing, analytics, format, auth
-│       └── modules/           # one file per admin page
+│       └── pages/             # one file per admin page
 ├── Ortex.Tally.Connector/     # Node CLI (src/, test/)
 ├── docs/                      # cross-cutting: architecture, backlog, guides
 ├── .github/workflows/ci.yml
@@ -77,8 +77,8 @@ Ortex/
 
 ## Documentation
 
-- `docs/Architecture/ARCHITECTURE.md` — system narrative, data flows, design system
-- `docs/PM/PRODUCT_BACKLOG.md`, `docs/PM/GROWTH_ROADMAP.md` — roadmap and status
+- `docs/architecture/ARCHITECTURE.md` — system narrative, data flows, design system
+- `docs/pm/PRODUCT_BACKLOG.md`, `docs/pm/GROWTH_ROADMAP.md` — roadmap and status
 - `docs/guides/GETTING_STARTED.md`, `docs/guides/META_SETUP.md` — setup guides
 - `Ortex.Web/docs/DEPLOY_HOSTINGER.md` — static deploy of the marketing site
 - `Ortex.Admin/docs/ENVIRONMENTS.md` — staging vs production Supabase projects

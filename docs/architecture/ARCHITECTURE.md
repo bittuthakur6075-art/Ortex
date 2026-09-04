@@ -58,7 +58,7 @@ Ortex/
 │       │                           # Hero, LiveOrty, PhotoLightbox, CookieConsent …
 │       ├── constants/              # site.js, categories.js, products.js, photos.js, home.js
 │       ├── hooks/                  # useDocumentMetadata, useSmoothScroll, useWork
-│       ├── lib/                    # supabaseClient, catalog(+Data), leads, tracker, uploads, consent
+│       ├── lib/                    # supabaseClient, catalog/catalogCore, leads, tracker, uploads, consent
 │       └── pages/                  # one component per route
 ├── Ortex.Admin/                    # admin console
 │   ├── supabase/
@@ -68,12 +68,12 @@ Ortex/
 │   ├── docs/                       # PRD, ENVIRONMENTS, GROWTH_TRACKING, LEADS_AND_RECEIPTS
 │   └── src/
 │       ├── App.jsx                 # auth gate + module routing
-│       ├── components/             # AdminLayout, Login, ui.jsx kit, icons.jsx adapter,
+│       ├── components/             # AdminLayout, Login, Ui.jsx kit, Icons.jsx adapter,
 │       │                           # editors (LineItemsEditor, CustomerFields …), DocumentView
 │       ├── data/                   # repository facade, apiStore/localStore, schema, domain, seed
 │       ├── hooks/                  # useCollection(s)/useSettings/useSorting, useProfile
 │       ├── lib/                    # pricing, analytics, format, id, csv, auth, imageUpload
-│       └── modules/                # one page per business module
+│       └── pages/                  # one page per business module
 ├── Ortex.Tally.Connector/          # Node CLI: src/{config,source,sync,tallyClient,tallyXml}.js
 ├── docs/                           # this file, PM backlog/roadmap, guides
 └── .github/workflows/ci.yml        # lint + build (Web, Admin), fixture (Connector)

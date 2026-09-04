@@ -17,7 +17,7 @@ import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { createClient } from "@supabase/supabase-js"
 import { buildCategorySchema, photosForCategory, SITE_URL } from "../src/constants/categories.js"
-import { mergeCategories, mapProduct, staticCategories } from "../src/lib/catalogData.js"
+import { mergeCategories, mapProduct, staticCategories } from "../src/lib/catalogCore.js"
 import { STATIC_ROUTES } from "./routes-meta.mjs"
 
 const dist = resolve(dirname(fileURLToPath(import.meta.url)), "..", "dist")

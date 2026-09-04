@@ -15,7 +15,7 @@ import {
   Phone,
   MessageCircle,
   Mail,
-} from "../components/icons"
+} from "../components/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { useCollection, useSorting } from "../hooks/useCollection"
@@ -29,7 +29,7 @@ import { LEAD_STAGES, OPEN_LEAD_STAGES, ACTIVITY_TYPES, LEAD_SOURCES, LOST_REASO
 import { formatCurrency, formatDate, toDateInput, daysUntil, relativeTime, round2 } from "../lib/format"
 import { cn } from "../lib/cn"
 import PageHeader from "../components/PageHeader"
-import { Button, Card, Input, Select, Textarea, Field, Badge, StatCard, StatusBadge, EmptyState, Avatar, Money, Chip, Drawer, Modal, PageLoader, SortTh } from "../components/ui"
+import { Button, Card, Input, Select, Textarea, Field, Badge, StatCard, StatusBadge, EmptyState, Avatar, Money, Chip, Drawer, Modal, PageLoader, SortTh } from "../components/Ui"
 
 // Follow-up urgency from the nextFollowUp date.
 function followState(lead) {

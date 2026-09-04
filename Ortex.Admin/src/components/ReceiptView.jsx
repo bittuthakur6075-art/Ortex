@@ -1,6 +1,6 @@
-import { Printer, X, CheckCircle2, Download } from "./icons"
+import { Printer, X, CheckCircle2, Download } from "./Icons"
 import { formatCurrency, formatDate, amountInWords } from "../lib/format"
-import { Button } from "./ui"
+import { Button } from "./Ui"
 import { useRef } from "react"
 import html2pdf from "html2pdf.js"
 

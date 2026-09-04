@@ -56,7 +56,7 @@ npm test                # vitest — pure tests (src/lib/analytics.test.js)
 
 ### Architecture
 * **Database & Auth**: Supabase. `src/data/repository.js` resolves to `apiStore` when env vars are present, else `localStore` (offline fallback). Auth is password + emailed OTP (`src/lib/auth.js`), invite-only signups, RLS in migrations.
-* **Source layout**: `src/modules/` one page per business module; `src/components/` shell + UI kit (`ui.jsx`, `icons.jsx` Iconsax adapter) + editors/document views; `src/hooks/` (`useCollection.js`, `useProfile.js`); `src/lib/` pure helpers (`pricing.js` GST engine, `analytics.js`, `format.js`, `id.js`); `src/data/` stores, `schema.js`, `domain.js`, `seed.js`.
+* **Source layout**: `src/pages/` one page per business module; `src/components/` shell + UI kit (`Ui.jsx`, `Icons.jsx` Iconsax adapter) + editors/document views; `src/hooks/` (`useCollection.js`, `useProfile.js`); `src/lib/` pure helpers (`pricing.js` GST engine, `analytics.js`, `format.js`, `id.js`); `src/data/` stores, `schema.js`, `domain.js`, `seed.js`.
 * **Edge functions**: `supabase/functions/<name>/index.ts`, each deployable alone. Shared CORS headers and the `json()` response helper live in `supabase/functions/_shared/http.ts` — import from there instead of redefining them.
 * **Key Features**:
   * **Full-Page Editors**: Quotation and Invoice creators use clean full-page dashboards rather than modal views; layout is a 2/3 (Details & Line Items) and 1/3 (Settings & Notes) split, with the Line Items grid occupying a full-width section.
@@ -81,8 +81,8 @@ npm run fixture   # XML builder self-test (also run in CI)
 
 ## Reference Docs
 * `README.md` — repo map, quick start, conventions.
-* `docs/Architecture/ARCHITECTURE.md` — narratives, directories, data flows, design system.
-* `docs/PM/PRODUCT_BACKLOG.md`, `docs/PM/GROWTH_ROADMAP.md` — backlog and release progress.
+* `docs/architecture/ARCHITECTURE.md` — narratives, directories, data flows, design system.
+* `docs/pm/PRODUCT_BACKLOG.md`, `docs/pm/GROWTH_ROADMAP.md` — backlog and release progress.
 * `docs/guides/GETTING_STARTED.md`, `docs/guides/META_SETUP.md` — setup guides.
 * `Ortex.Admin/docs/` — PRD, environments, growth tracking, leads & receipts.
 * `Ortex.Web/docs/DEPLOY_HOSTINGER.md` — static deploy guide.

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Inbox, Plus, Search, Star, Mail, Phone, MessageCircle, Trash2, Target, Download, FileText, Printer, AlertTriangle } from "../components/icons"
+import { Inbox, Plus, Search, Star, Mail, Phone, MessageCircle, Trash2, Target, Download, FileText, Printer, AlertTriangle } from "../components/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { convertEnquiryToLead, createQuotation, markEnquiryQuoted } from "../data/domain"
@@ -25,7 +25,7 @@ import {
   Chip,
   Drawer,
   PageLoader,
-} from "../components/ui"
+} from "../components/Ui"
 
 export default function Enquiries() {
   const { items, loading } = useCollection("enquiries")

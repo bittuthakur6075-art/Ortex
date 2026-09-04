@@ -42,10 +42,10 @@ There is no backend. Lead capture persists to `localStorage`:
 - Contact form → key `ortex_submissions`
 - Quote calculator → key `ortex_quotes`
 
-See `docs/PM/PRODUCT_BACKLOG.md` for the plan to route these to a real backend.
+See `docs/pm/PRODUCT_BACKLOG.md` for the plan to route these to a real backend.
 
 ## Further reading
 
-- `docs/Architecture/ARCHITECTURE.md` — full codebase + business-context reference.
-- `docs/PM/PRODUCT_BACKLOG.md` — product/feature backlog.
+- `docs/architecture/ARCHITECTURE.md` — full codebase + business-context reference.
+- `docs/pm/PRODUCT_BACKLOG.md` — product/feature backlog.
 - `CLAUDE.md` (repo root) — the condensed guide for working in this repo.

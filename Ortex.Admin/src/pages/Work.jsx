@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
-import { LayoutGrid, Plus, Pencil, Trash2, Sparkles, X } from "../components/icons"
+import { LayoutGrid, Plus, Pencil, Trash2, Sparkles, X } from "../components/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { useCollection } from "../hooks/useCollection"
@@ -9,7 +9,7 @@ import { triggerSiteRebuild } from "../lib/revalidate"
 import { supabase, hasSupabase } from "../data/supabaseClient"
 import { WORK_SEED } from "../data/workSeed"
 import PageHeader from "../components/PageHeader"
-import { Button, Card, Input, Textarea, Field, EmptyState, Modal, PageLoader } from "../components/ui"
+import { Button, Card, Input, Textarea, Field, EmptyState, Modal, PageLoader } from "../components/Ui"
 
 export default function Work() {
   const { items, loading } = useCollection("work")

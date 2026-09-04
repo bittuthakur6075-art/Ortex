@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react"
-import { Upload, CheckCircle2, AlertTriangle } from "./icons"
+import { Upload, CheckCircle2, AlertTriangle } from "./Icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { createInvoice } from "../data/domain"
-import { Button, Modal, Badge } from "./ui"
+import { Button, Modal, Badge } from "./Ui"
 import { formatCurrency, formatDate } from "../lib/format"
 
 // Map of standard Indian state names to code for GST supply calculations

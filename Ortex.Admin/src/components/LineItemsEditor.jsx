@@ -1,8 +1,8 @@
-import { Plus, Trash2 } from "./icons"
+import { Plus, Trash2 } from "./Icons"
 import { newLine, GST_RATES } from "../data/schema"
 import { computeDocument } from "../lib/pricing"
 import { formatCurrency, round2 } from "../lib/format"
-import { Button, Input, Select, Money } from "./ui"
+import { Button, Input, Select, Money } from "./Ui"
 
 // Editable line-items grid + live totals, shared by quotations and invoices.
 // Props:

@@ -1,12 +1,12 @@
 import { useState } from "react"
-import { Download, Upload, FileSpreadsheet, CheckCircle2, AlertTriangle } from "./icons"
+import { Download, Upload, FileSpreadsheet, CheckCircle2, AlertTriangle } from "./Icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { newProduct, GST_RATES, UNITS, autoDetectCategory } from "../data/schema"
 import { useCategories } from "../hooks/useCollection"
 import { downloadCsvRaw, parseCsv } from "../lib/csv"
 import { round2 } from "../lib/format"
-import { Button, Modal, Badge } from "./ui"
+import { Button, Modal, Badge } from "./Ui"
 
 // Import column order = template order. Header names are matched case-insensitively.
 const COLUMNS = ["name", "sku", "category", "hsn", "unit", "basePrice", "costPrice", "moq", "gstRate", "leadTimeDays", "status", "material", "description"]

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
-import { Building2, KeyRound, Percent, Hash, Database, Sparkles, Trash2, Info, Save, Mail, Inbox } from "../components/icons"
+import { Building2, KeyRound, Percent, Hash, Database, Sparkles, Trash2, Info, Save, Mail, Inbox } from "../components/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { useSettings, useCollections, useCollection } from "../hooks/useCollection"
@@ -8,7 +8,7 @@ import { login, changePassword, currentEmail } from "../lib/auth"
 import { syncIndiaMart } from "../data/integrations"
 import { GST_RATES } from "../data/schema"
 import PageHeader from "../components/PageHeader"
-import { Button, Card, Input, Select, Textarea, Field, PageLoader } from "../components/ui"
+import { Button, Card, Input, Select, Textarea, Field, PageLoader } from "../components/Ui"
 
 function SettingsCard({ icon: Icon, title, description, tone = "primary", children }) {
   const toneClass = tone === "danger" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"

@@ -1,12 +1,12 @@
 // Live catalogue hook: products + categories managed in the Ortex Admin panel
 // and read from Supabase, with the static constants/ files as fallback. The pure
-// merge/map logic lives in catalogData.js (shared with the build-time prerender).
+// merge/map logic lives in catalogCore.js (shared with the build-time prerender).
 // Mirrors the working live-fetch already used by QuoteCalculator.jsx.
 
 import { useEffect, useState } from "react"
 import { supabase, hasSupabase } from "./supabaseClient"
 import { PRODUCTS } from "../constants/products"
-import { mergeCategories, mapProduct, staticCategories, slugify } from "./catalogData"
+import { mergeCategories, mapProduct, staticCategories, slugify } from "./catalogCore"
 
 export { slugify }
 

@@ -10,7 +10,7 @@ import {
   ArrowUpRight,
   AlertTriangle,
   Users,
-} from "../components/icons"
+} from "../components/Icons"
 import { toast } from "sonner"
 import { useCollections } from "../hooks/useCollection"
 import { computeAnalytics } from "../lib/analytics"
@@ -19,7 +19,7 @@ import { LEAD_STAGES, OPEN_LEAD_STAGES } from "../data/schema"
 import { seedDemo } from "../data/seed"
 import { formatCurrency, formatNumber, daysUntil, round2 } from "../lib/format"
 import PageHeader from "../components/PageHeader"
-import { Card, StatCard, StatusBadge, Money, EmptyState, Button, Chip, PageLoader } from "../components/ui"
+import { Card, StatCard, StatusBadge, Money, EmptyState, Button, Chip, PageLoader } from "../components/Ui"
 import { BarChart, AreaChart, CHART_COLORS } from "../components/Chart"
 
 const PERIODS = [

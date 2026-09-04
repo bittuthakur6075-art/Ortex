@@ -14,7 +14,7 @@ import {
   EmptyState,
   PageLoader,
   Drawer
-} from "../components/ui"
+} from "../components/Ui"
 import {
   Flame,
   Clock,
@@ -27,7 +27,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Eye
-} from "../components/icons"
+} from "../components/Icons"
 import { toast } from "sonner"
 import { formatDateTime } from "../lib/format"
 

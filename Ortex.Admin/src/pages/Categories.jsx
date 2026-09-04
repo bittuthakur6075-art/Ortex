@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
-import { Tags, Plus, Pencil, Trash2, Sparkles, X } from "../components/icons"
+import { Tags, Plus, Pencil, Trash2, Sparkles, X } from "../components/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { useCollection, useSorting } from "../hooks/useCollection"
@@ -8,7 +8,7 @@ import { uploadImage, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "../lib/imageUpload"
 import { triggerSiteRebuild } from "../lib/revalidate"
 import { supabase, hasSupabase } from "../data/supabaseClient"
 import PageHeader from "../components/PageHeader"
-import { Button, Card, Input, Select, Textarea, Field, EmptyState, Modal, PageLoader, SortTh } from "../components/ui"
+import { Button, Card, Input, Select, Textarea, Field, EmptyState, Modal, PageLoader, SortTh } from "../components/Ui"
 
 export default function Categories() {
   const { items, loading } = useCollection("categories")

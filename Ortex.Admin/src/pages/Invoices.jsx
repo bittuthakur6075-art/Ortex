@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { ReceiptIndianRupee, Plus, Search, Eye, Trash2, Download, IndianRupee, AlertTriangle, ReceiptText, Mail, Upload } from "../components/icons"
+import { ReceiptIndianRupee, Plus, Search, Eye, Trash2, Download, IndianRupee, AlertTriangle, ReceiptText, Mail, Upload } from "../components/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
@@ -39,7 +39,7 @@ import {
   Modal,
   PageLoader,
   SortTh,
-} from "../components/ui"
+} from "../components/Ui"
 
 // Ortex.Tally.Connector stamps doc.tally = { status, syncedAt, voucherRef, error }
 // on every record it pushes to TallyPrime. Nothing in the console read it, so a

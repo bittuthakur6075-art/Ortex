@@ -26,8 +26,8 @@ npm test           # vitest — pure analytics/pricing tests
 | Area | Path |
 |---|---|
 | App shell, routing, auth gate | `src/App.jsx`, `src/components/AdminLayout.jsx`, `src/components/Login.jsx` |
-| Modules (pages) | `src/modules/` — Dashboard, Leads, Enquiries, VoiceLeads, Customers, Products, Categories, Quotations, Invoices, Payments, Work, Social, Automation, Growth, Users, Profile, Settings |
-| Shared UI kit | `src/components/ui.jsx`, `icons.jsx` + `PageHeader`, `CustomerFields`, `ShipToFields`, `LineItemsEditor`, `DocumentView`, `ReceiptView`, `TallyInvoiceImport`, `ProductImport` |
+| Modules (pages) | `src/pages/` — Dashboard, Leads, Enquiries, VoiceLeads, Customers, Products, Categories, Quotations, Invoices, Payments, Work, Social, Automation, Growth, Users, Profile, Settings |
+| Shared UI kit | `src/components/Ui.jsx`, `Icons.jsx` + `PageHeader`, `CustomerFields`, `ShipToFields`, `LineItemsEditor`, `DocumentView`, `ReceiptView`, `TallyInvoiceImport`, `ProductImport` |
 | Data layer | `src/data/` — `repository.js` (facade) → `apiStore.js` (Supabase) or `localStore.js` (offline fallback); `schema.js`, `domain.js`, `seed.js`, `sync.js`, `notify.js`, `users.js` |
 | Hooks | `src/hooks/` — `useCollection.js` (`useCollection`, `useCollections`, `useSettings`, `useSorting`), `useProfile.js` |
 | Helpers | `src/lib/` — `pricing.js` (GST engine), `analytics.js` (+ tests), `format.js`, `id.js`, `csv.js`, `cn.js`, `auth.js`, `imageUpload.js`, `quoteRfq.js`, `revalidate.js` |

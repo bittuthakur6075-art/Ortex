@@ -16,7 +16,7 @@ import {
   Phone,
   Sparkles,
   Users,
-} from "../components/icons"
+} from "../components/Icons"
 import { repo } from "../data/repository"
 import { useCollection } from "../hooks/useCollection"
 import { ENQUIRY_STATUS, newLine } from "../data/schema"
@@ -37,7 +37,7 @@ import {
   Select,
   StatCard,
   StatusBadge,
-} from "../components/ui"
+} from "../components/Ui"
 
 // Leads captured by Anu, the website AI voice assistant. They live in the shared
 // `enquiries` collection tagged with this source (see Ortex.Web LiveOrty

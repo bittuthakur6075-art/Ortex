@@ -21,7 +21,7 @@ import {
   Bell,
   Instagram,
   Sparkles,
-} from "./icons"
+} from "./Icons"
 import { logout, useAuth, useAuthReady, currentEmail } from "../lib/auth"
 import { useProfile } from "../hooks/useProfile"
 import { canAccess } from "../data/modules"

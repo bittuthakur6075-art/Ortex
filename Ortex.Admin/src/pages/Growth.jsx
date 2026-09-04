@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react"
-import { Users, Flame, TrendingUp, Search, Sparkles, MessageCircle, IndianRupee, Trophy, Clock } from "../components/icons"
+import { Users, Flame, TrendingUp, Search, Sparkles, MessageCircle, IndianRupee, Trophy, Clock } from "../components/Icons"
 import { useCollections } from "../hooks/useCollection"
 import { computeGrowthAnalytics, computeAttribution, computeVelocity, computeCohorts, computeMessagingImpact } from "../lib/analytics"
 import { formatNumber, formatCurrency } from "../lib/format"
 import PageHeader from "../components/PageHeader"
-import { Card, StatCard, Badge, EmptyState, Chip, PageLoader, Money } from "../components/ui"
+import { Card, StatCard, Badge, EmptyState, Chip, PageLoader, Money } from "../components/Ui"
 import { BarChart, AreaChart, CHART_COLORS } from "../components/Chart"
 
 const PERIODS = [

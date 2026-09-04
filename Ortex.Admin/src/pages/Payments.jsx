@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { Wallet, Plus, Search, ArrowDownLeft, ArrowUpRight, Download, Trash2, ReceiptText } from "../components/icons"
+import { Wallet, Plus, Search, ArrowDownLeft, ArrowUpRight, Download, Trash2, ReceiptText } from "../components/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
@@ -24,7 +24,7 @@ import {
   Modal,
   PageLoader,
   SortTh,
-} from "../components/ui"
+} from "../components/Ui"
 
 export default function Payments() {
   const { items, loading } = useCollection("payments")

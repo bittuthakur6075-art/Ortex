@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react"
-import { Package, Plus, Search, Pencil, Trash2, Download, Upload, X, Sparkles } from "../components/icons"
+import { Package, Plus, Search, Pencil, Trash2, Download, Upload, X, Sparkles } from "../components/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { supabase, hasSupabase } from "../data/supabaseClient"
@@ -25,7 +25,7 @@ import {
   Drawer,
   PageLoader,
   SortTh,
-} from "../components/ui"
+} from "../components/Ui"
 
 export default function Products() {
   const { items, loading, reload } = useCollection("products")

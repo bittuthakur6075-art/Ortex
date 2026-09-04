@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { X, ArrowUpDown, Loader2 } from "./icons"
+import { X, ArrowUpDown, Loader2 } from "./Icons"
 import { cn } from "../lib/cn"
 import { statusMeta } from "../data/schema"
 import { initials, formatCurrency } from "../lib/format"

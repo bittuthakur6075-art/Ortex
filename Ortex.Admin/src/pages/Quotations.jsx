@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { FileText, Plus, Search, Eye, FileCheck2, Trash2, Download, AlertTriangle } from "../components/icons"
+import { FileText, Plus, Search, Eye, FileCheck2, Trash2, Download, AlertTriangle } from "../components/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
@@ -27,7 +27,7 @@ import {
   Modal,
   PageLoader,
   SortTh,
-} from "../components/ui"
+} from "../components/Ui"
 
 const emptyDraft = (settings) => ({
   id: null,

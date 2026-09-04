@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react"
-import { Users, Plus, Search, Mail, Phone, MessageCircle, Trash2, FileText, ReceiptIndianRupee } from "../components/icons"
+import { Users, Plus, Search, Mail, Phone, MessageCircle, Trash2, FileText, ReceiptIndianRupee } from "../components/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { useCollection, useSorting } from "../hooks/useCollection"
@@ -9,7 +9,7 @@ import { formatCurrency, round2 } from "../lib/format"
 import { exportCsv } from "../lib/csv"
 import { cn } from "../lib/cn"
 import PageHeader from "../components/PageHeader"
-import { Button, Card, Input, Field, EmptyState, Avatar, Money, Drawer, PageLoader, SortTh } from "../components/ui"
+import { Button, Card, Input, Field, EmptyState, Avatar, Money, Drawer, PageLoader, SortTh } from "../components/Ui"
 
 // Match a stored document customer snapshot to a master customer by email → phone.
 function matches(customer, doc) {

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react"
 import {
   Instagram, Facebook, Plus, Trash2, Sparkles, Search, Send, ImageIcon,
   Calendar, RefreshCw, CheckCircle2, ArrowUpRight, X,
-} from "../components/icons"
+} from "../components/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/repository"
 import { useCollection } from "../hooks/useCollection"
@@ -12,7 +12,7 @@ import { supabase, hasSupabase, functionErrorMessage } from "../data/supabaseCli
 import PageHeader from "../components/PageHeader"
 import {
   Button, Card, Input, Textarea, Select, Field, EmptyState, Modal, PageLoader, StatusBadge, Chip,
-} from "../components/ui"
+} from "../components/Ui"
 
 const PLATFORM_ICON = { instagram: Instagram, facebook: Facebook }
 
