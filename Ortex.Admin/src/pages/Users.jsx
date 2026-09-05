@@ -1,15 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { toast } from "sonner"
 import { ShieldCheck, Plus, Users as UsersIcon } from "../components/ui/Icons"
-import { Button, Card, Input, Select, Field, Modal, Badge, PageLoader, EmptyState, SortTh } from "../components/ui/Ui"
-import PageHeader from "../components/layout/PageHeader"
+import { Button, Card, CardHeader, Input, Select, Field, Modal, Badge, PageLoader, EmptyState, SortTh } from "../components/ui/Ui"
 import { listProfiles, updateProfile, createUser } from "../services/users"
 import { useSorting } from "../hooks/useCollection"
 import { ASSIGNABLE_MODULES, SALES_DEFAULT_MODULES } from "../data/domain/modules"
 import { currentUserId } from "../lib/auth"
 import { roleLabel, moduleLabel } from "../lib/roles"
-
-const randomPassword = () => "Ox-" + Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 6).toUpperCase()
+import RowActions from "./users/RowActions"
+import { randomPassword } from "./users/helpers"
 
 export default function Users() {
   const [rows, setRows] = useState(null)
@@ -49,18 +48,13 @@ export default function Users() {
 
   return (
     <div>
-      <PageHeader title="Users" subtitle="Team accounts, roles and per-user module access">
-        <Button size="sm" onClick={() => setEditing("new")}>
-          <Plus className="h-4 w-4" /> Add user
-        </Button>
-      </PageHeader>
-
       {rows.length === 0 ? (
         <EmptyState icon={UsersIcon} title="No users yet" description="Add your first team member." action={
           <Button onClick={() => setEditing("new")}><Plus className="h-4 w-4" /> Add user</Button>
         } />
       ) : (
         <Card className="overflow-hidden">
+          <CardHeader title="Users" action={<Button onClick={() => setEditing("new")}>Add user</Button>} />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="mt-head">
@@ -70,15 +64,12 @@ export default function Users() {
                   <SortTh sortKey="role" sort={sort} onSort={onSort}>Role</SortTh>
                   <SortTh sortKey="modules" sort={sort} onSort={onSort}>Modules</SortTh>
                   <SortTh sortKey="active" sort={sort} onSort={onSort}>Status</SortTh>
+                  <th className="w-12 px-4 py-2.5" />
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="mt-body">
                 {sortedUsers.map((p) => (
-                  <tr
-                    key={p.id}
-                    className="cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-subtle"
-                    onClick={() => setEditing(p)}
-                  >
+                  <tr key={p.id} className="cursor-pointer transition-colors" onClick={() => setEditing(p)}>
                     <td className="px-4 py-3 font-medium text-foreground">
                       {p.name || "—"} {p.id === selfId && <span className="text-xs text-muted-foreground">(you)</span>}
                     </td>
@@ -90,7 +81,10 @@ export default function Users() {
                       {p.role === "admin" ? "All modules" : `${(p.modules || []).length} module${(p.modules || []).length === 1 ? "" : "s"}`}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge tone={p.active ? "emerald" : "slate"}>{p.active ? "Active" : "Disabled"}</Badge>
+                      <Badge tone={p.active ? "emerald" : "rose"}>{p.active ? "Active" : "Deactivated"}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <RowActions user={p} selfId={selfId} onEdit={() => setEditing(p)} onChanged={load} />
                     </td>
                   </tr>
                 ))}
@@ -314,7 +308,9 @@ function UserEditor({ user, selfId, onClose, onSaved }) {
               onChange={(e) => setActive(e.target.checked)}
               disabled={isSelf}
             />
-            Account active {isSelf && <span className="text-xs text-muted-foreground">(can't disable yourself)</span>}
+            Account active {isSelf
+              ? <span className="text-xs text-muted-foreground">(can't disable yourself)</span>
+              : <span className="text-xs text-muted-foreground">— unticking hides every module; use the row menu to block sign-in too</span>}
           </label>
         )}
       </div>

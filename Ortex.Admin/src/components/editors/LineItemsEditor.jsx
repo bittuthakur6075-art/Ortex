@@ -2,7 +2,7 @@ import { Plus, Trash2 } from "../ui/Icons"
 import { newLine, GST_RATES } from "../../data/domain/schema"
 import { computeDocument } from "../../lib/pricing"
 import { formatCurrency, round2 } from "../../lib/format"
-import { Input, Select } from "../ui/Ui"
+import { Button, Input, Select } from "../ui/Ui"
 import { cn } from "../../lib/cn"
 
 // Editable line-items grid + live totals, shared by quotations and invoices.
@@ -50,7 +50,6 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
               <th className="w-[104px] px-2 py-2.5 text-right">Rate</th>
               <th className="w-[72px] px-2 py-2.5 text-right">Disc %</th>
               <th className="w-[84px] px-2 py-2.5 text-right">GST %</th>
-              <th className="w-[136px] px-2 py-2.5">Due on</th>
               <th className="w-[112px] px-2 py-2.5 text-right">Amount</th>
               <th className="w-9 px-1 py-2.5" />
             </tr>
@@ -58,7 +57,7 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
           <tbody className="divide-y divide-border">
             {lines.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-3 py-8 text-center text-[13px] text-muted-foreground">
+                <td colSpan={10} className="px-3 py-8 text-center text-[13px] text-muted-foreground">
                   No items yet. Add a line to get started.
                 </td>
               </tr>
@@ -91,7 +90,19 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
                     <Input value={line.unit ?? "pcs"} onChange={(e) => update(i, { unit: e.target.value })} className={cell} placeholder="pcs" />
                   </td>
                   <td className="px-2 py-2">
-                    <Input type="number" min="0" step="0.01" value={line.rate} onChange={(e) => update(i, { rate: Number(e.target.value) })} className={num} />
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={line.rate}
+                      onChange={(e) => update(i, { rate: Number(e.target.value) })}
+                      className={cn(num, line.productId && !Number(line.rate) && "border-warning")}
+                      title={
+                        line.productId && !Number(line.rate)
+                          ? "This product has no base price in the catalogue. Set one under Catalog, or type the rate here."
+                          : undefined
+                      }
+                    />
                   </td>
                   <td className="px-2 py-2">
                     <Input type="number" min="0" max="100" value={line.discountPercent} onChange={(e) => update(i, { discountPercent: Number(e.target.value) })} className={num} />
@@ -105,19 +116,11 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
                       ))}
                     </Select>
                   </td>
-                  <td className="px-2 py-2">
-                    <Input
-                      type="date"
-                      value={line.dueOn ? line.dueOn.slice(0, 10) : ""}
-                      onChange={(e) => update(i, { dueOn: e.target.value ? new Date(e.target.value).toISOString() : null })}
-                      className={cell}
-                    />
-                  </td>
                   <td className="px-2 py-3 text-right text-[13px] font-semibold text-foreground tabular">{formatCurrency(computed.total)}</td>
                   <td className="px-1 py-2 text-right">
-                    <button type="button" onClick={() => remove(i)} aria-label="Remove line" className="grid h-8 w-8 place-items-center rounded-md text-subtle-foreground transition-colors hover:bg-destructive/10 hover:text-destructive-text">
+                    <Button type="button" variant="dangerGhost" size="sm" icon onClick={() => remove(i)} aria-label="Remove line" className="text-subtle-foreground">
                       <Trash2 className="h-4 w-4" />
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               )
@@ -133,7 +136,7 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
         </button>
       </div>
 
-      {/* Totals — right half, hairline rows (Keystone document style) */}
+      {/* Totals - right half, hairline rows (Keystone document style) */}
       <div className="flex flex-col items-end">
         <div className="w-full max-w-sm text-[13px]">
           <Row label="Subtotal">{formatCurrency(totals.subTotal)}</Row>

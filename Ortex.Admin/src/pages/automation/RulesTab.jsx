@@ -11,12 +11,12 @@ export default function RulesTab({ rules, templateNameFor, onEdit, onDelete }) {
         <table className="w-full border-collapse text-left text-sm">
           <thead className="mt-head">
             <tr>
-              <th className="px-4 py-3">Rule Name</th>
-              <th className="px-4 py-3">Trigger Event</th>
-              <th className="px-4 py-3">Action Channel</th>
-              <th className="px-4 py-3">Template Mapping</th>
-              <th className="px-4 py-3">Delay</th>
-              <th className="px-4 py-3">Status</th>
+              <th>Rule Name</th>
+              <th>Trigger Event</th>
+              <th>Action Channel</th>
+              <th>Template Mapping</th>
+              <th>Delay</th>
+              <th>Status</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -36,7 +36,7 @@ export default function RulesTab({ rules, templateNameFor, onEdit, onDelete }) {
                     {rule.triggerEvent}
                     {!TRIGGER_EVENTS.some(ev => ev.value === rule.triggerEvent) && (
                       <div className="text-[10px] font-sans font-semibold text-destructive mt-0.5">
-                        Unsupported event — never fires
+                        Unsupported event - never fires
                       </div>
                     )}
                   </td>

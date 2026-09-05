@@ -29,6 +29,7 @@ import {
   Hashtag,
   DirectInbox,
   UserSearch as UserSearchIcon,
+  UserTag as UserTagIcon,
   Money,
   InfoCircle,
   Key,
@@ -76,6 +77,10 @@ import {
   Headphone,
   Microphone2,
   Play,
+  Camera as CameraIcon,
+  More,
+  UserTick,
+  UserRemove,
 } from "iconsax-react"
 
 function wrap(Cmp) {
@@ -106,6 +111,7 @@ export const Flame = wrap(Flash)
 export const Hash = wrap(Hashtag)
 export const Inbox = wrap(DirectInbox)
 export const UserSearch = wrap(UserSearchIcon)
+export const UserTag = wrap(UserTagIcon)
 export const IndianRupee = wrap(Money)
 export const Info = wrap(InfoCircle)
 export const KeyRound = wrap(Key)
@@ -154,6 +160,10 @@ export const PhoneOutgoing = wrap(CallCalling)
 export const Headset = wrap(Headphone)
 export const Mic = wrap(Microphone2)
 export const PlayIcon = wrap(Play)
+export const Camera = wrap(CameraIcon)
+export const MoreHorizontal = wrap(More)
+export const UserCheck = wrap(UserTick)
+export const UserX = wrap(UserRemove)
 
 // A spinner (lucide's Loader2 replacement) — a CSS ring, so it spins cleanly.
 export function Loader2({ className = "" }) {

@@ -89,7 +89,7 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
               <option value="">Not linked to an invoice</option>
               {openInvoices.map(({ inv, balance: b }) => (
                 <option key={inv.id} value={inv.id}>
-                  {inv.number} · {inv.customer?.name || "—"} · {formatCurrency(b)}
+                  {inv.number} · {inv.customer?.name || "-"} · {formatCurrency(b)}
                 </option>
               ))}
             </Select>

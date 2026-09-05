@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { FileText, Plus, Search, Eye, FileCheck2, Trash2, Download, AlertTriangle, Send, CalendarClock } from "../components/ui/Icons"
+import { FileText, Plus, Eye, FileCheck2, Trash2, AlertTriangle, Send, CalendarClock } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
@@ -9,7 +9,6 @@ import { notifyMessage, notifyQuotationSent } from "../services/notify"
 import { QUOTATION_STATUS, LOST_REASONS, newCustomer, newLine } from "../data/domain/schema"
 import { formatDate, toDateInput, daysUntil, formatCurrency } from "../lib/format"
 import { exportCsv } from "../lib/csv"
-import PageHeader from "../components/layout/PageHeader"
 import CustomerPicker from "../components/editors/CustomerPicker"
 import LivePreview from "../components/editors/LivePreview"
 import { computeDocument } from "../lib/pricing"
@@ -19,15 +18,15 @@ import LineItemsEditor from "../components/editors/LineItemsEditor"
 import DocumentView from "../components/documents/DocumentView"
 import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../components/editors/DocumentEditorShell"
 import {
-  Button,
-  Card,
-  Input,
+  Button, ExportButton,
+  Card, CardHeader,
+  Input, SearchInput,
   Textarea,
   Field,
   StatusBadge,
   EmptyState,
   Money,
-  Chip,
+  Chip, ChipGroup,
   Modal,
   PageLoader,
   SortTh,
@@ -194,21 +193,8 @@ export default function Quotations() {
 
   return (
     <div>
-      <PageHeader title="Quotations" subtitle={`${items.length} quotes · convert accepted quotes to invoices`}>
-        <Button variant="outline" size="sm" onClick={handleExport} disabled={!filtered.length}>
-          <Download className="h-4 w-4" /> Export
-        </Button>
-        <Button size="sm" onClick={() => setEditing(emptyDraft(settings))}>
-          <Plus className="h-4 w-4" /> New quotation
-        </Button>
-      </PageHeader>
-
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
-        <div className="relative md:w-[320px]">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle-foreground" />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search number, customer…" className="pl-10" />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
+        <ChipGroup className="min-w-0">
           <Chip active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
             All
           </Chip>
@@ -217,6 +203,10 @@ export default function Quotations() {
               {s.label}
             </Chip>
           ))}
+        </ChipGroup>
+        <div className="flex items-center gap-[10px] md:ml-auto">
+          <SearchInput className="md:w-[320px]" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search quotations" />
+          <ExportButton onClick={handleExport} disabled={!filtered.length} />
         </div>
       </div>
 
@@ -237,6 +227,10 @@ export default function Quotations() {
         <EmptyState icon={Search} title="No matches" description="Try adjusting your search or filters." />
       ) : (
         <Card className="overflow-hidden">
+          <CardHeader
+            title="Quotations"
+            action={<Button onClick={() => setEditing(emptyDraft(settings))}>New quotation</Button>}
+          />
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="mt-head">
@@ -273,27 +267,27 @@ export default function Quotations() {
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-3">
                           {canSend && (
-                            <button
+                            <Button
                               onClick={(ev) => {
                                 ev.stopPropagation()
                                 sendQuotation(q, settings)
                               }}
-                              className="text-muted-foreground hover:text-primary"
+                              variant="ghost" size="sm" icon className="text-muted-foreground"
                               title={q.status === "sent" ? "Resend" : "Send"}
                             >
                               <Send className="h-4 w-4" />
-                            </button>
+                            </Button>
                           )}
-                          <button
+                          <Button
                             onClick={(ev) => {
                               ev.stopPropagation()
                               setPreview(q)
                             }}
-                            className="text-muted-foreground hover:text-primary"
+                            variant="ghost" size="sm" icon className="text-muted-foreground"
                             title="Preview"
                           >
                             <Eye className="h-4 w-4" />
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -401,20 +395,20 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
         meta={isEdit ? `${partyLabel || "No customer"} · issued ${formatDate(form.issueDate)}` : `Draft · ${summary}`}
         actions={
           <>
-            <Button variant="outline" size="sm" onClick={() => onPreview(liveDoc)}>
+            <Button variant="outline" size="md" onClick={() => onPreview(liveDoc)}>
               <Eye className="h-4 w-4" /> Preview
             </Button>
             {isEdit && ["draft", "sent", "expired"].includes(form.status) && (
-              <Button variant="outline" size="sm" onClick={send}>
+              <Button variant="outline" size="md" onClick={send}>
                 <Send className="h-4 w-4" /> {form.status === "sent" ? "Resend" : "Send"}
               </Button>
             )}
             {isEdit && form.status !== "invoiced" && (
-              <Button variant="success" size="sm" onClick={convert}>
+              <Button variant="success" size="md" onClick={convert}>
                 <FileCheck2 className="h-4 w-4" /> Convert to invoice
               </Button>
             )}
-            <Button size="sm" onClick={save}>
+            <Button size="md" onClick={save}>
               {isEdit ? "Save changes" : "Create quotation"}
             </Button>
           </>
@@ -424,7 +418,7 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
       {isEdit && (
         <Tiles className="xl:grid-cols-3">
           <Tile icon={FileText} label="Quote value" value={formatCurrency(liveDoc.totals.grandTotal)} sub={`${summary.split(" · ")[0]} · ${interState ? "IGST" : "CGST + SGST"}`} />
-          <Tile icon={CalendarClock} tone={validityTone} label="Valid until" value={liveDoc.validUntil ? formatDate(liveDoc.validUntil) : "—"} sub={validitySub} />
+          <Tile icon={CalendarClock} tone={validityTone} label="Valid until" value={liveDoc.validUntil ? formatDate(liveDoc.validUntil) : "-"} sub={validitySub} />
           <Tile
             icon={status === "invoiced" ? FileCheck2 : status === "rejected" ? AlertTriangle : Send}
             tone={status === "invoiced" || status === "accepted" ? "success" : status === "rejected" ? "danger" : status === "sent" ? "info" : "slate"}
@@ -443,12 +437,12 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
             <CustomerPicker value={form.customer} onChange={(customer) => set({ customer })} customers={customers} />
             {hasState && (
               <p className={cn("mt-3 text-xs font-medium", interState ? "text-primary" : "text-success-text")}>
-                {interState ? "Inter-state supply — IGST will be applied." : "Intra-state supply — CGST + SGST will be applied."}
+                {interState ? "Inter-state supply - IGST will be applied." : "Intra-state supply - CGST + SGST will be applied."}
               </p>
             )}
           </Section>
 
-          {/* 2. When / how — one compact row (Xero header row) */}
+          {/* 2. When / how - one compact row (Xero header row) */}
           <Section title="Details">
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <Field label="Issue date">
@@ -477,7 +471,7 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
             )}
           </Section>
 
-          {/* 3. What — the quote itself */}
+          {/* 3. What - the quote itself */}
           <Section title="Line items" description="Pick a product to auto-fill HSN, rate and GST, or enter a custom item.">
             <LineItemsEditor
               lines={form.lines}
@@ -489,7 +483,7 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
             />
           </Section>
 
-          {/* 4. Terms — always present, rarely edited */}
+          {/* 4. Terms - always present, rarely edited */}
           <Section title="Terms & conditions" description="Printed at the foot of the quotation">
             <Textarea value={form.terms} onChange={(e) => set({ terms: e.target.value })} className="min-h-[110px]" />
           </Section>

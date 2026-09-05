@@ -5,7 +5,7 @@ import { INPUT_RATE, OUTPUT_RATE, floatTo16BitPCM, int16ToBase64, base64ToInt16 
 import { languageMeta } from "../../data/domain/telecallerLanguages"
 
 /* ============================================================
-   useLiveCall — a browser practice call with the telecaller agent.
+   useLiveCall - a browser practice call with the telecaller agent.
 
    The console plays the CUSTOMER: the staff member talks into the mic, the
    agent (Gemini Live, same model and token flow as Live Orty on the website)

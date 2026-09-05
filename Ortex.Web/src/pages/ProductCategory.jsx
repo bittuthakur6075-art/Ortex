@@ -113,7 +113,7 @@ export default function ProductCategory() {
     { icon: Box, label: "Minimum order", value: `${stats.moqMin} units` },
     { icon: Clock, label: "Dispatch", value: `${stats.leadLabel} working days` },
     { icon: DiscountShape, label: "Pricing", value: "On quote" },
-    { icon: ReceiptText, label: "Invoicing", value: `${stats.gstLabel} GST` },
+    { icon: ReceiptText, label: "Invoicing", value: "GST invoice" },
   ]
 
   const trust = [

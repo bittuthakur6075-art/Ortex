@@ -20,6 +20,10 @@ export function staticCategories() {
 }
 
 /** Map a live product row ({id, doc}) to the website product shape. */
+// Shaped from products_public, which deliberately carries no commercial terms:
+// price, cost, HSN and GST stay inside the admin console and are absent from
+// the static fallback too. Nothing on this site renders a rate — quoting is a
+// conversation, and the numbers belong in the quotation the console produces.
 export function mapProduct(row) {
   const d = row.doc || {}
   return {
@@ -28,9 +32,7 @@ export function mapProduct(row) {
     sku: d.sku || "",
     category: d.category || "",
     material: d.material || "",
-    basePrice: Number(d.basePrice) || 0,
     moq: Number(d.moq) || 1,
-    gstRate: d.gstRate == null ? 18 : Number(d.gstRate),
     unit: d.unit || "pcs",
     leadTimeDays: Number(d.leadTimeDays) || 0,
     description: d.description || "",

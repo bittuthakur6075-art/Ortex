@@ -4,7 +4,7 @@ export const DAY_MS = 24 * 60 * 60 * 1000
 export const OPEN_JOB = ["queued", "dialing", "in_progress"]
 
 export const kindMeta = (id) => TELECALL_KINDS.find((k) => k.id === id) || TELECALL_KINDS[4]
-export const outcomeMeta = (id) => TELECALL_OUTCOMES.find((o) => o.id === id) || { id, label: id || "—", tone: "slate" }
+export const outcomeMeta = (id) => TELECALL_OUTCOMES.find((o) => o.id === id) || { id, label: id || "-", tone: "slate" }
 
 export function prettyPhone(phone = "") {
   const d = String(phone).replace(/\D/g, "").slice(-10)

@@ -1,14 +1,13 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { Download, Mic } from "../components/ui/Icons"
+import { Mic } from "../components/ui/Icons"
 import { repo } from "../data/store/repository"
 import { useCollection } from "../hooks/useCollection"
 import { ENQUIRY_STATUS } from "../data/domain/schema"
 import { formatDateTime } from "../lib/format"
 import { exportCsv } from "../lib/csv"
-import PageHeader, { ActionBar } from "../components/layout/PageHeader"
-import { Button, EmptyState, PageLoader } from "../components/ui/Ui"
+import { ExportButton, EmptyState, PageLoader } from "../components/ui/Ui"
 import { buildQuotationState, prettyPhone } from "./voice-leads/helpers"
 import { useVoiceCalls } from "./voice-leads/useVoiceCalls"
 import VoiceStats from "./voice-leads/VoiceStats"
@@ -19,8 +18,7 @@ import CallDrawer from "./voice-leads/CallDrawer"
 // Leads captured by Anu, the website AI voice assistant, folded into calls.
 // Parsing, grouping and flagging live in ./voice-leads/helpers; this file only
 // wires state to the pieces.
-export default function VoiceLeads({ embedded = false }) {
-  const Header = embedded ? ActionBar : PageHeader
+export default function VoiceLeads() {
   const { items, loading } = useCollection("enquiries")
   const navigate = useNavigate()
   const [query, setQuery] = useState("")
@@ -87,21 +85,6 @@ export default function VoiceLeads({ embedded = false }) {
 
   return (
     <div>
-      <Header
-        title="Voice Leads"
-        subtitle={
-          stats.calls
-            ? `${stats.calls} call${stats.calls === 1 ? "" : "s"} from ${stats.callers} caller${stats.callers === 1 ? "" : "s"}, captured by Anu`
-            : "Captured by Anu, the AI voice assistant"
-        }
-      >
-        {stats.calls > 0 && (
-          <Button variant="ghost" size="sm" onClick={handleExport}>
-            <Download className="h-4 w-4" /> Export
-          </Button>
-        )}
-      </Header>
-
       {stats.calls > 0 && <VoiceStats stats={stats} />}
 
       {stats.calls > 0 && (
@@ -112,6 +95,7 @@ export default function VoiceLeads({ embedded = false }) {
           setView={setView}
           range={range}
           setRange={setRange}
+          actions={<ExportButton onClick={handleExport} />}
           stats={stats}
           filtering={filtering}
           visibleCount={visible.length}

@@ -4,7 +4,8 @@ import { ShieldCheck, Save } from "../components/ui/Icons"
 import { Button, Card, Input, Field, Badge, PageLoader } from "../components/ui/Ui"
 import PageHeader from "../components/layout/PageHeader"
 import PasswordCard from "../components/ui/PasswordCard"
-import { useProfile } from "../hooks/useProfile"
+import { useProfile, refreshProfile } from "../hooks/useProfile"
+import AvatarUploader from "./profile/AvatarUploader"
 import { updateMyProfile } from "../services/users"
 import { currentEmail, currentUserId } from "../lib/auth"
 import { hasSupabase } from "../data/store/supabaseClient"
@@ -26,19 +27,18 @@ export default function Profile() {
 }
 
 // Minimal-style profile hero: gradient cover with the avatar overlapping.
+// The avatar doubles as the photo picker.
 function ProfileHeader({ profile }) {
-  const email = profile.email || currentEmail() || "—"
+  const email = profile.email || currentEmail() || "-"
   const name = profile.name || email
   const isAdmin = profile.role === "admin"
   return (
     <Card className="overflow-hidden p-0">
       <div className="h-28 bg-gradient-to-br from-primary via-primary to-accent" />
       <div className="-mt-12 flex flex-col items-center gap-3 px-6 pb-6 text-center sm:flex-row sm:items-end sm:text-left">
-        <span className="flex h-24 w-24 flex-none items-center justify-center rounded-full bg-primary/10 text-3xl font-bold text-primary ring-4 ring-card">
-          {(name || "?").slice(0, 1).toUpperCase()}
-        </span>
+        <AvatarUploader photo={profile.avatar_url} name={name} />
         <div className="min-w-0 flex-1 sm:pb-2">
-          <div className="truncate text-lg font-semibold text-foreground">{name || "—"}</div>
+          <div className="truncate text-lg font-semibold text-foreground">{name || "-"}</div>
           <div className="truncate text-sm text-muted-foreground">{email}</div>
         </div>
         <Badge tone={isAdmin ? "violet" : "blue"} className="sm:mb-2">
@@ -54,7 +54,7 @@ function AccountCard({ profile }) {
   const [busy, setBusy] = useState(false)
   useEffect(() => setName(profile.name || ""), [profile.name])
 
-  const email = profile.email || currentEmail() || "—"
+  const email = profile.email || currentEmail() || "-"
   const isAdmin = profile.role === "admin"
 
   const save = async () => {
@@ -63,6 +63,7 @@ function AccountCard({ profile }) {
     const res = await updateMyProfile(currentUserId(), { name: name.trim() })
     setBusy(false)
     if (res.error) return toast.error(res.error)
+    refreshProfile() // header + account popover pick up the new name immediately
     toast.success("Profile updated")
   }
 

@@ -1,35 +1,25 @@
-import { Package, Pencil } from "../../components/ui/Icons"
+import { Package, Pencil, EyeOff } from "../../components/ui/Icons"
 import { PRODUCT_STATUS } from "../../data/domain/schema"
 import { round2 } from "../../lib/format"
-import { cn } from "../../lib/cn"
-import { Card, StatusBadge, Money, SortTh } from "../../components/ui/Ui"
+
+import { Button, Card, CardHeader, StatusBadge, Money, SortTh } from "../../components/ui/Ui"
 
 export default function ProductTable({
   rows,
   sort,
   onSort,
-  selected,
-  allVisibleSelected,
-  toggleAll,
-  toggleOne,
   onView,
   onEdit,
+  title,
+  action,
 }) {
   return (
     <Card className="overflow-hidden">
+    {(title || action) && <CardHeader title={title} action={action} />}
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead className="mt-head">
           <tr>
-            <th className="w-10 px-4 py-3">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-border accent-primary"
-                checked={allVisibleSelected}
-                onChange={toggleAll}
-                aria-label="Select all"
-              />
-            </th>
             <SortTh sortKey="name" sort={sort} onSort={onSort}>Product</SortTh>
             <SortTh sortKey="category" sort={sort} onSort={onSort}>Category</SortTh>
             <SortTh sortKey="hsn" sort={sort} onSort={onSort}>HSN</SortTh>
@@ -47,18 +37,9 @@ export default function ProductTable({
             return (
               <tr
                 key={p.id}
-                className={cn("cursor-pointer transition-colors hover:bg-subtle", selected.has(p.id) && "bg-primary/5")}
+                className="cursor-pointer transition-colors hover:bg-subtle"
                 onClick={() => onView(p)}
               >
-                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-border accent-primary"
-                    checked={selected.has(p.id)}
-                    onChange={() => toggleOne(p.id)}
-                    aria-label={`Select ${p.name}`}
-                  />
-                </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     {p.images && p.images.length > 0 ? (
@@ -74,15 +55,20 @@ export default function ProductTable({
                     )}
                     <div className="min-w-0">
                       <div className="font-medium text-foreground truncate">{p.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {p.sku || "—"} · MOQ {p.moq}
-                        {p.indiamartListed && <span className="ml-2 text-[hsl(var(--success))]">· IndiaMART ✓</span>}
+                      <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                        <span>{p.sku || "-"} · MOQ {p.moq}</span>
+                        {p.showOnWebsite === false && (
+                          <span className="inline-flex items-center gap-1 text-warning-text" title="Not listed on the website">
+                            <EyeOff variant="Linear" className="h-3.5 w-3.5" /> Off website
+                          </span>
+                        )}
+                        {p.indiamartListed && <span className="text-success-text">IndiaMART ✓</span>}
                       </div>
                     </div>
                   </div>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">{p.category}</td>
-                <td className="px-4 py-3 tabular text-muted-foreground">{p.hsn || "—"}</td>
+                <td className="px-4 py-3 tabular text-muted-foreground">{p.hsn || "-"}</td>
                 <td className="px-4 py-3 text-right font-medium text-foreground">
                   <Money value={p.basePrice} />
                 </td>
@@ -94,9 +80,9 @@ export default function ProductTable({
                   <StatusBadge list={PRODUCT_STATUS} status={p.status} />
                 </td>
                 <td className="px-4 py-3 text-right" onClick={(e) => { e.stopPropagation(); onEdit(p); }}>
-                  <button className="ml-auto flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" title="Edit product">
+                  <Button variant="ghost" size="sm" icon className="ml-auto text-muted-foreground" title="Edit product">
                     <Pencil className="h-4 w-4" />
-                  </button>
+                  </Button>
                 </td>
               </tr>
             )

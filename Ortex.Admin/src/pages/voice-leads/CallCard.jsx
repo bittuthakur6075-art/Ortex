@@ -1,5 +1,5 @@
 import { Building2, CalendarClock, MapPin } from "../../components/ui/Icons"
-import { Avatar, Card, StatusBadge } from "../../components/ui/Ui"
+import { Avatar, Button, Card, StatusBadge } from "../../components/ui/Ui"
 import { ENQUIRY_STATUS } from "../../data/domain/schema"
 import { relativeTime, formatDateTime } from "../../lib/format"
 import { cn } from "../../lib/cn"
@@ -60,12 +60,9 @@ export default function CallCard({ call, onOpen }) {
       <div className="mt-4 space-y-2">
         <ContactRow call={call} />
         <div className="flex gap-2">
-          <button
-            onClick={() => onOpen(call.id)}
-            className="flex-1 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-          >
+          <Button variant="outline" size="md" onClick={() => onOpen(call.id)} className="flex-1">
             Open call
-          </button>
+          </Button>
           {!f.support && <AiCallButton size="md" target={targetFromVoiceCall(call)} />}
         </div>
       </div>

@@ -110,10 +110,10 @@ export async function seedDemo() {
 
   // ---- enquiries ----
   const enquiries = [
-    { key: "e1", customer: CUSTOMERS.bright, source: "Website contact form", productInterest: "MDF products", message: "Need 500 custom MDF award trophies with laser engraving for our annual event.", status: "won", starred: true, owner: "Sales desk", notes: "Converted — repeat client.", createdAt: ago(96) },
+    { key: "e1", customer: CUSTOMERS.bright, source: "Website contact form", productInterest: "MDF products", message: "Need 500 custom MDF award trophies with laser engraving for our annual event.", status: "won", starred: true, owner: "Sales desk", notes: "Converted - repeat client.", createdAt: ago(96) },
     { key: "e2", customer: CUSTOMERS.technova, source: "Quote calculator", productInterest: "Lanyards & ID card accessories", message: "1000 sublimation lanyards in brand colours for a conference.", status: "won", starred: false, owner: "Sales desk", notes: "", createdAt: ago(70) },
     { key: "e3", customer: CUSTOMERS.edulearn, source: "Referral", productInterest: "Examination boards", message: "200 exam clipboards for our centres.", status: "quoted", starred: false, owner: "Sales desk", notes: "Awaiting PO.", createdAt: ago(20) },
-    { key: "e4", customer: CUSTOMERS.gifthub, source: "WhatsApp", productInterest: "Corporate gifting & merchandise", message: "Diwali gifting — bottles + diaries, ~300 sets.", status: "won", starred: true, owner: "Sales desk", notes: "", createdAt: ago(55) },
+    { key: "e4", customer: CUSTOMERS.gifthub, source: "WhatsApp", productInterest: "Corporate gifting & merchandise", message: "Diwali gifting - bottles + diaries, ~300 sets.", status: "won", starred: true, owner: "Sales desk", notes: "", createdAt: ago(55) },
     { key: "e5", customer: CUSTOMERS.acme, source: "Trade show", productInterest: "Badge manufacturing", message: "Metal badges with magnet backing, ~150 pcs.", status: "lost", starred: false, owner: "Sales desk", notes: "Went with local vendor on price.", createdAt: ago(40) },
     { key: "e6", customer: CUSTOMERS.startupx, source: "Website contact form", productInterest: "Acrylic products", message: "Acrylic desk standees for new office, custom shapes.", status: "quoted", starred: false, owner: "Sales desk", notes: "", createdAt: ago(12) },
     { key: "e7", customer: cust("Sunita Rao", "Horizon Events", "sunita@horizonevents.in", "+91-9432101234", "07"), source: "Phone", productInterest: "Corporate gifting & merchandise", message: "Enquiry for event welcome kits.", status: "new", starred: false, owner: "", notes: "", createdAt: ago(3) },
@@ -127,7 +127,7 @@ export async function seedDemo() {
   const nextgen = cust("Amit Patel", "NextGen Pharma", "amit@nextgenpharma.com", "+91-9321012345", "24")
   const leads = [
     { key: "l1", from: "e3", quote: "q3", customer: CUSTOMERS.edulearn, source: "Referral", productInterest: "Examination boards", quantityEstimate: "200 pcs", estimatedValue: 18400, stage: "quoted", owner: "Sales desk", nextFollowUp: today, lastActivityAt: ago(2), lostReason: "", activities: [{ id: "act_s1", type: "Quote sent", direction: "outbound", summary: "Sent quotation for 200 exam clipboards. Awaiting PO.", at: ago(2), owner: "Sales desk" }], notes: "Price-sensitive; competing with local vendor.", createdAt: ago(20) },
-    { key: "l2", from: "e6", customer: CUSTOMERS.startupx, source: "Website contact form", productInterest: "Acrylic products", quantityEstimate: "120 pcs", estimatedValue: 60000, stage: "negotiation", owner: "Sales desk", nextFollowUp: ago(1), lastActivityAt: ago(3), lostReason: "", activities: [{ id: "act_s2", type: "Call", direction: "outbound", summary: "Discussed custom shape cutting; sending revised rate.", at: ago(3), owner: "Sales desk" }], notes: "Wants custom shapes — negotiating cutting cost.", createdAt: ago(10) },
+    { key: "l2", from: "e6", customer: CUSTOMERS.startupx, source: "Website contact form", productInterest: "Acrylic products", quantityEstimate: "120 pcs", estimatedValue: 60000, stage: "negotiation", owner: "Sales desk", nextFollowUp: ago(1), lastActivityAt: ago(3), lostReason: "", activities: [{ id: "act_s2", type: "Call", direction: "outbound", summary: "Discussed custom shape cutting; sending revised rate.", at: ago(3), owner: "Sales desk" }], notes: "Wants custom shapes - negotiating cutting cost.", createdAt: ago(10) },
     { key: "l3", from: "e5", customer: CUSTOMERS.acme, source: "Trade show", productInterest: "Badge manufacturing", quantityEstimate: "150 pcs", estimatedValue: 20000, stage: "lost", owner: "Sales desk", nextFollowUp: null, lastActivityAt: ago(30), lostReason: "Price too high", activities: [{ id: "act_s3", type: "Note", direction: "outbound", summary: "Lost to a local vendor on price.", at: ago(30), owner: "Sales desk" }], notes: "", createdAt: ago(38) },
     { key: "l4", from: "e7", customer: horizon, source: "Phone", productInterest: "Corporate gifting & merchandise", quantityEstimate: "250 kits", estimatedValue: 112000, stage: "contacted", owner: "Sales desk", nextFollowUp: today, lastActivityAt: ago(1), lostReason: "", activities: [{ id: "act_s4", type: "WhatsApp", direction: "outbound", summary: "Shared gifting catalogue; they will confirm kit contents.", at: ago(1), owner: "Sales desk" }], notes: "Event welcome kits for a Sept conference.", createdAt: ago(3) },
     { key: "l5", from: "e8", customer: nextgen, source: "Email", productInterest: "Lanyards & ID card accessories", quantityEstimate: "400 pcs", estimatedValue: 9000, stage: "qualified", owner: "Sales desk", nextFollowUp: ago(2), lastActivityAt: ago(4), lostReason: "", activities: [{ id: "act_s5", type: "Call", direction: "inbound", summary: "Confirmed 400 staff lanyards, ID card holders needed.", at: ago(4), owner: "Sales desk" }], notes: "Follow up with a sample.", createdAt: ago(6) },
@@ -209,8 +209,8 @@ export async function seedDemo() {
     { key: "p1", on: "i1", number: documentNumber("PAY", 1), type: "inflow", amount: total("i1"), method: "Bank transfer / NEFT", date: ago(74), reference: "NEFT-8891", note: "Full payment", invoiceNumber: byKey.i1.number, party: CUSTOMERS.bright.name, customer: CUSTOMERS.bright, createdAt: ago(74) },
     { key: "p2", on: "i2", number: documentNumber("PAY", 2), type: "inflow", amount: total("i2"), method: "UPI", date: ago(50), reference: "UPI-4471", note: "Full payment", invoiceNumber: byKey.i2.number, party: CUSTOMERS.technova.name, customer: CUSTOMERS.technova, createdAt: ago(50) },
     { key: "p3", on: "i3", number: documentNumber("PAY", 3), type: "inflow", amount: half("i3"), method: "UPI", date: ago(47), reference: "UPI-5522", note: "50% advance", invoiceNumber: byKey.i3.number, party: CUSTOMERS.gifthub.name, customer: CUSTOMERS.gifthub, createdAt: ago(47) },
-    { key: "p4", on: null, number: documentNumber("PAY", 4), type: "payout", amount: 42000, method: "RTGS", date: ago(60), reference: "PO-MAT-221", note: "Raw material — acrylic sheets", invoiceNumber: "", party: "Sheela Acrylics Pvt Ltd", customer: null, createdAt: ago(60) },
-    { key: "p5", on: null, number: documentNumber("PAY", 5), type: "payout", amount: 18500, method: "Bank transfer / NEFT", date: ago(30), reference: "PO-JOB-118", note: "Job-work — laser engraving", invoiceNumber: "", party: "Precision Laserworks", customer: null, createdAt: ago(30) },
+    { key: "p4", on: null, number: documentNumber("PAY", 4), type: "payout", amount: 42000, method: "RTGS", date: ago(60), reference: "PO-MAT-221", note: "Raw material - acrylic sheets", invoiceNumber: "", party: "Sheela Acrylics Pvt Ltd", customer: null, createdAt: ago(60) },
+    { key: "p5", on: null, number: documentNumber("PAY", 5), type: "payout", amount: 18500, method: "Bank transfer / NEFT", date: ago(30), reference: "PO-JOB-118", note: "Job-work - laser engraving", invoiceNumber: "", party: "Precision Laserworks", customer: null, createdAt: ago(30) },
   ]
   await createMapped(
     "payments",
@@ -322,4 +322,42 @@ export async function seedDemo() {
 export async function loadDemoData() {
   await seedDemo()
   toast.success("Demo data loaded")
+}
+
+// ---- Removing the demo dataset ---------------------------------------------
+
+// The seeded customers are the anchor: every demo enquiry, lead, quotation,
+// invoice and payment carries one of these emails on its embedded `customer`,
+// so matching on them removes the sample data without touching anything a real
+// visitor or IndiaMART created. Products, categories and the analytics logs are
+// deliberately left alone - the marketing site reads the catalogue live, and a
+// blanket delete there would empty the public product pages.
+export const DEMO_EMAILS = Object.values(CUSTOMERS).map((c) => c.email)
+
+const emailOf = (row) => (row?.customer?.email || row?.email || "").toLowerCase()
+const isDemoRow = (row) => DEMO_EMAILS.includes(emailOf(row))
+
+// Children first so a failure part-way through never orphans a document.
+const DEMO_COLLECTIONS = ["payments", "invoices", "quotations", "leads", "enquiries", "customers"]
+
+/** How many rows the demo purge would delete, by collection. */
+export async function countDemoData() {
+  const counts = {}
+  for (const name of DEMO_COLLECTIONS) {
+    const rows = await repo.list(name)
+    counts[name] = rows.filter(isDemoRow).length
+  }
+  return counts
+}
+
+/** Delete every seeded record. Returns the same shape as countDemoData(). */
+export async function removeDemoData() {
+  const removed = {}
+  for (const name of DEMO_COLLECTIONS) {
+    const rows = await repo.list(name)
+    const doomed = rows.filter(isDemoRow)
+    for (const row of doomed) await repo.remove(name, row.id)
+    removed[name] = doomed.length
+  }
+  return removed
 }

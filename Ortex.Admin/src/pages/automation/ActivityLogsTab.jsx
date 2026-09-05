@@ -22,7 +22,7 @@ const renderMetadata = (act, mask = true) => {
     items.push(`Msg: "${msg.substring(0, 40)}${msg.length > 40 ? '...' : ''}"`)
   }
 
-  if (items.length === 0) return <span className="text-muted-foreground">—</span>
+  if (items.length === 0) return <span className="text-muted-foreground">-</span>
   return (
     <div className="flex flex-wrap gap-1 text-[11px]">
       {items.map((item, idx) => (
@@ -83,16 +83,16 @@ export default function ActivityLogsTab({ activities, totals, activityTruncated,
         <table className="w-full border-collapse text-left text-sm">
           <thead className="mt-head">
             <tr>
-              <th className="px-4 py-3">Timestamp</th>
-              <th className="px-4 py-3">User ID</th>
-              <th className="px-4 py-3">Session</th>
-              <th className="px-4 py-3">Activity Type</th>
-              <th className="px-4 py-3">Page URL</th>
-              <th className="px-4 py-3">Referrer</th>
-              <th className="px-4 py-3">Location</th>
-              <th className="px-4 py-3">Device / OS</th>
-              <th className="px-4 py-3">IP Address</th>
-              <th className="px-4 py-3">Metadata / Details</th>
+              <th>Timestamp</th>
+              <th>User ID</th>
+              <th>Session</th>
+              <th>Activity Type</th>
+              <th>Page URL</th>
+              <th>Referrer</th>
+              <th>Location</th>
+              <th>Device / OS</th>
+              <th>IP Address</th>
+              <th>Metadata / Details</th>
             </tr>
           </thead>
           <tbody className="mt-body">

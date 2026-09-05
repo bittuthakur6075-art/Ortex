@@ -127,22 +127,22 @@ export default function InvoiceEditor({ draft, products, customers, payments, se
         meta={isEdit ? `${partyLabel || "No customer"} · issued ${formatDate(form.issueDate)}` : `Draft · ${summary}`}
         actions={
           <>
-            <Button variant="outline" size="sm" onClick={() => onPreview(liveDoc)}>
+            <Button variant="outline" size="md" onClick={() => onPreview(liveDoc)}>
               <Eye className="h-4 w-4" /> Preview
             </Button>
             {isEdit && (
               <>
-                <Button variant="outline" size="sm" onClick={emailCopy}>
+                <Button variant="outline" size="md" onClick={emailCopy}>
                   <Mail className="h-4 w-4" /> Email copy
                 </Button>
                 {balance > 0.5 && derivedStatus !== "cancelled" && (
-                  <Button variant="success" size="sm" onClick={() => setPayOpen(true)}>
+                  <Button variant="success" size="md" onClick={() => setPayOpen(true)}>
                     <IndianRupee className="h-4 w-4" /> Record payment
                   </Button>
                 )}
               </>
             )}
-            <Button size="sm" onClick={save}>
+            <Button size="md" onClick={save}>
               {isEdit ? "Save changes" : "Create invoice"}
             </Button>
           </>
@@ -176,7 +176,7 @@ export default function InvoiceEditor({ draft, products, customers, payments, se
             <CustomerPicker value={form.customer} onChange={(customer) => set({ customer })} customers={customers} />
             {hasState && (
               <p className={cn("mt-3 text-xs font-medium", interState ? "text-primary" : "text-success-text")}>
-                {interState ? "Inter-state supply — IGST will be applied." : "Intra-state supply — CGST + SGST will be applied."}
+                {interState ? "Inter-state supply - IGST will be applied." : "Intra-state supply - CGST + SGST will be applied."}
               </p>
             )}
           </Section>
@@ -264,7 +264,7 @@ export default function InvoiceEditor({ draft, products, customers, payments, se
             )}
             {!isEdit && (
               <label className="cursor-pointer">
-                <span className="inline-flex h-8 items-center gap-1.5 rounded-btn-sm border border-border bg-card px-3 text-[13px] font-medium text-foreground shadow-sm transition-colors hover:bg-subtle">
+                <span className="inline-flex h-8 items-center gap-1.5 rounded-btn border border-border bg-card px-3 text-[13px] font-medium text-foreground shadow-sm transition-colors hover:bg-subtle">
                   <Upload className="h-4 w-4" /> Import Tally XML
                 </span>
                 <input type="file" accept=".xml,text/xml" onChange={handleTallyEditorImport} className="hidden" />

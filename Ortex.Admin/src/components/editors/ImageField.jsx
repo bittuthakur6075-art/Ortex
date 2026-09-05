@@ -44,7 +44,7 @@ export default function ImageField({ value, images, onChange, bucket, label = "I
 
     const oversized = files.filter((f) => f.size > MAX_IMAGE_BYTES)
     let accepted = files.filter((f) => f.size <= MAX_IMAGE_BYTES)
-    if (oversized.length) toast.error(`${oversized.length} file(s) skipped — over ${MAX_IMAGE_MB}MB.`)
+    if (oversized.length) toast.error(`${oversized.length} file(s) skipped - over ${MAX_IMAGE_MB}MB.`)
     const trimmed = accepted.length > room
     if (trimmed) accepted = accepted.slice(0, room)
     if (!accepted.length) return
@@ -59,7 +59,7 @@ export default function ImageField({ value, images, onChange, bucket, label = "I
         toast.success(multiple ? `Added ${urls.length} image(s)` : "Image uploaded")
       }
       if (failed) toast.error(`${failed} image(s) failed to upload.`)
-      if (trimmed) toast.error(`Only the first ${room} added — ${limit}-image limit reached.`)
+      if (trimmed) toast.error(`Only the first ${room} added - ${limit}-image limit reached.`)
     } catch (err) {
       console.error("Image upload failed:", err)
       toast.error("Failed to upload image")
@@ -93,7 +93,7 @@ export default function ImageField({ value, images, onChange, bucket, label = "I
         {list.length > 0 && multiple && (
           <div className="grid grid-cols-4 gap-2.5">
             {list.map((img, idx) => (
-              <div key={`${img}-${idx}`} className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-muted">
+              <div key={`${img}-${idx}`} className="group relative aspect-square overflow-hidden rounded-lg bg-muted">
                 <img src={img} alt={`Image ${idx + 1}`} className="h-full w-full object-cover" />
                 <div className="absolute inset-0 flex flex-col justify-between bg-foreground/50 p-1 opacity-0 transition-opacity group-hover:opacity-100">
                   <button
@@ -140,7 +140,7 @@ export default function ImageField({ value, images, onChange, bucket, label = "I
               <input type="file" accept="image/*" multiple={multiple} onChange={handleFiles} className="hidden" disabled={uploading} />
             </label>
 
-            <div className="flex min-h-[90px] flex-col justify-between rounded-lg border border-border bg-muted/20 p-2.5">
+            <div className="flex min-h-[90px] flex-col justify-between rounded-lg bg-muted/20 p-2.5">
               <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Or add by URL</span>
               <div className="mt-1.5 flex gap-1.5">
                 <Input

@@ -6,12 +6,10 @@ import { useCollection, useSorting } from "../hooks/useCollection"
 import { newCategory, slugifyCategory, GST_RATES, PRODUCT_CATEGORIES } from "../data/domain/schema"
 import { triggerSiteRebuild } from "../lib/revalidate"
 import { supabase, hasSupabase } from "../data/store/supabaseClient"
-import PageHeader, { ActionBar } from "../components/layout/PageHeader"
 import ImageField from "../components/editors/ImageField"
-import { Button, Card, Input, Select, Textarea, Field, EmptyState, Modal, PageLoader, SortTh } from "../components/ui/Ui"
+import { Button, Card, CardHeader, Input, Select, Textarea, Field, EmptyState, Drawer, PageLoader, SortTh } from "../components/ui/Ui"
 
-export default function Categories({ embedded = false }) {
-  const Header = embedded ? ActionBar : PageHeader
+export default function Categories() {
   const { items, loading } = useCollection("categories")
   const { items: products } = useCollection("products")
   const [editing, setEditing] = useState(null) // category | "new" | null
@@ -46,14 +44,6 @@ export default function Categories({ embedded = false }) {
 
   return (
     <div>
-      <Header title="Product categories" subtitle="Master list with default HSN & GST — auto-fills onto products">
-        {items.length > 0 && (
-          <Button size="sm" onClick={() => setEditing("new")}>
-            <Plus className="h-4 w-4" /> New category
-          </Button>
-        )}
-      </Header>
-
       {loading ? (
         <PageLoader />
       ) : items.length === 0 ? (
@@ -74,6 +64,10 @@ export default function Categories({ embedded = false }) {
         />
       ) : (
         <Card className="overflow-hidden">
+          <CardHeader
+            title="Product categories"
+            action={<Button onClick={() => setEditing("new")}>New category</Button>}
+          />
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="mt-head">
@@ -92,7 +86,7 @@ export default function Categories({ embedded = false }) {
                       <div className="font-medium text-foreground">{c.name}</div>
                       {c.description && <div className="max-w-md truncate text-xs text-muted-foreground">{c.description}</div>}
                     </td>
-                    <td className="px-4 py-3 tabular text-muted-foreground">{c.hsn || "—"}</td>
+                    <td className="px-4 py-3 tabular text-muted-foreground">{c.hsn || "-"}</td>
                     <td className="px-4 py-3 text-right tabular text-muted-foreground">{c.gstRate}%</td>
                     <td className="px-4 py-3 text-right tabular text-muted-foreground">{countFor(c.name)}</td>
                     <td className="px-4 py-3 text-right">
@@ -157,7 +151,7 @@ function CategoryForm({ open, category, products, usage, onClose }) {
         seoTitle: data.seoTitle?.trim() || f.seoTitle,
         seoDescription: data.seoDescription?.trim() || f.seoDescription,
       }))
-      toast.success("AI copy generated — review before saving")
+      toast.success("AI copy generated - review before saving")
     } catch (err) {
       console.error("Category AI copy failed:", err)
       toast.error(err?.message || "AI generation failed")
@@ -186,7 +180,7 @@ function CategoryForm({ open, category, products, usage, onClose }) {
         const orphans = (products || []).filter((p) => p.category === category.name)
         if (orphans.length) {
           await Promise.all(orphans.map((p) => repo.update("products", p.id, { category: name })))
-          toast.success(`Category renamed — ${orphans.length} product(s) moved to "${name}"`)
+          toast.success(`Category renamed - ${orphans.length} product(s) moved to "${name}"`)
         } else {
           toast.success("Category renamed")
         }
@@ -202,7 +196,7 @@ function CategoryForm({ open, category, products, usage, onClose }) {
   }
 
   const remove = async () => {
-    if (usage > 0) return toast.error(`In use by ${usage} product(s) — reassign them first`)
+    if (usage > 0) return toast.error(`In use by ${usage} product(s) - reassign them first`)
     if (window.confirm(`Delete category "${category.name}"?`)) {
       await repo.remove("categories", category.id)
       toast.success("Category deleted")
@@ -212,32 +206,36 @@ function CategoryForm({ open, category, products, usage, onClose }) {
   }
 
   return (
-    <Modal
+    <Drawer
       open={open}
       onClose={onClose}
-      title={isEdit ? "Edit category" : "New category"}
-      width="max-w-2xl"
+      title={isEdit ? form.name || "Edit category" : "New category"}
+      subtitle={
+        isEdit
+          ? `${usage} product${usage === 1 ? "" : "s"} in this category · /${form.slug || slugifyCategory(form.name) || "…"}`
+          : "A shelf on the website, and the default HSN & GST for its products"
+      }
+      width="w-[40vw] min-w-[460px] max-w-none"
       footer={
         <div className="flex w-full items-center justify-between">
           {isEdit ? (
-            <Button variant="dangerGhost" size="sm" onClick={remove}>
+            <Button variant="dangerGhost" onClick={remove}>
               <Trash2 className="h-4 w-4" /> Delete
             </Button>
           ) : (
             <span />
           )}
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onClose}>
+            <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button size="sm" onClick={save}>
-              {isEdit ? "Save" : "Add category"}
-            </Button>
+            <Button onClick={save}>{isEdit ? "Save changes" : "Add category"}</Button>
           </div>
         </div>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-6">
+        <Group title="Identity">
         <div className="grid grid-cols-2 gap-4">
           <Field label="Category name" required error={error} hint="Must match the name on products">
             <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Acrylic products" autoFocus />
@@ -247,8 +245,11 @@ function CategoryForm({ open, category, products, usage, onClose }) {
           </Field>
         </div>
 
+        </Group>
+
+        <Group title="Tax defaults" note="Copied onto every new product in this category">
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Default HSN" hint="Pre-fills on products">
+          <Field label="Default HSN">
             <Input value={form.hsn} onChange={(e) => set("hsn", e.target.value)} placeholder="3926" />
           </Field>
           <Field label="Default GST">
@@ -261,21 +262,24 @@ function CategoryForm({ open, category, products, usage, onClose }) {
             </Select>
           </Field>
         </div>
+        </Group>
 
-        <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
-          <div className="flex items-center justify-between gap-3">
+        <Group
+          title="Website"
+          note={form.active === false ? "Hidden from the site" : "Live on the site"}
+          action={
             <div className="flex items-center gap-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Website content</p>
+              <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+                <input type="checkbox" checked={form.active !== false} onChange={(e) => set("active", e.target.checked)} />
+                Show on website
+              </label>
               <Button variant="outline" size="sm" onClick={generateCopy} disabled={aiBusy}>
                 <Sparkles className="h-4 w-4" /> {aiBusy ? "Writing…" : "AI writer"}
               </Button>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.active !== false} onChange={(e) => set("active", e.target.checked)} />
-              Show on website
-            </label>
-          </div>
-
+          }
+        >
+        <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Field label="Display heading" hint="Shown on site; falls back to name">
               <Input value={form.displayName} onChange={(e) => set("displayName", e.target.value)} placeholder={form.name || "Custom Acrylic Products"} />
@@ -295,16 +299,39 @@ function CategoryForm({ open, category, products, usage, onClose }) {
             <Field label="SEO title" hint="Browser tab + Google result title">
               <Input value={form.seoTitle} onChange={(e) => set("seoTitle", e.target.value)} placeholder="Custom Acrylic Products Manufacturer | Ortex Industries" />
             </Field>
-            <Field label="SEO description" hint="Google result snippet (~155 chars)">
+            <Field
+              label="SEO description"
+              hint={`Google result snippet — ${(form.seoDescription || "").length}/155 characters`}
+            >
               <Textarea value={form.seoDescription} onChange={(e) => set("seoDescription", e.target.value)} placeholder="Short description for search engines…" />
             </Field>
           </div>
         </div>
+        </Group>
 
-        <Field label="Internal notes">
-          <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Private notes (not shown on website)" />
-        </Field>
+        <Group title="Internal">
+          <Field label="Notes" hint="Private — never shown on the website">
+            <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Sourcing notes, margins, who to ask…" />
+          </Field>
+        </Group>
       </div>
-    </Modal>
+    </Drawer>
+  )
+}
+
+// One labelled block inside an editor drawer. A hairline and an uppercase
+// caption is enough separation — nesting cards inside a drawer reads as clutter.
+function Group({ title, note, action, children }) {
+  return (
+    <section>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+        <div className="flex items-baseline gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+          {note && <span className="text-xs text-subtle-foreground">{note}</span>}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
   )
 }

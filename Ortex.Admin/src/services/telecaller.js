@@ -5,7 +5,7 @@
 import { supabase, hasSupabase } from "../data/store/supabaseClient"
 
 async function invoke(name, body) {
-  if (!hasSupabase) return { error: "Backend not configured — the AI telecaller needs Supabase." }
+  if (!hasSupabase) return { error: "Backend not configured - the AI telecaller needs Supabase." }
   const { data, error } = await supabase.functions.invoke(name, { body })
   if (error) {
     let message = error.message

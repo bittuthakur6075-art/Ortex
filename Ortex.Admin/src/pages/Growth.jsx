@@ -94,13 +94,13 @@ export default function Growth({ embedded = false }) {
         <EmptyState
           icon={TrendingUp}
           title="No visitor activity yet"
-          description="Once the marketing site starts recording visits (with analytics consent), this dashboard shows the full funnel — visitors, engagement, demand gaps and conversion to paid orders."
+          description="Once the marketing site starts recording visits (with analytics consent), this dashboard shows the full funnel - visitors, engagement, demand gaps and conversion to paid orders."
         />
       </div>
     )
   }
 
-  const pct = (v) => (v === null || v === undefined ? "—" : `${v}%`)
+  const pct = (v) => (v === null || v === undefined ? "-" : `${v}%`)
 
   return (
     <div>
@@ -114,28 +114,24 @@ export default function Growth({ embedded = false }) {
           icon={Users}
           label="Visitors"
           value={formatNumber(g.visitors)}
-          sub={`${formatNumber(g.newVisitors)} new · ${formatNumber(g.returningVisitors)} returning`}
           accent="bg-info/10 text-info-text"
         />
         <StatCard
           icon={Flame}
           label="Visitor → Quote"
           value={pct(g.visitorToQuote)}
-          sub={`${formatNumber(g.quoteSessionCount)} of ${formatNumber(g.sessionCount)} sessions`}
           accent="bg-warning/10 text-warning-text"
         />
         <StatCard
           icon={Sparkles}
           label="Engaged sessions"
           value={pct(g.engagedRate)}
-          sub={`Bounce ${pct(g.bounceRate)} · ${g.actionsPerSession} actions/session`}
           accent="bg-primary/10 text-primary"
         />
         <StatCard
           icon={MessageCircle}
           label="Tracked actions"
           value={formatNumber(g.totalActivities)}
-          sub={`${formatNumber(g.sessionCount)} sessions in period`}
           accent="bg-success/10 text-success-text"
         />
       </div>
@@ -152,23 +148,18 @@ export default function Growth({ embedded = false }) {
           icon={IndianRupee}
           label="Web-influenced revenue"
           value={<Money value={attr.webInfluencedRevenue} compact />}
-          sub={attr.webShare === null
-            ? "No invoiced revenue in period"
-            : `${attr.webShare}% of ${formatCurrency(attr.totalRevenue, { compact: true })} total`}
           accent="bg-success/10 text-success-text"
         />
         <StatCard
           icon={Users}
           label="Tracked enquiries"
           value={formatNumber(attr.trackedEnquiryCount)}
-          sub={`${formatNumber(attr.trackedWon)} became orders`}
           accent="bg-info/10 text-info-text"
         />
         <StatCard
           icon={Trophy}
           label="Tracked → order"
-          value={attr.trackedConversion === null ? "—" : `${attr.trackedConversion}%`}
-          sub="Web-originated enquiries won"
+          value={attr.trackedConversion === null ? "-" : `${attr.trackedConversion}%`}
           accent="bg-primary/10 text-primary"
         />
       </div>
@@ -256,7 +247,7 @@ function BarList({ title, rows, labelKey, unit, tone = "slate" }) {
     <SectionCard title={title}>
       <BarChart
         height={Math.max(200, rows.length * 42)}
-        categories={rows.map((r) => r[labelKey] || "—")}
+        categories={rows.map((r) => r[labelKey] || "-")}
         series={[{ name: unit, data: rows.map((r) => r.count) }]}
         colors={color ? [color] : undefined}
         valueFormatter={(v) => formatNumber(v)}
@@ -271,7 +262,7 @@ function RevenueBars({ title, rows }) {
     return (
       <SectionCard title={title}>
         <p className="py-4 text-sm text-muted-foreground">
-          No revenue attributed to a web channel yet — invoiced customers aren't matching a tracked visit.
+          No revenue attributed to a web channel yet - invoiced customers aren't matching a tracked visit.
         </p>
       </SectionCard>
     )
@@ -334,10 +325,10 @@ function VelocityCard({ v }) {
     >
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {stages.map((s) => (
-          <div key={s.key} className="rounded-lg border border-border bg-muted/30 p-3">
+          <div key={s.key} className="rounded-lg bg-muted/30 p-3">
             <div className="text-xs text-muted-foreground">{s.label}</div>
             <div className="mt-0.5 text-xl font-bold text-foreground">
-              {v[s.key] === null ? "—" : `${v[s.key]}d`}
+              {v[s.key] === null ? "-" : `${v[s.key]}d`}
             </div>
             <div className="text-[10px] text-muted-foreground">
               {v.samples[s.key]} sample{v.samples[s.key] === 1 ? "" : "s"}
@@ -372,10 +363,10 @@ function CohortTable({ rows }) {
                 <td className="py-2 font-medium text-foreground">{r.label}</td>
                 <td className="py-2 text-right text-muted-foreground">{formatNumber(r.enquiries)}</td>
                 <td className="py-2 text-right text-muted-foreground">
-                  {r.quotedPct === null ? "—" : `${r.quoted} (${r.quotedPct}%)`}
+                  {r.quotedPct === null ? "-" : `${r.quoted} (${r.quotedPct}%)`}
                 </td>
                 <td className="py-2 text-right font-semibold text-foreground">
-                  {r.wonPct === null ? "—" : `${r.won} (${r.wonPct}%)`}
+                  {r.wonPct === null ? "-" : `${r.won} (${r.wonPct}%)`}
                 </td>
               </tr>
             ))}
@@ -399,16 +390,16 @@ function MessagingImpact({ m }) {
     >
       {m.totalDispatched === 0 ? (
         <p className="py-4 text-sm text-muted-foreground">
-          No WhatsApp messages dispatched yet — impact appears once the queue is worked.
+          No WhatsApp messages dispatched yet - impact appears once the queue is worked.
         </p>
       ) : (
         <>
           <div className="mb-4 grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
+            <div className="rounded-lg bg-muted/30 p-3">
               <div className="text-xs text-muted-foreground">Dispatched</div>
               <div className="mt-0.5 text-xl font-bold text-foreground">{formatNumber(m.totalDispatched)}</div>
             </div>
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
+            <div className="rounded-lg bg-muted/30 p-3">
               <div className="text-xs text-muted-foreground">Ordered afterwards</div>
               <div className="mt-0.5 text-xl font-bold text-success-text">{formatNumber(m.orderedAfter)}</div>
             </div>
@@ -426,7 +417,7 @@ function MessagingImpact({ m }) {
         </>
       )}
       <p className="mt-3 text-xs text-muted-foreground">
-        Correlation, not causation — wa.me returns no delivery receipt, so "ordered afterwards" means a won order
+        Correlation, not causation - wa.me returns no delivery receipt, so "ordered afterwards" means a won order
         exists for that phone number dated after dispatch.
       </p>
     </SectionCard>
@@ -446,7 +437,7 @@ function DemandGaps({ rows }) {
     >
       {!rows || rows.length === 0 ? (
         <p className="py-4 text-sm text-muted-foreground">
-          Every searched term matched a product — no obvious catalogue gaps in this period.
+          Every searched term matched a product - no obvious catalogue gaps in this period.
         </p>
       ) : (
         <div className="flex flex-wrap gap-2">

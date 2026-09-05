@@ -84,3 +84,52 @@ export function rfqRateMismatches(items = [], products = []) {
   }
   return out
 }
+
+// Order summary for an RFQ, priced from the console's own product master.
+//
+// The website stopped sending rates (its payload is just items + quantities),
+// and an anonymous insert could forge them anyway, so value is always derived
+// from the catalogue. `priced` says how many lines actually matched a product,
+// so the UI can flag a partial estimate instead of quoting a misleading total.
+export function rfqSummary(items = [], products = []) {
+  let value = 0
+  let units = 0
+  let priced = 0
+  for (const it of items) {
+    const qty = Number(it.quantity) || 0
+    units += qty
+    const match = findProduct(it, products)
+    const rate = Number(match?.basePrice) || 0
+    if (rate > 0) {
+      value += rate * qty
+      priced += 1
+    }
+  }
+  return { value, units, lines: items.length, priced }
+}
+
+// Artwork the customer attached in the RFQ builder, if any.
+export function rfqArtwork(enquiry) {
+  try {
+    const data = JSON.parse(enquiry?.notes || "")
+    if (data?.artwork?.fileName) return { fileName: data.artwork.fileName, failed: false }
+    if (data?.artworkError) return { fileName: data.artworkError.fileName || "artwork", failed: true }
+  } catch {
+    /* plain enquiry */
+  }
+  return null
+}
+
+// Total units across RFQ lines. The website sends quantities only, so this is
+// the one honest "how big is this" number available before pricing.
+export function rfqUnits(items = []) {
+  return items.reduce((n, it) => n + (Number(it.quantity) || 0), 0)
+}
+
+// Age of an enquiry in whole days, with a label and an "overdue" flag for a
+// new enquiry that has sat untouched for two days or more.
+export function enquiryAge(enquiry) {
+  const stamp = enquiry?.createdAt || enquiry?.submittedAt || Date.now()
+  const days = Math.max(0, Math.floor((Date.now() - new Date(stamp)) / 86400000))
+  return { days, label: days >= 1 ? `${days} day${days === 1 ? "" : "s"} old` : "Today", overdue: enquiry?.status === "new" && days >= 2 }
+}

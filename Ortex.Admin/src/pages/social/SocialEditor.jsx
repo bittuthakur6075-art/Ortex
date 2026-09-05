@@ -61,7 +61,7 @@ export default function SocialEditor({ post, onClose }) {
       if (error) throw new Error(await functionErrorMessage(error, "Creative generation failed"))
       if (data?.error) throw new Error(data.error)
       setForm((f) => ({ ...f, image: data.image, status: f.status === "idea" ? "draft" : f.status }))
-      toast.success("Creative generated — review it before approving")
+      toast.success("Creative generated - review it before approving")
     } catch (err) {
       console.error("Creative generation failed:", err)
       toast.error(err?.message || "Creative generation failed")
@@ -86,7 +86,7 @@ export default function SocialEditor({ post, onClose }) {
     }
     await persist(patch)
     setForm((f) => ({ ...f, ...patch }))
-    toast.success(form.scheduledFor ? "Approved and scheduled" : "Approved — ready to publish")
+    toast.success(form.scheduledFor ? "Approved and scheduled" : "Approved - ready to publish")
   }
 
   const publish = async () => {

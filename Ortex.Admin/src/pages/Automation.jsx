@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import PageHeader, { ActionBar } from "../components/layout/PageHeader"
-import { Button, Input, PageLoader, Tabs } from "../components/ui/Ui"
-import { Search, Plus, Eye, AlertTriangle } from "../components/ui/Icons"
+import { Button, SearchInput, PageLoader, Tabs } from "../components/ui/Ui"
+import { Plus, Eye, AlertTriangle } from "../components/ui/Icons"
 import { useAutomationData } from "./automation/useAutomationData"
 import { useWhatsAppDispatch } from "./automation/useWhatsAppDispatch"
 import { useRuleEditor } from "./automation/useRuleEditor"
@@ -139,15 +139,7 @@ export default function Automation({ embedded = false }) {
       />
 
       {SEARCHABLE.includes(activeTab) && (
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search logs..."
-            className="pl-8"
-          />
-        </div>
+        <SearchInput className="max-w-md" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search logs" />
       )}
 
       {activeTab === "activities" && (

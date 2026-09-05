@@ -1,12 +1,13 @@
 import { Eye } from "../../components/ui/Icons"
 import { INVOICE_STATUS } from "../../data/domain/schema"
 import { formatDate, formatCurrency } from "../../lib/format"
-import { Card, StatusBadge, Money, SortTh } from "../../components/ui/Ui"
+import { Button, Card, CardHeader, StatusBadge, Money, SortTh } from "../../components/ui/Ui"
 import TallyBadge from "./TallyBadge"
 
-export default function InvoiceTable({ rows, sort, onSort, onEdit, onPreview }) {
+export default function InvoiceTable({ rows, sort, onSort, onEdit, onPreview, title, action }) {
   return (
     <Card className="overflow-hidden">
+      {(title || action) && <CardHeader title={title} action={action} />}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="mt-head">
@@ -16,7 +17,7 @@ export default function InvoiceTable({ rows, sort, onSort, onEdit, onPreview }) 
               <SortTh sortKey="grandTotal" sort={sort} onSort={onSort} align="right">Total</SortTh>
               <SortTh sortKey="_balance" sort={sort} onSort={onSort} align="right">Balance</SortTh>
               <SortTh sortKey="_status" sort={sort} onSort={onSort}>Status</SortTh>
-              <th className="px-4 py-3">Tally</th>
+              <th>Tally</th>
               <SortTh sortKey="dueDate" sort={sort} onSort={onSort}>Due</SortTh>
               <th className="px-4 py-3" />
             </tr>
@@ -47,16 +48,16 @@ export default function InvoiceTable({ rows, sort, onSort, onEdit, onPreview }) 
                     {overdue ? <span className="text-destructive">{formatDate(i.dueDate)}</span> : formatDate(i.dueDate)}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
+                    <Button
                       onClick={(ev) => {
                         ev.stopPropagation()
                         onPreview(i)
                       }}
-                      className="text-muted-foreground hover:text-primary"
+                      variant="ghost" size="sm" icon className="text-muted-foreground"
                       title="Preview"
                     >
                       <Eye className="ml-auto h-4 w-4" />
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               )

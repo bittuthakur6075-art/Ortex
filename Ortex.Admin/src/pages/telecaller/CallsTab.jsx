@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
-import { Phone, Search } from "../../components/ui/Icons"
-import { Avatar, Badge, Card, Chip, EmptyState, Input } from "../../components/ui/Ui"
+import { Phone } from "../../components/ui/Icons"
+import { Avatar, Badge, Card, Chip, EmptyState, SearchInput } from "../../components/ui/Ui"
 import { TELECALL_OUTCOMES } from "../../data/domain/schema"
 import { relativeTime } from "../../lib/format"
 import { cn } from "../../lib/cn"
@@ -45,10 +45,12 @@ export default function CallsTab({ calls, onOpen }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative mr-2 w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle-foreground" />
-          <Input className="pl-8" placeholder="Search name, phone, summary, transcript…" value={query} onChange={(e) => setQuery(e.target.value)} />
-        </div>
+        <SearchInput
+          className="mr-2 w-full max-w-xs"
+          placeholder="Search calls"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
         <Chip active={view === "all"} onClick={() => setView("all")}>All ({calls.length})</Chip>
         <Chip active={view === "action"} onClick={() => setView("action")}>Needs a human ({counts.action})</Chip>
         {TELECALL_OUTCOMES.filter((o) => counts[o.id]).map((o) => (

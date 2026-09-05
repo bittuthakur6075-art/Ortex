@@ -10,10 +10,10 @@ export default function TablePager({ page, pageCount, total, onPage }) {
       <span className="tabular">{from.toLocaleString()}–{to.toLocaleString()} of {total.toLocaleString()}</span>
       <div className="flex items-center gap-2">
         <span className="tabular">Page {page} of {pageCount}</span>
-        <Button variant="outline" size="xs" disabled={page <= 1} onClick={() => onPage(page - 1)}>
+        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>
           Previous
         </Button>
-        <Button variant="outline" size="xs" disabled={page >= pageCount} onClick={() => onPage(page + 1)}>
+        <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => onPage(page + 1)}>
           Next
         </Button>
       </div>

@@ -12,7 +12,7 @@ export const DEFAULT_SETTINGS = {
     phone: "+91-9211947188",
     website: "ortexindustries.in",
     gstin: "07ABCDE1234F1Z5",
-    stateCode: "07", // Delhi — home state for CGST/SGST vs IGST determination
+    stateCode: "07", // Delhi - home state for CGST/SGST vs IGST determination
     address: "New Delhi, India",
     bankName: "",
     bankAccount: "",
@@ -69,8 +69,8 @@ export const DEFAULT_SETTINGS = {
     feedback: { enabled: true, daysAfterInvoice: 7 },
     upsell: { enabled: true, daysAfterInvoice: 30, repeatEveryDays: 90 },
     pitchNotes: "",
-    occasions: "", // team-added dates, one per line: "YYYY-MM-DD Name — what to pitch"
-    pulse: null, // { text, at, sources } — daily India business pulse written by the engine
+    occasions: "", // team-added dates, one per line: "YYYY-MM-DD Name - what to pitch"
+    pulse: null, // { text, at, sources } - daily India business pulse written by the engine
     doNotCall: [],
     // Training scripts: persona notes + per-call-type objectives (blank = default).
     scripts: { ...DEFAULT_SCRIPTS },

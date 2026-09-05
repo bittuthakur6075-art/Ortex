@@ -74,7 +74,7 @@ export default function ResearchModal({ open, onClose }) {
     >
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto] sm:items-end">
-          <Field label="Angle" hint="Optional — leave blank and the researcher picks its own">
+          <Field label="Angle" hint="Optional - leave blank and the researcher picks its own">
             <Input
               value={angle}
               onChange={(e) => setAngle(e.target.value)}

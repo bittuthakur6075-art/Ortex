@@ -3,7 +3,7 @@ import { Building2, Percent, Hash, Database, Sparkles, Trash2, Info, Save, Mail,
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { useSettings, useCollections, useCollection } from "../hooks/useCollection"
-import { loadDemoData } from "../data/seed/seed"
+import { loadDemoData, countDemoData, removeDemoData } from "../data/seed/seed"
 import { syncIndiaMart } from "../services/integrations"
 import { GST_RATES } from "../data/domain/schema"
 import PageHeader from "../components/layout/PageHeader"
@@ -37,6 +37,20 @@ export default function Settings() {
   useEffect(() => {
     if (settings) setDraft(structuredClone(settings))
   }, [settings])
+
+  // Count first, then confirm with the real numbers, so nobody deletes blind.
+  const purgeDemoData = async () => {
+    const counts = await countDemoData()
+    const total = Object.values(counts).reduce((n, c) => n + c, 0)
+    if (!total) return toast.info("No demo records found.")
+    const lines = Object.entries(counts)
+      .filter(([, c]) => c > 0)
+      .map(([name, c]) => `${c} ${name}`)
+      .join(", ")
+    if (!window.confirm(`Delete the demo dataset? This removes ${lines}. Records from the website, IndiaMART or entered by hand are not touched. This cannot be undone.`)) return
+    const removed = await removeDemoData()
+    toast.success(`Demo data removed (${Object.values(removed).reduce((n, c) => n + c, 0)} records)`)
+  }
 
   if (!settings || !draft) return <PageLoader />
 
@@ -190,7 +204,7 @@ export default function Settings() {
                 placeholder="accounts@ortexindustries.in"
               />
             </Field>
-            <Field label="Sender email (from)" hint="Company reply address shown as sender — applied on the EmailJS path">
+            <Field label="Sender email (from)" hint="Company reply address shown as sender - applied on the EmailJS path">
               <Input
                 type="email"
                 value={draft.notifications.sender}
@@ -200,7 +214,7 @@ export default function Settings() {
             </Field>
           </div>
           <p className="mt-5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            EmailJS (optional — for silent sending)
+            EmailJS (optional - for silent sending)
           </p>
           <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="Service ID">
@@ -266,17 +280,24 @@ export default function Settings() {
               ["Invoices", data.invoices?.length || 0],
               ["Payments", data.payments?.length || 0],
             ].map(([label, count]) => (
-              <div key={label} className="rounded-lg border border-border bg-muted/30 p-3">
+              <div key={label} className="rounded-lg bg-muted/30 p-3">
                 <div className="text-2xl font-bold text-foreground">{count}</div>
                 <div className="text-xs text-muted-foreground">{label}</div>
               </div>
             ))}
           </div>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={loadDemoData}>
               <Sparkles className="h-4 w-4" /> Load demo data
             </Button>
+            <Button variant="outline" size="sm" onClick={purgeDemoData}>
+              <Trash2 className="h-4 w-4" /> Remove demo data
+            </Button>
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Remove deletes only the eight sample customers and the enquiries, leads, quotations, invoices and payments attached to
+            them. Records from the website, IndiaMART or entered by hand are untouched, as are products and categories.
+          </p>
         </SettingsCard>
 
         <SettingsCard icon={Trash2} tone="danger" title="Danger zone" description="Permanently delete everything stored in this browser.">
@@ -284,7 +305,7 @@ export default function Settings() {
             variant="danger"
             size="sm"
             onClick={async () => {
-              if (window.confirm("Delete ALL data — products, enquiries, quotations, invoices, payments and settings? This cannot be undone.")) {
+              if (window.confirm("Delete ALL data - products, enquiries, quotations, invoices, payments and settings? This cannot be undone.")) {
                 await repo.clearAll()
                 toast.success("All data cleared")
               }
@@ -338,7 +359,7 @@ function AiUsageCard() {
           ["Chatbot function", "orty-chat"],
           ["Copywriter function", "product-copywriter"],
         ].map(([k, v]) => (
-          <div key={k} className="rounded-lg border border-border bg-muted/30 p-3">
+          <div key={k} className="rounded-lg bg-muted/30 p-3">
             <div className="text-xs text-muted-foreground">{k}</div>
             <div className="mt-0.5 truncate text-sm font-semibold text-foreground" title={v}>{v}</div>
           </div>
@@ -354,7 +375,7 @@ function AiUsageCard() {
           ["Input tokens", nf(stats.promptTokens)],
           ["Output tokens", nf(stats.outputTokens)],
         ].map(([k, v]) => (
-          <div key={k} className="rounded-lg border border-border bg-muted/30 p-3">
+          <div key={k} className="rounded-lg bg-muted/30 p-3">
             <div className="text-2xl font-bold text-foreground">{v}</div>
             <div className="text-xs text-muted-foreground">{k}</div>
           </div>
@@ -363,11 +384,11 @@ function AiUsageCard() {
 
       {/* Per feature */}
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border border-border bg-muted/30 p-3">
+        <div className="rounded-lg bg-muted/30 p-3">
           <div className="text-sm font-semibold text-foreground">Orty chatbot</div>
           <div className="mt-1 text-xs text-muted-foreground">{nf(stats.chatbot.n)} requests · {nf(stats.chatbot.t)} tokens</div>
         </div>
-        <div className="rounded-lg border border-border bg-muted/30 p-3">
+        <div className="rounded-lg bg-muted/30 p-3">
           <div className="text-sm font-semibold text-foreground">AI copywriter</div>
           <div className="mt-1 text-xs text-muted-foreground">{nf(stats.copywriter.n)} requests · {nf(stats.copywriter.t)} tokens</div>
         </div>
@@ -381,7 +402,7 @@ function AiUsageCard() {
           ["Tokens / min", "250,000", null],
           ["Requests / day", "1,000", stats.requestsToday],
         ].map(([k, v, used]) => (
-          <div key={k} className="rounded-lg border border-border bg-muted/30 p-3">
+          <div key={k} className="rounded-lg bg-muted/30 p-3">
             <div className="text-lg font-bold text-foreground">{v}</div>
             <div className="text-xs text-muted-foreground">
               {k}
@@ -393,7 +414,7 @@ function AiUsageCard() {
 
       <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
         {stats.lastAt && <span>Last used: {new Date(stats.lastAt).toLocaleString("en-IN")}</span>}
-        {stats.requests === 0 && <span>No AI calls recorded yet — usage appears here after the functions run.</span>}
+        {stats.requests === 0 && <span>No AI calls recorded yet - usage appears here after the functions run.</span>}
         <a
           href="https://aistudio.google.com/usage"
           target="_blank"

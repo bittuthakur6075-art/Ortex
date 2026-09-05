@@ -431,7 +431,7 @@ export default function TallyInvoiceImport({ open, onClose, onImportDone }) {
                 <span className="font-semibold text-foreground">Invoices List</span>
                 <Badge tone="emerald">{invoices.length} found</Badge>
               </div>
-              <Button variant="outline" size="xs" onClick={toggleSelectAll}>
+              <Button variant="outline" size="sm" onClick={toggleSelectAll}>
                 {selectedIndices.size === invoices.length ? "Deselect All" : "Select All"}
               </Button>
             </div>

@@ -33,7 +33,7 @@ export default function PracticeModal({ open, job, onClose, onRecorded }) {
       ? await briefFor({ jobId: job.id })
       : isValidMobile(f.phone)
         ? await briefFor({ target: { ...f, source: "practice" } })
-        : { error: "Enter a valid 10-digit mobile (your own is fine — nothing rings)." }
+        : { error: "Enter a valid 10-digit mobile (your own is fine - nothing rings)." }
     setLoading(false)
     if (res.error) return toast.error(res.error)
     setBrief(res)
@@ -44,13 +44,13 @@ export default function PracticeModal({ open, job, onClose, onRecorded }) {
   const finish = async () => {
     call.hangUp()
     const turns = call.turns
-    if (!turns.length) { toast.warning("Nothing was said — not saved."); onClose(); return }
+    if (!turns.length) { toast.warning("Nothing was said - not saved."); onClose(); return }
     setPhase("saving")
     const blob = await call.getRecording()
     const recordingPath = blob ? await uploadRecording(blob, brief.jobId) : null
     const res = await recordLiveCall({ jobId: brief.jobId, transcript: turns, durationSec: call.seconds, startedAt: call.startedAt, recordingPath })
     if (res.error) { toast.error(res.error); setPhase("call"); return }
-    toast.success(`Practice call analysed — ${String(res.analysis?.outcome || "").replace(/_/g, " ")}`)
+    toast.success(`Practice call analysed - ${String(res.analysis?.outcome || "").replace(/_/g, " ")}`)
     onRecorded?.(res)
     onClose()
   }
@@ -114,7 +114,7 @@ export default function PracticeModal({ open, job, onClose, onRecorded }) {
           <div className="rounded-xl bg-muted/40 p-3">
             <canvas ref={call.canvasRef} className="h-16 w-full" />
             <div className="mt-1 text-center text-xs text-muted-foreground">
-              {call.status === "connecting" ? "Connecting…" : call.speaking ? `${brief?.agentName || "Agent"} is speaking` : call.status === "live" ? "Your turn — speak" : call.errorMsg || "Call ended"}
+              {call.status === "connecting" ? "Connecting…" : call.speaking ? `${brief?.agentName || "Agent"} is speaking` : call.status === "live" ? "Your turn - speak" : call.errorMsg || "Call ended"}
             </div>
           </div>
           <div ref={listRef} className="max-h-72 space-y-2 overflow-y-auto pr-1">

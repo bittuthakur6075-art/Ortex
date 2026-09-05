@@ -8,7 +8,7 @@ export default function CreativeCard({ form, set, format, setFormat, generate, d
         Creative
       </h3>
       <div className="grid gap-4 sm:grid-cols-[200px_1fr]">
-        <div className="relative aspect-square overflow-hidden rounded-lg border border-border bg-muted">
+        <div className="relative aspect-square overflow-hidden rounded-lg bg-muted">
           {form.image ? (
             <img src={form.image} alt="" className="h-full w-full object-cover" />
           ) : (
@@ -19,7 +19,7 @@ export default function CreativeCard({ form, set, format, setFormat, generate, d
           )}
         </div>
         <div className="space-y-3">
-          <Field label="Image prompt" hint="What the image model renders. No text or logos — the caption carries the words.">
+          <Field label="Image prompt" hint="What the image model renders. No text or logos - the caption carries the words.">
             <Textarea
               rows={5}
               value={form.imagePrompt}

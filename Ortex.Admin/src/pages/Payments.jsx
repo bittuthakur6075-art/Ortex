@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { Wallet, Plus, Search, ArrowDownLeft, ArrowUpRight, Download, Trash2, ReceiptText } from "../components/ui/Icons"
+import { Wallet, Plus, ArrowDownLeft, ArrowUpRight, Trash2, ReceiptText } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
 import { removePayment, paidForInvoice, invoiceBalance } from "../data/domain/domain"
@@ -7,12 +7,10 @@ import { PAYMENT_TYPE, statusMeta } from "../data/domain/schema"
 import ReceiptView from "../components/documents/ReceiptView"
 import { formatDate, formatCurrency, round2 } from "../lib/format"
 import { exportCsv } from "../lib/csv"
-import PageHeader, { ActionBar } from "../components/layout/PageHeader"
 import RecordPaymentModal from "./invoices/RecordPaymentModal"
-import { Button, Card, Input, Badge, StatCard, EmptyState, Money, Chip, PageLoader, SortTh } from "../components/ui/Ui"
+import { Button, ExportButton, ToolbarButton, Card, CardHeader, SearchInput, Badge, StatCard, EmptyState, Money, Chip, ChipGroup, PageLoader, SortTh } from "../components/ui/Ui"
 
-export default function Payments({ embedded = false }) {
-  const Header = embedded ? ActionBar : PageHeader
+export default function Payments() {
   const { items, loading } = useCollection("payments")
   const { items: invoices } = useCollection("invoices")
   const settings = useSettings()
@@ -72,18 +70,6 @@ export default function Payments({ embedded = false }) {
 
   return (
     <div>
-      <Header title="Payments & payouts" subtitle="Money received from customers and paid to vendors">
-        <Button variant="outline" size="sm" onClick={handleExport} disabled={!filtered.length}>
-          <Download className="h-4 w-4" /> Export
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setNewPayment("payout")}>
-          <ArrowUpRight className="h-4 w-4" /> Payout
-        </Button>
-        <Button size="sm" onClick={() => setNewPayment("inflow")}>
-          <Plus className="h-4 w-4" /> Record receipt
-        </Button>
-      </Header>
-
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard icon={ArrowDownLeft} label="Total received" value={<Money value={totals.inflow} />} accent="bg-success/10 text-success-text" />
         <StatCard icon={ArrowUpRight} label="Total paid out" value={<Money value={totals.payout} />} accent="bg-destructive/10 text-destructive-text" />
@@ -91,11 +77,7 @@ export default function Payments({ embedded = false }) {
       </div>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative w-full sm:w-[320px]">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle-foreground" />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search party, invoice, reference…" className="pl-10" />
-        </div>
-        <div className="flex gap-1.5">
+        <ChipGroup className="min-w-0">
           <Chip active={typeFilter === "all"} onClick={() => setTypeFilter("all")}>
             All
           </Chip>
@@ -104,6 +86,16 @@ export default function Payments({ embedded = false }) {
               {t.label}
             </Chip>
           ))}
+        </ChipGroup>
+        <div className="flex items-center gap-[10px] sm:ml-auto">
+          <SearchInput
+            className="w-full sm:w-[320px]"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search payments"
+          />
+          <ToolbarButton onClick={() => setNewPayment("payout")}>Payout</ToolbarButton>
+          <ExportButton onClick={handleExport} disabled={!filtered.length} />
         </div>
       </div>
 
@@ -124,6 +116,10 @@ export default function Payments({ embedded = false }) {
         <EmptyState icon={Search} title="No matches" description="Try adjusting your search or filters." />
       ) : (
         <Card className="overflow-hidden">
+          <CardHeader
+            title="Payments & payouts"
+            action={<Button onClick={() => setNewPayment("inflow")}>Record receipt</Button>}
+          />
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="mt-head">
@@ -147,7 +143,7 @@ export default function Payments({ embedded = false }) {
                         {p.invoiceNumber && <div className="text-xs text-muted-foreground">{p.invoiceNumber}</div>}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="font-medium text-foreground">{p.party || "—"}</div>
+                        <div className="font-medium text-foreground">{p.party || "-"}</div>
                         {p.note && <div className="max-w-xs truncate text-xs text-muted-foreground">{p.note}</div>}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
@@ -165,26 +161,26 @@ export default function Payments({ embedded = false }) {
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
                           {p.type === "inflow" && (
-                            <button
+                            <Button
                               onClick={() => setReceiptFor(p)}
-                              className="text-muted-foreground hover:text-primary"
+                              variant="ghost" size="sm" icon className="text-muted-foreground"
                               title="Print receipt"
                             >
                               <ReceiptText className="h-4 w-4" />
-                            </button>
+                            </Button>
                           )}
-                          <button
+                          <Button
                             onClick={async () => {
                               if (window.confirm("Delete this payment entry?")) {
                                 await removePayment(p)
                                 toast.success("Entry deleted")
                               }
                             }}
-                            className="text-muted-foreground hover:text-destructive"
+                            variant="dangerGhost" size="sm" icon className="text-muted-foreground"
                             title="Delete"
                           >
                             <Trash2 className="h-4 w-4" />
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>

@@ -254,11 +254,15 @@ export function newProduct(overrides = {}) {
     unit: "pcs",
     material: "",
     basePrice: 0,
-    costPrice: 0, // direct/material cost — drives real per-order gross margin
+    costPrice: 0, // direct/material cost - drives real per-order gross margin
     moq: 1,
     gstRate: 18,
     leadTimeDays: 7,
     status: "active",
+    // Separate from status on purpose: a product can be live for quoting and
+    // still be kept off the public catalogue. Read by the products_public view
+    // (migration 0020); absent means visible.
+    showOnWebsite: true,
     description: "",
     images: [],
     ...overrides,
@@ -279,7 +283,6 @@ export function newLine(overrides = {}) {
     rate: 0,
     discountPercent: 0,
     gstRate: 18,
-    dueOn: null,
     ...overrides,
   }
 }
@@ -362,7 +365,7 @@ export function newSocialPost(overrides = {}) {
     caption: "", // the copy that ships to Meta
     hashtags: [], // stored without the leading '#'
     imagePrompt: "", // what social-creative feeds Gemini
-    image: "", // PUBLIC bucket URL — Meta fetches this itself
+    image: "", // PUBLIC bucket URL - Meta fetches this itself
     platforms: ["instagram", "facebook"],
     productId: null, // optional catalogue link the idea was grounded in
     scheduledFor: null, // ISO string; null means publish on approval

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Search, Plus, Pencil, X, Users } from "../ui/Icons"
-import { Avatar, Input } from "../ui/Ui"
+import { Avatar, Button, Input } from "../ui/Ui"
 import { newCustomer } from "../../data/domain/schema"
 import CustomerFields from "./CustomerFields"
 import { cn } from "../../lib/cn"
@@ -115,12 +115,12 @@ export default function CustomerPicker({ value, onChange, customers = [] }) {
           </div>
           {value.address && <div className="mt-0.5 truncate text-xs text-muted-foreground">{value.address}</div>}
         </div>
-        <button type="button" onClick={() => setEditing(true)} className="inline-flex h-8 items-center gap-1.5 rounded-btn-sm border border-border bg-card px-2.5 text-[12.5px] font-medium text-foreground shadow-sm transition-colors hover:bg-subtle">
+        <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
           <Pencil className="h-3.5 w-3.5" /> Edit
-        </button>
-        <button type="button" onClick={clear} aria-label="Change customer" title="Change customer" className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+        </Button>
+        <Button type="button" variant="ghost" size="sm" icon onClick={clear} aria-label="Change customer" title="Change customer" className="text-muted-foreground">
           <X className="h-4 w-4" />
-        </button>
+        </Button>
       </div>
     )
   }
@@ -130,7 +130,7 @@ export default function CustomerPicker({ value, onChange, customers = [] }) {
     return (
       <div>
         <div className="mb-3 flex items-center justify-between gap-3">
-          <p className="text-[13px] text-muted-foreground">{hasCustomer ? "Editing details for this document only." : "New customer — details are saved with the document."}</p>
+          <p className="text-[13px] text-muted-foreground">{hasCustomer ? "Editing details for this document only." : "New customer - details are saved with the document."}</p>
           <button type="button" onClick={hasCustomer ? () => setEditing(false) : clear} className="text-[13px] font-medium text-primary hover:underline">
             {hasCustomer ? "Done" : "Choose existing instead"}
           </button>

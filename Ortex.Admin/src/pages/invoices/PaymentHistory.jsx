@@ -1,4 +1,5 @@
 import { ReceiptText } from "../../components/ui/Icons"
+import { Button } from "../../components/ui/Ui"
 import { formatDate, formatCurrency } from "../../lib/format"
 
 // Inflow payments linked to the invoice being edited, with a print-receipt action.
@@ -16,9 +17,9 @@ export default function PaymentHistory({ payments, onReceipt }) {
             </div>
             <div className="flex flex-none items-center gap-3">
               <span className="text-xs text-muted-foreground">{formatDate(p.date)}</span>
-              <button onClick={() => onReceipt(p)} className="text-muted-foreground hover:text-primary" title="Print receipt">
+              <Button onClick={() => onReceipt(p)} variant="ghost" size="sm" icon className="text-muted-foreground" title="Print receipt">
                 <ReceiptText className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
           </div>
         ))}

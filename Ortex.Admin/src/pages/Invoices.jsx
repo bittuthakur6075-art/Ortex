@@ -1,20 +1,18 @@
 import { useState, useEffect } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { ReceiptIndianRupee, Plus, Search, Download, Upload } from "../components/ui/Icons"
+import { ReceiptIndianRupee, Plus, Search } from "../components/ui/Icons"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
-import PageHeader, { ActionBar } from "../components/layout/PageHeader"
 import DocumentView from "../components/documents/DocumentView"
 import TallyInvoiceImport from "../components/editors/TallyInvoiceImport"
-import { Button, EmptyState, PageLoader } from "../components/ui/Ui"
+import { Button, ExportButton, ToolbarButton, EmptyState, PageLoader } from "../components/ui/Ui"
 import { emptyDraft, exportInvoicesCsv } from "./invoices/helpers"
 import useInvoiceList from "./invoices/useInvoiceList"
 import InvoiceFilters from "./invoices/InvoiceFilters"
 import InvoiceTable from "./invoices/InvoiceTable"
 import InvoiceEditor from "./invoices/InvoiceEditor"
 
-export default function Invoices({ embedded = false }) {
-  const Header = embedded ? ActionBar : PageHeader
+export default function Invoices() {
   const { items, loading } = useCollection("invoices")
   const { items: products } = useCollection("products")
   const { items: customers } = useCollection("customers")
@@ -69,19 +67,18 @@ export default function Invoices({ embedded = false }) {
 
   return (
     <div>
-      <Header title="Invoices" subtitle={`${items.length} invoices · GST tax invoices & collections`}>
-        <Button variant="outline" size="sm" onClick={handleExport} disabled={!filtered.length}>
-          <Download className="h-4 w-4" /> Export
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setImporting(true)}>
-          <Upload className="h-4 w-4" /> Import Tally XML
-        </Button>
-        <Button size="sm" onClick={() => setEditing(emptyDraft(settings))}>
-          <Plus className="h-4 w-4" /> New invoice
-        </Button>
-      </Header>
-
-      <InvoiceFilters query={query} setQuery={setQuery} statusFilter={statusFilter} setStatusFilter={setStatusFilter} />
+      <InvoiceFilters
+        query={query}
+        setQuery={setQuery}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        actions={
+          <>
+            <ExportButton onClick={handleExport} disabled={!filtered.length} />
+            <ToolbarButton onClick={() => setImporting(true)}>Import Tally XML</ToolbarButton>
+          </>
+        }
+      />
 
       {loading ? (
         <PageLoader />
@@ -99,7 +96,15 @@ export default function Invoices({ embedded = false }) {
       ) : filtered.length === 0 ? (
         <EmptyState icon={Search} title="No matches" description="Try adjusting your search or filters." />
       ) : (
-        <InvoiceTable rows={filtered} sort={sort} onSort={onSort} onEdit={setEditing} onPreview={setPreview} />
+        <InvoiceTable
+          rows={filtered}
+          sort={sort}
+          onSort={onSort}
+          onEdit={setEditing}
+          onPreview={setPreview}
+          title="Invoices"
+          action={<Button onClick={() => setEditing(emptyDraft(settings))}>New invoice</Button>}
+        />
       )}
 
 

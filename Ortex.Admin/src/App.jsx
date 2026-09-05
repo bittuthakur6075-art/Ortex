@@ -4,6 +4,8 @@ import AdminLayout from "./components/layout/AdminLayout"
 import Login from "./pages/Login"
 import Dashboard from "./pages/Dashboard"
 import Crm, { CRM_MODULE_KEYS } from "./pages/Crm"
+import CustomerDetail from "./pages/CustomerDetail"
+import EnquiryDetail from "./pages/EnquiryDetail"
 import Catalog, { CATALOG_MODULE_KEYS } from "./pages/Catalog"
 import Billing, { BILLING_MODULE_KEYS } from "./pages/Billing"
 import Insights, { INSIGHTS_MODULE_KEYS } from "./pages/Insights"
@@ -53,10 +55,12 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="profile" element={<Profile />} />
           <Route path="crm" element={<HubGuard keys={CRM_MODULE_KEYS}><Crm /></HubGuard>} />
-          <Route path="leads" element={<Redirect to="/crm?tab=leads" />} />
+          <Route path="leads" element={<Redirect to="/crm?tab=enquiries" />} />
           <Route path="voice-leads" element={<Redirect to="/crm?tab=voice" />} />
           <Route path="enquiries" element={<Redirect to="/crm?tab=enquiries" />} />
+          <Route path="enquiries/:id" element={guard("enquiries", <EnquiryDetail />)} />
           <Route path="customers" element={guard("customers", <Customers />)} />
+          <Route path="customers/:id" element={guard("customers", <CustomerDetail />)} />
           <Route path="catalog" element={<HubGuard keys={CATALOG_MODULE_KEYS}><Catalog /></HubGuard>} />
           <Route path="products" element={<Redirect to="/catalog?tab=products" />} />
           <Route path="categories" element={<Redirect to="/catalog?tab=categories" />} />

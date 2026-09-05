@@ -16,9 +16,9 @@ export function EditorHeader({ onBack, backLabel = "Back", title, trail = [], ba
           onClick={onBack}
           title={backLabel}
           aria-label={backLabel}
-          className="grid h-9 w-9 flex-none place-items-center rounded-full bg-primary/10 text-primary transition-colors hover:bg-primary/15"
+          className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary transition-colors hover:bg-primary/15"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft variant="Linear" className="h-5 w-5" />
         </button>
         <div className="h-6 w-px bg-border" />
         <div className="min-w-0">
@@ -55,7 +55,7 @@ export function Tile({ icon: Icon, label, value, sub, tone = "primary", valueCla
     slate: "bg-muted text-muted-foreground",
   }
   return (
-    <Card className="flex items-center gap-4 p-4">
+    <Card className="flex-row items-center gap-4 p-4">
       {Icon && (
         <span className={cn("grid h-11 w-11 flex-none place-items-center rounded-full", tones[tone] || tones.primary)}>
           <Icon className="h-5 w-5" />

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { CalendarClock, Mic, Phone, Trash2, X } from "../../components/ui/Icons"
-import { Avatar, Badge, Button, Card, Chip, EmptyState, Input, Modal, StatusBadge } from "../../components/ui/Ui"
+import { Avatar, Badge, Button, Card, Chip, ChipGroup, EmptyState, Input, Modal, StatusBadge } from "../../components/ui/Ui"
 import { TELECALL_JOB_STATUS, TELECALL_KINDS } from "../../data/domain/schema"
 import { repo } from "../../data/store/repository"
 import { formatDateTime, relativeTime } from "../../lib/format"
@@ -30,9 +30,9 @@ export default function QueueTab({ jobs, onOpenCall, onPractice }) {
     setBusy(null)
     if (res.error) return toast.error(res.error)
     if (res.simulated) {
-      toast.success(`Simulated call done — ${String(res.analysis?.outcome || "").replace(/_/g, " ")}`)
+      toast.success(`Simulated call done - ${String(res.analysis?.outcome || "").replace(/_/g, " ")}`)
       if (res.callId) onOpenCall?.(res.callId)
-    } else toast.success(`Ringing ${job.contactName || prettyPhone(job.phone)} — the outcome will appear under Calls`)
+    } else toast.success(`Ringing ${job.contactName || prettyPhone(job.phone)} - the outcome will appear under Calls`)
   }
 
   const cancel = async (job) => {
@@ -52,30 +52,30 @@ export default function QueueTab({ jobs, onOpenCall, onPractice }) {
       <EmptyState
         icon={Phone}
         title="Nothing queued"
-        description="New leads, voice leads, feedback and upsell calls land here automatically once the telecaller is enabled — or press New call to ring someone now."
+        description="New leads, voice leads, feedback and upsell calls land here automatically once the telecaller is enabled - or press New call to ring someone now."
       />
     )
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
+      <ChipGroup>
         <Chip active={kind === "all"} onClick={() => setKind("all")}>All ({jobs.length})</Chip>
         {TELECALL_KINDS.filter((k) => counts[k.id]).map((k) => (
           <Chip key={k.id} active={kind === k.id} onClick={() => setKind(k.id)}>{k.label} ({counts[k.id]})</Chip>
         ))}
-      </div>
+      </ChipGroup>
 
-      <Card className="overflow-hidden ring-1 ring-border/60">
+      <Card className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
+          <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="mt-head">
               <tr>
-                <th className="px-4 py-3 font-semibold">Who</th>
-                <th className="px-4 py-3 font-semibold">Call</th>
-                <th className="px-4 py-3 font-semibold">Why</th>
-                <th className="px-4 py-3 font-semibold">When</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
+                <th>Who</th>
+                <th>Call</th>
+                <th>Why</th>
+                <th>When</th>
+                <th>Status</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -117,13 +117,13 @@ export default function QueueTab({ jobs, onOpenCall, onPractice }) {
                         <Button size="sm" disabled={busy === j.id || j.status !== "queued"} onClick={() => callNow(j)}>
                           <Phone className="h-3.5 w-3.5" /> {busy === j.id ? "Calling…" : "Call now"}
                         </Button>
-                        <Button size="icon" variant="ghost" title="Practice this call with your mic" onClick={() => onPractice?.(j)}>
+                        <Button size="sm" icon variant="ghost" title="Practice this call with your mic" onClick={() => onPractice?.(j)}>
                           <Mic className="h-4 w-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" title="Reschedule" onClick={() => { setMoving(j); setWhen(toLocalInput(j.scheduledAt)) }}>
+                        <Button size="sm" icon variant="ghost" title="Reschedule" onClick={() => { setMoving(j); setWhen(toLocalInput(j.scheduledAt)) }}>
                           <CalendarClock className="h-4 w-4" />
                         </Button>
-                        <Button size="icon" variant="dangerGhost" title="Cancel" onClick={() => cancel(j)}>
+                        <Button size="sm" icon variant="dangerGhost" title="Cancel" onClick={() => cancel(j)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>

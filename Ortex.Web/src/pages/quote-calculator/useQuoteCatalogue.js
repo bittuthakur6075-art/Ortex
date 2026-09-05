@@ -16,7 +16,7 @@ export default function useQuoteCatalogue() {
       setIsLoading(true)
       try {
         const { data, error } = await supabase
-          .from("products")
+          .from("products_public")
           .select("id, doc")
         
         if (error) throw error

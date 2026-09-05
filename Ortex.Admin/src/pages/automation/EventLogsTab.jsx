@@ -24,11 +24,11 @@ export default function EventLogsTab({ events, totals, eventTruncated, page, onP
         <table className="w-full border-collapse text-left text-sm">
           <thead className="mt-head">
             <tr>
-              <th className="px-4 py-3">Timestamp</th>
-              <th className="px-4 py-3">Event Type</th>
-              <th className="px-4 py-3">User ID</th>
-              <th className="px-4 py-3">Description</th>
-              <th className="px-4 py-3">Status</th>
+              <th>Timestamp</th>
+              <th>Event Type</th>
+              <th>User ID</th>
+              <th>Description</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody className="mt-body">

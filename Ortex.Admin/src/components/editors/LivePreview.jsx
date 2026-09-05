@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { Eye } from "../ui/Icons"
+import { Button } from "../ui/Ui"
 import DocumentSheet from "../documents/DocumentSheet"
 
 // Live, scaled-down render of the real A4 sheet beside the editor form
@@ -39,9 +40,9 @@ export default function LivePreview({ doc, settings, type, onOpen }) {
           <p className="text-xs text-muted-foreground">Updates as you type · what the customer receives</p>
         </div>
         {onOpen && (
-          <button type="button" onClick={onOpen} className="inline-flex h-8 flex-none items-center gap-1.5 rounded-btn-sm border border-border bg-card px-2.5 text-[12.5px] font-medium text-foreground shadow-sm transition-colors hover:bg-subtle">
+          <Button type="button" variant="outline" size="sm" onClick={onOpen} className="flex-none">
             <Eye className="h-3.5 w-3.5" /> Open
-          </button>
+          </Button>
         )}
       </div>
       <div className="bg-muted p-3">

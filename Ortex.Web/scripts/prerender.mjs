@@ -33,8 +33,8 @@ async function loadLiveCatalogue() {
   try {
     const sb = createClient(url, key)
     const [prodRes, catRes] = await Promise.all([
-      sb.from("products").select("id, doc"),
-      sb.from("categories").select("id, doc"),
+      sb.from("products_public").select("id, doc"),
+      sb.from("categories_public").select("id, doc"),
     ])
     if (prodRes.error || catRes.error) throw prodRes.error || catRes.error
     const products = (prodRes.data || []).map(mapProduct).filter((p) => p.status === "active")

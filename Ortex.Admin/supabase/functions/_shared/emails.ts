@@ -123,3 +123,65 @@ export function inviteEmail(opts: {
       </p>
     </td></tr>`)
 }
+
+/**
+ * Sent when an admin resets someone's password from the Users page.
+ *
+ * Same shape as the invite: the new temporary password in the body, and the
+ * same insistence on replacing it. Deliberately says who is affected and what
+ * to do if it was not expected, because an unrequested password reset is the
+ * one email that should make a person suspicious.
+ */
+export function passwordResetEmail(opts: {
+  email: string
+  password: string
+  name?: string
+  url: string
+}) {
+  const greeting = opts.name?.trim() ? `Hi ${esc(opts.name.trim().split(/\s+/)[0])},` : "Hi,"
+
+  const row = (label: string, value: string) => `
+    <tr>
+      <td style="padding:9px 0;font-size:12px;color:${FAINT};width:150px;vertical-align:top">${label}</td>
+      <td style="padding:9px 0;font-size:14px;color:${INK};font-weight:600;
+                 font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,Courier,monospace;
+                 word-break:break-all">${value}</td>
+    </tr>`
+
+  return shell(`
+    <tr><td style="padding:28px 36px 0 36px">
+      <h1 style="margin:0;font-size:21px;line-height:28px;font-weight:600;color:${INK};letter-spacing:-0.3px">
+        Your Ortex console password was reset
+      </h1>
+      <p style="margin:9px 0 0 0;font-size:14px;line-height:22px;color:${MUTED}">
+        ${greeting} an admin has set a new temporary password on your account.
+        Your old password no longer works.
+      </p>
+    </td></tr>
+
+    <tr><td style="padding:22px 36px 0 36px">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
+             style="background:#f3f5ff;border:1px solid #d7ddfb;border-radius:12px">
+        <tr><td style="padding:6px 20px">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+            ${row("Console", `<a href="${esc(opts.url)}" style="color:${BLUE};text-decoration:none">${esc(opts.url)}</a>`)}
+            ${row("Email", esc(opts.email))}
+            ${row("New password", esc(opts.password))}
+          </table>
+        </td></tr>
+      </table>
+    </td></tr>
+
+    <tr><td style="padding:20px 36px 0 36px">
+      <p style="margin:0;font-size:14px;line-height:22px;color:${MUTED}">
+        <strong style="color:${INK}">Change it as soon as you sign in</strong> — Settings &rarr; Password.
+        A password sent by email stays in that inbox for as long as the inbox does.
+      </p>
+    </td></tr>
+
+    <tr><td style="padding:18px 36px 0 36px">
+      <p style="margin:0;font-size:12px;line-height:19px;color:${FAINT}">
+        Didn't ask for this? Tell whoever runs your Ortex console straight away.
+      </p>
+    </td></tr>`)
+}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { Bell, CheckCircle2, Settings, Inbox } from "../ui/Icons"
-import { Avatar, Drawer, Badge } from "../ui/Ui"
+import { Avatar, Button, Drawer, Badge } from "../ui/Ui"
 import { useCollections } from "../../hooks/useCollection"
 import { OPEN_LEAD_STAGES, LEAD_STAGES } from "../../data/domain/schema"
 import { daysUntil, relativeTime, formatCurrency, formatDate } from "../../lib/format"
@@ -82,7 +82,7 @@ function buildFeed(data) {
         </>
       ),
       tags: [stageLabel(l.stage), l.quantityEstimate, l.estimatedValue ? formatCurrency(l.estimatedValue) : null].filter(Boolean),
-      primary: { label: "Open lead", to: "/crm?tab=leads" },
+      primary: { label: "Open enquiry", to: "/crm?tab=enquiries" },
     })
   }
 
@@ -172,16 +172,15 @@ function AmountCard({ amount }) {
 
 function ActionButton({ primary, children, ...props }) {
   return (
-    <button
+    <Button
       type="button"
-      className={cn(
-        "rounded-lg squircle px-3.5 py-1.5 text-[13px] font-semibold transition-[background-color,opacity,transform] active:scale-[0.97]",
-        primary ? "bg-foreground text-background hover:opacity-90" : "border border-border bg-card text-foreground hover:bg-subtle",
-      )}
+      size="sm"
+      variant={primary ? "dark" : "outline"}
+      className="transition-[background-color,opacity,transform] active:scale-[0.97]"
       {...props}
     >
       {children}
-    </button>
+    </Button>
   )
 }
 
@@ -242,18 +241,23 @@ function NotificationRow({ item, read, archived, onOpen, onToggleRead, onArchive
   )
 }
 
-function SegmentTab({ active, label, count, tone, onClick }) {
+function LineTab({ active, label, count, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "flex flex-1 items-center justify-center gap-2 rounded-lg squircle px-3 py-2 text-sm font-semibold transition-colors",
-        active ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+        "relative -mb-px inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-3 text-sm transition-colors",
+        active ? "border-primary font-semibold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground",
       )}
     >
       {label}
-      <span className={cn("inline-flex min-w-6 items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-bold leading-4", tone)}>
+      <span
+        className={cn(
+          "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-4 tabular",
+          active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+        )}
+      >
         {count}
       </span>
     </button>
@@ -315,7 +319,7 @@ export function NotificationsDrawer() {
         aria-expanded={open}
         className="relative grid h-[38px] w-[38px] place-items-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
       >
-        <Bell className="h-5 w-5" />
+        <Bell variant="Linear" className="h-5 w-5" />
         {count > 0 && (
           <span className="absolute right-0.5 top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-none text-white">
             {count > 9 ? "9+" : count}
@@ -327,6 +331,7 @@ export function NotificationsDrawer() {
         open={open}
         onClose={() => setOpen(false)}
         width="max-w-md"
+        bodyClassName="p-0"
         title={
           <div className="flex items-center gap-1">
             <h2 className="mr-2 text-xl font-semibold text-foreground">Notifications</h2>
@@ -352,22 +357,25 @@ export function NotificationsDrawer() {
           </div>
         }
         footer={
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="md"
             onClick={() => go("/insights?tab=events")}
-            className="w-full rounded-lg squircle py-2 text-sm font-semibold text-foreground transition-colors hover:bg-subtle"
+            className="w-full"
           >
             View all activity
-          </button>
+          </Button>
         }
       >
-        {/* Drawer body has p-5; pull the list to the edges for full-bleed rows. */}
-        <div className="-m-5">
-          <div className="sticky top-0 z-10 border-b border-border bg-card px-5 py-3">
-            <div className="flex gap-1 rounded-xl squircle bg-subtle p-1">
-              <SegmentTab active={tab === "all"} label="All" count={active.length} tone="bg-foreground text-background" onClick={() => setTab("all")} />
-              <SegmentTab active={tab === "unread"} label="Unread" count={unread.length} tone="bg-info/15 text-info-text" onClick={() => setTab("unread")} />
-              <SegmentTab active={tab === "archived"} label="Archived" count={archived.length} tone="bg-success/15 text-success-text" onClick={() => setTab("archived")} />
+        {/* Full-bleed rows: the drawer body is unpadded (bodyClassName="p-0") so
+            the tab strip can stick flush to the top of the scroll area. */}
+        <div>
+          <div className="sticky top-0 z-10 border-b border-border bg-card px-5">
+            <div className="flex items-center gap-1">
+              <LineTab active={tab === "all"} label="All" count={active.length} onClick={() => setTab("all")} />
+              <LineTab active={tab === "unread"} label="Unread" count={unread.length} onClick={() => setTab("unread")} />
+              <LineTab active={tab === "archived"} label="Archived" count={archived.length} onClick={() => setTab("archived")} />
             </div>
           </div>
 

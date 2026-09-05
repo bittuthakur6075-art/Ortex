@@ -28,7 +28,7 @@ export default function RuleEditorDrawer({ open, onClose, editingRule, ruleForm,
             ))}
             {ruleForm.triggerEvent && !TRIGGER_EVENTS.some(ev => ev.value === ruleForm.triggerEvent) && (
               <option value={ruleForm.triggerEvent}>
-                {ruleForm.triggerEvent} — unsupported, never fires
+                {ruleForm.triggerEvent} - unsupported, never fires
               </option>
             )}
           </Select>
@@ -39,7 +39,7 @@ export default function RuleEditorDrawer({ open, onClose, editingRule, ruleForm,
             value={ruleForm.templateId}
             onChange={(e) => setRuleForm({ ...ruleForm, templateId: e.target.value })}
           >
-            <option value="">No template — use built-in message</option>
+            <option value="">No template - use built-in message</option>
             {templates.map(t => (
               <option key={t.id} value={t.id}>{t.name} ({t.category})</option>
             ))}

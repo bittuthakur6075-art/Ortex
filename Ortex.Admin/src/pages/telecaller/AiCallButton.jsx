@@ -26,7 +26,7 @@ export default function AiCallButton({ target, size = "sm", variant = "outline",
     if (res.error) return toast.error(res.error)
     toast.success(
       res.simulated
-        ? `Simulated call done — ${String(res.analysis?.outcome || "").replace(/_/g, " ")}`
+        ? `Simulated call done - ${String(res.analysis?.outcome || "").replace(/_/g, " ")}`
         : `Ringing ${target.contactName || target.phone}…`,
       { action: { label: "Open", onClick: () => navigate(`/telecaller?call=${res.callId}`) } },
     )

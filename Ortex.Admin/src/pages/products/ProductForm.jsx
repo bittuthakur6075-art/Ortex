@@ -48,7 +48,7 @@ export default function ProductForm({ open, product, categories = [], onClose })
         category: allowedCategories.includes(data.category) ? data.category : f.category,
       }))
       if (data.category && allowedCategories.includes(data.category)) setHasManuallyChangedCategory(true)
-      toast.success("AI copy generated — review before saving")
+      toast.success("AI copy generated - review before saving")
     } catch (err) {
       console.error("AI copy failed:", err)
       toast.error(err?.message || "AI generation failed")
@@ -184,7 +184,7 @@ export default function ProductForm({ open, product, categories = [], onClose })
       }
     >
       <div className="space-y-4">
-        {/* AI copywriter — fills SEO title, marketing description, and category */}
+        {/* AI copywriter - fills SEO title, marketing description, and category */}
         {hasSupabase && <AiCopyPanel busy={aiBusy} onGenerate={generateCopy} />}
 
         {/* 1. Product Name */}
@@ -227,7 +227,7 @@ export default function ProductForm({ open, product, categories = [], onClose })
           <Input value={form.material} onChange={(e) => set("material", e.target.value)} placeholder="9mm MDF + acrylic front" />
         </Field>
 
-        {/* 5. Pricing (Base & Cost Price) */}
+        {/* 5. Pricing (Base & Cost Price) — console only, never published */}
         <div className="grid grid-cols-2 gap-4">
           <Field label="Base price (₹)" required error={errors.basePrice}>
             <Input type="number" min="0" step="0.01" value={form.basePrice} onChange={(e) => set("basePrice", e.target.value)} />
@@ -238,7 +238,7 @@ export default function ProductForm({ open, product, categories = [], onClose })
         </div>
 
         {/* Gross Margin Banner */}
-        <div className="rounded-lg border border-border bg-muted/30 px-4 py-2.5 text-sm">
+        <div className="rounded-lg bg-muted/30 px-4 py-2.5 text-sm">
           <span className="text-muted-foreground">Gross margin: </span>
           <span className={margin > 0 ? "font-semibold text-[hsl(var(--success))]" : "font-semibold text-foreground"}>
             {formatCurrency(margin)} ({marginPct}%)
@@ -286,16 +286,45 @@ export default function ProductForm({ open, product, categories = [], onClose })
           <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Short description / production notes" />
         </Field>
 
-        <label className="flex items-center gap-2 text-sm text-foreground">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-border accent-primary"
-            checked={!!form.indiamartListed}
-            onChange={(e) => set("indiamartListed", e.target.checked)}
-          />
-          Listed on IndiaMART
-          <span className="text-xs text-muted-foreground">— excludes it from the IndiaMART CSV export</span>
-        </label>
+        {/* 8. Where it appears */}
+        <div className="squircle space-y-3 rounded-[16px] border border-border p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Visibility</p>
+
+          <label className="flex cursor-pointer items-start gap-2.5 text-sm text-foreground">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4"
+              checked={form.showOnWebsite !== false}
+              onChange={(e) => set("showOnWebsite", e.target.checked)}
+            />
+            <span>
+              Show on the website
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Controls the public catalogue and the website quote builder. Untick to keep selling it from the
+                console without listing it publicly. Status "draft" or "archived" hides it either way.
+              </span>
+            </span>
+          </label>
+
+          <label className="flex cursor-pointer items-start gap-2.5 text-sm text-foreground">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4"
+              checked={!!form.indiamartListed}
+              onChange={(e) => set("indiamartListed", e.target.checked)}
+            />
+            <span>
+              Listed on IndiaMART
+              <span className="mt-0.5 block text-xs text-muted-foreground">Excludes it from the IndiaMART CSV export.</span>
+            </span>
+          </label>
+
+          <p className="border-t border-dashed border-border pt-3 text-xs text-muted-foreground">
+            Price, cost, HSN and GST never reach the website — it reads a view that hands out name, photos,
+            material, MOQ and lead time only. Rates appear when <em>you</em> build a quotation, and stay editable
+            per line so you can price to the quantity in front of you.
+          </p>
+        </div>
       </div>
     </Drawer>
   )

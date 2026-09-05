@@ -17,14 +17,13 @@ import {
 import { useCollections } from "../hooks/useCollection"
 import { useProfile } from "../hooks/useProfile"
 import { computeAnalytics } from "../lib/analytics/dashboard"
-import { weightedLeadValue } from "../data/domain/domain"
-import { LEAD_STAGES, OPEN_LEAD_STAGES } from "../data/domain/schema"
+import { OPEN_LEAD_STAGES } from "../data/domain/schema"
 import { loadDemoData } from "../data/seed/seed"
 import { formatCurrency, formatNumber, daysUntil, round2 } from "../lib/format"
 import PageHeader from "../components/layout/PageHeader"
 import { PERIODS } from "../lib/periods"
 import SectionCard from "../components/ui/SectionCard"
-import { Card, CardHeader, CardFooter, StatusBadge, EmptyState, Button, Segmented, PageLoader, Avatar, Badge } from "../components/ui/Ui"
+import { Card, CardHeader, CardFooter, EmptyState, Button, Segmented, PageLoader, Avatar, Badge } from "../components/ui/Ui"
 import { BarChart, AreaChart, CHART_COLORS } from "../components/ui/Chart"
 import { cn } from "../lib/cn"
 
@@ -51,16 +50,6 @@ export default function Dashboard() {
   const [period, setPeriod] = useState("mtd")
 
   const a = useMemo(() => computeAnalytics(data, period), [data, period])
-
-  const leadStats = useMemo(() => {
-    const leads = data.leads || []
-    const open = leads.filter((l) => OPEN_LEAD_STAGES.includes(l.stage))
-    const weighted = round2(open.reduce((s, l) => s + weightedLeadValue(l), 0))
-    const overdue = open.filter((l) => l.nextFollowUp && daysUntil(l.nextFollowUp) < 0).length
-    const today = open.filter((l) => l.nextFollowUp && daysUntil(l.nextFollowUp) === 0).length
-    const byStage = LEAD_STAGES.map((s) => ({ ...s, count: leads.filter((l) => l.stage === s.id).length }))
-    return { openCount: open.length, weighted, overdue, today, byStage, total: leads.length }
-  }, [data.leads])
 
   // "Needs attention" rail: overdue invoices, due/overdue follow-ups, expiring quotes.
   const attention = useMemo(() => {
@@ -100,7 +89,7 @@ export default function Dashboard() {
         <EmptyState
           icon={Sparkles}
           title="Welcome to Ortex Console"
-          description="Load demo data to explore the full quote-to-cash workflow — enquiries, products, quotations, GST invoices and payments — with a populated dashboard."
+          description="Load demo data to explore the full quote-to-cash workflow - enquiries, products, quotations, GST invoices and payments - with a populated dashboard."
           action={
             <Button onClick={loadDemoData}>
               <Sparkles className="h-4 w-4" /> Load demo data
@@ -122,7 +111,7 @@ export default function Dashboard() {
         <Segmented items={PERIODS} value={period} onChange={setPeriod} size="md" />
       </PageHeader>
 
-      {/* Row 1 — four stat tiles left (2×2), attention card right (Demo 1) */}
+      {/* Row 1 - four stat tiles left (2×2), attention card right (Demo 1) */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="grid grid-cols-2 content-start gap-5">
           <StatTile icon={Wallet} accent="bg-success/12 text-success-text" value={formatCurrency(a.cashCollected, { compact: true })} label="Cash collected" />
@@ -135,7 +124,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Row 2 — quick actions + revenue chart (Highlights / Earnings) */}
+      {/* Row 2 - quick actions + revenue chart (Highlights / Earnings) */}
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Card>
           <CardHeader title="Quick actions" />
@@ -169,13 +158,6 @@ export default function Dashboard() {
           </div>
         </Card>
       </div>
-
-      {/* Pipeline */}
-      {leadStats.total > 0 && (
-        <div className="mt-5">
-          <LeadsPipeline stats={leadStats} />
-        </div>
-      )}
 
       {/* Funnel + quote aging + AR aging */}
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -298,7 +280,7 @@ function QuoteAging({ aging, openCount }) {
         ))}
       </div>
       <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Clock className="h-3.5 w-3.5" /> Aged quotes are the cheapest win-rate lever — follow up before they expire.
+        <Clock className="h-3.5 w-3.5" /> Aged quotes are the cheapest win-rate lever - follow up before they expire.
       </p>
     </SectionCard>
   )
@@ -428,42 +410,6 @@ function MiniKpis({ a }) {
   )
 }
 
-function LeadsPipeline({ stats }) {
-  const max = Math.max(1, ...stats.byStage.map((s) => s.count))
-  return (
-    <SectionCard title="Leads pipeline" description={`${stats.openCount} open · weighted ${formatCurrency(stats.weighted, { compact: true })}`} action={<ViewAll to="/crm?tab=leads">Open board</ViewAll>}>
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="grid grid-cols-3 gap-2 lg:col-span-1">
-          <div className="rounded-lg bg-subtle px-3 py-2.5">
-            <div className="text-xs text-muted-foreground">Weighted</div>
-            <div className="mt-0.5 text-[15px] font-semibold text-foreground tabular">{formatCurrency(stats.weighted, { compact: true })}</div>
-          </div>
-          <div className="rounded-lg bg-subtle px-3 py-2.5">
-            <div className="text-xs text-muted-foreground">Overdue</div>
-            <div className="mt-0.5 text-[15px] font-semibold text-destructive-text tabular">{stats.overdue}</div>
-          </div>
-          <div className="rounded-lg bg-subtle px-3 py-2.5">
-            <div className="text-xs text-muted-foreground">Due today</div>
-            <div className="mt-0.5 text-[15px] font-semibold text-warning-text tabular">{stats.today}</div>
-          </div>
-        </div>
-        <div className="space-y-2 lg:col-span-2">
-          {stats.byStage.map((s) => (
-            <div key={s.id} className="flex items-center gap-3">
-              <div className="w-28 flex-none">
-                <StatusBadge list={LEAD_STAGES} status={s.id} dot={false} />
-              </div>
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full bg-primary" style={{ width: `${(s.count / max) * 100}%`, opacity: s.count ? 1 : 0.15 }} />
-              </div>
-              <span className="w-6 flex-none text-right text-xs text-muted-foreground tabular">{s.count}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </SectionCard>
-  )
-}
 
 function Empty({ text = "No data yet." }) {
   return <p className="py-4 text-[13px] text-muted-foreground">{text}</p>

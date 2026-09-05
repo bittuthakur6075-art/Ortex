@@ -1,242 +1,261 @@
 import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
-import { Package, Pencil } from "../../components/ui/Icons"
+import { Package, Pencil, ArrowUpRight } from "../../components/ui/Icons"
 import { PRODUCT_STATUS } from "../../data/domain/schema"
-import { formatCurrency, round2 } from "../../lib/format"
+import { formatCurrency, formatNumber, formatDate, relativeTime } from "../../lib/format"
 import { cn } from "../../lib/cn"
-import { Button, StatusBadge, Drawer } from "../../components/ui/Ui"
+import { Button, StatusBadge, Drawer, Money } from "../../components/ui/Ui"
+import { productAnalytics } from "./helpers"
 
+// The product record as a sales brief rather than a form read-only. The master
+// fields (price, HSN, MOQ) are the least interesting thing here — they are one
+// click away in the editor. What a person opening this actually needs is
+// whether the thing sells, at what price it really closes, and who buys it, so
+// that leads the page and the reference fields sit underneath.
 export default function ProductDetail({ open, product, quotations = [], invoices = [], onClose, onEdit }) {
-  const [activeImgIndex, setActiveImgIndex] = useState(0)
+  const [activeImg, setActiveImg] = useState(0)
 
-  useEffect(() => {
-    setActiveImgIndex(0)
-  }, [product])
+  useEffect(() => setActiveImg(0), [product])
 
   if (!open || !product) return null
 
-  const margin = round2(product.basePrice - product.costPrice)
-  const marginPct = product.basePrice ? Math.round((margin / product.basePrice) * 100) : 0
-
-  const linkedQuotes = quotations.filter((q) => q.lines?.some((l) => l.productId === product.id))
-  const linkedInvoices = invoices.filter((i) => i.lines?.some((l) => l.productId === product.id))
-
+  const a = productAnalytics(product, quotations, invoices)
   const images = product.images || []
-  const hasImages = images.length > 0
+  const hasSold = a.units > 0
 
   return (
     <Drawer
       open={open}
       onClose={onClose}
+      width="w-[40vw] min-w-[460px] max-w-none"
       title={product.name}
-      subtitle={product.sku || "No SKU"}
-      width="max-w-lg"
+      subtitle={[product.sku || "No SKU", product.category].filter(Boolean).join(" · ")}
       footer={
         <div className="flex items-center justify-between">
-          <Button variant="outline" size="sm" onClick={onClose}>
-            Close
-          </Button>
-          <Button size="sm" onClick={() => onEdit(product)}>
-            <Pencil className="h-4 w-4 mr-1.5" /> Edit product
+          <Button variant="outline" onClick={onClose}>Close</Button>
+          <Button onClick={() => onEdit(product)}>
+            <Pencil className="h-4 w-4" /> Edit product
           </Button>
         </div>
       }
     >
       <div className="space-y-6">
-        {/* Image Gallery */}
-        <div className="space-y-2">
-          {hasImages ? (
-            <div className="relative aspect-video w-full rounded-xl border border-border bg-muted overflow-hidden">
-              <img
-                src={images[activeImgIndex]}
-                alt={product.name}
-                className="h-full w-full object-cover"
-              />
-              <span className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-0.5 text-xs text-white">
-                {activeImgIndex + 1} / {images.length}
-              </span>
-            </div>
-          ) : (
-            <div className="flex aspect-video w-full flex-col items-center justify-center rounded-xl border border-border bg-muted text-muted-foreground">
-              <Package size={48} className="text-muted-foreground/55 mb-2" />
-              <span className="text-xs">No images uploaded</span>
-            </div>
-          )}
-
-          {hasImages && images.length > 1 && (
-            <div className="scroll-thin flex gap-2 overflow-x-auto pb-1">
-              {images.map((img, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setActiveImgIndex(idx)}
-                  className={cn(
-                    "relative h-14 w-14 flex-shrink-0 rounded-lg border overflow-hidden cursor-pointer",
-                    idx === activeImgIndex ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-muted-foreground"
-                  )}
-                >
-                  <img src={img} alt="" className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Basic Meta Grid */}
-        <div className="grid grid-cols-2 gap-4 rounded-xl border border-border bg-muted/20 p-4">
-          <div>
-            <div className="text-[10px] uppercase font-bold text-muted-foreground">Category</div>
-            <div className="font-semibold text-foreground text-sm">{product.category || "—"}</div>
+        {/* Identity: the photo people recognise, beside the facts that decide a quote. */}
+        <div className="flex gap-4">
+          <div className="w-[38%] flex-none space-y-2">
+            {images.length ? (
+              <>
+                <div className="squircle relative aspect-square w-full overflow-hidden rounded-[16px] bg-muted">
+                  <img src={images[activeImg]} alt={product.name} className="h-full w-full object-cover" />
+                </div>
+                {images.length > 1 && (
+                  <div className="scroll-thin flex gap-1.5 overflow-x-auto pb-1">
+                    {images.map((img, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setActiveImg(i)}
+                        aria-label={`Photo ${i + 1}`}
+                        className={cn(
+                          "squircle h-11 w-11 flex-none overflow-hidden rounded-[10px] border",
+                          i === activeImg ? "border-primary ring-2 ring-primary/25" : "border-border hover:border-border-strong",
+                        )}
+                      >
+                        <img src={img} alt="" className="h-full w-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="squircle flex aspect-square w-full flex-col items-center justify-center gap-1.5 rounded-[16px] bg-muted text-muted-foreground">
+                <Package className="h-8 w-8 opacity-50" />
+                <span className="text-[11px]">No photo</span>
+              </div>
+            )}
           </div>
-          <div>
-            <div className="text-[10px] uppercase font-bold text-muted-foreground">Status</div>
-            <div className="mt-0.5">
+
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
               <StatusBadge list={PRODUCT_STATUS} status={product.status} />
+              {product.indiamart?.listed && <span className="text-xs text-success-text">Listed on IndiaMART</span>}
             </div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase font-bold text-muted-foreground">SKU</div>
-            <div className="font-semibold text-foreground text-sm font-mono">{product.sku || "—"}</div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase font-bold text-muted-foreground">Material / Spec</div>
-            <div className="font-semibold text-foreground text-sm truncate" title={product.material}>
-              {product.material || "—"}
+
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-[26px] font-semibold leading-none tracking-tight text-foreground tabular">
+                  {formatCurrency(product.basePrice)}
+                </span>
+                <span className="text-[13px] text-muted-foreground">/ {product.unit || "pcs"} list</span>
+              </div>
+              <p className="mt-1.5 text-[13px] text-muted-foreground">
+                Costs {formatCurrency(product.costPrice)} ·{" "}
+                <span className={cn("font-medium", a.unitMargin > 0 ? "text-success-text" : "text-destructive-text")}>
+                  {formatCurrency(a.unitMargin)} margin ({a.marginPct}%)
+                </span>
+              </p>
             </div>
+
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-dashed border-border pt-3 text-[13px]">
+              <Pair label="Min order" value={`${formatNumber(product.moq || 1)} ${product.unit || "pcs"}`} />
+              <Pair label="Lead time" value={product.leadTimeDays ? `${product.leadTimeDays} days` : "Not set"} />
+              <Pair label="HSN" value={product.hsn || "Not set"} mono />
+              <Pair label="GST" value={`${product.gstRate}%`} />
+              {product.material && <Pair label="Material" value={product.material} className="col-span-2" />}
+            </dl>
           </div>
         </div>
 
-        {/* Financial Overview */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-bold text-foreground">Pricing & Margin</h3>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-xl border border-border bg-muted/10 p-3.5 text-center">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground">Selling Price</div>
-              <div className="mt-1 font-bold text-foreground text-base">
-                {formatCurrency(product.basePrice)}
+        {/* How it actually trades. */}
+        <Section title="Performance" note={a.lastOrderedAt ? `Last ordered ${relativeTime(a.lastOrderedAt)}` : null}>
+          {hasSold ? (
+            <>
+              <div className="grid grid-cols-3 gap-2.5">
+                <Metric label="Revenue" value={<Money value={a.revenue} compact />} />
+                <Metric label="Units sold" value={formatNumber(a.units)} />
+                <Metric label="Gross profit" value={<Money value={a.grossProfit} compact />} tone={a.grossProfit > 0 ? "success" : "danger"} />
               </div>
-            </div>
-            <div className="rounded-xl border border-border bg-muted/10 p-3.5 text-center">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground">Cost Price</div>
-              <div className="mt-1 font-bold text-muted-foreground text-base">
-                {formatCurrency(product.costPrice)}
+              <div className="squircle mt-2.5 flex items-center justify-between gap-3 rounded-[14px] bg-subtle px-4 py-3 text-[13px]">
+                <span className="text-muted-foreground">Average price achieved</span>
+                <span className="flex items-baseline gap-2">
+                  <span className="font-semibold text-foreground tabular">{formatCurrency(a.avgRate)}</span>
+                  {a.realisation !== null && Math.abs(a.realisation) >= 0.005 && (
+                    <span className={cn("text-xs font-medium", a.realisation < 0 ? "text-warning-text" : "text-success-text")}>
+                      {a.realisation < 0 ? "" : "+"}
+                      {Math.round(a.realisation * 100)}% vs list
+                    </span>
+                  )}
+                </span>
               </div>
-            </div>
-            <div className="rounded-xl border border-border bg-muted/10 p-3.5 text-center">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground">Margin</div>
-              <div className={cn("mt-1 font-bold text-base", margin > 0 ? "text-[hsl(var(--success))]" : "text-foreground")}>
-                {marginPct}%
-              </div>
-            </div>
-          </div>
-          <div className="rounded-lg border border-border bg-muted/30 px-4 py-2.5 text-sm flex items-center justify-between">
-            <span className="text-muted-foreground font-medium">Net Gross Margin:</span>
-            <span className={cn("font-bold", margin > 0 ? "text-[hsl(var(--success))]" : "text-foreground")}>
-              {formatCurrency(margin)} per unit
-            </span>
-          </div>
-        </div>
+            </>
+          ) : (
+            <Empty>
+              Never invoiced. {a.quotes > 0
+                ? `Quoted ${a.quotes} time${a.quotes === 1 ? "" : "s"} for ${formatNumber(a.quotedUnits)} ${product.unit || "pcs"} — the demand is there, the orders are not.`
+                : "It has not appeared on a quotation either, so nobody has been offered it yet."}
+            </Empty>
+          )}
+        </Section>
 
-        {/* Logistics & Tax */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-bold text-foreground">Tax & Logistics</h3>
-          <div className="grid grid-cols-4 gap-3">
-            <div className="rounded-xl border border-border p-3 text-center">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground">HSN</div>
-              <div className="mt-1 font-semibold text-foreground text-sm font-mono">{product.hsn || "—"}</div>
-            </div>
-            <div className="rounded-xl border border-border p-3 text-center">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground">GST</div>
-              <div className="mt-1 font-semibold text-foreground text-sm">{product.gstRate}%</div>
-            </div>
-            <div className="rounded-xl border border-border p-3 text-center">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground">Unit</div>
-              <div className="mt-1 font-semibold text-foreground text-sm">{product.unit || "pcs"}</div>
-            </div>
-            <div className="rounded-xl border border-border p-3 text-center">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground">MOQ</div>
-              <div className="mt-1 font-semibold text-foreground text-sm">{product.moq || 1}</div>
-            </div>
+        {/* Quoted vs won: where this product loses. */}
+        <Section title="Demand">
+          <div className="grid grid-cols-3 gap-2.5">
+            <Metric label="Quoted on" value={`${a.quotes} quote${a.quotes === 1 ? "" : "s"}`} />
+            <Metric label="Ordered on" value={`${a.orders} invoice${a.orders === 1 ? "" : "s"}`} />
+            <Metric
+              label="Quote to order"
+              value={a.conversion === null ? "—" : `${a.conversion}%`}
+              tone={a.conversion === null ? undefined : a.conversion >= 50 ? "success" : a.conversion >= 25 ? "warning" : "danger"}
+            />
           </div>
-          <div className="rounded-lg border border-border p-3 flex items-center justify-between text-sm">
-            <span className="text-muted-foreground font-medium">Production Lead Time:</span>
-            <span className="font-semibold text-foreground">{product.leadTimeDays || 0} days</span>
-          </div>
-        </div>
+        </Section>
 
-        {/* Description (if exists) */}
-        {product.description && (
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-foreground">Description</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line bg-muted/5 rounded-xl border border-border p-4">
-              {product.description}
-            </p>
-          </div>
+        {a.topCustomers.length > 0 && (
+          <Section title="Who buys it">
+            <ul className="divide-y divide-dashed divide-border">
+              {a.topCustomers.map((c) => (
+                <li key={c.name} className="flex items-center justify-between gap-3 py-2.5 text-[13px]">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-foreground">{c.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatNumber(c.units)} {product.unit || "pcs"} across {c.orders} order{c.orders === 1 ? "" : "s"}
+                    </div>
+                  </div>
+                  <span className="flex-none font-semibold text-foreground tabular">{formatCurrency(c.revenue)}</span>
+                </li>
+              ))}
+            </ul>
+          </Section>
         )}
 
-        {/* Linked Records Analytics */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-bold text-foreground">Usage Analytics</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-xl border border-border bg-muted/20 p-4">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground">Linked Quotations</div>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-foreground">{linkedQuotes.length}</span>
-                <span className="text-xs text-muted-foreground">quotes</span>
-              </div>
-              {linkedQuotes.length > 0 && (
-                <div className="mt-2.5 space-y-1.5 border-t border-border/60 pt-2">
-                  {linkedQuotes.slice(0, 3).map((q) => (
-                    <Link
-                      key={q.id}
-                      to="/quotations"
-                      state={{ openId: q.id }}
-                      className="text-xs flex justify-between text-muted-foreground hover:text-primary"
-                      title={`Open quotation ${q.number || ""}`}
-                    >
-                      <span className="font-medium truncate max-w-[120px]">{q.number || "Quote"}</span>
-                      <span className="truncate max-w-[100px]">{q.customer?.company || q.customer?.name || "Customer"}</span>
-                    </Link>
-                  ))}
-                  {linkedQuotes.length > 3 && (
-                    <div className="text-[10px] text-muted-foreground/75 italic">
-                      + {linkedQuotes.length - 3} more quotations
-                    </div>
-                  )}
-                </div>
-              )}
+        {(a.recentOrders.length > 0 || a.recentQuotes.length > 0) && (
+          <Section title="Recent documents">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <DocList title="Invoices" docs={a.recentOrders} to="/billing?tab=invoices" total={a.orders} />
+              <DocList title="Quotations" docs={a.recentQuotes} to="/quotations" total={a.quotes} />
             </div>
+          </Section>
+        )}
 
-            <div className="rounded-xl border border-border bg-muted/20 p-4">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground">Linked Invoices</div>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-foreground">{linkedInvoices.length}</span>
-                <span className="text-xs text-muted-foreground">invoices</span>
-              </div>
-              {linkedInvoices.length > 0 && (
-                <div className="mt-2.5 space-y-1.5 border-t border-border/60 pt-2">
-                  {linkedInvoices.slice(0, 3).map((i) => (
-                    <Link
-                      key={i.id}
-                      to="/billing?tab=invoices"
-                      state={{ openId: i.id }}
-                      className="text-xs flex justify-between text-muted-foreground hover:text-primary"
-                      title={`Open invoice ${i.number || ""}`}
-                    >
-                      <span className="font-medium truncate max-w-[120px]">{i.number || "Invoice"}</span>
-                      <span className="truncate max-w-[100px]">{i.customer?.company || i.customer?.name || "Customer"}</span>
-                    </Link>
-                  ))}
-                  {linkedInvoices.length > 3 && (
-                    <div className="text-[10px] text-muted-foreground/75 italic">
-                      + {linkedInvoices.length - 3} more invoices
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        {product.description && (
+          <Section title="Description">
+            <p className="whitespace-pre-line text-[13px] leading-relaxed text-muted-foreground">{product.description}</p>
+          </Section>
+        )}
       </div>
     </Drawer>
+  )
+}
+
+function Section({ title, note, children }) {
+  return (
+    <section>
+      <div className="mb-2.5 flex items-baseline justify-between gap-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+        {note && <span className="text-xs text-subtle-foreground">{note}</span>}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+const TONES = {
+  success: "text-success-text",
+  warning: "text-warning-text",
+  danger: "text-destructive-text",
+}
+
+function Metric({ label, value, tone }) {
+  return (
+    <div className="squircle rounded-[14px] bg-subtle px-3.5 py-3">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={cn("mt-1 text-[17px] font-semibold leading-none tracking-tight tabular", TONES[tone] || "text-foreground")}>{value}</div>
+    </div>
+  )
+}
+
+function Pair({ label, value, mono, className }) {
+  return (
+    <div className={className}>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className={cn("mt-0.5 truncate font-medium text-foreground", mono && "tabular")} title={typeof value === "string" ? value : undefined}>
+        {value}
+      </dd>
+    </div>
+  )
+}
+
+function Empty({ children }) {
+  return (
+    <p className="squircle rounded-[14px] border border-dashed border-border px-4 py-3.5 text-[13px] leading-relaxed text-muted-foreground">
+      {children}
+    </p>
+  )
+}
+
+function DocList({ title, docs, to, total }) {
+  if (!docs.length) return null
+  return (
+    <div className="squircle rounded-[14px] border border-border p-3">
+      <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{title}</div>
+      <ul className="space-y-1">
+        {docs.map((d) => (
+          <li key={d.id}>
+            <Link
+              to={to}
+              state={{ openId: d.id }}
+              className="flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 text-[13px] text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
+            >
+              <span className="truncate font-medium">{d.number || "—"}</span>
+              <span className="flex flex-none items-center gap-1 text-xs">
+                {formatDate(d.date || d.createdAt)}
+                <ArrowUpRight variant="Linear" className="h-3.5 w-3.5" />
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {total > docs.length && <p className="mt-1.5 px-1.5 text-xs text-subtle-foreground">+{total - docs.length} more</p>}
+    </div>
   )
 }

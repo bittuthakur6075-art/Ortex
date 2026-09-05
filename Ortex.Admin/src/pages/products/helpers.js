@@ -62,3 +62,69 @@ export const IM_COLUMNS = [
 ]
 
 export const imFile = () => `indiamart-products-${new Date().toISOString().slice(0, 10)}.csv`
+
+// What this product has actually done, rather than what it is. The product
+// master only stores list price and cost; everything a buyer or a sales lead
+// wants to know — has it sold, at what price, to whom, is it still moving — has
+// to be read back out of the documents that referenced it.
+//
+// Cancelled invoices are excluded: they are not revenue. Quotations are counted
+// whatever their status, because an unaccepted quote is still demand.
+export function productAnalytics(product, quotations = [], invoices = []) {
+  const lineFor = (doc) => (doc.lines || []).filter((l) => l.productId === product.id)
+  const lineValue = (l) => (Number(l.quantity) || 0) * (Number(l.rate) || 0) * (1 - (Number(l.discountPercent) || 0) / 100)
+
+  const quotes = quotations.filter((q) => lineFor(q).length)
+  const orders = invoices.filter((i) => i.status !== "cancelled" && lineFor(i).length)
+
+  let units = 0
+  let revenue = 0
+  const byCustomer = new Map()
+  let lastOrderedAt = null
+
+  for (const inv of orders) {
+    let docUnits = 0
+    let docValue = 0
+    for (const l of lineFor(inv)) {
+      docUnits += Number(l.quantity) || 0
+      docValue += lineValue(l)
+    }
+    units += docUnits
+    revenue += docValue
+
+    const key = inv.customer?.company || inv.customer?.name || "Unnamed customer"
+    const prev = byCustomer.get(key) || { name: key, units: 0, revenue: 0, orders: 0 }
+    byCustomer.set(key, { ...prev, units: prev.units + docUnits, revenue: prev.revenue + docValue, orders: prev.orders + 1 })
+
+    const at = inv.date || inv.createdAt
+    if (at && (!lastOrderedAt || new Date(at) > new Date(lastOrderedAt))) lastOrderedAt = at
+  }
+
+  // Quoted demand that never converted is the interesting half of the funnel.
+  let quotedUnits = 0
+  for (const q of quotes) for (const l of lineFor(q)) quotedUnits += Number(l.quantity) || 0
+
+  const avgRate = units ? revenue / units : 0
+  const listPrice = Number(product.basePrice) || 0
+  const cost = Number(product.costPrice) || 0
+
+  return {
+    quotes: quotes.length,
+    orders: orders.length,
+    quotedUnits,
+    units,
+    revenue,
+    avgRate,
+    // How far the realised price drifts from the list price. Negative means the
+    // catalogue price is aspirational and deals are closing below it.
+    realisation: listPrice && units ? (avgRate - listPrice) / listPrice : null,
+    grossProfit: units ? revenue - units * cost : 0,
+    unitMargin: listPrice - cost,
+    marginPct: listPrice ? Math.round(((listPrice - cost) / listPrice) * 100) : 0,
+    conversion: quotes.length ? Math.round((orders.length / quotes.length) * 100) : null,
+    lastOrderedAt,
+    topCustomers: [...byCustomer.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 4),
+    recentQuotes: [...quotes].sort((a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0)).slice(0, 4),
+    recentOrders: [...orders].sort((a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0)).slice(0, 4),
+  }
+}

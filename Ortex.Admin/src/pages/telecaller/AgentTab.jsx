@@ -153,10 +153,10 @@ export default function AgentTab({ isAdmin, onPractice }) {
 
       <Section title="Pitch notes" hint="Current offers, seasonal pushes, products to lead with, things to never say. The agent reads this before every call.">
         <Field className="sm:col-span-2">
-          <Textarea rows={5} value={t.pitchNotes} onChange={(e) => set("pitchNotes", e.target.value)} placeholder="e.g. Diwali gifting bookings open — push gift hampers (bottle + diary + pen). 10% off on 500+ lanyards this month. Never promise delivery under 4 days." />
+          <Textarea rows={5} value={t.pitchNotes} onChange={(e) => set("pitchNotes", e.target.value)} placeholder="e.g. Diwali gifting bookings open - push gift hampers (bottle + diary + pen). 10% off on 500+ lanyards this month. Never promise delivery under 4 days." />
         </Field>
-        <Field label="Your upcoming occasions" hint="Sneha already knows the Indian festival calendar, IST time and regional festivals by city. Add your own dates here, one per line: YYYY-MM-DD Name — what to pitch (e.g. 2026-10-15 Delhi Corporate Gifting Expo — invite buyers to the stall, offer exhibition pricing)." className="sm:col-span-2">
-          <Textarea rows={3} value={t.occasions || ""} onChange={(e) => set("occasions", e.target.value)} placeholder="2026-10-15 Delhi Corporate Gifting Expo — invite buyers to our stall, exhibition-only rates" />
+        <Field label="Your upcoming occasions" hint="Sneha already knows the Indian festival calendar, IST time and regional festivals by city. Add your own dates here, one per line: YYYY-MM-DD Name - what to pitch (e.g. 2026-10-15 Delhi Corporate Gifting Expo - invite buyers to the stall, offer exhibition pricing)." className="sm:col-span-2">
+          <Textarea rows={3} value={t.occasions || ""} onChange={(e) => set("occasions", e.target.value)} placeholder="2026-10-15 Delhi Corporate Gifting Expo - invite buyers to our stall, exhibition-only rates" />
         </Field>
         <Field label="Do not call" hint="One number per line. Anyone who asks not to be called is added here automatically." className="sm:col-span-2">
           <Textarea rows={3} value={(t.doNotCall || []).join("\n")} onChange={(e) => set("doNotCall", e.target.value.split(/\n/).map((s) => s.trim()).filter(Boolean))} />
@@ -166,7 +166,7 @@ export default function AgentTab({ isAdmin, onPractice }) {
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
           <Sparkles className="mr-1 inline h-3.5 w-3.5" />
-          Keys (Gemini, Vapi, webhook secret) are Edge Function secrets — see docs/guides/TELECALLER_SETUP.md.
+          Keys (Gemini, Vapi, webhook secret) are Edge Function secrets - see docs/guides/TELECALLER_SETUP.md.
         </p>
         <Button onClick={save} disabled={saving || isAdmin === false}><Save className="h-4 w-4" /> {saving ? "Saving…" : "Save agent settings"}</Button>
       </div>

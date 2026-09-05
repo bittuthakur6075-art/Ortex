@@ -27,7 +27,7 @@ export default function WhatsAppTab({ whatsappLogs, searchQuery, maskSensitiveDa
     <div className="space-y-6">
       {/* Monitor Summary */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card className="p-4 flex items-center justify-between border-dashed">
+        <Card className="p-4 flex-row items-center justify-between border-dashed">
           <div className="space-y-1">
             <span className="text-xs font-semibold text-muted-foreground">Active Dispatch Queue</span>
             <div className="text-lg font-bold">{queuedMessages.length} queued messages</div>
@@ -35,7 +35,7 @@ export default function WhatsAppTab({ whatsappLogs, searchQuery, maskSensitiveDa
           <Badge tone="amber">Auto Dispatching</Badge>
         </Card>
 
-        <Card className="p-4 flex items-center justify-between border-dashed">
+        <Card className="p-4 flex-row items-center justify-between border-dashed">
           <div className="space-y-1">
             <span className="text-xs font-semibold text-muted-foreground">Failed Deliveries</span>
             <div className="text-lg font-bold text-destructive">{failedMessages.length} failures logged</div>
@@ -51,12 +51,12 @@ export default function WhatsAppTab({ whatsappLogs, searchQuery, maskSensitiveDa
           <table className="w-full border-collapse text-left text-sm">
             <thead className="mt-head">
               <tr>
-                <th className="px-4 py-3">Created</th>
-                <th className="px-4 py-3">Customer</th>
-                <th className="px-4 py-3">Phone</th>
-                <th className="px-4 py-3">Template</th>
-                <th className="px-4 py-3">Message Text</th>
-                <th className="px-4 py-3">Status</th>
+                <th>Created</th>
+                <th>Customer</th>
+                <th>Phone</th>
+                <th>Template</th>
+                <th>Message Text</th>
+                <th>Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>

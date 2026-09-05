@@ -7,7 +7,7 @@
 // safe for customer calls, "basic" ones work but with weaker pronunciation.
 
 export const TELECALL_LANGUAGES = [
-  { id: "auto", label: "Auto — open in Hinglish, match the customer", speech: "hi-IN", tier: "strong" },
+  { id: "auto", label: "Auto - open in Hinglish, match the customer", speech: "hi-IN", tier: "strong" },
   { id: "hinglish", label: "Hinglish (Hindi + English)", speech: "hi-IN", tier: "strong" },
   { id: "hi", label: "Hindi", speech: "hi-IN", tier: "strong" },
   { id: "en", label: "English (Indian)", speech: "en-IN", tier: "strong" },

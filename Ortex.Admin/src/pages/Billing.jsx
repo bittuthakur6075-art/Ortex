@@ -5,7 +5,7 @@ import { useProfile } from "../hooks/useProfile"
 import { useCollections } from "../hooks/useCollection"
 import { canAccess } from "../data/domain/modules"
 import { invoiceBalance, resolveInvoiceStatus } from "../data/domain/domain"
-import PageHeader from "../components/layout/PageHeader"
+import PageHeader, { HeaderBand } from "../components/layout/PageHeader"
 import { Tabs } from "../components/ui/Ui"
 import Invoices from "./Invoices"
 import Payments from "./Payments"
@@ -19,11 +19,6 @@ const TABS = [
 ]
 
 export const BILLING_MODULE_KEYS = TABS.map((t) => t.moduleKey)
-
-function Count({ n }) {
-  if (!n) return null
-  return <span className="rounded-md bg-muted px-1.5 text-[11px] font-semibold leading-4 text-muted-foreground tabular">{n}</span>
-}
 
 export default function Billing() {
   const profile = useProfile()
@@ -52,27 +47,20 @@ export default function Billing() {
 
   if (!current) return null
 
-  const items = allowed.map((t) => ({
-    value: t.value,
-    icon: t.icon,
-    label: (
-      <>
-        {t.label} <Count n={counts[t.value]} />
-      </>
-    ),
-  }))
+  const items = allowed.map((t) => ({ value: t.value, icon: t.icon, label: t.label, count: counts[t.value] || undefined }))
 
   const Page = current.Page
 
   return (
     <div>
-      <PageHeader title="Billing" subtitle="Invoices, receipts and payouts" />
-      <Tabs
-        className="mb-5"
-        items={items}
-        value={current.value}
-        onChange={(v) => setParams({ tab: v }, { replace: true })}
-      />
+      <HeaderBand>
+        <PageHeader title="Billing" subtitle="Invoices, receipts and payouts" />
+        <Tabs
+          items={items}
+          value={current.value}
+          onChange={(v) => setParams({ tab: v }, { replace: true })}
+        />
+      </HeaderBand>
       <Page key={current.value} embedded />
     </div>
   )

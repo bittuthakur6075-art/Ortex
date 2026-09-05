@@ -9,7 +9,7 @@
 import { supabase, hasSupabase } from "../data/store/supabaseClient"
 
 const BUCKET = "product-images"
-const MAX_DIM = 1000 // px — good quality for product detail views
+const MAX_DIM = 1000 // px - good quality for product detail views
 const QUALITY = 0.82
 
 export const MAX_IMAGE_MB = 10

@@ -29,8 +29,11 @@ export function useCatalog() {
     async function load() {
       try {
         const [prodRes, catRes] = await Promise.all([
-          supabase.from("products").select("id, doc"),
-          supabase.from("categories").select("id, doc"),
+          // The *_public views (migration 0020) hand back only website-safe
+          // fields — no price, cost, HSN or GST — and already filter out
+          // anything hidden from the site.
+          supabase.from("products_public").select("id, doc"),
+          supabase.from("categories_public").select("id, doc"),
         ])
         if (prodRes.error) throw prodRes.error
         if (catRes.error) throw catRes.error

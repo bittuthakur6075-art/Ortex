@@ -143,7 +143,7 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
           )}
           {lines.map((line, i) => {
             const cl = (t.lines && t.lines[i]) || {}
-            const detail = [line.hsn ? `HSN ${line.hsn}` : null, line.discountPercent ? `${line.discountPercent}% discount` : null, line.dueOn ? `Due ${formatDate(line.dueOn)}` : null].filter(Boolean).join(" · ")
+            const detail = [line.hsn ? `HSN ${line.hsn}` : null, line.discountPercent ? `${line.discountPercent}% discount` : null].filter(Boolean).join(" · ")
             return (
               <tr key={i}>
                 <td>

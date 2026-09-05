@@ -106,7 +106,7 @@ export default function CallDrawer({ call, onClose }) {
           <Row label="Value">{a.estimatedValue ? formatCurrency(a.estimatedValue) : null}</Row>
           <Row label="Callback">{a.callbackAt ? formatDateTime(a.callbackAt) : null}</Row>
           <Row label="Objections">{a.objections?.length ? a.objections.join(" · ") : null}</Row>
-          <Row label="Feedback">{a.feedbackRating ? `${a.feedbackRating}/5${a.feedbackNotes ? ` — ${a.feedbackNotes}` : ""}` : null}</Row>
+          <Row label="Feedback">{a.feedbackRating ? `${a.feedbackRating}/5${a.feedbackNotes ? ` - ${a.feedbackNotes}` : ""}` : null}</Row>
           <Row label="Upsell">{a.upsellAccepted ? "Accepted an add-on / reorder" : null}</Row>
           <Row label="Ended">{call.endedReason}</Row>
           {call.recordingUrl && (
@@ -137,7 +137,7 @@ export default function CallDrawer({ call, onClose }) {
           ) : call.transcriptText ? (
             <pre className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 font-sans text-sm">{call.transcriptText}</pre>
           ) : (
-            <p className="text-sm text-muted-foreground">{["dialing", "ringing", "in_progress"].includes(call.status) ? "Call in progress — the transcript arrives when it ends." : "No transcript captured."}</p>
+            <p className="text-sm text-muted-foreground">{["dialing", "ringing", "in_progress"].includes(call.status) ? "Call in progress - the transcript arrives when it ends." : "No transcript captured."}</p>
           )}
         </div>
       </div>

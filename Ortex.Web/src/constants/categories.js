@@ -32,12 +32,10 @@ function statsFor(category, products = PRODUCTS) {
   if (!skus.length) {
     // A category with no products yet (e.g. a brand-new Admin category) must not
     // crash Math.min(...[]) → Infinity downstream.
-    return { skus: [], count: 0, moqMin: 0, leadMin: 0, leadMax: 0, leadLabel: "0", priceMin: 0, gstLabel: "18%" }
+    return { skus: [], count: 0, moqMin: 0, leadMin: 0, leadMax: 0, leadLabel: "0" }
   }
   const moqs = skus.map((p) => p.moq)
   const leads = skus.map((p) => p.leadTimeDays)
-  const prices = skus.map((p) => p.basePrice)
-  const gstRates = [...new Set(skus.map((p) => p.gstRate))].sort((a, b) => a - b)
   const leadMin = Math.min(...leads)
   const leadMax = Math.max(...leads)
   return {
@@ -48,8 +46,6 @@ function statsFor(category, products = PRODUCTS) {
     leadMax,
     // "5" rather than "5–5" when every SKU in the category dispatches alike.
     leadLabel: leadMin === leadMax ? `${leadMin}` : `${leadMin}–${leadMax}`,
-    priceMin: Math.min(...prices),
-    gstLabel: gstRates.length === 1 ? `${gstRates[0]}%` : `${gstRates[0]}%–${gstRates[gstRates.length - 1]}%`,
   }
 }
 
@@ -237,8 +233,8 @@ export const PRODUCT_CATEGORIES = [
     photoCategory: "Flag",
     photoKeywords: /flag/i,
     extraFaq: (s) => ({
-      question: "What GST rate applies to flags, and how fast can they ship?",
-      answer: `Flags are billed at ${s.gstLabel} GST. Stick flags dispatch in as little as ${s.leadMin} working days after artwork approval — relevant for election and event timelines — and bulk orders ship PAN India with tracking.`,
+      question: "How are flags billed, and how fast can they ship?",
+      answer: `Every order is invoiced with GST, and the applicable rate is stated on your quotation. Stick flags dispatch in as little as ${s.leadMin} working days after artwork approval — relevant for election and event timelines — and bulk orders ship PAN India with tracking.`,
     }),
   },
   {

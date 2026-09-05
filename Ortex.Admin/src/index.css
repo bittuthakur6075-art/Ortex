@@ -1,8 +1,8 @@
-@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
 @import "tailwindcss";
 
 /* ============================================================
-   Tailwind v4 theme — the Ortex "Console" design system.
+   Tailwind v4 theme - the Ortex "Console" design system.
 
    Direction (from a Mobbin survey of Attio, Linear, Stripe, Midday,
    Jobber, HoneyBook, Twenty): a quiet, dense, high-contrast B2B
@@ -14,9 +14,9 @@
    hard-code hex in components.
    ============================================================ */
 @theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
-  --font-mono: "JetBrains Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-mono: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
 
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -34,6 +34,7 @@
   --color-muted-foreground: hsl(var(--muted-foreground));
   --color-subtle: hsl(var(--subtle));
   --color-field: hsl(var(--field));
+  --color-well: hsl(var(--well));
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
   --color-border: hsl(var(--border));
@@ -44,6 +45,9 @@
   --color-destructive-strong: hsl(var(--destructive-strong));
   --color-destructive-text: hsl(var(--destructive-text));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
+  /* Exact brand red for icon hover states (search clear, row delete). Kept as a
+     literal because it was specified as #E82646, not derived from the palette. */
+  --color-danger-hover: #E82646;
   --color-success: hsl(var(--success));
   --color-success-text: hsl(var(--success-text));
   --color-warning: hsl(var(--warning));
@@ -59,20 +63,29 @@
   --radius-2xl: 14px;
   --radius-3xl: 16px;
   --radius-field: 6px;
+  /* Misc 32px controls (pagination, chips, segmented) — NOT the Button kit. */
   --radius-btn: 6px;
-  --radius-btn-sm: 6px;
-  --radius-btn-lg: 8px;
+  /* The Button scale: one radius per size, paired with 30/40/50px heights. */
+  --radius-btn-sm: 12px;
+  --radius-btn-md: 16px;
+  --radius-btn-lg: 20px;
   --radius-nav: 8px;
-  --radius-card: 12px;
+  --radius-card: 20px;
 
-  /* Surfaces: hairline + a whisper of depth; floating UI gets real shadow. */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 12px -4px rgb(15 23 42 / 0.06);
-  --shadow-lg: 0 2px 4px rgb(15 23 42 / 0.04), 0 12px 24px -8px rgb(15 23 42 / 0.10);
-  --shadow-xl: 0 24px 48px -12px rgb(15 23 42 / 0.18);
-  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-overlay: 0 0 0 1px rgb(15 23 42 / 0.06), 0 8px 24px -6px rgb(15 23 42 / 0.16);
-  --shadow-overlay-lg: 0 0 0 1px rgb(15 23 42 / 0.08), 0 24px 60px -16px rgb(15 23 42 / 0.28);
+/* Surfaces are flat: no drop shadows anywhere. Cards separate from the page by
+     their white fill alone. Floating UI (menus, modals, drawers) keeps only a
+     1px ring so it still has an edge against the content it covers — without
+     that it bleeds into whatever is behind it.
+     Every shadow-* utility in the app resolves through these, so setting them
+     here is what removes the depth; don't reintroduce shadows per component. */
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+  --shadow-card: none;
+  --shadow-overlay: 0 0 0 1px rgb(15 23 42 / 0.08);
+  --shadow-overlay-lg: 0 0 0 1px rgb(15 23 42 / 0.08);
 
   --ease-out-quart: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-ui: cubic-bezier(0.32, 0.72, 0, 1);
@@ -94,27 +107,28 @@
 /* Light (default) — Metronic 9 Demo 1: zinc neutrals, blue-500 primary,
    white canvas, hairline at 94% lightness, system sans. */
 :root {
-  --background: 0 0% 100%;          /* white canvas */
+  --background: 210 22% 96.5%;      /* #F4F6F8 canvas */
   --foreground: 240 10% 4%;         /* zinc-950 */
-  --subtle-foreground: 240 4% 46%;  /* zinc-500 — muted-foreground */
-  --primary: 217 91% 60%;           /* blue-500 #3B82F6 */
-  --primary-hover: 221 83% 53%;     /* blue-600 #2563EB */
-  --primary-pressed: 224 76% 48%;   /* blue-700 #1D4ED8 */
-  --primary-soft: 213 97% 87%;      /* blue-200 */
+  --subtle-foreground: 240 4% 46%;  /* zinc-500 - muted-foreground */
+  --primary: 229 77% 54%;           /* #2F50E4 */
+  --primary-hover: 229 74% 59%;     /* #4764E4 */
+  --primary-pressed: 229 80% 50%;   /* #193EE4 */
+  --primary-soft: 229 77% 86%;      /* #C1CBF7 */
   --primary-foreground: 0 0% 100%;
-  --secondary: 240 5% 96%;          /* zinc-100 */
-  --secondary-foreground: 240 6% 10%; /* zinc-900 */
-  --accent: 240 5% 96%;             /* zinc-100 (hover / selected) */
+  --secondary: 200 33% 98%;         /* #F9FBFC */
+  --secondary-foreground: 224 33% 21.8%; /* #252F4A */
+  --accent: 200 33% 98%;            /* #F9FBFC hover / selected */
   --accent-foreground: 240 6% 10%;
-  --muted: 240 5% 96%;              /* zinc-100 */
-  --muted-foreground: 240 4% 46%;   /* zinc-500 */
-  --subtle: 240 5% 98%;             /* zinc-50 row hover / table head */
+  --muted: 200 33% 98%;             /* #F9FBFC */
+  --muted-foreground: 224 22% 37.6%; /* #4B5675 */
+  --subtle: 200 33% 98%;            /* #F9FBFC row hover / table head */
   --field: 0 0% 100%;
+  --well: 200 33% 98%;               /* #F9FBFC */
   --card: 0 0% 100%;
   --card-foreground: 240 10% 4%;
-  --border: 240 5% 93%;             /* oklch(94% .004 286) */
-  --border-strong: 240 6% 90%;      /* zinc-200 */
-  --input: 240 6% 90%;              /* zinc-200 */
+  --border: 210 22% 96.5%;          /* #F4F6F8 */
+  --border-strong: 210 22% 96.5%;   /* #F4F6F8 */
+  --input: 210 22% 96.5%;           /* #F4F6F8 */
   --ring: 240 5% 65%;               /* zinc-400 */
   --destructive: 0 84% 60%;         /* red-500 */
   --destructive-strong: 0 72% 51%;  /* red-600 */
@@ -147,6 +161,7 @@
   --muted-foreground: 217 20% 74%;
   --subtle: 222 30% 12%;
   --field: 222 30% 10%;
+  --well: 222 26% 14%;
   --card: 222 34% 9.5%;
   --card-foreground: 210 40% 96%;
   --border: 222 22% 19%;
@@ -282,9 +297,10 @@
   position: relative;
 }
 
-/* Metronic 9 data table: 40px head row in 14px regular on a zinc-50 fill,
-   14px cells, vertical column dividers, row hover. Apply `mt-head` to <thead>
-   and `mt-body` to <tbody>. */
+/* Data table: 40px head row in 14px regular on the canvas grey, 14px cells,
+   row hover. Horizontal rules only — no vertical column dividers and no outer
+   border, so the table reads as rows of content rather than a spreadsheet.
+   Apply `mt-head` to <thead> and `mt-body` to <tbody>. */
 .mt-head th {
   height: 40px;
   padding: 0 16px;
@@ -295,22 +311,69 @@
   text-align: left;
   white-space: nowrap;
   vertical-align: middle;
-  background: hsl(var(--subtle));
+  /* Canvas grey, not --subtle: --subtle sits at 98% lightness, which is
+     invisible against the white card the table lives in. --background is the
+     same step the page already uses between canvas and card, so the head reads
+     as a band without adding a heavier rule. */
+  background: hsl(var(--background));
   border-bottom: 1px solid hsl(var(--border));
-  border-inline-end: 1px solid hsl(var(--border));
 }
-.mt-head th:last-child { border-inline-end: 0; }
 .mt-head th.text-right { text-align: right; }
 .mt-body td {
   font-size: 14px;
   line-height: 20px;
   vertical-align: middle;
   border-bottom: 1px solid hsl(var(--border));
-  border-inline-end: 1px solid hsl(var(--border));
 }
-.mt-body td:last-child { border-inline-end: 0; }
 .mt-body tr:last-child td { border-bottom: 0; }
 .mt-body tr:hover td { background: hsl(var(--subtle)); }
+
+/* Checkboxes. The native control draws a heavy ~2px grey border that fights
+   the 1px hairlines everywhere else, and no amount of `accent-color` thins it —
+   so draw our own: 1px rule, brand fill when checked, an inline SVG tick.
+   Width/height here are only a default; a Tailwind size class on the element
+   still wins on specificity. */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid hsl(var(--muted-foreground) / 0.45);
+  border-radius: 5px;
+  corner-shape: squircle;
+  background-color: hsl(var(--card));
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+input[type="checkbox"]:hover:not(:disabled) {
+  border-color: hsl(var(--primary));
+}
+input[type="checkbox"]:checked {
+  background-color: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100%;
+}
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid hsl(var(--ring) / 0.4);
+  outline-offset: 1px;
+}
+input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* The browser's own search-clear cross doesn't match the icon set and can't be
+   styled, so SearchInput hides it and draws its own. */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
 
 /* Numeric columns line up nicely (money, quantities). */
 .tabular {
@@ -318,7 +381,7 @@
 }
 
 /* ============================================================
-   Login — two-panel card: sign-in form (left) + decorative
+   Login - two-panel card: sign-in form (left) + decorative
    operations-insights panel (right). Ported from the Keystone
    auth design and remapped onto Ortex's HSL design tokens so it
    stays theme-aware (light/dark). Used by components/Login.jsx.
@@ -352,7 +415,7 @@
 .lgn-botlinks a { font-size: clamp(12px, 1vw, 14px); font-weight: 500; color: hsl(var(--primary)); text-decoration: none; white-space: nowrap; background: none; border: 0; cursor: pointer; }
 .lgn-botlinks a:hover { text-decoration: underline; }
 .lgn-body { margin-top: auto; padding-top: clamp(20px, 4.5vh, 56px); max-width: 460px; width: 100%; align-self: center; text-align: center; }
-.lgn-title { font-family: 'Instrument Serif', Georgia, serif; font-size: clamp(32px, 4.4vw, 54px); font-weight: 500; letter-spacing: -.01em; line-height: 1.04; color: #071437; white-space: nowrap; }
+.lgn-title { font-family: var(--font-sans); font-size: clamp(30px, 3.6vw, 44px); font-weight: 600; letter-spacing: -.02em; line-height: 1.04; color: #071437; white-space: nowrap; }
 .lgn-sub { margin: 4px auto 0; max-width: none; font-size: 16px; font-weight: 400; line-height: 1.5; color: #4B5675; }
 .lgn-form { margin-top: clamp(20px, 4vh, 40px); text-align: left; }
 .lgn-form input { height: 50px; border-radius: 20px; corner-shape: squircle; }
@@ -366,7 +429,7 @@
 .lgn-right { position: relative; overflow: hidden; background: hsl(var(--primary)); }
 .lgn-img { display: block; width: 100%; height: 100%; object-fit: cover; filter: brightness(.74) saturate(1.05); }
 /* Single centered column: caption → stat → actions. Capped widths keep it
-   inside the half-panel at any width; the panel never scrolls — on short
+   inside the half-panel at any width; the panel never scrolls - on short
    viewports the height media queries below drop the lowest-priority cards so
    the content always fits 100dvh instead of clipping or scrolling. */
 .lgn-overlay { position: absolute; inset: 0; padding: clamp(24px, 3vw, 52px) 28px; display: flex; flex-direction: column; flex-wrap: nowrap; align-items: center; justify-content: center; gap: clamp(14px, 2.2vh, 26px); overflow: hidden; }
@@ -467,7 +530,7 @@
 }
 
 /* Below lg: the decorative panel is hidden and the sign-in form takes the whole
-   screen, centered — a single viewport with no horizontal or vertical scroll. */
+   screen, centered - a single viewport with no horizontal or vertical scroll. */
 @media (max-width: 991px) {
   .lgn { height: auto; min-height: 100dvh; overflow: auto; }
   .lgn-card { grid-template-columns: 1fr; height: auto; min-height: 100dvh; overflow: visible; }
@@ -491,7 +554,7 @@
 }
 
 /* ============================================================
-   Print — used by the quotation & invoice document views.
+   Print - used by the quotation & invoice document views.
    Everything outside .print-area is hidden; the document prints
    on white with dark ink regardless of the current theme.
    ============================================================ */
@@ -525,7 +588,7 @@
 }
 
 /* ============================================================
-   Document overlay + A4 sheet — Quotation / Tax invoice.
+   Document overlay + A4 sheet - Quotation / Tax invoice.
    Ported from the Keystone invoice document (.invoice-doc / .iv-*):
    dark fixed toolbar, a true 210mm × 297mm sheet, one solid black rule
    under the line-table head, #EBEBEB hairlines everywhere else, right-half
@@ -537,13 +600,13 @@
 .doc-toolbar { flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 14px 12px 18px; background: #000; }
 .doc-toolbar-title { flex: 1 1 auto; min-width: 0; font-weight: 700; font-size: 14px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .doc-toolbar-title small { font-weight: 500; color: rgba(255, 255, 255, 0.6); margin-left: 8px; }
-.doc-tb-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: background 150ms ease, color 150ms ease; }
+.doc-tb-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 12px; corner-shape: squircle; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: background 150ms ease, color 150ms ease; }
 .doc-tb-btn.ghost { background: transparent; color: #fff; border-color: rgba(255, 255, 255, 0.22); }
 .doc-tb-btn.ghost:hover { background: rgba(255, 255, 255, 0.1); }
 .doc-tb-btn.primary { background: hsl(var(--primary)); color: #fff; }
 .doc-tb-btn.primary:hover { background: hsl(var(--primary-hover)); }
 .doc-tb-btn:disabled { opacity: 0.6; cursor: default; }
-.doc-tb-close { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border: none; background: rgba(255, 255, 255, 0.12); color: #fff; border-radius: 999px; cursor: pointer; transition: background 150ms ease; }
+.doc-tb-close { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border: none; background: rgba(255, 255, 255, 0.12); color: #fff; border-radius: 999px; cursor: pointer; transition: background 150ms ease; }
 .doc-tb-close:hover { background: rgba(225, 29, 72, 0.6); }
 .doc-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 32px 16px 56px; }
 

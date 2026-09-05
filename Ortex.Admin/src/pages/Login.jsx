@@ -200,7 +200,7 @@ export default function Login() {
                   rather than leaving anyone guessing at a locked door. */}
               {!hasSupabase && (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Offline demo mode — no database configured. Use any email and the passphrase{" "}
+                  Offline demo mode - no database configured. Use any email and the passphrase{" "}
                   <span className="font-semibold text-foreground">ortex@admin</span>.
                 </p>
               )}

@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom"
 import {
   Target,
   Plus,
-  Search,
   LayoutGrid,
   List as ListIcon,
   Flame,
@@ -30,8 +29,7 @@ import {
 import { LEAD_STAGES, OPEN_LEAD_STAGES, ACTIVITY_TYPES, LEAD_SOURCES, LOST_REASONS, PRODUCT_CATEGORIES, newLead, stageProbability } from "../data/domain/schema"
 import { formatCurrency, formatDate, toDateInput, daysUntil, relativeTime, round2 } from "../lib/format"
 import { cn } from "../lib/cn"
-import PageHeader, { ActionBar } from "../components/layout/PageHeader"
-import { Button, Card, Input, Select, Textarea, Field, Badge, StatCard, StatusBadge, EmptyState, Avatar, Money, Chip, Drawer, Modal, PageLoader, SortTh, Segmented } from "../components/ui/Ui"
+import { Button, Card, CardHeader, Input, SearchInput, Select, Textarea, Field, Badge, StatCard, StatusBadge, EmptyState, Avatar, Money, Chip, Drawer, Modal, PageLoader, SortTh, Segmented } from "../components/ui/Ui"
 
 // Follow-up urgency from the nextFollowUp date.
 function followState(lead) {
@@ -43,8 +41,7 @@ function followState(lead) {
   return null
 }
 
-export default function Leads({ embedded = false }) {
-  const Header = embedded ? ActionBar : PageHeader
+export default function Leads() {
   const { items, loading } = useCollection("leads")
   const location = useLocation()
   const navigate = useNavigate()
@@ -97,32 +94,33 @@ export default function Leads({ embedded = false }) {
 
   return (
     <div>
-      <Header title="Leads" subtitle="Sales pipeline — qualify, follow up and convert to quotes">
-        <Segmented
-          size="md"
-          value={view}
-          onChange={setView}
-          items={[
-            { value: "board", label: "Board", icon: LayoutGrid },
-            { value: "list", label: "List", icon: ListIcon },
-          ]}
-        />
-        <Button size="sm" onClick={() => setSelected("new")}>
-          <Plus className="h-4 w-4" /> New lead
-        </Button>
-      </Header>
-
       {/* KPI strip */}
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard icon={TrendingUp} label="Weighted pipeline" value={<Money value={stats.weighted} compact />} sub={`of ${formatCurrency(stats.raw)} raw`} accent="bg-primary/10 text-primary" />
+        <StatCard icon={TrendingUp} label="Weighted pipeline" value={<Money value={stats.weighted} compact />} accent="bg-primary/10 text-primary" />
         <StatCard icon={Target} label="Open leads" value={stats.openCount} accent="bg-primary/10 text-primary" />
         <StatCard icon={Clock} label="Follow-ups overdue" value={stats.overdue} accent="bg-destructive/10 text-destructive-text" />
         <StatCard icon={CalendarClock} label="Due today" value={stats.today} accent="bg-warning/10 text-warning-text" />
       </div>
 
-      <div className="relative mb-4 md:w-[360px]">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle-foreground" />
-        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search lead, company, owner…" className="pl-10" />
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <SearchInput
+          className="w-full md:w-[360px]"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search leads"
+        />
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Segmented
+            size="md"
+            value={view}
+            onChange={setView}
+            items={[
+              { value: "board", label: "Board", icon: LayoutGrid },
+              { value: "list", label: "List", icon: ListIcon },
+            ]}
+          />
+          <Button onClick={() => setSelected("new")}>New lead</Button>
+        </div>
       </div>
 
       {items.length === 0 ? (
@@ -188,7 +186,7 @@ function Board({ leads, onOpen, onMove }) {
             >
               <div className="mb-1 flex items-center justify-between px-1.5 pt-1">
                 <div className="flex items-center gap-2">
-                  <StatusBadge list={LEAD_STAGES} status={stage.id} dot={false} />
+                  <StatusBadge list={LEAD_STAGES} status={stage.id} />
                   <span className="text-xs font-medium text-muted-foreground tabular">{cards.length}</span>
                 </div>
                 <span className="text-[11px] text-subtle-foreground">{stageProbability(stage.id)}%</span>
@@ -258,6 +256,7 @@ function LeadList({ leads, onOpen }) {
   }, [leads, sort])
   return (
     <Card className="overflow-hidden">
+      <CardHeader title="Leads" />
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="mt-head">
@@ -280,7 +279,7 @@ function LeadList({ leads, onOpen }) {
                       <Avatar name={l.customer?.company || l.customer?.name} />
                       <div className="min-w-0">
                         <div className="truncate font-medium text-foreground">{l.customer?.company || l.customer?.name}</div>
-                        <div className="truncate text-xs text-muted-foreground">{l.productInterest || "—"}</div>
+                        <div className="truncate text-xs text-muted-foreground">{l.productInterest || "-"}</div>
                       </div>
                     </div>
                   </td>
@@ -292,9 +291,9 @@ function LeadList({ leads, onOpen }) {
                   </td>
                   <td className="px-4 py-3 text-right tabular text-muted-foreground">{computeLeadScore(l)}</td>
                   <td className="px-4 py-3">
-                    {fu ? <Badge tone={fu.tone}>{fu.label}</Badge> : l.nextFollowUp ? <span className="text-xs text-muted-foreground">{formatDate(l.nextFollowUp)}</span> : <span className="text-xs text-muted-foreground">—</span>}
+                    {fu ? <Badge tone={fu.tone}>{fu.label}</Badge> : l.nextFollowUp ? <span className="text-xs text-muted-foreground">{formatDate(l.nextFollowUp)}</span> : <span className="text-xs text-muted-foreground">-</span>}
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">{l.owner || "—"}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{l.owner || "-"}</td>
                 </tr>
               )
             })}
@@ -466,7 +465,7 @@ function LeadDrawer({ lead, onClose }) {
           </Field>
           <Field label="Product interest">
             <Select value={form.productInterest} onChange={(e) => patch({ productInterest: e.target.value })}>
-              <option value="">—</option>
+              <option value="">-</option>
               {PRODUCT_CATEGORIES.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -480,7 +479,7 @@ function LeadDrawer({ lead, onClose }) {
         </div>
 
         {/* Customer */}
-        <div className="grid grid-cols-2 gap-4 rounded-xl border border-border bg-muted/20 p-4">
+        <div className="grid grid-cols-2 gap-4 rounded-xl bg-muted/20 p-4">
           <Field label="Contact">
             <Input value={form.customer.name} onChange={(e) => setC("name", e.target.value)} onBlur={() => !isNew && repo.update("leads", lead.id, { customer: form.customer })} />
           </Field>

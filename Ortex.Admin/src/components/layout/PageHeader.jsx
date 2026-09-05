@@ -13,6 +13,13 @@ export default function PageHeader({ eyebrow, title, subtitle, children }) {
   )
 }
 
+// Full-bleed white band behind a hub title + tab bar, so the page chrome runs
+// unbroken from the top header down to the tab underline. The negative margins
+// cancel the <main> padding (px-6 pt-5).
+export function HeaderBand({ children, className }) {
+  return <div className={["-mx-6 -mt-5 mb-5 border-b border-l border-t border-border bg-card px-6 pt-5", className].filter(Boolean).join(" ")}>{children}</div>
+}
+
 // Drop-in replacement for PageHeader when a page is embedded as a tab inside a
 // parent page that already owns the title: keeps the actions, drops the title.
 export function ActionBar({ subtitle, children }) {

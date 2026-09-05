@@ -1,17 +1,10 @@
-import { Chip, Input } from "../../components/ui/Ui"
+import { Chip, ChipGroup, SearchInput } from "../../components/ui/Ui"
 import { RANGES } from "./helpers"
 
-export default function CallFilters({ query, setQuery, view, setView, range, setRange, stats, filtering, visibleCount }) {
+export default function CallFilters({ query, setQuery, view, setView, range, setRange, stats, filtering, visibleCount, actions }) {
   return (
     <div className="mb-5 flex flex-wrap items-center gap-3">
-      <div className="w-full max-w-sm">
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search name, phone, product, city, requirement…"
-        />
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <ChipGroup className="min-w-0">
         <Chip active={view === "all"} onClick={() => setView("all")}>All</Chip>
         <Chip active={view === "attention"} onClick={() => setView("attention")}>Needs follow-up</Chip>
         <Chip active={view === "support"} onClick={() => setView("support")}>
@@ -23,12 +16,21 @@ export default function CallFilters({ query, setQuery, view, setView, range, set
             {r.label}
           </Chip>
         ))}
-      </div>
+      </ChipGroup>
       {filtering && (
         <span className="text-sm text-muted-foreground">
           {visibleCount} of {stats.calls} shown
         </span>
       )}
+      <div className="flex items-center gap-[10px] md:ml-auto">
+        <SearchInput
+          className="w-full max-w-sm"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search voice calls"
+        />
+        {actions}
+      </div>
     </div>
   )
 }

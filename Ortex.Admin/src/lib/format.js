@@ -23,13 +23,13 @@ export function formatNumber(n) {
 
 export function formatDate(ts) {
   const d = new Date(ts)
-  if (Number.isNaN(d.getTime())) return "—"
+  if (Number.isNaN(d.getTime())) return "-"
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
 }
 
 export function formatDateTime(ts) {
   const d = new Date(ts)
-  if (Number.isNaN(d.getTime())) return "—"
+  if (Number.isNaN(d.getTime())) return "-"
   return d.toLocaleString("en-IN", {
     day: "2-digit",
     month: "short",

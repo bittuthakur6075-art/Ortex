@@ -4,7 +4,7 @@ import { Package, Tags, LayoutGrid } from "../components/ui/Icons"
 import { useProfile } from "../hooks/useProfile"
 import { useCollections } from "../hooks/useCollection"
 import { canAccess } from "../data/domain/modules"
-import PageHeader from "../components/layout/PageHeader"
+import PageHeader, { HeaderBand } from "../components/layout/PageHeader"
 import { Tabs } from "../components/ui/Ui"
 import Products from "./Products"
 import Categories from "./Categories"
@@ -21,11 +21,6 @@ const TABS = [
 ]
 
 export const CATALOG_MODULE_KEYS = TABS.map((t) => t.moduleKey)
-
-function Count({ n }) {
-  if (!n) return null
-  return <span className="rounded-md bg-muted px-1.5 text-[11px] font-semibold leading-4 text-muted-foreground tabular">{n}</span>
-}
 
 export default function Catalog() {
   const profile = useProfile()
@@ -48,27 +43,20 @@ export default function Catalog() {
 
   if (!current) return null
 
-  const items = allowed.map((t) => ({
-    value: t.value,
-    icon: t.icon,
-    label: (
-      <>
-        {t.label} <Count n={counts[t.value]} />
-      </>
-    ),
-  }))
+  const items = allowed.map((t) => ({ value: t.value, icon: t.icon, label: t.label, count: counts[t.value] || undefined }))
 
   const Page = current.Page
 
   return (
     <div>
-      <PageHeader title="Catalog" subtitle="Products, website categories and work photos" />
-      <Tabs
-        className="mb-5"
-        items={items}
-        value={current.value}
-        onChange={(v) => setParams({ tab: v }, { replace: true })}
-      />
+      <HeaderBand>
+        <PageHeader title="Catalog" subtitle="Products, website categories and work photos" />
+        <Tabs
+          items={items}
+          value={current.value}
+          onChange={(v) => setParams({ tab: v }, { replace: true })}
+        />
+      </HeaderBand>
       <Page key={current.value} embedded />
     </div>
   )

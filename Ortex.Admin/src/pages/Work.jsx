@@ -9,10 +9,26 @@ import { supabase, hasSupabase } from "../data/store/supabaseClient"
 import { WORK_SEED } from "../data/seed/workSeed"
 import PageHeader, { ActionBar } from "../components/layout/PageHeader"
 import ImageField from "../components/editors/ImageField"
-import { Button, Card, Input, Select, Textarea, Field, EmptyState, Modal, PageLoader } from "../components/ui/Ui"
+import { Button, Card, Input, Select, Textarea, Field, EmptyState, Drawer, PageLoader } from "../components/ui/Ui"
 
 // Sentinel option in the category dropdown that reveals a free-text input.
 const OTHER = "__other"
+
+// One labelled block inside the editor drawer.
+function Group({ title, note, action, children }) {
+  return (
+    <section>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+        <div className="flex items-baseline gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+          {note && <span className="text-xs text-subtle-foreground">{note}</span>}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  )
+}
 
 export default function Work({ embedded = false }) {
   const Header = embedded ? ActionBar : PageHeader
@@ -37,7 +53,7 @@ export default function Work({ embedded = false }) {
 
   return (
     <div>
-      <Header title="Work showcase" subtitle="Photos shown on the website /work page — add, caption, and reorder">
+      <Header title="Work showcase" subtitle="Photos shown on the website /work page - add, caption, and reorder">
         {items.length > 0 && (
           <Button size="sm" onClick={() => setEditing("new")}>
             <Plus className="h-4 w-4" /> New work item
@@ -90,7 +106,7 @@ export default function Work({ embedded = false }) {
               </div>
               <div className="p-3">
                 <div className="truncate text-sm font-medium text-foreground">{w.title || "Untitled"}</div>
-                <div className="truncate text-xs text-muted-foreground">{w.category || "—"}</div>
+                <div className="truncate text-xs text-muted-foreground">{w.category || "-"}</div>
               </div>
             </Card>
           ))}
@@ -155,7 +171,7 @@ function WorkForm({ open, work, onClose }) {
         title: data.title?.trim() || f.title,
         alt: data.alt?.trim() || f.alt,
       }))
-      toast.success("AI copy generated — review before saving")
+      toast.success("AI copy generated - review before saving")
     } catch (err) {
       console.error("Work AI copy failed:", err)
       toast.error(err?.message || "AI generation failed")
@@ -193,49 +209,56 @@ function WorkForm({ open, work, onClose }) {
   }
 
   return (
-    <Modal
+    <Drawer
       open={open}
       onClose={onClose}
-      title={isEdit ? "Edit work item" : "New work item"}
-      width="max-w-2xl"
+      title={isEdit ? form.title || "Edit work photo" : "New work photo"}
+      subtitle={
+        isEdit
+          ? [form.category || "Uncategorised", form.active === false ? "Hidden" : "Live on /work"].join(" · ")
+          : "A photo for the public /work gallery"
+      }
+      width="w-[40vw] min-w-[460px] max-w-none"
       footer={
         <div className="flex w-full items-center justify-between">
           {isEdit ? (
-            <Button variant="dangerGhost" size="sm" onClick={remove}>
+            <Button variant="dangerGhost" onClick={remove}>
               <Trash2 className="h-4 w-4" /> Delete
             </Button>
           ) : (
             <span />
           )}
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onClose}>
+            <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button size="sm" onClick={save}>
-              {isEdit ? "Save" : "Add work item"}
-            </Button>
+            <Button onClick={save}>{isEdit ? "Save changes" : "Add work photo"}</Button>
           </div>
         </div>
       }
     >
-      <div className="space-y-4">
-        <ImageField label="Image" required error={error && !form.image ? error : ""} value={form.image} onChange={(url) => set("image", url)} bucket="work" />
+      <div className="space-y-6">
+        <Group title="Photo" note="Shown at up to 1000px on the website">
+          <ImageField label="" required error={error && !form.image ? error : ""} value={form.image} onChange={(url) => set("image", url)} bucket="work" />
+        </Group>
 
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Caption &amp; SEO</p>
-          <Button variant="outline" size="sm" onClick={generateCopy} disabled={aiBusy}>
-            <Sparkles className="h-4 w-4" /> {aiBusy ? "Writing…" : "AI writer"}
-          </Button>
-        </div>
-
+        <Group
+          title="Caption & SEO"
+          action={
+            <Button variant="outline" size="sm" onClick={generateCopy} disabled={aiBusy}>
+              <Sparkles className="h-4 w-4" /> {aiBusy ? "Writing…" : "AI writer"}
+            </Button>
+          }
+        >
+        <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <Field label="Title" required error={error && form.image && !form.title.trim() ? error : ""} hint="Caption shown on the photo">
             <Input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Custom printed lanyards" autoFocus />
           </Field>
-          <Field label="Category" hint="Filter bucket on /work — matches catalogue categories">
+          <Field label="Category" hint="Filter bucket on /work - matches catalogue categories">
             <div className="space-y-2">
               <Select value={isCustom ? OTHER : form.category} onChange={(e) => onCategorySelect(e.target.value)}>
-                <option value="">— Select —</option>
+                <option value="">- Select -</option>
                 {categoryNames.map((name) => (
                   <option key={name} value={name}>
                     {name}
@@ -250,22 +273,26 @@ function WorkForm({ open, work, onClose }) {
           </Field>
         </div>
 
-        <Field label="Alt text" hint="Accessibility description; falls back to title">
+        <Field label="Alt text" hint="Read aloud by screen readers and used by Google Images; falls back to the title">
           <Textarea value={form.alt} onChange={(e) => set("alt", e.target.value)} placeholder="Describe what the photo shows…" />
         </Field>
-
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Sort order" hint="Lower shows first">
-            <Input type="number" value={form.sortOrder} onChange={(e) => set("sortOrder", e.target.value)} placeholder="0" />
-          </Field>
-          <Field label="Visibility">
-            <label className="flex h-10 items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.active !== false} onChange={(e) => set("active", e.target.checked)} />
-              Show on website
-            </label>
-          </Field>
         </div>
+        </Group>
+
+        <Group title="Placement">
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Sort order" hint="Lower shows first">
+              <Input type="number" value={form.sortOrder} onChange={(e) => set("sortOrder", e.target.value)} placeholder="0" />
+            </Field>
+            <Field label="Visibility">
+              <label className="flex h-[45px] items-center gap-2 text-sm">
+                <input type="checkbox" checked={form.active !== false} onChange={(e) => set("active", e.target.checked)} />
+                Show on website
+              </label>
+            </Field>
+          </div>
+        </Group>
       </div>
-    </Modal>
+    </Drawer>
   )
 }

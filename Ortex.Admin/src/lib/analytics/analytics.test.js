@@ -56,7 +56,7 @@ describe("computeGrowthAnalytics", () => {
 
   it("counts visitors, splitting new vs returning by first-ever visit", () => {
     expect(g.visitors).toBe(2)
-    expect(g.newVisitors).toBe(1) // B — A was first seen 60 days ago
+    expect(g.newVisitors).toBe(1) // B - A was first seen 60 days ago
     expect(g.returningVisitors).toBe(1)
   })
 

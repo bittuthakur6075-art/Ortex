@@ -28,7 +28,7 @@ function writeCollection(name, rows) {
   } catch (err) {
     // Browser localStorage is ~5MB; base64 product images are the usual culprit.
     if (err && (err.name === "QuotaExceededError" || err.code === 22 || err.code === 1014)) {
-      throw new Error("Storage is full — the images may be too large. Remove some images or use smaller files.")
+      throw new Error("Storage is full - the images may be too large. Remove some images or use smaller files.")
     }
     throw err
   }
