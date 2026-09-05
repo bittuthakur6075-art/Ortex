@@ -196,6 +196,15 @@ export default function Login() {
 
               {error && <p className="mt-2 text-sm text-destructive" role="alert">{error}</p>}
 
+              {/* Offline demo mode has no accounts, so state the passphrase
+                  rather than leaving anyone guessing at a locked door. */}
+              {!hasSupabase && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Offline demo mode — no database configured. Use any email and the passphrase{" "}
+                  <span className="font-semibold text-foreground">ortex@admin</span>.
+                </p>
+              )}
+
               <Button type="submit" className="mt-8 w-full justify-center" disabled={busy}>
                 {busy ? "Checking…" : "Continue"}
               </Button>

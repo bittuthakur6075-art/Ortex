@@ -54,12 +54,19 @@ export async function login(email, password) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     return error ? { error: error.message } : { ok: true }
   }
-  if (password === (localStorage.getItem(PASSWORD_KEY) || DEFAULT_PASSWORD)) {
+  // Offline demo mode. The default passphrase is always accepted, alongside any
+  // custom one set earlier through changePassword. That is deliberate: this data
+  // lives in the visitor's own localStorage, which they can read and edit
+  // directly, so the gate is a speed bump rather than a security control — and a
+  // stale custom value must never lock someone out of their own demo. Real
+  // access control is Supabase auth plus RLS, used whenever it is configured.
+  const stored = localStorage.getItem(PASSWORD_KEY)
+  if (password === DEFAULT_PASSWORD || (stored && password === stored)) {
     sessionStorage.setItem(SESSION_KEY, "1")
     window.dispatchEvent(new Event(AUTH_EVENT))
     return { ok: true }
   }
-  return { error: "Incorrect password. Please try again." }
+  return { error: `Incorrect password. In offline demo mode the passphrase is "${DEFAULT_PASSWORD}".` }
 }
 
 // ---- Two-step sign-in: password, then a code emailed to the same address ----
