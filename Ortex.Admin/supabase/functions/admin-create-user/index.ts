@@ -12,6 +12,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
 import { requireStaff } from "../_shared/auth.ts"
+import { consoleUrl, isMailerConfigured, sendMail } from "../_shared/mailer.ts"
+import { inviteEmail } from "../_shared/emails.ts"
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors })
@@ -25,7 +27,7 @@ Deno.serve(async (req) => {
     if (staff instanceof Response) return staff
 
     // 2) Validate input.
-    const { email, password, name, role, modules } = await req.json()
+    const { email, password, name, role, modules, notify = true, moduleLabels = [] } = await req.json()
     if (!email || !password) return json({ error: "Email and password are required" }, 400)
     if (String(password).length < 6) return json({ error: "Password must be at least 6 characters" }, 400)
     if (!["admin", "sales"].includes(role)) return json({ error: "Role must be admin or sales" }, 400)
@@ -66,7 +68,40 @@ Deno.serve(async (req) => {
       return json({ error: `Could not apply role: ${reason}` }, 500)
     }
 
-    return json({ ok: true, id })
+    // 5) Tell the new user they have an account, and how to get in.
+    //
+    //    Deliberately after the account is fully provisioned, and deliberately
+    //    non-fatal: the login exists and works whether or not the mail lands.
+    //    Failing the whole request over a mail error would leave the admin
+    //    thinking nothing happened, and a retry would collide on the email.
+    //    The response says what actually happened so the UI can be honest.
+    let emailed = false
+    let emailError: string | null = null
+    if (notify) {
+      if (!isMailerConfigured()) {
+        emailError = "SMTP secrets are not set on this project (SMTP_HOST / SMTP_USER / SMTP_PASS)"
+      } else {
+        try {
+          await sendMail({
+            to: email,
+            subject: "Your Ortex console account",
+            html: inviteEmail({
+              email,
+              password,
+              name,
+              roleLabel: role === "admin" ? "Admin" : "Sales Executive",
+              modules: Array.isArray(moduleLabels) ? moduleLabels : [],
+              url: consoleUrl(),
+            }),
+          })
+          emailed = true
+        } catch (e) {
+          emailError = String((e as Error)?.message ?? e)
+        }
+      }
+    }
+
+    return json({ ok: true, id, emailed, emailError })
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500)
   }

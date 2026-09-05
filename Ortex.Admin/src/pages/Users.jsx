@@ -124,10 +124,29 @@ function UserEditor({ user, selfId, onClose, onSaved }) {
   const [role, setRole] = useState(user?.role || "sales")
   const [modules, setModules] = useState(user?.modules || SALES_DEFAULT_MODULES)
   const [active, setActive] = useState(user?.active ?? true)
+  const [notify, setNotify] = useState(true)
   const [busy, setBusy] = useState(false)
 
   const toggleModule = (key) =>
     setModules((m) => (m.includes(key) ? m.filter((k) => k !== key) : [...m, key]))
+
+  // Group the checklist the way the sidebar is grouped, so granting access maps
+  // onto how people actually describe the app ("give them CRM") rather than a
+  // flat wall of twelve checkboxes.
+  const moduleSections = useMemo(() => {
+    const bySection = new Map()
+    for (const m of ASSIGNABLE_MODULES) {
+      if (!bySection.has(m.section)) bySection.set(m.section, [])
+      bySection.get(m.section).push(m)
+    }
+    return [...bySection.entries()]
+  }, [])
+
+  const toggleSection = (items) => {
+    const keys = items.map((m) => m.key)
+    const allOn = keys.every((k) => modules.includes(k))
+    setModules((m) => (allOn ? m.filter((k) => !keys.includes(k)) : [...new Set([...m, ...keys])]))
+  }
 
   const save = async () => {
     if (!isEdit && (!email.trim() || !password)) return toast.error("Email and password are required")
@@ -139,13 +158,34 @@ function UserEditor({ user, selfId, onClose, onSaved }) {
         await updateProfile(user.id, { name, role, modules, active })
         toast.success("User updated")
       } else {
-        const res = await createUser({ email: email.trim(), password, name, role, modules })
+        const res = await createUser({
+          email: email.trim(),
+          password,
+          name,
+          role,
+          modules,
+          notify,
+          // Sent so the email can list access in the same words the console
+          // uses, without the function needing to know the module registry.
+          moduleLabels: role === "admin" ? ["Every module"] : modules.map(moduleLabel),
+        })
         if (res.error) {
           toast.error(res.error)
           setBusy(false)
           return
         }
-        toast.success(`User ${email} created`)
+        if (!notify) {
+          toast.success(`User ${email} created. Share the password securely.`)
+        } else if (res.emailed) {
+          toast.success(`User ${email} created and emailed their details`)
+        } else {
+          // The account exists; only the mail failed. Say so plainly, because
+          // the admin is now the only route those credentials have.
+          toast.warning(`User ${email} created, but the email failed — share the password manually.`, {
+            description: res.emailError || undefined,
+            duration: 12000,
+          })
+        }
       }
       onSaved()
     } catch (e) {
@@ -173,13 +213,35 @@ function UserEditor({ user, selfId, onClose, onSaved }) {
             <Field label="Email" required>
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="person@ortexindustries.in" />
             </Field>
-            <Field label="Temporary password" required hint="Share securely; they can change it in Settings">
+            <Field
+              label="Temporary password"
+              required
+              hint={notify ? "Emailed to them; they change it in Settings" : "Share securely; they can change it in Settings"}
+            >
               <div className="flex gap-2">
                 <Input value={password} onChange={(e) => setPassword(e.target.value)} />
                 <Button type="button" variant="outline" size="sm" onClick={() => setPassword(randomPassword())}>New</Button>
               </div>
             </Field>
           </div>
+        )}
+        {!isEdit && (
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
+              checked={notify}
+              onChange={(e) => setNotify(e.target.checked)}
+            />
+            <span className="text-sm">
+              <span className="font-medium text-foreground">Email them their sign-in details</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Sends the console link, their email and this password. A password sent by email stays
+                in that inbox, so the message tells them to change it — and they can sign in with a
+                one-time code instead.
+              </span>
+            </span>
+          </label>
         )}
         <Field label="Full name">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Priya Sharma" />
@@ -198,18 +260,42 @@ function UserEditor({ user, selfId, onClose, onSaved }) {
               <ShieldCheck className="h-4 w-4 text-primary" /> Admins have access to every module.
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {ASSIGNABLE_MODULES.map((m) => (
-                <label key={m.key} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-border accent-primary"
-                    checked={modules.includes(m.key)}
-                    onChange={() => toggleModule(m.key)}
-                  />
-                  {m.label}
-                </label>
-              ))}
+            <div className="space-y-3">
+              {moduleSections.map(([section, items]) => {
+                const allOn = items.every((m) => modules.includes(m.key))
+                return (
+                  <div key={section}>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-foreground">{section}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleSection(items)}
+                        className="text-xs font-medium text-primary hover:underline"
+                      >
+                        {allOn ? "Clear" : "Select all"}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {items.map((m) => (
+                        <label
+                          key={m.key}
+                          className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-muted/50"
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 shrink-0 rounded border-border accent-primary"
+                            checked={modules.includes(m.key)}
+                            onChange={() => toggleModule(m.key)}
+                          />
+                          {/* The registry labels carry their section ("CRM · Pipeline"),
+                              which is redundant once they sit under that heading. */}
+                          {m.label.replace(/^[^·]+·\s*/, "")}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
           {role !== "admin" && (
