@@ -4,10 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "node scripts/check-meta.mjs && vite build && node scripts/prerender.mjs",
+    "dev": "vite --mode development",
+    "build": "node scripts/check-env.mjs production && node scripts/check-meta.mjs && vite build && node scripts/prerender.mjs",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:env": "node scripts/check-env.mjs production"
   },
   "dependencies": {
     "@google/genai": "^2.11.0",

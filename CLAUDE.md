@@ -26,7 +26,7 @@ This repository contains the digital infrastructure for **Ortex Industries** (ma
 ```bash
 # From Ortex.Web/
 npm run dev       # Start Vite dev server with HMR
-npm run build     # check-meta → vite build → prerender static routes into dist/
+npm run build     # check-env → check-meta → vite build → prerender static routes into dist/
 npm run preview   # Serve build output locally
 npm run lint      # oxlint
 ```
@@ -45,16 +45,19 @@ npm run lint      # oxlint
 ### Commands
 ```bash
 # From Ortex.Admin/
-npm run dev             # Vite dev server on :5180
+npm run dev             # Vite dev server on :5180 (DEVELOPMENT Supabase project)
 npm run dev:staging     # against the staging Supabase project
-npm run build           # production build to dist/
+npm run build           # check-env → production build to dist/
 npm run build:staging
+npm run check:env       # verify the production build is not pointed at the dev DB
+npm run provision -- <ref>  # push migrations + deploy every function to a project
 npm run preview
 npm run lint            # oxlint
 npm test                # vitest — pure tests (src/lib/analytics.test.js)
 ```
 
 ### Architecture
+* **Environments**: **two Supabase projects, three environments** — development (`npm run dev`) and staging share one non-production database; production has its own. Vite loads `.env` in every mode and `.env.<mode>` overrides it, so every build runs `scripts/check-env.mjs` first: it refuses a production build that would fall back to the shared dev/staging database, and deliberately allows dev and staging to match. See `Ortex.Admin/docs/ENVIRONMENTS.md`.
 * **Database & Auth**: Supabase. `src/data/store/repository.js` resolves to `apiStore` when env vars are present, else `localStore` (offline fallback). Auth is password + emailed OTP (`src/lib/auth.js`), invite-only signups, RLS in migrations.
 * **Source layout**: `src/pages/` one page per business module plus the hub pages (`Crm`, `Catalog`, `Billing`, `Insights`) and `Login`; `src/components/{layout,ui,editors,documents}/` — `layout/` AdminLayout (sidebar shell, Ctrl/⌘K `CommandPalette`, right-side `NotificationsDrawer`) + PageHeader, `ui/` (`Ui.jsx` kit, `Icons.jsx` Iconsax adapter, `Chart`, `SectionCard`, `PasswordCard`), `editors/` (CustomerFields, ShipToFields, LineItemsEditor, ImageField, ProductImport, TallyInvoiceImport), `documents/` (DocumentView, ReceiptView); `src/hooks/` (`useCollection.js`, `useProfile.js`); `src/lib/` pure helpers (`pricing.js` GST engine, `analytics/`, `format.js`, `id.js`, `periods.js`, `roles.js`); `src/data/{store,domain,seed}/` — `store/` repository facade + apiStore/localStore/supabaseClient/sync, `domain/` schema, domain rules, settings defaults, module registry, `seed/` demo data; `src/services/` outbound integrations (notify, users, integrations).
 * **Edge functions**: `supabase/functions/<name>/index.ts`, each deployable alone. Shared code lives in `supabase/functions/_shared/`: `http.ts` (CORS + `json()`), `auth.ts` (`requireStaff(req)` staff gate), `gemini.ts` (`generateContent`, `extractText`, `logAiUsage`). Import from there instead of redefining. Type-check with `npm run check:functions` (fetches Deno 2 via npx; CI runs it on every push).
