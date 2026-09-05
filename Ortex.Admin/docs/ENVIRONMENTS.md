@@ -302,9 +302,18 @@ references — the stock one renders `{{ .ConfirmationURL }}`, so a fresh projec
 mails a link the console cannot accept, and the login screen sits waiting for
 digits that never arrive.
 
-`supabase/templates/magic-link.html` is the template that fixes this. Paste it
-into Dashboard → Authentication → Emails → **Magic Link**, and set the subject
-to *Your Ortex sign-in code*.
+`supabase/templates/magic-link.html` is the template that fixes this. Apply it
+with `npm run push:emails` (needs a personal access token in
+`SUPABASE_ACCESS_TOKEN`), or paste it into Dashboard → Authentication → Emails
+→ **Magic link or OTP** with the subject *Your Ortex sign-in code*. Pasting by
+hand? Strip the HTML comments first — the script does it automatically, and
+otherwise they get mailed to every recipient.
+
+> **Templates cannot be edited on Supabase's built-in email service.** The
+> dashboard shows "Set up custom SMTP to edit templates", and the Management
+> API refuses the write. Custom SMTP is required first — which you want anyway,
+> because the built-in sender is rate-limited to a handful of messages an hour
+> and is explicitly not for production.
 
 Keep `{{ .ConfirmationURL }}` out of it. Referencing both mails both, and the
 link is the riskier half: it redirects to the project's Site URL, so it fails
@@ -316,6 +325,51 @@ Edit the file here whenever you change the dashboard, or the next person finds
 no history. While you are on that screen, check **Email OTP Expiration** under
 Authentication → Sessions — the default 3600s is a long life for a code that
 opens the live ledger; 600s is a saner ceiling.
+
+#### SMTP
+
+Auth mail goes out through Hostinger, from a real mailbox on the domain, so
+codes arrive as Ortex rather than as Supabase. Dashboard → Authentication →
+Emails → **SMTP Settings**:
+
+| Field | Value |
+| ----- | ----- |
+| Sender email / Username | `noreply@ortexindustries.in` (identical in both) |
+| Sender name | `Ortex Industries` |
+| Host | `smtp.hostinger.com` |
+| Port | `465` (implicit TLS; `587` STARTTLS also works) |
+| Password | the mailbox password, from hPanel |
+
+Sender address and username must match exactly — Hostinger refuses to relay
+mail claiming a sender it did not authenticate. Supabase reports every SMTP
+failure as the same opaque `500 Error sending magic link email`, so when it
+breaks, test the mailbox directly rather than guessing: connect to the host,
+`AUTH LOGIN`, and read the real reply (`535` is a bad password, `553` a refused
+sender). The mailbox password lives only in hPanel and Supabase; it is not in
+this repo and must not be.
+
+**This ties sign-in to the Hostinger plan.** If that plan lapses the mailbox
+stops, codes stop, and nobody can reach the console. Renewal is now an
+availability concern, not just a hosting one.
+
+#### Domain records
+
+Sending as `@ortexindustries.in` requires the domain to vouch for it, or Gmail
+files sign-in codes as spam — which is indistinguishable from never sending
+them, and sends you hunting through SMTP settings that are perfectly fine.
+All three are published (Hostinger's nameservers, `ns1/ns2.dns-parking.com`):
+
+| Record | Value |
+| ------ | ----- |
+| SPF (TXT, root) | `v=spf1 include:_spf.mail.hostinger.com ~all` |
+| DKIM (TXT) | `hostingermail1._domainkey`, 2048-bit RSA, generated in hPanel → Emails → Custom DKIM |
+| DMARC (TXT) | `v=DMARC1; p=none; rua=mailto:info@ortexindustries.in` |
+
+Keep exactly one SPF record — two is a hard failure, and it fails closed. Keep
+`~all` rather than `-all` unless every sender for the domain is listed. DKIM
+matters beyond spam scoring: it signs the message itself, so it survives
+forwarding, which SPF does not. Verify any of it from a received message in
+Gmail via **Show original** (`SPF: PASS`, `DKIM: PASS`).
 
 ### Removing the demo data
 
