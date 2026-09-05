@@ -47,3 +47,7 @@ deno.lock
 
 # Supabase CLI link state (project_id differs per staging/production checkout)
 Ortex.Admin/supabase/config.toml
+
+# Database backups written by Ortex.Admin/scripts/backup.mjs — real business
+# data, never committed.
+backups/

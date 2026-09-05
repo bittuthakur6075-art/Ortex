@@ -15,7 +15,8 @@
     "preview": "vite preview",
     "check:functions": "npx --yes deno@2 check supabase/functions/*/index.ts supabase/functions/_shared/*.ts",
     "check:env": "node scripts/check-env.mjs production",
-    "provision": "node scripts/provision-supabase.mjs"
+    "provision": "node scripts/provision-supabase.mjs",
+    "backup": "node scripts/backup.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.21.0",

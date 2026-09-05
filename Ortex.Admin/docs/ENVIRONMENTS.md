@@ -190,6 +190,46 @@ A static upload, no git auto-deploy:
 Because there are only two databases, "apply it everywhere" means running the
 provision step exactly twice: once on dev/staging, once on production.
 
+## Maintenance
+
+### Backups
+
+The free plan has no automated backup, and this database holds GST invoices and
+payment records you are required to retain. Close that gap yourself:
+
+```bash
+cd Ortex.Admin
+npm run backup                  # → backups/ortex-<timestamp>.json
+npm run backup -- --out D:/Ortex-backups
+```
+
+It reads every table through the REST API with the service-role key, so no
+Postgres client tools are needed. Add the key to `.env.production` once:
+
+```
+SUPABASE_SERVICE_ROLE_KEY=eyJ...      # Dashboard → Settings → API → service_role
+```
+
+It is not `VITE_`-prefixed, so Vite never bundles it into the browser build.
+
+Schedule it daily (Windows Task Scheduler, or cron on any always-on machine)
+and keep a copy off the machine that made it — uploading to your Hostinger
+storage is enough. What this captures is your data. The schema lives in
+`supabase/migrations/`, so a full restore is `npm run provision -- <ref>`
+followed by loading the JSON back.
+
+### Removing the demo data
+
+`supabase/maintenance/remove-demo-data.sql` deletes the sample records that
+`seedDemo()` created, leaving only real business data. Run it in the Supabase
+SQL Editor: step 1 previews, step 2 deletes, step 3 verifies.
+
+It matches on the fabricated demo emails and product SKUs rather than on ids,
+because the seed's readable ids never reach Supabase — `apiStore.toDoc()` strips
+the id before insert and the column is a uuid, so every seeded row lands with a
+fresh `gen_random_uuid()`. Take a backup first, and read the preview output
+before uncommenting step 2.
+
 ## Safety checklist
 
 - [ ] Production uses a **different** Supabase ref from dev/staging.
