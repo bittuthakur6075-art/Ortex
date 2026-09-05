@@ -8,6 +8,8 @@ import { defineConfig } from "vitest/config"
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/**/*.test.js"],
+    // scripts/ is included as well as src/ so the backup retention logic is
+    // covered: it is the only code here that deletes files unattended.
+    include: ["src/**/*.test.js", "scripts/**/*.test.js"],
   },
 })

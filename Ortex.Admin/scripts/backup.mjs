@@ -9,6 +9,7 @@
 // Usage:
 //   npm run backup                 # writes backups/ortex-YYYY-MM-DD.json
 //   npm run backup -- --out D:/x   # write somewhere else (e.g. a synced drive)
+//   npm run backup -- --keep 30    # then delete all but the 30 newest dumps
 //
 // Credentials come from .env.production:
 //   VITE_SUPABASE_URL           (already there)
@@ -23,11 +24,12 @@
 // restore, provision a project with `npm run provision -- <ref>` and load the
 // JSON back through the app or a small insert script.
 
-import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, mkdirSync, writeFileSync, readdirSync, unlinkSync } from "node:fs"
 import { resolve, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 import { createClient } from "@supabase/supabase-js"
 import { COLLECTIONS } from "../src/data/domain/schema.js"
+import { selectStale } from "./prune.mjs"
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 
@@ -111,4 +113,21 @@ writeFileSync(file, JSON.stringify(dump, null, 2))
 const mb = (Buffer.byteLength(JSON.stringify(dump)) / 1024 / 1024).toFixed(2)
 console.log(`\n✔ ${total} rows across ${Object.keys(dump.tables).length} tables → ${file} (${mb} MB)`)
 if (missing.length) console.log(`  Skipped: ${missing.join(", ")}`)
+
+// Retention. A daily backup with no cleanup fills the disk, so --keep N prunes
+// the oldest dumps once the new one is safely written. Pruning happens AFTER
+// the write, never before: a failed run must not delete the history that is
+// standing in for it. Which files go is decided by selectStale() in prune.mjs,
+// kept separate and tested because it is the one thing here that deletes data
+// unattended.
+const keepFlag = process.argv.indexOf("--keep")
+if (keepFlag > -1) {
+  const raw = process.argv[keepFlag + 1]
+  const keep = Number(raw)
+  if (!Number.isInteger(keep) || keep < 1) die(`--keep needs a positive whole number, got "${raw}"`)
+  const stale = selectStale(readdirSync(outDir), keep)
+  for (const f of stale) unlinkSync(resolve(outDir, f))
+  if (stale.length) console.log(`  Pruned ${stale.length} older backup(s), keeping the newest ${keep}.`)
+}
+
 console.log(`\nKeep a copy off this machine. Uploading it to your Hostinger storage is enough.`)

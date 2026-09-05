@@ -254,11 +254,44 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...      # Dashboard → Settings → API → servi
 
 It is not `VITE_`-prefixed, so Vite never bundles it into the browser build.
 
-Schedule it daily (Windows Task Scheduler, or cron on any always-on machine)
-and keep a copy off the machine that made it — uploading to your Hostinger
-storage is enough. What this captures is your data. The schema lives in
-`supabase/migrations/`, so a full restore is `npm run provision -- <ref>`
-followed by loading the JSON back.
+What this captures is your data. The schema lives in `supabase/migrations/`, so
+a full restore is `npm run provision -- <ref>` followed by loading the JSON
+back. Auth users and Storage objects are not included.
+
+#### Running it daily
+
+```bash
+npm run backup:schedule                 # daily at 20:00
+npm run backup:schedule -- -At 02:30    # pick another time
+npm run backup:schedule -- -Remove      # unregister
+```
+
+That registers a Windows scheduled task, **Ortex Admin - Daily DB Backup**,
+which runs `scripts/backup-daily.cmd` → `npm run backup -- --keep 30`. No
+administrator rights are needed: the task is registered with an Interactive
+principal, so it runs while you are signed in. `StartWhenAvailable` means a run
+missed because the machine was off fires as soon as you next sign in, rather
+than being skipped.
+
+Every run appends to `backups/backup.log`, including failures and the exit
+code. A scheduled task has no window, so without that log a job that started
+failing months ago looks exactly like one that is working — check it
+occasionally, or after any change to `.env.production`.
+
+`--keep 30` prunes the oldest dumps once the new one is safely written, so the
+folder settles at a month of history. The pruning decision is `selectStale()`
+in `scripts/prune.mjs`, kept separate and covered by `scripts/prune.test.js`
+because it is the only code here that deletes data unattended: it never removes
+the newest file, ignores anything that is not one of our dumps, and prunes
+nothing at all if `--keep` is malformed rather than treating it as zero.
+
+Backups on the same machine as nothing else are only half a backup. **Copy them
+off** — your Hostinger storage, OneDrive, anywhere that fails independently of
+this PC. Point the task at a synced folder to do it automatically:
+
+```bash
+npm run backup -- --out "C:/Users/<you>/OneDrive/Ortex-backups" --keep 30
+```
 
 ### Removing the demo data
 
