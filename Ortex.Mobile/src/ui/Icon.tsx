@@ -5,11 +5,13 @@ import React from "react"
 import Add from "iconsax-react-native/dist/esm/Add"
 import Additem from "iconsax-react-native/dist/esm/Additem"
 import ArrowDown2 from "iconsax-react-native/dist/esm/ArrowDown2"
+import ArrowLeft from "iconsax-react-native/dist/esm/ArrowLeft"
 import ArrowLeft2 from "iconsax-react-native/dist/esm/ArrowLeft2"
 import ArrowRight2 from "iconsax-react-native/dist/esm/ArrowRight2"
 import Box from "iconsax-react-native/dist/esm/Box"
 import Buildings2 from "iconsax-react-native/dist/esm/Buildings2"
 import Calendar from "iconsax-react-native/dist/esm/Calendar"
+import Camera from "iconsax-react-native/dist/esm/Camera"
 import Call from "iconsax-react-native/dist/esm/Call"
 import Category from "iconsax-react-native/dist/esm/Category"
 import Clock from "iconsax-react-native/dist/esm/Clock"
@@ -29,6 +31,7 @@ import Lock from "iconsax-react-native/dist/esm/Lock"
 import Logout from "iconsax-react-native/dist/esm/Logout"
 import Microphone2 from "iconsax-react-native/dist/esm/Microphone2"
 import Money from "iconsax-react-native/dist/esm/Money"
+import Moon from "iconsax-react-native/dist/esm/Moon"
 import More from "iconsax-react-native/dist/esm/More"
 import PercentageSquare from "iconsax-react-native/dist/esm/PercentageSquare"
 import Personalcard from "iconsax-react-native/dist/esm/Personalcard"
@@ -54,7 +57,10 @@ export type IconVariant = "Linear" | "Outline" | "Bold" | "Bulk" | "Broken" | "T
 
 const GLYPHS = {
   // navigation & chrome
-  back: ArrowLeft2,
+  // Capnix's app bar uses the ARROW, not a chevron: at 24 a chevron reads as a
+  // list affordance rather than "leave this screen".
+  back: ArrowLeft,
+  backChevron: ArrowLeft2,
   forward: ArrowRight2,
   down: ArrowDown2,
   more: More,
@@ -98,6 +104,8 @@ const GLYPHS = {
   warning: Danger,
   info: InfoCircle,
   image: Gallery,
+  camera: Camera,
+  theme: Moon,
   // account
   profile: ProfileCircle,
   lock: Lock,

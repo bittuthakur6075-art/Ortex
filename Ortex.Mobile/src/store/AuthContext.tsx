@@ -22,6 +22,8 @@ type AuthContextValue = {
   /** False until getSession() has resolved — avoids a login flash on launch. */
   ready: boolean
   biometricEnabled: boolean
+  /** False until the stored app-lock preference has been read back. */
+  biometricReady: boolean
   setBiometricEnabled: (on: boolean) => void
   refreshProfile: () => Promise<void>
   signOut: () => Promise<void>
@@ -34,6 +36,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = React.useState<Profile | null>(null)
   const [ready, setReady] = React.useState(false)
   const [biometricEnabled, setBiometricState] = React.useState(false)
+  // The app-lock cannot arm until this is true. `biometricEnabled` starts false
+  // and only becomes true once AsyncStorage answers, so a lock decision taken
+  // before that reads "off" on every cold start and the gate never appears.
+  const [biometricReady, setBiometricReady] = React.useState(false)
 
   React.useEffect(() => {
     let alive = true
@@ -58,6 +64,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (alive) setBiometricState(v === "1")
       })
       .catch(() => {})
+      .finally(() => {
+        if (alive) setBiometricReady(true)
+      })
 
     return () => {
       alive = false
@@ -100,11 +109,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile,
       ready,
       biometricEnabled,
+      biometricReady,
       setBiometricEnabled,
       refreshProfile: loadProfile,
       signOut,
     }),
-    [session, profile, ready, biometricEnabled, setBiometricEnabled, loadProfile, signOut],
+    [session, profile, ready, biometricEnabled, biometricReady, setBiometricEnabled, loadProfile, signOut],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

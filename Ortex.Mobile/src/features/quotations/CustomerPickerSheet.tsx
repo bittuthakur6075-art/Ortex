@@ -61,7 +61,7 @@ export default function CustomerPickerSheet({
 
   return (
     <Sheet visible={visible} onClose={onClose} title="Choose a customer">
-      <View style={[styles.search, { backgroundColor: t.searchBg }]}>
+      <View style={[styles.search, { backgroundColor: t.fieldBg }]}>
         <Icon name="search" size={18} color={t.textTertiary} />
         <TextInput
           value={query}
@@ -81,19 +81,24 @@ export default function CustomerPickerSheet({
           // user was searching for is a better starting point than nothing.
           onPick(newCustomer({ name: query.trim() }))
         }}
-        android_ripple={{ color: t.ripple }}
+        android_ripple={{ color: t.accentTint }}
         style={styles.newRow}
       >
-        <View style={[styles.newIcon, { backgroundColor: t.accentSoft }]}>
-          <Icon name="add" size={20} color={t.accent} />
+        <View style={[styles.newIcon, { backgroundColor: t.primary10 }]}>
+          <Icon name="add" size={20} color={t.primary} />
         </View>
-        <Text style={[styles.newLabel, { color: t.accent }]}>
+        <Text style={[styles.newLabel, { color: t.primary }]}>
           {query.trim() ? `New customer “${query.trim()}”` : "New customer"}
         </Text>
       </Pressable>
 
       {matches.map((c) => (
-        <Pressable key={c.id} onPress={() => pick(c)} android_ripple={{ color: t.ripple }} style={styles.row}>
+        <Pressable
+          key={c.id}
+          onPress={() => pick(c)}
+          android_ripple={{ color: t.accentTint }}
+          style={styles.row}
+        >
           <Avatar name={c.company || c.name} size="sm" />
           <View style={styles.body}>
             <Text numberOfLines={1} style={[styles.name, { color: t.text }]}>

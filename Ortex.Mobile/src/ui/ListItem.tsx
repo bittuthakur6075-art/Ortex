@@ -65,7 +65,7 @@ function ListItem({
         <Pressable
           onPress={onPress}
           disabled={disabled}
-          android_ripple={{ color: t.ripple }}
+          android_ripple={{ color: t.accentTint }}
           accessibilityRole="button"
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >

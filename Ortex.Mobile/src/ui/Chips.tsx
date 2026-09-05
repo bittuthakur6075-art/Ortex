@@ -1,7 +1,8 @@
 import React from "react"
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 
-import { useTheme } from "@/store/ThemeContext"
+import { useIsDark, useTheme } from "@/store/ThemeContext"
+import { gutter, spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 import Icon, { type IconName } from "@/ui/Icon"
 
@@ -18,8 +19,9 @@ type ChipProps = {
 /** Pill used for filters and tags. */
 export function Chip({ label, icon, tint, active, onPress, onRemove, small }: ChipProps) {
   const t = useTheme()
-  const color = tint ?? t.accent
-  const bg = active ? `${color}22` : t.dark ? "rgba(255,255,255,0.06)" : t.searchBg
+  const isDark = useIsDark()
+  const color = tint ?? t.primary
+  const bg = active ? `${color}22` : isDark ? "rgba(255,255,255,0.06)" : t.fieldBg
   const border = active ? color : "transparent"
 
   const content = (
@@ -102,7 +104,7 @@ export function ChipGroup<T extends string>({ options, value, onChange }: ChipGr
 
 const styles = StyleSheet.create({
   rail: {
-    paddingHorizontal: 20,
+    paddingHorizontal: gutter,
     paddingTop: 2,
   },
   chip: {
@@ -113,7 +115,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 7,
     marginRight: 8,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   chipSmall: {
     paddingHorizontal: 8,

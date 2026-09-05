@@ -30,13 +30,13 @@ function ProgressBar({ progress, color }: Props) {
     <View
       accessibilityRole="progressbar"
       accessibilityValue={{ min: 0, max: 100, now: Math.round(clamped * 100) }}
-      style={[styles.track, { backgroundColor: t.accentSoft }]}
+      style={[styles.track, { backgroundColor: t.primary10 }]}
     >
       <Animated.View
         style={[
           styles.fill,
           {
-            backgroundColor: color ?? t.accent,
+            backgroundColor: color ?? t.primary,
             width: width.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }),
           },
         ]}

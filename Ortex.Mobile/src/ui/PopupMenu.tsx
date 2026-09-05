@@ -69,8 +69,8 @@ export default function PopupMenu({ visible, onClose, items, top = 56 }: Props) 
             styles.menu,
             {
               top,
-              backgroundColor: t.sheetBg,
-              borderColor: t.cardBorder,
+              backgroundColor: t.surfaceRaised,
+              borderColor: t.border,
               opacity: progress,
               // Anchor the growth to the top-right corner.
               transform: [
@@ -87,7 +87,7 @@ export default function PopupMenu({ visible, onClose, items, top = 56 }: Props) 
             <Pressable
               key={item.key}
               disabled={item.disabled}
-              android_ripple={{ color: t.ripple }}
+              android_ripple={{ color: t.accentTint }}
               onPress={() => {
                 onClose()
                 item.onPress()

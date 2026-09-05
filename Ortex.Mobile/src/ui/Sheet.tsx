@@ -14,7 +14,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useTheme } from "@/store/ThemeContext"
-import { font } from "@/theme/typography"
+import { radius, motion, spacing, gutter } from "@/theme/tokens"
+import { textVariants } from "@/theme/typography"
+import { SquircleBackground } from "@/ui/Squircle"
 
 type Props = {
   visible: boolean
@@ -52,7 +54,7 @@ export default function Sheet({ visible, onClose, title, children }: Props) {
 
     Animated.timing(progress, {
       toValue: 0,
-      duration: 200,
+      duration: motion.normal,
       easing: Easing.bezier(0.4, 0, 1, 1),
       useNativeDriver: true,
     }).start(({ finished }) => {
@@ -79,14 +81,20 @@ export default function Sheet({ visible, onClose, title, children }: Props) {
           style={[
             styles.sheet,
             {
-              backgroundColor: t.sheetBg,
+              backgroundColor: "transparent",
               paddingBottom: Math.max(insets.bottom, 26),
               transform: [{ translateY }],
             },
           ]}
         >
-          <View style={[styles.grabber, { backgroundColor: t.textTertiary }]} />
-          {!!title && <Text style={[styles.title, { color: t.text }]}>{title}</Text>}
+          {/* Top corners only — the sheet's bottom edge IS the screen edge. */}
+          <SquircleBackground
+            fill={t.surfaceRaised}
+            radius={radius.sheet}
+            corners={{ topLeft: true, topRight: true, bottomLeft: false, bottomRight: false }}
+          />
+          <View style={[styles.grabber, { backgroundColor: t.borderStrong }]} />
+          {!!title && <Text style={[textVariants.title, styles.title, { color: t.text }]}>{title}</Text>}
           <ScrollView bounces={false} style={styles.scroll} contentContainerStyle={styles.scrollContent}>
             {children}
           </ScrollView>
@@ -107,35 +115,35 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(7,20,55,0.35)",
+    backgroundColor: "rgba(0,0,0,0.45)",
   },
   backdropPress: {
     flex: 1,
   },
   sheet: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    maxHeight: "78%",
+    // The silhouette SquircleBackground falls back to for the one frame before
+    // it has measured itself.
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    maxHeight: "88%",
   },
   grabber: {
-    width: 38,
+    width: 40,
     height: 4,
     borderRadius: 2,
     alignSelf: "center",
-    marginTop: 10,
-    opacity: 0.5,
+    marginTop: spacing.sm,
   },
   title: {
-    fontSize: 18,
-    fontFamily: font.bold,
-    paddingHorizontal: 22,
-    paddingTop: 16,
-    paddingBottom: 4,
+    paddingHorizontal: gutter,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
   },
   scroll: {
     flexGrow: 0,
   },
   scrollContent: {
-    paddingTop: 8,
+    paddingTop: spacing.sm,
+    paddingHorizontal: gutter,
   },
 })

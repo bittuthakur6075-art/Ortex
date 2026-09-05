@@ -42,7 +42,7 @@ function Skeleton({ width = "100%", height = 16, radius = 8 }: Props) {
 
   return (
     <Animated.View
-      style={[styles.block, { width, height, borderRadius: radius, backgroundColor: t.searchBg, opacity }]}
+      style={[styles.block, { width, height, borderRadius: radius, backgroundColor: t.fieldBg, opacity }]}
     />
   )
 }

@@ -13,6 +13,7 @@ import { feedback } from "@/lib/feedback"
 import { printQuotation, shareQuotationPdf } from "@/lib/pdf"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
+import { gutter, spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 import { Button, Card, Divider, Icon, IconButton, Sheet, Spinner, StatusBadge, useToast } from "@/ui"
 
@@ -76,7 +77,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
 
   if (loading) {
     return (
-      <View style={[styles.root, styles.centre, { backgroundColor: t.bg }]}>
+      <View style={[styles.root, styles.centre, { backgroundColor: t.background }]}>
         <Spinner label="Loading quotation" />
       </View>
     )
@@ -84,7 +85,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
 
   if (!doc) {
     return (
-      <View style={[styles.root, styles.centre, { backgroundColor: t.bg, paddingTop: insets.top }]}>
+      <View style={[styles.root, styles.centre, { backgroundColor: t.background, paddingTop: insets.top }]}>
         <Text style={{ color: t.textSecondary, fontFamily: font.medium }}>
           This quotation no longer exists.
         </Text>
@@ -101,7 +102,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
   const left = doc.validUntil ? daysUntil(doc.validUntil) : null
 
   return (
-    <View style={[styles.root, { backgroundColor: t.bg }]}>
+    <View style={[styles.root, { backgroundColor: t.background }]}>
       <View style={[styles.head, { paddingTop: insets.top + 6 }]}>
         <IconButton name="back" onPress={() => navigation.goBack()} accessibilityLabel="Back" />
         <View style={styles.headSpacer} />
@@ -239,15 +240,15 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
         )}
 
         <Pressable onPress={() => setStatusOpen(true)} style={styles.statusButton}>
-          <Icon name="tick" size={18} color={t.accent} />
-          <Text style={[styles.statusLabel, { color: t.accent }]}>Change status</Text>
+          <Icon name="tick" size={18} color={t.primary} />
+          <Text style={[styles.statusLabel, { color: t.primary }]}>Change status</Text>
         </Pressable>
       </ScrollView>
 
       <View
         style={[
           styles.footer,
-          { backgroundColor: t.headerBg, borderTopColor: t.divider, paddingBottom: insets.bottom + 12 },
+          { backgroundColor: t.appBar, borderTopColor: t.divider, paddingBottom: insets.bottom + 12 },
         ]}
       >
         <Button
@@ -266,7 +267,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
             onPress={() =>
               s.id === "rejected" ? (setStatusOpen(false), setLostOpen(true)) : void setStatus(s.id)
             }
-            android_ripple={{ color: t.ripple }}
+            android_ripple={{ color: t.accentTint }}
             style={styles.sheetRow}
           >
             <View style={[styles.dot, { backgroundColor: t.tones[s.tone].fg }]} />
@@ -278,7 +279,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
             >
               {s.label}
             </Text>
-            {s.id === doc.status && <Icon name="tick" size={20} color={t.accent} variant="Bold" />}
+            {s.id === doc.status && <Icon name="tick" size={20} color={t.primary} variant="Bold" />}
           </Pressable>
         ))}
       </Sheet>
@@ -290,7 +291,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
           <Pressable
             key={reason}
             onPress={() => void setStatus("rejected", reason)}
-            android_ripple={{ color: t.ripple }}
+            android_ripple={{ color: t.accentTint }}
             style={styles.sheetRow}
           >
             <Text style={[styles.sheetLabel, { color: t.text }]}>{reason}</Text>
@@ -323,12 +324,12 @@ const styles = StyleSheet.create({
   centre: { alignItems: "center", justifyContent: "center" },
   head: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingBottom: 4 },
   headSpacer: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 8 },
+  content: { paddingHorizontal: gutter, paddingTop: spacing.sm },
   number: { fontSize: 13, letterSpacing: 0.4, fontFamily: font.medium },
   amount: { marginTop: 2, fontSize: 34, letterSpacing: -1, fontFamily: font.extrabold },
-  headline: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8, marginBottom: 20 },
+  headline: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: spacing.sm, marginBottom: 20 },
   validity: { fontSize: 13, fontFamily: font.medium },
-  card: { marginBottom: 16 },
+  card: { marginBottom: spacing.md },
   cardTitle: {
     fontSize: 11.5,
     letterSpacing: 0.4,
@@ -338,7 +339,7 @@ const styles = StyleSheet.create({
   },
   customer: { fontSize: 18, fontFamily: font.bold },
   customerSub: { marginTop: 2, fontSize: 13.5, fontFamily: font.regular },
-  contactRow: { flexDirection: "row", gap: 8, marginTop: 14 },
+  contactRow: { flexDirection: "row", gap: spacing.sm, marginTop: 14 },
   lineRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 14 },
   lineBody: { flex: 1, marginRight: 10 },
   lineName: { fontSize: 15, fontFamily: font.semibold },
@@ -352,7 +353,7 @@ const styles = StyleSheet.create({
   statusButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 14 },
   statusLabel: { marginLeft: 8, fontSize: 15, fontFamily: font.semibold },
   footer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: gutter,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     position: "absolute",

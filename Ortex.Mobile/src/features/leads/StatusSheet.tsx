@@ -31,7 +31,7 @@ export default function StatusSheet({
           <Pressable
             key={s.id}
             onPress={() => onPick(s.id)}
-            android_ripple={{ color: t.ripple }}
+            android_ripple={{ color: t.accentTint }}
             style={styles.row}
           >
             <View style={[styles.dot, { backgroundColor: tone.fg }]} />
@@ -40,7 +40,7 @@ export default function StatusSheet({
             >
               {s.label}
             </Text>
-            {active && <Icon name="tick" size={20} color={t.accent} variant="Bold" />}
+            {active && <Icon name="tick" size={20} color={t.primary} variant="Bold" />}
           </Pressable>
         )
       })}

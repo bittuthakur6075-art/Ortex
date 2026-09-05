@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { useTheme } from "@/store/ThemeContext"
+import { useIsDark, useTheme } from "@/store/ThemeContext"
 import { palette } from "@/theme/theme"
 import { font } from "@/theme/typography"
 import { feedback } from "@/lib/feedback"
@@ -59,6 +59,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 function ToastBar({ toast, onDismiss }: { toast: ToastOptions; onDismiss: () => void }) {
   const t = useTheme()
+  const isDark = useIsDark()
   const insets = useSafeAreaInsets()
   const slide = useRef(new Animated.Value(0)).current
 
@@ -74,13 +75,7 @@ function ToastBar({ toast, onDismiss }: { toast: ToastOptions; onDismiss: () => 
 
   const tone = toast.tone ?? "neutral"
   const background =
-    tone === "success"
-      ? palette.successActive
-      : tone === "danger"
-      ? palette.errorActive
-      : t.dark
-      ? "#2A2A2A"
-      : palette.heading
+    tone === "success" ? t.success : tone === "danger" ? t.danger : isDark ? "#2A2A2A" : t.text
 
   return (
     <Animated.View

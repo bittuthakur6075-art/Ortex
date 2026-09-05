@@ -4,11 +4,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useTheme } from "@/store/ThemeContext"
 import { feedback } from "@/lib/feedback"
+import { size, spacing } from "@/theme/tokens"
 import Icon, { type IconName } from "@/ui/Icon"
 
-/** Height of OneUiTabBar; the FAB has to clear it. Kept here so the two files
- *  cannot drift into overlapping each other. */
-export const TAB_BAR_HEIGHT = 62
+/** The floating tab capsule's height, so the FAB can clear it. */
+export const TAB_BAR_HEIGHT = size.tabBar
 
 /**
  * The One UI floating action button: a 60px accent circle in the bottom-right,
@@ -50,14 +50,14 @@ export default function Fab({
       style={({ pressed }) => [
         styles.fab,
         {
-          backgroundColor: t.fabBg,
-          bottom: insets.bottom + TAB_BAR_HEIGHT + 18,
+          backgroundColor: t.primary,
+          bottom: insets.bottom + TAB_BAR_HEIGHT + spacing.xl,
           opacity: pressed ? 0.85 : 1,
           transform: [{ scale: pressed ? 0.96 : 1 }],
         },
       ]}
     >
-      <Icon name={icon} size={26} color={t.fabIcon} variant="Linear" />
+      <Icon name={icon} size={26} color={t.textOnPrimary} variant="Linear" />
     </Pressable>
   )
 }
@@ -65,7 +65,7 @@ export default function Fab({
 const styles = StyleSheet.create({
   fab: {
     position: "absolute",
-    right: 20,
+    right: spacing.lg,
     width: 60,
     height: 60,
     borderRadius: 30,

@@ -2,13 +2,18 @@ import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
 import { palette } from "@/theme/theme"
+import { spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 import { Button, Icon } from "@/ui"
+import { OrtexWordmark } from "@/ui/OrtexLogo"
 
 /** Shown instead of the app while the biometric lock is engaged. */
 export default function LockScreen({ prompting, onUnlock }: { prompting: boolean; onUnlock: () => void }) {
   return (
     <View style={styles.root}>
+      <View style={styles.mark}>
+        <OrtexWordmark height={26} color={palette.white} />
+      </View>
       <View style={styles.badge}>
         <Icon name="fingerprint" size={40} color={palette.white} variant="Linear" />
       </View>
@@ -31,6 +36,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     backgroundColor: palette.primary,
   },
+  mark: {
+    marginBottom: 34,
+  },
   badge: {
     width: 88,
     height: 88,
@@ -46,7 +54,7 @@ const styles = StyleSheet.create({
     fontFamily: font.bold,
   },
   hint: {
-    marginTop: 8,
+    marginTop: spacing.sm,
     fontSize: 14,
     textAlign: "center",
     color: palette.primary20,

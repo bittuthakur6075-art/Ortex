@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"
 
 import { GST_STATE_OPTIONS } from "@/domain/gstStates"
 import { useTheme } from "@/store/ThemeContext"
+import { spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 import { Icon, Sheet } from "@/ui"
 
@@ -33,7 +34,7 @@ export default function StatePickerSheet({
 
   return (
     <Sheet visible={visible} onClose={onClose} title="Place of supply">
-      <View style={[styles.search, { backgroundColor: t.searchBg }]}>
+      <View style={[styles.search, { backgroundColor: t.fieldBg }]}>
         <Icon name="search" size={18} color={t.textTertiary} />
         <TextInput
           value={query}
@@ -50,14 +51,14 @@ export default function StatePickerSheet({
           <Pressable
             key={o.code}
             onPress={() => onPick(o.code)}
-            android_ripple={{ color: t.ripple }}
+            android_ripple={{ color: t.accentTint }}
             style={styles.row}
           >
             <Text style={[styles.code, { color: t.textTertiary }]}>{o.code}</Text>
             <Text style={[styles.name, { color: t.text, fontFamily: active ? font.semibold : font.regular }]}>
               {o.name}
             </Text>
-            {active && <Icon name="tick" size={20} color={t.accent} variant="Bold" />}
+            {active && <Icon name="tick" size={20} color={t.primary} variant="Bold" />}
           </Pressable>
         )
       })}
@@ -75,7 +76,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     paddingHorizontal: 14,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   searchInput: { flex: 1, marginLeft: 8, padding: 0, fontSize: 15, fontFamily: font.regular },
   row: { flexDirection: "row", alignItems: "center", paddingVertical: 13, paddingHorizontal: 4 },

@@ -1,119 +1,178 @@
-import React, { memo } from "react"
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native"
+import React from "react"
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native"
 
+import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
-import { font } from "@/theme/typography"
+import type { Colors } from "@/theme/theme"
+import { radius, size as sizes, spacing, state } from "@/theme/tokens"
+import { textVariants } from "@/theme/typography"
 import Icon, { type IconName } from "@/ui/Icon"
+import { SquircleBackground } from "@/ui/Squircle"
 
-export type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger"
+/**
+ * Every action in the app.
+ *
+ * PORTED FROM C:\code\capnix\Capnix.Mobile.Partner\src\components\base\AppButton.jsx.
+ *
+ * Shape: a ROUNDED RECTANGLE whose corner steps down with its height — lg 50/10,
+ * md 48/8, sm 30/6 (`radius.button*`) — drawn at Figma's 100% smoothing (see
+ * Squircle.tsx). Not a capsule: buttons, fields and cards stay in one family of
+ * shapes rather than capsules sitting on boxes.
+ *
+ * `loading` carries BOTH the spinner and the disabled state, and the label stays
+ * put rather than swapping to "Saving…" — a label that changes width reflows the
+ * footer it sits in.
+ */
+
+export type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "outline"
+  | "ghost"
+  | "danger"
+  | "outline-danger"
+  | "warning"
 export type ButtonSize = "sm" | "md" | "lg"
+
+function variantStyle(c: Colors, variant: ButtonVariant, disabled: boolean) {
+  // A disabled control is drawn from the theme's muted plane rather than by
+  // dropping opacity on the live colours: a translucent brand over a card reads
+  // as a rendering fault, not as "unavailable".
+  if (disabled) return { bg: c.mutedBg, border: "transparent", fg: c.textTertiary }
+
+  switch (variant) {
+    case "secondary":
+      // Tonal brand: the ramp's Primary-10 fill, no border, primary text.
+      return { bg: c.primary10, border: "transparent", fg: c.primary }
+    case "outline":
+      return { bg: "transparent", border: c.borderStrong, fg: c.text }
+    case "ghost":
+      return { bg: "transparent", border: "transparent", fg: c.primary }
+    case "danger":
+      return { bg: c.danger, border: "transparent", fg: "#FFFFFF" }
+    case "outline-danger":
+      return { bg: "transparent", border: c.danger, fg: c.danger }
+    case "warning":
+      return { bg: c.warningBg, border: "transparent", fg: c.warning }
+    default:
+      return { bg: c.primary, border: "transparent", fg: c.textOnPrimary }
+  }
+}
 
 type Props = {
   label: string
-  onPress: () => void
+  onPress?: () => void
   variant?: ButtonVariant
   size?: ButtonSize
   icon?: IconName
+  trailingIcon?: IconName
   loading?: boolean
   disabled?: boolean
+  /** Stretch to the width of the parent. */
   fullWidth?: boolean
-  style?: ViewStyle
+  style?: StyleProp<ViewStyle>
   accessibilityLabel?: string
 }
 
-const SIZES: Record<
-  ButtonSize,
-  { height: number; paddingHorizontal: number; fontSize: number; iconSize: number }
-> = {
-  sm: { height: 36, paddingHorizontal: 14, fontSize: 13, iconSize: 16 },
-  md: { height: 46, paddingHorizontal: 18, fontSize: 15, iconSize: 18 },
-  lg: { height: 54, paddingHorizontal: 22, fontSize: 16.5, iconSize: 20 },
-}
-
-/**
- * Primary button used across the app. Usage:
- * `<Button label="Save" onPress={onSave} variant="primary" icon="tick" />`
- */
-function Button({
+export default function Button({
   label,
   onPress,
   variant = "primary",
-  size = "md",
+  size = "lg",
   icon,
-  loading,
-  disabled,
-  fullWidth,
+  trailingIcon,
+  loading = false,
+  disabled = false,
+  fullWidth = false,
   style,
   accessibilityLabel,
 }: Props) {
-  const t = useTheme()
-  const dims = SIZES[size]
+  const c = useTheme()
   const isDisabled = disabled || loading
+  const tone = variantStyle(c, variant, isDisabled)
 
-  const tones = {
-    primary: { bg: t.accent, pressedBg: t.accentPressed, text: "#FFFFFF", border: "transparent" },
-    secondary: { bg: t.accentSoft, pressedBg: t.accentSoft, text: t.accent, border: "transparent" },
-    outline: { bg: "transparent", pressedBg: t.ripple, text: t.text, border: t.cardBorder },
-    ghost: { bg: "transparent", pressedBg: t.ripple, text: t.text, border: "transparent" },
-    danger: { bg: t.danger, pressedBg: t.danger, text: "#FFFFFF", border: "transparent" },
-  }[variant]
+  const height = size === "md" ? sizes.buttonMd : size === "sm" ? sizes.buttonSm : sizes.buttonLg
+  const paddingHorizontal = size === "md" ? spacing.md : size === "sm" ? spacing.sm : spacing.lg
+  const textStyle =
+    size === "lg" ? textVariants.button : size === "md" ? textVariants.buttonSm : textVariants.buttonXs
+  const iconSize = size === "lg" ? 20 : 16
+  const cornerRadius = size === "md" ? radius.buttonMd : size === "sm" ? radius.buttonSm : radius.buttonLg
 
   return (
     <Pressable
-      onPress={onPress}
-      disabled={isDisabled}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
-      android_ripple={variant === "ghost" || variant === "outline" ? { color: t.ripple } : undefined}
+      accessibilityLabel={accessibilityLabel ?? label}
+      disabled={isDisabled}
+      onPress={
+        onPress
+          ? () => {
+              feedback.tap()
+              onPress()
+            }
+          : undefined
+      }
       style={({ pressed }) => [
-        styles.base,
+        styles.button,
         {
-          height: dims.height,
-          paddingHorizontal: dims.paddingHorizontal,
-          backgroundColor: pressed && !isDisabled ? tones.pressedBg : tones.bg,
-          borderColor: tones.border,
-          borderWidth: tones.border === "transparent" ? 0 : 1,
-          opacity: isDisabled ? 0.45 : pressed ? 0.9 : 1,
+          height,
+          paddingHorizontal,
+          // The FILL and BORDER are drawn by SquircleBackground below, on the
+          // 100%-smoothed corner. Painting them here as well would put a
+          // circular-cornered rectangle behind the squircle and show as a hard
+          // edge at each corner. The radius stays because it is the silhouette
+          // SquircleBackground falls back to for the one frame before it has
+          // measured itself.
+          borderRadius: cornerRadius,
           alignSelf: fullWidth ? "stretch" : "flex-start",
+          // Press feedback is a quick dim, not a ripple ring.
+          opacity: pressed && !isDisabled ? state.pressedOpacity : 1,
         },
         style,
       ]}
     >
+      <SquircleBackground
+        fill={tone.bg}
+        stroke={tone.border === "transparent" ? undefined : tone.border}
+        strokeWidth={1}
+        radius={cornerRadius}
+      />
+
       {loading ? (
-        <ActivityIndicator color={tones.text} size="small" />
+        <ActivityIndicator size="small" color={tone.fg} />
       ) : (
-        <View style={styles.content}>
-          {icon && (
-            <View style={styles.icon}>
-              <Icon name={icon} size={dims.iconSize} color={tones.text} />
+        <>
+          {icon ? (
+            <View style={{ marginRight: spacing.sm }}>
+              <Icon name={icon} size={iconSize} color={tone.fg} variant="Bold" />
             </View>
-          )}
-          <Text numberOfLines={1} style={[styles.label, { color: tones.text, fontSize: dims.fontSize }]}>
+          ) : null}
+          <Text numberOfLines={1} style={[textStyle, { color: tone.fg }]}>
             {label}
           </Text>
-        </View>
+          {trailingIcon ? (
+            <View style={{ marginLeft: spacing.sm }}>
+              <Icon name={trailingIcon} size={iconSize} color={tone.fg} variant="Bold" />
+            </View>
+          ) : null}
+        </>
       )}
     </Pressable>
   )
 }
 
-export default memo(Button)
-
 const styles = StyleSheet.create({
-  base: {
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  content: {
+  button: {
     flexDirection: "row",
     alignItems: "center",
-  },
-  icon: {
-    marginRight: 8,
-  },
-  label: {
-    fontFamily: font.semibold,
+    justifyContent: "center",
   },
 })

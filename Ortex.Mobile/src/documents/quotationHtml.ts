@@ -2,18 +2,28 @@ import { amountInWords, daysUntil, formatCurrency, formatDate } from "@/domain/f
 import { stateLabel } from "@/domain/gstStates"
 import type { Customer, Quotation } from "@/domain/schema"
 import type { Settings } from "@/domain/settings"
+import { DOCUMENT_FONT_WOFF2_BASE64 } from "@/documents/documentFont"
+import { ORTEX_WORDMARK_DATA_URI } from "@/theme/logo"
 
 // The printable A4 quotation.
 //
-// PORT OF Ortex.Admin/src/components/documents/DocumentSheet.jsx (quotation
-// half) — masthead → meta → parties → headline → line table → totals → notes,
-// footer pinned to the sheet's bottom edge. The console renders that as React
-// and rasterises it with html2canvas; both are browser-only, so here the same
-// document is emitted as an HTML string and handed to expo-print, which uses
-// the platform's own PDF renderer. Real text, selectable and searchable, rather
-// than a screenshot of a web page.
+// A FAITHFUL PORT of Ortex.Admin's document — the markup of
+// `src/components/documents/DocumentSheet.jsx` and the geometry of the `.doc-*`
+// rules in `src/index.css`, which are themselves a reproduction of Keystone's
+// InvoicePdfDocument (QuestPDF). Every measurement below is the console's, in
+// points, so a quotation printed from a phone and the same quotation printed
+// from the console are the same document. If the console's geometry changes,
+// change it here too.
 //
-// Geometry is in points to match the console's `.doc-*` CSS.
+// The console rasterises its DOM with html2canvas; both that and html2pdf are
+// browser-only, so here the same layout is emitted as an HTML string and given
+// to expo-print, which uses the platform's own PDF engine. The output is real
+// selectable text rather than a screenshot of a web page.
+//
+// The typeface and the logo are both embedded (documentFont.ts, theme/logo.ts):
+// a remote font or image is frequently still unloaded when the renderer
+// snapshots the page, and a salesperson in the field may have no signal at all.
+//
 
 const esc = (v: unknown): string =>
   String(v ?? "")
@@ -22,45 +32,43 @@ const esc = (v: unknown): string =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
 
-/** Preserve the line breaks a user typed into terms/notes/address. */
-const nl2br = (v: unknown): string => esc(v).replace(/\r?\n/g, "<br />")
-
-function partyBlock(party: Customer | null | undefined, placeholder = false): string {
-  if (!party || (!party.name && !party.company)) return placeholder ? "<div>-</div>" : ""
-  const rows = [
-    esc(party.name || party.company),
-    party.company && party.name ? esc(party.company) : "",
-    party.address ? nl2br(party.address) : "",
-    party.email ? esc(party.email) : "",
-    party.phone ? esc(party.phone) : "",
-    party.gstin ? `IN GST&nbsp;&nbsp;${esc(party.gstin)}` : "",
-    party.stateCode ? `State: ${esc(stateLabel(party.stateCode))}` : "",
-  ].filter(Boolean)
-  return rows.map((r) => `<div>${r}</div>`).join("")
+function party(p: Customer | null | undefined, placeholder = false): string {
+  if (!p || (!p.name && !p.company)) return placeholder ? "<div>-</div>" : ""
+  return [
+    `<div>${esc(p.name || p.company)}</div>`,
+    p.company && p.name ? `<div>${esc(p.company)}</div>` : "",
+    p.address ? `<div>${esc(p.address)}</div>` : "",
+    p.email ? `<div>${esc(p.email)}</div>` : "",
+    p.phone ? `<div>${esc(p.phone)}</div>` : "",
+    p.gstin ? `<div>IN GST&nbsp;&nbsp;${esc(p.gstin)}</div>` : "",
+    p.stateCode ? `<div>State: ${esc(stateLabel(p.stateCode))}</div>` : "",
+  ]
+    .filter(Boolean)
+    .join("")
 }
 
-function totalRow(label: string, value: string, grand = false): string {
-  return `<div class="total-row${grand ? " grand" : ""}"><span>${esc(label)}</span><span>${esc(
+const totalRow = (label: string, value: string, grand = false) =>
+  `<div class="doc-total-row${grand ? " grand" : ""}"><span>${esc(label)}</span><span>${esc(
     value,
   )}</span></div>`
-}
 
 export function quotationHtml(doc: Quotation, settings: Settings): string {
   const c = settings.company
   const t = doc.totals || ({} as Quotation["totals"])
   const lines = doc.lines || []
   const psState = doc.shipTo?.stateCode || doc.customer?.stateCode
+  const cancelled = doc.status === "cancelled"
   const hsnCodes = [...new Set(lines.map((l) => l.hsn).filter(Boolean))]
   const number = doc.number || "Draft"
 
   // Tax component as a percentage of the taxable value, derived so the printed
-  // rate always agrees with the money actually charged.
+  // rate always agrees with the money charged (Keystone: RatePercent).
   const pct = (part?: number) =>
     t.taxable > 0 ? String(Math.round(((part || 0) / t.taxable) * 10000) / 100) : "0"
 
   const headline = (() => {
     const total = formatCurrency(t.grandTotal || 0)
-    if (doc.status === "cancelled") return `${total} cancelled`
+    if (cancelled) return `${total} cancelled`
     const d = doc.validUntil ? daysUntil(doc.validUntil) : null
     if (d == null) return `${total} quoted on ${formatDate(doc.issueDate)}`
     return d < 0
@@ -68,36 +76,55 @@ export function quotationHtml(doc: Quotation, settings: Settings): string {
       : `${total} quoted, valid until ${formatDate(doc.validUntil)}`
   })()
 
-  const meta: [string, string][] = [
-    ["Quotation number", number],
-    ["Date of issue", formatDate(doc.issueDate)],
-    ["Valid until", doc.validUntil ? formatDate(doc.validUntil) : "-"],
-    ["Place of supply", psState ? stateLabel(psState) : "-"],
-    ["GST registration", c.gstin || "-"],
+  // Meta block: label / value pairs, lead row semibold, matching DocumentSheet.
+  const meta: { k: string; v: string; strong?: boolean }[] = [
+    { k: "Quotation number", v: number, strong: true },
+    { k: "Date of issue", v: formatDate(doc.issueDate) },
+    { k: "Valid until", v: doc.validUntil ? formatDate(doc.validUntil) : "-" },
+    { k: "Place of supply", v: psState ? stateLabel(psState) : "-" },
+    { k: "GST registration", v: c.gstin || "-" },
   ]
-  if (doc.paymentTerms) meta.push(["Payment terms", doc.paymentTerms])
+  if (doc.paymentTerms) meta.push({ k: "Payment terms", v: doc.paymentTerms })
 
-  const lineRows = lines
-    .map((line, i) => {
-      const cl = (t.lines && t.lines[i]) || { taxable: line.quantity * line.rate }
-      const detail = [
-        line.hsn ? `HSN ${line.hsn}` : null,
-        line.discountPercent ? `${line.discountPercent}% discount` : null,
-      ]
-        .filter(Boolean)
-        .join(" · ")
-      return `<tr>
-        <td>
-          <div class="item-name">${esc(line.description || "Item")}</div>
-          ${detail ? `<div class="item-detail">${esc(detail)}</div>` : ""}
-        </td>
-        <td class="num">${esc(line.quantity)}${line.unit ? ` ${esc(line.unit)}` : ""}</td>
-        <td class="num">${esc(formatCurrency(line.rate))}</td>
-        <td class="num">${esc(line.gstRate)}%</td>
-        <td class="num">${esc(formatCurrency(cl.taxable))}</td>
-      </tr>`
-    })
+  const supplierAddress = (c.address || "")
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => `<div>${esc(l)}</div>`)
     .join("")
+
+  const lineRows = lines.length
+    ? lines
+        .map((line, i) => {
+          const cl = (t.lines && t.lines[i]) || { taxable: line.quantity * line.rate }
+          const detail = [
+            line.hsn ? `HSN ${line.hsn}` : null,
+            line.discountPercent ? `${line.discountPercent}% discount` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+          return `<tr>
+            <td>
+              <div class="doc-item-name">${esc(line.description || "Item")}</div>
+              ${detail ? `<div class="doc-item-detail">${esc(detail)}</div>` : ""}
+            </td>
+            <td>${esc(line.quantity)}${line.unit ? ` ${esc(line.unit)}` : ""}</td>
+            <td>${esc(formatCurrency(line.rate))}</td>
+            <td>${esc(line.gstRate)}%</td>
+            <td>${esc(formatCurrency(cl.taxable))}</td>
+          </tr>`
+        })
+        .join("")
+    : // A document with no itemised lines still has to foot — the console's
+      // defensive branch for Tally-imported records.
+      `<tr>
+        <td>
+          <div class="doc-item-name">Quotation (aggregate)</div>
+          <div class="doc-item-detail">Document without itemised lines</div>
+        </td>
+        <td>-</td><td>-</td><td>-</td>
+        <td>${esc(formatCurrency(t.taxable || 0))}</td>
+      </tr>`
 
   const totals = [
     totalRow("Subtotal", formatCurrency(t.subTotal)),
@@ -118,128 +145,156 @@ export function quotationHtml(doc: Quotation, settings: Settings): string {
 <html>
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Quotation ${esc(number)}</title>
 <style>
+  /* Inter, embedded. One variable file covers the 400 and 600 the sheet uses. */
+  @font-face {
+    font-family: "Inter";
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: block;
+    src: url(data:font/woff2;base64,${DOCUMENT_FONT_WOFF2_BASE64}) format("woff2");
+  }
+
   @page { size: A4; margin: 0; }
   * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    /* Zalando Sans is bundled in the app, not on the print renderer, so the
-       document falls back to the platform's own UI face rather than shipping a
-       base64 font into every PDF. */
-    font-family: -apple-system, "Roboto", "Helvetica Neue", Arial, sans-serif;
-    color: #071437;
-    font-size: 9.5pt;
-    line-height: 1.45;
-    -webkit-print-color-adjust: exact;
-  }
-  .sheet {
-    width: 210mm; min-height: 297mm;
-    padding: 16mm 14mm 12mm;
+  html, body { margin: 0; padding: 0; }
+
+  /* Keystone InvoicePdfDocument (QuestPDF), reproduced in points: 30pt page
+     margin; body 9pt on 1.5 leading (13.5pt) which sets the vertical rhythm;
+     the line-table head rule is solid black, every other rule is #EBEBEB;
+     numeric columns right-aligned to the page's right margin. Ink is pure
+     black; the only grey in the document is the hairline. */
+  .doc-sheet {
+    --ink: #000000; --rule: #EBEBEB; --rule-ink: #000000;
+    width: 210mm; min-height: 297mm; margin: 0 auto;
     display: flex; flex-direction: column;
+    background: #fff; color: var(--ink); padding: 30pt;
+    font-family: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 9pt; line-height: 1.5;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-  .head { display: flex; align-items: flex-end; justify-content: space-between; }
-  .title { font-size: 22pt; font-weight: 800; letter-spacing: -0.4pt; }
-  .brand { font-size: 16pt; font-weight: 800; color: #2567E8; letter-spacing: -0.3pt; }
-  .keys { display: grid; grid-template-columns: auto 1fr; gap: 1.5pt 12pt; margin-top: 10mm; }
-  .keys .k { color: #78829D; }
-  .keys .v { text-align: right; }
-  .keys .strong { font-weight: 700; }
-  .parties { display: flex; gap: 8mm; margin-top: 8mm; }
-  .party { flex: 1; color: #252F4A; }
-  .party-label { color: #78829D; margin-bottom: 2pt; }
-  .party-name { font-weight: 700; }
-  .headline { margin-top: 8mm; font-size: 13pt; font-weight: 700; }
-  table { width: 100%; border-collapse: collapse; margin-top: 5mm; }
-  th {
-    text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.4pt;
-    color: #78829D; font-weight: 600; padding: 4pt 4pt; border-bottom: 0.75pt solid #252F4A;
-  }
-  th.num, td.num { text-align: right; }
-  td { padding: 5pt 4pt; border-bottom: 0.5pt solid #EBEDF3; vertical-align: top; }
-  .item-name { font-weight: 600; }
-  .item-detail { color: #78829D; font-size: 8.5pt; }
-  .after { display: flex; justify-content: flex-end; margin-top: 4mm; }
-  .totals { width: 46%; }
-  .total-row {
-    display: flex; justify-content: space-between;
-    padding: 3.5pt 0; border-top: 0.5pt solid #EBEDF3;
-  }
-  .total-row.grand { font-weight: 800; font-size: 11pt; border-top: 0.75pt solid #252F4A; }
-  .notes { margin-top: 8mm; color: #4B5675; font-size: 8.5pt; }
-  .notes h4 { margin: 4mm 0 1mm; font-size: 9pt; color: #071437; }
-  .notes p { margin: 0 0 1.5mm; }
-  /* Pinned to the bottom edge, the way the console flex-footer is. */
-  .foot {
-    margin-top: auto; padding-top: 6mm; display: flex; justify-content: space-between;
-    color: #99A1B7; font-size: 8pt; border-top: 0.5pt solid #EBEDF3;
-  }
+  .doc-sheet p, .doc-sheet h4 { margin: 0; }
+
+  /* Masthead: title bottom-aligned left, 24pt-high brand mark top-right. */
+  .doc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24pt; }
+  .doc-title { align-self: flex-end; font-size: 18pt; font-weight: 600; line-height: 1.2; text-transform: uppercase; }
+  .doc-logo { height: 24pt; width: auto; flex: none; }
+
+  /* Meta: 85pt label column, value takes the rest. */
+  .doc-keys { margin-top: 17pt; display: grid; grid-template-columns: 85pt 1fr; font-size: 9pt; font-weight: 500; max-width: 340pt; }
+  .doc-keys .strong { font-weight: 600; }
+
+  /* Parties: supplier left, buyer right (20pt gutter); names semibold. */
+  .doc-parties { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 20pt; row-gap: 12pt; margin-top: 17.5pt; }
+  .doc-parties.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .doc-party { font-size: 9pt; line-height: 1.5; }
+  .doc-party-label, .doc-party-name { font-weight: 600; }
+
+  /* Headline: the amount, stated once at reading size. */
+  .doc-headline { margin-top: 24.5pt; font-size: 13.5pt; font-weight: 600; line-height: 1.5; }
+
+  /* Line table: 7.5pt head, one 0.75pt black rule, unruled rows. */
+  .doc-table { width: 100%; border-collapse: collapse; margin-top: 26.5pt; table-layout: fixed; }
+  .doc-table thead th { text-align: right; font-weight: 400; font-size: 7.5pt; line-height: 1.5; padding: 0 0 5.7pt 0; border-bottom: 0.75pt solid var(--rule-ink); white-space: nowrap; }
+  .doc-table thead th:first-child { text-align: left; }
+  .doc-table col.c-qty { width: 40pt; }
+  .doc-table col.c-unit { width: 92pt; }
+  .doc-table col.c-tax { width: 52pt; }
+  .doc-table col.c-amt { width: 96pt; }
+  .doc-table tbody td { text-align: right; font-size: 9pt; line-height: 1.5; padding: 9pt 0 0 0; vertical-align: top; border: 0; white-space: nowrap; }
+  .doc-table tbody tr:first-child td { padding-top: 4.8pt; }
+  .doc-table tbody td:first-child { text-align: left; padding-right: 12pt; white-space: normal; }
+
+  /* Totals: right half (266pt), each row carries a hairline above it. */
+  .doc-after { display: flex; justify-content: flex-end; margin-top: 16.5pt; }
+  .doc-totals { width: 266pt; flex: none; }
+  .doc-total-row { display: flex; justify-content: space-between; gap: 12pt; padding: 1.8pt 0 3.7pt; font-size: 9pt; line-height: 1.5; border-top: 0.75pt solid var(--rule); }
+  .doc-total-row span:first-child { width: 150pt; flex: none; }
+  .doc-total-row span:last-child { flex: 1; text-align: right; }
+  .doc-total-row.grand { font-weight: 600; }
+
+  /* Notes: HSN/SAC, declaration, then the document's own text. */
+  .doc-notes { margin-top: 25pt; padding-bottom: 14pt; font-size: 9pt; }
+  .doc-notes h4 { font-size: 9pt; font-weight: 600; margin-top: 11.5pt; }
+  .doc-notes p { white-space: pre-wrap; }
+
+  /* Footer: hairline, 7.5pt, pinned to the bottom of the sheet. */
+  .doc-foot { margin-top: auto; padding-top: 6pt; border-top: 0.75pt solid var(--rule); display: flex; justify-content: space-between; gap: 12pt; font-size: 7.5pt; line-height: 1.5; }
 </style>
 </head>
 <body>
-  <div class="sheet">
-    <div class="head">
-      <div class="title">Quotation</div>
-      <div class="brand">${esc(c.logoText || c.name)}</div>
+  <div class="doc-sheet">
+    <div class="doc-head">
+      <div class="doc-title">Quotation</div>
+      <img class="doc-logo" src="${ORTEX_WORDMARK_DATA_URI}" alt="${esc(c.name)}" />
     </div>
 
-    <div class="keys">
+    <div class="doc-keys">
       ${meta
         .map(
-          ([k, v], i) =>
-            `<span class="k${i === 0 ? " strong" : ""}">${esc(k)}</span><span class="v${
-              i === 0 ? " strong" : ""
-            }">${esc(v)}</span>`,
+          (m) =>
+            `<span class="k${m.strong ? " strong" : ""}">${esc(m.k)}</span><span class="v${
+              m.strong ? " strong" : ""
+            }">${esc(m.v)}</span>`,
         )
         .join("")}
     </div>
 
-    <div class="parties">
-      <div class="party">
-        <div class="party-name">${esc(c.name)}</div>
-        ${nl2br(c.address)}
+    <div class="doc-parties${doc.shipTo ? " three" : ""}">
+      <div class="doc-party">
+        <div class="doc-party-name">${esc(c.name)}</div>
+        ${supplierAddress}
         ${c.email ? `<div>${esc(c.email)}</div>` : ""}
         ${c.phone ? `<div>${esc(c.phone)}</div>` : ""}
         ${c.stateCode ? `<div>State: ${esc(stateLabel(c.stateCode))}</div>` : ""}
       </div>
-      <div class="party">
-        <div class="party-label">Quotation for</div>
-        ${partyBlock(doc.customer, true)}
+      <div class="doc-party">
+        <div class="doc-party-label">Quotation for</div>
+        ${party(doc.customer, true)}
       </div>
       ${
         doc.shipTo
-          ? `<div class="party"><div class="party-label">Ship to</div>${partyBlock(doc.shipTo)}</div>`
+          ? `<div class="doc-party"><div class="doc-party-label">Ship to</div>${party(doc.shipTo)}</div>`
           : ""
       }
     </div>
 
-    <div class="headline">${esc(headline)}</div>
+    <div class="doc-headline">${esc(headline)}</div>
 
-    <table>
+    <table class="doc-table">
+      <colgroup>
+        <col />
+        <col class="c-qty" />
+        <col class="c-unit" />
+        <col class="c-tax" />
+        <col class="c-amt" />
+      </colgroup>
       <thead>
         <tr>
           <th>Description</th>
-          <th class="num">Qty</th>
-          <th class="num">Unit price</th>
-          <th class="num">Tax</th>
-          <th class="num">Amount</th>
+          <th>Qty</th>
+          <th>Unit price</th>
+          <th>Tax</th>
+          <th>Amount</th>
         </tr>
       </thead>
       <tbody>${lineRows}</tbody>
     </table>
 
-    <div class="after"><div class="totals">${totals}</div></div>
+    <div class="doc-after">
+      <div class="doc-totals">${totals}</div>
+    </div>
 
-    <div class="notes">
+    <div class="doc-notes">
       ${hsnCodes.length ? `<p>HSN/SAC: ${esc(hsnCodes.join(", "))}</p>` : ""}
       <p>Quotation</p>
       <p>Amount in words: ${esc(amountInWords(t.grandTotal || 0))}</p>
-      ${doc.terms ? `<h4>Terms and conditions</h4><p>${nl2br(doc.terms)}</p>` : ""}
-      ${doc.notes ? `<h4>Notes</h4><p>${nl2br(doc.notes)}</p>` : ""}
+      ${doc.terms ? `<h4>Terms and conditions</h4><p>${esc(doc.terms)}</p>` : ""}
+      ${doc.notes ? `<h4>Notes</h4><p>${esc(doc.notes)}</p>` : ""}
     </div>
 
-    <div class="foot">
+    <div class="doc-foot">
       <span>This is a computer-generated quotation and does not require a signature.</span>
       <span>Page 1 of 1</span>
     </div>

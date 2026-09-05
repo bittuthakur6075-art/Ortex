@@ -17,7 +17,7 @@ function Spinner({ size = "small", color, label }: Props) {
   const t = useTheme()
   return (
     <View style={styles.row}>
-      <ActivityIndicator size={size} color={color ?? t.accent} />
+      <ActivityIndicator size={size} color={color ?? t.primary} />
       {!!label && <Text style={[styles.label, { color: t.textSecondary }]}>{label}</Text>}
     </View>
   )

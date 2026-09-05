@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Ortex brand blue. Kept in step BY HAND with BRAND in
+         src/features/auth/SplashView.tsx — the two are shown back to back with
+         nothing between them, so a mismatch reads as a flash on every launch. -->
+    <color name="splash_background">#2567E8</color>
+</resources>

@@ -15,16 +15,31 @@ import { feedback } from "@/lib/feedback"
 const GRACE_MS = 60 * 1000
 
 export function useAppLock(enabled: boolean, ready: boolean) {
-  const [locked, setLocked] = React.useState(enabled)
+  // NOT `useState(enabled)`. On a cold start `enabled` is false at first
+  // render — the session comes back from Supabase and the preference from
+  // AsyncStorage, both asynchronously — so seeding the state from it left the
+  // app permanently unlocked at launch, which is the one moment the lock
+  // exists for. Arming is done below, once `ready` says both have landed.
+  const [locked, setLocked] = React.useState(false)
   const [prompting, setPrompting] = React.useState(false)
   const backgroundedAt = React.useRef<number | null>(null)
+  const armed = React.useRef(false)
 
-  // Turning the setting on locks nothing immediately (the user is right there);
-  // turning it off must unlock at once or they are stuck behind a gate they
+  // THE COLD START. The first time the app is ready with the setting on, lock —
+  // and only that first time, tracked by a ref: turning the setting ON in
+  // Profile must not slam a gate in front of someone who is right there, and
+  // turning it OFF must lift it at once or they are stuck behind a gate they
   // just disabled.
   React.useEffect(() => {
-    if (!enabled) setLocked(false)
-  }, [enabled])
+    if (!ready) return
+    if (!enabled) {
+      setLocked(false)
+      return
+    }
+    if (armed.current) return
+    armed.current = true
+    setLocked(true)
+  }, [enabled, ready])
 
   React.useEffect(() => {
     if (!enabled) return

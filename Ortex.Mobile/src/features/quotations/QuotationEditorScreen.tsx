@@ -31,6 +31,7 @@ import { useSettings } from "@/hooks/useSettings"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
+import { gutter, spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 import { Button, Card, Dialog, Divider, Icon, IconButton, Switch, TextField, useToast } from "@/ui"
 
@@ -55,6 +56,10 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
   const [seeded, setSeeded] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [customerOpen, setCustomerOpen] = React.useState(false)
+  // Picking "New customer" hands back a BLANK customer, so the form cannot be
+  // gated on hasCustomer alone — that check would stay false and the sheet
+  // would close onto an unchanged screen with nowhere to type.
+  const [customerFormOpen, setCustomerFormOpen] = React.useState(false)
   const [stateOpen, setStateOpen] = React.useState<"customer" | "shipTo" | null>(null)
   const [editingLine, setEditingLine] = React.useState<{ index: number; line: Line | null } | null>(null)
   const [showTerms, setShowTerms] = React.useState(false)
@@ -135,6 +140,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
 
   const hasCustomer = !!(draft.customer.name.trim() || draft.customer.company.trim())
   const canSave = hasCustomer && draft.lines.length > 0 && !saving
+  const showCustomerForm = hasCustomer || customerFormOpen
 
   const save = async () => {
     if (!hasCustomer) {
@@ -195,7 +201,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
 
   return (
     <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: t.bg }]}
+      style={[styles.root, { backgroundColor: t.background }]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View style={[styles.head, { paddingTop: insets.top + 6, borderBottomColor: t.divider }]}>
@@ -218,10 +224,10 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
               feedback.tap()
               setCustomerOpen(true)
             }}
-            android_ripple={{ color: t.ripple }}
+            android_ripple={{ color: t.accentTint }}
             style={styles.pickerRow}
           >
-            <Icon name="customer" size={20} color={t.accent} variant="Bold" />
+            <Icon name="customer" size={20} color={t.primary} variant="Bold" />
             <View style={styles.pickerBody}>
               <Text style={[styles.pickerLabel, { color: t.textTertiary }]}>Bill to</Text>
               <Text style={[styles.pickerValue, { color: hasCustomer ? t.text : t.textTertiary }]}>
@@ -231,7 +237,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
             <Icon name="forward" size={18} color={t.textTertiary} />
           </Pressable>
 
-          {hasCustomer && (
+          {showCustomerForm && (
             <>
               <Divider inset={20} />
               <View style={styles.form}>
@@ -297,7 +303,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
           )}
         </Card>
 
-        {hasCustomer && (
+        {showCustomerForm && (
           <Card padding={16} style={styles.card}>
             <Switch
               value={!!draft.shipTo}
@@ -347,7 +353,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                       feedback.tap()
                       setEditingLine({ index, line })
                     }}
-                    android_ripple={{ color: t.ripple }}
+                    android_ripple={{ color: t.accentTint }}
                     style={styles.lineRow}
                   >
                     <View style={styles.lineBody}>
@@ -373,11 +379,11 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
               feedback.tap()
               setEditingLine({ index: draft.lines.length, line: null })
             }}
-            android_ripple={{ color: t.ripple }}
+            android_ripple={{ color: t.accentTint }}
             style={styles.addRow}
           >
-            <Icon name="addItem" size={20} color={t.accent} />
-            <Text style={[styles.addLabel, { color: t.accent }]}>Add an item</Text>
+            <Icon name="addItem" size={20} color={t.primary} />
+            <Text style={[styles.addLabel, { color: t.primary }]}>Add an item</Text>
           </Pressable>
         </Card>
 
@@ -458,7 +464,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
       <View
         style={[
           styles.footer,
-          { backgroundColor: t.headerBg, borderTopColor: t.divider, paddingBottom: insets.bottom + 12 },
+          { backgroundColor: t.appBar, borderTopColor: t.divider, paddingBottom: insets.bottom + 12 },
         ]}
       >
         <View style={styles.footerTotal}>
@@ -476,6 +482,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         onClose={() => setCustomerOpen(false)}
         onPick={(customer) => {
           setCustomerOpen(false)
+          setCustomerFormOpen(true)
           set({ customer })
         }}
       />
@@ -567,7 +574,7 @@ function FieldButton({
         onPress={onPress}
         style={({ pressed }) => [
           styles.fieldButton,
-          { backgroundColor: t.searchBg, opacity: pressed ? 0.7 : 1 },
+          { backgroundColor: t.fieldBg, opacity: pressed ? 0.7 : 1 },
         ]}
       >
         <Text numberOfLines={1} style={[styles.fieldButtonValue, { color: t.text }]}>
@@ -603,25 +610,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    paddingBottom: 8,
+    paddingBottom: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headTitle: { marginLeft: 6, fontSize: 17, fontFamily: font.semibold },
-  content: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 28 },
+  content: { paddingHorizontal: gutter, paddingTop: 14, paddingBottom: 28 },
   sectionTitle: {
     fontSize: 12,
     letterSpacing: 0.4,
     textTransform: "uppercase",
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     fontFamily: font.semibold,
   },
   sectionToggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   card: { marginBottom: 20 },
-  pickerRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 16 },
+  pickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 18,
+    paddingVertical: spacing.md,
+  },
   pickerBody: { flex: 1, marginLeft: 14 },
   pickerLabel: { fontSize: 11.5, letterSpacing: 0.3, textTransform: "uppercase", fontFamily: font.medium },
   pickerValue: { marginTop: 2, fontSize: 16, fontFamily: font.semibold },
-  form: { paddingHorizontal: 18, paddingTop: 16, paddingBottom: 2 },
+  form: { paddingHorizontal: 18, paddingTop: spacing.md, paddingBottom: 2 },
   row: { flexDirection: "row", gap: 12 },
   half: { flex: 1 },
   shipTo: { marginTop: 14 },
@@ -652,7 +664,7 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: gutter,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
   },

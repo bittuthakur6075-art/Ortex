@@ -1,83 +1,91 @@
-import React, { memo } from "react"
-import { Pressable, StyleSheet, View, type ViewStyle } from "react-native"
-import { SquircleView } from "react-native-figma-squircle"
+import React from "react"
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native"
 
 import { useTheme } from "@/store/ThemeContext"
+import { radius, spacing, state } from "@/theme/tokens"
+import { SquircleBackground, type SquircleCorners } from "@/ui/Squircle"
+
+/**
+ * A content surface.
+ *
+ * PORTED FROM C:\code\capnix\Capnix.Mobile.Partner\src\components\base\AppCard.jsx.
+ *
+ * Two forms:
+ *
+ *   default   — `radius.card` (12) with a hairline border on `surface`. 12, NOT
+ *               One UI's 26: at 26 the corner swallows the 2px gutter between
+ *               grouped rows and the group reads as a stack of lozenges rather
+ *               than one object.
+ *   squircle  — transparent background with the fill drawn by SquircleBackground
+ *               at `radius.lg` (20) and 100% smoothing, and NO border: the
+ *               borderless "floating on a wash" look.
+ *
+ * The squircle form DRAWS, it does not clip — see Squircle.tsx. Anything relying
+ * on clipping its children to the corner wants the default form.
+ */
 
 type Props = {
   children: React.ReactNode
   onPress?: () => void
+  /** 16 by default; pass 0 for a card that manages its own padding. */
   padding?: number
-  radius?: number
-  smooth?: boolean
-  color?: string
-  style?: ViewStyle
+  /** Sit on the inset plane rather than the surface. */
+  inset?: boolean
+  /** Draw the 100%-smoothed corner instead of a bordered rectangle. */
+  squircle?: boolean
+  squircleRadius?: number
+  squircleCorners?: SquircleCorners
+  style?: StyleProp<ViewStyle>
   accessibilityLabel?: string
 }
 
-/**
- * Generic surface container. Usage:
- * `<Card padding={16}><Text>Hello</Text></Card>`
- * `<Card onPress={openNote} color={t.noteColors.yellow}>...</Card>`
- */
-function Card({
+export default function Card({
   children,
   onPress,
-  padding = 16,
-  radius = 28,
-  smooth = true,
-  color,
+  padding = spacing.md,
+  inset = false,
+  squircle = false,
+  squircleRadius,
+  squircleCorners,
   style,
   accessibilityLabel,
 }: Props) {
-  const t = useTheme()
-  const bg = color ?? t.card
+  const c = useTheme()
+  const fill = inset ? c.surfaceInset : c.surface
+  const corner = squircleRadius ?? radius.lg
 
-  const background = smooth ? (
-    <SquircleView
-      pointerEvents="none"
-      style={StyleSheet.absoluteFill}
-      squircleParams={{
-        cornerRadius: radius,
-        cornerSmoothing: 0.7,
-        fillColor: bg,
-      }}
-    />
+  const body = squircle ? (
+    <>
+      <SquircleBackground fill={fill} radius={corner} corners={squircleCorners} />
+      <View style={{ padding }}>{children}</View>
+    </>
   ) : (
-    <View
-      pointerEvents="none"
-      style={[StyleSheet.absoluteFill, { backgroundColor: bg, borderRadius: radius }]}
-    />
+    <View style={{ padding }}>{children}</View>
   )
 
-  const content = <View style={[styles.content, { padding }]}>{children}</View>
+  const boxStyle: StyleProp<ViewStyle> = [
+    squircle
+      ? { backgroundColor: "transparent", borderRadius: corner }
+      : {
+          backgroundColor: fill,
+          borderRadius: radius.card,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: c.border,
+          overflow: "hidden",
+        },
+    style,
+  ]
 
-  if (!onPress) {
-    return (
-      <View style={style}>
-        {background}
-        {content}
-      </View>
-    )
-  }
+  if (!onPress) return <View style={boxStyle}>{body}</View>
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [style, { opacity: pressed ? 0.85 : 1 }]}
+      style={({ pressed }) => [boxStyle, { opacity: pressed ? state.pressedOpacity : 1 }]}
     >
-      {background}
-      {content}
+      {body}
     </Pressable>
   )
 }
-
-export default memo(Card)
-
-const styles = StyleSheet.create({
-  content: {
-    width: "100%",
-  },
-})

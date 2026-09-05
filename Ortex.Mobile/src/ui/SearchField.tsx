@@ -2,6 +2,7 @@ import React from "react"
 import { Pressable, StyleSheet, TextInput, View } from "react-native"
 
 import { useTheme } from "@/store/ThemeContext"
+import { gutter } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 import Icon from "@/ui/Icon"
 
@@ -21,7 +22,7 @@ export default function SearchField({
 }) {
   const t = useTheme()
   return (
-    <View style={[styles.root, { backgroundColor: t.searchBg }]}>
+    <View style={[styles.root, { backgroundColor: t.fieldBg }]}>
       <Icon name="search" size={18} color={t.textTertiary} />
       <TextInput
         value={value}
@@ -49,7 +50,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     paddingHorizontal: 14,
-    marginHorizontal: 20,
+    marginHorizontal: gutter,
     marginTop: 12,
   },
   input: {

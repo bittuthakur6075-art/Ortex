@@ -32,7 +32,7 @@ function Checkbox({ checked, onChange, label, disabled }: Props) {
       <Icon
         name="tick"
         size={22}
-        color={checked ? t.accent : t.textTertiary}
+        color={checked ? t.primary : t.textTertiary}
         variant={checked ? "Bold" : "Linear"}
       />
       {!!label && (

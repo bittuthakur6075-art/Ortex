@@ -10,6 +10,7 @@ import { callNumber, copy, email as sendEmail, prettyPhone, whatsapp } from "@/l
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
+import { gutter, spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 import { Avatar, Button, Card, Divider, Icon, IconButton, StatusBadge, useToast } from "@/ui"
 import type { CustomerRow } from "@/features/contacts/ContactsScreen"
@@ -56,7 +57,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
 
   if (!customer) {
     return (
-      <View style={[styles.root, styles.centre, { backgroundColor: t.bg, paddingTop: insets.top }]}>
+      <View style={[styles.root, styles.centre, { backgroundColor: t.background, paddingTop: insets.top }]}>
         <Text style={{ color: t.textSecondary, fontFamily: font.medium }}>
           This contact no longer exists.
         </Text>
@@ -73,7 +74,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
   const lifetime = won.reduce((s, q) => s + (q.totals?.grandTotal || 0), 0)
 
   return (
-    <View style={[styles.root, { backgroundColor: t.bg }]}>
+    <View style={[styles.root, { backgroundColor: t.background }]}>
       <View style={[styles.head, { paddingTop: insets.top + 6 }]}>
         <IconButton name="back" onPress={() => navigation.goBack()} accessibilityLabel="Back" />
       </View>
@@ -170,7 +171,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
                   {i > 0 && <Divider inset={20} />}
                   <Pressable
                     onPress={() => navigation.navigate("QuotationDetail", { id: q.id })}
-                    android_ripple={{ color: t.ripple }}
+                    android_ripple={{ color: t.accentTint }}
                     style={styles.historyRow}
                   >
                     <View style={styles.historyBody}>
@@ -240,10 +241,10 @@ function QuickButton({
       accessibilityLabel={label}
       style={({ pressed }) => [
         styles.quick,
-        { backgroundColor: t.searchBg, opacity: disabled ? 0.35 : pressed ? 0.65 : 1 },
+        { backgroundColor: t.fieldBg, opacity: disabled ? 0.35 : pressed ? 0.65 : 1 },
       ]}
     >
-      <Icon name={icon} size={20} color={t.accent} variant="Bold" />
+      <Icon name={icon} size={20} color={t.primary} variant="Bold" />
       <Text style={[styles.quickLabel, { color: t.textSecondary }]}>{label}</Text>
     </Pressable>
   )
@@ -275,7 +276,7 @@ function DetailRow({
 function Stat({ label, value }: { label: string; value: string }) {
   const t = useTheme()
   return (
-    <View style={[styles.stat, { backgroundColor: t.surface }]}>
+    <View style={[styles.stat, { backgroundColor: t.surfaceInset }]}>
       <Text style={[styles.statValue, { color: t.text }]}>{value}</Text>
       <Text style={[styles.statLabel, { color: t.textTertiary }]}>{label}</Text>
     </View>
@@ -286,14 +287,14 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   centre: { alignItems: "center", justifyContent: "center" },
   head: { paddingHorizontal: 12, paddingBottom: 4 },
-  content: { paddingHorizontal: 20 },
+  content: { paddingHorizontal: gutter },
   identity: { alignItems: "center", paddingTop: 6, paddingBottom: 18 },
   name: { marginTop: 12, fontSize: 22, fontFamily: font.bold },
   company: { marginTop: 2, fontSize: 14, fontFamily: font.regular },
   quickRow: { flexDirection: "row", gap: 10, marginBottom: 18 },
   quick: { flex: 1, alignItems: "center", paddingVertical: 12, borderRadius: 18 },
   quickLabel: { marginTop: 5, fontSize: 12, fontFamily: font.medium },
-  card: { marginBottom: 16 },
+  card: { marginBottom: spacing.md },
   detailRow: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 18, paddingVertical: 13 },
   detailBody: { flex: 1, marginLeft: 14 },
   detailLabel: { fontSize: 11.5, letterSpacing: 0.3, textTransform: "uppercase", fontFamily: font.medium },
@@ -307,7 +308,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 0.4,
     textTransform: "uppercase",
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     fontFamily: font.semibold,
   },
   historyRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 13 },

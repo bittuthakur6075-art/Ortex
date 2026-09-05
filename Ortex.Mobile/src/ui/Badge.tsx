@@ -21,10 +21,10 @@ function Badge({ label, tone = "accent", dotOnly }: Props) {
   const t = useTheme()
 
   const colors: Record<BadgeTone, { bg: string; text: string }> = {
-    accent: { bg: t.accentSoft, text: t.accent },
+    accent: { bg: t.primary10, text: t.primary },
     danger: { bg: `${t.danger}22`, text: t.danger },
     warning: { bg: `${t.warning}22`, text: t.warning },
-    neutral: { bg: t.searchBg, text: t.textSecondary },
+    neutral: { bg: t.fieldBg, text: t.textSecondary },
   }
   const { bg, text } = colors[tone]
 

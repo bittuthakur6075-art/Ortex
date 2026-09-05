@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "allow": [
+      "Bash(npm run sb:status)",
+      "Bash(npm run sb:fn:list)",
+      "Bash(npm run sb:fn:deploy *)",
+      "Bash(npm run sb:db:push)",
+      "Bash(npm run sb:db:diff)",
+      "Bash(npm run sb:secrets)",
+      "Bash(npm run sb:provision *)",
+      "Bash(npm run check:functions)",
+
+      "Bash(supabase functions list*)",
+      "Bash(supabase functions deploy *)",
+      "Bash(supabase db push*)",
+      "Bash(supabase db diff*)",
+      "Bash(supabase secrets list*)",
+      "Bash(supabase projects list*)",
+      "Bash(supabase migration list*)",
+      "Bash(supabase link *)",
+      "Bash(supabase status*)",
+
+      "Bash(npx supabase functions list*)",
+      "Bash(npx supabase functions deploy *)",
+      "Bash(npx supabase db push*)",
+      "Bash(npx supabase db diff*)",
+      "Bash(npx supabase secrets list*)",
+      "Bash(npx supabase projects list*)",
+      "Bash(npx supabase migration list*)",
+      "Bash(npx supabase link *)",
+      "Bash(npx supabase status*)"
+    ],
+    "ask": [
+      "Bash(supabase db reset*)",
+      "Bash(npx supabase db reset*)",
+      "Bash(supabase projects delete*)",
+      "Bash(npx supabase projects delete*)",
+      "Bash(supabase functions delete*)",
+      "Bash(npx supabase functions delete*)",
+      "Bash(supabase secrets set*)",
+      "Bash(npx supabase secrets set*)",
+      "Bash(supabase secrets unset*)",
+      "Bash(npx supabase secrets unset*)",
+      "Bash(supabase db dump*)",
+      "Bash(npx supabase db dump*)"
+    ]
+  }
+}

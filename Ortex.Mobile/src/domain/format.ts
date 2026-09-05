@@ -70,6 +70,23 @@ export function toDateInput(ts?: unknown): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 }
 
+export function shortDate(ts: unknown): string {
+  const d = new Date(ts as string)
+  if (Number.isNaN(d.getTime())) return "-"
+  // Two-digit year. A list row gives a date about eleven characters before the
+  // column it shares with an amount starts eating it, and the century is never
+  // the fact anyone needed.
+  return `${pad2(d.getDate())} ${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}`
+}
+
+/** Short relative age, falling back to a short date rather than a long one. */
+export function shortAge(ts: unknown): string {
+  const d = new Date(ts as string)
+  if (Number.isNaN(d.getTime())) return "-"
+  const days = Math.round((Date.now() - d.getTime()) / 86400000)
+  return days < 30 ? relativeTime(ts) : shortDate(ts)
+}
+
 export function relativeTime(ts: unknown): string {
   const d = new Date(ts as string)
   if (Number.isNaN(d.getTime())) return "-"

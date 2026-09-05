@@ -1,18 +1,35 @@
 /**
- * Palette from the "Forget it — Mobile App Design" Figma design system
- * (node 3572-13284), the same Metronic-derived ramp Ortex.Admin's `index.css`
- * is built on — #2567E8 primary, #071437 heading, #E82646 error-active.
- * Raw tokens live here; screens consume the Theme below.
+ * The palette.
+ *
+ * STRUCTURE PORTED FROM C:\code\capnix\Capnix.Mobile.Partner\src\theme\colors.js
+ * — the same token vocabulary, the same light/dark strategy, the same rule that
+ * depth comes from LAYERED BACKGROUND PLANES and hairlines rather than shadows
+ * (the floating tab capsule's `barShadow` is the only shadow in the app).
+ *
+ * The BRAND is Ortex's, not Capnix's: the primary ramp below is the same
+ * Metronic-derived blue `Ortex.Admin/src/index.css` is built on, so a badge or a
+ * button reads the same on the phone as in the console. The Ortex logo keeps its
+ * own #2F50E4 (see theme/logo.ts) — it is a fixed asset, not a themed one.
+ *
+ * Dark neutrals are Uber's true-grey scale, with no blue/slate cast, exactly as
+ * Capnix does it.
  */
-export const palette = {
+
+const brand = {
   primary: "#2567E8",
+  primaryHover: "#3D78EC",
+  primaryPressed: "#004DEA",
   primary50: "#92B3F4",
   primary30: "#BED2F9",
   primary20: "#D3E1FA",
+  primary15: "#DEE9FC",
   primary10: "#EAF0FD",
   primary5: "#F4F7FE",
-  primaryPressed: "#004DEA",
+} as const
 
+/** Raw ramp, for the few places that need a fixed colour (the splash, the logo). */
+export const palette = {
+  ...brand,
   heading: "#071437",
   text1: "#252F4A",
   text2: "#4B5675",
@@ -20,138 +37,219 @@ export const palette = {
   text4: "#99A1B7",
   text5: "#C4CADA",
   white: "#FFFFFF",
-
-  borderDark: "#EBEDF3",
-  borderLight: "#F4F6F8",
-  bgDark: "#F5F6FA",
-  bgLight: "#F9FBFC",
-
-  infoActive: "#056EE9",
-  info100: "#1B84FF",
-  info20: "#D1E6FF",
-  info10: "#E9F3FF",
-  info5: "#F3F9FF",
-
-  successActive: "#04B440",
-  success100: "#17C653",
-  success20: "#D1F4DD",
-  success10: "#E8FAEE",
-  success5: "#F3FCF6",
-
-  warningActive: "#DFA000",
-  warning100: "#F6B100",
-  warning20: "#FDEFCC",
-  warning10: "#FFF8E6",
-  warning5: "#FEFBF2",
-
-  errorActive: "#E82646",
-  error100: "#F8285A",
-  error20: "#FED4DE",
-  error10: "#FFEAEF",
-  error5: "#FEF4F6",
 } as const
 
 /**
- * Ortex.Admin's status vocabularies (`data/domain/schema.js`) each carry a
- * `tone` drawn from Tailwind's hue names. Map those onto this palette so a
+ * Ortex.Admin's status vocabularies (`data/domain/schema.js`) each carry a `tone`
+ * drawn from Tailwind's hue names. `toneColors` maps those onto this palette so a
  * "Sent" or "Accepted" badge reads the same on the phone as in the console.
  */
 export type StatusTone = "slate" | "blue" | "cyan" | "violet" | "amber" | "emerald" | "rose"
-
 export type ToneColors = { fg: string; bg: string }
 
-export const lightTones: Record<StatusTone, ToneColors> = {
-  slate: { fg: palette.text2, bg: palette.bgDark },
-  blue: { fg: palette.infoActive, bg: palette.info10 },
-  cyan: { fg: palette.primaryPressed, bg: palette.primary10 },
-  violet: { fg: palette.primary, bg: palette.primary20 },
-  amber: { fg: palette.warningActive, bg: palette.warning10 },
-  emerald: { fg: palette.successActive, bg: palette.success10 },
-  rose: { fg: palette.errorActive, bg: palette.error10 },
-}
-
-export const darkTones: Record<StatusTone, ToneColors> = {
-  slate: { fg: "#C9C9C9", bg: "#252525" },
-  blue: { fg: palette.info100, bg: "#16283C" },
-  cyan: { fg: palette.primary50, bg: "#152A46" },
-  violet: { fg: palette.primary50, bg: "#2B2440" },
-  amber: { fg: palette.warning100, bg: "#39301A" },
-  emerald: { fg: palette.success100, bg: "#17301F" },
-  rose: { fg: palette.error100, bg: "#3B1D24" },
-}
-
-export type Theme = {
-  dark: boolean
-  bg: string
+export type Colors = {
+  // planes
+  background: string
   surface: string
-  card: string
-  cardBorder: string
-  headerBg: string
-  searchBg: string
+  surfaceInset: string
+  surfaceRaised: string
+  surfacePressed: string
+  surfaceTrack: string
+  // ink
   text: string
+  textStrong: string
   textSecondary: string
   textTertiary: string
-  accent: string
-  accentSoft: string
-  accentPressed: string
+  textFaint: string
+  textHint: string
+  textInverse: string
+  textOnPrimary: string
+  // brand
+  primary: string
+  primaryHover: string
+  primaryPressed: string
+  primary10: string
+  primary20: string
+  accentTint: string
+  accentBorder: string
+  iconWell: string
+  // rules
+  border: string
+  borderStrong: string
   divider: string
-  danger: string
-  warning: string
+  // fields
+  fieldBg: string
+  fieldBgFocused: string
+  fieldBorderFocused: string
+  fieldCursor: string
+  // semantic
   success: string
-  ripple: string
-  fabBg: string
-  fabIcon: string
-  sheetBg: string
+  successBg: string
+  warning: string
+  warningBg: string
+  danger: string
+  dangerBg: string
+  info: string
+  infoBg: string
+  muted: string
+  mutedBg: string
+  // chrome
+  tabBar: string
+  tabBarBorder: string
+  appBar: string
+  scrim: string
+  shadow: string
+  barShadow: string
+  skeleton: string
+  skeletonHighlight: string
+  statusBar: "light" | "dark"
+  // status vocabulary
   tones: Record<StatusTone, ToneColors>
 }
 
-export const lightTheme: Theme = {
-  dark: false,
-  bg: palette.white,
-  surface: palette.bgLight,
-  card: palette.white,
-  cardBorder: palette.borderDark,
-  headerBg: palette.white,
-  searchBg: palette.bgDark,
-  text: palette.heading,
-  textSecondary: palette.text2,
-  textTertiary: palette.text4,
-  accent: palette.primary,
-  accentSoft: palette.primary10,
-  accentPressed: palette.primaryPressed,
-  divider: palette.borderDark,
-  danger: palette.errorActive,
-  warning: palette.warningActive,
-  success: palette.successActive,
-  ripple: "rgba(37,103,232,0.10)",
-  fabBg: palette.primary,
-  fabIcon: palette.white,
-  sheetBg: palette.white,
+export type Theme = { dark: boolean; colors: Colors }
+
+const lightTones: Record<StatusTone, ToneColors> = {
+  slate: { fg: "#4B5675", bg: "#EBEDF3" },
+  blue: { fg: "#056EE9", bg: "#E9F3FF" },
+  cyan: { fg: brand.primaryPressed, bg: brand.primary10 },
+  violet: { fg: brand.primary, bg: brand.primary20 },
+  amber: { fg: "#DFA000", bg: "#FFF8E6" },
+  emerald: { fg: "#04B440", bg: "#E8FAEE" },
+  rose: { fg: "#E82646", bg: "#FFEAEF" },
+}
+
+const darkTones: Record<StatusTone, ToneColors> = {
+  slate: { fg: "#AFAFAF", bg: "#1F1F1F" },
+  blue: { fg: "#1B84FF", bg: "#0C2138" },
+  cyan: { fg: brand.primary50, bg: "#102A43" },
+  violet: { fg: brand.primary50, bg: "#20263F" },
+  amber: { fg: "#F6B100", bg: "#2C2405" },
+  emerald: { fg: "#17C653", bg: "#0B2B18" },
+  rose: { fg: "#F8285A", bg: "#331019" },
+}
+
+export const lightColors: Colors = {
+  background: "#FFFFFF",
+  surface: "#FFFFFF",
+  surfaceInset: "#F5F6FA",
+  surfaceRaised: "#FFFFFF",
+  surfacePressed: "#EBEDF3",
+  surfaceTrack: "#F4F6F8",
+
+  text: "#071437",
+  textStrong: "#252F4A",
+  textSecondary: "#4B5675",
+  textTertiary: "#78829D",
+  textFaint: "#99A1B7",
+  textHint: "#C4CADA",
+  textInverse: "#FFFFFF",
+  textOnPrimary: "#FFFFFF",
+
+  primary: brand.primary,
+  primaryHover: brand.primaryHover,
+  primaryPressed: brand.primaryPressed,
+  primary10: brand.primary10,
+  primary20: brand.primary20,
+  accentTint: "rgba(37,103,232,0.08)",
+  accentBorder: "rgba(37,103,232,0.2)",
+  // The round icon well behind a list row's leading glyph.
+  iconWell: "rgba(37,103,232,0.1)",
+
+  border: "#EBEDF3",
+  borderStrong: "#C4CADA",
+  divider: "#F4F6F8",
+
+  fieldBg: "#F9FBFC",
+  fieldBgFocused: "#FFFFFF",
+  fieldBorderFocused: brand.primary30,
+  fieldCursor: "#056EE9",
+
+  success: "#04B440",
+  successBg: "#E8FAEE",
+  warning: "#DFA000",
+  warningBg: "#FFF8E6",
+  danger: "#E82646",
+  dangerBg: "#FFEAEF",
+  info: "#056EE9",
+  infoBg: "#E9F3FF",
+  muted: "#78829D",
+  mutedBg: "#EBEDF3",
+
+  tabBar: "#FFFFFF",
+  tabBarBorder: "#EBEDF3",
+  appBar: "#FFFFFF",
+  scrim: "rgba(0,0,0,0.45)",
+  shadow: "#000000",
+  // The only shadow in the app: two layers, contact + ambient, under the floating
+  // tab capsule.
+  barShadow: "0px 2px 6px rgba(7, 20, 55, 0.10), 0px 12px 28px rgba(7, 20, 55, 0.18)",
+  skeleton: "#EBEDF3",
+  skeletonHighlight: "#F5F6FA",
+  statusBar: "dark",
+
   tones: lightTones,
 }
 
-/** Dark counterpart in the One UI idiom: true black with neutral greys. */
-export const darkTheme: Theme = {
-  dark: true,
-  bg: "#000000",
-  surface: "#121212",
-  card: "#1C1C1C",
-  cardBorder: "#2A2A2A",
-  headerBg: "#000000",
-  searchBg: "#1C1C1C",
-  text: palette.white,
-  textSecondary: "#C9C9C9",
-  textTertiary: "#8E8E8E",
-  accent: palette.info100,
-  accentSoft: "#102A43",
-  accentPressed: "#0A6AD1",
-  divider: "#252525",
-  danger: palette.error100,
-  warning: palette.warning100,
-  success: palette.success100,
-  ripple: "rgba(255,255,255,0.10)",
-  fabBg: palette.info100,
-  fabIcon: palette.white,
-  sheetBg: "#1C1C1C",
+export const darkColors: Colors = {
+  background: "#000000",
+  surface: "#000000",
+  surfaceInset: "#141414",
+  surfaceRaised: "#1F1F1F",
+  surfacePressed: "#292929",
+  surfaceTrack: "#1A1A1A",
+
+  text: "#FFFFFF",
+  textStrong: "#E2E2E2",
+  textSecondary: "#AFAFAF",
+  textTertiary: "#757575",
+  textFaint: "#5C5C5C",
+  textHint: "#454545",
+  textInverse: "#071437",
+  textOnPrimary: "#FFFFFF",
+
+  // One notch lighter than the light-mode brand, for legibility on black.
+  primary: "#4C86F5",
+  primaryHover: "#6699F7",
+  primaryPressed: "#2567E8",
+  primary10: "#101F38",
+  primary20: "#16294A",
+  accentTint: "rgba(76,134,245,0.10)",
+  accentBorder: "rgba(76,134,245,0.24)",
+  iconWell: "rgba(76,134,245,0.12)",
+
+  border: "#333333",
+  borderStrong: "#545454",
+  divider: "#1F1F1F",
+
+  fieldBg: "#101010",
+  fieldBgFocused: "#1F1F1F",
+  fieldBorderFocused: "rgba(76,134,245,0.5)",
+  fieldCursor: "#6BAEFF",
+
+  success: "#17C653",
+  successBg: "#0B2B18",
+  warning: "#F6B100",
+  warningBg: "#2C2405",
+  danger: "#F8285A",
+  dangerBg: "#331019",
+  info: "#1B84FF",
+  infoBg: "#0C2138",
+  muted: "#757575",
+  mutedBg: "#1F1F1F",
+
+  tabBar: "#000000",
+  tabBarBorder: "#333333",
+  appBar: "#000000",
+  scrim: "rgba(0,0,0,0.6)",
+  shadow: "#000000",
+  barShadow: "0px 2px 6px rgba(0, 0, 0, 0.45), 0px 14px 32px rgba(0, 0, 0, 0.65)",
+  skeleton: "#1F1F1F",
+  skeletonHighlight: "#292929",
+  statusBar: "light",
+
   tones: darkTones,
 }
+
+export const lightTheme: Theme = { dark: false, colors: lightColors }
+export const darkTheme: Theme = { dark: true, colors: darkColors }

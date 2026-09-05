@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react"
 import { Animated, Easing, StyleSheet, Text, View } from "react-native"
 
 import { palette } from "@/theme/theme"
+import { OrtexWordmark } from "@/ui/OrtexLogo"
 import { font } from "@/theme/typography"
 
 const DOTS = [0, 1, 2]
@@ -9,8 +10,8 @@ const DOTS = [0, 1, 2]
 /**
  * Branded startup screen shown while the session resolves and the fonts load.
  * Uses the RN Animated driver only — no reanimated dependency — and draws the
- * wordmark as type rather than an image, so there is no asset to keep in step
- * with the brand and nothing to decode before the first frame.
+ * wordmark as inline SVG rather than a bitmap, so it is sharp at every density
+ * and there is nothing to decode before the first frame.
  */
 export default function AppLoader({ label = "Ortex Sales" }: { label?: string }) {
   const breathe = useRef(new Animated.Value(0)).current
@@ -70,7 +71,7 @@ export default function AppLoader({ label = "Ortex Sales" }: { label?: string })
     <View style={styles.root}>
       <Animated.View style={[styles.glow, { opacity: glow, transform: [{ scale }] }]} />
       <Animated.View style={{ transform: [{ scale }] }}>
-        <Text style={styles.mark}>Ortex</Text>
+        <OrtexWordmark height={34} color={palette.white} />
       </Animated.View>
       <Text style={styles.label}>{label}</Text>
       <View style={styles.dots}>
@@ -104,12 +105,6 @@ const styles = StyleSheet.create({
     borderRadius: 110,
     backgroundColor: palette.white,
     opacity: 0.25,
-  },
-  mark: {
-    fontSize: 42,
-    letterSpacing: -1,
-    color: palette.white,
-    fontFamily: font.extrabold,
   },
   label: {
     marginTop: 10,

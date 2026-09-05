@@ -9,10 +9,10 @@
     "lint": "oxlint",
     "typecheck": "tsc --noEmit",
     "test": "node --test --no-warnings \"test/*.test.mjs\"",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"*.{js,json}\""
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"*.{js,json}\"",
+    "icons": "node scripts/icons.mjs"
   },
   "dependencies": {
-    "@expo-google-fonts/zalando-sans": "^0.4.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native/new-app-screen": "0.85.3",
     "@react-navigation/bottom-tabs": "^7.18.18",
@@ -21,11 +21,14 @@
     "@supabase/supabase-js": "^2.115.0",
     "expo": "~56.0.0",
     "expo-asset": "~56.0.24",
+    "expo-blur": "~56.0.4",
     "expo-clipboard": "~56.0.4",
     "expo-file-system": "~56.0.11",
     "expo-font": "~56.0.7",
     "expo-haptics": "~56.0.3",
     "expo-image": "~56.0.12",
+    "expo-image-picker": "~56.0.25",
+    "expo-linear-gradient": "~56.0.4",
     "expo-local-authentication": "~56.0.5",
     "expo-print": "~56.0.4",
     "expo-sharing": "~56.0.26",
@@ -54,6 +57,7 @@
     "babel-plugin-module-resolver": "^5.0.3",
     "babel-preset-expo": "~56.0.0",
     "oxlint": "^1.81.0",
+    "pngjs": "^7.0.0",
     "prettier": "2.8.8",
     "react-native-dotenv": "^4.1.1",
     "typescript": "^5.8.3"

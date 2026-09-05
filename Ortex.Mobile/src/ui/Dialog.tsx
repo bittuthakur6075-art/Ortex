@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react"
 import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "react-native"
 
 import { useTheme } from "@/store/ThemeContext"
+import { spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 
 export type DialogAction = {
@@ -63,7 +64,10 @@ export default function Dialog({ visible, onClose, title, message, children, act
         </Animated.View>
 
         <Animated.View
-          style={[styles.card, { backgroundColor: t.sheetBg, opacity: progress, transform: [{ scale }] }]}
+          style={[
+            styles.card,
+            { backgroundColor: t.surfaceRaised, opacity: progress, transform: [{ scale }] },
+          ]}
         >
           {!!title && <Text style={[styles.title, { color: t.text }]}>{title}</Text>}
           {!!message && <Text style={[styles.message, { color: t.textSecondary }]}>{message}</Text>}
@@ -74,11 +78,13 @@ export default function Dialog({ visible, onClose, title, message, children, act
               <Pressable
                 key={index}
                 onPress={action.onPress}
-                android_ripple={{ color: t.ripple }}
+                android_ripple={{ color: t.accentTint }}
                 accessibilityRole="button"
                 style={({ pressed }) => [styles.action, { opacity: pressed ? 0.6 : 1 }]}
               >
-                <Text style={[styles.actionLabel, { color: action.tone === "danger" ? t.danger : t.accent }]}>
+                <Text
+                  style={[styles.actionLabel, { color: action.tone === "danger" ? t.danger : t.primary }]}
+                >
                   {action.label}
                 </Text>
               </Pressable>
@@ -118,7 +124,7 @@ const styles = StyleSheet.create({
     fontFamily: font.bold,
   },
   message: {
-    marginTop: 8,
+    marginTop: spacing.sm,
     fontSize: 14,
     lineHeight: 20,
     fontFamily: font.regular,

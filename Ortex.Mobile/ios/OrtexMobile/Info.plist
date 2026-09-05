@@ -34,6 +34,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- Profile photo (expo-image-picker). Library only — the app never opens the
+	     camera, so NSCameraUsageDescription is deliberately absent. -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose a picture for your Ortex profile photo.</string>
 	<!-- Biometric app-lock (expo-local-authentication). -->
 	<key>NSFaceIDUsageDescription</key>
 	<string>Unlock Ortex Sales with Face ID instead of signing in again.</string>

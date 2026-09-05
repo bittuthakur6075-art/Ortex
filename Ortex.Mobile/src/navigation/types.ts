@@ -24,6 +24,7 @@ export type RootStackParamList = {
   QuotationEditor: { id?: string; prefill?: QuotationPrefill } | undefined
   QuotationDetail: { id: string }
   CustomerDetail: { id: string }
+  Search: undefined
   Profile: undefined
 }
 

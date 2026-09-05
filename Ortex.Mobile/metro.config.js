@@ -9,5 +9,22 @@
 // set. The bundle builds correctly for both platforms; the warning is noise.
 const { getDefaultConfig } = require("expo/metro-config")
 
-/** @type {import('expo/metro-config').MetroConfig} */
-module.exports = getDefaultConfig(__dirname)
+const config = getDefaultConfig(__dirname)
+
+// Keep Metro out of native build output.
+//
+// Without this, running Metro during a Gradle build crashes it outright:
+// CMake creates and deletes scratch directories under
+// `node_modules/**/android/.cxx/**/CMakeTmp/` faster than the watcher can keep
+// up, and the watch() call on a directory that has just vanished throws
+// ENOENT (-4058) and takes the whole bundler down. None of these paths hold
+// JavaScript, so there is nothing to gain by watching them either.
+config.resolver.blockList = [
+  /\/android\/\.cxx\/.*/,
+  /\/android\/build\/.*/,
+  /\/android\/\.gradle\/.*/,
+  /\/ios\/build\/.*/,
+  /\/ios\/Pods\/.*/,
+]
+
+module.exports = config

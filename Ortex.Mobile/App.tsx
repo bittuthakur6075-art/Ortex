@@ -1,32 +1,22 @@
-import {
-  useFonts,
-  ZalandoSans_300Light,
-  ZalandoSans_400Regular,
-  ZalandoSans_500Medium,
-  ZalandoSans_600SemiBold,
-  ZalandoSans_700Bold,
-  ZalandoSans_800ExtraBold,
-} from "@expo-google-fonts/zalando-sans"
+import { useFonts } from "expo-font"
 import React from "react"
 import { StatusBar } from "react-native"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 
+import { fontAssets } from "@/theme/typography"
 import RootNavigator from "@/navigation/RootNavigator"
 import { AuthProvider } from "@/store/AuthContext"
-import { ThemeProvider, useTheme } from "@/store/ThemeContext"
+import { ThemeProvider, useIsDark, useTheme } from "@/store/ThemeContext"
 import { ToastProvider } from "@/ui"
 
 function Root() {
   const t = useTheme()
-  const [fontsLoaded, fontError] = useFonts({
-    ZalandoSans_300Light,
-    ZalandoSans_400Regular,
-    ZalandoSans_500Medium,
-    ZalandoSans_600SemiBold,
-    ZalandoSans_700Bold,
-    ZalandoSans_800ExtraBold,
-  })
+  const isDark = useIsDark()
+  // Addington CF + Inter, the two faces the ramp in theme/typography.ts is built
+  // on. A missing entry fails at load rather than silently falling back to the
+  // system face (Roboto on Android, which reads visibly wrong against Inter).
+  const [fontsLoaded, fontError] = useFonts(fontAssets)
 
   // Never let the splash gate hang: if the fonts fail or stall, fall through to
   // the system face rather than showing a loader forever.
@@ -41,8 +31,8 @@ function Root() {
   return (
     <>
       <StatusBar
-        barStyle={t.dark ? "light-content" : "dark-content"}
-        backgroundColor={t.headerBg}
+        barStyle={isDark ? "light-content" : "dark-content"}
+        backgroundColor={t.appBar}
         translucent={false}
       />
       <RootNavigator fontsReady={fontsReady} />

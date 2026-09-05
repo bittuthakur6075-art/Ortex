@@ -48,7 +48,7 @@ function SegmentedControl<T extends string>({ options, value, onChange }: Props<
   return (
     <View
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-      style={[styles.track, { backgroundColor: t.searchBg }]}
+      style={[styles.track, { backgroundColor: t.fieldBg }]}
     >
       {segmentWidth > 0 && (
         <Animated.View
@@ -57,7 +57,7 @@ function SegmentedControl<T extends string>({ options, value, onChange }: Props<
             styles.lens,
             {
               width: segmentWidth,
-              backgroundColor: t.accentSoft,
+              backgroundColor: t.primary10,
               transform: [{ translateX }],
             },
           ]}
@@ -77,7 +77,7 @@ function SegmentedControl<T extends string>({ options, value, onChange }: Props<
               numberOfLines={1}
               style={[
                 styles.label,
-                { color: active ? t.accent : t.textSecondary, fontFamily: active ? font.bold : font.medium },
+                { color: active ? t.primary : t.textSecondary, fontFamily: active ? font.bold : font.medium },
               ]}
             >
               {option.label}

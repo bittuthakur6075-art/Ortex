@@ -33,7 +33,7 @@ export default function IconButton({
       hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      android_ripple={{ color: t.ripple, borderless: true, radius: 22 }}
+      android_ripple={{ color: t.accentTint, borderless: true, radius: 22 }}
       style={({ pressed }) => [styles.button, style, { opacity: disabled ? 0.35 : pressed ? 0.6 : 1 }]}
     >
       <Icon name={name} size={size} color={color ?? t.text} variant={variant} />

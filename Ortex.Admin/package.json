@@ -18,7 +18,16 @@
     "provision": "node scripts/provision-supabase.mjs",
     "backup": "node scripts/backup.mjs",
     "backup:schedule": "powershell -ExecutionPolicy Bypass -File scripts/schedule-backup.ps1",
-    "push:emails": "node scripts/push-email-templates.mjs"
+    "push:emails": "node scripts/push-email-templates.mjs",
+    "sb": "supabase",
+    "sb:status": "supabase projects list",
+    "sb:fn:list": "supabase functions list",
+    "sb:fn:deploy": "supabase functions deploy",
+    "sb:db:push": "supabase db push",
+    "sb:db:diff": "supabase db diff --linked",
+    "sb:secrets": "supabase secrets list",
+    "sb:provision": "node scripts/provision-supabase.mjs",
+    "icons": "node scripts/icons.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.21.0",
@@ -40,6 +49,8 @@
     "@tailwindcss/vite": "^4.3.2",
     "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",
+    "pngjs": "^7.0.0",
+    "supabase": "^2.116.0",
     "tailwindcss": "^4.3.2",
     "vite": "^8.1.1",
     "vitest": "^4.1.10"

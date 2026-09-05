@@ -32,7 +32,7 @@ function RadioGroup<T extends string>({ options, value, onChange }: Props<T>) {
           <Pressable
             key={option.key}
             onPress={() => onChange(option.key)}
-            android_ripple={{ color: t.ripple }}
+            android_ripple={{ color: t.accentTint }}
             accessibilityRole="radio"
             accessibilityState={{ selected: active }}
             style={({ pressed }) => [styles.row, { opacity: pressed ? 0.6 : 1 }]}
@@ -43,7 +43,7 @@ function RadioGroup<T extends string>({ options, value, onChange }: Props<T>) {
                 <Text style={[styles.description, { color: t.textTertiary }]}>{option.description}</Text>
               )}
             </View>
-            {active && <Icon name="tick" size={20} color={t.accent} variant="Bold" />}
+            {active && <Icon name="tick" size={20} color={t.primary} variant="Bold" />}
           </Pressable>
         )
       })}

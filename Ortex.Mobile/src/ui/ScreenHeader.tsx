@@ -3,7 +3,8 @@ import { StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useTheme } from "@/store/ThemeContext"
-import { font } from "@/theme/typography"
+import { gutter } from "@/theme/tokens"
+import { textVariants } from "@/theme/typography"
 
 /**
  * The One UI screen head: a slim toolbar row of icon buttons, then the title at
@@ -32,7 +33,7 @@ export default function ScreenHeader({
   const insets = useSafeAreaInsets()
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 6, backgroundColor: t.headerBg }]}>
+    <View style={[styles.root, { paddingTop: insets.top + 6, backgroundColor: t.appBar }]}>
       <View style={styles.bar}>
         <View style={styles.barSide}>{leading}</View>
         <View style={styles.barEnd}>{trailing}</View>
@@ -70,17 +71,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-end",
   },
-  title: {
-    fontSize: 30,
-    letterSpacing: -0.5,
-    paddingHorizontal: 20,
-    paddingTop: 2,
-    fontFamily: font.extrabold,
-  },
-  subtitle: {
-    fontSize: 13,
-    paddingHorizontal: 20,
-    paddingTop: 2,
-    fontFamily: font.regular,
-  },
+  title: { ...textVariants.largeTitle, paddingHorizontal: gutter, paddingTop: 2 },
+  subtitle: { ...textVariants.screenSubtitle, paddingHorizontal: gutter, paddingTop: 2 },
 })

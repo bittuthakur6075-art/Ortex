@@ -2,12 +2,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import React from "react"
 import { useColorScheme } from "react-native"
 
-import { darkTheme, lightTheme, type Theme } from "@/theme/theme"
+import { darkTheme, lightTheme, type Colors, type Theme } from "@/theme/theme"
 
-// The whole `src/ui` kit reads its colours from `useTheme()`. In the project
-// this kit was ported from that hook hung off a monolithic notes store; here it
-// gets a provider of its own that holds nothing but the preference, so a screen
-// re-render is never triggered by unrelated app state.
+// Colours are the only part of the design system that depends on state, so they
+// are the only part behind a hook: `useTheme()` hands back the live palette.
+// Geometry, rhythm and motion are static and are imported straight from
+// `@/theme/tokens`, which keeps them out of every render.
+//
+// The provider holds nothing but the preference, so a screen re-render is never
+// triggered by unrelated app state.
 
 export type ThemePref = "system" | "light" | "dark"
 
@@ -62,6 +65,12 @@ export function useThemePref() {
   return ctx
 }
 
-export function useTheme(): Theme {
-  return useThemePref().theme
+/** The live palette. Geometry comes from `@/theme/tokens`, not from here. */
+export function useTheme(): Colors {
+  return useThemePref().theme.colors
+}
+
+/** True when the dark palette is active — for the status bar and blur tint. */
+export function useIsDark(): boolean {
+  return useThemePref().theme.dark
 }

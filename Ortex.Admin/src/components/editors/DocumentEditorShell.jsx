@@ -91,11 +91,24 @@ export function Section({ title, description, action, children, className, bodyC
 }
 
 // Sticky action bar at the foot of the editor.
+// The editor's action bar, pinned to the bottom of the viewport.
+//
+// It used to be `sticky bottom-0`, which only holds while its containing block
+// is on screen — scroll to the end of the record and the bar reached the bottom
+// of the editor <div> and stopped, leaving the layout's own page footer below
+// it. Fixed positioning keeps Delete and Save reachable no matter how long the
+// record is. The left inset matches AdminLayout's sidebar padding, and the
+// spacer below reserves the bar's height so the last field is never covered.
 export function EditorFooter({ left, right }) {
   return (
-    <div className="sticky bottom-0 z-10 -mx-4 mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
-      <div className="flex flex-wrap items-center gap-2">{left}</div>
-      <div className="flex flex-wrap items-center gap-2">{right}</div>
-    </div>
+    <>
+      <div className="h-[76px]" aria-hidden="true" />
+      <div className="no-print fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur lg:left-[260px]">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="flex flex-wrap items-center gap-2">{left}</div>
+          <div className="flex flex-wrap items-center gap-2">{right}</div>
+        </div>
+      </div>
+    </>
   )
 }

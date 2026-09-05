@@ -3,33 +3,37 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack"
 import React from "react"
 
 import LockScreen from "@/features/auth/LockScreen"
+import SplashView from "@/features/auth/SplashView"
 import LoginScreen from "@/features/auth/LoginScreen"
 import { useAppLock } from "@/features/auth/useAppLock"
 import CustomerDetailScreen from "@/features/contacts/CustomerDetailScreen"
 import ProfileScreen from "@/features/profile/ProfileScreen"
+import GlobalSearchScreen from "@/features/search/GlobalSearchScreen"
 import QuotationDetailScreen from "@/features/quotations/QuotationDetailScreen"
 import QuotationEditorScreen from "@/features/quotations/QuotationEditorScreen"
 import Tabs from "@/navigation/Tabs"
 import type { RootStackParamList } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
-import { useTheme } from "@/store/ThemeContext"
-import { AppLoader } from "@/ui"
+import { useIsDark, useTheme } from "@/store/ThemeContext"
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
 
 export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const t = useTheme()
-  const { session, profile, ready, biometricEnabled } = useAuth()
-  const { locked, prompting, unlock } = useAppLock(biometricEnabled && !!session, ready)
+  const isDark = useIsDark()
+  const { session, profile, ready, biometricEnabled, biometricReady } = useAuth()
+  // Both readiness flags: the lock arms once, and arming it before the stored
+  // preference has been read would arm it as "off" on every launch.
+  const { locked, prompting, unlock } = useAppLock(biometricEnabled && !!session, ready && biometricReady)
 
   const navTheme = {
-    ...(t.dark ? DarkTheme : DefaultTheme),
+    ...(isDark ? DarkTheme : DefaultTheme),
     colors: {
-      ...(t.dark ? DarkTheme : DefaultTheme).colors,
-      background: t.bg,
-      card: t.headerBg,
+      ...(isDark ? DarkTheme : DefaultTheme).colors,
+      background: t.background,
+      card: t.appBar,
       text: t.text,
-      primary: t.accent,
+      primary: t.primary,
       border: t.divider,
     },
   }
@@ -37,7 +41,7 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   // Hold the splash until BOTH the session and the fonts have resolved.
   // Rendering earlier flashes the login screen at an already-signed-in user, or
   // paints the whole app in the system face and then reflows it.
-  if (!ready || !fontsReady) return <AppLoader />
+  if (!ready || !fontsReady) return <SplashView />
 
   if (!session) return <LoginScreen />
 
@@ -46,7 +50,7 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   // The session exists but the profile row has not arrived yet. Everything
   // downstream reads `profile.modules` to decide which tabs exist, so rendering
   // now would briefly show a tabless shell.
-  if (!profile) return <AppLoader label="Loading your account" />
+  if (!profile) return <SplashView message="Loading your account" />
 
   return (
     <NavigationContainer theme={navTheme}>
@@ -58,13 +62,14 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
           animation: "ios_from_right",
           animationDuration: 320,
           gestureEnabled: true,
-          contentStyle: { backgroundColor: t.bg },
+          contentStyle: { backgroundColor: t.background },
         }}
       >
         <Stack.Screen name="Tabs" component={Tabs} />
         <Stack.Screen name="QuotationEditor" component={QuotationEditorScreen} />
         <Stack.Screen name="QuotationDetail" component={QuotationDetailScreen} />
         <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} />
+        <Stack.Screen name="Search" component={GlobalSearchScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
       </Stack.Navigator>
     </NavigationContainer>

@@ -7,6 +7,7 @@ import { GST_RATES, UNITS, newLine, type Line, type Product } from "@/domain/sch
 import { useCollection } from "@/hooks/useCollection"
 import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
+import { spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 import { Button, Chip, Icon, Sheet, TextField } from "@/ui"
 
@@ -87,7 +88,7 @@ export default function LineItemSheet({
     >
       {mode === "product" ? (
         <>
-          <View style={[styles.search, { backgroundColor: t.searchBg }]}>
+          <View style={[styles.search, { backgroundColor: t.fieldBg }]}>
             <Icon name="search" size={18} color={t.textTertiary} />
             <TextInput
               value={query}
@@ -107,13 +108,13 @@ export default function LineItemSheet({
               set({ productId: null, description: query.trim() })
               setMode("fields")
             }}
-            android_ripple={{ color: t.ripple }}
+            android_ripple={{ color: t.accentTint }}
             style={styles.customRow}
           >
-            <View style={[styles.customIcon, { backgroundColor: t.accentSoft }]}>
-              <Icon name="edit" size={18} color={t.accent} />
+            <View style={[styles.customIcon, { backgroundColor: t.primary10 }]}>
+              <Icon name="edit" size={18} color={t.primary} />
             </View>
-            <Text style={[styles.customLabel, { color: t.accent }]}>
+            <Text style={[styles.customLabel, { color: t.primary }]}>
               {query.trim() ? `Custom item “${query.trim()}”` : "Custom item (not in the catalogue)"}
             </Text>
           </Pressable>
@@ -122,7 +123,7 @@ export default function LineItemSheet({
             <Pressable
               key={p.id}
               onPress={() => pickProduct(p)}
-              android_ripple={{ color: t.ripple }}
+              android_ripple={{ color: t.accentTint }}
               style={styles.productRow}
             >
               <View style={styles.productBody}>
@@ -196,7 +197,7 @@ export default function LineItemSheet({
             keyboardType="number-pad"
           />
 
-          <View style={[styles.summary, { backgroundColor: t.surface }]}>
+          <View style={[styles.summary, { backgroundColor: t.surfaceInset }]}>
             <SummaryRow label="Taxable" value={formatCurrency(computed.taxable)} />
             <SummaryRow label={`GST ${draft.gstRate}%`} value={formatCurrency(computed.gstAmount)} />
             <SummaryRow label="Line total" value={formatCurrency(computed.total)} strong />
@@ -264,7 +265,7 @@ function NumberField({
         keyboardType={decimals ? "decimal-pad" : "number-pad"}
         placeholder="0"
         placeholderTextColor={t.textTertiary}
-        style={[styles.numberInput, { backgroundColor: t.searchBg, color: t.text }]}
+        style={[styles.numberInput, { backgroundColor: t.fieldBg, color: t.text }]}
       />
     </View>
   )
@@ -316,10 +317,10 @@ const styles = StyleSheet.create({
     fontFamily: font.semibold,
   },
   chips: { flexDirection: "row", flexWrap: "wrap" },
-  summary: { borderRadius: 18, padding: 14, marginTop: 6, marginBottom: 16 },
+  summary: { borderRadius: 18, padding: 14, marginTop: 6, marginBottom: spacing.md },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
   summaryLabel: { fontSize: 14, fontFamily: font.regular },
   summaryValue: {},
   actions: {},
-  remove: { marginTop: 8 },
+  remove: { marginTop: spacing.sm },
 })
