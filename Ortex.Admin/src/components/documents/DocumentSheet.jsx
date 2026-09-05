@@ -1,5 +1,6 @@
 import { forwardRef } from "react"
 import { formatCurrency, formatDate, amountInWords, daysUntil } from "../../lib/format"
+import { stateLabel } from "../../lib/gstStates"
 
 // The A4 sheet for a quotation or tax invoice — the printable document
 // itself, without any overlay chrome. A one-to-one port of Keystone's
@@ -72,7 +73,7 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
           </>
         )}
         <span className="k">Place of supply</span>
-        <span className="v">{psState ? `State ${psState}` : "-"}</span>
+        <span className="v">{psState ? stateLabel(psState) : "-"}</span>
         <span className="k">GST registration</span>
         <span className="v">{c.gstin || "-"}</span>
         {doc.paymentTerms && (
@@ -92,7 +93,7 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
           ))}
           {c.email && <div>{c.email}</div>}
           {c.phone && <div>{c.phone}</div>}
-          {c.stateCode && <div>State: {c.stateCode}</div>}
+          {c.stateCode && <div>State: {stateLabel(c.stateCode)}</div>}
         </div>
         <div className="doc-party">
           <div className="doc-party-label">{isInvoice ? "Bill to" : "Quotation for"}</div>
@@ -237,7 +238,7 @@ function Party({ party, placeholder }) {
       {party.email && <div>{party.email}</div>}
       {party.phone && <div>{party.phone}</div>}
       {party.gstin && <div>IN GST&nbsp;&nbsp;{party.gstin}</div>}
-      {party.stateCode && <div>State: {party.stateCode}</div>}
+      {party.stateCode && <div>State: {stateLabel(party.stateCode)}</div>}
     </>
   )
 }

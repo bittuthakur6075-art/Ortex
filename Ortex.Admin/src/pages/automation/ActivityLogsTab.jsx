@@ -81,7 +81,7 @@ export default function ActivityLogsTab({ activities, totals, activityTruncated,
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left text-sm">
-          <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
+          <thead className="mt-head">
             <tr>
               <th className="px-4 py-3">Timestamp</th>
               <th className="px-4 py-3">User ID</th>
@@ -95,7 +95,7 @@ export default function ActivityLogsTab({ activities, totals, activityTruncated,
               <th className="px-4 py-3">Metadata / Details</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border rows-in text-foreground">
+          <tbody className="mt-body">
             {filteredActivities.length === 0 ? (
               <tr>
                 <td colSpan="10" className="py-12 text-center text-muted-foreground">No activities found.</td>

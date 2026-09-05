@@ -63,7 +63,7 @@ export default function Users() {
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
+              <thead className="mt-head">
                 <tr className="text-left">
                   <SortTh sortKey="name" sort={sort} onSort={onSort}>Name</SortTh>
                   <SortTh sortKey="email" sort={sort} onSort={onSort}>Email</SortTh>

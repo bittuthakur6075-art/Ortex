@@ -14,7 +14,7 @@
    hard-code hex in components.
    ============================================================ */
 @theme {
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
   --font-mono: "JetBrains Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
@@ -58,19 +58,19 @@
   --radius-xl: 12px;
   --radius-2xl: 14px;
   --radius-3xl: 16px;
-  --radius-field: 8px;
-  --radius-btn: 8px;
-  --radius-btn-sm: 7px;
-  --radius-btn-lg: 10px;
+  --radius-field: 6px;
+  --radius-btn: 6px;
+  --radius-btn-sm: 6px;
+  --radius-btn-lg: 8px;
   --radius-nav: 8px;
   --radius-card: 12px;
 
   /* Surfaces: hairline + a whisper of depth; floating UI gets real shadow. */
-  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 12px -4px rgb(15 23 42 / 0.06);
   --shadow-lg: 0 2px 4px rgb(15 23 42 / 0.04), 0 12px 24px -8px rgb(15 23 42 / 0.10);
   --shadow-xl: 0 24px 48px -12px rgb(15 23 42 / 0.18);
-  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-overlay: 0 0 0 1px rgb(15 23 42 / 0.06), 0 8px 24px -6px rgb(15 23 42 / 0.16);
   --shadow-overlay-lg: 0 0 0 1px rgb(15 23 42 / 0.08), 0 24px 60px -16px rgb(15 23 42 / 0.28);
 
@@ -91,40 +91,41 @@
   @keyframes ks-fade-in { from { opacity: 0; } to { opacity: 1; } }
 }
 
-/* Light (default). Cool slate neutrals; indigo brand. */
+/* Light (default) — Metronic 9 Demo 1: zinc neutrals, blue-500 primary,
+   white canvas, hairline at 94% lightness, system sans. */
 :root {
-  --background: 220 20% 97.5%;      /* #F6F7F9 canvas */
-  --foreground: 222 47% 11%;        /* #0F172A ink */
-  --subtle-foreground: 220 9% 46%;  /* #6B7280 hints, table heads */
-  --primary: 229 77% 54%;           /* #2F50E4 brand indigo */
-  --primary-hover: 229 74% 50%;     /* #2343D9 */
-  --primary-pressed: 229 80% 45%;   /* #1737CC */
-  --primary-soft: 229 77% 86%;      /* #C1CBF7 focus border */
+  --background: 0 0% 100%;          /* white canvas */
+  --foreground: 240 10% 4%;         /* zinc-950 */
+  --subtle-foreground: 240 4% 46%;  /* zinc-500 — muted-foreground */
+  --primary: 217 91% 60%;           /* blue-500 #3B82F6 */
+  --primary-hover: 221 83% 53%;     /* blue-600 #2563EB */
+  --primary-pressed: 224 76% 48%;   /* blue-700 #1D4ED8 */
+  --primary-soft: 213 97% 87%;      /* blue-200 */
   --primary-foreground: 0 0% 100%;
-  --secondary: 220 20% 96%;         /* #F3F4F7 */
-  --secondary-foreground: 222 47% 11%;
-  --accent: 229 77% 54%;
-  --accent-foreground: 0 0% 100%;
-  --muted: 220 16% 95%;             /* #F1F2F5 */
-  --muted-foreground: 220 12% 38%;  /* #56606E body-secondary */
-  --subtle: 220 20% 97%;            /* #F5F6F8 row hover */
-  --field: 0 0% 100%;               /* inputs are white on the grey canvas */
+  --secondary: 240 5% 96%;          /* zinc-100 */
+  --secondary-foreground: 240 6% 10%; /* zinc-900 */
+  --accent: 240 5% 96%;             /* zinc-100 (hover / selected) */
+  --accent-foreground: 240 6% 10%;
+  --muted: 240 5% 96%;              /* zinc-100 */
+  --muted-foreground: 240 4% 46%;   /* zinc-500 */
+  --subtle: 240 5% 98%;             /* zinc-50 row hover / table head */
+  --field: 0 0% 100%;
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --border: 220 14% 91%;            /* #E5E7EB hairline */
-  --border-strong: 220 13% 84%;     /* #D2D6DE */
-  --input: 220 14% 91%;
-  --ring: 229 77% 54%;
-  --destructive: 350 89% 60%;       /* #F43F5E */
-  --destructive-strong: 347 77% 50%; /* #E11D48 */
-  --destructive-text: 347 77% 40%;  /* #BE123C */
+  --card-foreground: 240 10% 4%;
+  --border: 240 5% 93%;             /* oklch(94% .004 286) */
+  --border-strong: 240 6% 90%;      /* zinc-200 */
+  --input: 240 6% 90%;              /* zinc-200 */
+  --ring: 240 5% 65%;               /* zinc-400 */
+  --destructive: 0 84% 60%;         /* red-500 */
+  --destructive-strong: 0 72% 51%;  /* red-600 */
+  --destructive-text: 0 74% 42%;    /* red-700 */
   --destructive-foreground: 0 0% 100%;
-  --success: 160 84% 39%;           /* #10B981 */
-  --success-text: 161 94% 24%;      /* #047857 */
-  --warning: 38 92% 50%;            /* #F59E0B */
-  --warning-text: 26 90% 34%;       /* #B45309 */
-  --info: 217 91% 60%;              /* #3B82F6 */
-  --info-text: 224 76% 42%;         /* #1D4ED8 */
+  --success: 142 71% 45%;           /* green-500 */
+  --success-text: 142 76% 36%;      /* green-600 */
+  --warning: 45 93% 47%;            /* yellow-500 */
+  --warning-text: 32 95% 44%;       /* yellow-600 / amber-600 */
+  --info: 262 83% 58%;              /* violet-500 */
+  --info-text: 263 70% 50%;         /* violet-600 */
   --radius: 0.5rem;
 }
 
@@ -171,8 +172,6 @@
 
   body {
     font-family: var(--font-sans);
-    font-feature-settings: "cv11", "ss01", "tnum";
-    font-optical-sizing: auto;
     font-size: 14px;
     line-height: 1.5;
     background-color: hsl(var(--background));
@@ -282,6 +281,36 @@
 @utility btn-sheen {
   position: relative;
 }
+
+/* Metronic 9 data table: 40px head row in 14px regular on a zinc-50 fill,
+   14px cells, vertical column dividers, row hover. Apply `mt-head` to <thead>
+   and `mt-body` to <tbody>. */
+.mt-head th {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  color: hsl(var(--secondary-foreground));
+  text-align: left;
+  white-space: nowrap;
+  vertical-align: middle;
+  background: hsl(var(--subtle));
+  border-bottom: 1px solid hsl(var(--border));
+  border-inline-end: 1px solid hsl(var(--border));
+}
+.mt-head th:last-child { border-inline-end: 0; }
+.mt-head th.text-right { text-align: right; }
+.mt-body td {
+  font-size: 14px;
+  line-height: 20px;
+  vertical-align: middle;
+  border-bottom: 1px solid hsl(var(--border));
+  border-inline-end: 1px solid hsl(var(--border));
+}
+.mt-body td:last-child { border-inline-end: 0; }
+.mt-body tr:last-child td { border-bottom: 0; }
+.mt-body tr:hover td { background: hsl(var(--subtle)); }
 
 /* Numeric columns line up nicely (money, quantities). */
 .tabular {

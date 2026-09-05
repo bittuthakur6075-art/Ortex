@@ -11,6 +11,8 @@ import {
   ReceiptIndianRupee,
   Wallet,
   CalendarClock,
+  TrendingUp,
+  Trophy,
 } from "../components/ui/Icons"
 import { useCollections } from "../hooks/useCollection"
 import { useProfile } from "../hooks/useProfile"
@@ -22,7 +24,7 @@ import { formatCurrency, formatNumber, daysUntil, round2 } from "../lib/format"
 import PageHeader from "../components/layout/PageHeader"
 import { PERIODS } from "../lib/periods"
 import SectionCard from "../components/ui/SectionCard"
-import { Card, CardHeader, StatusBadge, EmptyState, Button, Segmented, PageLoader, Avatar, Badge } from "../components/ui/Ui"
+import { Card, CardHeader, CardFooter, StatusBadge, EmptyState, Button, Segmented, PageLoader, Avatar, Badge } from "../components/ui/Ui"
 import { BarChart, AreaChart, CHART_COLORS } from "../components/ui/Chart"
 import { cn } from "../lib/cn"
 
@@ -115,54 +117,46 @@ export default function Dashboard() {
 
   return (
     <div>
-      {/* Greeting header (Midday / HoneyBook pattern) */}
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-        <div>
-          <p className="text-[13px] text-muted-foreground">{today}</p>
-          <h1 className="mt-0.5 text-[26px] font-semibold leading-8 tracking-[-0.02em] text-foreground">
-            {greeting()}{firstName ? `, ${firstName}` : ""}
-          </h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            {openInvoices > 0 ? (
-              <>You have <b className="font-semibold text-foreground">{openInvoices} open invoice{openInvoices === 1 ? "" : "s"}</b> totalling <b className="font-semibold text-foreground">{formatCurrency(a.totalOutstanding)}</b></>
-            ) : (
-              <>No invoices outstanding</>
-            )}
-            {leadStats.today + leadStats.overdue > 0 && (
-              <> · <b className="font-semibold text-foreground">{leadStats.today + leadStats.overdue} follow-up{leadStats.today + leadStats.overdue === 1 ? "" : "s"}</b> need attention</>
-            )}
-          </p>
+      {/* Toolbar (Metronic): title + subtitle left, period picker right */}
+      <PageHeader title="Dashboard" subtitle={`${greeting()}${firstName ? `, ${firstName}` : ""} · ${today}`}>
+        <Segmented items={PERIODS} value={period} onChange={setPeriod} size="md" />
+      </PageHeader>
+
+      {/* Row 1 — four stat tiles left (2×2), attention card right (Demo 1) */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <div className="grid grid-cols-2 content-start gap-5">
+          <StatTile icon={Wallet} accent="bg-success/12 text-success-text" value={formatCurrency(a.cashCollected, { compact: true })} label="Cash collected" />
+          <StatTile icon={TrendingUp} accent="bg-primary/10 text-primary" value={formatCurrency(a.revenue, { compact: true })} label="Revenue (taxable)" />
+          <StatTile icon={ReceiptIndianRupee} accent="bg-warning/12 text-warning-text" value={formatCurrency(a.outstanding, { compact: true })} label="Outstanding" />
+          <StatTile icon={Trophy} accent="bg-info/10 text-info-text" value={`${a.winRate}%`} label="Win rate" />
         </div>
-        <Segmented items={PERIODS} value={period} onChange={setPeriod} />
+        <div className="lg:col-span-2">
+          <AttentionRail items={attention} summary={openInvoices > 0 ? `${openInvoices} open invoice${openInvoices === 1 ? "" : "s"} · ${formatCurrency(a.totalOutstanding)} outstanding` : "No invoices outstanding"} />
+        </div>
       </div>
 
-      {/* Quick actions */}
-      <div className="mb-5 flex flex-wrap gap-2">
-        {QUICK_ACTIONS.map((qa) => (
-          <Link
-            key={qa.to}
-            to={qa.to}
-            className="inline-flex h-9 items-center gap-2 rounded-btn border border-border bg-card px-3 text-[13px] font-medium text-foreground shadow-sm transition-colors hover:border-border-strong hover:bg-subtle"
-          >
-            <Plus className="h-3.5 w-3.5 text-subtle-foreground" />
-            {qa.label}
-          </Link>
-        ))}
-      </div>
-
-      {/* KPI strip — one card, divided (Jobber / HoneyBook) */}
-      <Card className="grid grid-cols-2 divide-y divide-border sm:divide-y-0 sm:divide-x xl:grid-cols-4">
-        <Kpi label="Cash collected" value={formatCurrency(a.cashCollected, { compact: true })} sub="Received in period" />
-        <Kpi label="Revenue (taxable)" value={formatCurrency(a.revenue, { compact: true })} sub={`Margin ${a.grossMarginPct}%`} />
-        <Kpi label="Outstanding" value={formatCurrency(a.outstanding, { compact: true })} sub={`DSO ${a.dso} days`} tone={a.outstanding > 0 ? "warn" : undefined} />
-        <Kpi label="Win rate" value={`${a.winRate}%`} sub={`${a.wonCount} of ${a.decidedCount} decided`} />
-      </Card>
-
-      {/* Trend + attention rail */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {/* Row 2 — quick actions + revenue chart (Highlights / Earnings) */}
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <Card>
+          <CardHeader title="Quick actions" />
+          <div className="flex flex-col gap-2.5 p-5">
+            {QUICK_ACTIONS.map((qa) => (
+              <Link key={qa.to} to={qa.to} className="flex items-center gap-3 rounded-lg border border-border px-3.5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent">
+                <span className="grid h-8 w-8 flex-none place-items-center rounded-md bg-primary/10 text-primary">
+                  <qa.icon className="h-4 w-4" />
+                </span>
+                {qa.label}
+                <Plus className="ml-auto h-4 w-4 text-muted-foreground" />
+              </Link>
+            ))}
+          </div>
+          <CardFooter>
+            <span className="text-[13px] text-muted-foreground">Margin {a.grossMarginPct}% · DSO {a.dso} days · {a.wonCount} of {a.decidedCount} quotes won</span>
+          </CardFooter>
+        </Card>
         <Card className="lg:col-span-2">
           <CardHeader title="Revenue vs. collections" description="Taxable revenue booked against cash received" />
-          <div className="px-3 pb-3">
+          <div className="px-3 pb-3 pt-2">
             <AreaChart
               height={272}
               categories={a.trend.map((t) => t.label)}
@@ -174,31 +168,30 @@ export default function Dashboard() {
             />
           </div>
         </Card>
-        <AttentionRail items={attention} />
       </div>
 
       {/* Pipeline */}
       {leadStats.total > 0 && (
-        <div className="mt-4">
+        <div className="mt-5">
           <LeadsPipeline stats={leadStats} />
         </div>
       )}
 
       {/* Funnel + quote aging + AR aging */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Funnel funnel={a.funnel} />
         <QuoteAging aging={a.quoteAging} openCount={a.openQuotesCount} />
         <ArAging aging={a.arAging} total={a.totalOutstanding} />
       </div>
 
       {/* Category, lead source */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <CategoryRevenue rows={a.categoryRevenue} />
         <LeadSources rows={a.leadSources} />
       </div>
 
       {/* Top customers, reasons lost, quick KPIs */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
         <TopCustomers rows={a.topCustomers} repeatRate={a.repeatRate} />
         <ReasonsLost rows={a.reasonsLost} />
         <MiniKpis a={a} />
@@ -207,55 +200,64 @@ export default function Dashboard() {
   )
 }
 
-function Kpi({ label, value, sub, tone }) {
+// Metronic stat tile: icon top-left, 26px number, 14px muted label.
+function StatTile({ icon: Icon, accent, value, label }) {
   return (
-    <div className="px-5 py-4">
-      <p className="text-[13px] font-medium text-muted-foreground">{label}</p>
-      <p className={cn("mt-1.5 text-[26px] font-semibold leading-none tracking-[-0.02em] tabular", tone === "warn" ? "text-warning-text" : "text-foreground")}>{value}</p>
-      {sub && <p className="mt-2 text-xs text-subtle-foreground">{sub}</p>}
-    </div>
+    <Card className="min-h-[151px] justify-between gap-6 px-5 pb-4 pt-5">
+      <span className={cn("inline-grid h-8 w-8 place-items-center rounded-md", accent)}>
+        <Icon className="h-[18px] w-[18px]" />
+      </span>
+      <div className="flex flex-col gap-1">
+        <span className="text-[26px] font-semibold leading-none tracking-tight text-foreground tabular">{value}</span>
+        <span className="text-sm text-muted-foreground">{label}</span>
+      </div>
+    </Card>
   )
 }
 
-function AttentionRail({ items }) {
+function AttentionRail({ items, summary }) {
   return (
-    <Card className="flex flex-col">
+    <Card className="h-full">
       <CardHeader
         title="Needs attention"
-        description="Overdue invoices, follow-ups and expiring quotes"
-        action={items.length > 0 && <Badge tone="rose">{items.length}</Badge>}
+        description={summary}
+        action={items.length > 0 && <Badge tone="rose" className="h-[22px] px-2 text-xs">{items.length} items</Badge>}
       />
       {items.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center px-5 pb-8 pt-2 text-center">
           <span className="grid h-10 w-10 place-items-center rounded-full bg-success/12 text-success-text">
             <CalendarClock className="h-5 w-5" />
           </span>
-          <p className="mt-3 text-[13px] font-medium text-foreground">All clear</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">Nothing is overdue right now.</p>
+          <p className="mt-3 text-sm font-medium text-foreground">All clear</p>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">Nothing is overdue right now.</p>
         </div>
       ) : (
         <ul className="divide-y divide-border">
           {items.map((it) => (
             <li key={it.id}>
-              <Link to={it.to} className="flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-subtle">
+              <Link to={it.to} className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-subtle">
                 <Avatar name={it.who} />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
-                    <span className="truncate text-[13px] font-medium text-foreground">{it.who}</span>
+                    <span className="truncate text-sm font-medium text-foreground">{it.who}</span>
                     <Badge tone={it.tone}>{it.kind}</Badge>
                   </span>
-                  <span className="block truncate text-xs text-muted-foreground">{it.what}</span>
+                  <span className="block truncate text-[13px] text-muted-foreground">{it.what}</span>
                 </span>
-                {it.amount != null && <span className="flex-none text-[13px] font-semibold text-foreground tabular">{formatCurrency(it.amount, { compact: true })}</span>}
+                {it.amount != null && <span className="flex-none text-sm font-semibold text-foreground tabular">{formatCurrency(it.amount, { compact: true })}</span>}
               </Link>
             </li>
           ))}
         </ul>
       )}
+      <CardFooter className="mt-auto">
+        <Link to="/billing?tab=invoices" className="text-[13px] font-medium text-primary underline decoration-dotted underline-offset-4 hover:decoration-solid">
+          View all invoices
+        </Link>
+      </CardFooter>
     </Card>
   )
 }
-
 
 function ViewAll({ to, children }) {
   return (

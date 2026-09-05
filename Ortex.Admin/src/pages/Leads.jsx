@@ -260,7 +260,7 @@ function LeadList({ leads, onOpen }) {
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
+          <thead className="mt-head">
             <tr>
               <SortTh sortKey="customer" sort={sort} onSort={onSort}>Lead</SortTh>
               <SortTh sortKey="stage" sort={sort} onSort={onSort}>Stage</SortTh>
@@ -270,11 +270,11 @@ function LeadList({ leads, onOpen }) {
               <SortTh sortKey="owner" sort={sort} onSort={onSort}>Owner</SortTh>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border rows-in">
+          <tbody className="mt-body">
             {sorted.map((l) => {
               const fu = followState(l)
               return (
-                <tr key={l.id} className="cursor-pointer transition-colors hover:bg-subtle" onClick={() => onOpen(l)}>
+                <tr key={l.id} className="cursor-pointer" onClick={() => onOpen(l)}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <Avatar name={l.customer?.company || l.customer?.name} />

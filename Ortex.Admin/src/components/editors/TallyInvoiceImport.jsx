@@ -5,52 +5,7 @@ import { repo } from "../../data/store/repository"
 import { createInvoice } from "../../data/domain/domain"
 import { Button, Modal, Badge } from "../ui/Ui"
 import { formatCurrency, formatDate } from "../../lib/format"
-
-// Map of standard Indian state names to code for GST supply calculations
-const STATE_MAP = {
-  "jammu & kashmir": "01",
-  "jammu and kashmir": "01",
-  "himachal pradesh": "02",
-  "punjab": "03",
-  "chandigarh": "04",
-  "uttarakhand": "05",
-  "haryana": "06",
-  "delhi": "07",
-  "rajasthan": "08",
-  "uttar pradesh": "09",
-  "bihar": "10",
-  "sikkim": "11",
-  "arunachal pradesh": "12",
-  "assam": "18",
-  "west bengal": "19",
-  "jharkhand": "20",
-  "odisha": "21",
-  "chhattisgarh": "22",
-  "madhya pradesh": "23",
-  "gujarat": "24",
-  "daman & diu": "25",
-  "daman and diu": "25",
-  "dadra & nagar haveli": "26",
-  "dadra and nagar haveli": "26",
-  "maharashtra": "27",
-  "karnataka": "29",
-  "goa": "30",
-  "lakshadweep": "31",
-  "kerala": "32",
-  "tamil nadu": "33",
-  "puducherry": "34",
-  "telangana": "36",
-  "andhra pradesh": "37",
-  "ladakh": "38"
-}
-
-function stateNameToCode(name) {
-  if (!name) return ""
-  const normalized = name.trim().toLowerCase()
-  // If it's already a 2-digit number, return it
-  if (/^\d{2}$/.test(normalized)) return normalized
-  return STATE_MAP[normalized] || ""
-}
+import { stateNameToCode } from "../../lib/gstStates"
 
 export function parseTallyInvoiceXml(xmlText) {
   const parser = new DOMParser()
@@ -483,7 +438,7 @@ export default function TallyInvoiceImport({ open, onClose, onImportDone }) {
             
             <div className="max-h-96 overflow-auto rounded-xl border border-border">
               <table className="w-full text-left text-sm">
-                <thead className="sticky top-0 z-10 bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
+                <thead className="mt-head sticky top-0 z-10">
                   <tr>
                     <th className="px-3 py-3 w-10 font-medium">Select</th>
                     <th className="px-3 py-3 font-medium">Inv Number</th>
@@ -493,7 +448,7 @@ export default function TallyInvoiceImport({ open, onClose, onImportDone }) {
                     <th className="px-3 py-3 font-medium">Import Action / Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border rows-in">
+                <tbody className="mt-body">
                   {invoices.map((inv, idx) => {
                     const isDup = existingList.some((ex) => ex.number.toLowerCase() === inv.number.toLowerCase())
                     const isChecked = selectedIndices.has(idx)

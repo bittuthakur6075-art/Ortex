@@ -69,7 +69,7 @@ export default function QueueTab({ jobs, onOpenCall, onPractice }) {
       <Card className="overflow-hidden ring-1 ring-border/60">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-sm">
-            <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
+            <thead className="mt-head">
               <tr>
                 <th className="px-4 py-3 font-semibold">Who</th>
                 <th className="px-4 py-3 font-semibold">Call</th>
@@ -79,7 +79,7 @@ export default function QueueTab({ jobs, onOpenCall, onPractice }) {
                 <th className="px-4 py-3" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/60">
+            <tbody className="mt-body">
               {visible.map((j) => {
                 const overdue = j.status === "queued" && new Date(j.scheduledAt) <= new Date()
                 const k = kindMeta(j.kind)

@@ -9,7 +9,7 @@ export default function RulesTab({ rules, templateNameFor, onEdit, onDelete }) {
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left text-sm">
-          <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
+          <thead className="mt-head">
             <tr>
               <th className="px-4 py-3">Rule Name</th>
               <th className="px-4 py-3">Trigger Event</th>
@@ -20,7 +20,7 @@ export default function RulesTab({ rules, templateNameFor, onEdit, onDelete }) {
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border rows-in text-foreground">
+          <tbody className="mt-body">
             {rules.length === 0 ? (
               <tr>
                 <td colSpan="7" className="py-12 text-center text-muted-foreground">No rules configured.</td>

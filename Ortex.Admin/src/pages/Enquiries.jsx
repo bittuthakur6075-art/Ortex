@@ -352,7 +352,7 @@ function EnquiryDrawer({ enquiry, products = [], settings, onPrint, onClose }) {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
+                <thead className="mt-head">
                   <tr>
                     <th className="px-3 py-2 font-medium">Product</th>
                     <th className="px-3 py-2 text-right font-medium">Qty</th>
@@ -361,7 +361,7 @@ function EnquiryDrawer({ enquiry, products = [], settings, onPrint, onClose }) {
                     <th className="px-3 py-2 text-right font-medium">Total</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border rows-in">
+                <tbody className="mt-body">
                   {rfq.items.map((it, i) => (
                     <tr key={i}>
                       <td className="px-3 py-2">

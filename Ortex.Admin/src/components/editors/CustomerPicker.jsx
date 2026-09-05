@@ -4,6 +4,7 @@ import { Avatar, Input } from "../ui/Ui"
 import { newCustomer } from "../../data/domain/schema"
 import CustomerFields from "./CustomerFields"
 import { cn } from "../../lib/cn"
+import { stateName } from "../../lib/gstStates"
 
 // Customer selection for quotations and invoices (Acctual / Xero / Square
 // pattern): one searchable combobox with "Create new customer" as the first
@@ -110,7 +111,7 @@ export default function CustomerPicker({ value, onChange, customers = [] }) {
           <div className="truncate text-xs text-muted-foreground">
             {sub || "No contact details"}
             {value.gstin && <> · GSTIN {value.gstin}</>}
-            {value.stateCode && <> · State {value.stateCode}</>}
+            {value.stateCode && <> · {stateName(value.stateCode)}</>}
           </div>
           {value.address && <div className="mt-0.5 truncate text-xs text-muted-foreground">{value.address}</div>}
         </div>

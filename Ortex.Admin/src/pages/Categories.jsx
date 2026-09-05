@@ -76,7 +76,7 @@ export default function Categories({ embedded = false }) {
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
+              <thead className="mt-head">
                 <tr>
                   <SortTh sortKey="name" sort={sort} onSort={onSort}>Category</SortTh>
                   <SortTh sortKey="hsn" sort={sort} onSort={onSort}>Default HSN</SortTh>
@@ -85,9 +85,9 @@ export default function Categories({ embedded = false }) {
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border rows-in">
+              <tbody className="mt-body">
                 {sortedItems.map((c) => (
-                  <tr key={c.id} className="cursor-pointer transition-colors hover:bg-subtle" onClick={() => setEditing(c)}>
+                  <tr key={c.id} className="cursor-pointer" onClick={() => setEditing(c)}>
                     <td className="px-4 py-3">
                       <div className="font-medium text-foreground">{c.name}</div>
                       {c.description && <div className="max-w-md truncate text-xs text-muted-foreground">{c.description}</div>}

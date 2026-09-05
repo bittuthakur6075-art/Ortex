@@ -9,7 +9,7 @@ export default function InvoiceTable({ rows, sort, onSort, onEdit, onPreview }) 
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
+          <thead className="mt-head">
             <tr>
               <SortTh sortKey="number" sort={sort} onSort={onSort}>Number</SortTh>
               <SortTh sortKey="customer" sort={sort} onSort={onSort}>Customer</SortTh>
@@ -21,11 +21,11 @@ export default function InvoiceTable({ rows, sort, onSort, onEdit, onPreview }) 
               <th className="px-4 py-3" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-border rows-in">
+          <tbody className="mt-body">
             {rows.map((i) => {
               const overdue = i._status === "overdue"
               return (
-                <tr key={i.id} className="cursor-pointer transition-colors hover:bg-subtle" onClick={() => onEdit({ ...i })}>
+                <tr key={i.id} className="cursor-pointer" onClick={() => onEdit({ ...i })}>
                   <td className="px-4 py-3 font-medium tabular text-foreground">{i.number}</td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-foreground">{i.customer?.company || i.customer?.name}</div>

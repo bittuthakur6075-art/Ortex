@@ -239,7 +239,7 @@ export default function Quotations() {
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
+              <thead className="mt-head">
                 <tr>
                   <SortTh sortKey="number" sort={sort} onSort={onSort}>Number</SortTh>
                   <SortTh sortKey="customer" sort={sort} onSort={onSort}>Customer</SortTh>
@@ -249,13 +249,13 @@ export default function Quotations() {
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border rows-in">
+              <tbody className="mt-body">
                 {filtered.map((q) => {
                   const left = daysUntil(q.validUntil)
                   const expiring = ["draft", "sent"].includes(q.status) && left !== null && left < 0
                   const canSend = ["draft", "sent"].includes(q.status)
                   return (
-                    <tr key={q.id} className="cursor-pointer transition-colors hover:bg-subtle" onClick={() => setEditing({ ...q })}>
+                    <tr key={q.id} className="cursor-pointer" onClick={() => setEditing({ ...q })}>
                       <td className="px-4 py-3 font-medium tabular text-foreground">{q.number}</td>
                       <td className="px-4 py-3">
                         <div className="font-medium text-foreground">{q.customer?.company || q.customer?.name}</div>

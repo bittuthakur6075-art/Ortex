@@ -126,7 +126,7 @@ export default function Payments({ embedded = false }) {
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
+              <thead className="mt-head">
                 <tr>
                   <SortTh sortKey="number" sort={sort} onSort={onSort}>Ref</SortTh>
                   <SortTh sortKey="party" sort={sort} onSort={onSort}>Party</SortTh>
@@ -137,7 +137,7 @@ export default function Payments({ embedded = false }) {
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border rows-in">
+              <tbody className="mt-body">
                 {filtered.map((p) => {
                   const meta = statusMeta(PAYMENT_TYPE, p.type)
                   return (

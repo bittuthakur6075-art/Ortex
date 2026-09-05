@@ -109,7 +109,7 @@ export default function Customers() {
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
+              <thead className="mt-head">
                 <tr>
                   <SortTh sortKey="name" sort={sort} onSort={onSort}>Customer</SortTh>
                   <SortTh sortKey="gstin" sort={sort} onSort={onSort}>GSTIN</SortTh>
@@ -118,9 +118,9 @@ export default function Customers() {
                   <SortTh sortKey="_outstanding" sort={sort} onSort={onSort} align="right">Outstanding</SortTh>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border rows-in">
+              <tbody className="mt-body">
                 {filtered.map((c) => (
-                  <tr key={c.id} className="cursor-pointer transition-colors hover:bg-subtle" onClick={() => setSelected(c)}>
+                  <tr key={c.id} className="cursor-pointer" onClick={() => setSelected(c)}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Avatar name={c.company || c.name} />

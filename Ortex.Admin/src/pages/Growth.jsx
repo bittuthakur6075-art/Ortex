@@ -358,15 +358,15 @@ function CohortTable({ rows }) {
         <p className="py-4 text-sm text-muted-foreground">No enquiries in the last six months.</p>
       ) : (
         <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground">
+          <thead className="mt-head">
+            <tr>
               <th className="py-2">Month</th>
               <th className="py-2 text-right">Enquiries</th>
               <th className="py-2 text-right">Quoted</th>
               <th className="py-2 text-right">Won</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border rows-in">
+          <tbody className="mt-body">
             {rows.map((r) => (
               <tr key={r.label}>
                 <td className="py-2 font-medium text-foreground">{r.label}</td>

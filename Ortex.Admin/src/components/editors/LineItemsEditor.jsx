@@ -40,7 +40,7 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
     <div className="space-y-4">
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-[900px] table-fixed text-left text-sm">
-          <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
+          <thead className="mt-head">
             <tr>
               <th className="w-9 px-2 py-2.5 text-center">#</th>
               <th className="px-3 py-2.5">Item / description</th>

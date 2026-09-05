@@ -49,7 +49,7 @@ export default function WhatsAppTab({ whatsappLogs, searchQuery, maskSensitiveDa
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-sm">
-            <thead className="bg-subtle text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground shadow-[inset_0_-1px_0_hsl(var(--border))]">
+            <thead className="mt-head">
               <tr>
                 <th className="px-4 py-3">Created</th>
                 <th className="px-4 py-3">Customer</th>
@@ -60,7 +60,7 @@ export default function WhatsAppTab({ whatsappLogs, searchQuery, maskSensitiveDa
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border rows-in text-foreground">
+            <tbody className="mt-body">
               {filteredWhatsappLogs.length === 0 ? (
                 <tr>
                   <td colSpan="7" className="py-12 text-center text-muted-foreground">No WhatsApp logs found.</td>
