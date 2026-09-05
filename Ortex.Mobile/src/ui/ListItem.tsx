@@ -1,22 +1,22 @@
-import React, { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { memo } from "react"
+import { Pressable, StyleSheet, Text, View } from "react-native"
 
-import { useTheme } from '@/store/ThemeContext';
-import { font } from '@/theme/typography';
-import Icon, { type IconName } from '@/ui/Icon';
+import { useTheme } from "@/store/ThemeContext"
+import { font } from "@/theme/typography"
+import Icon, { type IconName } from "@/ui/Icon"
 
 type Props = {
-  title: string;
-  subtitle?: string;
-  leadingIcon?: IconName;
-  leading?: React.ReactNode;
-  trailing?: React.ReactNode;
-  trailingText?: string;
-  showChevron?: boolean;
-  onPress?: () => void;
-  divider?: boolean;
-  disabled?: boolean;
-};
+  title: string
+  subtitle?: string
+  leadingIcon?: IconName
+  leading?: React.ReactNode
+  trailing?: React.ReactNode
+  trailingText?: string
+  showChevron?: boolean
+  onPress?: () => void
+  divider?: boolean
+  disabled?: boolean
+}
 
 /**
  * Settings-style row. Usage:
@@ -34,7 +34,7 @@ function ListItem({
   divider,
   disabled,
 }: Props) {
-  const t = useTheme();
+  const t = useTheme()
 
   const inner = (
     <View style={[styles.row, { opacity: disabled ? 0.45 : 1 }]}>
@@ -53,15 +53,11 @@ function ListItem({
           </Text>
         )}
       </View>
-      {!!trailingText && (
-        <Text style={[styles.trailingText, { color: t.textTertiary }]}>{trailingText}</Text>
-      )}
+      {!!trailingText && <Text style={[styles.trailingText, { color: t.textTertiary }]}>{trailingText}</Text>}
       {trailing}
-      {!trailing && showChevron && onPress && (
-        <Icon name="forward" size={18} color={t.textTertiary} />
-      )}
+      {!trailing && showChevron && onPress && <Icon name="forward" size={18} color={t.textTertiary} />}
     </View>
-  );
+  )
 
   return (
     <View>
@@ -80,15 +76,15 @@ function ListItem({
       )}
       {divider && <View style={[styles.divider, { backgroundColor: t.divider }]} />}
     </View>
-  );
+  )
 }
 
-export default memo(ListItem);
+export default memo(ListItem)
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     minHeight: 56,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -96,7 +92,7 @@ const styles = StyleSheet.create({
   leading: {
     marginRight: 14,
     width: 22,
-    alignItems: 'center',
+    alignItems: "center",
   },
   text: {
     flex: 1,
@@ -121,4 +117,4 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     marginLeft: 16,
   },
-});
+})

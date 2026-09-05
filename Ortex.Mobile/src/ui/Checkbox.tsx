@@ -1,23 +1,23 @@
-import React, { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { memo } from "react"
+import { Pressable, StyleSheet, Text } from "react-native"
 
-import { useTheme } from '@/store/ThemeContext';
-import { font } from '@/theme/typography';
-import Icon from '@/ui/Icon';
+import { useTheme } from "@/store/ThemeContext"
+import { font } from "@/theme/typography"
+import Icon from "@/ui/Icon"
 
 type Props = {
-  checked: boolean;
-  onChange: (next: boolean) => void;
-  label?: string;
-  disabled?: boolean;
-};
+  checked: boolean
+  onChange: (next: boolean) => void
+  label?: string
+  disabled?: boolean
+}
 
 /**
  * Tick-circle checkbox matching the checklist rows on note cards. Usage:
  * `<Checkbox checked={item.done} onChange={(v) => toggle(item.id, v)} label={item.text} />`
  */
 function Checkbox({ checked, onChange, label, disabled }: Props) {
-  const t = useTheme();
+  const t = useTheme()
 
   return (
     <Pressable
@@ -33,7 +33,7 @@ function Checkbox({ checked, onChange, label, disabled }: Props) {
         name="tick"
         size={22}
         color={checked ? t.accent : t.textTertiary}
-        variant={checked ? 'Bold' : 'Linear'}
+        variant={checked ? "Bold" : "Linear"}
       />
       {!!label && (
         <Text
@@ -41,7 +41,7 @@ function Checkbox({ checked, onChange, label, disabled }: Props) {
             styles.label,
             {
               color: checked ? t.textTertiary : t.text,
-              textDecorationLine: checked ? 'line-through' : 'none',
+              textDecorationLine: checked ? "line-through" : "none",
             },
           ]}
         >
@@ -49,15 +49,15 @@ function Checkbox({ checked, onChange, label, disabled }: Props) {
         </Text>
       )}
     </Pressable>
-  );
+  )
 }
 
-export default memo(Checkbox);
+export default memo(Checkbox)
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   label: {
     marginLeft: 10,
@@ -66,4 +66,4 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontFamily: font.regular,
   },
-});
+})

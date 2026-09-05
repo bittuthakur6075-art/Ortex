@@ -1,0 +1,49 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "react",
+    "oxc",
+    "import",
+    "typescript"
+  ],
+  "ignorePatterns": [
+    "node_modules",
+    "android",
+    "ios",
+    "vendor"
+  ],
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": [
+      "warn",
+      {
+        "allowConstantExport": true
+      }
+    ],
+    "react/refs": "off",
+    "react/set-state-in-effect": "off",
+    "no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ],
+    "import/no-duplicates": "warn",
+    "import/no-self-import": "error"
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/ui/Icon.tsx",
+        "src/ui/Chips.tsx",
+        "src/ui/Toast.tsx",
+        "src/store/AuthContext.tsx",
+        "src/store/ThemeContext.tsx"
+      ],
+      "rules": {
+        "react/only-export-components": "off"
+      }
+    }
+  ]
+}

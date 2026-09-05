@@ -52,14 +52,18 @@ export const GST_STATE_OPTIONS = Object.entries(GST_STATES)
 
 /** "07" → "Delhi". Unknown or blank codes return the code itself (or ""). */
 export function stateName(code?: string): string {
-  const c = String(code || "").trim().padStart(2, "0")
+  const c = String(code || "")
+    .trim()
+    .padStart(2, "0")
   if (!c || c === "00") return ""
   return GST_STATES[c] || c
 }
 
 /** "07" → "Delhi (07)"; used on documents where both are useful. */
 export function stateLabel(code?: string): string {
-  const c = String(code || "").trim().padStart(2, "0")
+  const c = String(code || "")
+    .trim()
+    .padStart(2, "0")
   if (!c || c === "00") return ""
   const name = GST_STATES[c]
   return name ? `${name} (${c})` : c

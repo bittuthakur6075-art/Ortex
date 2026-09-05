@@ -121,7 +121,12 @@
   --accent-foreground: 240 6% 10%;
   --muted: 200 33% 98%;             /* #F9FBFC */
   --muted-foreground: 224 22% 37.6%; /* #4B5675 */
-  --subtle: 200 33% 98%;            /* #F9FBFC row hover / table head */
+  --subtle: 200 33% 98%;            /* #F9FBFC row hover */
+  /* Table head fill. It must differ from BOTH the white card (rows) and the
+     canvas: at --subtle (98%) it vanished into the rows, at --background it
+     matched the page and the card looked like it began at row one. 94% reads
+     as a band inside the card from either side. */
+  --table-head: 212 22% 94%;        /* #EDF0F4 */
   --field: 0 0% 100%;
   --well: 200 33% 98%;               /* #F9FBFC */
   --card: 0 0% 100%;
@@ -160,6 +165,7 @@
   --muted: 222 26% 16%;
   --muted-foreground: 217 20% 74%;
   --subtle: 222 30% 12%;
+  --table-head: 222 26% 15%;
   --field: 222 30% 10%;
   --well: 222 26% 14%;
   --card: 222 34% 9.5%;
@@ -297,7 +303,7 @@
   position: relative;
 }
 
-/* Data table: 40px head row in 14px regular on the canvas grey, 14px cells,
+/* Data table: 40px head row in 14px regular on --table-head, 14px cells,
    row hover. Horizontal rules only — no vertical column dividers and no outer
    border, so the table reads as rows of content rather than a spreadsheet.
    Apply `mt-head` to <thead> and `mt-body` to <tbody>. */
@@ -311,11 +317,7 @@
   text-align: left;
   white-space: nowrap;
   vertical-align: middle;
-  /* Canvas grey, not --subtle: --subtle sits at 98% lightness, which is
-     invisible against the white card the table lives in. --background is the
-     same step the page already uses between canvas and card, so the head reads
-     as a band without adding a heavier rule. */
-  background: hsl(var(--background));
+  background: hsl(var(--table-head));
   border-bottom: 1px solid hsl(var(--border));
 }
 .mt-head th.text-right { text-align: right; }

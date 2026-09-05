@@ -1,4 +1,10 @@
 {
   "name": "OrtexMobile",
-  "displayName": "OrtexMobile"
+  "displayName": "Ortex Sales",
+  "plugins": [
+    "expo-font",
+    "expo-sharing",
+    "expo-image",
+    "expo-asset"
+  ]
 }

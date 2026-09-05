@@ -43,6 +43,29 @@ jobs:
       - run: npm run build
       - run: npm run check:functions   # Deno 2 fetched via npx
 
+  mobile:
+    name: Ortex.Mobile — lint + typecheck + tests + bundle
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Ortex.Mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Ortex.Mobile/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      # Asserts the mobile GST engine still agrees with Ortex.Admin's, so a change
+      # to one without the other fails here rather than on a real quotation.
+      - run: npm test
+      # No Android SDK on this runner, so the native build is out of reach — but
+      # a Metro bundle still catches every broken import, alias and missing peer.
+      - run: npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output /tmp/android.bundle
+
   connector:
     name: Ortex.Tally.Connector — XML fixture
     runs-on: ubuntu-latest

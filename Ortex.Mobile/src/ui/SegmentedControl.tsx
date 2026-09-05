@@ -1,19 +1,19 @@
-import React, { memo, useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { memo, useEffect, useRef, useState } from "react"
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native"
 
-import { useTheme } from '@/store/ThemeContext';
-import { font } from '@/theme/typography';
+import { useTheme } from "@/store/ThemeContext"
+import { font } from "@/theme/typography"
 
 export type SegmentOption<T extends string = string> = {
-  key: T;
-  label: string;
-};
+  key: T
+  label: string
+}
 
 type Props<T extends string> = {
-  options: SegmentOption<T>[];
-  value: T;
-  onChange: (next: T) => void;
-};
+  options: SegmentOption<T>[]
+  value: T
+  onChange: (next: T) => void
+}
 
 /**
  * Sliding segmented control with an accent-soft lens behind the active
@@ -21,10 +21,13 @@ type Props<T extends string> = {
  * `<SegmentedControl options={[{key:'grid',label:'Grid'},{key:'list',label:'List'}]} value={viewMode} onChange={setViewMode} />`
  */
 function SegmentedControl<T extends string>({ options, value, onChange }: Props<T>) {
-  const t = useTheme();
-  const [width, setWidth] = useState(0);
-  const index = Math.max(0, options.findIndex((o) => o.key === value));
-  const slide = useRef(new Animated.Value(index)).current;
+  const t = useTheme()
+  const [width, setWidth] = useState(0)
+  const index = Math.max(
+    0,
+    options.findIndex((o) => o.key === value),
+  )
+  const slide = useRef(new Animated.Value(index)).current
 
   useEffect(() => {
     Animated.spring(slide, {
@@ -33,14 +36,14 @@ function SegmentedControl<T extends string>({ options, value, onChange }: Props<
       damping: 18,
       stiffness: 220,
       mass: 0.7,
-    }).start();
-  }, [index, slide]);
+    }).start()
+  }, [index, slide])
 
-  const segmentWidth = options.length > 0 ? width / options.length : 0;
+  const segmentWidth = options.length > 0 ? width / options.length : 0
   const translateX = slide.interpolate({
     inputRange: options.map((_, i) => i),
     outputRange: options.map((_, i) => i * segmentWidth),
-  });
+  })
 
   return (
     <View
@@ -61,7 +64,7 @@ function SegmentedControl<T extends string>({ options, value, onChange }: Props<
         />
       )}
       {options.map((option) => {
-        const active = option.key === value;
+        const active = option.key === value
         return (
           <Pressable
             key={option.key}
@@ -80,33 +83,33 @@ function SegmentedControl<T extends string>({ options, value, onChange }: Props<
               {option.label}
             </Text>
           </Pressable>
-        );
+        )
       })}
     </View>
-  );
+  )
 }
 
-export default memo(SegmentedControl) as typeof SegmentedControl;
+export default memo(SegmentedControl) as typeof SegmentedControl
 
 const styles = StyleSheet.create({
   track: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderRadius: 16,
     padding: 4,
     height: 44,
   },
   lens: {
-    position: 'absolute',
+    position: "absolute",
     top: 4,
     bottom: 4,
     borderRadius: 12,
   },
   segment: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   label: {
     fontSize: 13.5,
   },
-});
+})

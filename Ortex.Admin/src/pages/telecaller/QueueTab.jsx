@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { CalendarClock, Mic, Phone, Trash2, X } from "../../components/ui/Icons"
-import { Avatar, Badge, Button, Card, Chip, ChipGroup, EmptyState, Input, Modal, StatusBadge } from "../../components/ui/Ui"
+import { Avatar, Badge, Button, Card, CardHeader, Chip, ChipGroup, EmptyState, Input, Modal, StatusBadge } from "../../components/ui/Ui"
 import { TELECALL_JOB_STATUS, TELECALL_KINDS } from "../../data/domain/schema"
 import { repo } from "../../data/store/repository"
 import { formatDateTime, relativeTime } from "../../lib/format"
@@ -67,6 +67,7 @@ export default function QueueTab({ jobs, onOpenCall, onPractice }) {
       </ChipGroup>
 
       <Card className="overflow-hidden">
+        <CardHeader title="Call queue" description={`${visible.length} of ${jobs.length}`} />
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="mt-head">

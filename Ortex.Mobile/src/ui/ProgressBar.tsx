@@ -1,21 +1,21 @@
-import React, { memo, useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import React, { memo, useEffect, useRef } from "react"
+import { Animated, Easing, StyleSheet, View } from "react-native"
 
-import { useTheme } from '@/store/ThemeContext';
+import { useTheme } from "@/store/ThemeContext"
 
 type Props = {
   /** 0 to 1. */
-  progress: number;
-  color?: string;
-};
+  progress: number
+  color?: string
+}
 
 /**
  * Determinate progress bar. Usage: `<ProgressBar progress={uploaded / total} />`
  */
 function ProgressBar({ progress, color }: Props) {
-  const t = useTheme();
-  const width = useRef(new Animated.Value(0)).current;
-  const clamped = Math.min(1, Math.max(0, progress));
+  const t = useTheme()
+  const width = useRef(new Animated.Value(0)).current
+  const clamped = Math.min(1, Math.max(0, progress))
 
   useEffect(() => {
     Animated.timing(width, {
@@ -23,8 +23,8 @@ function ProgressBar({ progress, color }: Props) {
       duration: 220,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
-    }).start();
-  }, [clamped, width]);
+    }).start()
+  }, [clamped, width])
 
   return (
     <View
@@ -37,24 +37,24 @@ function ProgressBar({ progress, color }: Props) {
           styles.fill,
           {
             backgroundColor: color ?? t.accent,
-            width: width.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+            width: width.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }),
           },
         ]}
       />
     </View>
-  );
+  )
 }
 
-export default memo(ProgressBar);
+export default memo(ProgressBar)
 
 const styles = StyleSheet.create({
   track: {
     height: 6,
     borderRadius: 3,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   fill: {
     height: 6,
     borderRadius: 3,
   },
-});
+})

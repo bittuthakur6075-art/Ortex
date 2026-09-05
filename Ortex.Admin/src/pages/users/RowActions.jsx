@@ -11,7 +11,7 @@ import { randomPassword } from "./helpers"
 // and refuses to let anyone disable or delete themselves.
 export default function RowActions({ user, selfId, onEdit, onChanged }) {
   const [open, setOpen] = useState(false)
-  const [dialog, setDialog] = useState(null) // "reset" | "delete"
+  const [dialog, setDialog] = useState(null) // "reset" | "delete" | "deactivate"
   const [busy, setBusy] = useState(false)
   const ref = useRef(null)
   const isSelf = user.id === selfId
@@ -28,14 +28,23 @@ export default function RowActions({ user, selfId, onEdit, onChanged }) {
     }
   }, [open])
 
-  const toggleActive = async () => {
-    setOpen(false)
+  const applyActive = async (next) => {
     setBusy(true)
-    const res = await setUserActive(user.id, !user.active)
+    const res = await setUserActive(user.id, next)
     setBusy(false)
-    if (res.error) return toast.error(res.error)
-    toast.success(user.active ? `${user.email} can no longer sign in` : `${user.email} is active again`)
+    setDialog(null)
+    // A reverted write is a longer, diagnostic message - give it room to be read.
+    if (res.error) return toast.error(res.error, { duration: res.reverted || res.notDeployed ? 15000 : 6000 })
+    toast.success(next ? `${user.email} is active again` : `${user.email} can no longer sign in`)
     onChanged()
+  }
+
+  // Deactivating cuts someone off mid-session, so it asks first. Re-enabling is
+  // harmless and stays one click.
+  const toggleActive = () => {
+    setOpen(false)
+    if (user.active) return setDialog("deactivate")
+    applyActive(true)
   }
 
   const item = "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm text-secondary-foreground hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
@@ -84,6 +93,32 @@ export default function RowActions({ user, selfId, onEdit, onChanged }) {
       )}
       {dialog === "delete" && (
         <DeleteUserDialog user={user} onClose={() => setDialog(null)} onDone={() => { setDialog(null); onChanged() }} />
+      )}
+      {dialog === "deactivate" && (
+        <Modal
+          open
+          onClose={() => setDialog(null)}
+          width="max-w-md"
+          title="Deactivate account"
+          footer={
+            <div className="flex w-full justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setDialog(null)}>Cancel</Button>
+              <Button variant="danger" size="sm" disabled={busy} onClick={() => applyActive(false)}>
+                {busy ? "Deactivating…" : "Deactivate"}
+              </Button>
+            </div>
+          }
+        >
+          <Banner tone="warning">
+            <span className="flex items-start gap-2">
+              <AlertTriangle variant="Linear" className="mt-0.5 h-4 w-4 flex-none" />
+              <span>
+                <b>{user.email}</b> is signed out everywhere and cannot sign in again — by password or by emailed code —
+                until you reactivate them. Their records stay exactly as they are, and you can turn this back on at any time.
+              </span>
+            </span>
+          </Banner>
+        </Modal>
       )}
     </div>
   )

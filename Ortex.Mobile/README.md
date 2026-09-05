@@ -1,97 +1,152 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Ortex.Mobile — field-sales companion
 
-# Getting Started
+A React Native app for the Ortex sales team. It carries the four things that
+matter away from a desk: **quotations**, **enquiries and voice leads**,
+**products**, and a **contact directory whose primary action is Call / WhatsApp**.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+It is another client of the **same Supabase project** as `Ortex.Admin` — same
+anon key, same session, same `profiles` roles and per-user module permissions,
+same RLS. It needs no migration, no edge function and no schema change of its
+own. Everything it cannot do (invoices, payments, catalogue editing, settings,
+users) stays in the console.
 
-## Step 1: Start Metro
+| | |
+|---|---|
+| Stack | React Native 0.85 (bare) · Expo SDK 56 modules · TypeScript · React Navigation 7 |
+| Design | Samsung One UI, ported from `C:\Dev\Mobile App` |
+| Type | Zalando Sans (`@expo-google-fonts/zalando-sans`) |
+| Auth | Supabase password → emailed OTP, plus an optional biometric app-lock |
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Quick start
 
-To start the Metro dev server, run the following command from the root of your React Native project:
-
-```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+```bash
+cd Ortex.Mobile
+npm install
+cp .env.example .env          # fill from the same Supabase project Ortex.Admin uses
+npm start                     # Metro
+npm run android               # build and install on a connected device/emulator
 ```
 
-## Step 2: Build and run your app
+Other scripts: `npm run lint` (oxlint), `npm run typecheck` (tsc), `npm test`
+(node --test), `npm run format` (prettier).
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+> **iOS is scaffolded but unbuilt.** `ios/` is generated and wired (Info.plist
+> carries the Face ID and `LSApplicationQueriesSchemes` entries), but it has
+> never been compiled — the project is developed on Windows. `npm run ios`
+> needs a Mac and a `pod install` first.
 
-### Android
+## Layout
 
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+```text
+src/
+├── theme/        theme.ts (palette + light/dark) · typography.ts (Zalando Sans)
+├── ui/           the ported One UI kit — Button, Card, Sheet, TextField, …
+├── navigation/   RootNavigator · Tabs · OneUiTabBar · types
+├── store/        ThemeContext (theme only) · AuthContext (session + profile)
+├── data/         supabase.ts (client) · repo.ts (collections) · cache.ts
+├── domain/       PURE LOGIC PORTED FROM Ortex.Admin — see below
+├── hooks/        useCollection · useSettings
+├── lib/          auth · contact (call/WhatsApp/email) · pdf · feedback (haptics)
+├── documents/    quotationHtml.ts — the printable A4 quotation
+└── features/     auth · quotations · leads · products · contacts · profile
 ```
 
-### iOS
+## `src/domain/` is a mirror of `Ortex.Admin` — keep it in step
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+These files are line-for-line ports. They are the contract with the console: a
+divergence means a phone and a desk disagree about a customer's GST.
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+| Mobile | Ported from |
+|---|---|
+| `pricing.ts` | `Ortex.Admin/src/lib/pricing.js` |
+| `format.ts` | `Ortex.Admin/src/lib/format.js` |
+| `id.ts` | `Ortex.Admin/src/lib/id.js` |
+| `gstStates.ts` | `Ortex.Admin/src/lib/gstStates.js` |
+| `schema.ts` | `Ortex.Admin/src/data/domain/schema.js` |
+| `settings.ts` | `Ortex.Admin/src/data/domain/settingsDefaults.js` |
+| `quotations.ts` | `Ortex.Admin/src/data/domain/domain.js` (quotation slice) |
+| `modules.ts` | `Ortex.Admin/src/data/domain/modules.js` |
+| `voice.ts` | `Ortex.Admin/src/pages/voice-leads/helpers.js` |
+| `data/repo.ts` | `Ortex.Admin/src/data/store/apiStore.js` |
 
-```sh
-bundle install
-```
+`npm test` is what enforces this: `test/pricing.test.mjs` imports **both**
+implementations and asserts they produce identical totals, so changing the
+console's engine without following here fails the build rather than a customer's
+invoice. `test/loadTs.mjs` is the shim that lets Node load both a TypeScript
+file with an `@/` alias and a Vite-style extensionless-import file.
 
-Then, and every time you update your native dependencies, run:
+### Two deliberate divergences
 
-```sh
-bundle exec pod install
-```
+* **`format.ts` does not use `toLocaleString("en-IN")`.** Hermes ships a
+  cut-down `Intl` whose availability varies by build, and when it is missing the
+  failure is *silent*: grouping degrades from `12,34,567.00` to `1,234,567.00`
+  on a printed quotation. The lakh/crore grouper is written out by hand and
+  covered by `test/format.test.mjs`.
+* **PDFs are not `html2pdf.js`.** The console rasterises the DOM with
+  html2canvas; here `documents/quotationHtml.ts` emits the same A4 layout as an
+  HTML string and `expo-print` renders it with the platform's own PDF engine —
+  real selectable text, and `expo-sharing` puts the file straight into WhatsApp.
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+## Data and offline behaviour
 
-```sh
-# Using npm
-npm run ios
+Every table is `{ id, doc jsonb, created_at, updated_at }`; `repo.ts` flattens
+rows to `{ ...doc, id, createdAt, updatedAt }` exactly as the console does, pages
+past PostgREST's 1000-row cap, and shares one realtime channel across all
+screens.
 
-# OR using Yarn
-yarn ios
-```
+`repo.list()` mirrors each collection into AsyncStorage and serves the cache when
+the fetch throws, so a salesperson with no signal still has their catalogue and
+contacts. **Writes are never queued offline**: a quotation number comes from the
+server's atomic `next_sequence`, and two phones saving offline would both believe
+they had the next one. What *is* kept locally is the half-finished draft
+(`features/quotations/useQuotationDraft.ts`), offered back on the next launch.
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+## Design system
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+Ported from `C:\Dev\Mobile App` per that project's `src/ui/README.md`. The
+palette in `theme/theme.ts` is unchanged — it is the same Metronic-derived ramp
+`Ortex.Admin/src/index.css` uses (`#2567E8` primary, `#071437` heading,
+`#E82646` error). `theme.tones` maps the console's status `tone` names
+(`blue`, `amber`, `emerald`, …) onto it, so an "Accepted" badge is the same
+green in both apps.
 
-## Step 3: Modify your app
+Conventions the screens follow: a slim toolbar row above a big 30px title;
+**bottom sheets, never dialogs**, for short choice lists (`Dialog` is reserved
+for destructive confirms); hairline dividers inset 16px past the leading icon;
+a 60px circular FAB lifted clear of the tab bar; 28px squircle cards, 16px
+buttons, 12px fields.
 
-Now that you have successfully run the app, let's make changes!
+**One departure from the source kit:** its `GlassTabBar` is an iOS-26 Liquid
+Glass design, not One UI, and its Android blur backend is switched on by an Expo
+config plugin — which never runs in a bare project. `navigation/OneUiTabBar.tsx`
+replaces it with an opaque One UI bar (hairline rule, Linear→Bold icon swap, the
+same spring lens). `expo-blur` is not installed.
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+## Bare-workflow notes
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+`app.json` config plugins **do not run** here, so native wiring is by hand:
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+* `android/app/src/main/AndroidManifest.xml` — `USE_BIOMETRIC`, `VIBRATE`, and an
+  Android 11+ `<queries>` block. Without those queries `Linking` cannot see the
+  phone/mail/WhatsApp apps and the Contacts buttons silently do nothing.
+* `ios/OrtexMobile/Info.plist` — `NSFaceIDUsageDescription` and
+  `LSApplicationQueriesSchemes` for the same reason.
+* `babel.config.js` carries the `@/` → `./src` alias via
+  `babel-plugin-module-resolver`. tsconfig `paths` alone is not enough: that is
+  resolved by Expo's Metro integration, and bundles here are built by the RN
+  CLI's Metro.
+* Env comes from `react-native-dotenv` (Babel-only, no native module):
+  `SUPABASE_URL`, `SUPABASE_ANON_KEY`.
 
-## Congratulations! :tada:
+## Style
 
-You've successfully run and modified your React Native App. :partying_face:
+Double quotes, no semicolons, 2-space indent, LF — the repo's `.editorconfig`
+covers this folder. `npm run lint` is oxlint. Two rules are switched off in
+`.oxlintrc.json` because they fire only on correct React Native idioms:
+`react/refs` (the `useRef(new Animated.Value(…)).current` pattern the whole kit
+is built on) and `react/set-state-in-effect` (async loads). Leaving them on
+buried ~40 false positives and hid the real warnings.
 
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+Unlike the three JS projects, this one keeps the React Native template's own
+`.gitignore` — the root file knows nothing about Gradle, Xcode or CocoaPods
+build output.

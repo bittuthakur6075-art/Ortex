@@ -38,28 +38,47 @@ export async function updateMyProfile(id, patch) {
   return error ? { error: error.message } : { ok: true }
 }
 
+// Every Edge Function call funnels through here so a failure reads the same way
+// at both call sites. The case worth naming is a function that was never
+// deployed: supabase-js reports that as a transport failure ("Failed to send a
+// request to the Edge Function") or a bare 404, neither of which tells an admin
+// what to do. The console then looks broken when the deploy is simply missing.
+async function invokeFunction(name, body) {
+  const { data, error } = await supabase.functions.invoke(name, { body })
+  if (error) {
+    const status = error.context?.status
+    // The function answered: surface its own { error } text, which is written
+    // for the admin ("You can't disable your own account", etc.).
+    let message = error.message
+    try {
+      const parsed = await error.context?.json?.()
+      if (parsed?.error) return { error: parsed.error }
+    } catch {
+      /* not JSON - fall through to the transport cases below */
+    }
+    if (status === 404 || /failed to send a request|failed to fetch/i.test(message)) {
+      return {
+        error: `The "${name}" function is not deployed on this Supabase project. Run: supabase functions deploy ${name}`,
+        notDeployed: true,
+      }
+    }
+    return { error: message }
+  }
+  if (data?.error) return { error: data.error }
+  return { ok: true, ...data }
+}
+
 // Create a new user via the Edge Function. Returns { ok, id } | { error }.
 export async function createUser(payload) {
   // Returns rather than throws: the caller renders this in a toast alongside
   // the function's own { error } responses, so keep the shape identical.
   if (!hasSupabase) return { error: OFFLINE }
-  const { data, error } = await supabase.functions.invoke("admin-create-user", { body: payload })
-  if (error) {
-    // Non-2xx from the function — surface its JSON { error } body if present.
-    let message = error.message
-    try {
-      const body = await error.context?.json?.()
-      if (body?.error) message = body.error
-    } catch {
-      /* fall back to the generic message */
-    }
-    return { error: message }
-  }
-  if (data?.error) return { error: data.error }
+  const res = await invokeFunction("admin-create-user", payload)
+  if (res.error) return res
   // emailed / emailError report whether the welcome mail actually went out. The
   // account exists either way, so this is information for the admin, not a
   // failure — the caller decides how loudly to say so.
-  return { ok: true, id: data?.id, emailed: Boolean(data?.emailed), emailError: data?.emailError ?? null }
+  return { ok: true, id: res.id, emailed: Boolean(res.emailed), emailError: res.emailError ?? null }
 }
 
 // Privileged actions on an existing account. All three need the service-role
@@ -68,24 +87,33 @@ export async function createUser(payload) {
 // ban the login, change a password or delete the auth user.
 async function manageUser(payload) {
   if (!hasSupabase) return { error: OFFLINE }
-  const { data, error } = await supabase.functions.invoke("admin-manage-user", { body: payload })
-  if (error) {
-    let message = error.message
-    try {
-      const body = await error.context?.json?.()
-      if (body?.error) message = body.error
-    } catch {
-      /* fall back to the generic message */
-    }
-    return { error: message }
-  }
-  if (data?.error) return { error: data.error }
-  return { ok: true, ...data }
+  return invokeFunction("admin-manage-user", payload)
 }
 
-/** Enable or disable a login (profiles.active + an auth ban). */
-export function setUserActive(id, active) {
-  return manageUser({ action: "set-active", id, active })
+/** Enable or disable a login (profiles.active + an auth ban).
+ *
+ * Verified, not assumed. profiles carries the BEFORE UPDATE trigger
+ * profiles_protect, which silently rewrites `new.active := old.active` for any
+ * caller it does not recognise as an admin or as the service role. A reverted
+ * write raises no error, so without reading the row back the console would
+ * report success over a row that never changed - which is exactly the failure
+ * that is impossible to diagnose from the UI.
+ */
+export async function setUserActive(id, active) {
+  const res = await manageUser({ action: "set-active", id, active })
+  if (res.error) return res
+
+  const { data, error } = await supabase.from("profiles").select("active").eq("id", id).maybeSingle()
+  if (error || !data) return res // cannot verify; trust the function
+  if (Boolean(data.active) !== Boolean(active)) {
+    return {
+      error:
+        "The server reported success but the account is unchanged, so the write was rolled back in the database. " +
+        "This is the profiles_protect trigger refusing the update - check that migration 0008 (the service-role bypass) is applied on this project.",
+      reverted: true,
+    }
+  }
+  return res
 }
 
 /** Set a new password, sign the user out everywhere, and optionally email it. */

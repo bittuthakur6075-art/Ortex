@@ -1,47 +1,31 @@
-import React, { forwardRef, memo, useState } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  type TextInputProps,
-} from 'react-native';
+import React, { forwardRef, memo, useState } from "react"
+import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native"
 
-import { useTheme } from '@/store/ThemeContext';
-import { font } from '@/theme/typography';
-import Icon, { type IconName } from '@/ui/Icon';
+import { useTheme } from "@/store/ThemeContext"
+import { font } from "@/theme/typography"
+import Icon, { type IconName } from "@/ui/Icon"
 
-type Props = Omit<TextInputProps, 'placeholderTextColor' | 'style'> & {
-  label?: string;
-  helperText?: string;
-  error?: string;
-  leadingIcon?: IconName;
-  trailingIcon?: IconName;
-  onTrailingPress?: () => void;
-};
+type Props = Omit<TextInputProps, "placeholderTextColor" | "style"> & {
+  label?: string
+  helperText?: string
+  error?: string
+  leadingIcon?: IconName
+  trailingIcon?: IconName
+  onTrailingPress?: () => void
+}
 
 /**
  * Labeled text input. Usage:
  * `<TextField label="Title" value={title} onChangeText={setTitle} helperText="Required" />`
  */
 function TextField(
-  {
-    label,
-    helperText,
-    error,
-    leadingIcon,
-    trailingIcon,
-    onTrailingPress,
-    multiline,
-    ...inputProps
-  }: Props,
+  { label, helperText, error, leadingIcon, trailingIcon, onTrailingPress, multiline, ...inputProps }: Props,
   ref: React.Ref<TextInput>,
 ) {
-  const t = useTheme();
-  const [focused, setFocused] = useState(false);
+  const t = useTheme()
+  const [focused, setFocused] = useState(false)
 
-  const borderColor = error ? t.danger : focused ? t.accent : 'transparent';
+  const borderColor = error ? t.danger : focused ? t.accent : "transparent"
 
   return (
     <View style={styles.wrap}>
@@ -64,12 +48,12 @@ function TextField(
           placeholderTextColor={t.textTertiary}
           style={[styles.input, multiline && styles.inputMultiline, { color: t.text }]}
           onFocus={(e) => {
-            setFocused(true);
-            inputProps.onFocus?.(e);
+            setFocused(true)
+            inputProps.onFocus?.(e)
           }}
           onBlur={(e) => {
-            setFocused(false);
-            inputProps.onBlur?.(e);
+            setFocused(false)
+            inputProps.onBlur?.(e)
           }}
           {...inputProps}
         />
@@ -79,7 +63,7 @@ function TextField(
             disabled={!onTrailingPress}
             onPress={onTrailingPress}
             style={styles.trailing}
-            accessibilityRole={onTrailingPress ? 'button' : undefined}
+            accessibilityRole={onTrailingPress ? "button" : undefined}
           >
             <Icon name={trailingIcon} size={18} color={t.textTertiary} />
           </Pressable>
@@ -91,14 +75,14 @@ function TextField(
         </Text>
       )}
     </View>
-  );
+  )
 }
 
-export default memo(forwardRef(TextField));
+export default memo(forwardRef(TextField))
 
 const styles = StyleSheet.create({
   wrap: {
-    width: '100%',
+    width: "100%",
   },
   label: {
     fontSize: 13,
@@ -106,15 +90,15 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   field: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderRadius: 12,
     borderWidth: 1.5,
     paddingHorizontal: 14,
     minHeight: 48,
   },
   fieldMultiline: {
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
     paddingVertical: 12,
   },
   leading: {
@@ -131,7 +115,7 @@ const styles = StyleSheet.create({
   },
   inputMultiline: {
     minHeight: 80,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
     paddingVertical: 0,
   },
   helper: {
@@ -140,4 +124,4 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginLeft: 2,
   },
-});
+})

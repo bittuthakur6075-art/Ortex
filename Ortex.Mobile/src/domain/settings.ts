@@ -63,8 +63,7 @@ export const DEFAULT_SETTINGS: Settings = {
 
 type Dict = Record<string, unknown>
 
-const isPlainObject = (v: unknown): v is Dict =>
-  typeof v === "object" && v !== null && !Array.isArray(v)
+const isPlainObject = (v: unknown): v is Dict => typeof v === "object" && v !== null && !Array.isArray(v)
 
 /** Deep-merge a saved blob over the defaults so new keys always appear. */
 export function mergeSettings(saved: unknown): Settings {

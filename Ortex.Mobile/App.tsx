@@ -1,45 +1,67 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
 import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+  useFonts,
+  ZalandoSans_300Light,
+  ZalandoSans_400Regular,
+  ZalandoSans_500Medium,
+  ZalandoSans_600SemiBold,
+  ZalandoSans_700Bold,
+  ZalandoSans_800ExtraBold,
+} from "@expo-google-fonts/zalando-sans"
+import React from "react"
+import { StatusBar } from "react-native"
+import { GestureHandlerRootView } from "react-native-gesture-handler"
+import { SafeAreaProvider } from "react-native-safe-area-context"
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+import RootNavigator from "@/navigation/RootNavigator"
+import { AuthProvider } from "@/store/AuthContext"
+import { ThemeProvider, useTheme } from "@/store/ThemeContext"
+import { ToastProvider } from "@/ui"
+
+function Root() {
+  const t = useTheme()
+  const [fontsLoaded, fontError] = useFonts({
+    ZalandoSans_300Light,
+    ZalandoSans_400Regular,
+    ZalandoSans_500Medium,
+    ZalandoSans_600SemiBold,
+    ZalandoSans_700Bold,
+    ZalandoSans_800ExtraBold,
+  })
+
+  // Never let the splash gate hang: if the fonts fail or stall, fall through to
+  // the system face rather than showing a loader forever.
+  const [fontTimedOut, setFontTimedOut] = React.useState(false)
+  React.useEffect(() => {
+    const timer = setTimeout(() => setFontTimedOut(true), 6000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  const fontsReady = fontsLoaded || !!fontError || fontTimedOut
 
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
-    </SafeAreaProvider>
-  );
-}
-
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
+    <>
+      <StatusBar
+        barStyle={t.dark ? "light-content" : "dark-content"}
+        backgroundColor={t.headerBg}
+        translucent={false}
       />
-    </View>
-  );
+      <RootNavigator fontsReady={fontsReady} />
+    </>
+  )
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
-
-export default App;
+export default function App() {
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <Root />
+            </ToastProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  )
+}

@@ -1,19 +1,19 @@
-import React, { memo } from 'react';
-import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
-import { SquircleView } from 'react-native-figma-squircle';
+import React, { memo } from "react"
+import { Pressable, StyleSheet, View, type ViewStyle } from "react-native"
+import { SquircleView } from "react-native-figma-squircle"
 
-import { useTheme } from '@/store/ThemeContext';
+import { useTheme } from "@/store/ThemeContext"
 
 type Props = {
-  children: React.ReactNode;
-  onPress?: () => void;
-  padding?: number;
-  radius?: number;
-  smooth?: boolean;
-  color?: string;
-  style?: ViewStyle;
-  accessibilityLabel?: string;
-};
+  children: React.ReactNode
+  onPress?: () => void
+  padding?: number
+  radius?: number
+  smooth?: boolean
+  color?: string
+  style?: ViewStyle
+  accessibilityLabel?: string
+}
 
 /**
  * Generic surface container. Usage:
@@ -30,8 +30,8 @@ function Card({
   style,
   accessibilityLabel,
 }: Props) {
-  const t = useTheme();
-  const bg = color ?? t.card;
+  const t = useTheme()
+  const bg = color ?? t.card
 
   const background = smooth ? (
     <SquircleView
@@ -48,11 +48,9 @@ function Card({
       pointerEvents="none"
       style={[StyleSheet.absoluteFill, { backgroundColor: bg, borderRadius: radius }]}
     />
-  );
+  )
 
-  const content = (
-    <View style={[styles.content, { padding }]}>{children}</View>
-  );
+  const content = <View style={[styles.content, { padding }]}>{children}</View>
 
   if (!onPress) {
     return (
@@ -60,7 +58,7 @@ function Card({
         {background}
         {content}
       </View>
-    );
+    )
   }
 
   return (
@@ -73,13 +71,13 @@ function Card({
       {background}
       {content}
     </Pressable>
-  );
+  )
 }
 
-export default memo(Card);
+export default memo(Card)
 
 const styles = StyleSheet.create({
   content: {
-    width: '100%',
+    width: "100%",
   },
-});
+})

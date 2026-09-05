@@ -34,6 +34,17 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- Biometric app-lock (expo-local-authentication). -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Unlock Ortex Sales with Face ID instead of signing in again.</string>
+	<!-- Contacts screen: without these, Linking.canOpenURL reports false for the
+	     Call / WhatsApp / Email buttons and they silently do nothing. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>mailto</string>
+		<string>whatsapp</string>
+	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
 	<key>UILaunchStoryboardName</key>
