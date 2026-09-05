@@ -293,6 +293,30 @@ this PC. Point the task at a synced folder to do it automatically:
 npm run backup -- --out "C:/Users/<you>/OneDrive/Ortex-backups" --keep 30
 ```
 
+### Auth email templates
+
+Sign-in uses an emailed 6-digit code: `src/lib/auth.js` calls `signInWithOtp()`
+and verifies with `verifyOtp({ token, type: "email" })`. Supabase decides
+whether to mail a **code** or a **link** purely from what the template
+references — the stock one renders `{{ .ConfirmationURL }}`, so a fresh project
+mails a link the console cannot accept, and the login screen sits waiting for
+digits that never arrive.
+
+`supabase/templates/magic-link.html` is the template that fixes this. Paste it
+into Dashboard → Authentication → Emails → **Magic Link**, and set the subject
+to *Your Ortex sign-in code*.
+
+Keep `{{ .ConfirmationURL }}` out of it. Referencing both mails both, and the
+link is the riskier half: it redirects to the project's Site URL, so it fails
+from localhost or any preview deploy, and it is a bearer credential sitting in
+an inbox for as long as the code lives.
+
+Supabase does not deploy templates from this repo, so the dashboard is a copy.
+Edit the file here whenever you change the dashboard, or the next person finds
+no history. While you are on that screen, check **Email OTP Expiration** under
+Authentication → Sessions — the default 3600s is a long life for a code that
+opens the live ledger; 600s is a saner ceiling.
+
 ### Removing the demo data
 
 `supabase/maintenance/remove-demo-data.sql` deletes the sample records that

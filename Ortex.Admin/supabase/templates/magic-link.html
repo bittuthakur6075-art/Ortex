@@ -1,0 +1,93 @@
+<!--
+  Supabase email template: Magic Link (used by signInWithOtp).
+
+  Paste this into Dashboard -> Authentication -> Emails -> Magic Link, and set
+  the subject to: Your Ortex sign-in code
+
+  WHY THIS SENDS A CODE AND NOT A LINK
+  Supabase decides which to send purely from what the template references. The
+  stock template renders {{ .ConfirmationURL }}, so it mails a link -- but
+  src/lib/auth.js verifies with verifyOtp({ token, type: "email" }), which needs
+  a code. Referencing {{ .Token }} and nothing else is what makes the two agree.
+
+  Deliberately no {{ .ConfirmationURL }} anywhere. Including both mails both,
+  and the link is the riskier half: it redirects to the project's Site URL
+  (not localhost, not a preview deploy), so it fails confusingly, and it is a
+  bearer credential sitting in an inbox for as long as the OTP lives.
+
+  Variables Supabase exposes here: .Token, .TokenHash, .ConfirmationURL,
+  .SiteURL, .Email, .RedirectTo, .Data (user metadata).
+
+  This file is the source of truth; the dashboard is a copy. Supabase does not
+  deploy templates from the repo, so if you edit one, edit it here too --
+  otherwise the next person finds only the dashboard version and no history.
+
+  Written as tables with inline styles on purpose: Outlook and several webmail
+  clients strip <style> blocks and understand little modern CSS.
+-->
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+       style="background:#f4f4f5;margin:0;padding:32px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+  <tr>
+    <td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+             style="max-width:480px;background:#ffffff;border:1px solid #eeeeef;border-radius:12px">
+
+        <!-- Brand -->
+        <tr>
+          <td style="padding:32px 32px 0 32px">
+            <div style="font-size:18px;font-weight:700;color:#09090b;letter-spacing:-0.2px">
+              Ortex <span style="font-weight:500;color:#71717a">Industries</span>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Heading -->
+        <tr>
+          <td style="padding:24px 32px 0 32px">
+            <h1 style="margin:0;font-size:20px;line-height:28px;font-weight:600;color:#09090b">
+              Your sign-in code
+            </h1>
+            <p style="margin:8px 0 0 0;font-size:14px;line-height:22px;color:#52525b">
+              Enter this code in the admin console to finish signing in.
+            </p>
+          </td>
+        </tr>
+
+        <!-- The code -->
+        <tr>
+          <td style="padding:24px 32px 0 32px">
+            <div style="background:#fafafa;border:1px solid #eeeeef;border-radius:10px;padding:20px;text-align:center">
+              <div style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+                          font-size:32px;font-weight:700;letter-spacing:10px;color:#09090b">{{ .Token }}</div>
+            </div>
+            <p style="margin:12px 0 0 0;font-size:12px;line-height:18px;color:#71717a;text-align:center">
+              This code can only be used once, and expires shortly.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Security note -->
+        <tr>
+          <td style="padding:24px 32px 0 32px">
+            <div style="border-top:1px solid #eeeeef;padding-top:16px">
+              <p style="margin:0;font-size:12px;line-height:19px;color:#71717a">
+                If you didn't try to sign in, ignore this email and the code expires on its own.
+                Nobody at Ortex will ever ask you for it.
+              </p>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:20px 32px 28px 32px">
+            <p style="margin:0;font-size:11px;line-height:17px;color:#a1a1aa">
+              Ortex Industries &middot; sent to {{ .Email }}
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
