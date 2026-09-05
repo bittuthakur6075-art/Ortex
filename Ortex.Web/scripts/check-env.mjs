@@ -42,9 +42,17 @@ const fromProcess = process.env.VITE_SUPABASE_URL ? { VITE_SUPABASE_URL: process
 const merged = { ...base, ...(modeEnv || {}), ...fromProcess }
 const url = merged.VITE_SUPABASE_URL || ""
 
+// Non-production modes may legitimately carry NO credentials: the site then
+// runs without a backend, and the contact form queues leads to localStorage
+// (src/lib/leads.js) instead of inserting them into the live enquiries table.
+if (mode !== "production" && !url) {
+  console.log(`✔ ${mode} → no Supabase configured, running without a backend`)
+  process.exit(0)
+}
+
 if (!modeEnv && !fromProcess.VITE_SUPABASE_URL) {
   fail(
-    `${modeFile} is missing, so the build would fall back to .env — the DEVELOPMENT database.\n` +
+    `${modeFile} is missing, so the build would inherit whatever .env holds.\n` +
       `Fix: cp ${modeFile}.example ${modeFile} and fill in the ${mode} Supabase URL + anon key.`,
   )
 }

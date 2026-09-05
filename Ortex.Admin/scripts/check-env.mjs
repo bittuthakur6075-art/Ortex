@@ -46,9 +46,18 @@ const fromProcess = process.env.VITE_SUPABASE_URL ? { VITE_SUPABASE_URL: process
 const merged = { ...base, ...(modeEnv || {}), ...fromProcess }
 const url = merged.VITE_SUPABASE_URL || ""
 
+// Non-production modes may legitimately carry NO credentials. The repository
+// then resolves to localStore (src/data/store/repository.js) and the console
+// runs on browser localStorage with demo data — free, and unable to reach the
+// live database. That is the intended local setup, not a misconfiguration.
+if (mode !== "production" && !url) {
+  console.log(`✔ ${mode} → no Supabase configured, running on the localStorage fallback`)
+  process.exit(0)
+}
+
 if (!modeEnv && !fromProcess.VITE_SUPABASE_URL) {
   fail(
-    `${modeFile} is missing, so the build would fall back to .env — the DEVELOPMENT database.\n` +
+    `${modeFile} is missing, so the build would inherit whatever .env holds.\n` +
       `Fix: cp ${modeFile}.example ${modeFile} and fill in the ${mode} Supabase URL + anon key.`,
   )
 }

@@ -1,15 +1,26 @@
 # Environments — Development, Staging & Production
 
-**Two Supabase projects, three environments.** Development and staging share one
-non-production database; production has a database entirely of its own. Nothing
-you do locally or on the staging deploy can reach real invoices, payments or
-customers.
+**One Supabase project, and it is production.** The original project holds the
+live quotations, invoices, payments and customers, so it *is* production — no
+data was migrated to get there. Development and staging use no database at all:
+with no credentials configured the app falls back to `localStore` (browser
+localStorage) and runs on demo data.
 
-| Environment     | Who uses it      | Hosting                | Supabase project        | Command                   | Env badge     |
-| --------------- | ---------------- | ---------------------- | ----------------------- | ------------------------- | ------------- |
-| **Development** | Your machine     | `localhost:5180`       | **Dev/Staging (shared)**| `npm run dev`             | `Development` |
-| **Staging**     | Team review      | Vercel (`ortex-admin`) | **Dev/Staging (shared)**| `npm run build:staging`   | `Staging`     |
-| **Production**  | The business     | Hostinger subdomain    | **Production (own)**    | `npm run build`           | (none)        |
+That fallback is the whole isolation story, and it is a strong one. Local work
+cannot read a real customer, cannot write a real invoice, and cannot advance the
+live GST document counter, because there is no connection to advance it through.
+It also costs nothing, which keeps the Supabase free plan's project allowance
+free for when a real staging database is actually wanted.
+
+| Environment     | Who uses it      | Hosting                | Backend                  | Command                   | Env badge    |
+| --------------- | ---------------- | ---------------------- | ------------------------ | ------------------------- | ------------ |
+| **Development** | Your machine     | `localhost:5180`       | localStorage, demo data  | `npm run dev`             | `Local demo` |
+| **Staging**     | Team review      | Vercel (`ortex-admin`) | localStorage, demo data  | `npm run build:staging`   | `Staging`    |
+| **Production**  | The business     | Hostinger subdomain    | **the Supabase project** | `npm run build`           | (none)       |
+
+Signing in locally uses the offline passphrase gate, not Supabase auth: any
+email plus `ortex@admin`. The login screen says so when no database is
+configured.
 
 The frontend picks its backend at **build time** from `VITE_SUPABASE_URL` /
 `VITE_SUPABASE_ANON_KEY`, which come from a per-mode env file (local) or the
@@ -62,8 +73,11 @@ Env files are git-ignored. Committed templates: `.env.development.example`,
 ## Standing up a new environment
 
 Everything the schema needs is in this repo, so a fresh project is one command.
-This is the exact path used to create the production project, and the same path
-would split staging onto its own project later.
+
+You do not need this today. Production is the original project and already
+carries the schema, the functions and the data, and development runs on
+localStorage. This section is for the day you want a **real staging database**
+that several reviewers share, or a second environment for any other reason.
 
 ### 1. Create the project
 
@@ -129,10 +143,22 @@ either by calling `admin-create-user` or by flipping the row's flag in the
 
 ### Staging (Vercel)
 
-1. Project → Settings → Environment Variables (Production + Preview):
-   - `VITE_SUPABASE_URL` = **dev/staging** project URL
-   - `VITE_SUPABASE_ANON_KEY` = **dev/staging** anon key
-   - `VITE_ENV_LABEL` = `Staging`
+> **Action outstanding.** The Vercel project's environment variables still hold
+> the original project's URL and anon key, and that project is now production.
+> Until they are changed, every staging deploy reads and writes live invoices,
+> payments and customers.
+
+Project → Settings → Environment Variables (Production + Preview). Pick one:
+
+- **Demo staging (recommended while piloting).** Delete `VITE_SUPABASE_URL` and
+  `VITE_SUPABASE_ANON_KEY` entirely, and set `VITE_ENV_LABEL` to `Staging`. The
+  deploy then behaves like local development: demo data on localStorage, and no
+  route to the live database. Reviewers can exercise every screen safely.
+- **Real staging data.** Create a second Supabase project, provision it with
+  `npm run provision -- <ref>`, and point the two variables at it. Only worth it
+  once several people need to review against shared, persistent records.
+
+Never leave those variables pointing at the production project.
 2. The build command is already `npm run build:staging` (`vercel.json`).
 3. Vercel auto-deploys on push to the connected branch. The whole site is
    `noindex`, so it stays out of search.
