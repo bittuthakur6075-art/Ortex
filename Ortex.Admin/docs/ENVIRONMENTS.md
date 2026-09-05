@@ -26,18 +26,53 @@ The frontend picks its backend at **build time** from `VITE_SUPABASE_URL` /
 `VITE_SUPABASE_ANON_KEY`, which come from a per-mode env file (local) or the
 host's environment variables (Vercel).
 
-## Why dev and staging share a database
+## Giving someone a sandbox with sample data
 
-Both are non-production, so one database means one schema to migrate, one set of
-Edge Function secrets, and one pile of seed data. What you test locally is
-exactly what a reviewer sees on the Vercel deploy, with no second project
-drifting out of sync.
+To let a colleague explore every module — or to demo the console — without
+letting them near the live ledger, hand them a **staging build**. It is the
+same application, running entirely on demo data in their own browser.
 
-The trade-off worth knowing: staging has **no data isolation from development**.
-A migration you push or a record you delete while developing is immediately
-visible to anyone reviewing staging. If you ever need a stable review dataset,
-split staging onto its own project — the steps under "Standing up a new
-environment" are all it takes, and the build guard already supports it.
+```bash
+cd Ortex.Admin
+npm run build:staging     # .env.staging has empty Supabase values
+```
+
+Then deploy `dist/` anywhere static (a Vercel project, or a second Hostinger
+subdomain). They sign in with any email plus the offline passphrase
+`ortex@admin`, and click **Load demo data** on the Dashboard to populate
+enquiries, quotations, GST invoices and payments.
+
+### Why this is safe, and why it is not "multi-user"
+
+Isolation here is physical, not a permission rule. With no credentials
+configured, `hasSupabase = Boolean(url && anonKey)` is false, `repository.js`
+resolves to `localStore`, and no Supabase client is ever constructed. The
+bundle contains **no project URL and no anon key**, so there is no route to
+production to misuse — verify it yourself on any build:
+
+```bash
+grep -rc "supabase.co" dist/        # expect 0
+```
+
+That also means the sample user cannot advance the live document counter.
+`next_sequence()` keys on the series name alone (one row for `invoice`, one for
+`quotation`), so a sample invoice raised against production would consume a
+real GST number and leave a permanent gap when deleted. The localStorage build
+keeps its own counter and cannot touch that one.
+
+What it is **not** is per-user data separation inside one database. Every
+business table is `(id uuid, doc jsonb, …)` with a single policy —
+`create policy staff_all … using (true) with check (true)` — so every
+authenticated user sees every row, and no column records who created what.
+Giving one user their own slice of the live database would mean adding an
+ownership column to all 19 tables, rewriting all 19 policies, making the
+numbering counter scope-aware, and auditing the Edge Functions that use the
+service-role key and bypass RLS entirely. Worth doing deliberately if you ever
+need real multi-tenancy; not worth bolting onto a live GST ledger.
+
+The one limitation to mention when you hand it over: the data lives in that
+browser profile. It is not shared between their devices, and clearing site data
+resets it. **Load demo data** rebuilds it in a click.
 
 ---
 
@@ -57,7 +92,8 @@ only difference between them is `VITE_ENV_LABEL`, which drives the badge.
 
 > **The trap this repo guards against.** Because `.env` is loaded in every mode,
 > a missing `.env.production` means a production build silently falls back to
-> `.env` — the shared dev/staging database — and looks completely normal. Every
+> `.env`, which is empty — so it would ship with no database at all, silently
+> serving demo data as if it were your live records. Every
 > build script therefore runs `scripts/check-env.mjs` first, which refuses to
 > build when the mode's env file is missing, still holds a placeholder, or
 > points at the same project as `.env.development` / `.env.staging`. It
@@ -123,7 +159,7 @@ strangers creating orphan auth users with the public anon key.
 
 ```bash
 cp .env.production.example .env.production   # then fill in URL + anon key
-npm run check:env                            # confirms it is NOT the dev/staging project
+npm run check:env                            # confirms production has real credentials
 ```
 
 Do the same in `Ortex.Web` — the marketing site reads the catalogue and inserts
@@ -159,17 +195,21 @@ Project → Settings → Environment Variables (Production + Preview). Pick one:
   once several people need to review against shared, persistent records.
 
 Never leave those variables pointing at the production project.
-2. The build command is already `npm run build:staging` (`vercel.json`).
-3. Vercel auto-deploys on push to the connected branch. The whole site is
-   `noindex`, so it stays out of search.
+
+The build command is already `npm run build:staging` (`vercel.json`), and
+Vercel auto-deploys on push to the connected branch. The whole site is
+`noindex`, so it stays out of search.
+
+This same deploy is what you hand a sample user — see "Giving someone a sandbox
+with sample data" above.
 
 ### Production (Hostinger subdomain)
 
 A static upload, no git auto-deploy:
 
 1. On the build machine, fill in `.env.production` (step 5 above).
-2. `npm run build` — the env check runs first and refuses a build pointed at the
-   shared dev/staging database.
+2. `npm run build` — the env check runs first and refuses a build that has no
+   production credentials of its own.
 3. Upload the **contents of `dist/`** to the subdomain's web root
    (e.g. `admin.ortexindustries.in`). `dist/.htaccess` ships automatically and
    provides SPA routing, `X-Robots-Tag: noindex`, and asset caching.
@@ -179,16 +219,18 @@ A static upload, no git auto-deploy:
 
 ## Everyday workflow
 
-1. Work locally against the shared dev/staging project: `npm run dev`. The amber
-   **Development** badge in the sidebar confirms which database you are on.
-2. Push to the staging branch → Vercel redeploys staging automatically, against
-   that same database, badged **Staging**.
-3. Promote a migration or function to production with
+1. Work locally on demo data: `npm run dev`. The **Local demo** badge in the
+   sidebar confirms you are not on a real database.
+2. Push to the staging branch → Vercel redeploys staging automatically, also on
+   demo data, badged **Staging**.
+3. Apply a migration or function to production with
    `npm run provision -- <production-ref>`.
 4. Then `npm run build` and re-upload `dist/`.
 
-Because there are only two databases, "apply it everywhere" means running the
-provision step exactly twice: once on dev/staging, once on production.
+Because production is the only database, "apply it everywhere" means running
+the provision step exactly once. The trade-off is that a migration gets no
+rehearsal against real data before it lands on production — so read your SQL
+carefully, and take a backup (`npm run backup`) before anything destructive.
 
 ## Maintenance
 
@@ -232,13 +274,19 @@ before uncommenting step 2.
 
 ## Safety checklist
 
-- [ ] Production uses a **different** Supabase ref from dev/staging.
-      `npm run check:env` fails the build if it does not.
-- [ ] Dev and staging use the **same** ref, differing only in `VITE_ENV_LABEL`.
-- [ ] The env badge reads **Development** locally, **Staging** on Vercel, and is
+- [ ] Only `.env.production` holds Supabase credentials. `.env`,
+      `.env.development` and `.env.staging` are **empty**, so those modes run on
+      localStorage. `npm run check:env` fails a production build that falls back
+      to them.
+- [ ] The env badge reads **Local demo** locally, **Staging** on Vercel, and is
       **absent** on the production site.
-- [ ] New migrations and Edge Functions were applied to **both** projects.
-- [ ] Secrets are set on both projects separately.
+- [ ] A sandbox build proves it carries no credentials:
+      `npm run build:staging && grep -rc "supabase.co" dist/` returns 0.
+- [ ] The Vercel project has **no** `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`.
+      If it does, every staging deploy is writing to live invoices.
+- [ ] New migrations and Edge Functions were applied to production.
 - [ ] `.env*` files are never committed (only the `*.example` templates) and
       never uploaded to Hostinger — only the built `dist/` is.
-- [ ] Public signup is **off** in both projects.
+- [ ] Public signup is **off** (Authentication → Providers → Email). Profiles
+      start inactive regardless, but this stops strangers creating auth users
+      with the public anon key.
