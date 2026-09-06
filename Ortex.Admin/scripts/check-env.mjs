@@ -41,8 +41,15 @@ const base = readEnv(".env") || {}
 const modeFile = `.env.${mode}`
 const modeEnv = readEnv(modeFile)
 
-// Vercel and other CI hosts inject VITE_ vars directly instead of using files.
-const fromProcess = process.env.VITE_SUPABASE_URL ? { VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL } : {}
+// Vercel and other CI hosts inject VITE_ vars directly instead of using files,
+// so every variable this script judges has to be read from the process too.
+// Only reading the URL here used to mean a stray VITE_ENV_LABEL on the host
+// shipped an environment badge on production with a passing build.
+const fromProcess = Object.fromEntries(
+  ["VITE_SUPABASE_URL", "VITE_SUPABASE_ANON_KEY", "VITE_ENV_LABEL"]
+    .filter((k) => process.env[k])
+    .map((k) => [k, process.env[k]]),
+)
 const merged = { ...base, ...(modeEnv || {}), ...fromProcess }
 const url = merged.VITE_SUPABASE_URL || ""
 
@@ -66,6 +73,8 @@ if (!url || url.includes("YOUR-")) {
   fail(`VITE_SUPABASE_URL is missing or still a placeholder.\nFix: set a real project URL in ${modeFile}.`)
 }
 
+const ref = url.replace(/^https:\/\//, "").split(".")[0]
+
 // The core check: production must not reuse the shared dev/staging project.
 // Development and staging deliberately share ONE database (both are
 // non-production), so only production is required to stand alone.
@@ -80,10 +89,30 @@ if (mode === "production") {
       )
     }
   }
+  if (!merged.VITE_SUPABASE_ANON_KEY) {
+    fail(
+      `VITE_SUPABASE_URL is set but VITE_SUPABASE_ANON_KEY is not, so the build\n` +
+        `would ship a URL it cannot authenticate against.\n` +
+        `Fix: set both, in ${modeFile} locally or in the host's environment variables.`,
+    )
+  }
   if (merged.VITE_ENV_LABEL) {
-    fail(`VITE_ENV_LABEL is set in ${modeFile}; production must ship without an environment badge.\nFix: leave it blank.`)
+    const where = process.env.VITE_ENV_LABEL ? "the host's environment variables" : modeFile
+    fail(`VITE_ENV_LABEL is set in ${where}; production must ship without an environment badge.\nFix: leave it blank.`)
+  }
+  // On a CI host the two comparisons above cannot fire: .env.development and
+  // .env.staging are not in the repository, so there is nothing to compare the
+  // injected URL against. Pin the project instead. Set EXPECTED_SUPABASE_REF in
+  // the host's environment (Vercel: Settings, Environment Variables, Production
+  // only) and the build fails the day that URL silently changes.
+  const expected = process.env.EXPECTED_SUPABASE_REF
+  if (expected && expected !== ref) {
+    fail(
+      `This production build points at Supabase project "${ref}", but\n` +
+        `EXPECTED_SUPABASE_REF is "${expected}".\n` +
+        `Fix: correct VITE_SUPABASE_URL, or update EXPECTED_SUPABASE_REF if the project really moved.`,
+    )
   }
 }
 
-const ref = url.replace(/^https:\/\//, "").split(".")[0]
 console.log(`✔ ${mode} build → Supabase project "${ref}"`)

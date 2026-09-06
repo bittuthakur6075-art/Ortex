@@ -15,8 +15,8 @@ free for when a real staging database is actually wanted.
 | Environment     | Who uses it      | Hosting                | Backend                  | Command                   | Env badge    |
 | --------------- | ---------------- | ---------------------- | ------------------------ | ------------------------- | ------------ |
 | **Development** | Your machine     | `localhost:5180`       | localStorage, demo data  | `npm run dev`             | `Local demo` |
-| **Staging**     | Team review      | Vercel (`ortex-admin`) | localStorage, demo data  | `npm run build:staging`   | `Staging`    |
-| **Production**  | The business     | Hostinger subdomain    | **the Supabase project** | `npm run build`           | (none)       |
+| **Staging**     | Team review      | Vercel preview builds  | localStorage, demo data  | `npm run build:staging`   | `Staging`    |
+| **Production**  | The business     | Vercel (`ortex-admin`) | **the Supabase project** | `npm run build`           | (none)       |
 
 Signing in locally uses the offline passphrase gate, not Supabase auth: any
 email plus `ortex@admin`. The login screen says so when no database is
@@ -177,35 +177,45 @@ either by calling `admin-create-user` or by flipping the row's flag in the
 
 ## Deploying
 
-### Staging (Vercel)
+### Production (Vercel)
 
-> **Action outstanding.** The Vercel project's environment variables still hold
-> the original project's URL and anon key, and that project is now production.
-> Until they are changed, every staging deploy reads and writes live invoices,
-> payments and customers.
+The Vercel project hosts **production**. `vercel.json` picks the build from
+Vercel's own `VERCEL_ENV`, so the production branch and preview branches cannot
+end up on the same database:
 
-Project → Settings → Environment Variables (Production + Preview). Pick one:
+```
+VERCEL_ENV=production  -> npm run build          (the live Supabase project)
+anything else          -> npm run build:staging  (localStorage demo data)
+```
 
-- **Demo staging (recommended while piloting).** Delete `VITE_SUPABASE_URL` and
-  `VITE_SUPABASE_ANON_KEY` entirely, and set `VITE_ENV_LABEL` to `Staging`. The
-  deploy then behaves like local development: demo data on localStorage, and no
-  route to the live database. Reviewers can exercise every screen safely.
-- **Real staging data.** Create a second Supabase project, provision it with
-  `npm run provision -- <ref>`, and point the two variables at it. Only worth it
-  once several people need to review against shared, persistent records.
+Project → Settings → Environment Variables, scoped to **Production only**:
 
-Never leave those variables pointing at the production project.
+| Variable                  | Value                                      |
+| ------------------------- | ------------------------------------------ |
+| `VITE_SUPABASE_URL`       | the production project's URL               |
+| `VITE_SUPABASE_ANON_KEY`  | the production project's anon public key    |
+| `EXPECTED_SUPABASE_REF`   | the production project ref, e.g. `pfoe...` |
 
-The build command is already `npm run build:staging` (`vercel.json`), and
+Leave `VITE_ENV_LABEL` **unset**: production ships without a badge, and
+`check-env.mjs` now fails the build if the host sets one.
+
+Never add those variables to the **Preview** or **Development** scopes. A
+preview branch is a sandbox, and `npm run build:staging` keeps it on demo data
+with no route to the live records. That is also the build you hand a sample
+user. See "Giving someone a sandbox with sample data" above.
+
+`EXPECTED_SUPABASE_REF` matters more here than it looks. Locally the guard
+catches a production build aimed at the dev database by comparing `.env` files,
+but those files are not in the repository, so on Vercel there is nothing to
+compare against. Pinning the ref restores the check: the build fails the day
+the injected URL changes.
+
 Vercel auto-deploys on push to the connected branch. The whole site is
-`noindex`, so it stays out of search.
+`noindex`, which is what you want for an admin console.
 
-This same deploy is what you hand a sample user. See "Giving someone a sandbox
-with sample data" above.
+### Production by hand (Hostinger subdomain)
 
-### Production (Hostinger subdomain)
-
-A static upload, no git auto-deploy:
+Still supported, and the fallback if Vercel is ever unavailable:
 
 1. On the build machine, fill in `.env.production` (step 5 above).
 2. `npm run build`: the env check runs first and refuses a build that has no
@@ -221,11 +231,10 @@ A static upload, no git auto-deploy:
 
 1. Work locally on demo data: `npm run dev`. The **Local demo** badge in the
    sidebar confirms you are not on a real database.
-2. Push to the staging branch → Vercel redeploys staging automatically, also on
-   demo data, badged **Staging**.
+2. Push a branch → Vercel builds a preview on demo data, badged **Staging**.
 3. Apply a migration or function to production with
    `npm run provision -- <production-ref>`.
-4. Then `npm run build` and re-upload `dist/`.
+4. Merge to the production branch → Vercel builds and deploys production.
 
 Because production is the only database, "apply it everywhere" means running
 the provision step exactly once. The trade-off is that a migration gets no
@@ -389,12 +398,13 @@ before uncommenting step 2.
       `.env.development` and `.env.staging` are **empty**, so those modes run on
       localStorage. `npm run check:env` fails a production build that falls back
       to them.
-- [ ] The env badge reads **Local demo** locally, **Staging** on Vercel, and is
-      **absent** on the production site.
+- [ ] The env badge reads **Local demo** locally, **Staging** on a Vercel
+      preview, and is **absent** on the production deploy.
 - [ ] A sandbox build proves it carries no credentials:
       `npm run build:staging && grep -rc "supabase.co" dist/` returns 0.
-- [ ] The Vercel project has **no** `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`.
-      If it does, every staging deploy is writing to live invoices.
+- [ ] The Vercel project's `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are
+      scoped to **Production only**. On Preview they would put every branch
+      build on the live invoices.
 - [ ] New migrations and Edge Functions were applied to production.
 - [ ] `.env*` files are never committed (only the `*.example` templates) and
       never uploaded to Hostinger, only the built `dist/` is.
