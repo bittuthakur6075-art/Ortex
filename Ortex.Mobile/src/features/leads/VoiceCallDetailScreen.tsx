@@ -105,7 +105,7 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
 
   return (
     <View style={[styles.root, { backgroundColor: t.background }]}>
-      <View style={[styles.bar, { backgroundColor: t.surface, borderBottomColor: t.border, paddingTop: insets.top }]}>
+      <View style={[styles.bar, { backgroundColor: t.surface, borderBottomColor: t.divider, paddingTop: insets.top }]}>
         <IconButton name="back" onPress={() => navigation.goBack()} accessibilityLabel="Back" />
         <Animated.Text
           numberOfLines={1}
@@ -386,8 +386,8 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
   }
 }
 
-/** The header's bottom rule, in dp. */
-const HEADER_RULE = 2
+/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
+const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },

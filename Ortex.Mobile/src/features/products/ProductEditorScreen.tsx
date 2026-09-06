@@ -235,7 +235,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
       <View
         style={[
           styles.head,
-          { paddingTop: insets.top, height: insets.top + sizes.appBar, borderBottomColor: t.border },
+          { paddingTop: insets.top, height: insets.top + sizes.appBar, borderBottomColor: t.divider },
         ]}
       >
         <IconButton name="back" onPress={leave} accessibilityLabel="Back" />
@@ -568,8 +568,8 @@ function OptionSheet({
   )
 }
 
-/** The header's bottom rule, in dp. */
-const HEADER_RULE = 2
+/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
+const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },

@@ -219,7 +219,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
           pointerEvents="none"
           // Always drawn: the page under this bar is white, and a white bar over
           // a white page has no edge without the divider hairline.
-          style={[styles.headRule, { backgroundColor: t.border }]}
+          style={[styles.headRule, { backgroundColor: t.divider }]}
         />
       </View>
 
@@ -635,8 +635,8 @@ function TotalRow({ label, value, tone }: { label: string; value: string; tone?:
 
 const RULE = StyleSheet.hairlineWidth
 
-/** The header's bottom rule, in dp. */
-const HEADER_RULE = 2
+/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
+const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -644,9 +644,8 @@ const styles = StyleSheet.create({
 
   head: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 2 },
   headTitle: { flex: 1, marginHorizontal: 6, fontSize: 17, fontFamily: font.semibold },
-  // 2dp, the same band that parts two rows and two panels (ROW_SEPARATOR_HEIGHT,
-  // PanelBand). A hairline here is 0.33dp on a 3x phone: one physical pixel of
-  // #EBEDF3 on white, which is invisible in the hand.
+  // 1dp, not `StyleSheet.hairlineWidth`: a hairline is 0.33dp on a 3x phone, one
+  // physical pixel of #F4F6F8 on white, which is invisible in the hand.
   headRule: { position: "absolute", left: 0, right: 0, bottom: 0, height: HEADER_RULE },
 
   // Full bleed: each section head draws the 2dp band that parts it from the one

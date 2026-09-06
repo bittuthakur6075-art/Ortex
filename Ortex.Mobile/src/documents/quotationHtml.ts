@@ -66,14 +66,16 @@ export function quotationHtml(doc: Quotation, settings: Settings): string {
   const pct = (part?: number) =>
     t.taxable > 0 ? String(Math.round(((part || 0) / t.taxable) * 10000) / 100) : "0"
 
+  // NO DATE HERE. The meta block above already prints Date of issue and Valid
+  // until as their own labelled rows, and repeating one of them beside the
+  // amount made the sheet answer the same question twice. What the line adds
+  // that the rows cannot is the STANDING — expired, cancelled — so that is all
+  // it keeps.
   const headline = (() => {
     const total = formatCurrency(t.grandTotal || 0)
     if (cancelled) return `${total} cancelled`
     const d = doc.validUntil ? daysUntil(doc.validUntil) : null
-    if (d == null) return `${total} quoted on ${formatDate(doc.issueDate)}`
-    return d < 0
-      ? `${total} quoted, expired on ${formatDate(doc.validUntil)}`
-      : `${total} quoted, valid until ${formatDate(doc.validUntil)}`
+    return d != null && d < 0 ? `${total} quoted, now expired` : `${total} quoted`
   })()
 
   // Meta block: label / value pairs, lead row semibold, matching DocumentSheet.
@@ -295,7 +297,16 @@ export function quotationHtml(doc: Quotation, settings: Settings): string {
     </div>
 
     <div class="doc-foot">
-      <span>This is a computer-generated quotation and does not require a signature.</span>
+      <span>
+        This is a computer-generated quotation and does not require a signature.${
+          // WHO QUOTED IT, when the rep asked for it. It sits with the
+          // no-signature line rather than under the totals because it says the
+          // same kind of thing: who stands behind this sheet. `sellerName` is
+          // captured at creation, so it names the person who actually quoted,
+          // not whoever happened to open the record to print it.
+          doc.showSeller && doc.sellerName ? ` Quoted by ${esc(doc.sellerName)}.` : ""
+        }
+      </span>
       <span>Page 1 of 1</span>
     </div>
   </div>

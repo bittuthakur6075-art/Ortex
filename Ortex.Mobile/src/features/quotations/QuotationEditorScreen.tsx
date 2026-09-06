@@ -31,12 +31,14 @@ import { useSettings } from "@/hooks/useSettings"
 import { prettyPhone } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
+import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, size as sizes, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
 import {
   Avatar,
   Button,
+  Checkbox,
   Chip,
   Dialog,
   Divider,
@@ -95,6 +97,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
   const insets = useSafeAreaInsets()
   const toast = useToast()
   const { settings, loading: settingsLoading } = useSettings()
+  const { profile } = useAuth()
 
   const editingId = route.params?.id
   const prefill = route.params?.prefill
@@ -137,13 +140,19 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
             lostReason: existing.lostReason || "",
             enquiryId: existing.enquiryId,
             leadId: existing.leadId,
+            // Editing keeps the name the quotation was RAISED under. Re-stamping
+            // it with whoever opened the record would quietly reassign a sent
+            // document to a different rep.
+            sellerName: existing.sellerName || "",
+            showSeller: existing.showSeller !== false,
           })
         }
         setSeeded(true)
         return
       }
 
-      const base = emptyDraft(settings)
+      // A new quotation is this rep's, so it carries their name from the start.
+      const base = { ...emptyDraft(settings), sellerName: profile?.name?.trim() || "" }
       if (prefill) {
         setDraft({
           ...base,
@@ -258,7 +267,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
       <View
         style={[
           styles.head,
-          { paddingTop: insets.top, height: insets.top + sizes.appBar, borderBottomColor: t.border },
+          { paddingTop: insets.top, height: insets.top + sizes.appBar, borderBottomColor: t.divider },
         ]}
       >
         <IconButton name="back" onPress={leave} accessibilityLabel="Back" />
@@ -555,6 +564,28 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
           </View>
         </Panel>
 
+        {/* ── THE SHEET ITSELF ───────────────────────────────────────────── */}
+        {/* Not folded away with the terms: whose name goes on a document the
+            customer keeps is a decision worth seeing while writing it, and it is
+            one tap. The name is the signed-in profile's, fixed at creation. */}
+        <Panel title="On the PDF">
+          <View style={styles.checkRow}>
+            <Checkbox
+              checked={draft.showSeller}
+              onChange={(next) => {
+                feedback.toggle(next)
+                set({ showSeller: next })
+              }}
+              label={draft.sellerName ? `Show "Quoted by ${draft.sellerName}"` : "Show my name as the seller"}
+            />
+          </View>
+          {!draft.sellerName && (
+            <Text style={[textVariants.caption, styles.checkHint, { color: t.textTertiary }]}>
+              Add your name on Profile → Account details, and it will print here.
+            </Text>
+          )}
+        </Panel>
+
         {/* ── THE REST, folded away ──────────────────────────────────────── */}
         <Panel>
           <Pressable
@@ -844,8 +875,8 @@ function TotalRow({ label, value, strong }: { label: string; value: string; stro
   )
 }
 
-/** The header's bottom rule, in dp. */
-const HEADER_RULE = 2
+/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
+const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },

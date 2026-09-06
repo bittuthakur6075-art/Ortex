@@ -286,7 +286,10 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
         </Animated.View>
 
         <PanelBand />
-        <Panel padded>
+        {/* `Panel padded` pads its sides and its foot but not its head, which is
+            right where a panel opens with a section title and wrong here: the
+            product name would sit flush against the bottom edge of the photo. */}
+        <Panel padded style={styles.headPanel}>
           <Text style={[styles.name, { color: t.text }]}>{name}</Text>
 
           <View style={styles.chipLine}>
@@ -368,7 +371,7 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
             white page the rule is the only thing separating the two. */}
         <Animated.View
           pointerEvents="none"
-          style={[styles.barRule, { backgroundColor: t.border, opacity: barFill }]}
+          style={[styles.barRule, { backgroundColor: t.divider, opacity: barFill }]}
         />
         <GlassButton icon="back" label="Back" onPress={() => navigation.goBack()} filled={barFill} />
         <Animated.Text
@@ -535,8 +538,8 @@ function GlassButton({
   )
 }
 
-/** The header's bottom rule, in dp. */
-const HEADER_RULE = 2
+/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
+const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -555,9 +558,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   barTitle: { flex: 1, marginHorizontal: 8 },
-  // 2dp, the same band that parts two rows and two panels (ROW_SEPARATOR_HEIGHT,
-  // PanelBand). A hairline here is 0.33dp on a 3x phone: one physical pixel of
-  // #EBEDF3 on white, which is invisible in the hand.
+  // 1dp, not `StyleSheet.hairlineWidth`: a hairline is 0.33dp on a 3x phone, one
+  // physical pixel of #F4F6F8 on white, which is invisible in the hand.
   barRule: { position: "absolute", left: 0, right: 0, bottom: 0, height: HEADER_RULE },
   glass: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   glassFill: { borderRadius: 20 },
@@ -589,6 +591,7 @@ const styles = StyleSheet.create({
   // Full bleed: the body is a stack of panels, each drawing its own 2dp band
   // (ui/Panel.tsx). The gallery above them is edge to edge by design.
   content: { paddingTop: 0 },
+  headPanel: { paddingTop: gutter },
   name: { fontSize: 20, lineHeight: 24, fontFamily: font.bold },
   chipLine: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
   chip: {

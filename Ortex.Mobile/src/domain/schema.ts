@@ -171,6 +171,14 @@ export type Quotation = Row & {
   leadId: string | null
   lostReason: string
   invoiceId?: string
+  /**
+   * WHO QUOTED IT, captured at creation rather than resolved at print time: the
+   * PDF is built later, often by someone else opening the record, so "the
+   * signed-in user" would print the wrong person's name on a sent document.
+   * `showSeller` is the rep's choice to put it on the sheet at all.
+   */
+  sellerName?: string
+  showSeller?: boolean
 }
 
 // ---- entity factories ------------------------------------------------------

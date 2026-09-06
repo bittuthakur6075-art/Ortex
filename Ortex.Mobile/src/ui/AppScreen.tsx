@@ -141,7 +141,7 @@ export default function AppScreen({
     outputRange: [0, -12],
     extrapolate: "clamp",
   })
-  // The bar's hairline (`border`, #EBEDF3) is drawn ALWAYS, not only once the
+  // The bar's rule (1dp of `divider`, #F4F6F8) is drawn ALWAYS, not only once the
   // compact title has taken over. Every AppScreen puts a white canvas under this
   // bar, and a white bar over a white page has no edge at all: the rule is the
   // only thing saying where the chrome stops. A header over a GREY plane needs no
@@ -190,7 +190,7 @@ export default function AppScreen({
 
       <Animated.View
         pointerEvents="none"
-        style={[styles.barRule, { opacity: barRuleOpacity, backgroundColor: c.border }]}
+        style={[styles.barRule, { opacity: barRuleOpacity, backgroundColor: c.divider }]}
       />
     </View>
   )
@@ -293,8 +293,8 @@ export default function AppScreen({
   )
 }
 
-/** The header's bottom rule, in dp. */
-const HEADER_RULE = 2
+/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
+const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -314,9 +314,8 @@ const styles = StyleSheet.create({
   // touch slot around a 24dp glyph, so this is the gap between those slots — the
   // glyphs themselves still read about 22dp apart.
   barRight: { flexDirection: "row", alignItems: "center", gap: 2 },
-  // 2dp, the same band that parts two rows and two panels (ROW_SEPARATOR_HEIGHT,
-  // PanelBand). A hairline here is 0.33dp on a 3x phone: one physical pixel of
-  // #EBEDF3 on white, which is invisible in the hand.
+  // 1dp, not `StyleSheet.hairlineWidth`: a hairline is 0.33dp on a 3x phone, one
+  // physical pixel of #F4F6F8 on white, which is invisible in the hand.
   barRule: {
     position: "absolute",
     left: 0,

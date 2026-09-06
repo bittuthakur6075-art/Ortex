@@ -102,9 +102,12 @@ export type QuotationDraft = {
   lostReason: string
   enquiryId: string | null
   leadId: string | null
+  /** Printed under the totals when `showSeller` is on — see schema.ts. */
+  sellerName: string
+  showSeller: boolean
 }
 
-/** The console's `emptyDraft(settings)`, verbatim. */
+/** The console's `emptyDraft(settings)`, plus the two seller fields. */
 export function emptyDraft(settings: Settings): QuotationDraft {
   return {
     id: null,
@@ -121,6 +124,13 @@ export function emptyDraft(settings: Settings): QuotationDraft {
     lostReason: "",
     enquiryId: null,
     leadId: null,
+    // Filled from the signed-in profile by the editor, not here: this module is
+    // pure and knows nothing about who is holding the phone.
+    sellerName: "",
+    // ON by default. A rep quoting in the field wants their own name on the
+    // sheet the customer receives — it is who the customer rings back. The
+    // checkbox is for the times it should go out as the company alone.
+    showSeller: true,
   }
 }
 
@@ -160,6 +170,11 @@ export async function createQuotation(draft: QuotationDraft, settings: Settings)
     enquiryId: draft.enquiryId || null,
     leadId: draft.leadId || null,
     lostReason: "",
+    // Captured now, at creation. The PDF is built later — often by someone else
+    // opening the record — so resolving "the signed-in user" at print time would
+    // put the wrong person's name on a document that has already been sent.
+    sellerName: draft.sellerName || "",
+    showSeller: draft.showSeller !== false,
   })
 }
 

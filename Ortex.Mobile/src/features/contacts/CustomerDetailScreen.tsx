@@ -140,7 +140,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
           styles.bar,
           {
             backgroundColor: t.surface,
-            borderBottomColor: t.border,
+            borderBottomColor: t.divider,
             paddingTop: insets.top,
             height: insets.top + sizes.appBar,
           },
@@ -454,8 +454,8 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-/** The header's bottom rule, in dp. */
-const HEADER_RULE = 2
+/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
+const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
