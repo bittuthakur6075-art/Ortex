@@ -175,6 +175,31 @@ export type Quotation = Row & {
 
 // ---- entity factories ------------------------------------------------------
 
+/** Mirrors `newProduct` in Admin/src/data/domain/schema.js, field for field. */
+export function newProduct(overrides: Partial<Product> = {}) {
+  return {
+    name: "",
+    sku: "",
+    category: PRODUCT_CATEGORIES[0],
+    hsn: "",
+    unit: "pcs",
+    material: "",
+    basePrice: 0,
+    costPrice: 0, // direct/material cost - drives real per-order gross margin
+    moq: 1,
+    gstRate: 18,
+    leadTimeDays: 7,
+    status: "active",
+    // Separate from status on purpose: a product can be live for quoting and
+    // still be kept off the public catalogue. Read by the products_public view
+    // (migration 0020); absent means visible.
+    showOnWebsite: true,
+    description: "",
+    images: [] as string[],
+    ...overrides,
+  }
+}
+
 export function newCustomer(overrides: Partial<Customer> = {}): Customer {
   return { name: "", company: "", email: "", phone: "", gstin: "", stateCode: "", address: "", ...overrides }
 }

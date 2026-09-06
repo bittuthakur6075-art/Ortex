@@ -103,7 +103,7 @@ export default function Settings() {
 
         <SettingsCard icon={Building2} title="Company profile" description="Appears on quotation and invoice documents.">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Company name">
+            <Field label="Company Name">
               <Input value={draft.company.name} onChange={(e) => setCompany("name", e.target.value)} />
             </Field>
             <Field label="Tagline">
@@ -118,32 +118,32 @@ export default function Settings() {
             <Field label="GSTIN">
               <Input value={draft.company.gstin} onChange={(e) => setCompany("gstin", e.target.value)} />
             </Field>
-            <Field label="State code" hint="Home state for CGST/SGST vs IGST">
-              <Input value={draft.company.stateCode} onChange={(e) => setCompany("stateCode", e.target.value)} placeholder="07" />
+            <Field label="State Code" hint="Home state for CGST/SGST vs IGST">
+              <Input value={draft.company.stateCode} onChange={(e) => setCompany("stateCode", e.target.value)} placeholder="Enter state code" />
             </Field>
             <Field label="Address" className="sm:col-span-2">
               <Input value={draft.company.address} onChange={(e) => setCompany("address", e.target.value)} />
             </Field>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Bank name">
+            <Field label="Bank Name">
               <Input value={draft.company.bankName} onChange={(e) => setCompany("bankName", e.target.value)} />
             </Field>
-            <Field label="Account number">
+            <Field label="Account Number">
               <Input value={draft.company.bankAccount} onChange={(e) => setCompany("bankAccount", e.target.value)} />
             </Field>
             <Field label="IFSC">
               <Input value={draft.company.bankIfsc} onChange={(e) => setCompany("bankIfsc", e.target.value)} />
             </Field>
             <Field label="UPI ID">
-              <Input value={draft.company.upi} onChange={(e) => setCompany("upi", e.target.value)} placeholder="name@bank" />
+              <Input value={draft.company.upi} onChange={(e) => setCompany("upi", e.target.value)} placeholder="Enter UPI ID" />
             </Field>
           </div>
         </SettingsCard>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <SettingsCard icon={Percent} title="Tax defaults" description="Default GST rate for new lines.">
-            <Field label="Default GST rate">
+            <Field label="Default GST Rate">
               <Select value={draft.tax.defaultGstRate} onChange={(e) => setTax("defaultGstRate", Number(e.target.value))}>
                 {GST_RATES.map((r) => (
                   <option key={r} value={r}>
@@ -172,10 +172,10 @@ export default function Settings() {
 
         <SettingsCard icon={Percent} title="Default quotation terms" description="Pre-filled on new quotations.">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-            <Field label="Validity (days)">
+            <Field label="Validity (Days)">
               <Input type="number" min="1" value={draft.quotation.validityDays} onChange={(e) => setQuotation("validityDays", Number(e.target.value))} />
             </Field>
-            <Field label="Terms & conditions" className="sm:col-span-3">
+            <Field label="Terms & Conditions" className="sm:col-span-3">
               <Textarea value={draft.quotation.terms} onChange={(e) => setQuotation("terms", e.target.value)} className="min-h-[120px]" />
             </Field>
           </div>
@@ -196,20 +196,20 @@ export default function Settings() {
             Email a copy when an invoice is generated
           </label>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Recipient email (to)" hint="Where the invoice copy is sent">
+            <Field label="Recipient Email (To)" hint="Where the invoice copy is sent">
               <Input
                 type="email"
                 value={draft.notifications.recipient}
                 onChange={(e) => setNotifications("recipient", e.target.value)}
-                placeholder="accounts@ortexindustries.in"
+                placeholder="Enter recipient email"
               />
             </Field>
-            <Field label="Sender email (from)" hint="Company reply address shown as sender - applied on the EmailJS path">
+            <Field label="Sender Email (From)" hint="Company reply address shown as sender - applied on the EmailJS path">
               <Input
                 type="email"
                 value={draft.notifications.sender}
                 onChange={(e) => setNotifications("sender", e.target.value)}
-                placeholder="noreply@ortexindustries.in"
+                placeholder="Enter sender email"
               />
             </Field>
           </div>
@@ -223,7 +223,7 @@ export default function Settings() {
             <Field label="Template ID">
               <Input value={draft.notifications.emailjs.templateId} onChange={(e) => setEmailjs("templateId", e.target.value)} />
             </Field>
-            <Field label="Public key">
+            <Field label="Public Key">
               <Input value={draft.notifications.emailjs.publicKey} onChange={(e) => setEmailjs("publicKey", e.target.value)} />
             </Field>
           </div>
@@ -244,12 +244,12 @@ export default function Settings() {
             Enable IndiaMART lead sync
           </label>
           <div className="mt-4 max-w-xl">
-            <Field label="IndiaMART CRM / Pull API key" hint="From IndiaMART → Lead Manager → CRM Integration">
+            <Field label="IndiaMART CRM / Pull API Key" hint="From IndiaMART → Lead Manager → CRM Integration">
               <Input
                 type="password"
                 value={draft.integrations.indiamart.crmKey}
                 onChange={(e) => setIndiamart("crmKey", e.target.value)}
-                placeholder="Paste your IndiaMART key"
+                placeholder="Enter API key"
               />
             </Field>
           </div>

@@ -1,22 +1,19 @@
 import React from "react"
-import { StyleSheet, Text, View } from "react-native"
+import { StyleSheet, View } from "react-native"
 
-import { repo } from "@/data/repo"
-import { shortAge } from "@/domain/format"
+import { formatNumber, shortAge } from "@/domain/format"
 import { canAccess } from "@/domain/modules"
-import { ENQUIRY_STATUS, newLine, type Enquiry } from "@/domain/schema"
-import { VOICE_SOURCE, buildQuotationPrefill, voiceCallsFrom, type VoiceCall } from "@/domain/voice"
+import { enquiryAge, parseQuoteRfq, rfqArtwork, rfqUnits } from "@/domain/quoteRfq"
+import { ENQUIRY_STATUS, type Enquiry } from "@/domain/schema"
+import { VOICE_SOURCE, prettyPhone, voiceCallsFrom, type VoiceCall } from "@/domain/voice"
 import { useCollection } from "@/hooks/useCollection"
-import { callNumber, prettyPhone, whatsapp } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
 import type { TabScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
-import { textVariants } from "@/theme/typography"
 import {
   AppScreen,
-  Button,
   Chip,
   EmptyState,
   IconButton,
@@ -24,48 +21,27 @@ import {
   ProfileAvatarButton,
   RowSeparator,
   SegmentedControl,
-  Sheet,
   Skeleton,
   StatusBadge,
-  useToast,
 } from "@/ui"
-import StatusSheet from "@/features/leads/StatusSheet"
 
 // Enquiries and voice calls read the SAME `enquiries` collection — a voice lead
 // is just a row tagged with VOICE_SOURCE. The console splits them into two tabs
 // of one hub for that reason, and so does this screen.
 //
-// A lead is an ACTIONABLE object, not just a fact, so tapping a row opens a
-// bottom sheet carrying Call / WhatsApp / Create quotation / Status. That is the
-// Capnix row-actions pattern: the list stays a clean scannable plane, and the
-// verbs live one tap away rather than crowding every row with four buttons.
+// A row is a summary, not a record: tapping one opens the lead's own page
+// (EnquiryDetailScreen / VoiceCallDetailScreen), where the whole request, the
+// advisories and the pipeline live. The list's job is to make the next lead to
+// open obvious — which is why a row carries the SIZE of the request (lines and
+// units, folded from the website's RFQ payload) rather than just a name and a
+// date, and why an overdue or flagged row is tinted.
 
 type Tab = "enquiries" | "voice"
 
-/** What a row expands into, whichever list it came from. */
-type Subject = {
-  id: string
-  name: string
-  phone?: string
-  status: string
-  summary?: string
-  /** Every underlying enquiry row — a folded voice call has several. */
-  rowIds: string[]
-  prefill: {
-    customer?: Partial<Enquiry["customer"]>
-    lines?: ReturnType<typeof newLine>[]
-    notes?: string
-    enquiryId?: string
-  }
-}
-
 export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
   const t = useTheme()
-  const toast = useToast()
   const { profile } = useAuth()
   const { items, loading } = useCollection<Enquiry>("enquiries")
-  const [subject, setSubject] = React.useState<Subject | null>(null)
-  const [statusOpen, setStatusOpen] = React.useState(false)
 
   const canEnquiries = canAccess(profile, "enquiries")
   const canVoice = canAccess(profile, "voice-leads")
@@ -93,50 +69,6 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
 
   const showingVoice = tab === "voice"
   const data: (Enquiry | VoiceCall)[] = showingVoice ? calls : enquiries
-
-  const subjectFromEnquiry = (e: Enquiry): Subject => ({
-    id: e.id,
-    name: e.customer?.name || e.customer?.company || "Unnamed enquiry",
-    phone: e.customer?.phone,
-    status: e.status,
-    summary: e.message,
-    rowIds: [e.id],
-    prefill: {
-      customer: e.customer,
-      lines: e.productInterest ? [newLine({ description: e.productInterest })] : undefined,
-      notes: e.message ? `Ref: ${e.message}` : undefined,
-      enquiryId: e.id,
-    },
-  })
-
-  const subjectFromCall = (call: VoiceCall): Subject => {
-    const prefill = buildQuotationPrefill(call)
-    return {
-      id: call.id,
-      name: call.name,
-      phone: call.customer.phone,
-      status: call.status,
-      summary: call.summary,
-      // A "call" is several enquiry rows; a status change writes to all of them,
-      // so the next person to open any single row sees the same truth.
-      rowIds: call.rows.map((r) => r.id),
-      prefill,
-    }
-  }
-
-  const setStatus = async (status: string) => {
-    if (!subject) return
-    setStatusOpen(false)
-    setSubject(null)
-    try {
-      await Promise.all(subject.rowIds.map((id) => repo.update("enquiries", id, { status })))
-      feedback.created()
-      toast.show({ message: `Marked ${status}`, tone: "success" })
-    } catch {
-      feedback.error()
-      toast.show({ message: "Could not update — check your connection", tone: "danger" })
-    }
-  }
 
   return (
     <View style={{ flex: 1, backgroundColor: t.background }}>
@@ -186,6 +118,13 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
                   leadingTone={call.flags.support ? "rose" : call.flags.urgent ? "amber" : "primary"}
                   title={call.name}
                   subtitle={[
+                    // What they want comes before who they are: on a callback
+                    // list the requirement is what decides which row to open.
+                    call.itemsList.length
+                      ? call.itemsList
+                          .map((i) => [i.quantity, i.product].filter(Boolean).join(" x "))
+                          .join(", ")
+                      : call.productInterest || "Nothing captured",
                     call.customer.phone ? prettyPhone(call.customer.phone) : "No number",
                     shortAge(call.endedAt),
                     call.callTotal > 1 ? `call ${call.callIndex}/${call.callTotal}` : null,
@@ -209,22 +148,36 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
                   }
                   onPress={() => {
                     feedback.tap()
-                    setSubject(subjectFromCall(call))
+                    navigation.navigate("VoiceCallDetail", { id: call.id })
                   }}
                 />
               )
             }
 
             const e = item as Enquiry
+            const rfq = parseQuoteRfq(e)
+            const age = enquiryAge(e)
+            const artwork = rfqArtwork(e)
             return (
               <ListRow
-                leadingIcon="enquiry"
+                leadingIcon={rfq ? "quote" : "enquiry"}
+                // An enquiry left as new for two days is the one to open next.
+                leadingTone={age.overdue ? "amber" : "primary"}
                 title={e.customer?.name || e.customer?.company || "Unnamed enquiry"}
-                subtitle={[e.productInterest || e.source, shortAge(e.createdAt)].filter(Boolean).join(" · ")}
+                subtitle={[
+                  // The size of the request, where the website sent one.
+                  rfq
+                    ? `${rfq.items.length} item${rfq.items.length === 1 ? "" : "s"} · ${formatNumber(rfqUnits(rfq.items))} pcs`
+                    : e.productInterest || e.source,
+                  artwork ? (artwork.failed ? "artwork failed" : "artwork") : null,
+                  shortAge(e.createdAt),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
                 valueSub={<StatusBadge list={ENQUIRY_STATUS} id={e.status} small />}
                 onPress={() => {
                   feedback.tap()
-                  setSubject(subjectFromEnquiry(e))
+                  navigation.navigate("EnquiryDetail", { id: e.id })
                 }}
               />
             )
@@ -238,65 +191,6 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
         )}
         {data.length ? <RowSeparator /> : null}
       </AppScreen>
-
-      {/* Row actions live in a sheet, not crowded into every row. */}
-      <Sheet visible={!!subject && !statusOpen} onClose={() => setSubject(null)} title={subject?.name}>
-        {subject && (
-          <View>
-            {!!subject.summary && (
-              <Text
-                numberOfLines={4}
-                style={[textVariants.body, { color: t.textSecondary, marginBottom: spacing.md }]}
-              >
-                {subject.summary}
-              </Text>
-            )}
-            <View style={styles.sheetActions}>
-              <Button
-                label="Call"
-                icon="call"
-                variant="secondary"
-                disabled={!subject.phone}
-                onPress={() => void callNumber(subject.phone)}
-              />
-              <Button
-                label="WhatsApp"
-                icon="whatsapp"
-                variant="secondary"
-                disabled={!subject.phone}
-                onPress={() => void whatsapp(subject.phone)}
-              />
-            </View>
-            <Button
-              label="Create quotation"
-              icon="quote"
-              fullWidth
-              style={{ marginTop: spacing.sm }}
-              onPress={() => {
-                const prefill = subject.prefill
-                setSubject(null)
-                feedback.tap()
-                navigation.navigate("QuotationEditor", { prefill })
-              }}
-            />
-            <Button
-              label="Change status"
-              icon="tick"
-              variant="ghost"
-              fullWidth
-              style={{ marginTop: spacing.xs }}
-              onPress={() => setStatusOpen(true)}
-            />
-          </View>
-        )}
-      </Sheet>
-
-      <StatusSheet
-        visible={statusOpen}
-        current={subject?.status}
-        onClose={() => setStatusOpen(false)}
-        onPick={(id) => void setStatus(id)}
-      />
     </View>
   )
 }
@@ -304,5 +198,4 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
 const styles = StyleSheet.create({
   segments: { paddingHorizontal: gutter, marginBottom: spacing.sm },
   flags: { flexDirection: "row", justifyContent: "flex-end" },
-  sheetActions: { flexDirection: "row", gap: spacing.sm },
 })

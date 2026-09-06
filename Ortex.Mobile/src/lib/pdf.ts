@@ -1,10 +1,12 @@
 import { File, Paths } from "expo-file-system"
 import * as Print from "expo-print"
 import * as Sharing from "expo-sharing"
+import Share, { Social, type ShareSingleOptions } from "react-native-share"
 
 import { quotationHtml } from "@/documents/quotationHtml"
 import type { Quotation } from "@/domain/schema"
 import type { Settings } from "@/domain/settings"
+import { whatsappNumber } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
 
 // Printing and sharing the quotation PDF.
@@ -53,6 +55,49 @@ export async function shareQuotationPdf(doc: Quotation, settings: Settings): Pro
     dialogTitle: `Quotation ${doc.number}`,
   })
   feedback.created()
+}
+
+/**
+ * Send the PDF straight into ONE customer's WhatsApp chat.
+ *
+ * `wa.me` cannot do this: a deep link carries text only, so the file would be
+ * dropped. react-native-share's `shareSingle` builds the Android intent WhatsApp
+ * actually wants — ACTION_SEND at `com.whatsapp` with the number as the chat
+ * target and a FileProvider content URI for the attachment — which is the only
+ * route that skips both the system share sheet and the contact picker.
+ *
+ * It returns false rather than throwing when WhatsApp is absent or refuses the
+ * intent, so the caller can fall back to the ordinary share sheet. A missed send
+ * is not worth an error dialog when the share sheet is one line away.
+ */
+export async function shareQuotationOnWhatsApp(
+  doc: Quotation,
+  settings: Settings,
+  phone: string,
+  message: string,
+): Promise<boolean> {
+  const number = whatsappNumber(phone)
+  if (!number) return false
+  try {
+    const uri = await renderPdf(doc, settings)
+    await Share.shareSingle({
+      social: Social.Whatsapp,
+      // `whatsAppNumber` is missing from the shipped .d.ts but IS read by the
+      // native module (android/.../social/WhatsAppShare.java opens the
+      // conversation for it before attaching), so the option is widened here
+      // rather than dropped — without it the send falls back to the contact
+      // picker, which is the whole thing this function exists to skip.
+      whatsAppNumber: number,
+      url: uri,
+      type: "application/pdf",
+      filename: `Quotation-${(doc.number || "draft").replace(/[^\w-]/g, "")}`,
+      message,
+    } as ShareSingleOptions & { whatsAppNumber: string })
+    feedback.created()
+    return true
+  } catch {
+    return false
+  }
 }
 
 /** Hand the same document to the OS print dialog. */

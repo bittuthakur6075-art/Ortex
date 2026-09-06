@@ -70,11 +70,20 @@ export const textVariants = {
     lineHeight: 40,
     letterSpacing: -0.3,
     fontVariant: LINING_FIGURES,
+    // Title Case, set on the ROLE so every screen inherits it and no call site
+    // has to remember. `capitalize` lifts only the first letter of each word, so
+    // an acronym or a document number passed as a title survives intact.
+    textTransform: "capitalize",
   },
   screenSubtitle: { fontFamily: fontFamily.regular, fontSize: 14, lineHeight: 20 },
   screenSubtitleStrong: { fontFamily: fontFamily.medium, fontSize: 14, lineHeight: 20 },
-  appBarTitle: { fontFamily: fontFamily.displayMedium, fontSize: 24, fontVariant: LINING_FIGURES },
-  appBarTitleBack: { fontFamily: fontFamily.medium, fontSize: 18 },
+  appBarTitle: {
+    fontFamily: fontFamily.displayMedium,
+    fontSize: 24,
+    fontVariant: LINING_FIGURES,
+    textTransform: "capitalize",
+  },
+  appBarTitleBack: { fontFamily: fontFamily.medium, fontSize: 18, textTransform: "capitalize" },
 
   // Section / card headings.
   title: {
@@ -118,11 +127,16 @@ export const textVariants = {
   segmentedLabel: { fontFamily: fontFamily.medium, fontSize: 14, lineHeight: 20 },
 
   // List row.
-  listTitle: { fontFamily: fontFamily.semibold, fontSize: 18, lineHeight: 22 },
-  listSubtitle: { fontFamily: fontFamily.medium, fontSize: 14, lineHeight: 17 },
+  listTitle: { fontFamily: fontFamily.semibold, fontSize: 16, lineHeight: 20 },
+  listSubtitle: { fontFamily: fontFamily.medium, fontSize: 12, lineHeight: 15 },
   listMeta: { fontFamily: fontFamily.medium, fontSize: 12, lineHeight: 15 },
+  // The figure at the right of a list row. SANS, not the display serif the other
+  // money roles use (design call, 2026-09-06): at 18 in a dense row the serif's
+  // figures read as decorative beside a sans title, and the two faces a
+  // centimetre apart made the row look like two designs. Tabular lining figures
+  // are kept, so a column of amounts still aligns digit for digit.
   listAmount: {
-    fontFamily: fontFamily.displayMedium,
+    fontFamily: fontFamily.semibold,
     fontSize: 18,
     lineHeight: 22,
     fontVariant: LINING_FIGURES,
@@ -134,31 +148,34 @@ export const textVariants = {
   chipText: { fontFamily: fontFamily.semibold, fontSize: 10, lineHeight: 12 },
   microLabel: { fontFamily: fontFamily.medium, fontSize: 10, lineHeight: 12 },
 
-  // Figures. Money and counts are set in the display serif so a rupee figure
-  // reads the same here as on the console's stat cards.
+  // Figures. Money and counts are set in the SANS, not the display serif: the
+  // rupee glyph and the lining figures are drawn far more evenly there, and a
+  // column of amounts beside sans labels stops looking like two documents.
+  // `LINING_FIGURES` is what actually keeps them aligned; the face only decides
+  // how they look.
   stat: {
-    fontFamily: fontFamily.displayMedium,
+    fontFamily: fontFamily.bold,
     fontSize: 26,
     lineHeight: 32,
     letterSpacing: -0.4,
     fontVariant: LINING_FIGURES,
   },
   statLarge: {
-    fontFamily: fontFamily.displayMedium,
+    fontFamily: fontFamily.bold,
     fontSize: 34,
     lineHeight: 41,
     letterSpacing: -0.6,
     fontVariant: LINING_FIGURES,
   },
-  amount: { fontFamily: fontFamily.displayMedium, fontSize: 17, lineHeight: 23, fontVariant: LINING_FIGURES },
+  amount: { fontFamily: fontFamily.bold, fontSize: 17, lineHeight: 23, fontVariant: LINING_FIGURES },
   factValue: {
-    fontFamily: fontFamily.displayMedium,
+    fontFamily: fontFamily.bold,
     fontSize: 16,
     lineHeight: 20,
     fontVariant: LINING_FIGURES,
   },
   rowAmount: {
-    fontFamily: fontFamily.displayMedium,
+    fontFamily: fontFamily.bold,
     fontSize: 22,
     lineHeight: 28,
     fontVariant: LINING_FIGURES,
@@ -169,7 +186,7 @@ export const textVariants = {
   buttonSm: { fontFamily: fontFamily.semibold, fontSize: 14, lineHeight: 19 },
   buttonXs: { fontFamily: fontFamily.semibold, fontSize: 12, lineHeight: 16 },
   label: { fontFamily: fontFamily.medium, fontSize: 13, lineHeight: 18 },
-  tab: { fontFamily: fontFamily.medium, fontSize: 11, lineHeight: 14 },
+  tab: { fontFamily: fontFamily.medium, fontSize: 12, lineHeight: 16 },
 } as const satisfies Record<string, TextStyle>
 
 export type TextVariant = keyof typeof textVariants

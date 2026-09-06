@@ -6,6 +6,16 @@
     <!-- Haptic feedback (expo-haptics), used by every interaction in src/lib/feedback.ts. -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Picking a profile photo or a product photo (expo-image-picker). Its config
+         plugin normally declares these, and config plugins DO NOT RUN in this bare
+         project, so they are declared by hand. Android 13+ uses the scoped media
+         permission (or the system photo picker, which needs none); 12 and below
+         have only the blanket read, hence the maxSdkVersion split. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
     <!-- Android 11+ package visibility. Without these the Contacts screen's
          Call / WhatsApp / Email buttons cannot even SEE the target apps, so
          Linking.canOpenURL reports false and the button silently does nothing. -->

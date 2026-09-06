@@ -1,13 +1,25 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native"
-import { createNativeStackNavigator } from "@react-navigation/native-stack"
+import {
+  createNativeStackNavigator,
+  type NativeStackNavigationOptions,
+} from "@react-navigation/native-stack"
 import React from "react"
 
 import LockScreen from "@/features/auth/LockScreen"
 import SplashView from "@/features/auth/SplashView"
 import LoginScreen from "@/features/auth/LoginScreen"
 import { useAppLock } from "@/features/auth/useAppLock"
+import ContactEditorScreen from "@/features/contacts/ContactEditorScreen"
 import CustomerDetailScreen from "@/features/contacts/CustomerDetailScreen"
+import EnquiryDetailScreen from "@/features/leads/EnquiryDetailScreen"
+import VoiceCallDetailScreen from "@/features/leads/VoiceCallDetailScreen"
+import ProductDetailScreen from "@/features/products/ProductDetailScreen"
+import ProductEditorScreen from "@/features/products/ProductEditorScreen"
+import AccountDetailsScreen from "@/features/profile/AccountDetailsScreen"
+import ChangePasswordScreen from "@/features/profile/ChangePasswordScreen"
+import LegalScreen from "@/features/profile/LegalScreen"
 import ProfileScreen from "@/features/profile/ProfileScreen"
+import TeamScreen from "@/features/profile/TeamScreen"
 import GlobalSearchScreen from "@/features/search/GlobalSearchScreen"
 import QuotationDetailScreen from "@/features/quotations/QuotationDetailScreen"
 import QuotationEditorScreen from "@/features/quotations/QuotationEditorScreen"
@@ -17,6 +29,16 @@ import { useAuth } from "@/store/AuthContext"
 import { useIsDark, useTheme } from "@/store/ThemeContext"
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
+
+/** The Profile hub's inner pages: a near-full bottom sheet with a grabber. */
+const SHEET: NativeStackNavigationOptions = {
+  presentation: "formSheet",
+  sheetAllowedDetents: [0.94],
+  sheetCornerRadius: 28,
+  sheetGrabberVisible: true,
+  // A sheet slides up; the stack's shared parallax push would fight it.
+  animation: "slide_from_bottom",
+}
 
 export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const t = useTheme()
@@ -69,8 +91,24 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="QuotationEditor" component={QuotationEditorScreen} />
         <Stack.Screen name="QuotationDetail" component={QuotationDetailScreen} />
         <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} />
+        <Stack.Screen name="EnquiryDetail" component={EnquiryDetailScreen} />
+        <Stack.Screen name="VoiceCallDetail" component={VoiceCallDetailScreen} />
+        <Stack.Screen name="ContactEditor" component={ContactEditorScreen} />
+        <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+        <Stack.Screen name="ProductEditor" component={ProductEditorScreen} />
         <Stack.Screen name="Search" component={GlobalSearchScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
+        {/* The Profile hub's inner pages come up as SHEETS, not pushes. Each is a
+            short errand off a settings menu — read a fact, flip a switch, sign a
+            password change — and a sheet says "you are still on Profile, this
+            closes" where a full push says "you have gone somewhere". `formSheet`
+            is a real bottom sheet on Android too since react-native-screens 4;
+            the grabber and the near-full detent come from there, not from a
+            hand-rolled panel. */}
+        <Stack.Screen name="AccountDetails" component={AccountDetailsScreen} options={SHEET} />
+        <Stack.Screen name="Team" component={TeamScreen} options={SHEET} />
+        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={SHEET} />
+        <Stack.Screen name="Legal" component={LegalScreen} options={SHEET} />
       </Stack.Navigator>
     </NavigationContainer>
   )

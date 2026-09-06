@@ -40,7 +40,7 @@ function ListItem({
     <View style={[styles.row, { opacity: disabled ? 0.45 : 1 }]}>
       {(leading || leadingIcon) && (
         <View style={styles.leading}>
-          {leading ?? <Icon name={leadingIcon!} size={20} color={t.textSecondary} />}
+          {leading ?? <Icon name={leadingIcon!} size={20} color={t.textSecondary} variant="Bulk" />}
         </View>
       )}
       <View style={styles.text}>

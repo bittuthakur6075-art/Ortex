@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useTheme } from "@/store/ThemeContext"
-import { gutter } from "@/theme/tokens"
+import { gutter, size as sizes } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
 
 /**
@@ -33,7 +33,7 @@ export default function ScreenHeader({
   const insets = useSafeAreaInsets()
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top + 6, backgroundColor: t.appBar }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: t.appBar }]}>
       <View style={styles.bar}>
         <View style={styles.barSide}>{leading}</View>
         <View style={styles.barEnd}>{trailing}</View>
@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: "row",
     alignItems: "center",
-    minHeight: 44,
+    height: sizes.appBar,
     paddingHorizontal: 12,
   },
   barSide: {

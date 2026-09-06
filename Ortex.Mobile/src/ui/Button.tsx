@@ -152,7 +152,7 @@ export default function Button({
         <>
           {icon ? (
             <View style={{ marginRight: spacing.sm }}>
-              <Icon name={icon} size={iconSize} color={tone.fg} variant="Bold" />
+              <Icon name={icon} size={iconSize} color={tone.fg} variant="Bulk" />
             </View>
           ) : null}
           <Text numberOfLines={1} style={[textStyle, { color: tone.fg }]}>
@@ -160,7 +160,7 @@ export default function Button({
           </Text>
           {trailingIcon ? (
             <View style={{ marginLeft: spacing.sm }}>
-              <Icon name={trailingIcon} size={iconSize} color={tone.fg} variant="Bold" />
+              <Icon name={trailingIcon} size={iconSize} color={tone.fg} variant="Bulk" />
             </View>
           ) : null}
         </>

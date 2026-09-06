@@ -253,7 +253,7 @@ function WorkForm({ open, work, onClose }) {
         <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <Field label="Title" required error={error && form.image && !form.title.trim() ? error : ""} hint="Caption shown on the photo">
-            <Input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Custom printed lanyards" autoFocus />
+            <Input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="Enter title" autoFocus />
           </Field>
           <Field label="Category" hint="Filter bucket on /work - matches catalogue categories">
             <div className="space-y-2">
@@ -267,22 +267,22 @@ function WorkForm({ open, work, onClose }) {
                 <option value={OTHER}>Other…</option>
               </Select>
               {isCustom && (
-                <Input value={form.category} onChange={(e) => set("category", e.target.value)} placeholder="Custom category name" autoFocus />
+                <Input value={form.category} onChange={(e) => set("category", e.target.value)} placeholder="Enter category name" autoFocus />
               )}
             </div>
           </Field>
         </div>
 
-        <Field label="Alt text" hint="Read aloud by screen readers and used by Google Images; falls back to the title">
-          <Textarea value={form.alt} onChange={(e) => set("alt", e.target.value)} placeholder="Describe what the photo shows…" />
+        <Field label="Alt Text" hint="Read aloud by screen readers and used by Google Images; falls back to the title">
+          <Textarea value={form.alt} onChange={(e) => set("alt", e.target.value)} placeholder="Enter alt text" />
         </Field>
         </div>
         </Group>
 
         <Group title="Placement">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Sort order" hint="Lower shows first">
-              <Input type="number" value={form.sortOrder} onChange={(e) => set("sortOrder", e.target.value)} placeholder="0" />
+            <Field label="Sort Order" hint="Lower shows first">
+              <Input type="number" value={form.sortOrder} onChange={(e) => set("sortOrder", e.target.value)} placeholder="Enter sort order" />
             </Field>
             <Field label="Visibility">
               <label className="flex h-[45px] items-center gap-2 text-sm">

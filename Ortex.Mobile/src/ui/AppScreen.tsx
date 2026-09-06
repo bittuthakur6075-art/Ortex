@@ -1,7 +1,17 @@
 import React from "react"
-import { Animated, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native"
+import {
+  Animated,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { useKeyboardAwareScroll } from "@/hooks/useKeyboardAwareScroll"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, size as sizes, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
@@ -40,6 +50,23 @@ const COLLAPSE_DISTANCE = 48
  */
 const SLOT_INSET = { avatar: 4, back: 10, icon: 10 }
 
+/**
+ * What an external scroller (the Contacts alphabet rail) needs from the list
+ * underneath it. Structural rather than the concrete SectionList/FlatList
+ * instance, because `list` and `sections` mount different components and a screen
+ * only ever drives the one it passed.
+ */
+export type ScrollableList = {
+  scrollToLocation?: (opts: {
+    sectionIndex: number
+    itemIndex: number
+    animated?: boolean
+    viewOffset?: number
+    viewPosition?: number
+  }) => void
+  scrollToOffset?: (opts: { offset: number; animated?: boolean }) => void
+}
+
 type Props = {
   title: string
   subtitle?: string
@@ -60,8 +87,18 @@ type Props = {
   list?: React.ComponentProps<typeof Animated.FlatList>
   /** The grouped counterpart of `list`, for a SectionList screen. */
   sections?: React.ComponentProps<typeof Animated.SectionList>
+  /** A ref onto the underlying list, so a fast scroller can drive it. */
+  listRef?: React.Ref<ScrollableList>
+  /** Drawn over the list: a fast-scroll rail, a selection action bar. */
+  overlay?: React.ReactNode
   /** The screen sits inside the tab navigator, so content clears the tab capsule. */
   inTabs?: boolean
+  /**
+   * Stand the page on the RECESSED plane rather than the surface. A page whose
+   * groups are separate cards needs it: card and page are both #FFFFFF, so on
+   * the default ground the cards would have no edge to be separate at.
+   */
+  inset?: boolean
   contentStyle?: StyleProp<ViewStyle>
 }
 
@@ -75,12 +112,17 @@ export default function AppScreen({
   children,
   list,
   sections,
+  listRef,
+  overlay,
   inTabs = true,
+  inset = false,
   contentStyle,
 }: Props) {
   const c = useTheme()
+  const ground = inset ? c.surfaceInset : c.background
   const insets = useSafeAreaInsets()
   const scrollY = React.useRef(new Animated.Value(0)).current
+  const keyboardAware = useKeyboardAwareScroll<ScrollView>()
 
   // The large title occupies its own band; the compact bar title cross-fades in
   // over exactly that distance, so the two never both read as the page heading.
@@ -99,9 +141,13 @@ export default function AppScreen({
     outputRange: [0, -12],
     extrapolate: "clamp",
   })
-  // The bar's hairline only appears once the compact title has taken over —
-  // before that the bar is empty chrome and a rule under nothing reads as debris.
-  const barRuleOpacity = barTitleOpacity
+  // The bar's hairline (`divider`, #F4F6F8) is drawn ALWAYS, not only once the
+  // compact title has taken over. Every AppScreen puts a white canvas under this
+  // bar, and a white bar over a white page has no edge at all: the rule is the
+  // only thing saying where the chrome stops. A header over a GREY plane needs no
+  // rule and must not draw one, which is why the two detail screens on
+  // `surfaceInset` (the contact card) leave theirs off.
+  const barRuleOpacity = 1
 
   const appBar = (
     <View style={[styles.bar, { height: sizes.appBar, backgroundColor: c.appBar }]}>
@@ -177,13 +223,17 @@ export default function AppScreen({
 
   const onScroll = Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
     useNativeDriver: true,
+    // The native driver still forwards the event to a JS listener, which is how
+    // the keyboard helper knows where the user has scrolled to.
+    listener: keyboardAware.onScrollOffset,
   })
 
   return (
-    <View style={[styles.root, { backgroundColor: c.background, paddingTop: insets.top }]}>
+    <View style={[styles.root, { backgroundColor: ground, paddingTop: insets.top }]}>
       {appBar}
       {sections ? (
         <Animated.SectionList
+          ref={listRef as never}
           {...sections}
           onScroll={onScroll}
           scrollEventThrottle={16}
@@ -202,6 +252,7 @@ export default function AppScreen({
         />
       ) : list ? (
         <Animated.FlatList
+          ref={listRef as never}
           {...list}
           onScroll={onScroll}
           scrollEventThrottle={16}
@@ -216,16 +267,27 @@ export default function AppScreen({
           keyboardShouldPersistTaps="handled"
         />
       ) : (
+        // The non-list branch is where every FORM in this app lives, so it is
+        // keyboard-aware: the focused field is lifted clear of the keyboard, and
+        // the keyboard's height is added below the content so the last field can
+        // be reached at all. See hooks/useKeyboardAwareScroll.ts.
         <Animated.ScrollView
+          ref={keyboardAware.ref as never}
           onScroll={onScroll}
+          onLayout={keyboardAware.onLayout}
           scrollEventThrottle={16}
-          contentContainerStyle={[{ paddingBottom: bottomReserve }, contentStyle]}
+          contentContainerStyle={[
+            { paddingBottom: bottomReserve + keyboardAware.keyboard },
+            contentStyle,
+          ]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {largeTitle}
           {children}
         </Animated.ScrollView>
       )}
+      {overlay}
     </View>
   )
 }
@@ -244,7 +306,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   barTitle: { flex: 1, justifyContent: "center" },
-  barRight: { flexDirection: "row", alignItems: "center" },
+  // 2dp between trailing actions. Each IconButton already carries its own 44dp
+  // touch slot around a 24dp glyph, so this is the gap between those slots — the
+  // glyphs themselves still read about 22dp apart.
+  barRight: { flexDirection: "row", alignItems: "center", gap: 2 },
   barRule: {
     position: "absolute",
     left: 0,

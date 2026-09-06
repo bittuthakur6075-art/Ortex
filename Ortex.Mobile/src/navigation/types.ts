@@ -3,6 +3,7 @@ import type { CompositeScreenProps } from "@react-navigation/native"
 import type { NativeStackScreenProps } from "@react-navigation/native-stack"
 
 import type { Customer, Line } from "@/domain/schema"
+import type { LegalDocKey } from "@/features/profile/legal"
 
 export type TabParamList = {
   Quotes: undefined
@@ -24,8 +25,17 @@ export type RootStackParamList = {
   QuotationEditor: { id?: string; prefill?: QuotationPrefill } | undefined
   QuotationDetail: { id: string }
   CustomerDetail: { id: string }
+  EnquiryDetail: { id: string }
+  VoiceCallDetail: { id: string }
+  ContactEditor: { prefill?: Partial<Customer> } | undefined
+  ProductDetail: { id: string }
+  ProductEditor: { id?: string } | undefined
   Search: undefined
   Profile: undefined
+  AccountDetails: undefined
+  Team: undefined
+  ChangePassword: undefined
+  Legal: { doc: LegalDocKey }
 }
 
 export type TabScreenProps<T extends keyof TabParamList> = CompositeScreenProps<

@@ -117,7 +117,7 @@ export default function Login() {
             {step === "code" ? (
               <form onSubmit={handleCode} noValidate className="lgn-form">
                 <label htmlFor="code" className="mb-1.5 block text-sm font-medium text-foreground">
-                  Verification code
+                  Verification Code
                 </label>
                 <div className="relative">
                   <ShieldCheck className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -130,7 +130,7 @@ export default function Login() {
                     maxLength={6}
                     value={code}
                     onChange={(e) => { setCode(e.target.value.replace(/\D/g, "")); if (error) setError("") }}
-                    placeholder="000000"
+                    placeholder="Enter 6-digit code"
                     className="pl-10 tracking-[0.4em]"
                   />
                 </div>
@@ -164,7 +164,7 @@ export default function Login() {
                     autoFocus
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); if (error) setError("") }}
-                    placeholder="you@ortexindustries.in"
+                    placeholder="Enter email address"
                     className="pl-10"
                   />
                 </div>
@@ -180,7 +180,7 @@ export default function Login() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); if (error) setError("") }}
-                  placeholder="Your password"
+                  placeholder="Enter password"
                   className="pl-10 pr-10"
                 />
                 <button

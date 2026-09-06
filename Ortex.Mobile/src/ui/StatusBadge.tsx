@@ -2,6 +2,7 @@ import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
 import { useTheme } from "@/store/ThemeContext"
+import { radius } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 import type { StatusOption } from "@/domain/schema"
 import { statusMeta } from "@/domain/schema"
@@ -38,12 +39,12 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: radius.pill,
   },
   pillSmall: {
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: radius.pill,
   },
   label: {
     fontSize: 12,

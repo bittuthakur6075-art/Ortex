@@ -14,7 +14,8 @@
  * Bytes travel as base64 rather than a Blob: `fetch(uri).then(r => r.blob())`
  * on React Native yields a Blob whose data supabase-js cannot read (it is a
  * native handle, not a buffer) and uploads a 0-byte object with no error. The
- * picker's own base64, decoded to a Uint8Array here, is the reliable route.
+ * picker's own base64, decoded here and handed over as a plain ArrayBuffer, is
+ * the reliable route.
  */
 
 import { supabase, hasSupabase } from "@/data/supabase"
@@ -25,6 +26,17 @@ export const MAX_AVATAR_MB = 5
 export const MAX_AVATAR_BYTES = MAX_AVATAR_MB * 1024 * 1024
 
 const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+/**
+ * charCode → sextet, built once. An `indexOf` per character is fine for a 256px
+ * avatar and is not fine for a 4MB product photo: that is ~5.5M characters, each
+ * scanning a 64-character string, and the JS thread is frozen for the duration.
+ */
+const SEXTETS = (() => {
+  const table = new Uint8Array(128)
+  for (let i = 0; i < B64.length; i += 1) table[B64.charCodeAt(i)] = i
+  return table
+})()
 
 /**
  * base64 → bytes. Hand-rolled for the same reason `format.ts` hand-rolls Indian
@@ -38,7 +50,7 @@ export function decodeBase64(input: string): Uint8Array {
   let buffer = 0
   let bits = 0
   for (let i = 0; i < clean.length; i += 1) {
-    buffer = (buffer << 6) | B64.indexOf(clean[i])
+    buffer = (buffer << 6) | SEXTETS[clean.charCodeAt(i)]
     bits += 6
     if (bits >= 8) {
       bits -= 8
@@ -66,7 +78,13 @@ export async function uploadAvatar(base64: string, userId: string, mimeType = "i
   const rand = `${Date.now()}-${Math.random().toString(36).slice(2)}`
   const path = `${userId}/${rand}.${extension}`
 
-  const { error } = await supabase.storage.from(BUCKET).upload(path, decodeBase64(base64), {
+  // A plain ArrayBuffer of exactly the image's bytes — see `decodeBase64` above
+  // for why its `subarray` is not one, and `lib/productImages.ts` for why a typed
+  // array is the wrong shape to hand React Native's fetch.
+  const bytes = decodeBase64(base64)
+  const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+
+  const { error } = await supabase.storage.from(BUCKET).upload(path, body, {
     contentType: mimeType,
     upsert: false,
     cacheControl: "31536000",

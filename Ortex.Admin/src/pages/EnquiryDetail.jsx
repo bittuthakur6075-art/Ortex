@@ -215,15 +215,15 @@ export default function EnquiryDetail() {
                   value={form.customer.gstin}
                   onChange={(e) => setCustomer("gstin", e.target.value)}
                   onBlur={saveCustomer}
-                  placeholder="07AAACO1234A1Z5"
+                  placeholder="Enter GSTIN"
                 />
               </Field>
-              <Field label="State code" hint="GST - e.g. 07 Delhi, 27 Maharashtra">
+              <Field label="State Code" hint="GST - e.g. 07 Delhi, 27 Maharashtra">
                 <Input
                   value={form.customer.stateCode}
                   onChange={(e) => setCustomer("stateCode", e.target.value)}
                   onBlur={saveCustomer}
-                  placeholder="07"
+                  placeholder="Enter state code"
                 />
               </Field>
             </div>
@@ -243,7 +243,7 @@ export default function EnquiryDetail() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Product interest">
+              <Field label="Product Interest">
                 <Select value={form.productInterest} onChange={(e) => patch({ productInterest: e.target.value })}>
                   <option value="">Not set</option>
                   {PRODUCT_CATEGORIES.map((c) => (
@@ -261,7 +261,7 @@ export default function EnquiryDetail() {
               value={form.message}
               onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
               onBlur={() => repo.update("enquiries", enquiry.id, { message: form.message })}
-              placeholder="Requirement details"
+              placeholder="Enter message"
               rows={5}
             />
           </Section>
@@ -274,7 +274,7 @@ export default function EnquiryDetail() {
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                 onBlur={() => repo.update("enquiries", enquiry.id, { notes: form.notes })}
-                placeholder="Private notes, saved when you leave the box"
+                placeholder="Enter internal notes"
                 rows={5}
               />
             )}

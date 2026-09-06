@@ -98,14 +98,14 @@ export default function PracticeModal({ open, job, onClose, onRecorded }) {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Customer name"><Input value={f.contactName} onChange={(e) => setF({ ...f, contactName: e.target.value })} /></Field>
-              <Field label="Mobile" hint="Nothing rings; it only keys the record."><Input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} placeholder="Your own number" /></Field>
-              <Field label="Type of call">
+              <Field label="Customer Name"><Input value={f.contactName} onChange={(e) => setF({ ...f, contactName: e.target.value })} /></Field>
+              <Field label="Mobile" hint="Nothing rings; it only keys the record."><Input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} placeholder="Enter mobile number" /></Field>
+              <Field label="Type of Call">
                 <Select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>
                   {TELECALL_KINDS.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
                 </Select>
               </Field>
-              <Field label="Scenario / objective"><Input value={f.objective} onChange={(e) => setF({ ...f, objective: e.target.value })} placeholder="500 lanyards for a college fest, wants a price today" /></Field>
+              <Field label="Scenario / Objective"><Input value={f.objective} onChange={(e) => setF({ ...f, objective: e.target.value })} placeholder="Enter scenario or objective" /></Field>
             </div>
           )}
         </div>

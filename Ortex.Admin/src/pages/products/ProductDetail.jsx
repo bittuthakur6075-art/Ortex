@@ -131,7 +131,7 @@ export default function ProductDetail({ open, product, quotations = [], invoices
           ) : (
             <Empty>
               Never invoiced. {a.quotes > 0
-                ? `Quoted ${a.quotes} time${a.quotes === 1 ? "" : "s"} for ${formatNumber(a.quotedUnits)} ${product.unit || "pcs"} — the demand is there, the orders are not.`
+                ? `Quoted ${a.quotes} time${a.quotes === 1 ? "" : "s"} for ${formatNumber(a.quotedUnits)} ${product.unit || "pcs"}. The demand is there, the orders are not.`
                 : "It has not appeared on a quotation either, so nobody has been offered it yet."}
             </Empty>
           )}
@@ -144,7 +144,7 @@ export default function ProductDetail({ open, product, quotations = [], invoices
             <Metric label="Ordered on" value={`${a.orders} invoice${a.orders === 1 ? "" : "s"}`} />
             <Metric
               label="Quote to order"
-              value={a.conversion === null ? "—" : `${a.conversion}%`}
+              value={a.conversion === null ? "-" : `${a.conversion}%`}
               tone={a.conversion === null ? undefined : a.conversion >= 50 ? "success" : a.conversion >= 25 ? "warning" : "danger"}
             />
           </div>
@@ -246,7 +246,7 @@ function DocList({ title, docs, to, total }) {
               state={{ openId: d.id }}
               className="flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 text-[13px] text-muted-foreground transition-colors hover:bg-accent hover:text-primary"
             >
-              <span className="truncate font-medium">{d.number || "—"}</span>
+              <span className="truncate font-medium">{d.number || "-"}</span>
               <span className="flex flex-none items-center gap-1 text-xs">
                 {formatDate(d.date || d.createdAt)}
                 <ArrowUpRight variant="Linear" className="h-3.5 w-3.5" />

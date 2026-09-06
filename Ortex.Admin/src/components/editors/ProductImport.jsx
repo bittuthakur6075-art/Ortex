@@ -46,20 +46,20 @@ const GUIDE = [
   ["", "", "Two ways to add photos, and you can mix them."],
   ["", "", "1. Paste pictures straight into this sheet (Insert > Pictures), one or more per product."],
   ["", "", "   Drop each picture so its TOP-LEFT corner sits on that product's row. That row decides"],
-  ["", "", "   which product it belongs to — the column does not matter."],
+  ["", "", "   which product it belongs to. The column does not matter."],
   ["", "", "   They are uploaded into Ortex on import, so they keep working forever."],
   ["", "", "2. Put public https links in the imageUrls column. Faster, but the photos stay on that host."],
-  ["", "", "Pictures inserted with Excel 365's 'Place in Cell' are not read — use Insert > Pictures instead."],
+  ["", "", "Pictures inserted with Excel 365's 'Place in Cell' are not read. Use Insert > Pictures instead."],
   [],
   ["Rules", "", ""],
   ["", "", "One product per row. Keep the header row exactly as it is."],
-  ["", "", "Do not add, rename or reorder columns — extra columns are ignored."],
+  ["", "", "Do not add, rename or reorder columns. Extra columns are ignored."],
   ["", "", "Prices and quantities must be plain numbers."],
 ]
 
 // Signage only — never part of the data contract, so it stays out of COLUMNS,
 // the CSV template and the AI prompt.
-const PHOTO_COLUMN = "photo — paste pictures on this row"
+const PHOTO_COLUMN = "photo (paste pictures on this row)"
 
 // A prompt the user can paste into ChatGPT (or any other model) so it returns a
 // sheet in exactly this shape. This is the whole point of the Excel route: the
@@ -206,7 +206,7 @@ export default function ProductImport({ open, onClose }) {
   const copyPrompt = async () => {
     try {
       await navigator.clipboard.writeText(AI_PROMPT)
-      toast.success("Prompt copied — paste it into ChatGPT, then upload what it returns")
+      toast.success("Prompt copied. Paste it into ChatGPT, then upload what it returns")
     } catch {
       toast.error("Could not reach the clipboard")
     }
@@ -241,7 +241,7 @@ export default function ProductImport({ open, onClose }) {
       setRows(parsed.map((row, i) => validateRow(row, categories, imagesByRow.get(sheetRowForDataIndex(i)) || [])))
     } catch (err) {
       console.error("Import parse failed:", err)
-      toast.error("Could not read that file — is it a .xlsx or .csv?")
+      toast.error("Could not read that file. Is it a .xlsx or .csv?")
       setRows(null)
     } finally {
       setBusy(false)
@@ -281,12 +281,12 @@ export default function ProductImport({ open, onClose }) {
 
       await repo.bulkCreate("products", products)
       toast.success(`Imported ${products.length} product${products.length > 1 ? "s" : ""}`)
-      if (failed > 0) toast.warning(`${failed} photo${failed > 1 ? "s" : ""} could not be uploaded — add them on the product.`)
+      if (failed > 0) toast.warning(`${failed} photo${failed > 1 ? "s" : ""} could not be uploaded. Add them on the product.`)
       reset()
       onClose()
     } catch (err) {
       console.error("Import failed:", err)
-      toast.error("Import failed — nothing was saved")
+      toast.error("Import failed. Nothing was saved")
     } finally {
       setBusy(false)
       setProgress(null)
@@ -407,7 +407,7 @@ export default function ProductImport({ open, onClose }) {
                         <div className="font-medium text-foreground">{r.product.name}</div>
                         {!r.valid && <div className="text-xs text-destructive-text">{r.errors.join(", ")}</div>}
                         {r.valid && r.droppedImages && (
-                          <div className="text-xs text-warning-text">Image links ignored — they must start with http(s)://</div>
+                          <div className="text-xs text-warning-text">Image links ignored. They must start with http(s)://</div>
                         )}
                       </td>
                       <td className="px-3 py-2 text-muted-foreground">{r.product.category}</td>
@@ -427,7 +427,7 @@ export default function ProductImport({ open, onClose }) {
                             {r.embedded.length > 0 && <span className="text-subtle-foreground">·&nbsp;pasted</span>}
                           </span>
                         ) : (
-                          <span className="text-xs text-subtle-foreground">—</span>
+                          <span className="text-xs text-subtle-foreground">-</span>
                         )}
                       </td>
                     </tr>

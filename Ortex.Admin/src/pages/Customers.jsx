@@ -263,9 +263,9 @@ function NewCustomerModal({ open, onClose }) {
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Company">
-          <Input value={form.company} onChange={(e) => set("company", e.target.value)} placeholder="Bright Future School" />
+          <Input value={form.company} onChange={(e) => set("company", e.target.value)} placeholder="Enter company name" />
         </Field>
-        <Field label="Contact name">
+        <Field label="Contact Name">
           <Input value={form.name} onChange={(e) => set("name", e.target.value)} />
         </Field>
         <Field label="Email">

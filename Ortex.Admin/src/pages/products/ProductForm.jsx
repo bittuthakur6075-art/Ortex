@@ -188,8 +188,8 @@ export default function ProductForm({ open, product, categories = [], onClose })
         {hasSupabase && <AiCopyPanel busy={aiBusy} onGenerate={generateCopy} />}
 
         {/* 1. Product Name */}
-        <Field label="Product name" required error={errors.name}>
-          <Input value={form.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="e.g. Custom MDF Award Trophy" />
+        <Field label="Product Name" required error={errors.name}>
+          <Input value={form.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="Enter product name" />
         </Field>
 
         {/* 2. Category */}
@@ -209,7 +209,7 @@ export default function ProductForm({ open, product, categories = [], onClose })
         {/* 3. SKU & Status */}
         <div className="grid grid-cols-2 gap-4">
           <Field label="SKU">
-            <Input value={form.sku} onChange={(e) => set("sku", e.target.value)} placeholder="MDF-TRO-01" />
+            <Input value={form.sku} onChange={(e) => set("sku", e.target.value)} placeholder="Enter SKU" />
           </Field>
           <Field label="Status">
             <Select value={form.status} onChange={(e) => set("status", e.target.value)}>
@@ -223,16 +223,16 @@ export default function ProductForm({ open, product, categories = [], onClose })
         </div>
 
         {/* 4. Material / Spec */}
-        <Field label="Material / spec">
-          <Input value={form.material} onChange={(e) => set("material", e.target.value)} placeholder="9mm MDF + acrylic front" />
+        <Field label="Material / Spec">
+          <Input value={form.material} onChange={(e) => set("material", e.target.value)} placeholder="Enter material or spec" />
         </Field>
 
         {/* 5. Pricing (Base & Cost Price) — console only, never published */}
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Base price (₹)" required error={errors.basePrice}>
+          <Field label="Base Price (₹)" required error={errors.basePrice}>
             <Input type="number" min="0" step="0.01" value={form.basePrice} onChange={(e) => set("basePrice", e.target.value)} />
           </Field>
-          <Field label="Cost price (₹)" hint="For margin analytics">
+          <Field label="Cost Price (₹)" hint="For margin analytics">
             <Input type="number" min="0" step="0.01" value={form.costPrice} onChange={(e) => set("costPrice", e.target.value)} />
           </Field>
         </div>
@@ -247,8 +247,8 @@ export default function ProductForm({ open, product, categories = [], onClose })
 
         {/* 6. Taxation (HSN & GST %) */}
         <div className="grid grid-cols-2 gap-4">
-          <Field label="HSN code" hint="4-digit for turnover ≤ ₹5cr">
-            <Input value={form.hsn} onChange={(e) => set("hsn", e.target.value)} placeholder="4420" />
+          <Field label="HSN Code" hint="4-digit for turnover ≤ ₹5cr">
+            <Input value={form.hsn} onChange={(e) => set("hsn", e.target.value)} placeholder="Enter HSN code" />
           </Field>
           <Field label="GST %">
             <Select value={form.gstRate} onChange={(e) => set("gstRate", e.target.value)}>
@@ -275,15 +275,15 @@ export default function ProductForm({ open, product, categories = [], onClose })
           <Field label="MOQ">
             <Input type="number" min="1" value={form.moq} onChange={(e) => set("moq", e.target.value)} />
           </Field>
-          <Field label="Lead time (days)">
+          <Field label="Lead Time (Days)">
             <Input type="number" min="0" value={form.leadTimeDays} onChange={(e) => set("leadTimeDays", e.target.value)} />
           </Field>
         </div>
 
-        <ImageField images={form.images || []} onChange={(images) => set("images", images)} bucket="products" label="Product images" max={MAX_IMAGES} />
+        <ImageField images={form.images || []} onChange={(images) => set("images", images)} bucket="products" label="Product Images" max={MAX_IMAGES} />
 
         <Field label="Description">
-          <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Short description / production notes" />
+          <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Enter description" />
         </Field>
 
         {/* 8. Where it appears */}
@@ -320,7 +320,7 @@ export default function ProductForm({ open, product, categories = [], onClose })
           </label>
 
           <p className="border-t border-dashed border-border pt-3 text-xs text-muted-foreground">
-            Price, cost, HSN and GST never reach the website — it reads a view that hands out name, photos,
+            Price, cost, HSN and GST never reach the website. It reads a view that hands out name, photos,
             material, MOQ and lead time only. Rates appear when <em>you</em> build a quotation, and stay editable
             per line so you can price to the quantity in front of you.
           </p>

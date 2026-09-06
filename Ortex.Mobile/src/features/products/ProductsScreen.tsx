@@ -1,28 +1,23 @@
 import { Image } from "expo-image"
 import React from "react"
-import { StyleSheet, Text, View } from "react-native"
+import { StyleSheet, View } from "react-native"
 
-import { formatCurrency } from "@/domain/format"
-import { PRODUCT_STATUS, type Product } from "@/domain/schema"
+import { type Product } from "@/domain/schema"
 import { useCollection } from "@/hooks/useCollection"
 import { feedback } from "@/lib/feedback"
 import type { TabScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
-import { textVariants } from "@/theme/typography"
 import {
   AppScreen,
-  Button,
-  ChipGroup,
   EmptyState,
+  Fab,
   Icon,
   IconButton,
   ListRow,
   ProfileAvatarButton,
   RowSeparator,
-  Sheet,
   Skeleton,
-  StatusBadge,
 } from "@/ui"
 
 // The catalogue you price from. Read-only on purpose: creating and editing
@@ -31,56 +26,27 @@ import {
 //
 // Same shell and row idiom as Quotes — collapsing title, full-bleed rows with a
 // 2px band between them. A product's leading slot is its photo where it has one,
-// which is the one thing an icon well cannot say.
+// which is the one thing an icon well cannot say. Tapping a row opens the
+// product page (ProductDetailScreen), where the photo is the point.
 
-type Filter = "all" | "active" | "draft" | "archived"
-
-const FILTERS = [
-  { key: "all" as const, label: "All" },
-  { key: "active" as const, label: "Active" },
-  { key: "draft" as const, label: "Draft" },
-  { key: "archived" as const, label: "Archived" },
-]
+const UNCATEGORISED = "Uncategorised"
 
 export default function ProductsScreen({ navigation }: TabScreenProps<"Products">) {
   const t = useTheme()
   const { items, loading } = useCollection<Product>("products")
-  const [filter, setFilter] = React.useState<Filter>("active")
-  const [selected, setSelected] = React.useState<Product | null>(null)
 
+  // Draft and archived products never reach the phone: status is the console's
+  // to manage, and a rep quoting from the field should only ever see what is
+  // actually sellable. A product with no status is active, as everywhere else.
   const visible = React.useMemo(
-    () => items.filter((p) => filter === "all" || (p.status || "active") === filter),
-    [items, filter],
+    () => items.filter((p) => (p.status || "active") === "active"),
+    [items],
   )
-
-  const addToQuotation = (product: Product) => {
-    setSelected(null)
-    feedback.tap()
-    navigation.navigate("QuotationEditor", {
-      prefill: {
-        lines: [
-          {
-            productId: product.id,
-            description: product.name,
-            hsn: product.hsn || "",
-            // A product's MOQ is the smallest quantity it can be sold in, so it
-            // is the only honest starting quantity.
-            quantity: product.moq || 1,
-            unit: product.unit || "pcs",
-            rate: product.basePrice || 0,
-            discountPercent: 0,
-            gstRate: product.gstRate ?? 18,
-          },
-        ],
-      },
-    })
-  }
 
   return (
     <View style={{ flex: 1, backgroundColor: t.background }}>
       <AppScreen
         title="Products"
-        subtitle={loading ? "Loading…" : `${visible.length} of ${items.length}`}
         headerLeft={<ProfileAvatarButton />}
         headerRight={
           <IconButton
@@ -97,18 +63,14 @@ export default function ProductsScreen({ navigation }: TabScreenProps<"Products"
           ListEmptyComponent: loading ? (
             <View style={{ paddingHorizontal: gutter, gap: spacing.sm }}>
               {[0, 1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} height={72} radius={12} />
+                <Skeleton key={i} height={88} radius={12} />
               ))}
             </View>
           ) : (
             <EmptyState
               icon="product"
-              title={filter === "all" ? "No products yet" : "Nothing in this filter"}
-              hint={
-                filter === "all"
-                  ? "Products are added in the Ortex admin console."
-                  : "Try All, or search from the bar above."
-              }
+              title="No products yet"
+              hint="Products are added in the Ortex admin console."
             />
           ),
           renderItem: ({ item }: { item: unknown }) => {
@@ -126,82 +88,49 @@ export default function ProductsScreen({ navigation }: TabScreenProps<"Products"
                         transition={120}
                       />
                     ) : (
-                      <Icon name="product" size={18} color={t.textTertiary} />
+                      <Icon name="product" size={24} color={t.textTertiary} variant="Bulk" />
                     )}
                   </View>
                 }
+                // One line, truncated: a product row is scanned down the photo
+                // and the name column, and a wrapped name breaks that rhythm.
+                titleLines={1}
                 title={p.name || "Untitled product"}
-                subtitle={[p.sku, p.category].filter(Boolean).join(" · ") || "No SKU"}
-                value={formatCurrency(p.basePrice)}
-                valueSub={<StatusBadge list={PRODUCT_STATUS} id={p.status} small />}
-                chevron={false}
+                subtitle={[
+                  p.category || UNCATEGORISED,
+                  p.moq ? `MOQ ${p.moq} ${p.unit || "pcs"}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
                 onPress={() => {
                   feedback.tap()
-                  setSelected(p)
+                  navigation.navigate("ProductDetail", { id: p.id })
                 }}
               />
             )
           },
         }}
       >
-        <View style={{ marginBottom: spacing.sm }}>
-          <ChipGroup options={FILTERS} value={filter} onChange={setFilter} />
-        </View>
         {visible.length ? <RowSeparator /> : null}
       </AppScreen>
 
-      {/* A short choice list is a bottom sheet, never a centred dialog. */}
-      <Sheet visible={!!selected} onClose={() => setSelected(null)} title={selected?.name}>
-        {selected && (
-          <View>
-            <View style={styles.metaRow}>
-              <Meta label="Price" value={formatCurrency(selected.basePrice)} />
-              <Meta label="GST" value={`${selected.gstRate ?? 18}%`} />
-              <Meta label="MOQ" value={`${selected.moq || 1} ${selected.unit || "pcs"}`} />
-            </View>
-            <View style={styles.metaRow}>
-              <Meta label="SKU" value={selected.sku || "-"} />
-              <Meta label="HSN" value={selected.hsn || "-"} />
-              <Meta label="Lead time" value={selected.leadTimeDays ? `${selected.leadTimeDays} days` : "-"} />
-            </View>
-            {!!selected.description && (
-              <Text style={[textVariants.body, { color: t.textSecondary, marginBottom: spacing.md }]}>
-                {selected.description}
-              </Text>
-            )}
-            <Button
-              label="Add to a quotation"
-              icon="quote"
-              onPress={() => addToQuotation(selected)}
-              fullWidth
-            />
-          </View>
-        )}
-      </Sheet>
-    </View>
-  )
-}
-
-function Meta({ label, value }: { label: string; value: string }) {
-  const t = useTheme()
-  return (
-    <View style={styles.meta}>
-      <Text style={[textVariants.tileLabel, { color: t.textTertiary }]}>{label.toUpperCase()}</Text>
-      <Text style={[textVariants.factValue, { color: t.text, marginTop: 3 }]}>{value}</Text>
+      {/* The console remains the richer editor, but a product missing in front of
+          a customer should not wait for someone to reach a desk. */}
+      <Fab accessibilityLabel="New product" onPress={() => navigation.navigate("ProductEditor")} />
     </View>
   )
 }
 
 const styles = StyleSheet.create({
+  // Bigger than the 38dp icon well the other tabs use: on this tab the photo IS
+  // the identifying mark, and 38 is too small to tell two lanyards apart.
   thumb: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.sm,
+    width: 56,
+    height: 56,
+    borderRadius: radius.card,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
   thumbImage: { width: "100%", height: "100%" },
-  metaRow: { flexDirection: "row", marginBottom: spacing.md },
-  meta: { flex: 1 },
 })

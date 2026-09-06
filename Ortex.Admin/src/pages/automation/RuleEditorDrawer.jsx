@@ -14,7 +14,7 @@ export default function RuleEditorDrawer({ open, onClose, editingRule, ruleForm,
             required
             value={ruleForm.name}
             onChange={(e) => setRuleForm({ ...ruleForm, name: e.target.value })}
-            placeholder="e.g. Quote Request Follow-up"
+            placeholder="Enter rule name"
           />
         </Field>
 
@@ -59,7 +59,7 @@ export default function RuleEditorDrawer({ open, onClose, editingRule, ruleForm,
           <Textarea
             value={ruleForm.description}
             onChange={(e) => setRuleForm({ ...ruleForm, description: e.target.value })}
-            placeholder="Describe the logic or purpose of this trigger rule."
+            placeholder="Enter description"
           />
         </Field>
 

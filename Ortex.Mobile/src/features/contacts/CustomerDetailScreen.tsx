@@ -1,19 +1,47 @@
 import React from "react"
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Animated, Pressable, Share, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { formatCurrency, relativeTime } from "@/domain/format"
 import { stateLabel } from "@/domain/gstStates"
 import { ENQUIRY_STATUS, QUOTATION_STATUS, type Enquiry, type Quotation } from "@/domain/schema"
+import type { CustomerRow } from "@/features/contacts/ContactsScreen"
+import CustomerEditSheet from "@/features/contacts/CustomerEditSheet"
 import { useCollection } from "@/hooks/useCollection"
 import { callNumber, copy, email as sendEmail, prettyPhone, whatsapp } from "@/lib/contact"
+import { toggleFavourite, useFavourites } from "@/lib/favourites"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, spacing } from "@/theme/tokens"
-import { font } from "@/theme/typography"
+import type { StatusTone } from "@/theme/theme"
+import { gutter, radius, size as sizes, spacing } from "@/theme/tokens"
+import { font, textVariants } from "@/theme/typography"
 import { Avatar, Button, Card, Divider, Icon, IconButton, StatusBadge, useToast } from "@/ui"
-import type { CustomerRow } from "@/features/contacts/ContactsScreen"
+import type { IconName } from "@/ui/Icon"
+
+/**
+ * The contact card, laid out the way Samsung Contacts lays one out.
+ *
+ * One UI's contact page is a portrait, not a form: the face and the name own the
+ * top of the screen with nothing beside them, a row of round action circles sits
+ * directly under the name, and everything factual lives below in grouped cards on
+ * a recessed plane. The reason it works is priority — nine times in ten you
+ * opened this page to CALL someone, and the call button is the first thing your
+ * thumb finds.
+ *
+ * Samsung's own affordances kept here: the star in the app bar (Favourites, see
+ * lib/favourites), share, the tappable info rows — a phone row rings, an email
+ * row composes, a long press copies — and the collapsing name, which fades into
+ * the app bar as the page scrolls so you never lose track of whose record this is.
+ *
+ * What Samsung cannot have and this does: the business behind the person. The
+ * quotation and enquiry history under the info cards is the reason a salesperson
+ * opens a customer at all, and it is matched the console's way — email first,
+ * then phone digits, never by name.
+ */
+
+/** The distance the name takes to hand over to the app bar title. */
+const COLLAPSE = 96
 
 /** Digits-only comparison, so a `+91` prefix does not hide someone's history. */
 const digits = (v?: string) =>
@@ -25,9 +53,12 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
   const t = useTheme()
   const insets = useSafeAreaInsets()
   const toast = useToast()
+  const favourites = useFavourites()
   const { items: customers } = useCollection<CustomerRow>("customers")
   const { items: quotations } = useCollection<Quotation>("quotations")
   const { items: enquiries } = useCollection<Enquiry>("enquiries")
+  const scrollY = React.useRef(new Animated.Value(0)).current
+  const [editing, setEditing] = React.useState(false)
 
   const customer = customers.find((c) => c.id === route.params.id)
 
@@ -70,133 +101,222 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
 
   const name = customer.name || customer.company || "Unnamed contact"
   const hasPhone = !!digits(customer.phone)
+  const starred = favourites.has(customer.id)
   const won = theirQuotes.filter((q) => q.status === "accepted" || q.status === "invoiced")
   const lifetime = won.reduce((s, q) => s + (q.totals?.grandTotal || 0), 0)
 
+  const barTitleOpacity = scrollY.interpolate({
+    inputRange: [COLLAPSE * 0.6, COLLAPSE],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  })
+
+  const share = async () => {
+    const body = [
+      name,
+      customer.company,
+      hasPhone ? prettyPhone(customer.phone) : "",
+      customer.email,
+      customer.gstin ? `GSTIN ${customer.gstin}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n")
+    try {
+      await Share.share({ message: body })
+    } catch {
+      toast.show({ message: "Could not share", tone: "danger" })
+    }
+  }
+
+  const copyValue = async (value: string, what: string) => {
+    await copy(value)
+    toast.show({ message: `${what} copied`, tone: "success" })
+  }
+
   return (
     <View style={[styles.root, { backgroundColor: t.background }]}>
-      <View style={[styles.head, { paddingTop: insets.top + 6 }]}>
+      <View
+        style={[
+          styles.bar,
+          {
+            backgroundColor: t.surface,
+            borderBottomColor: t.divider,
+            paddingTop: insets.top,
+            height: insets.top + sizes.appBar,
+          },
+        ]}
+      >
         <IconButton name="back" onPress={() => navigation.goBack()} accessibilityLabel="Back" />
+        <Animated.Text
+          numberOfLines={1}
+          style={[styles.barTitle, textVariants.appBarTitleBack, { color: t.text, opacity: barTitleOpacity }]}
+        >
+          {name}
+        </Animated.Text>
+        <IconButton name="edit" onPress={() => setEditing(true)} accessibilityLabel="Edit contact" />
+        <IconButton
+          name="star"
+          variant={starred ? "Bold" : "Linear"}
+          color={starred ? t.warning : t.text}
+          accessibilityLabel={starred ? "Remove from favourites" : "Add to favourites"}
+          onPress={() => {
+            const next = toggleFavourite(customer.id)
+            toast.show({
+              message: next ? "Added to favourites" : "Removed from favourites",
+              tone: "success",
+            })
+          }}
+        />
+        <IconButton name="share" onPress={() => void share()} accessibilityLabel="Share contact" />
       </View>
 
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
+      <Animated.ScrollView
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+          useNativeDriver: true,
+        })}
+        scrollEventThrottle={16}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.identity}>
-          <Avatar name={name} size="lg" />
-          <Text style={[styles.name, { color: t.text }]}>{name}</Text>
-          {!!customer.company && customer.company !== name && (
-            <Text style={[styles.company, { color: t.textSecondary }]}>{customer.company}</Text>
-          )}
-        </View>
+        <Panel>
+          <View style={styles.identity}>
+            <Avatar name={name} size={96} />
+            <Text style={[styles.name, { color: t.text }]}>{name}</Text>
+            {!!customer.company && customer.company !== name && (
+              <Text style={[styles.company, { color: t.textSecondary }]}>{customer.company}</Text>
+            )}
+            {!!customer.stateCode && (
+              <View style={[styles.place, { backgroundColor: t.surface }]}>
+                <Icon name="address" size={13} color={t.textTertiary} variant="Bulk" />
+                <Text style={[styles.placeText, { color: t.textSecondary }]}>
+                  {stateLabel(customer.stateCode)}
+                </Text>
+              </View>
+            )}
+          </View>
+        </Panel>
 
-        <View style={styles.quickRow}>
-          <QuickButton
+        {/* The round action circles. Samsung's are the page's whole point: one
+            thumb-length from the name, and nothing between them and it. */}
+        <Panel>
+          <View style={styles.quickRow}>
+            <QuickAction
+              icon="call"
+              label="Call"
+              tone="blue"
+              disabled={!hasPhone}
+              onPress={() => void callNumber(customer.phone)}
+            />
+            <QuickAction
+              icon="whatsapp"
+              label="WhatsApp"
+              tone="emerald"
+              disabled={!hasPhone}
+              onPress={() => void whatsapp(customer.phone)}
+            />
+            <QuickAction
+              icon="mail"
+              label="Email"
+              tone="amber"
+              disabled={!customer.email}
+              onPress={() => void sendEmail(customer.email)}
+            />
+            <QuickAction
+              icon="quote"
+              label="Quote"
+              tone="primary"
+              onPress={() => {
+                feedback.tap()
+                navigation.navigate("QuotationEditor", { prefill: { customer } })
+              }}
+            />
+          </View>
+        </Panel>
+
+        <Panel>
+          <InfoRow
             icon="call"
-            label="Call"
-            disabled={!hasPhone}
-            onPress={() => void callNumber(customer.phone)}
+            label="Mobile"
+            value={hasPhone ? prettyPhone(customer.phone) : "Not set"}
+            onPress={hasPhone ? () => void callNumber(customer.phone) : undefined}
+            onLongPress={hasPhone ? () => void copyValue(customer.phone || "", "Number") : undefined}
+            action={hasPhone ? { icon: "whatsapp", onPress: () => void whatsapp(customer.phone) } : undefined}
           />
-          <QuickButton
-            icon="whatsapp"
-            label="WhatsApp"
-            disabled={!hasPhone}
-            onPress={() => void whatsapp(customer.phone)}
-          />
-          <QuickButton
+          <Divider inset={56} />
+          <InfoRow
             icon="mail"
             label="Email"
-            disabled={!customer.email}
-            onPress={() => void sendEmail(customer.email)}
+            value={customer.email || "Not set"}
+            onPress={customer.email ? () => void sendEmail(customer.email) : undefined}
+            onLongPress={customer.email ? () => void copyValue(customer.email || "", "Email") : undefined}
           />
-        </View>
+          {!!customer.address && (
+            <>
+              <Divider inset={56} />
+              <InfoRow icon="address" label="Address" value={customer.address} />
+            </>
+          )}
+        </Panel>
 
-        <Card padding={0} style={styles.card}>
-          <DetailRow
-            icon="call"
-            label="Phone"
-            value={hasPhone ? prettyPhone(customer.phone) : "-"}
-            onLongPress={
-              hasPhone
-                ? async () => {
-                    await copy(customer.phone)
-                    toast.show({ message: "Number copied", tone: "success" })
-                  }
-                : undefined
-            }
+        <Panel title="Business">
+          <InfoRow
+            icon="gst"
+            label="GSTIN"
+            value={customer.gstin || "Not set"}
+            onLongPress={customer.gstin ? () => void copyValue(customer.gstin || "", "GSTIN") : undefined}
           />
-          <Divider inset={52} />
-          <DetailRow icon="mail" label="Email" value={customer.email || "-"} />
-          <Divider inset={52} />
-          <DetailRow icon="gst" label="GSTIN" value={customer.gstin || "-"} />
-          <Divider inset={52} />
-          <DetailRow
+          <Divider inset={56} />
+          <InfoRow
             icon="address"
             label="Place of supply"
             value={customer.stateCode ? stateLabel(customer.stateCode) : "Not set"}
           />
-          {!!customer.address && (
-            <>
-              <Divider inset={52} />
-              <DetailRow icon="address" label="Address" value={customer.address} />
-            </>
-          )}
-        </Card>
+        </Panel>
 
-        <View style={styles.statRow}>
-          <Stat label="Quotations" value={String(theirQuotes.length)} />
-          <Stat label="Accepted" value={String(won.length)} />
-          <Stat label="Won value" value={formatCurrency(lifetime, { compact: true })} />
-        </View>
-
-        <View style={styles.action}>
-          <Button
-            label="New quotation"
-            icon="quote"
-            fullWidth
-            onPress={() => {
-              feedback.tap()
-              navigation.navigate("QuotationEditor", { prefill: { customer } })
-            }}
-          />
-        </View>
+        <Panel>
+          <View style={styles.statRow}>
+            <Stat label="Quotations" value={String(theirQuotes.length)} />
+            <Stat label="Accepted" value={String(won.length)} />
+            <Stat label="Won value" value={formatCurrency(lifetime, { compact: true })} />
+          </View>
+        </Panel>
 
         {theirQuotes.length > 0 && (
           <>
-            <Text style={[styles.sectionTitle, { color: t.textTertiary }]}>Quotations</Text>
-            <Card padding={0} style={styles.card}>
+            <Panel title="Quotations">
               {theirQuotes.map((q, i) => (
                 <View key={q.id}>
-                  {i > 0 && <Divider inset={20} />}
+                  {i > 0 && <Divider inset={68} />}
                   <Pressable
                     onPress={() => navigation.navigate("QuotationDetail", { id: q.id })}
                     android_ripple={{ color: t.accentTint }}
                     style={styles.historyRow}
                   >
+                    <View style={[styles.historyWell, { backgroundColor: t.iconWell }]}>
+                      <Icon name="quote" size={18} color={t.primary} variant="Bulk" />
+                    </View>
                     <View style={styles.historyBody}>
                       <Text style={[styles.historyTitle, { color: t.text }]}>{q.number}</Text>
                       <Text style={[styles.historySub, { color: t.textTertiary }]}>
                         {relativeTime(q.createdAt)}
                       </Text>
                     </View>
-                    <Text style={[styles.historyAmount, { color: t.text }]}>
-                      {formatCurrency(q.totals?.grandTotal || 0)}
-                    </Text>
-                    <View style={styles.historyBadge}>
+                    <View style={styles.historyEnd}>
+                      <Text style={[styles.historyAmount, { color: t.text }]}>
+                        {formatCurrency(q.totals?.grandTotal || 0)}
+                      </Text>
                       <StatusBadge list={QUOTATION_STATUS} id={q.status} small />
                     </View>
                   </Pressable>
                 </View>
               ))}
-            </Card>
+            </Panel>
           </>
         )}
 
         {theirEnquiries.length > 0 && (
           <>
-            <Text style={[styles.sectionTitle, { color: t.textTertiary }]}>Enquiries</Text>
-            <Card padding={0} style={styles.card}>
+            <Panel title="Enquiries">
               {theirEnquiries.map((e, i) => (
                 <View key={e.id}>
                   {i > 0 && <Divider inset={20} />}
@@ -213,62 +333,113 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
                   </View>
                 </View>
               ))}
-            </Card>
+            </Panel>
           </>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
+      <CustomerEditSheet visible={editing} customer={customer} onClose={() => setEditing(false)} />
     </View>
   )
 }
 
-function QuickButton({
+/**
+ * A section of the page: full-bleed on `surface`, no radius and no border, with
+ * a 2dp band of `colors.border` beneath it. Capnix's panel language (see
+ * ui/Section.tsx) — the SEPARATION is the boundary, so a rounded card floating on
+ * a page of the same colour would draw it twice.
+ */
+function Panel({ title, children }: { title?: string; children: React.ReactNode }) {
+  const t = useTheme()
+  return (
+    <>
+      <View style={{ backgroundColor: t.surface }}>
+        {!!title && <Text style={[styles.sectionLabel, { color: t.textTertiary }]}>{title}</Text>}
+        {children}
+      </View>
+      <View style={[styles.band, { backgroundColor: t.border }]} />
+    </>
+  )
+}
+
+function QuickAction({
   icon,
   label,
   onPress,
   disabled,
+  tone = "primary",
 }: {
-  icon: "call" | "whatsapp" | "mail"
+  icon: IconName
   label: string
   onPress: () => void
   disabled?: boolean
+  tone?: StatusTone | "primary"
 }) {
   const t = useTheme()
+  const fill = tone === "primary" ? t.primary : t.tones[tone].fg
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => [
-        styles.quick,
-        { backgroundColor: t.fieldBg, opacity: disabled ? 0.35 : pressed ? 0.65 : 1 },
-      ]}
+      style={({ pressed }) => [styles.quick, { opacity: disabled ? 0.35 : pressed ? 0.65 : 1 }]}
     >
-      <Icon name={icon} size={20} color={t.primary} variant="Bold" />
-      <Text style={[styles.quickLabel, { color: t.textSecondary }]}>{label}</Text>
+      <View style={[styles.quickCircle, { backgroundColor: fill }]}>
+        <Icon name={icon} size={22} color={t.textOnPrimary} variant="Bold" />
+      </View>
+      <Text style={[styles.quickLabel, { color: t.text }]}>{label}</Text>
     </Pressable>
   )
 }
 
-function DetailRow({
+/**
+ * A fact, and what you can do with it. The row itself performs the obvious verb
+ * (ring the number, compose to the address); the trailing circle carries the
+ * second one, which is how Samsung fits "call" and "message" onto one line.
+ */
+function InfoRow({
   icon,
   label,
   value,
+  onPress,
   onLongPress,
+  action,
 }: {
-  icon: "call" | "mail" | "gst" | "address"
+  icon: IconName
   label: string
   value: string
+  onPress?: () => void
   onLongPress?: () => void
+  action?: { icon: IconName; onPress: () => void }
 }) {
   const t = useTheme()
   return (
-    <Pressable onLongPress={onLongPress} delayLongPress={320} style={styles.detailRow}>
-      <Icon name={icon} size={18} color={t.textTertiary} />
-      <View style={styles.detailBody}>
-        <Text style={[styles.detailLabel, { color: t.textTertiary }]}>{label}</Text>
-        <Text style={[styles.detailValue, { color: t.text }]}>{value}</Text>
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={320}
+      android_ripple={onPress ? { color: t.accentTint } : undefined}
+      style={({ pressed }) => [styles.infoRow, { opacity: pressed && onPress ? 0.7 : 1 }]}
+    >
+      <Icon name={icon} size={20} color={t.textTertiary} variant="Bulk" />
+      <View style={styles.infoBody}>
+        <Text style={[styles.infoLabel, { color: t.textTertiary }]}>{label}</Text>
+        <Text style={[styles.infoValue, { color: t.text }]}>{value}</Text>
       </View>
+      {action && (
+        <Pressable
+          onPress={action.onPress}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={`${label} on WhatsApp`}
+          style={({ pressed }) => [
+            styles.infoAction,
+            { backgroundColor: t.surfaceInset, opacity: pressed ? 0.6 : 1 },
+          ]}
+        >
+          <Icon name={action.icon} size={19} color={t.success} variant="Bulk" />
+        </Pressable>
+      )}
     </Pressable>
   )
 }
@@ -276,45 +447,105 @@ function DetailRow({
 function Stat({ label, value }: { label: string; value: string }) {
   const t = useTheme()
   return (
-    <View style={[styles.stat, { backgroundColor: t.surfaceInset }]}>
+    <Card padding={0} squircle squircleRadius={16} style={styles.stat}>
       <Text style={[styles.statValue, { color: t.text }]}>{value}</Text>
       <Text style={[styles.statLabel, { color: t.textTertiary }]}>{label}</Text>
-    </View>
+    </Card>
   )
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
   centre: { alignItems: "center", justifyContent: "center" },
-  head: { paddingHorizontal: 12, paddingBottom: 4 },
-  content: { paddingHorizontal: gutter },
-  identity: { alignItems: "center", paddingTop: 6, paddingBottom: 18 },
-  name: { marginTop: 12, fontSize: 22, fontFamily: font.bold },
-  company: { marginTop: 2, fontSize: 14, fontFamily: font.regular },
-  quickRow: { flexDirection: "row", gap: 10, marginBottom: 18 },
-  quick: { flex: 1, alignItems: "center", paddingVertical: 12, borderRadius: 18 },
-  quickLabel: { marginTop: 5, fontSize: 12, fontFamily: font.medium },
-  card: { marginBottom: spacing.md },
-  detailRow: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 18, paddingVertical: 13 },
-  detailBody: { flex: 1, marginLeft: 14 },
-  detailLabel: { fontSize: 11.5, letterSpacing: 0.3, textTransform: "uppercase", fontFamily: font.medium },
-  detailValue: { marginTop: 2, fontSize: 15, fontFamily: font.medium },
-  statRow: { flexDirection: "row", gap: 10, marginBottom: 18 },
-  stat: { flex: 1, borderRadius: 18, paddingVertical: 14, alignItems: "center" },
-  statValue: { fontSize: 18, fontFamily: font.bold },
-  statLabel: { marginTop: 2, fontSize: 11.5, fontFamily: font.regular },
-  action: { marginBottom: 22 },
-  sectionTitle: {
+  // The first panel under this bar is white, so the bar needs the divider
+  // hairline to have an edge at all. A bar over a grey plane draws none.
+  bar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  barTitle: { flex: 1, marginHorizontal: 4 },
+  // Full bleed: the page is a stack of panels separated by 2dp bands, so only
+  // the panels themselves carry the gutter.
+  content: { paddingTop: 0 },
+  band: { height: 2 },
+
+  identity: {
+    alignItems: "center",
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+    paddingHorizontal: gutter,
+  },
+  name: { marginTop: 14, fontSize: 25, lineHeight: 32, textAlign: "center", fontFamily: font.bold },
+  company: { marginTop: 3, fontSize: 15, textAlign: "center", fontFamily: font.regular },
+  place: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+  },
+  placeText: { fontSize: 12.5, fontFamily: font.medium },
+
+  quickRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: spacing.md,
+  },
+  quick: { alignItems: "center", width: 76 },
+  quickCircle: {
+    width: 76,
+    height: 54,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickLabel: { marginTop: 7, fontSize: 12, fontFamily: font.semibold },
+
+  sectionLabel: {
     fontSize: 12,
     letterSpacing: 0.4,
     textTransform: "uppercase",
-    marginBottom: spacing.sm,
+    paddingHorizontal: gutter,
+    paddingTop: gutter,
+    paddingBottom: spacing.sm,
     fontFamily: font.semibold,
   },
-  historyRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 13 },
+
+  infoRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: gutter, paddingVertical: 14 },
+  infoBody: { flex: 1, marginLeft: 16, minWidth: 0 },
+  infoLabel: { fontSize: 12, fontFamily: font.semibold, textTransform: "uppercase", letterSpacing: 0.3 },
+  infoValue: { marginTop: 3, fontSize: 16, lineHeight: 21, fontFamily: font.medium },
+  infoAction: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: spacing.sm,
+  },
+
+  statRow: { flexDirection: "row", gap: 10, paddingHorizontal: gutter, paddingVertical: spacing.md },
+  stat: { flex: 1, paddingVertical: 16, alignItems: "center" },
+  statValue: { fontSize: 18, fontFamily: font.bold },
+  statLabel: { marginTop: 3, fontSize: 11.5, fontFamily: font.regular },
+
+  historyRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: gutter, paddingVertical: 14 },
+  historyWell: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    marginRight: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   historyBody: { flex: 1 },
   historyTitle: { fontSize: 14.5, fontFamily: font.semibold },
   historySub: { marginTop: 2, fontSize: 12, fontFamily: font.regular },
-  historyAmount: { fontSize: 14, marginRight: 10, fontFamily: font.bold },
-  historyBadge: {},
+  historyEnd: { alignItems: "flex-end", gap: 5, marginLeft: 10 },
+  historyAmount: { fontSize: 14, fontFamily: font.bold },
 })

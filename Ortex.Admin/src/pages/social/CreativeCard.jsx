@@ -19,12 +19,12 @@ export default function CreativeCard({ form, set, format, setFormat, generate, d
           )}
         </div>
         <div className="space-y-3">
-          <Field label="Image prompt" hint="What the image model renders. No text or logos - the caption carries the words.">
+          <Field label="Image Prompt" hint="What the image model renders. No text or logos - the caption carries the words.">
             <Textarea
               rows={5}
               value={form.imagePrompt}
               onChange={(e) => set("imagePrompt", e.target.value)}
-              placeholder="e.g. A stack of custom printed acrylic name badges on a walnut desk, soft window light…"
+              placeholder="Enter image prompt"
               disabled={locked}
             />
           </Field>

@@ -1,5 +1,5 @@
 import React from "react"
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { repo } from "@/data/repo"
@@ -28,20 +28,67 @@ import {
   usePersistedDraft,
 } from "@/features/quotations/useQuotationDraft"
 import { useSettings } from "@/hooks/useSettings"
+import { prettyPhone } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, spacing } from "@/theme/tokens"
-import { font } from "@/theme/typography"
-import { Button, Card, Dialog, Divider, Icon, IconButton, Switch, TextField, useToast } from "@/ui"
+import { gutter, radius, size as sizes, spacing } from "@/theme/tokens"
+import { textVariants } from "@/theme/typography"
+import {
+  Avatar,
+  Button,
+  Chip,
+  Dialog,
+  Divider,
+  Icon,
+  IconButton,
+  Switch,
+  TextField,
+  useToast,
+} from "@/ui"
+import KeyboardAwareScrollView from "@/ui/KeyboardAwareScrollView"
 
-// The console's quotation editor is a 2/3-1/3 dashboard. On a phone that becomes
-// a single column of One UI cards with a sticky footer that always shows the
-// live grand total — the one number a salesperson is watching while they type.
-//
-// The maths is not reimplemented here: `computeDocument` recomputes on every
-// keystroke exactly as the console's `liveDoc` memo does, and saving goes
-// through the ported `createQuotation` / `updateQuotation`.
+/**
+ * Make a quotation.
+ *
+ * REDESIGNED around what the job actually is. A quotation has exactly two
+ * required parts — WHO it is for and WHAT is on it — and about a dozen optional
+ * ones. The previous screen gave them equal billing: a seven-field customer form
+ * sat permanently open between the picker and the items, so the thing a
+ * salesperson opens this screen to do was two screenfuls down, under a wall of
+ * boxes they had already filled by picking the customer.
+ *
+ * Now the screen reads as three answers and a receipt:
+ *
+ *   WHO   — the picker, then the details INLINE under a card head that names
+ *           who this is for. The details stay on this page rather than moving
+ *           into a sheet: they belong to the quotation being written, and
+ *           checking a GSTIN mid-quote should not be a modal round trip. The
+ *           place of supply is tinted as a warning while unset, because it
+ *           silently decides the tax split.
+ *   WHAT  — the items, each a row with its own maths, and one unmissable way to
+ *           add another.
+ *   HOW MUCH — a receipt whose first line says the tax treatment in words, so
+ *           "IGST" is never a surprise at the bottom of a PDF.
+ *
+ * The footer carries the grand total at all times — it is the number being
+ * watched while typing — and, when the quotation cannot be saved yet, says which
+ * of the two required parts is missing INSTEAD of the total. Validation that
+ * appears as a toast after you press the button is validation that arrived too
+ * late.
+ *
+ * The maths is untouched: `computeDocument` recomputes on every keystroke exactly
+ * as the console's `liveDoc` memo does, and saving still goes through the ported
+ * `createQuotation` / `updateQuotation`.
+ *
+ * KEYBOARD: the form scrolls in a `KeyboardAwareScrollView`, which lifts the
+ * focused field above the keyboard and reserves the footer's height beneath the
+ * content. `adjustResize` alone (the manifest's setting) shrinks the window but
+ * never moves the field you are typing in.
+ */
+
+/** The validity periods worth one tap; anything else is typed. */
+const VALIDITY_PRESETS = [7, 15, 30]
 
 export default function QuotationEditorScreen({ route, navigation }: StackScreenProps<"QuotationEditor">) {
   const t = useTheme()
@@ -57,8 +104,8 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
   const [saving, setSaving] = React.useState(false)
   const [customerOpen, setCustomerOpen] = React.useState(false)
   // Picking "New customer" hands back a BLANK customer, so the form cannot be
-  // gated on hasCustomer alone — that check would stay false and the sheet
-  // would close onto an unchanged screen with nowhere to type.
+  // gated on hasCustomer alone — that check would stay false and the picker
+  // would close onto a card with nothing in it.
   const [customerFormOpen, setCustomerFormOpen] = React.useState(false)
   const [stateOpen, setStateOpen] = React.useState<"customer" | "shipTo" | null>(null)
   const [editingLine, setEditingLine] = React.useState<{ index: number; line: Line | null } | null>(null)
@@ -139,16 +186,16 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
   const validUntil = validUntilFor(draft.issueDate, draft.validityDays)
 
   const hasCustomer = !!(draft.customer.name.trim() || draft.customer.company.trim())
-  const canSave = hasCustomer && draft.lines.length > 0 && !saving
-  const showCustomerForm = hasCustomer || customerFormOpen
+  const hasLines = draft.lines.length > 0
+  const canSave = hasCustomer && hasLines && !saving
+  // Said in the footer, in place of the total, so the block is visible before the
+  // button is ever pressed.
+  const blocker = !hasCustomer ? "Choose a customer" : !hasLines ? "Add at least one item" : null
 
   const save = async () => {
-    if (!hasCustomer) {
-      toast.show({ message: "Choose or add a customer", tone: "danger" })
-      return
-    }
-    if (!draft.lines.length) {
-      toast.show({ message: "Add at least one line item", tone: "danger" })
+    if (blocker) {
+      feedback.warn()
+      toast.show({ message: blocker, tone: "danger" })
       return
     }
     setSaving(true)
@@ -199,155 +246,196 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
     feedback.deleted()
   }
 
+  const customerName = draft.customer.company || draft.customer.name
+  const customerSub =
+    draft.customer.company && draft.customer.name ? draft.customer.name : prettyPhone(draft.customer.phone)
+
+  // The footer is drawn over the scroll, so the content reserves its height.
+  const footerHeight = sizes.buttonLg + spacing.xl + insets.bottom
+
   return (
-    <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: t.background }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <View style={[styles.head, { paddingTop: insets.top + 6, borderBottomColor: t.divider }]}>
+    <View style={[styles.root, { backgroundColor: t.background }]}>
+      <View
+        style={[
+          styles.head,
+          { paddingTop: insets.top, height: insets.top + sizes.appBar, borderBottomColor: t.divider },
+        ]}
+      >
         <IconButton name="back" onPress={leave} accessibilityLabel="Back" />
-        <Text style={[styles.headTitle, { color: t.text }]}>
+        <Text style={[textVariants.appBarTitleBack, styles.headTitle, { color: t.text }]}>
           {editingId ? "Edit quotation" : "New quotation"}
+        </Text>
+        {/* The issue date is a fact about the document, not chrome — it prints on
+            the quotation — so it takes the strong ink rather than the tertiary
+            grey that reads as a hint. */}
+        <Text style={[textVariants.caption, styles.headDate, { color: t.textStrong }]}>
+          {formatDate(draft.issueDate)}
         </Text>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-      >
-        {/* 1 — Customer */}
-        <SectionTitle text="Customer" />
-        <Card padding={0} style={styles.card}>
-          <Pressable
-            onPress={() => {
-              feedback.tap()
-              setCustomerOpen(true)
-            }}
-            android_ripple={{ color: t.accentTint }}
-            style={styles.pickerRow}
-          >
-            <Icon name="customer" size={20} color={t.primary} variant="Bold" />
-            <View style={styles.pickerBody}>
-              <Text style={[styles.pickerLabel, { color: t.textTertiary }]}>Bill to</Text>
-              <Text style={[styles.pickerValue, { color: hasCustomer ? t.text : t.textTertiary }]}>
-                {hasCustomer ? draft.customer.company || draft.customer.name : "Choose or add a customer"}
-              </Text>
-            </View>
-            <Icon name="forward" size={18} color={t.textTertiary} />
-          </Pressable>
-
-          {showCustomerForm && (
+      <KeyboardAwareScrollView contentContainerStyle={styles.content} bottomOffset={footerHeight}>
+        {/* ── WHO ────────────────────────────────────────────────────────── */}
+        <Panel title="Customer">
+          {hasCustomer || customerFormOpen ? (
             <>
-              <Divider inset={20} />
+              <View style={styles.customerHead}>
+                <Avatar name={customerName} size="md" />
+                <View style={styles.customerBody}>
+                  <Text numberOfLines={1} style={[textVariants.cardTitle, { color: t.text }]}>
+                    {customerName}
+                  </Text>
+                  {!!customerSub && (
+                    <Text numberOfLines={1} style={[textVariants.small, { color: t.textTertiary }]}>
+                      {customerSub}
+                    </Text>
+                  )}
+                </View>
+                <Button label="Change" variant="ghost" size="sm" onPress={() => setCustomerOpen(true)} />
+              </View>
+
+              <Divider inset={0} />
+
+              {/* The details stay ON THIS PAGE, under the card's own head. They
+                belong to the quotation being written, and moving them into a
+                sheet made checking a GSTIN mid-quote a modal round trip. The
+                keyboard is handled by the scroll view, not by hiding the form. */}
               <View style={styles.form}>
                 <TextField
-                  label="Contact name"
+                  label="Contact Name"
                   value={draft.customer.name}
                   onChangeText={(v) => set({ customer: { ...draft.customer, name: v } })}
-                  placeholder="Who you are quoting"
+                  placeholder="Enter contact name"
+                  autoCapitalize="words"
                 />
                 <TextField
                   label="Company"
                   value={draft.customer.company}
                   onChangeText={(v) => set({ customer: { ...draft.customer, company: v } })}
-                  placeholder="Optional"
+                  placeholder="Enter company name"
+                  autoCapitalize="words"
                 />
-                <View style={styles.row}>
-                  <View style={styles.half}>
-                    <TextField
-                      label="Phone"
-                      value={draft.customer.phone}
-                      onChangeText={(v) => set({ customer: { ...draft.customer, phone: v } })}
-                      keyboardType="phone-pad"
-                      placeholder="10 digits"
-                    />
-                  </View>
-                  <View style={styles.half}>
-                    <TextField
-                      label="Email"
-                      value={draft.customer.email}
-                      onChangeText={(v) => set({ customer: { ...draft.customer, email: v } })}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      placeholder="Optional"
-                    />
-                  </View>
-                </View>
+                {/* One field per row. Side by side, each got half the width, which
+                  is not enough for an email address — it scrolled inside its own
+                  box while being typed, and a half-visible address is one nobody
+                  can check before sending a quotation to it. */}
+                <TextField
+                  label="Phone"
+                  value={draft.customer.phone}
+                  onChangeText={(v) => set({ customer: { ...draft.customer, phone: v } })}
+                  keyboardType="phone-pad"
+                  placeholder="Enter phone number"
+                />
+                <TextField
+                  label="Email"
+                  value={draft.customer.email}
+                  onChangeText={(v) => set({ customer: { ...draft.customer, email: v } })}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  placeholder="Enter email address"
+                />
                 <TextField
                   label="GSTIN"
                   value={draft.customer.gstin}
                   onChangeText={(v) => set({ customer: { ...draft.customer, gstin: v.toUpperCase() } })}
                   autoCapitalize="characters"
-                  placeholder="Optional"
+                  autoCorrect={false}
+                  maxLength={15}
+                  placeholder="Enter GSTIN"
                 />
-                <FieldButton
-                  label="Place of supply"
+                {/* The one field here that changes the money. */}
+                <PickerField
+                  label="Place of Supply"
                   value={
                     draft.customer.stateCode
                       ? stateLabel(draft.customer.stateCode)
-                      : "Not set — taxed as local"
+                      : "Not set, taxed as local"
                   }
                   hint="Decides CGST + SGST or IGST"
+                  warn={!draft.customer.stateCode}
                   onPress={() => setStateOpen("customer")}
                 />
                 <TextField
-                  label="Address"
+                  label="Billing Address"
                   value={draft.customer.address}
                   onChangeText={(v) => set({ customer: { ...draft.customer, address: v } })}
-                  placeholder="Optional"
+                  placeholder="Enter billing address"
                   multiline
+                  numberOfLines={3}
                 />
               </View>
+
+              <Divider inset={0} />
+              <View style={styles.shipToggle}>
+                <Switch
+                  value={!!draft.shipTo}
+                  onValueChange={(on) => set({ shipTo: on ? newCustomer() : null })}
+                  label="Ships Somewhere Else"
+                  description="The place of supply then follows the delivery address"
+                />
+              </View>
+
+              {!!draft.shipTo && (
+                <View style={styles.form}>
+                  <TextField
+                    label="Consignee"
+                    value={draft.shipTo.name}
+                    onChangeText={(v) => set({ shipTo: { ...draft.shipTo!, name: v } })}
+                    placeholder="Enter consignee name"
+                    autoCapitalize="words"
+                  />
+                  <PickerField
+                    label="Delivery State"
+                    value={draft.shipTo.stateCode ? stateLabel(draft.shipTo.stateCode) : "Not set"}
+                    onPress={() => setStateOpen("shipTo")}
+                  />
+                  <TextField
+                    label="Delivery Address"
+                    value={draft.shipTo.address}
+                    onChangeText={(v) => set({ shipTo: { ...draft.shipTo!, address: v } })}
+                    placeholder="Enter delivery address"
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+              )}
             </>
-          )}
-        </Card>
-
-        {showCustomerForm && (
-          <Card padding={16} style={styles.card}>
-            <Switch
-              value={!!draft.shipTo}
-              onValueChange={(on) => set({ shipTo: on ? newCustomer() : null })}
-              label="Ships somewhere else"
-              description="GST place of supply follows the delivery address"
-            />
-            {draft.shipTo && (
-              <View style={styles.shipTo}>
-                <TextField
-                  label="Consignee"
-                  value={draft.shipTo.name}
-                  onChangeText={(v) => set({ shipTo: { ...draft.shipTo!, name: v } })}
-                  placeholder="Who receives it"
-                />
-                <FieldButton
-                  label="Delivery state"
-                  value={draft.shipTo.stateCode ? stateLabel(draft.shipTo.stateCode) : "Not set"}
-                  onPress={() => setStateOpen("shipTo")}
-                />
-                <TextField
-                  label="Delivery address"
-                  value={draft.shipTo.address}
-                  onChangeText={(v) => set({ shipTo: { ...draft.shipTo!, address: v } })}
-                  multiline
-                />
-              </View>
-            )}
-          </Card>
-        )}
-
-        {/* 2 — Line items */}
-        <SectionTitle text="Items" />
-        <Card padding={0} style={styles.card}>
-          {draft.lines.length === 0 ? (
-            <Text style={[styles.emptyLines, { color: t.textTertiary }]}>
-              Nothing quoted yet. Add the first item below.
-            </Text>
           ) : (
+            <Pressable
+              onPress={() => {
+                feedback.tap()
+                setCustomerOpen(true)
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Choose a customer"
+              android_ripple={{ color: t.accentTint }}
+              style={({ pressed }) => [styles.emptyPick, { opacity: pressed ? 0.75 : 1 }]}
+            >
+              <View style={[styles.emptyPickIcon, { backgroundColor: t.primary10 }]}>
+                <Icon name="customer" size={22} color={t.primary} variant="Bulk" />
+              </View>
+              <View style={styles.emptyPickBody}>
+                <Text style={[textVariants.cardTitle, { color: t.text }]}>Choose a customer</Text>
+                <Text style={[textVariants.small, { color: t.textTertiary }]}>
+                  Search the master, or add someone new
+                </Text>
+              </View>
+              <Icon name="forward" size={18} color={t.textTertiary} />
+            </Pressable>
+          )}
+        </Panel>
+
+        {/* ── WHAT ───────────────────────────────────────────────────────── */}
+        <Panel
+          title="Items"
+          meta={hasLines ? `${draft.lines.length} ${draft.lines.length === 1 ? "line" : "lines"}` : undefined}
+        >
+          {hasLines ? (
             draft.lines.map((line, index) => {
               const computed = totals.lines[index]
               return (
                 <View key={index}>
-                  {index > 0 && <Divider inset={20} />}
+                  {index > 0 && <Divider inset={gutter} />}
                   <Pressable
                     onPress={() => {
                       feedback.tap()
@@ -356,125 +444,222 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                     android_ripple={{ color: t.accentTint }}
                     style={styles.lineRow}
                   >
+                    <View style={[styles.lineIndex, { backgroundColor: t.surfaceInset }]}>
+                      <Text style={[textVariants.microLabel, { color: t.textSecondary }]}>{index + 1}</Text>
+                    </View>
                     <View style={styles.lineBody}>
-                      <Text numberOfLines={1} style={[styles.lineName, { color: t.text }]}>
+                      <Text numberOfLines={2} style={[textVariants.bodyStrong, { color: t.text }]}>
                         {line.description || "Untitled item"}
                       </Text>
-                      <Text numberOfLines={1} style={[styles.lineSub, { color: t.textTertiary }]}>
+                      <Text numberOfLines={1} style={[textVariants.caption, { color: t.textTertiary }]}>
                         {line.quantity} {line.unit} × {formatCurrency(line.rate)}
                         {line.discountPercent ? ` · ${line.discountPercent}% off` : ""} · {line.gstRate}% GST
                       </Text>
                     </View>
-                    <Text style={[styles.lineAmount, { color: t.text }]}>
+                    <Text style={[textVariants.amount, { color: t.text }]}>
                       {formatCurrency(computed?.taxable ?? 0)}
                     </Text>
                   </Pressable>
                 </View>
               )
             })
+          ) : (
+            <View style={styles.emptyLines}>
+              <Icon name="quote" size={30} color={t.textHint} variant="Bulk" />
+              <Text style={[textVariants.small, styles.emptyLinesText, { color: t.textTertiary }]}>
+                Nothing quoted yet.
+              </Text>
+            </View>
           )}
-          <Divider inset={20} />
+
+          <Divider inset={0} />
           <Pressable
             onPress={() => {
               feedback.tap()
               setEditingLine({ index: draft.lines.length, line: null })
             }}
             android_ripple={{ color: t.accentTint }}
-            style={styles.addRow}
+            accessibilityRole="button"
+            accessibilityLabel="Add an item"
+            style={styles.cardAction}
           >
-            <Icon name="addItem" size={20} color={t.primary} />
-            <Text style={[styles.addLabel, { color: t.primary }]}>Add an item</Text>
+            <Icon name="addItem" size={19} color={t.primary} />
+            <Text style={[textVariants.smallStrong, { color: t.primary, marginLeft: 10 }]}>
+              {hasLines ? "Add another item" : "Add the first item"}
+            </Text>
           </Pressable>
-        </Card>
+        </Panel>
 
-        {/* 3 — Totals */}
-        <SectionTitle text="Totals" />
-        <Card padding={16} style={styles.card}>
-          <TotalRow label="Subtotal" value={formatCurrency(totals.subTotal)} />
-          {totals.totalDiscount > 0 && (
-            <TotalRow label="Discount" value={`-${formatCurrency(totals.totalDiscount)}`} />
-          )}
-          <TotalRow label="Taxable" value={formatCurrency(totals.taxable)} />
-          {/* Never both: the place of supply picks one branch or the other. */}
-          {interState ? (
-            <TotalRow label="IGST" value={formatCurrency(totals.igst)} />
-          ) : (
-            <>
-              <TotalRow label="CGST" value={formatCurrency(totals.cgst)} />
-              <TotalRow label="SGST" value={formatCurrency(totals.sgst)} />
-            </>
-          )}
-          {!!totals.roundOff && <TotalRow label="Round off" value={formatCurrency(totals.roundOff)} />}
-          <Divider />
-          <TotalRow label="Grand total" value={formatCurrency(totals.grandTotal)} strong />
+        {/* ── HOW MUCH ───────────────────────────────────────────────────── */}
+        <Panel title="Money">
+          {/* The tax treatment, said in words at the TOP. Reading "IGST" for the
+              first time at the bottom of a sent PDF is how a wrong split gets
+              noticed by the customer instead of by us. */}
+          <View style={[styles.taxNote, { backgroundColor: interState ? t.infoBg : t.surfaceInset }]}>
+            <Icon name="info" size={15} color={interState ? t.info : t.textTertiary} variant="Bulk" />
+            <Text style={[textVariants.caption, styles.taxNoteText, { color: t.textSecondary }]}>
+              {interState
+                ? `Interstate supply, one IGST line at each item's rate`
+                : `Within ${stateLabel(settings.company.stateCode) || "your state"}, CGST + SGST`}
+            </Text>
+          </View>
 
-          <View style={styles.discountField}>
-            <TextField
-              label="Extra discount on the whole quote (%)"
+          <View style={styles.receipt}>
+            <TotalRow label="Subtotal" value={formatCurrency(totals.subTotal)} />
+            {totals.totalDiscount > 0 && (
+              <TotalRow label="Discount" value={`−${formatCurrency(totals.totalDiscount)}`} />
+            )}
+            <TotalRow label="Taxable" value={formatCurrency(totals.taxable)} />
+            {interState ? (
+              <TotalRow label="IGST" value={formatCurrency(totals.igst)} />
+            ) : (
+              <>
+                <TotalRow label="CGST" value={formatCurrency(totals.cgst)} />
+                <TotalRow label="SGST" value={formatCurrency(totals.sgst)} />
+              </>
+            )}
+            {!!totals.roundOff && <TotalRow label="Round Off" value={formatCurrency(totals.roundOff)} />}
+            <View style={styles.receiptRule}>
+              <Divider />
+            </View>
+            <TotalRow label="Grand Total" value={formatCurrency(totals.grandTotal)} strong />
+          </View>
+
+          <Divider inset={0} />
+          {/* Compact and inline: a whole-quote discount is an occasional
+              adjustment, not a field to walk past on every quotation. */}
+          <View style={styles.discountRow}>
+            <Icon name="discount" size={18} color={t.textTertiary} variant="Bulk" />
+            <Text style={[textVariants.body, styles.discountLabel, { color: t.textSecondary }]}>
+              Extra Discount
+            </Text>
+            {/* A raw input, not the kit's TextField: that one owns a label
+                slot, a drawn squircle and a bottom margin, none of which fit a
+                44px box sitting inside a row. */}
+            <TextInput
               value={draft.extraDiscountPercent ? String(draft.extraDiscountPercent) : ""}
               onChangeText={(v) => set({ extraDiscountPercent: Number(v.replace(/[^0-9.]/g, "")) || 0 })}
               keyboardType="decimal-pad"
               placeholder="0"
-              leadingIcon="discount"
+              placeholderTextColor={t.textTertiary}
+              accessibilityLabel="Extra discount percent"
+              cursorColor={t.fieldCursor}
+              selectionColor={t.fieldCursor}
+              style={[
+                styles.discountInput,
+                textVariants.bodyStrong,
+                { backgroundColor: t.fieldBg, borderColor: t.border, color: t.text },
+              ]}
             />
+            <Text style={[textVariants.bodyStrong, { color: t.textSecondary }]}>%</Text>
           </View>
-        </Card>
+        </Panel>
 
-        {/* 4 — Terms, collapsed: prefilled from settings and rarely touched. */}
-        <Pressable onPress={() => setShowTerms((v) => !v)} style={styles.sectionToggle}>
-          <SectionTitle text="Validity, terms & notes" />
-          <Icon name={showTerms ? "down" : "forward"} size={16} color={t.textTertiary} />
-        </Pressable>
-        {showTerms && (
-          <Card padding={16} style={styles.card}>
-            <Text style={[styles.validity, { color: t.textSecondary }]}>
-              Issued {formatDate(draft.issueDate)} · valid until {formatDate(validUntil)}
+        {/* ── THE REST, folded away ──────────────────────────────────────── */}
+        <Panel>
+          <Pressable
+            onPress={() => {
+              feedback.tap()
+              setShowTerms((v) => !v)
+            }}
+            android_ripple={{ color: t.accentTint }}
+            style={styles.foldHead}
+          >
+            <Text style={[textVariants.sectionLabel, { color: t.textTertiary, flex: 1 }]}>
+              VALIDITY, TERMS & NOTES
             </Text>
-            <TextField
-              label="Valid for (days)"
-              value={String(draft.validityDays)}
-              onChangeText={(v) => set({ validityDays: Number(v.replace(/[^0-9]/g, "")) || 0 })}
-              keyboardType="number-pad"
-            />
-            <TextField
-              label="Payment terms"
-              value={draft.paymentTerms}
-              onChangeText={(v) => set({ paymentTerms: v })}
-              placeholder="e.g. 50% advance, balance before dispatch"
-            />
-            <TextField
-              label="Terms and conditions"
-              value={draft.terms}
-              onChangeText={(v) => set({ terms: v })}
-              multiline
-            />
-            <TextField
-              label="Notes"
-              value={draft.notes}
-              onChangeText={(v) => set({ notes: v })}
-              placeholder="Anything the customer should see"
-              multiline
-            />
-          </Card>
-        )}
-      </ScrollView>
+            <Icon name={showTerms ? "down" : "forward"} size={16} color={t.textTertiary} />
+          </Pressable>
 
-      {/* Sticky footer: the running total is the number being watched, so it
-          stays on screen no matter how far down the form the user is. */}
+          {showTerms && (
+            <View style={styles.foldBody}>
+              <Text style={[textVariants.small, styles.validity, { color: t.textSecondary }]}>
+                Issued {formatDate(draft.issueDate)} · valid until {formatDate(validUntil)}
+              </Text>
+              <Text style={[textVariants.label, { color: t.textStrong, marginBottom: 8 }]}>Valid For</Text>
+              <View style={styles.validityChips}>
+                {VALIDITY_PRESETS.map((days) => (
+                  <Chip
+                    key={days}
+                    label={`${days} days`}
+                    active={draft.validityDays === days}
+                    onPress={() => {
+                      feedback.select()
+                      set({ validityDays: days })
+                    }}
+                  />
+                ))}
+                {!VALIDITY_PRESETS.includes(draft.validityDays) && (
+                  <Chip label={`${draft.validityDays} days`} active />
+                )}
+              </View>
+              <TextField
+                label="Custom Validity (Days)"
+                value={String(draft.validityDays)}
+                onChangeText={(v) => set({ validityDays: Number(v.replace(/[^0-9]/g, "")) || 0 })}
+                placeholder="Enter number of days"
+                keyboardType="number-pad"
+              />
+              <TextField
+                label="Payment Terms"
+                value={draft.paymentTerms}
+                onChangeText={(v) => set({ paymentTerms: v })}
+                placeholder="Enter payment terms"
+              />
+              <TextField
+                label="Terms and Conditions"
+                value={draft.terms}
+                onChangeText={(v) => set({ terms: v })}
+                placeholder="Enter terms and conditions"
+                multiline
+                numberOfLines={4}
+              />
+              <TextField
+                label="Notes"
+                value={draft.notes}
+                onChangeText={(v) => set({ notes: v })}
+                placeholder="Enter notes"
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+          )}
+        </Panel>
+      </KeyboardAwareScrollView>
+
+      {/* The running total is what a salesperson watches while typing, so it
+          stays on screen — replaced by the blocking reason while the quotation
+          cannot be saved at all. */}
       <View
         style={[
           styles.footer,
-          { backgroundColor: t.appBar, borderTopColor: t.divider, paddingBottom: insets.bottom + 12 },
+          { backgroundColor: t.appBar, borderTopColor: t.border, paddingBottom: insets.bottom + spacing.sm },
         ]}
       >
         <View style={styles.footerTotal}>
-          <Text style={[styles.footerLabel, { color: t.textTertiary }]}>
-            {interState ? "IGST" : "CGST + SGST"} · {draft.lines.length}{" "}
-            {draft.lines.length === 1 ? "item" : "items"}
-          </Text>
-          <Text style={[styles.footerValue, { color: t.text }]}>{formatCurrency(totals.grandTotal)}</Text>
+          {blocker ? (
+            <>
+              <Text style={[textVariants.microLabel, { color: t.textTertiary }]}>NEXT</Text>
+              <Text style={[textVariants.cardTitle, { color: t.warning }]}>{blocker}</Text>
+            </>
+          ) : (
+            <>
+              <Text style={[textVariants.microLabel, { color: t.textTertiary }]}>
+                {(interState ? "INCL. IGST" : "INCL. CGST + SGST") +
+                  ` · ${draft.lines.length} ${draft.lines.length === 1 ? "ITEM" : "ITEMS"}`}
+              </Text>
+              <Text style={[textVariants.rowAmount, { color: t.text }]}>
+                {formatCurrency(totals.grandTotal)}
+              </Text>
+            </>
+          )}
         </View>
-        <Button label={editingId ? "Save" : "Create"} onPress={save} loading={saving} disabled={!canSave} />
+        <Button
+          label={editingId ? "Save" : "Create"}
+          onPress={() => void save()}
+          loading={saving}
+          disabled={!canSave}
+        />
       </View>
 
       <CustomerPickerSheet
@@ -482,8 +667,11 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         onClose={() => setCustomerOpen(false)}
         onPick={(customer) => {
           setCustomerOpen(false)
-          setCustomerFormOpen(true)
           set({ customer })
+          // "New customer" hands back a BLANK record, so `hasCustomer` stays
+          // false and the card would not open on its own — this is what puts the
+          // form on screen with somewhere to type.
+          setCustomerFormOpen(true)
         }}
       />
 
@@ -492,6 +680,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         value={stateOpen === "shipTo" ? draft.shipTo?.stateCode : draft.customer.stateCode}
         onClose={() => setStateOpen(null)}
         onPick={(code) => {
+          feedback.select()
           if (stateOpen === "shipTo" && draft.shipTo) set({ shipTo: { ...draft.shipTo, stateCode: code } })
           else set({ customer: { ...draft.customer, stateCode: code } })
           setStateOpen(null)
@@ -546,44 +735,88 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
           },
         ]}
       />
-    </KeyboardAvoidingView>
+    </View>
   )
 }
 
-function SectionTitle({ text }: { text: string }) {
-  const t = useTheme()
-  return <Text style={[styles.sectionTitle, { color: t.textTertiary }]}>{text}</Text>
-}
-
-function FieldButton({
+/**
+ * A field-shaped button that opens a picker sheet. `warn` tints it while the
+ * place of supply is unset, because "not set" is not a neutral state there — it
+ * quietly taxes the whole document as a local supply.
+ */
+function PickerField({
   label,
   value,
   hint,
+  warn,
   onPress,
 }: {
   label: string
   value: string
   hint?: string
+  warn?: boolean
   onPress: () => void
 }) {
   const t = useTheme()
   return (
-    <View style={styles.fieldButtonWrap}>
-      <Text style={[styles.fieldButtonLabel, { color: t.textSecondary }]}>{label}</Text>
+    <View style={styles.pickerWrap}>
+      <Text style={[textVariants.label, { color: t.textStrong, marginBottom: 6 }]}>{label}</Text>
       <Pressable
         onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${value}`}
         style={({ pressed }) => [
-          styles.fieldButton,
-          { backgroundColor: t.fieldBg, opacity: pressed ? 0.7 : 1 },
+          styles.picker,
+          {
+            backgroundColor: warn ? t.warningBg : t.fieldBg,
+            borderColor: warn ? t.warning : t.border,
+            opacity: pressed ? 0.7 : 1,
+          },
         ]}
       >
-        <Text numberOfLines={1} style={[styles.fieldButtonValue, { color: t.text }]}>
+        <Text numberOfLines={1} style={[textVariants.body, { color: t.text, flex: 1 }]}>
           {value}
         </Text>
         <Icon name="down" size={16} color={t.textTertiary} />
       </Pressable>
-      {!!hint && <Text style={[styles.fieldButtonHint, { color: t.textTertiary }]}>{hint}</Text>}
+      {!!hint && <Text style={[textVariants.caption, { color: t.textTertiary, marginTop: 5 }]}>{hint}</Text>}
     </View>
+  )
+}
+
+/**
+ * A section of the page.
+ *
+ * THE SECTION LANGUAGE IS CAPNIX'S, not a card's. A panel is full-bleed — no
+ * radius, no border, no shadow — sitting on `surface`, and what separates it from
+ * the panel above and below is a literal 2dp band of `colors.border`. The
+ * SEPARATION is the object boundary; a rounded bordered card floating on a page
+ * of the same colour was drawing that boundary twice and reading as a stack of
+ * lozenges. (See C:\code\capnix\Capnix.Mobile.Partner AppCard: "on a sheet page
+ * it is a FLAT PANEL … separated by the 2px band the screen draws".)
+ *
+ * Each panel carries its own bottom band rather than the screen inserting bands
+ * between children — Capnix learned that the hard way: a screen that maps over
+ * its children and inserts separators breaks the moment a panel is conditional or
+ * wrapped, and the band then belongs to whatever renders it.
+ */
+function Panel({ title, meta, children }: { title?: string; meta?: string; children: React.ReactNode }) {
+  const t = useTheme()
+  return (
+    <>
+      <View style={{ backgroundColor: t.surface }}>
+        {!!title && (
+          <View style={styles.panelHead}>
+            <Text style={[textVariants.sectionLabel, { color: t.textTertiary }]}>{title.toUpperCase()}</Text>
+            {!!meta && (
+              <Text style={[textVariants.caption, { color: t.textTertiary, marginLeft: 8 }]}>{meta}</Text>
+            )}
+          </View>
+        )}
+        {children}
+      </View>
+      <View style={[styles.band, { backgroundColor: t.border }]} />
+    </>
   )
 }
 
@@ -591,11 +824,18 @@ function TotalRow({ label, value, strong }: { label: string; value: string; stro
   const t = useTheme()
   return (
     <View style={styles.totalRow}>
-      <Text style={[styles.totalLabel, { color: strong ? t.text : t.textSecondary }]}>{label}</Text>
       <Text
         style={[
-          styles.totalValue,
-          { color: t.text, fontFamily: strong ? font.bold : font.medium, fontSize: strong ? 18 : 14.5 },
+          strong ? textVariants.bodyStrong : textVariants.body,
+          { color: strong ? t.text : t.textSecondary },
+        ]}
+      >
+        {label}
+      </Text>
+      <Text
+        style={[
+          strong ? textVariants.amount : textVariants.factValue,
+          { color: t.text, fontSize: strong ? 19 : 15 },
         ]}
       >
         {value}
@@ -609,66 +849,127 @@ const styles = StyleSheet.create({
   head: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingRight: gutter,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  headTitle: { marginLeft: 6, fontSize: 17, fontFamily: font.semibold },
-  content: { paddingHorizontal: gutter, paddingTop: 14, paddingBottom: 28 },
-  sectionTitle: {
-    fontSize: 12,
-    letterSpacing: 0.4,
-    textTransform: "uppercase",
-    marginBottom: spacing.sm,
-    fontFamily: font.semibold,
+  headTitle: { flex: 1, marginLeft: 6, textTransform: "capitalize" },
+  headDate: { textTransform: "uppercase", letterSpacing: 0.3 },
+  // FULL BLEED: the panels run edge to edge and the bands between them are the
+  // page structure, so the page itself has no side padding — every inset below
+  // is the panel gutter instead.
+  content: { paddingTop: 0 },
+  band: { height: 2 },
+
+  panelHead: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    paddingHorizontal: gutter,
+    paddingTop: gutter,
+    paddingBottom: spacing.sm,
   },
-  sectionToggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  card: { marginBottom: 20 },
-  pickerRow: {
+  cardAction: { flexDirection: "row", alignItems: "center", paddingHorizontal: gutter, paddingVertical: 15 },
+
+  // A full-bleed row inside the panel, not a dashed box: on a page built of
+  // bands, a second outlined shape inside one of them competes with the band.
+  emptyPick: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 18,
-    paddingVertical: spacing.md,
+    paddingHorizontal: gutter,
+    paddingBottom: gutter,
+    paddingTop: spacing.xs,
   },
-  pickerBody: { flex: 1, marginLeft: 14 },
-  pickerLabel: { fontSize: 11.5, letterSpacing: 0.3, textTransform: "uppercase", fontFamily: font.medium },
-  pickerValue: { marginTop: 2, fontSize: 16, fontFamily: font.semibold },
-  form: { paddingHorizontal: 18, paddingTop: spacing.md, paddingBottom: 2 },
-  row: { flexDirection: "row", gap: 12 },
-  half: { flex: 1 },
-  shipTo: { marginTop: 14 },
-  emptyLines: { paddingHorizontal: 18, paddingVertical: 18, fontSize: 14, fontFamily: font.regular },
-  lineRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 14 },
-  lineBody: { flex: 1, marginRight: 10 },
-  lineName: { fontSize: 15, fontFamily: font.semibold },
-  lineSub: { marginTop: 3, fontSize: 12.5, fontFamily: font.regular },
-  lineAmount: { fontSize: 15, fontFamily: font.bold },
-  addRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 15 },
-  addLabel: { marginLeft: 12, fontSize: 15, fontFamily: font.semibold },
-  totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 5 },
-  totalLabel: { fontSize: 14, fontFamily: font.regular },
-  totalValue: {},
-  discountField: { marginTop: 14 },
-  validity: { fontSize: 13, marginBottom: 14, fontFamily: font.regular },
-  fieldButtonWrap: { marginBottom: 14 },
-  fieldButtonLabel: { marginBottom: 6, fontSize: 13, fontFamily: font.medium },
-  fieldButton: {
+  emptyPickIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyPickBody: { flex: 1, marginLeft: 14, gap: 2 },
+
+  form: { paddingHorizontal: gutter, paddingTop: spacing.md, paddingBottom: 2 },
+  shipToggle: { paddingHorizontal: gutter, paddingVertical: spacing.md },
+  pickerWrap: { marginBottom: spacing.md },
+  picker: {
     flexDirection: "row",
     alignItems: "center",
     height: 48,
-    borderRadius: 12,
     paddingHorizontal: 14,
+    borderRadius: radius.sm,
+    borderWidth: 1,
   },
-  fieldButtonValue: { flex: 1, fontSize: 15, fontFamily: font.medium },
-  fieldButtonHint: { marginTop: 5, fontSize: 12, fontFamily: font.regular },
+  customerHead: { flexDirection: "row", alignItems: "center", paddingHorizontal: gutter, paddingBottom: 10 },
+  customerBody: { flex: 1, marginLeft: 12, minWidth: 0, gap: 1 },
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    paddingHorizontal: gutter,
+    paddingBottom: spacing.md,
+  },
+
+  lineRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: gutter, paddingVertical: 14 },
+  lineIndex: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  lineBody: { flex: 1, marginRight: 10, gap: 2 },
+  emptyLines: { alignItems: "center", paddingVertical: spacing.xl, gap: 8 },
+  emptyLinesText: {},
+
+  taxNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: gutter,
+    paddingVertical: 10,
+  },
+  taxNoteText: { flex: 1 },
+  receipt: { paddingHorizontal: gutter, paddingVertical: spacing.md },
+  receiptRule: { marginVertical: spacing.sm },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+
+  discountRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: gutter, paddingVertical: 12 },
+  discountLabel: { flex: 1, marginLeft: 12 },
+  discountInput: {
+    width: 84,
+    height: 44,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    textAlign: "right",
+    marginRight: 8,
+  },
+
+  foldHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: gutter,
+    paddingVertical: gutter,
+  },
+  foldBody: { paddingHorizontal: gutter, paddingBottom: spacing.md },
+  validity: { marginBottom: spacing.md },
+  validityChips: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: spacing.md },
+
   footer: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: gutter,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: spacing.md,
+    // The same 2dp band that separates the panels above, not a hairline: the
+    // footer floats over the scrolling form, and a hairline in `divider` was too
+    // faint to say where the page stops and the action bar begins.
+    borderTopWidth: 2,
   },
-  footerTotal: { flex: 1 },
-  footerLabel: { fontSize: 11.5, letterSpacing: 0.3, textTransform: "uppercase", fontFamily: font.medium },
-  footerValue: { marginTop: 2, fontSize: 22, fontFamily: font.extrabold },
+  footerTotal: { flex: 1, gap: 2 },
 })

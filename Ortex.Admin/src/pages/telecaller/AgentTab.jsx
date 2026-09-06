@@ -72,7 +72,7 @@ export default function AgentTab({ isAdmin, onPractice }) {
   return (
     <div className="space-y-4">
       <Section title="Agent" hint="Who calls, in which language, and whether the scheduler is allowed to dial on its own.">
-        <Field label="Agent name"><Input value={t.agentName} onChange={(e) => set("agentName", e.target.value)} /></Field>
+        <Field label="Agent Name"><Input value={t.agentName} onChange={(e) => set("agentName", e.target.value)} /></Field>
         <Field label="Language" hint={t.language === "auto" ? "Sneha opens in Hinglish and switches to whatever the customer speaks: Tamil, Bengali, Marathi, English…" : "Fixed language for every call. Auto is recommended."}>
           <Select value={t.language} onChange={(e) => set("language", e.target.value)}>
             {TELECALL_LANGUAGES.map((l) => <option key={l.id} value={l.id}>{l.label}{l.tier === "basic" ? " (basic)" : ""}</option>)}
@@ -93,9 +93,9 @@ export default function AgentTab({ isAdmin, onPractice }) {
       <Section title="Calling window & limits" hint="No calls on Sundays or outside this window. Retries and rounds always land inside it.">
         <Field label="From"><Input type="time" value={t.callingHours.start} onChange={(e) => setIn("callingHours", "start", e.target.value)} /></Field>
         <Field label="To"><Input type="time" value={t.callingHours.end} onChange={(e) => setIn("callingHours", "end", e.target.value)} /></Field>
-        <Field label="Daily cap (calls)"><Input type="number" min="1" value={t.dailyCap} onChange={(e) => set("dailyCap", num(e.target.value, 40))} /></Field>
-        <Field label="Attempts per job" hint="No answer / busy retries before the job is marked failed."><Input type="number" min="1" max="6" value={t.maxAttempts} onChange={(e) => set("maxAttempts", num(e.target.value, 3))} /></Field>
-        <Field label="Retry gap (hours)"><Input type="number" min="1" value={t.retryGapHours} onChange={(e) => set("retryGapHours", num(e.target.value, 24))} /></Field>
+        <Field label="Daily Cap (Calls)"><Input type="number" min="1" value={t.dailyCap} onChange={(e) => set("dailyCap", num(e.target.value, 40))} /></Field>
+        <Field label="Attempts per Job" hint="No answer / busy retries before the job is marked failed."><Input type="number" min="1" max="6" value={t.maxAttempts} onChange={(e) => set("maxAttempts", num(e.target.value, 3))} /></Field>
+        <Field label="Retry Gap (Hours)"><Input type="number" min="1" value={t.retryGapHours} onChange={(e) => set("retryGapHours", num(e.target.value, 24))} /></Field>
         <Field label="Timezone"><Input value={t.timezone} onChange={(e) => set("timezone", e.target.value)} /></Field>
       </Section>
 
@@ -103,29 +103,29 @@ export default function AgentTab({ isAdmin, onPractice }) {
         <div className="space-y-3">
           <Check checked={t.followUp.enabled} onChange={(v) => setIn("followUp", "enabled", v)}>Follow-up rounds after an interested call</Check>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Delay (hours)"><Input type="number" min="1" value={t.followUp.delayHours} onChange={(e) => setIn("followUp", "delayHours", num(e.target.value, 24))} /></Field>
-            <Field label="Max rounds"><Input type="number" min="1" max="6" value={t.followUp.maxRounds} onChange={(e) => setIn("followUp", "maxRounds", num(e.target.value, 3))} /></Field>
+            <Field label="Delay (Hours)"><Input type="number" min="1" value={t.followUp.delayHours} onChange={(e) => setIn("followUp", "delayHours", num(e.target.value, 24))} /></Field>
+            <Field label="Max Rounds"><Input type="number" min="1" max="6" value={t.followUp.maxRounds} onChange={(e) => setIn("followUp", "maxRounds", num(e.target.value, 3))} /></Field>
           </div>
         </div>
         <div className="space-y-3">
           <Check checked={t.feedback.enabled} onChange={(v) => setIn("feedback", "enabled", v)}>Feedback call after every invoice</Check>
-          <Field label="Days after invoice"><Input type="number" min="1" value={t.feedback.daysAfterInvoice} onChange={(e) => setIn("feedback", "daysAfterInvoice", num(e.target.value, 7))} /></Field>
+          <Field label="Days After Invoice"><Input type="number" min="1" value={t.feedback.daysAfterInvoice} onChange={(e) => setIn("feedback", "daysAfterInvoice", num(e.target.value, 7))} /></Field>
         </div>
         <div className="space-y-3 sm:col-span-2">
           <Check checked={t.upsell.enabled} onChange={(v) => setIn("upsell", "enabled", v)}>Upsell / reorder calls to existing customers</Check>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="First call, days after invoice"><Input type="number" min="1" value={t.upsell.daysAfterInvoice} onChange={(e) => setIn("upsell", "daysAfterInvoice", num(e.target.value, 30))} /></Field>
-            <Field label="Repeat every (days)"><Input type="number" min="7" value={t.upsell.repeatEveryDays} onChange={(e) => setIn("upsell", "repeatEveryDays", num(e.target.value, 90))} /></Field>
+            <Field label="First Call, Days After Invoice"><Input type="number" min="1" value={t.upsell.daysAfterInvoice} onChange={(e) => setIn("upsell", "daysAfterInvoice", num(e.target.value, 30))} /></Field>
+            <Field label="Repeat Every (Days)"><Input type="number" min="7" value={t.upsell.repeatEveryDays} onChange={(e) => setIn("upsell", "repeatEveryDays", num(e.target.value, 90))} /></Field>
           </div>
         </div>
       </Section>
 
       <Section title="Training" hint="How the agent should sound, and what each type of call must achieve. Blank fields keep the built-in defaults. Rehearse with Practice, read the transcript, refine, repeat.">
-        <Field label="Persona & style" hint="Tone, phrases to use, phrases to avoid, how to handle Hindi vs English, how formal to be." className="sm:col-span-2">
-          <Textarea rows={4} value={t.scripts?.persona || ""} onChange={(e) => setIn("scripts", "persona", e.target.value)} placeholder="Warm and respectful, always 'ji'. Never say 'cheapest'. Mention we are in Mundka, New Delhi. If the customer speaks English, switch fully to English." />
+        <Field label="Persona & Style" hint="Tone, phrases to use, phrases to avoid, how to handle Hindi vs English, how formal to be." className="sm:col-span-2">
+          <Textarea rows={4} value={t.scripts?.persona || ""} onChange={(e) => setIn("scripts", "persona", e.target.value)} placeholder="Enter persona and style" />
         </Field>
         {TELECALL_KINDS.filter((k) => k.id !== "manual").map((k) => (
-          <Field key={k.id} label={`${k.label} call script`} hint={SCRIPT_HINT[k.id]}>
+          <Field key={k.id} label={`${k.label} Call Script`} hint={SCRIPT_HINT[k.id]}>
             <Textarea rows={4} value={t.scripts?.[k.id] || ""} onChange={(e) => setIn("scripts", k.id, e.target.value)} />
           </Field>
         ))}
@@ -153,12 +153,12 @@ export default function AgentTab({ isAdmin, onPractice }) {
 
       <Section title="Pitch notes" hint="Current offers, seasonal pushes, products to lead with, things to never say. The agent reads this before every call.">
         <Field className="sm:col-span-2">
-          <Textarea rows={5} value={t.pitchNotes} onChange={(e) => set("pitchNotes", e.target.value)} placeholder="e.g. Diwali gifting bookings open - push gift hampers (bottle + diary + pen). 10% off on 500+ lanyards this month. Never promise delivery under 4 days." />
+          <Textarea rows={5} value={t.pitchNotes} onChange={(e) => set("pitchNotes", e.target.value)} placeholder="Enter pitch notes" />
         </Field>
-        <Field label="Your upcoming occasions" hint="Sneha already knows the Indian festival calendar, IST time and regional festivals by city. Add your own dates here, one per line: YYYY-MM-DD Name - what to pitch (e.g. 2026-10-15 Delhi Corporate Gifting Expo - invite buyers to the stall, offer exhibition pricing)." className="sm:col-span-2">
-          <Textarea rows={3} value={t.occasions || ""} onChange={(e) => set("occasions", e.target.value)} placeholder="2026-10-15 Delhi Corporate Gifting Expo - invite buyers to our stall, exhibition-only rates" />
+        <Field label="Your Upcoming Occasions" hint="Sneha already knows the Indian festival calendar, IST time and regional festivals by city. Add your own dates here, one per line: YYYY-MM-DD Name - what to pitch (e.g. 2026-10-15 Delhi Corporate Gifting Expo - invite buyers to the stall, offer exhibition pricing)." className="sm:col-span-2">
+          <Textarea rows={3} value={t.occasions || ""} onChange={(e) => set("occasions", e.target.value)} placeholder="Enter upcoming occasions" />
         </Field>
-        <Field label="Do not call" hint="One number per line. Anyone who asks not to be called is added here automatically." className="sm:col-span-2">
+        <Field label="Do Not Call" hint="One number per line. Anyone who asks not to be called is added here automatically." className="sm:col-span-2">
           <Textarea rows={3} value={(t.doNotCall || []).join("\n")} onChange={(e) => set("doNotCall", e.target.value.split(/\n/).map((s) => s.trim()).filter(Boolean))} />
         </Field>
       </Section>

@@ -27,7 +27,7 @@ export const hasSupabase = Boolean(url && anonKey)
 if (!hasSupabase && __DEV__) {
   // Loud in development, silent in a release build — a missing .env is a setup
   // mistake, not a runtime condition worth crashing a salesperson's phone over.
-  console.warn("[ortex] SUPABASE_URL / SUPABASE_ANON_KEY are missing — copy .env.example to .env")
+  console.warn("[ortex] SUPABASE_URL / SUPABASE_ANON_KEY are missing. Copy .env.example to .env")
 }
 
 export const supabase: SupabaseClient = createClient(url || "http://localhost", anonKey || "anon", {

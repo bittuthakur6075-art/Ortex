@@ -43,7 +43,7 @@ function RadioGroup<T extends string>({ options, value, onChange }: Props<T>) {
                 <Text style={[styles.description, { color: t.textTertiary }]}>{option.description}</Text>
               )}
             </View>
-            {active && <Icon name="tick" size={20} color={t.primary} variant="Bold" />}
+            {active && <Icon name="tick" size={20} color={t.primary} variant="Bulk" />}
           </Pressable>
         )
       })}

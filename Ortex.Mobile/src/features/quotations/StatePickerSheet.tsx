@@ -58,7 +58,7 @@ export default function StatePickerSheet({
             <Text style={[styles.name, { color: t.text, fontFamily: active ? font.semibold : font.regular }]}>
               {o.name}
             </Text>
-            {active && <Icon name="tick" size={20} color={t.primary} variant="Bold" />}
+            {active && <Icon name="tick" size={20} color={t.primary} variant="Bulk" />}
           </Pressable>
         )
       })}

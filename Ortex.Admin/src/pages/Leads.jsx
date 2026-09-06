@@ -442,10 +442,10 @@ function LeadDrawer({ lead, onClose }) {
 
         {/* Value + follow-up */}
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Estimated value (₹)" hint={`Weighted ${formatCurrency(weightedLeadValue(form))}`}>
+          <Field label="Estimated Value (₹)" hint={`Weighted ${formatCurrency(weightedLeadValue(form))}`}>
             <Input type="number" min="0" value={form.estimatedValue} onChange={(e) => setForm((f) => ({ ...f, estimatedValue: Number(e.target.value) }))} onBlur={() => !isNew && repo.update("leads", lead.id, { estimatedValue: round2(form.estimatedValue) })} />
           </Field>
-          <Field label="Next follow-up">
+          <Field label="Next Follow-up">
             <Input type="date" value={form.nextFollowUp ? toDateInput(form.nextFollowUp) : ""} onChange={(e) => patch({ nextFollowUp: e.target.value ? new Date(e.target.value).toISOString() : null })} />
           </Field>
         </div>
@@ -461,9 +461,9 @@ function LeadDrawer({ lead, onClose }) {
             </Select>
           </Field>
           <Field label="Owner">
-            <Input value={form.owner} onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value }))} onBlur={() => !isNew && repo.update("leads", lead.id, { owner: form.owner })} placeholder="Salesperson" />
+            <Input value={form.owner} onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value }))} onBlur={() => !isNew && repo.update("leads", lead.id, { owner: form.owner })} placeholder="Enter owner" />
           </Field>
-          <Field label="Product interest">
+          <Field label="Product Interest">
             <Select value={form.productInterest} onChange={(e) => patch({ productInterest: e.target.value })}>
               <option value="">-</option>
               {PRODUCT_CATEGORIES.map((c) => (
@@ -473,8 +473,8 @@ function LeadDrawer({ lead, onClose }) {
               ))}
             </Select>
           </Field>
-          <Field label="Est. quantity">
-            <Input value={form.quantityEstimate} onChange={(e) => setForm((f) => ({ ...f, quantityEstimate: e.target.value }))} onBlur={() => !isNew && repo.update("leads", lead.id, { quantityEstimate: form.quantityEstimate })} placeholder="e.g. 500 pcs" />
+          <Field label="Est. Quantity">
+            <Input value={form.quantityEstimate} onChange={(e) => setForm((f) => ({ ...f, quantityEstimate: e.target.value }))} onBlur={() => !isNew && repo.update("leads", lead.id, { quantityEstimate: form.quantityEstimate })} placeholder="Enter estimated quantity" />
           </Field>
         </div>
 
@@ -507,7 +507,7 @@ function LeadDrawer({ lead, onClose }) {
                     </option>
                   ))}
                 </Select>
-                <Input value={act.summary} onChange={(e) => setAct((a) => ({ ...a, summary: e.target.value }))} placeholder="What happened / next step…" />
+                <Input value={act.summary} onChange={(e) => setAct((a) => ({ ...a, summary: e.target.value }))} placeholder="Enter summary" />
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">Next follow-up:</span>
@@ -536,7 +536,7 @@ function LeadDrawer({ lead, onClose }) {
         )}
 
         <Field label="Notes">
-          <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} onBlur={() => !isNew && repo.update("leads", lead.id, { notes: form.notes })} placeholder="Private notes…" />
+          <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} onBlur={() => !isNew && repo.update("leads", lead.id, { notes: form.notes })} placeholder="Enter notes" />
         </Field>
       </div>
     </Drawer>

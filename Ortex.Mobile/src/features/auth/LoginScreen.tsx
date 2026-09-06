@@ -1,6 +1,8 @@
 import React from "react"
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Pressable, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+
+import { emailProblem } from "@/features/contacts/validateContact"
 
 import { sendEmailOtp, verifyEmailOtp, verifyPassword } from "@/lib/auth"
 import { feedback } from "@/lib/feedback"
@@ -9,6 +11,7 @@ import { gutter, radius, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
 import AuroraBackground from "@/ui/AuroraBackground"
 import { Button, Icon, TextField } from "@/ui"
+import KeyboardAwareScrollView from "@/ui/KeyboardAwareScrollView"
 import { OrtexWordmark } from "@/ui/OrtexLogo"
 
 /**
@@ -38,6 +41,8 @@ import { OrtexWordmark } from "@/ui/OrtexLogo"
  * "we could not sign you in", never an offer to register.
  */
 
+/** Supabase emails a six-digit OTP. */
+const OTP_LENGTH = 6
 const LOCKUP_HEIGHT = 34
 
 type Step = "password" | "code"
@@ -50,11 +55,24 @@ export default function LoginScreen() {
   const [password, setPassword] = React.useState("")
   const [code, setCode] = React.useState("")
   const [error, setError] = React.useState("")
+  // Per-field messages. The shared `error` line stays for what the SERVER says
+  // ("wrong password"), which belongs to the attempt rather than to one input.
+  const [fieldErrors, setFieldErrors] = React.useState<{ email?: string; password?: string; code?: string }>(
+    {},
+  )
   const [busy, setBusy] = React.useState(false)
 
   const submitPassword = async () => {
-    if (!email.trim() || !password) {
-      setError("Enter your email and password")
+    // Checked here rather than left to the server: a malformed address costs a
+    // round trip and comes back as "invalid login credentials", which reads as
+    // "wrong password" and sends people hunting for the wrong mistake.
+    const found: { email?: string; password?: string } = {}
+    if (!email.trim()) found.email = "Enter your email address"
+    else found.email = emailProblem(email) ?? undefined
+    if (!password) found.password = "Enter your password"
+    setFieldErrors(found)
+    if (found.email || found.password) {
+      feedback.error()
       return
     }
     setBusy(true)
@@ -78,8 +96,13 @@ export default function LoginScreen() {
   }
 
   const submitCode = async () => {
-    if (!code.trim()) {
-      setError("Enter the code from your email")
+    // The emailed OTP is exactly six digits, and the field is digits-only, so a
+    // short code is a typo the phone can catch without asking the server.
+    const digits = code.replace(/[^0-9]/g, "")
+    const problem = !digits ? "Enter the code from your email" : digits.length !== OTP_LENGTH ? `The code is ${OTP_LENGTH} digits` : undefined
+    setFieldErrors({ code: problem })
+    if (problem) {
+      feedback.error()
       return
     }
     setBusy(true)
@@ -109,12 +132,14 @@ export default function LoginScreen() {
   return (
     <View style={[styles.root, { backgroundColor: c.background }]}>
       <AuroraBackground />
-      <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+      {/* The password and OTP fields sit at the bottom of the sheet, exactly where
+          the keyboard lands. This replaces a `KeyboardAvoidingView` that was a
+          no-op on Android, and whose iOS behaviour would have pushed the wordmark
+          off the top rather than moving the field. */}
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
           {/* THE WASH REGION — the lockup centred in whatever the sheet leaves. */}
           <View
             style={[
@@ -162,10 +187,15 @@ export default function LoginScreen() {
             <View style={styles.form}>
               {onCode ? (
                 <TextField
-                  label="One-time code"
+                  label="One-Time Code"
                   value={code}
-                  onChangeText={setCode}
-                  placeholder="6-digit code"
+                  onChangeText={(v) => {
+                    setCode(v.replace(/[^0-9]/g, ""))
+                    setFieldErrors((e) => ({ ...e, code: undefined }))
+                  }}
+                  error={fieldErrors.code}
+                  maxLength={OTP_LENGTH}
+                  placeholder="Enter the 6-digit code"
                   keyboardType="number-pad"
                   autoComplete="one-time-code"
                   editable={!busy}
@@ -177,8 +207,12 @@ export default function LoginScreen() {
                   <TextField
                     label="Email"
                     value={email}
-                    onChangeText={setEmail}
-                    placeholder="you@ortexindustries.in"
+                    onChangeText={(v) => {
+                      setEmail(v)
+                      setFieldErrors((e) => ({ ...e, email: undefined }))
+                    }}
+                    error={fieldErrors.email}
+                    placeholder="Enter email address"
                     autoCapitalize="none"
                     autoComplete="email"
                     keyboardType="email-address"
@@ -188,8 +222,12 @@ export default function LoginScreen() {
                   <TextField
                     label="Password"
                     value={password}
-                    onChangeText={setPassword}
-                    placeholder="Your password"
+                    onChangeText={(v) => {
+                      setPassword(v)
+                      setFieldErrors((e) => ({ ...e, password: undefined }))
+                    }}
+                    error={fieldErrors.password}
+                    placeholder="Enter password"
                     secureTextEntry
                     autoCapitalize="none"
                     editable={!busy}
@@ -231,8 +269,7 @@ export default function LoginScreen() {
               )}
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </View>
   )
 }

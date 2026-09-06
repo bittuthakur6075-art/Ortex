@@ -24,7 +24,7 @@ export default function CustomerFields({ value, onChange, customers }) {
   return (
     <div className="space-y-4">
       {customers && customers.length > 0 && (
-        <Field label="Pick an existing customer" hint="Or fill the details below for a new one">
+        <Field label="Pick an Existing Customer" hint="Or fill the details below for a new one">
           <Select value="" onChange={(e) => pick(e.target.value)}>
             <option value="">Select a customer…</option>
             {[...customers]
@@ -40,26 +40,26 @@ export default function CustomerFields({ value, onChange, customers }) {
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Customer name" required>
-          <Input value={value.name} onChange={(e) => set("name", e.target.value)} placeholder="Contact person" />
+        <Field label="Customer Name" required>
+          <Input value={value.name} onChange={(e) => set("name", e.target.value)} placeholder="Enter customer name" />
         </Field>
         <Field label="Company">
-          <Input value={value.company} onChange={(e) => set("company", e.target.value)} placeholder="Company name" />
+          <Input value={value.company} onChange={(e) => set("company", e.target.value)} placeholder="Enter company name" />
         </Field>
         <Field label="Email">
-          <Input value={value.email} onChange={(e) => set("email", e.target.value)} placeholder="name@company.com" />
+          <Input value={value.email} onChange={(e) => set("email", e.target.value)} placeholder="Enter email address" />
         </Field>
         <Field label="Phone">
-          <Input value={value.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+91-XXXXXXXXXX" />
+          <Input value={value.phone} onChange={(e) => set("phone", e.target.value)} placeholder="Enter phone number" />
         </Field>
         <Field label="GSTIN" hint="Buyer's GST number (for input credit)">
-          <Input value={value.gstin} onChange={(e) => set("gstin", e.target.value)} placeholder="27AACCT5678D1Z9" />
+          <Input value={value.gstin} onChange={(e) => set("gstin", e.target.value)} placeholder="Enter GSTIN" />
         </Field>
-        <Field label="State code" hint="Decides CGST/SGST vs IGST">
-          <Input value={value.stateCode} onChange={(e) => set("stateCode", e.target.value)} placeholder="07" />
+        <Field label="State Code" hint="Decides CGST/SGST vs IGST">
+          <Input value={value.stateCode} onChange={(e) => set("stateCode", e.target.value)} placeholder="Enter state code" />
         </Field>
-        <Field label="Billing address" className="sm:col-span-2">
-          <Input value={value.address} onChange={(e) => set("address", e.target.value)} placeholder="Street, city, state" />
+        <Field label="Billing Address" className="sm:col-span-2">
+          <Input value={value.address} onChange={(e) => set("address", e.target.value)} placeholder="Enter billing address" />
         </Field>
       </div>
     </div>

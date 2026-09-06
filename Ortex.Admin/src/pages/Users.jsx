@@ -71,7 +71,7 @@ export default function Users() {
                 {sortedUsers.map((p) => (
                   <tr key={p.id} className="cursor-pointer transition-colors" onClick={() => setEditing(p)}>
                     <td className="px-4 py-3 font-medium text-foreground">
-                      {p.name || "—"} {p.id === selfId && <span className="text-xs text-muted-foreground">(you)</span>}
+                      {p.name || "-"} {p.id === selfId && <span className="text-xs text-muted-foreground">(you)</span>}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{p.email}</td>
                     <td className="px-4 py-3">
@@ -175,7 +175,7 @@ function UserEditor({ user, selfId, onClose, onSaved }) {
         } else {
           // The account exists; only the mail failed. Say so plainly, because
           // the admin is now the only route those credentials have.
-          toast.warning(`User ${email} created, but the email failed — share the password manually.`, {
+          toast.warning(`User ${email} created, but the email failed. Share the password manually.`, {
             description: res.emailError || undefined,
             duration: 12000,
           })
@@ -205,10 +205,10 @@ function UserEditor({ user, selfId, onClose, onSaved }) {
         {!isEdit && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Email" required>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="person@ortexindustries.in" />
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter email address" />
             </Field>
             <Field
-              label="Temporary password"
+              label="Temporary Password"
               required
               hint={notify ? "Emailed to them; they change it in Settings" : "Share securely; they can change it in Settings"}
             >
@@ -231,14 +231,14 @@ function UserEditor({ user, selfId, onClose, onSaved }) {
               <span className="font-medium text-foreground">Email them their sign-in details</span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 Sends the console link, their email and this password. A password sent by email stays
-                in that inbox, so the message tells them to change it — and they can sign in with a
+                in that inbox, so the message tells them to change it, and they can sign in with a
                 one-time code instead.
               </span>
             </span>
           </label>
         )}
-        <Field label="Full name">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Priya Sharma" />
+        <Field label="Full Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter full name" />
         </Field>
         <Field label="Role">
           <Select value={role} onChange={(e) => setRole(e.target.value)} disabled={isSelf}>
@@ -310,7 +310,7 @@ function UserEditor({ user, selfId, onClose, onSaved }) {
             />
             Account active {isSelf
               ? <span className="text-xs text-muted-foreground">(can't disable yourself)</span>
-              : <span className="text-xs text-muted-foreground">— unticking hides every module; use the row menu to block sign-in too</span>}
+              : <span className="text-xs text-muted-foreground">(unticking hides every module; use the row menu to block sign-in too)</span>}
           </label>
         )}
       </div>

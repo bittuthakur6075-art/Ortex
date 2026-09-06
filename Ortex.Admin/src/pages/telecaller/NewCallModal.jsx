@@ -47,18 +47,18 @@ export default function NewCallModal({ open, onClose, onDialed }) {
       }
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Name" required><Input value={f.contactName} onChange={(e) => set("contactName", e.target.value)} placeholder="Sanjay" /></Field>
-        <Field label="Mobile" required><Input value={f.phone} onChange={(e) => set("phone", e.target.value)} placeholder="98765 43210" /></Field>
+        <Field label="Name" required><Input value={f.contactName} onChange={(e) => set("contactName", e.target.value)} placeholder="Enter name" /></Field>
+        <Field label="Mobile" required><Input value={f.phone} onChange={(e) => set("phone", e.target.value)} placeholder="Enter mobile number" /></Field>
         <Field label="Company"><Input value={f.company} onChange={(e) => set("company", e.target.value)} /></Field>
-        <Field label="Type of call">
+        <Field label="Type of Call">
           <Select value={f.kind} onChange={(e) => set("kind", e.target.value)}>
             {TELECALL_KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
           </Select>
         </Field>
-        <Field label="Objective / what the agent should know" className="sm:col-span-2">
-          <Textarea rows={3} value={f.objective} onChange={(e) => set("objective", e.target.value)} placeholder="Met at the Pragati Maidan expo, wants 500 lanyards for a college fest in October. Close on a mockup." />
+        <Field label="Objective / What the Agent Should Know" className="sm:col-span-2">
+          <Textarea rows={3} value={f.objective} onChange={(e) => set("objective", e.target.value)} placeholder="Enter objective" />
         </Field>
-        <Field label="Schedule (optional)" hint="Leave empty to call right away." className="sm:col-span-2">
+        <Field label="Schedule (Optional)" hint="Leave empty to call right away." className="sm:col-span-2">
           <Input type="datetime-local" value={f.when} min={toLocalInput(new Date().toISOString())} onChange={(e) => set("when", e.target.value)} />
         </Field>
       </div>

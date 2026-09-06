@@ -4,6 +4,7 @@ import { FileText, Plus, Eye, FileCheck2, Trash2, AlertTriangle, Send, CalendarC
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
+import { useProfile } from "../hooks/useProfile"
 import { createQuotation, updateQuotation, convertQuotationToInvoice, markEnquiryQuoted, markLeadQuoted, isInterState } from "../data/domain/domain"
 import { notifyMessage, notifyQuotationSent } from "../services/notify"
 import { QUOTATION_STATUS, LOST_REASONS, newCustomer, newLine } from "../data/domain/schema"
@@ -305,6 +306,11 @@ export default function Quotations() {
 
 function QuotationEditor({ draft, products, customers, settings, onClose, onPreview, onSend }) {
   const isEdit = !!draft.id
+  // Deleting a quotation is admin-only IN THE DATABASE as of migration 0022
+  // (`admin_quotations_delete`). Without this check a Sales Executive still sees
+  // the button and gets an RLS error for pressing it, which reads as a bug
+  // rather than as a permission.
+  const isAdmin = useProfile()?.role === "admin"
   const [form, setForm] = useState(draft)
   const [showLost, setShowLost] = useState(false)
   const [moreOpen, setMoreOpen] = useState(Boolean(draft.shipTo || draft.notes))
@@ -445,17 +451,17 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
           {/* 2. When / how - one compact row (Xero header row) */}
           <Section title="Details">
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <Field label="Issue date">
+              <Field label="Issue Date">
                 <Input type="date" value={toDateInput(form.issueDate)} onChange={(e) => set({ issueDate: new Date(e.target.value).toISOString() })} />
               </Field>
-              <Field label="Validity (days)">
+              <Field label="Validity (Days)">
                 <Input type="number" min="1" value={form.validityDays} onChange={(e) => set({ validityDays: Number(e.target.value) })} />
               </Field>
-              <Field label="Valid until" hint="From issue date + validity">
+              <Field label="Valid Until" hint="From issue date + validity">
                 <Input readOnly value={liveDoc.validUntil ? formatDate(liveDoc.validUntil) : ""} />
               </Field>
-              <Field label="Payment terms">
-                <Input value={form.paymentTerms} onChange={(e) => set({ paymentTerms: e.target.value })} placeholder="70% advance, 30% before dispatch" />
+              <Field label="Payment Terms">
+                <Input value={form.paymentTerms} onChange={(e) => set({ paymentTerms: e.target.value })} placeholder="Enter payment terms" />
               </Field>
             </div>
             {isEdit && (
@@ -504,7 +510,7 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
               <div className="space-y-5 border-t border-border px-5 py-5">
                 <ShipToFields value={form.shipTo} onChange={(shipTo) => set({ shipTo })} customers={customers} />
                 <Field label="Notes" hint="Printed under the totals">
-                  <Textarea value={form.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Internal or customer-facing note" className="min-h-[80px]" />
+                  <Textarea value={form.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Enter notes" className="min-h-[80px]" />
                 </Field>
               </div>
             )}
@@ -518,7 +524,7 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
 
       <EditorFooter
         left={
-          isEdit && (
+          isEdit && isAdmin && (
             <Button variant="dangerGhost" size="sm" onClick={remove}>
               <Trash2 className="h-4 w-4" /> Delete
             </Button>

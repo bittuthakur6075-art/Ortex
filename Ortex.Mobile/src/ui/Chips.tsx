@@ -14,10 +14,12 @@ type ChipProps = {
   onPress?: () => void
   onRemove?: () => void
   small?: boolean
+  /** The 24px filter-rail pill. Fixed height, so the rail cannot grow with the label. */
+  dense?: boolean
 }
 
 /** Pill used for filters and tags. */
-export function Chip({ label, icon, tint, active, onPress, onRemove, small }: ChipProps) {
+export function Chip({ label, icon, tint, active, onPress, onRemove, small, dense }: ChipProps) {
   const t = useTheme()
   const isDark = useIsDark()
   const color = tint ?? t.primary
@@ -25,7 +27,14 @@ export function Chip({ label, icon, tint, active, onPress, onRemove, small }: Ch
   const border = active ? color : "transparent"
 
   const content = (
-    <View style={[styles.chip, small && styles.chipSmall, { backgroundColor: bg, borderColor: border }]}>
+    <View
+      style={[
+        styles.chip,
+        small && styles.chipSmall,
+        dense && styles.chipDense,
+        { backgroundColor: bg, borderColor: border },
+      ]}
+    >
       {icon && (
         <View style={styles.chipIcon}>
           <Icon
@@ -94,6 +103,7 @@ export function ChipGroup<T extends string>({ options, value, onChange }: ChipGr
           key={o.key}
           label={o.label}
           tint={o.tint}
+          dense
           active={o.key === value}
           onPress={() => onChange(o.key)}
         />
@@ -116,6 +126,12 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     marginRight: 8,
     marginBottom: spacing.sm,
+  },
+  chipDense: {
+    height: 30,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
+    marginRight: 4,
   },
   chipSmall: {
     paddingHorizontal: 8,

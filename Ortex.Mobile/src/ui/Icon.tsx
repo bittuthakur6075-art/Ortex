@@ -18,10 +18,13 @@ import Clock from "iconsax-react-native/dist/esm/Clock"
 import CloseCircle from "iconsax-react-native/dist/esm/CloseCircle"
 import Copy from "iconsax-react-native/dist/esm/Copy"
 import Danger from "iconsax-react-native/dist/esm/Danger"
+import DirectInbox from "iconsax-react-native/dist/esm/DirectInbox"
 import DiscountShape from "iconsax-react-native/dist/esm/DiscountShape"
 import DocumentText from "iconsax-react-native/dist/esm/DocumentText"
 import Edit2 from "iconsax-react-native/dist/esm/Edit2"
 import Export from "iconsax-react-native/dist/esm/Export"
+import Eye from "iconsax-react-native/dist/esm/Eye"
+import EyeSlash from "iconsax-react-native/dist/esm/EyeSlash"
 import Filter from "iconsax-react-native/dist/esm/Filter"
 import FingerScan from "iconsax-react-native/dist/esm/FingerScan"
 import Gallery from "iconsax-react-native/dist/esm/Gallery"
@@ -30,6 +33,7 @@ import Location from "iconsax-react-native/dist/esm/Location"
 import Lock from "iconsax-react-native/dist/esm/Lock"
 import Logout from "iconsax-react-native/dist/esm/Logout"
 import Microphone2 from "iconsax-react-native/dist/esm/Microphone2"
+import Minus from "iconsax-react-native/dist/esm/Minus"
 import Money from "iconsax-react-native/dist/esm/Money"
 import Moon from "iconsax-react-native/dist/esm/Moon"
 import More from "iconsax-react-native/dist/esm/More"
@@ -69,6 +73,7 @@ const GLYPHS = {
   sort: Sort,
   close: CloseCircle,
   add: Add,
+  minus: Minus,
   addItem: Additem,
   tick: TickCircle,
   edit: Edit2,
@@ -78,6 +83,8 @@ const GLYPHS = {
   copy: Copy,
   share: Export,
   print: Printer,
+  preview: Eye,
+  hidden: EyeSlash,
   send: Send,
   // business objects — one per tab, plus the record types behind them
   quote: DocumentText,
@@ -87,6 +94,8 @@ const GLYPHS = {
   customer: Profile2User,
   company: Buildings2,
   enquiry: Sms,
+  // The Leads tab, which is enquiries AND voice calls: what came IN, not mail.
+  leads: DirectInbox,
   voice: Microphone2,
   gst: Personalcard,
   money: Money,

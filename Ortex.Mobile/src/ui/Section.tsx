@@ -12,13 +12,28 @@ import Icon, { type IconName } from "@/ui/Icon"
  * PORTED FROM C:\code\capnix\Capnix.Mobile.Partner\src\components\base\AppListRow.jsx
  * (`AppSection` + `AppListRow`), measurement for measurement:
  *
- *   · a 12/semibold uppercase title OUTSIDE the plane, with an optional action
- *     (an Edit button) pinned to its right
- *   · one rounded plane holding every row, hairline-bordered at `radius.card`
+ *   · a 12/semibold uppercase title, with an optional action (an Edit button)
+ *     pinned to its right
  *   · dividers INSET from the leading edge with 8 above and 8 below, so two rows
  *     sit 16 apart with the rule centred in the step
  *   · a 16 foot under the last row, so it never rides the closing edge
  *   · each row 44 tall (the touch minimum) with no vertical padding of its own
+ *
+ * A SECTION IS A PANEL, NOT A CARD (2026-09-06). It is full-bleed — no radius, no
+ * border, no shadow — on `surface`, and what separates it from the section above
+ * and below is a literal 2dp band of `colors.border`. That is Capnix's sheet-page
+ * language: "a FLAT PANEL … separated from the panel above and below by the 2px
+ * band" (AppCard). A rounded, hairline-bordered plane floating on a page of the
+ * SAME colour was drawing that boundary twice, and at a glance read as a stack of
+ * lozenges rather than one page of sections.
+ *
+ * The band is drawn by the panel itself rather than by the screen between its
+ * children — a screen that maps over children to insert separators breaks the
+ * moment one of them is conditional, which on these pages they routinely are.
+ *
+ * Consequence for callers: the PAGE must not add horizontal padding of its own.
+ * A panel reaches both edges and pads its own content by `gutter`; a screen that
+ * also pads inherits a double inset and the bands stop short of the screen.
  *
  * `ListItem` stays what it was — the settings row with a bare glyph. This is the
  * denser record row: a round icon well at the brand at 10%, a label/value stack,
@@ -43,38 +58,33 @@ export function Section({ title, action, children, style, bodyStyle }: SectionPr
   const items = React.Children.toArray(children).flat(Infinity).filter(Boolean)
 
   return (
-    <View style={style}>
-      {(!!title || !!action) && (
-        <View style={styles.head}>
-          {title ? (
-            <Text style={[textVariants.sectionLabel, { color: t.textTertiary }]}>{title.toUpperCase()}</Text>
-          ) : (
-            <View />
-          )}
-          {action}
-        </View>
-      )}
-
-      <View
-        style={[
-          styles.plane,
-          {
-            backgroundColor: t.surface,
-            borderColor: t.border,
-            borderRadius: radius.card,
-          },
-          bodyStyle,
-        ]}
-      >
-        {items.map((child, index) => (
-          // eslint-disable-next-line react/no-array-index-key -- positional separators
-          <View key={index}>
-            {index > 0 && <View style={[styles.divider, { backgroundColor: t.divider }]} />}
-            {child}
+    <>
+      <View style={[styles.panel, { backgroundColor: t.surface }, style]}>
+        {(!!title || !!action) && (
+          <View style={styles.head}>
+            {title ? (
+              <Text style={[textVariants.sectionLabel, { color: t.textTertiary }]}>
+                {title.toUpperCase()}
+              </Text>
+            ) : (
+              <View />
+            )}
+            {action}
           </View>
-        ))}
+        )}
+
+        <View style={[styles.plane, bodyStyle]}>
+          {items.map((child, index) => (
+            // eslint-disable-next-line react/no-array-index-key -- positional separators
+            <View key={index}>
+              {index > 0 && <View style={[styles.divider, { backgroundColor: t.divider }]} />}
+              {child}
+            </View>
+          ))}
+        </View>
       </View>
-    </View>
+      <View style={[styles.band, { backgroundColor: t.border }]} />
+    </>
   )
 }
 
@@ -145,7 +155,7 @@ export function SectionRow({
           title
         )}
         {!!subtitle && (
-          <Text numberOfLines={2} style={[textVariants.small, { color: t.textSecondary, marginTop: 2 }]}>
+          <Text numberOfLines={1} style={[textVariants.small, { color: t.textSecondary, marginTop: 2 }]}>
             {subtitle}
           </Text>
         )}
@@ -197,12 +207,19 @@ export function FactRow({
   value,
   addLabel,
   onAdd,
+  onEdit,
 }: {
   icon: IconName
   label: string
   value?: string | null
   addLabel?: string
   onAdd?: () => void
+  /**
+   * Makes a row that ALREADY has a value openable too, so "add a phone number"
+   * and "correct the one I typed" are the same row rather than a row and a
+   * pencil somewhere else.
+   */
+  onEdit?: () => void
 }) {
   const t = useTheme()
 
@@ -227,10 +244,12 @@ export function FactRow({
   return (
     <SectionRow
       leadingIcon={icon}
-      chevron={false}
+      chevron={!!onEdit}
+      onPress={onEdit}
+      accessibilityLabel={onEdit ? `Edit ${label.toLowerCase()}` : undefined}
       title={column(
         <Text
-          selectable
+          selectable={!onEdit}
           style={[textVariants.listSubtitle, { color: value ? t.textStrong : t.textTertiary }]}
         >
           {value || "Not on file"}
@@ -241,18 +260,21 @@ export function FactRow({
 }
 
 const styles = StyleSheet.create({
+  panel: {
+    // No radius, no border: the band below is the boundary.
+    overflow: "hidden",
+  },
+  band: { height: 2 },
   head: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 6,
-    // A section title sits 16 below whatever precedes it and 12 above the rows
-    // it names.
+    // The title sits on the panel gutter, in line with the rows it names.
+    paddingHorizontal: gutter,
+    paddingTop: gutter,
     marginBottom: 12,
   },
   plane: {
-    overflow: "hidden",
-    borderWidth: StyleSheet.hairlineWidth,
     paddingBottom: spacing.md,
   },
   divider: {

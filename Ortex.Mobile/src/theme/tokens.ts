@@ -29,8 +29,14 @@ export const spacing = {
 } as const
 
 /**
- * THE PAGE GUTTER. One number, 16dp, and every horizontal inset in the app is
- * this or derived from it.
+ * THE PAGE GUTTER. One number, 20dp, and every horizontal inset in the app is
+ * this or derived from it — page margins, panel padding, row padding, the app
+ * bar's slots.
+ *
+ * It was 16 (Capnix's value) until 2026-09-06, when the design moved to 20 for
+ * every page and every section. Because nothing hardcodes an inset, this single
+ * line is the whole change: a screen that looked right before still lines up,
+ * because its title, its rows and its fields all read from here.
  *
  * It is a named token rather than `spacing.md` even though the two are equal
  * today, because they answer different questions: `md` is a step on the 4dp
@@ -39,7 +45,7 @@ export const spacing = {
  * A screen reaching for `spacing.lg` to inset something horizontally is the bug
  * this replaces.
  */
-export const gutter = 16
+export const gutter = 20
 
 /**
  * Containers are rounded, sheets more so, and interactive pills are fully round.

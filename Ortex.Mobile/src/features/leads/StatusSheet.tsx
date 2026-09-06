@@ -40,7 +40,7 @@ export default function StatusSheet({
             >
               {s.label}
             </Text>
-            {active && <Icon name="tick" size={20} color={t.primary} variant="Bold" />}
+            {active && <Icon name="tick" size={20} color={t.primary} variant="Bulk" />}
           </Pressable>
         )
       })}

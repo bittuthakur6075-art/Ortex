@@ -83,7 +83,11 @@ function ToastBar({ toast, onDismiss }: { toast: ToastOptions; onDismiss: () => 
       style={[
         styles.wrap,
         {
-          bottom: insets.bottom + 78,
+          // 20dp off the bottom edge, above the gesture bar rather than under
+          // it. It used to clear the floating tab capsule (78) as well, which
+          // parked it a third of the way up the screen on the screens that have
+          // no tab bar at all.
+          bottom: insets.bottom + 20,
           opacity: slide,
           transform: [
             {
@@ -99,7 +103,7 @@ function ToastBar({ toast, onDismiss }: { toast: ToastOptions; onDismiss: () => 
       <View style={[styles.bar, { backgroundColor: background }]}>
         {toast.icon && (
           <View style={styles.icon}>
-            <Icon name={toast.icon} size={18} color={palette.white} variant="Bold" />
+            <Icon name={toast.icon} size={18} color={palette.white} variant="Bulk" />
           </View>
         )}
         <Text numberOfLines={2} style={styles.message}>

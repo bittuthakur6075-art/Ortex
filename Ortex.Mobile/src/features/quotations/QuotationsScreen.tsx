@@ -49,25 +49,10 @@ export default function QuotationsScreen({ navigation }: TabScreenProps<"Quotes"
       .sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime())
   }, [items, filter])
 
-  // Open value is what a salesperson is actually managing: everything still live,
-  // excluding the ones already decided.
-  const openValue = React.useMemo(
-    () =>
-      items
-        .filter((q) => q.status === "draft" || q.status === "sent")
-        .reduce((s, q) => s + (q.totals?.grandTotal || 0), 0),
-    [items],
-  )
-
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
       <AppScreen
-        title="Quotes"
-        subtitle={
-          loading
-            ? "Loading…"
-            : `${formatCurrency(openValue, { compact: true })} open · ${items.length} total`
-        }
+        title="Quotations"
         headerLeft={<ProfileAvatarButton />}
         headerRight={
           <IconButton

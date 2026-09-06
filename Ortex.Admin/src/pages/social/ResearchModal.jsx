@@ -78,11 +78,11 @@ export default function ResearchModal({ open, onClose }) {
             <Input
               value={angle}
               onChange={(e) => setAngle(e.target.value)}
-              placeholder="e.g. School procurement season"
+              placeholder="Enter angle"
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); run() } }}
             />
           </Field>
-          <Field label="How many">
+          <Field label="How Many">
             <Select value={count} onChange={(e) => setCount(e.target.value)}>
               {[1, 2, 3, 4, 5, 6].map((n) => (
                 <option key={n} value={n}>{n}</option>

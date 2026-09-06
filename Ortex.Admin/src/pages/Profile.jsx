@@ -51,8 +51,14 @@ function ProfileHeader({ profile }) {
 
 function AccountCard({ profile }) {
   const [name, setName] = useState(profile.name || "")
+  // A colleague's contact number (migration 0021) — the number a teammate rings,
+  // not an auth identity. The field-sales app writes the same column from its
+  // Account details page, so it has to be editable on both sides or one of them
+  // is quietly the only way to set it.
+  const [phone, setPhone] = useState(profile.phone || "")
   const [busy, setBusy] = useState(false)
   useEffect(() => setName(profile.name || ""), [profile.name])
+  useEffect(() => setPhone(profile.phone || ""), [profile.phone])
 
   const email = profile.email || currentEmail() || "-"
   const isAdmin = profile.role === "admin"
@@ -60,7 +66,7 @@ function AccountCard({ profile }) {
   const save = async () => {
     if (!hasSupabase) return toast.error("Editing your name needs the backend enabled")
     setBusy(true)
-    const res = await updateMyProfile(currentUserId(), { name: name.trim() })
+    const res = await updateMyProfile(currentUserId(), { name: name.trim(), phone: phone.trim() })
     setBusy(false)
     if (res.error) return toast.error(res.error)
     refreshProfile() // header + account popover pick up the new name immediately
@@ -71,8 +77,16 @@ function AccountCard({ profile }) {
     <Card className="p-5 sm:p-6">
       <h3 className="mb-4 font-semibold text-foreground">Account details</h3>
 
-      <Field label="Full name">
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
+      <Field label="Full Name">
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter full name" />
+      </Field>
+      <Field label="Phone" className="mt-3">
+        <Input
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="Enter phone number"
+          inputMode="tel"
+        />
       </Field>
       <Field label="Email" className="mt-3">
         <Input value={email} disabled />

@@ -57,12 +57,20 @@ export default function TextField({
   trailingIcon,
   onTrailingPress,
   multiline = false,
+  secureTextEntry = false,
   style,
   fieldStyle,
   ...rest
 }: Props) {
   const c = useTheme()
   const [focused, setFocused] = React.useState(false)
+  // A password field reveals itself. Built in HERE rather than at each call site
+  // so every password in the app gets it and none can forget: the alternative is
+  // four screens each wiring their own eye, drifting in icon, size and hit area.
+  // Revealing is per-mount and never sticky — a field that remembered would show
+  // the password to whoever picks the phone up next.
+  const [revealed, setRevealed] = React.useState(false)
+  const isPassword = secureTextEntry && !multiline
 
   const borderColor = error ? c.danger : focused ? c.fieldBorderFocused : c.border
   // The field lifts from its resting plane to a focused one (rest a half-step
@@ -120,6 +128,7 @@ export default function TextField({
           cursorColor={c.fieldCursor}
           selectionColor={c.fieldCursor}
           multiline={multiline}
+          secureTextEntry={isPassword && !revealed}
           accessibilityLabel={label}
           accessibilityHint={error || hint || undefined}
           accessibilityState={{ disabled }}
@@ -149,6 +158,24 @@ export default function TextField({
         {trailingIcon ? (
           <Pressable hitSlop={8} onPress={onTrailingPress} style={{ marginLeft: spacing.sm }}>
             <Icon name={trailingIcon} size={20} color={c.textTertiary} />
+          </Pressable>
+        ) : isPassword ? (
+          <Pressable
+            hitSlop={10}
+            onPress={() => setRevealed((v) => !v)}
+            accessibilityRole="button"
+            // The label states what the TAP DOES, not what the field is showing —
+            // a screen reader user needs the outcome, not the status.
+            accessibilityLabel={revealed ? "Hide password" : "Show password"}
+            accessibilityState={{ selected: revealed }}
+            style={({ pressed }) => [{ marginLeft: spacing.sm, opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Icon
+              name={revealed ? "hidden" : "preview"}
+              size={20}
+              color={revealed ? c.primary : c.textTertiary}
+              variant={revealed ? "Bulk" : "Linear"}
+            />
           </Pressable>
         ) : null}
       </View>

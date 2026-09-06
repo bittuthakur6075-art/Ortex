@@ -113,7 +113,7 @@ export default function RowActions({ user, selfId, onEdit, onChanged }) {
             <span className="flex items-start gap-2">
               <AlertTriangle variant="Linear" className="mt-0.5 h-4 w-4 flex-none" />
               <span>
-                <b>{user.email}</b> is signed out everywhere and cannot sign in again — by password or by emailed code —
+                <b>{user.email}</b> is signed out everywhere and cannot sign in again, by password or by emailed code,
                 until you reactivate them. Their records stay exactly as they are, and you can turn this back on at any time.
               </span>
             </span>
@@ -137,7 +137,7 @@ function ResetPasswordDialog({ user, onClose, onDone }) {
     if (res.error) return toast.error(res.error)
     if (!notify) toast.success("Password reset. Share it securely.")
     else if (res.emailed) toast.success(`Password reset and emailed to ${user.email}`)
-    else toast.warning("Password reset, but the email failed — share it manually.", { description: res.emailError || undefined, duration: 12000 })
+    else toast.warning("Password reset, but the email failed. Share it manually.", { description: res.emailError || undefined, duration: 12000 })
     onDone()
   }
 
@@ -158,7 +158,7 @@ function ResetPasswordDialog({ user, onClose, onDone }) {
         <Banner tone="warning">
           Their current password stops working immediately, and every session they have open is signed out.
         </Banner>
-        <Field label="New temporary password" required hint="They change it themselves in Settings → Password.">
+        <Field label="New Temporary Password" required hint="They change it themselves in Settings → Password.">
           <div className="flex gap-2">
             <Input value={password} onChange={(e) => setPassword(e.target.value)} />
             <Button type="button" variant="outline" size="sm" onClick={() => setPassword(randomPassword())}>New</Button>
@@ -212,8 +212,7 @@ function DeleteUserDialog({ user, onClose, onDone }) {
           <span className="flex items-start gap-2">
             <AlertTriangle variant="Linear" className="mt-0.5 h-4 w-4 flex-none" />
             <span>
-              This removes the login, the profile, the role and every module permission. It cannot be undone —
-              records they created (leads, quotations, invoices) stay put.
+              This removes the login, the profile, the role and every module permission. It cannot be undone. Records they created (leads, quotations, invoices) stay put.
             </span>
           </span>
         </Banner>

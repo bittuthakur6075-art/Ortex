@@ -237,10 +237,10 @@ function CategoryForm({ open, category, products, usage, onClose }) {
       <div className="space-y-6">
         <Group title="Identity">
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Category name" required error={error} hint="Must match the name on products">
-            <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Acrylic products" autoFocus />
+          <Field label="Category Name" required error={error} hint="Must match the name on products">
+            <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Enter category name" autoFocus />
           </Field>
-          <Field label="URL slug" hint="Auto-filled from name if blank">
+          <Field label="URL Slug" hint="Auto-filled from name if blank">
             <Input value={form.slug} onChange={(e) => set("slug", e.target.value)} placeholder={slugifyCategory(form.name) || "acrylic-products"} />
           </Field>
         </div>
@@ -250,7 +250,7 @@ function CategoryForm({ open, category, products, usage, onClose }) {
         <Group title="Tax defaults" note="Copied onto every new product in this category">
         <div className="grid grid-cols-2 gap-4">
           <Field label="Default HSN">
-            <Input value={form.hsn} onChange={(e) => set("hsn", e.target.value)} placeholder="3926" />
+            <Input value={form.hsn} onChange={(e) => set("hsn", e.target.value)} placeholder="Enter default HSN" />
           </Field>
           <Field label="Default GST">
             <Select value={form.gstRate} onChange={(e) => set("gstRate", e.target.value)}>
@@ -281,37 +281,37 @@ function CategoryForm({ open, category, products, usage, onClose }) {
         >
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Display heading" hint="Shown on site; falls back to name">
+            <Field label="Display Heading" hint="Shown on site; falls back to name">
               <Input value={form.displayName} onChange={(e) => set("displayName", e.target.value)} placeholder={form.name || "Custom Acrylic Products"} />
             </Field>
-            <Field label="Sort order" hint="Lower shows first">
-              <Input type="number" value={form.sortOrder} onChange={(e) => set("sortOrder", e.target.value)} placeholder="0" />
+            <Field label="Sort Order" hint="Lower shows first">
+              <Input type="number" value={form.sortOrder} onChange={(e) => set("sortOrder", e.target.value)} placeholder="Enter sort order" />
             </Field>
           </div>
 
-          <Field label="Intro paragraph" hint="Marketing copy on the category page">
-            <Textarea value={form.intro} onChange={(e) => set("intro", e.target.value)} placeholder="One or two sentences describing this category…" />
+          <Field label="Intro Paragraph" hint="Marketing copy on the category page">
+            <Textarea value={form.intro} onChange={(e) => set("intro", e.target.value)} placeholder="Enter intro paragraph" />
           </Field>
 
-          <ImageField label="Category image" value={form.image} onChange={(url) => set("image", url)} bucket="categories" />
+          <ImageField label="Category Image" value={form.image} onChange={(url) => set("image", url)} bucket="categories" />
 
           <div className="grid grid-cols-1 gap-4">
-            <Field label="SEO title" hint="Browser tab + Google result title">
-              <Input value={form.seoTitle} onChange={(e) => set("seoTitle", e.target.value)} placeholder="Custom Acrylic Products Manufacturer | Ortex Industries" />
+            <Field label="SEO Title" hint="Browser tab + Google result title">
+              <Input value={form.seoTitle} onChange={(e) => set("seoTitle", e.target.value)} placeholder="Enter SEO title" />
             </Field>
             <Field
-              label="SEO description"
-              hint={`Google result snippet — ${(form.seoDescription || "").length}/155 characters`}
+              label="SEO Description"
+              hint={`Google result snippet, ${(form.seoDescription || "").length}/155 characters`}
             >
-              <Textarea value={form.seoDescription} onChange={(e) => set("seoDescription", e.target.value)} placeholder="Short description for search engines…" />
+              <Textarea value={form.seoDescription} onChange={(e) => set("seoDescription", e.target.value)} placeholder="Enter SEO description" />
             </Field>
           </div>
         </div>
         </Group>
 
         <Group title="Internal">
-          <Field label="Notes" hint="Private — never shown on the website">
-            <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Sourcing notes, margins, who to ask…" />
+          <Field label="Notes" hint="Private. Never shown on the website">
+            <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Enter notes" />
           </Field>
         </Group>
       </div>

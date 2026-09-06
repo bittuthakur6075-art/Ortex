@@ -157,7 +157,7 @@ export default function CustomerDetail() {
               <Field label="Company">
                 <Input value={form.company} onChange={(e) => set("company", e.target.value)} onBlur={saveField} />
               </Field>
-              <Field label="Contact name">
+              <Field label="Contact Name">
                 <Input value={form.name} onChange={(e) => set("name", e.target.value)} onBlur={saveField} />
               </Field>
               <Field label="Email">
@@ -167,10 +167,10 @@ export default function CustomerDetail() {
                 <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} onBlur={saveField} />
               </Field>
               <Field label="GSTIN">
-                <Input value={form.gstin} onChange={(e) => set("gstin", e.target.value)} onBlur={saveField} placeholder="07AAACO1234A1Z5" />
+                <Input value={form.gstin} onChange={(e) => set("gstin", e.target.value)} onBlur={saveField} placeholder="Enter GSTIN" />
               </Field>
-              <Field label="State code" hint={stateLabel(form.stateCode) || "Sets IGST vs CGST + SGST"}>
-                <Input value={form.stateCode} onChange={(e) => set("stateCode", e.target.value)} onBlur={saveField} placeholder="07" />
+              <Field label="State Code" hint={stateLabel(form.stateCode) || "Sets IGST vs CGST + SGST"}>
+                <Input value={form.stateCode} onChange={(e) => set("stateCode", e.target.value)} onBlur={saveField} placeholder="Enter state code" />
               </Field>
               <Field label="Address" className="sm:col-span-2">
                 <Input value={form.address} onChange={(e) => set("address", e.target.value)} onBlur={saveField} />

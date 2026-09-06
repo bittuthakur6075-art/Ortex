@@ -13,7 +13,7 @@ export default function TemplateEditorDrawer({ open, onClose, editingTemplate, t
             required
             value={templateForm.name}
             onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
-            placeholder="e.g. template_new_quote"
+            placeholder="Enter template name"
           />
         </Field>
 
@@ -22,7 +22,7 @@ export default function TemplateEditorDrawer({ open, onClose, editingTemplate, t
             required
             value={templateForm.category}
             onChange={(e) => setTemplateForm({ ...templateForm, category: e.target.value })}
-            placeholder="e.g. Quote Request"
+            placeholder="Enter category"
           />
         </Field>
 
@@ -31,7 +31,7 @@ export default function TemplateEditorDrawer({ open, onClose, editingTemplate, t
             required
             value={templateForm.body}
             onChange={(e) => setTemplateForm({ ...templateForm, body: e.target.value })}
-            placeholder="Hi {name}, thank you for your request regarding {product_name}..."
+            placeholder="Enter message body"
           />
         </Field>
 

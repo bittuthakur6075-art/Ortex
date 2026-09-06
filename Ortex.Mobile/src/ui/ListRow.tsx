@@ -35,6 +35,8 @@ export function RowSeparator() {
 
 type Props = {
   title: string
+  /** Lines the title may run to before it truncates. Two by default. */
+  titleLines?: number
   subtitle?: string
   /** The figure — set in the display serif, because it is what they came to read. */
   value?: string
@@ -56,6 +58,7 @@ type Props = {
 
 export default function ListRow({
   title,
+  titleLines = 2,
   subtitle,
   value,
   valueSub,
@@ -80,12 +83,12 @@ export default function ListRow({
         <View style={styles.leadingSlot}>{leading}</View>
       ) : leadingIcon ? (
         <View style={[styles.well, { backgroundColor: wellBg }]}>
-          <Icon name={leadingIcon} size={18} color={wellFg} variant="Bold" />
+          <Icon name={leadingIcon} size={18} color={wellFg} variant="Bulk" />
         </View>
       ) : null}
 
       <View style={styles.body}>
-        <Text numberOfLines={2} style={[textVariants.listTitle, { color: c.text }]}>
+        <Text numberOfLines={titleLines} style={[textVariants.listTitle, { color: c.text }]}>
           {title}
         </Text>
         {subtitle ? (

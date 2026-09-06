@@ -99,7 +99,10 @@ export default function CustomerPickerSheet({
           android_ripple={{ color: t.accentTint }}
           style={styles.row}
         >
-          <Avatar name={c.company || c.name} size="sm" />
+          {/* 44, an explicit diameter rather than a step on the scale: the row
+              now carries a 16/600 name over a 12/500 line, and `sm` (28) sat
+              visibly short of that two-line block. */}
+          <Avatar name={c.company || c.name} size={44} />
           <View style={styles.body}>
             <Text numberOfLines={1} style={[styles.name, { color: t.text }]}>
               {c.company || c.name || "Unnamed"}
@@ -115,7 +118,7 @@ export default function CustomerPickerSheet({
 
       {matches.length === 0 && query.trim().length > 0 && (
         <Text style={[styles.empty, { color: t.textTertiary }]}>
-          Nobody matches “{query.trim()}” — add them as a new customer above.
+          Nobody matches “{query.trim()}”. Add them as a new customer above.
         </Text>
       )}
     </Sheet>
@@ -137,7 +140,9 @@ const styles = StyleSheet.create({
   newLabel: { marginLeft: 12, fontSize: 15.5, fontFamily: font.semibold },
   row: { flexDirection: "row", alignItems: "center", paddingVertical: 10, paddingHorizontal: 4 },
   body: { flex: 1, marginLeft: 12 },
-  name: { fontSize: 15, fontFamily: font.medium },
-  sub: { marginTop: 2, fontSize: 12.5, fontFamily: font.regular },
+  // The name is what the list is scanned by, so it carries the weight; the line
+  // under it is supporting detail and steps down in both size and weight.
+  name: { fontSize: 16, lineHeight: 21, fontFamily: font.semibold },
+  sub: { marginTop: 2, fontSize: 12, lineHeight: 16, fontFamily: font.medium },
   empty: { paddingVertical: 18, textAlign: "center", fontSize: 14, lineHeight: 20, fontFamily: font.regular },
 })

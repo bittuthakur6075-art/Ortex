@@ -152,7 +152,7 @@ export default function ImageField({ value, images, onChange, bucket, label = "I
                       addUrl()
                     }
                   }}
-                  placeholder="https://example.com/image.jpg"
+                  placeholder="Enter image URL"
                   className="h-8 flex-1 px-2.5 py-1 text-xs"
                 />
                 <Button type="button" size="sm" variant="outline" onClick={addUrl} className="h-8" disabled={!urlInput.trim()}>

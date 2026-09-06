@@ -14,6 +14,8 @@ export type Profile = {
   email?: string
   active?: boolean
   avatar_url?: string | null
+  /** Set by the user on their own Account details page (migration 0021). */
+  phone?: string | null
 }
 
 export type ModuleKey = "voice-leads" | "enquiries" | "customers" | "products" | "quotations"

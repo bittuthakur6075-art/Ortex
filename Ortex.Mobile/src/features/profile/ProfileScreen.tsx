@@ -1,28 +1,24 @@
 /**
- * ProfileScreen — who is signed in on this phone.
+ * ProfileScreen — who is signed in on this phone, and the switches that belong
+ * to the phone rather than to the account.
  *
  * PORTED FROM C:\code\capnix\Capnix.Mobile.Partner\src\screens\user\ProfileScreen.jsx,
  * whose layout came out of a Mobbin sweep of fintech profile screens (Kraken,
- * Monzo, Binance, CVS, Cleo). The three moves that survey paid for, kept here:
+ * Monzo, Binance, CVS, Cleo). The moves that survey paid for, kept here:
  *
  *   CENTERED HERO — avatar, then the name ONCE, then one meta caption, then a
  *   single chip, all on the centre line. The old screen said the name and then
  *   the email as a second line of the same size, and parked the role chip in a
  *   left-aligned row that read as a web port.
  *
- *   ICON-LED ROWS — every fact is a `FactRow` with a leading glyph in a round
- *   well (ui/Section.tsx), replacing the bare label/value stack. A missing value
- *   renders as an accent-coloured "Add …" that opens the editor, never as grey
- *   text masquerading as data.
+ *   ICON-LED ROWS — every destination is a `SectionRow` with a leading glyph in
+ *   a round well (ui/Section.tsx), never a bare label/value stack.
  *
- *   ONE OPERATION PER SURFACE — editing is a full bottom sheet rather than an
- *   in-card form swap, so the record stays a stable reading surface and the form
- *   gets the whole height, keyboard avoidance and thumb-reach actions.
- *
- * WHAT IS EDITABLE HERE IS DELIBERATELY NARROW. `name` and the photo are the
- * user's own; role, module access and the account's email are set by an admin in
- * the console and RLS refuses them from this client, so posting them would be
- * silently dropped and read here as a save that worked.
+ * THIS SCREEN IS NOW A HUB. The facts about the account — name, phone, email,
+ * role, module access — moved to AccountDetailsScreen, one tap away, because a
+ * record you read and correct and a set of device switches you flip are two
+ * different jobs and they were sharing one scroll. What stays here is what is
+ * true of THIS HANDSET: the photo, the fingerprint lock, the theme, signing out.
  */
 
 import * as ImagePicker from "expo-image-picker"
@@ -30,7 +26,8 @@ import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { supabase } from "@/data/supabase"
-import { MODULES, canAccess, roleLabel } from "@/domain/modules"
+import { roleLabel } from "@/domain/modules"
+import { APP_CREDIT, APP_VERSION } from "@/constants/app"
 import { biometricAvailable } from "@/features/auth/useAppLock"
 import { MAX_AVATAR_MB, base64Bytes, removeAvatar, uploadAvatar } from "@/lib/avatarUpload"
 import { feedback } from "@/lib/feedback"
@@ -42,35 +39,21 @@ import { textVariants } from "@/theme/typography"
 import {
   AppScreen,
   Avatar,
-  Button,
-  Card,
   Chip,
   Dialog,
-  FactRow,
   RadioGroup,
   Section,
   SectionRow,
   Sheet,
   Switch,
-  TextField,
   useToast,
 } from "@/ui"
-import type { IconName } from "@/ui/Icon"
 
 const THEMES: { key: ThemePref; label: string; description?: string }[] = [
   { key: "system", label: "Match the phone", description: "Follows your device's dark mode setting" },
   { key: "light", label: "Always light" },
   { key: "dark", label: "Always dark" },
 ]
-
-/** One glyph per module, so the access list reads as rows rather than a tag cloud. */
-const MODULE_ICON: Record<string, IconName> = {
-  "voice-leads": "voice",
-  enquiries: "enquiry",
-  customers: "customer",
-  products: "product",
-  quotations: "quote",
-}
 
 export default function ProfileScreen({ navigation }: StackScreenProps<"Profile">) {
   const { theme, pref, setPref } = useThemePref()
@@ -80,9 +63,6 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
 
   const [canBiometric, setCanBiometric] = React.useState(false)
   const [confirmOut, setConfirmOut] = React.useState(false)
-  const [editing, setEditing] = React.useState(false)
-  const [draftName, setDraftName] = React.useState("")
-  const [saving, setSaving] = React.useState(false)
   const [themeOpen, setThemeOpen] = React.useState(false)
   const [photoOpen, setPhotoOpen] = React.useState(false)
   const [confirmRemovePhoto, setConfirmRemovePhoto] = React.useState(false)
@@ -97,32 +77,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
   // no one has filled the name in yet.
   const headName = profile?.name?.trim() || email || "Signed in"
   const photo = profile?.avatar_url ?? undefined
-  const granted = MODULES.filter((m) => canAccess(profile, m.key))
   const themeLabel = THEMES.find((o) => o.key === pref)?.label ?? ""
-
-  const startEdit = () => {
-    setDraftName(profile?.name || "")
-    setEditing(true)
-  }
-
-  const saveName = async () => {
-    const next = draftName.trim()
-    if (!session?.user?.id) return
-    setSaving(true)
-    try {
-      const { error } = await supabase.from("profiles").update({ name: next }).eq("id", session.user.id)
-      if (error) throw error
-      await refreshProfile()
-      feedback.created()
-      setEditing(false)
-      toast.show({ message: "Your details were updated", tone: "success" })
-    } catch (e) {
-      feedback.error()
-      toast.show({ message: (e as Error)?.message || "Could not save your details", tone: "danger" })
-    } finally {
-      setSaving(false)
-    }
-  }
 
   /**
    * Pick a photo and upload it. `allowsEditing` + a 1:1 aspect makes the picker
@@ -133,6 +88,19 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
   const pickPhoto = async () => {
     const userId = session?.user?.id
     if (!userId) return
+    // Asked for explicitly: a denied library makes `launchImageLibraryAsync`
+    // return a plain `canceled`, which is indistinguishable from backing out —
+    // the picker seems to open and nothing happens. Same check as the product
+    // photo picker in features/products/ProductEditorScreen.
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!permission.granted) {
+      feedback.warn()
+      toast.show({
+        message: "Ortex needs access to your photos. Allow it in Settings",
+        tone: "danger",
+      })
+      return
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
@@ -146,7 +114,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
 
     if (base64Bytes(asset.base64) > MAX_AVATAR_MB * 1024 * 1024) {
       feedback.warn()
-      toast.show({ message: `That photo is over ${MAX_AVATAR_MB}MB — pick a smaller one`, tone: "danger" })
+      toast.show({ message: `That photo is over ${MAX_AVATAR_MB}MB. Pick a smaller one`, tone: "danger" })
       return
     }
 
@@ -195,11 +163,8 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
 
   return (
     <>
-      {/* "Account details", not "Profile": the row that opens this screen is
-          already called Profile, and two surfaces one tap apart must not share a
-          name. */}
       <AppScreen
-        title="Account details"
+        title="Profile"
         back
         onBack={() => navigation.goBack()}
         inTabs={false}
@@ -209,7 +174,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
             the camera badge), the name once, one caption, then the standing said
             in words — the chip is what a screen reader gets, since a ring is
             only a summary. */}
-        <Card style={styles.hero}>
+        <View style={[styles.hero, { backgroundColor: t.surface }]}>
           <View style={styles.heroInner}>
             <Pressable
               accessibilityRole="button"
@@ -235,52 +200,52 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
               </View>
             )}
           </View>
-        </Card>
+        </View>
+        <View style={[styles.heroRule, { backgroundColor: t.divider }]} />
 
-        <Section
-          title="Your details"
-          style={styles.section}
-          action={<Button label="Edit" variant="ghost" size="sm" onPress={startEdit} style={styles.edit} />}
-        >
-          <FactRow
-            icon="profile"
-            label="Name"
-            value={profile?.name}
-            addLabel="Add your name"
-            onAdd={startEdit}
+        <Section title="Account">
+          <SectionRow
+            leadingIcon="profile"
+            title="Account details"
+            subtitle="Name, phone, email and access"
+            onPress={() => {
+              feedback.tap()
+              navigation.navigate("AccountDetails")
+            }}
           />
-          <FactRow icon="mail" label="Sign-in email" value={email} />
-          <FactRow icon="gst" label="Role" value={roleLabel(profile?.role)} />
+          {/* Always shown. The gate is `profiles_self_read` (migration 0002) —
+              `id = auth.uid() or is_admin()` — so a Sales Executive opening this
+              gets their own row and nobody else's, which the screen says out
+              loud. Hiding the row on the client's copy of `role` instead meant a
+              profile that loaded a beat late took the door with it. */}
+          <SectionRow
+            leadingIcon="customer"
+            title="Team"
+            subtitle="Who can sign in, and what they reach"
+            onPress={() => {
+              feedback.tap()
+              navigation.navigate("Team")
+            }}
+          />
+          <SectionRow
+            leadingIcon="lock"
+            title="Change password"
+            subtitle="Set a new sign-in password"
+            onPress={() => {
+              feedback.tap()
+              navigation.navigate("ChangePassword")
+            }}
+          />
         </Section>
 
-        {/* Read-only by design: access is granted per user in the console, and a
-            switch here that could not change it would be a lie. */}
-        <Section title="What you can open" style={styles.section}>
-          {granted.map((m) => (
-            <SectionRow key={m.key} leadingIcon={MODULE_ICON[m.key]} title={m.label} chevron={false} />
-          ))}
-          {granted.length === 0 && (
-            <SectionRow
-              leadingIcon="warning"
-              leadingTone="warning"
-              title="No modules yet"
-              subtitle="An admin has not granted this account anything to open."
-              chevron={false}
-            />
-          )}
-        </Section>
-        <Text style={[textVariants.caption, styles.hint, { color: t.textTertiary }]}>
-          Access is set by an admin in the Ortex console, not here.
-        </Text>
-
-        <Section title="Security" style={styles.section}>
+        <Section title="Security">
           <SectionRow
             leadingIcon="fingerprint"
-            title="Unlock with fingerprint"
+            title="Fingerprint unlock"
             subtitle={
               canBiometric
-                ? "Ask for your fingerprint when you come back to the app"
-                : "No fingerprint or face is enrolled on this phone"
+                ? "Asked for when you return to Ortex"
+                : "No fingerprint enrolled on this phone"
             }
             chevron={false}
             trailing={
@@ -294,7 +259,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
           />
         </Section>
 
-        <Section title="Appearance" style={styles.section}>
+        <Section title="Appearance">
           {/* A bottom sheet, not an expanded radio list: three mutually exclusive
               options is exactly the shape the sheet idiom is for. */}
           <SectionRow
@@ -308,7 +273,24 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
           />
         </Section>
 
-        <Section style={styles.section} bodyStyle={styles.signOutBody}>
+        {/* The published terms, carried locally (features/profile/legal.ts) so
+            they open on a warehouse floor with no signal. */}
+        <Section title="Legal">
+          <SectionRow
+            leadingIcon="lock"
+            title="Privacy policy"
+            subtitle="What Ortex stores, and why"
+            onPress={() => navigation.navigate("Legal", { doc: "privacy" })}
+          />
+          <SectionRow
+            leadingIcon="quote"
+            title="Terms of service"
+            subtitle="The rules for using this app"
+            onPress={() => navigation.navigate("Legal", { doc: "terms" })}
+          />
+        </Section>
+
+        <Section style={styles.signOutSection} bodyStyle={styles.signOutBody}>
           <SectionRow
             leadingIcon="logout"
             leadingTone="danger"
@@ -318,34 +300,18 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
             onPress={() => setConfirmOut(true)}
           />
         </Section>
-      </AppScreen>
 
-      {/* The EDIT sheet. Only what this client is actually allowed to write. */}
-      <Sheet visible={editing} onClose={() => !saving && setEditing(false)} title="Edit your details">
-        <View style={styles.sheetBody}>
-          <TextField
-            label="Your name"
-            value={draftName}
-            onChangeText={setDraftName}
-            placeholder="Enter full name"
-            autoCapitalize="words"
-            autoFocus
-          />
-          <Text style={[textVariants.caption, { color: t.textTertiary }]}>
-            Your sign-in email and role are managed by an admin in the console.
+        {/* The foot of the page: which build this is — the first thing asked for
+            when something behaves oddly in the field — and whose app it is. */}
+        <View style={styles.foot}>
+          <Text style={[textVariants.captionStrong, { color: t.textTertiary }]}>
+            Version {APP_VERSION}
           </Text>
-          <View style={styles.sheetActions}>
-            <Button
-              label="Cancel"
-              variant="secondary"
-              onPress={() => setEditing(false)}
-              disabled={saving}
-              style={styles.sheetAction}
-            />
-            <Button label="Save" onPress={saveName} loading={saving} style={styles.sheetAction} />
-          </View>
+          <Text style={[textVariants.caption, styles.footCredit, { color: t.textTertiary }]}>
+            {APP_CREDIT}
+          </Text>
         </View>
-      </Sheet>
+      </AppScreen>
 
       {/* The PHOTO sheet the camera badge opens: the subject leads — the same
           face, the same size, as the hero behind it, so the sheet reads as that
@@ -358,7 +324,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
         <SectionRow
           leadingIcon="image"
           title="Choose from gallery"
-          subtitle="Crop it square, and it uploads straight away"
+          subtitle="Cropped square, uploads straight away"
           onPress={pickPhoto}
         />
         {!!photo && (
@@ -417,23 +383,22 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: gutter },
-  hero: { marginBottom: spacing.xl },
-  heroInner: { alignItems: "center", paddingVertical: spacing.sm },
+  // One white sheet: the hero heads it and every Section follows, each parted
+  // from the next by the 2dp band each panel draws (ui/Section.tsx).
+  content: { paddingTop: 0, paddingBottom: spacing.md },
+  hero: { paddingHorizontal: gutter },
+  heroRule: { height: StyleSheet.hairlineWidth, marginHorizontal: gutter },
+  heroInner: { alignItems: "center", paddingTop: spacing.md, paddingBottom: spacing.xl },
   heroName: { marginTop: spacing.md, textAlign: "center" },
   heroMeta: { marginTop: spacing.xs, textAlign: "center" },
   heroChip: { marginTop: spacing.md, alignItems: "center" },
-  section: { marginBottom: spacing.xl },
   // The final panel: no closing rule under the last row, which would read as a
   // stray separator at the foot of the page.
+  // Sign out is not one more setting: a clear step of air parts it from the
+  // menu above, so it is never the row a thumb lands on by momentum.
+  signOutSection: { marginTop: spacing.xl },
   signOutBody: { paddingBottom: 0 },
-  hint: { marginTop: -spacing.md, marginBottom: spacing.xl, paddingHorizontal: 6 },
-  // `sm` plus the negative margins cancels the button's own height above the
-  // label line and its horizontal padding, so the LABEL — not the invisible
-  // press box — lands on the section's gutter line.
-  edit: { marginVertical: -7, marginRight: -spacing.md },
-  sheetBody: { paddingHorizontal: gutter, paddingTop: spacing.sm, gap: spacing.md },
-  sheetActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
-  sheetAction: { flex: 1 },
+  foot: { alignItems: "center", paddingTop: spacing.xl, paddingHorizontal: gutter, gap: 3 },
+  footCredit: { textAlign: "center" },
   photoHead: { alignItems: "center", paddingTop: spacing.sm, paddingBottom: spacing.lg },
 })

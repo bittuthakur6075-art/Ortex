@@ -13,6 +13,7 @@ import {
 
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { useKeyboardHeight } from "@/hooks/useKeyboard"
 import { useTheme } from "@/store/ThemeContext"
 import { radius, motion, spacing, gutter } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
@@ -33,6 +34,11 @@ type Props = {
 export default function Sheet({ visible, onClose, title, children }: Props) {
   const t = useTheme()
   const insets = useSafeAreaInsets()
+  // A Modal sits outside the activity that `adjustResize` resizes, so a sheet
+  // with fields in it would keep its inputs under the keyboard. Lifting the
+  // whole panel by the keyboard height is what makes them reachable, and the
+  // inner ScrollView then does the rest.
+  const keyboard = useKeyboardHeight()
   const progress = useRef(new Animated.Value(0)).current
   const [mounted, setMounted] = useState(visible)
   // Start at full screen height: a smaller guess makes a tall sheet's first
@@ -82,7 +88,7 @@ export default function Sheet({ visible, onClose, title, children }: Props) {
             styles.sheet,
             {
               backgroundColor: "transparent",
-              paddingBottom: Math.max(insets.bottom, 26),
+              paddingBottom: keyboard > 0 ? keyboard + spacing.md : Math.max(insets.bottom, 26),
               transform: [{ translateY }],
             },
           ]}
@@ -125,7 +131,7 @@ const styles = StyleSheet.create({
     // it has measured itself.
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
-    maxHeight: "88%",
+    maxHeight: "92%",
   },
   grabber: {
     width: 40,
@@ -138,6 +144,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: gutter,
     paddingTop: spacing.md,
     paddingBottom: spacing.xs,
+    // Title Case for every sheet, set here rather than in each call site so the
+    // rule cannot drift. `capitalize` only touches the first letter of each word,
+    // so an acronym a screen passes in ("GSTIN") survives intact.
+    textTransform: "capitalize",
   },
   scroll: {
     flexGrow: 0,

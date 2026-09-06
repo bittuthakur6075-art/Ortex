@@ -123,8 +123,9 @@ export default function GlobalSearchScreen({ navigation }: StackScreenProps<"Sea
         navigation.replace("CustomerDetail", { id: hit.doc.id })
         break
       case "product":
-        // A product has no detail screen of its own — the useful thing to do with
-        // one you just searched for is put it on a quotation.
+        // A searched-for product goes STRAIGHT onto a quotation rather than to its
+        // page (ProductDetail): you came here from the editor's own hunt for a line
+        // item, and a detail page in the middle of that is a step, not a service.
         navigation.replace("QuotationEditor", {
           prefill: {
             lines: [

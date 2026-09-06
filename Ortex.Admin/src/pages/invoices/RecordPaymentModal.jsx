@@ -96,7 +96,7 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
           </Field>
         )}
         {!pinned && (
-          <Field label={isPayout ? "Paid to (vendor / party)" : "Received from"} required={!linked}>
+          <Field label={isPayout ? "Paid To (Vendor / Party)" : "Received From"} required={!linked}>
             <Input
               value={party}
               onChange={(e) => setParty(e.target.value)}
@@ -128,12 +128,12 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
             ))}
           </Select>
         </Field>
-        <Field label="Reference / txn ID">
-          <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="UPI ref, cheque no.…" />
+        <Field label="Reference / Txn ID">
+          <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Enter reference or transaction ID" />
         </Field>
         {!pinned && (
           <Field label="Note">
-            <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="What is this for?" />
+            <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Enter note" />
           </Field>
         )}
         {due !== null && Number(amount) > due && (

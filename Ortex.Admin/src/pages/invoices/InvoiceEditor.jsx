@@ -183,14 +183,14 @@ export default function InvoiceEditor({ draft, products, customers, payments, se
 
           <Section title="Details">
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <Field label="Issue date">
+              <Field label="Issue Date">
                 <Input type="date" value={toDateInput(form.issueDate)} onChange={(e) => set({ issueDate: new Date(e.target.value).toISOString() })} />
               </Field>
-              <Field label="Due date">
+              <Field label="Due Date">
                 <Input type="date" value={toDateInput(form.dueDate)} onChange={(e) => set({ dueDate: new Date(e.target.value).toISOString() })} />
               </Field>
-              <Field label="Payment terms" className="col-span-2">
-                <Input value={form.paymentTerms || ""} onChange={(e) => set({ paymentTerms: e.target.value })} placeholder="70% advance, 30% before dispatch" />
+              <Field label="Payment Terms" className="col-span-2">
+                <Input value={form.paymentTerms || ""} onChange={(e) => set({ paymentTerms: e.target.value })} placeholder="Enter payment terms" />
               </Field>
             </div>
             {isEdit && (

@@ -9,16 +9,16 @@ export default function CopyCard({ form, set, locked }) {
       </h3>
       <div className="space-y-4">
         <Field label="Topic" required hint="Internal name for this post">
-          <Input value={form.topic} onChange={(e) => set("topic", e.target.value)} placeholder="e.g. Exam Board Bulk Orders" disabled={locked} />
+          <Input value={form.topic} onChange={(e) => set("topic", e.target.value)} placeholder="Enter topic" disabled={locked} />
         </Field>
         <Field label="Caption" hint={`${form.caption.length} characters - Instagram cuts off around 125 in the feed`}>
-          <Textarea rows={7} value={form.caption} onChange={(e) => set("caption", e.target.value)} placeholder="Write the caption…" disabled={locked} />
+          <Textarea rows={7} value={form.caption} onChange={(e) => set("caption", e.target.value)} placeholder="Enter caption" disabled={locked} />
         </Field>
         <Field label="Hashtags" hint="Comma separated, without the # sign">
           <Input
             value={(form.hashtags || []).join(", ")}
             onChange={(e) => set("hashtags", e.target.value.split(",").map((h) => h.trim().replace(/^#/, "")).filter(Boolean))}
-            placeholder="corporategifting, lanyards, madeinindia"
+            placeholder="Enter hashtags"
             disabled={locked}
           />
         </Field>
