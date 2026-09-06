@@ -48,6 +48,11 @@ const emptyDraft = (settings) => ({
   lostReason: "",
   enquiryId: null,
   leadId: null,
+  // Stamped from the signed-in profile in the editor, not here: this factory is
+  // pure and does not know who is at the keyboard. See `sellerName` on the
+  // quotation doc, mirrored in Ortex.Mobile/src/domain/schema.ts.
+  sellerName: "",
+  showSeller: true,
 })
 
 // Status as shown in the UI: a "sent" quote whose validity has lapsed reads as
@@ -310,8 +315,13 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
   // (`admin_quotations_delete`). Without this check a Sales Executive still sees
   // the button and gets an RLS error for pressing it, which reads as a bug
   // rather than as a permission.
-  const isAdmin = useProfile()?.role === "admin"
+  const profile = useProfile()
+  const isAdmin = profile?.role === "admin"
   const [form, setForm] = useState(draft)
+  // WHOSE NAME goes on the sheet. A new quotation takes the signed-in user's; an
+  // existing one keeps the name it was raised under, because re-stamping it on
+  // edit would quietly reassign a document that has already been sent.
+  const sellerName = isEdit ? form.sellerName || "" : profile?.name?.trim() || ""
   const [showLost, setShowLost] = useState(false)
   const [moreOpen, setMoreOpen] = useState(Boolean(draft.shipTo || draft.notes))
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
@@ -336,7 +346,7 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
       toast.success("Quotation updated")
       onClose()
     } else {
-      const created = await createQuotation(form)
+      const created = await createQuotation({ ...form, sellerName })
       if (form.enquiryId) await markEnquiryQuoted(form.enquiryId)
       if (form.leadId) await markLeadQuoted(form.leadId, created.id)
       toast.success(`Quotation ${created.number} created`)
@@ -464,6 +474,19 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
                 <Input value={form.paymentTerms} onChange={(e) => set({ paymentTerms: e.target.value })} placeholder="Enter payment terms" />
               </Field>
             </div>
+            {/* WHO QUOTED IT, on the sheet the customer keeps. `sellerName` is
+                stamped from the signed-in profile when the quotation is created
+                and never re-stamped on edit, so it names the person who raised
+                it rather than whoever last opened it. */}
+            <label className="mt-4 flex items-center gap-2 border-t border-border pt-4 text-sm text-foreground">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border accent-primary"
+                checked={form.showSeller !== false}
+                onChange={(e) => set({ showSeller: e.target.checked })}
+              />
+              {sellerName ? `Show "Quoted by ${sellerName}" on the PDF` : "Show the seller's name on the PDF"}
+            </label>
             {isEdit && (
               <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-border pt-4">
                 <span className="mr-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground">Mark as</span>

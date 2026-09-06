@@ -173,7 +173,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
     }
 
     void run()
-  }, [seeded, settingsLoading, settings, editingId, prefill])
+  }, [seeded, settingsLoading, settings, editingId, prefill, profile?.name])
 
   // Only a new, unsaved quotation is worth persisting locally.
   usePersistedDraft(draft, seeded && !editingId)
@@ -985,6 +985,8 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
 
+  checkRow: { paddingHorizontal: gutter, paddingBottom: spacing.md },
+  checkHint: { paddingHorizontal: gutter, paddingBottom: spacing.md },
   foldHead: {
     flexDirection: "row",
     alignItems: "center",

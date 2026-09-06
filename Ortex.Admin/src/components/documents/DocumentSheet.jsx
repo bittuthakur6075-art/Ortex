@@ -32,9 +32,12 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
     const total = formatCurrency(t.grandTotal || 0)
     if (cancelled) return `${total} cancelled`
     if (!isInvoice) {
+      // NO DATE HERE. The meta block above already prints Date of issue and
+      // Valid until as their own labelled rows, and repeating one beside the
+      // amount made the sheet answer the same question twice. What this line
+      // adds that those rows cannot is the STANDING, so that is all it keeps.
       const d = doc.validUntil ? daysUntil(doc.validUntil) : null
-      if (d == null) return `${total} quoted on ${formatDate(doc.issueDate)}`
-      return d < 0 ? `${total} quoted, expired on ${formatDate(doc.validUntil)}` : `${total} quoted, valid until ${formatDate(doc.validUntil)}`
+      return d != null && d < 0 ? `${total} quoted, now expired` : `${total} quoted`
     }
     if (paid) return `${total} paid on ${formatDate(doc.paidAt || doc.issueDate)}`
     if (doc.amountPaid > 0) return `${formatCurrency(balance)} due, ${formatCurrency(doc.amountPaid)} received`
@@ -76,6 +79,17 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
         <span className="v">{psState ? stateLabel(psState) : "-"}</span>
         <span className="k">GST registration</span>
         <span className="v">{c.gstin || "-"}</span>
+        {/* WHO QUOTED IT, as a labelled row with the rest of the facts rather
+            than a sentence in the footer: it is the same kind of thing as the
+            place of supply, and a reader looking for "who do I ring" scans this
+            block, not the small print under the totals. MIRRORED in the phone's
+            Ortex.Mobile/src/documents/quotationHtml.ts. */}
+        {!isInvoice && doc.showSeller && doc.sellerName && (
+          <>
+            <span className="k">Seller Name</span>
+            <span className="v">{doc.sellerName}</span>
+          </>
+        )}
         {doc.paymentTerms && (
           <>
             <span className="k">Payment terms</span>

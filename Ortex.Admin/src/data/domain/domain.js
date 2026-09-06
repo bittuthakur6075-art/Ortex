@@ -67,6 +67,13 @@ export async function createQuotation(draft) {
     enquiryId: draft.enquiryId || null,
     leadId: draft.leadId || null,
     lostReason: "",
+    // WHO QUOTED IT, captured at creation rather than resolved when the PDF is
+    // built: the document is printed later, often by someone else opening the
+    // record, so "the signed-in user" would name the wrong person on a sheet
+    // that has already been sent. `showSeller` is the rep's choice to print it.
+    // MIRRORED in Ortex.Mobile/src/domain/quotations.ts — edit both sides.
+    sellerName: draft.sellerName || "",
+    showSeller: draft.showSeller !== false,
   })
 }
 

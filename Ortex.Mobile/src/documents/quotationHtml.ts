@@ -86,6 +86,11 @@ export function quotationHtml(doc: Quotation, settings: Settings): string {
     { k: "Place of supply", v: psState ? stateLabel(psState) : "-" },
     { k: "GST registration", v: c.gstin || "-" },
   ]
+  // WHO QUOTED IT, as a labelled row with the rest of the facts rather than a
+  // sentence in the footer: it is a fact about the document, the same kind of
+  // thing as the place of supply, and a reader looking for "who do I ring" scans
+  // this block, not the small print under the totals.
+  if (doc.showSeller && doc.sellerName) meta.push({ k: "Seller Name", v: doc.sellerName })
   if (doc.paymentTerms) meta.push({ k: "Payment terms", v: doc.paymentTerms })
 
   const supplierAddress = (c.address || "")
@@ -297,16 +302,7 @@ export function quotationHtml(doc: Quotation, settings: Settings): string {
     </div>
 
     <div class="doc-foot">
-      <span>
-        This is a computer-generated quotation and does not require a signature.${
-          // WHO QUOTED IT, when the rep asked for it. It sits with the
-          // no-signature line rather than under the totals because it says the
-          // same kind of thing: who stands behind this sheet. `sellerName` is
-          // captured at creation, so it names the person who actually quoted,
-          // not whoever happened to open the record to print it.
-          doc.showSeller && doc.sellerName ? ` Quoted by ${esc(doc.sellerName)}.` : ""
-        }
-      </span>
+      <span>This is a computer-generated quotation and does not require a signature.</span>
       <span>Page 1 of 1</span>
     </div>
   </div>
