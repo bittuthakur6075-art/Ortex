@@ -9,7 +9,18 @@ apply plugin: "com.facebook.react"
 react {
     /* Folders */
     //   The root of your project, i.e. where "package.json" lives. Default is '../..'
-    // root = file("../../")
+    //
+    // STATED, not left to the default. `BundleHermesCTask` builds its `sources`
+    // input as a file tree over `root`, excluding `**/android/**` and
+    // `**/build/**` — so with the JS project as the root there is no overlap with
+    // anything Gradle generates. Left unset, the tree was rooted at
+    // `android/app`, where those two exclusions match nothing, and every task
+    // writing into `android/app/build` became an undeclared input of the bundle
+    // task. Gradle 9 fails the build on that rather than warning:
+    //
+    //   Task ':app:createBundleReleaseJsAndAssets' uses this output of task
+    //   ':app:checkReleaseAarMetadata' without declaring ... a dependency
+    root = file("../../")
     //   The folder where the react-native NPM package is. Default is ../../node_modules/react-native
     // reactNativeDir = file("../../node_modules/react-native")
     //   The folder where the react-native Codegen package is. Default is ../../node_modules/@react-native/codegen
@@ -62,7 +73,7 @@ react {
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
-def enableProguardInReleaseBuilds = false
+def enableProguardInReleaseBuilds = true
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -97,19 +108,73 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        // THE FIELD BUILD's identity. The keystore sits beside this file and is
+        // gitignored (`*.keystore`); its passwords live in the machine's own
+        // ~/.gradle/gradle.properties, never in the repo.
+        //
+        // Guarded, because a checkout without those properties must still be
+        // able to build: with no credentials the release type falls back to the
+        // debug key below, which is exactly what the template did.
+        //
+        // ⚠️ BACK THE KEYSTORE UP. Android identifies an app by its signature, so
+        // a lost key means the sales team must uninstall before they can install
+        // the next build — an update signed with a different key is refused.
+        if (project.hasProperty('ORTEX_STORE_FILE')) {
+            release {
+                storeFile file(ORTEX_STORE_FILE)
+                storePassword ORTEX_STORE_PASSWORD
+                keyAlias ORTEX_KEY_ALIAS
+                keyPassword ORTEX_KEY_PASSWORD
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig project.hasProperty('ORTEX_STORE_FILE') ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
+            // R8 also drops unreferenced resources once it is shrinking code —
+            // the two are a pair, and enabling only the first leaves every
+            // drawable and string of the libraries in the APK.
+            shrinkResources enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
+}
+
+/**
+ * Ordering for the JS bundle task, so Gradle 9's validation lets a RELEASE build
+ * through.
+ *
+ * Expo's `export:embed` bundle command (see the `react {}` block above) runs with
+ * `android/app` as an input directory. Three other tasks WRITE inside that
+ * directory — autolinking's generated New Architecture files, the release
+ * BuildConfig, and CMake's per-ABI configure step — so Gradle 9, which now fails
+ * a build on an undeclared input/output overlap rather than warning, refuses:
+ *
+ *   Task ':app:createBundleReleaseJsAndAssets' uses this output of task
+ *   ':app:generateReleaseBuildConfig' without declaring ... a dependency
+ *
+ * Nothing is actually raced: the bundler only reads JS and assets, and never
+ * looks at generated Java or .so files. But Gradle cannot know that from a
+ * directory-level declaration, so the ordering is stated here — `mustRunAfter`,
+ * which is exactly what the validation message asks for and, unlike `dependsOn`,
+ * adds no work when those tasks are not in the graph.
+ *
+ * Matched by NAME rather than type: the CMake configure tasks are created per
+ * ABI ("configureCMakeRelWithDebInfo[arm64-v8a]") by the Android plugin, so the
+ * set is only known once the variants are configured.
+ */
+tasks.matching { it.name ==~ /create(Debug|Release)BundleJsAndAssets|createBundle(Debug|Release)JsAndAssets/ }.configureEach { bundleTask ->
+    bundleTask.mustRunAfter(
+        tasks.matching { other ->
+            other.name.startsWith("generateAutolinking") ||
+                other.name ==~ /generate(Debug|Release)BuildConfig/ ||
+                other.name.startsWith("configureCMake")
+        },
+    )
 }
 
 dependencies {
