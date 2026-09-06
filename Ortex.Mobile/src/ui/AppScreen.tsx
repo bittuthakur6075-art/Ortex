@@ -11,7 +11,7 @@ import {
 } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { useKeyboardAwareScroll } from "@/hooks/useKeyboardAwareScroll"
+import { KeyboardAwareFocusProvider, useKeyboardAwareScroll } from "@/hooks/useKeyboardAwareScroll"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, size as sizes, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
@@ -141,12 +141,11 @@ export default function AppScreen({
     outputRange: [0, -12],
     extrapolate: "clamp",
   })
-  // The bar's hairline (`divider`, #F4F6F8) is drawn ALWAYS, not only once the
+  // The bar's hairline (`border`, #EBEDF3) is drawn ALWAYS, not only once the
   // compact title has taken over. Every AppScreen puts a white canvas under this
   // bar, and a white bar over a white page has no edge at all: the rule is the
   // only thing saying where the chrome stops. A header over a GREY plane needs no
-  // rule and must not draw one, which is why the two detail screens on
-  // `surfaceInset` (the contact card) leave theirs off.
+  // rule and must not draw one.
   const barRuleOpacity = 1
 
   const appBar = (
@@ -191,7 +190,7 @@ export default function AppScreen({
 
       <Animated.View
         pointerEvents="none"
-        style={[styles.barRule, { opacity: barRuleOpacity, backgroundColor: c.divider }]}
+        style={[styles.barRule, { opacity: barRuleOpacity, backgroundColor: c.border }]}
       />
     </View>
   )
@@ -284,13 +283,18 @@ export default function AppScreen({
           keyboardDismissMode="on-drag"
         >
           {largeTitle}
-          {children}
+          {/* Fields inside report their focus, so moving between them corrects
+              the scroll — the keyboard only announces itself once. */}
+          <KeyboardAwareFocusProvider value={keyboardAware.reportFocus}>{children}</KeyboardAwareFocusProvider>
         </Animated.ScrollView>
       )}
       {overlay}
     </View>
   )
 }
+
+/** The header's bottom rule, in dp. */
+const HEADER_RULE = 2
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -310,11 +314,14 @@ const styles = StyleSheet.create({
   // touch slot around a 24dp glyph, so this is the gap between those slots — the
   // glyphs themselves still read about 22dp apart.
   barRight: { flexDirection: "row", alignItems: "center", gap: 2 },
+  // 2dp, the same band that parts two rows and two panels (ROW_SEPARATOR_HEIGHT,
+  // PanelBand). A hairline here is 0.33dp on a 3x phone: one physical pixel of
+  // #EBEDF3 on white, which is invisible in the hand.
   barRule: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    height: StyleSheet.hairlineWidth,
+    height: HEADER_RULE,
   },
 })

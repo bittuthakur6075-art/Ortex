@@ -15,7 +15,7 @@
 // read every anchor's starting row, and hand back the bytes keyed by that row.
 //
 // Rows here are 0-based and include the header, which is exactly how SheetJS
-// numbers `sheet_to_json` output rows +1 — see rowOffsetForData below.
+// numbers `sheet_to_json` output rows +1. See rowOffsetForData below.
 
 import { unzipSync } from "fflate"
 
@@ -27,7 +27,7 @@ const MIME = {
   webp: "image/webp",
   bmp: "image/bmp",
   tiff: "image/tiff",
-  emf: null, // Office wrappers we cannot render — skipped
+  emf: null, // Office wrappers we cannot render, skipped
   wmf: null,
 }
 
@@ -69,7 +69,7 @@ export function extractSheetImages(buffer, sheetPath = "xl/worksheets/sheet1.xml
   try {
     files = unzipSync(new Uint8Array(buffer))
   } catch {
-    return byRow // not a zip, or a legacy .xls — nothing to pull out
+    return byRow // not a zip, or a legacy .xls, nothing to pull out
   }
   if (!files[sheetPath]) return byRow
 

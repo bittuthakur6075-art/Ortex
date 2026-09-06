@@ -320,7 +320,7 @@ function CategoryForm({ open, category, products, usage, onClose }) {
 }
 
 // One labelled block inside an editor drawer. A hairline and an uppercase
-// caption is enough separation — nesting cards inside a drawer reads as clutter.
+// caption is enough separation, nesting cards inside a drawer reads as clutter.
 function Group({ title, note, action, children }) {
   return (
     <section>

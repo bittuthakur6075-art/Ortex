@@ -1,7 +1,7 @@
 import { Sparkles } from "../../components/ui/Icons"
 import { Button } from "../../components/ui/Ui"
 
-// AI copywriter banner — fills SEO title, marketing description, and category.
+// AI copywriter banner, fills SEO title, marketing description, and category.
 export default function AiCopyPanel({ busy, onGenerate }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">

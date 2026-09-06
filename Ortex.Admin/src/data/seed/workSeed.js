@@ -1,7 +1,7 @@
 // One-time seed for the Work showcase collection. These mirror the curated
 // hand-added photos that previously lived hardcoded on the website's /work page
 // (Ortex.Web/src/constants/home.js). The website still falls back to its static
-// list when this collection is empty, so seeding is optional — it just gives the
+// list when this collection is empty, so seeding is optional. It just gives the
 // admin a starting set to edit.
 
 export const WORK_SEED = [

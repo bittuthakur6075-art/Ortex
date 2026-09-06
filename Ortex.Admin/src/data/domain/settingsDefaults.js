@@ -40,20 +40,20 @@ export const DEFAULT_SETTINGS = {
     // Email a copy of every newly-generated invoice.
     invoiceEmailEnabled: true,
     recipient: "louis.sharma37@gmail.com",
-    // "From" address — the company reply email shown as the sender.
+    // "From" address, the company reply email shown as the sender.
     sender: "noreply@ortexindustries.in",
-    // Optional EmailJS credentials — if all three are set, invoices are sent
+    // Optional EmailJS credentials, if all three are set, invoices are sent
     // silently from the browser; otherwise the user's mail client is opened.
     // (Superseded server-side once the Edge Function email path is live.)
     emailjs: { serviceId: "", templateId: "", publicKey: "" },
   },
   integrations: {
-    // IndiaMART Lead Manager Pull API — paste your CRM key and enable to pull
+    // IndiaMART Lead Manager Pull API, paste your CRM key and enable to pull
     // buyer enquiries into the Enquiries module. lastPull tracks the sync window.
     indiamart: { crmKey: "", enabled: false, lastPull: null, lastResult: "" },
   },
   // AI telecaller (Telecaller module). Mirrored by DEFAULT_TELECALLER in
-  // supabase/functions/_shared/telecaller.ts — keep the two in step.
+  // supabase/functions/_shared/telecaller.ts. Keep the two in step.
   telecaller: {
     enabled: false, // master switch for the automatic sweep (manual "AI call" always works)
     provider: "simulate", // "simulate" (Gemini role-play, no phone) | "vapi" (real outbound calls)

@@ -5,8 +5,8 @@ import { useRef } from "react"
 import html2pdf from "html2pdf.js"
 
 // Printable payment acknowledgement. Auto-titles itself:
-//   • "Receipt Voucher"  — advance received before an invoice exists (GST Rule 50)
-//   • "Payment Receipt"  — money received against an issued invoice
+//   • "Receipt Voucher" , advance received before an invoice exists (GST Rule 50)
+//   • "Payment Receipt" , money received against an issued invoice
 //
 // `allocation` (optional) = { cumulative, balance } lets the receipt show how
 // this payment sits against the invoice total.

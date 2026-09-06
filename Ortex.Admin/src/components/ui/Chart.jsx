@@ -172,7 +172,7 @@ export function ColumnChart({
   )
 }
 
-/** Smooth gradient area — Minimal-style trend chart. `series` is [{ name, data }, …]. */
+/** Smooth gradient area, Minimal-style trend chart. `series` is [{ name, data }, …]. */
 export function AreaChart({ categories, series, colors, height = 240, valueFormatter }) {
   const t = useTheme()
   const fmt = valueFormatter || ((v) => v)

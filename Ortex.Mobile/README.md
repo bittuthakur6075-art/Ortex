@@ -1,10 +1,10 @@
-# Ortex.Mobile — field-sales companion
+# Ortex.Mobile: field-sales companion
 
 A React Native app for the Ortex sales team. It carries the four things that
 matter away from a desk: **quotations**, **enquiries and voice leads**,
 **products**, and a **contact directory whose primary action is Call / WhatsApp**.
 
-It is another client of the **same Supabase project** as `Ortex.Admin` — same
+It is another client of the **same Supabase project** as `Ortex.Admin`, same
 anon key, same session, same `profiles` roles and per-user module permissions,
 same RLS. It needs no migration, no edge function and no schema change of its
 own. Everything it cannot do (invoices, payments, catalogue editing, settings,
@@ -32,7 +32,7 @@ Other scripts: `npm run lint` (oxlint), `npm run typecheck` (tsc), `npm test`
 
 > **iOS is scaffolded but unbuilt.** `ios/` is generated and wired (Info.plist
 > carries the Face ID and `LSApplicationQueriesSchemes` entries), but it has
-> never been compiled — the project is developed on Windows. `npm run ios`
+> never been compiled. The project is developed on Windows. `npm run ios`
 > needs a Mac and a `pod install` first.
 
 ## Layout
@@ -40,18 +40,18 @@ Other scripts: `npm run lint` (oxlint), `npm run typecheck` (tsc), `npm test`
 ```text
 src/
 ├── theme/        theme.ts (palette + light/dark) · typography.ts (Zalando Sans)
-├── ui/           the ported One UI kit — Button, Card, Sheet, TextField, …
+├── ui/           the ported One UI kit, Button, Card, Sheet, TextField, …
 ├── navigation/   RootNavigator · Tabs · OneUiTabBar · types
 ├── store/        ThemeContext (theme only) · AuthContext (session + profile)
 ├── data/         supabase.ts (client) · repo.ts (collections) · cache.ts
-├── domain/       PURE LOGIC PORTED FROM Ortex.Admin — see below
+├── domain/       PURE LOGIC PORTED FROM Ortex.Admin. See below
 ├── hooks/        useCollection · useSettings
 ├── lib/          auth · contact (call/WhatsApp/email) · pdf · feedback (haptics)
-├── documents/    quotationHtml.ts — the printable A4 quotation
+├── documents/    quotationHtml.ts, the printable A4 quotation
 └── features/     auth · quotations · leads · products · contacts · profile
 ```
 
-## `src/domain/` is a mirror of `Ortex.Admin` — keep it in step
+## `src/domain/` is a mirror of `Ortex.Admin`: keep it in step
 
 These files are line-for-line ports. They are the contract with the console: a
 divergence means a phone and a desk disagree about a customer's GST.
@@ -84,7 +84,7 @@ file with an `@/` alias and a Vite-style extensionless-import file.
   covered by `test/format.test.mjs`.
 * **PDFs are not `html2pdf.js`.** The console rasterises the DOM with
   html2canvas; here `documents/quotationHtml.ts` emits the same A4 layout as an
-  HTML string and `expo-print` renders it with the platform's own PDF engine —
+  HTML string and `expo-print` renders it with the platform's own PDF engine:
   real selectable text, and `expo-sharing` puts the file straight into WhatsApp.
 
 ## Data and offline behaviour
@@ -104,7 +104,7 @@ they had the next one. What *is* kept locally is the half-finished draft
 ## Design system
 
 Ported from `C:\Dev\Mobile App` per that project's `src/ui/README.md`. The
-palette in `theme/theme.ts` is unchanged — it is the same Metronic-derived ramp
+palette in `theme/theme.ts` is unchanged. It is the same Metronic-derived ramp
 `Ortex.Admin/src/index.css` uses (`#2567E8` primary, `#071437` heading,
 `#E82646` error). `theme.tones` maps the console's status `tone` names
 (`blue`, `amber`, `emerald`, …) onto it, so an "Accepted" badge is the same
@@ -118,7 +118,7 @@ buttons, 12px fields.
 
 **One departure from the source kit:** its `GlassTabBar` is an iOS-26 Liquid
 Glass design, not One UI, and its Android blur backend is switched on by an Expo
-config plugin — which never runs in a bare project. `navigation/OneUiTabBar.tsx`
+config plugin, which never runs in a bare project. `navigation/OneUiTabBar.tsx`
 replaces it with an opaque One UI bar (hairline rule, Linear→Bold icon swap, the
 same spring lens). `expo-blur` is not installed.
 
@@ -126,10 +126,10 @@ same spring lens). `expo-blur` is not installed.
 
 `app.json` config plugins **do not run** here, so native wiring is by hand:
 
-* `android/app/src/main/AndroidManifest.xml` — `USE_BIOMETRIC`, `VIBRATE`, and an
+* `android/app/src/main/AndroidManifest.xml`: `USE_BIOMETRIC`, `VIBRATE`, and an
   Android 11+ `<queries>` block. Without those queries `Linking` cannot see the
   phone/mail/WhatsApp apps and the Contacts buttons silently do nothing.
-* `ios/OrtexMobile/Info.plist` — `NSFaceIDUsageDescription` and
+* `ios/OrtexMobile/Info.plist`: `NSFaceIDUsageDescription` and
   `LSApplicationQueriesSchemes` for the same reason.
 * `babel.config.js` carries the `@/` → `./src` alias via
   `babel-plugin-module-resolver`. tsconfig `paths` alone is not enough: that is
@@ -140,7 +140,7 @@ same spring lens). `expo-blur` is not installed.
 
 ## Style
 
-Double quotes, no semicolons, 2-space indent, LF — the repo's `.editorconfig`
+Double quotes, no semicolons, 2-space indent, LF, the repo's `.editorconfig`
 covers this folder. `npm run lint` is oxlint. Two rules are switched off in
 `.oxlintrc.json` because they fire only on correct React Native idioms:
 `react/refs` (the `useRef(new Animated.Value(…)).current` pattern the whole kit
@@ -148,5 +148,5 @@ is built on) and `react/set-state-in-effect` (async loads). Leaving them on
 buried ~40 false positives and hid the real warnings.
 
 Unlike the three JS projects, this one keeps the React Native template's own
-`.gitignore` — the root file knows nothing about Gradle, Xcode or CocoaPods
+`.gitignore`, the root file knows nothing about Gradle, Xcode or CocoaPods
 build output.

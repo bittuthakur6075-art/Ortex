@@ -177,7 +177,7 @@ function ResetPasswordDialog({ user, onClose, onDone }) {
 }
 
 // Deletion is irreversible and cascades, so it asks for the email to be typed
-// out — the same guard GitHub and Supabase use, and cheap insurance against a
+// out, the same guard GitHub and Supabase use, and cheap insurance against a
 // mis-click on the wrong row.
 function DeleteUserDialog({ user, onClose, onDone }) {
   const [confirm, setConfirm] = useState("")

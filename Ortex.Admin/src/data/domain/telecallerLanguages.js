@@ -1,7 +1,7 @@
 // Languages the telecaller can speak. `speech` is the Gemini Live / TTS locale
 // hint; languages without a supported locale fall back to hi-IN and rely on
 // the model's own language detection. Mirrored in
-// supabase/functions/_shared/telecaller.ts (LANGUAGES) — keep the ids in step.
+// supabase/functions/_shared/telecaller.ts (LANGUAGES). Keep the ids in step.
 //
 // Quality tiers reflect current Gemini Live behaviour: "strong" languages are
 // safe for customer calls, "basic" ones work but with weaker pronunciation.

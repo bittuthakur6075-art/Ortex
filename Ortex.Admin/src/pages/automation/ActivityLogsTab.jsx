@@ -36,7 +36,7 @@ const renderMetadata = (act, mask = true) => {
 
 // Report only what the tracker actually recorded. This used to fall back to a
 // four-entry IP->city table and, failing that, return "Delhi, India" for *any*
-// unrecognised address — inventing a location for real visitors and presenting
+// unrecognised address, inventing a location for real visitors and presenting
 // the guess as fact. Rows with no geolocation now say so.
 const renderLocation = (act) => {
   if (act.location) return act.location

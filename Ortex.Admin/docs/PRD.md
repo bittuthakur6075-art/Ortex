@@ -1,8 +1,8 @@
-# Ortex Admin Console — Product Requirements (v1)
+# Ortex Admin Console: Product Requirements (v1)
 
 ## 1. Product summary
 
-A back-office operations console for **Ortex Industries** (B2B manufacturer of customized products). It manages the full **quote-to-cash** lifecycle — Enquiries → Products → Quotations → GST Invoices → Payments/Payouts — and surfaces a **growth dashboard** of the metrics that matter (win rate, cash collected, receivables aging, funnel, margin by category).
+A back-office operations console for **Ortex Industries** (B2B manufacturer of customized products). It manages the full **quote-to-cash** lifecycle, Enquiries → Products → Quotations → GST Invoices → Payments/Payouts, and surfaces a **growth dashboard** of the metrics that matter (win rate, cash collected, receivables aging, funnel, margin by category).
 
 It is a **standalone application** (`Ortex.Admin/`), separate from the marketing site, so it can evolve on its own release cadence. All data access goes through one repository interface backed by Supabase (Postgres + RLS), with a browser-local fallback for offline demos.
 
@@ -15,15 +15,15 @@ It is a **standalone application** (`Ortex.Admin/`), separate from the marketing
 - Keep a clean migration path to a backend (Zoho Books / Tally / Razorpay) without a UI rewrite.
 
 **Non-goals (v1)**
-- Real online payment collection / automated vendor payouts (needs a backend + gateway — recorded manually here).
+- Real online payment collection / automated vendor payouts (needs a backend + gateway, recorded manually here).
 - GST e-invoicing IRN/QR generation (only mandatory above ₹5 cr AATO; needs GSP/ASP integration).
 - Multi-user auth, roles, and audit trails (single shared passphrase for now).
 - Production/inventory/BOM management.
 
 ## 3. Personas
-- **Owner / manager** — watches the growth dashboard; cares about cash, win rate, receivables, margin.
-- **Sales executive** — works enquiries, builds quotations, follows up on aging quotes, converts to invoices.
-- **Accounts** — issues invoices, records payments, tracks overdue and payouts.
+- **Owner / manager**: watches the growth dashboard; cares about cash, win rate, receivables, margin.
+- **Sales executive**: works enquiries, builds quotations, follows up on aging quotes, converts to invoices.
+- **Accounts**: issues invoices, records payments, tracks overdue and payouts.
 
 ## 4. Modules
 
@@ -38,27 +38,27 @@ It is a **standalone application** (`Ortex.Admin/`), separate from the marketing
 | **Settings** | Configuration | Company profile (invoice header, GSTIN, bank), tax defaults, document numbering prefixes, quotation terms, password, data (seed/clear), storage overview. |
 
 ## 5. Key business rules
-- **GST split** — intra-state (buyer state == company state) → CGST+SGST (each half rate); inter-state → IGST. Driven by state codes.
+- **GST split**: intra-state (buyer state == company state) → CGST+SGST (each half rate); inter-state → IGST. Driven by state codes.
 - **Discounts** are entered per line and per document by the salesperson; there are no automatic volume tiers.
-- **Document numbering** — `PREFIX-<FY>-<0001>`, sequential per Indian financial year (Apr–Mar), gap-free.
+- **Document numbering**: `PREFIX-<FY>-<0001>`, sequential per Indian financial year (Apr–Mar), gap-free.
 - **Invoice status is derived** from payments + due date (paid/partial/overdue) rather than only stored, so it stays live.
 - **Revenue/margin are GST-exclusive** (taxable value); tax is tracked separately.
 - Money is rounded to 2 dp at every step (`round2`) to avoid float drift; documents round the grand total with a round-off line.
 
 ## 6. Architecture
 - **Standalone Vite + React 19 app**, Tailwind v4, React Router 7, Lucide, Sonner. Brand tokens shared with the marketing site.
-- **Repository pattern** (`data/store/repository.js`) — all I/O is async and behind one interface; `apiStore` (Supabase) when configured, `localStore` (browser) as the offline fallback. See `README.md`.
-- **Domain layer** (`data/domain/domain.js`) — cross-entity operations (numbering, quote→invoice, payment reconciliation, GST).
-- **Analytics** (`lib/analytics.js`) — pure functions computing every dashboard metric.
-- **Reactive hooks** (`hooks/useCollection.js`) — components re-render on any store change (this tab or another).
+- **Repository pattern** (`data/store/repository.js`): all I/O is async and behind one interface; `apiStore` (Supabase) when configured, `localStore` (browser) as the offline fallback. See `README.md`.
+- **Domain layer** (`data/domain/domain.js`): cross-entity operations (numbering, quote→invoice, payment reconciliation, GST).
+- **Analytics** (`lib/analytics.js`): pure functions computing every dashboard metric.
+- **Reactive hooks** (`hooks/useCollection.js`): components re-render on any store change (this tab or another).
 
 ## 7. Data model (collections)
-- `products` — master data.
-- `enquiries` — leads with embedded customer, source, status, notes.
-- `quotations` — customer + line items + totals snapshot + status + validity + lostReason.
-- `invoices` — customer + line items + totals + dueDate + derived status + amountPaid; may link a quotation.
-- `payments` — inflow/payout ledger; inflows link to an invoice.
-- `settings` — singleton company/tax/numbering/quotation config.
+- `products`: master data.
+- `enquiries`: leads with embedded customer, source, status, notes.
+- `quotations`: customer + line items + totals snapshot + status + validity + lostReason.
+- `invoices`: customer + line items + totals + dueDate + derived status + amountPaid; may link a quotation.
+- `payments`: inflow/payout ledger; inflows link to an invoice.
+- `settings`: singleton company/tax/numbering/quotation config.
 
 ## 8. Success metrics (for the tool itself)
 - Time from enquiry to sent quotation ↓.
@@ -67,9 +67,9 @@ It is a **standalone application** (`Ortex.Admin/`), separate from the marketing
 - Quote win rate visible and trending ↑.
 
 ## 9. Roadmap (post-v1)
-1. **Backend** — `apiStore` + Node/DB; multi-user auth + roles.
-2. **Payments** — Razorpay collection links; RazorpayX payouts + reconciliation webhooks.
-3. **E-invoicing** — GST IRP (IRN + QR) via GSP once turnover crosses ₹5 cr.
-4. **Website intake** — push site contact/quote-calculator leads straight into `enquiries` (shared origin or API).
-5. **Sales reps & follow-up SLA** — owner assignment, cadence reminders, rep leaderboards.
-6. **Accounting sync** — export to Zoho Books / Tally.
+1. **Backend**: `apiStore` + Node/DB; multi-user auth + roles.
+2. **Payments**: Razorpay collection links; RazorpayX payouts + reconciliation webhooks.
+3. **E-invoicing**: GST IRP (IRN + QR) via GSP once turnover crosses ₹5 cr.
+4. **Website intake**: push site contact/quote-calculator leads straight into `enquiries` (shared origin or API).
+5. **Sales reps & follow-up SLA**: owner assignment, cadence reminders, rep leaderboards.
+6. **Accounting sync**: export to Zoho Books / Tally.

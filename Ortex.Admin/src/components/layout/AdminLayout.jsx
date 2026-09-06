@@ -66,7 +66,7 @@ const NAV = [
 ]
 
 // Non-production environments (e.g. Staging on Vercel) set VITE_ENV_LABEL so the
-// console shows an unmistakable badge — prevents test actions on the wrong env.
+// console shows an unmistakable badge, prevents test actions on the wrong env.
 const ENV_LABEL = import.meta.env.VITE_ENV_LABEL || ""
 
 function useDarkMode() {
@@ -249,7 +249,7 @@ export default function AdminLayout() {
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
-  // Wait for the session to resolve before deciding — avoids a login flash on refresh.
+  // Wait for the session to resolve before deciding, avoids a login flash on refresh.
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">

@@ -63,7 +63,7 @@
   --radius-2xl: 14px;
   --radius-3xl: 16px;
   --radius-field: 6px;
-  /* Misc 32px controls (pagination, chips, segmented) — NOT the Button kit. */
+  /* Misc 32px controls (pagination, chips, segmented), NOT the Button kit. */
   --radius-btn: 6px;
   /* The Button scale: one radius per size, paired with 30/40/50px heights. */
   --radius-btn-sm: 12px;
@@ -74,7 +74,7 @@
 
 /* Surfaces are flat: no drop shadows anywhere. Cards separate from the page by
      their white fill alone. Floating UI (menus, modals, drawers) keeps only a
-     1px ring so it still has an edge against the content it covers — without
+     1px ring so it still has an edge against the content it covers, without
      that it bleeds into whatever is behind it.
      Every shadow-* utility in the app resolves through these, so setting them
      here is what removes the depth; don't reintroduce shadows per component. */
@@ -104,7 +104,7 @@
   @keyframes ks-fade-in { from { opacity: 0; } to { opacity: 1; } }
 }
 
-/* Light (default) — Metronic 9 Demo 1: zinc neutrals, blue-500 primary,
+/* Light (default), Metronic 9 Demo 1: zinc neutrals, blue-500 primary,
    white canvas, hairline at 94% lightness, system sans. */
 :root {
   --background: 210 22% 96.5%;      /* #F4F6F8 canvas */
@@ -304,7 +304,7 @@
 }
 
 /* Data table: 40px head row in 14px regular on --table-head, 14px cells,
-   row hover. Horizontal rules only — no vertical column dividers and no outer
+   row hover. Horizontal rules only, no vertical column dividers and no outer
    border, so the table reads as rows of content rather than a spreadsheet.
    Apply `mt-head` to <thead> and `mt-body` to <tbody>. */
 .mt-head th {
@@ -331,7 +331,7 @@
 .mt-body tr:hover td { background: hsl(var(--subtle)); }
 
 /* Checkboxes. The native control draws a heavy ~2px grey border that fights
-   the 1px hairlines everywhere else, and no amount of `accent-color` thins it —
+   the 1px hairlines everywhere else, and no amount of `accent-color` thins it,
    so draw our own: 1px rule, brand fill when checked, an inline SVG tick.
    Width/height here are only a default; a Tailwind size class on the element
    still wins on specificity. */

@@ -1,9 +1,9 @@
 // Global auto-refresh ticker.
 //
 // Data hooks re-fetch on three signals in addition to realtime DB events:
-//   • a periodic interval (default 30s) — keeps the panel current even if
+//   • a periodic interval (default 30s), keeps the panel current even if
 //     realtime isn't enabled on a table,
-//   • window focus / tab becoming visible — instant catch-up when you return,
+//   • window focus / tab becoming visible, instant catch-up when you return,
 //   • the browser coming back online.
 // Ticks are skipped while the tab is hidden to avoid needless fetches.
 

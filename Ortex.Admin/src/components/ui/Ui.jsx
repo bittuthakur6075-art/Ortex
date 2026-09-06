@@ -25,7 +25,7 @@ const BTN_VARIANTS = {
 }
 
 // Three sizes, and only three. Height, text size, weight and radius are fixed
-// per size — pass `size`, never override them from a page:
+// per size, pass `size`, never override them from a page:
 //   sm  30px · 12px/500 · r12 · pad 7/14
 //   md  40px · 14px/600 · r16 · pad 10/20   (default)
 //   lg  50px · 16px/600 · r20 · pad 13/26
@@ -239,7 +239,7 @@ export function Money({ value, className, compact = false }) {
 
 // Metronic input: 34px, 6px corner, zinc-200 border, xs shadow, 13px; focus =
 // ring-2 in the muted ring colour.
-// 45px tall, 16px squircle corners — the same shape language as the cards.
+// 45px tall, 16px squircle corners, the same shape language as the cards.
 const CONTROL =
   "w-full h-[45px] rounded-[16px] squircle border border-input bg-field px-3.5 text-[13px] leading-normal text-foreground shadow-sm transition-[border-color,box-shadow] duration-[120ms] placeholder:text-subtle-foreground hover:not-focus:not-disabled:border-border-strong focus:border-ring focus:ring-2 focus:ring-ring/30 focus:outline-none read-only:bg-subtle read-only:text-muted-foreground read-only:shadow-none disabled:cursor-not-allowed disabled:bg-muted disabled:text-subtle-foreground disabled:shadow-none aria-invalid:border-destructive aria-invalid:ring-destructive/20"
 
@@ -252,7 +252,7 @@ export function Textarea({ className, ...props }) {
 }
 
 // Select is a listbox of our own rather than a native <select>, because the
-// browser draws the native popup with OS chrome — a blue highlight bar and
+// browser draws the native popup with OS chrome, a blue highlight bar and
 // square corners that belong to no design system. The API is unchanged: pass
 // <option> children and a value/onChange pair, and onChange receives an event
 // shaped like the native one, so existing call sites need no edits.
@@ -446,7 +446,7 @@ export function Field({ label, hint, error, required, className, children }) {
 // matches the rest of the icon set and can carry a hover colour. It only
 // appears once there is something to clear. Callers already pass value +
 // onChange, so clearing synthesises the same event rather than needing a new
-// prop — `onClear` is there for the odd caller that needs to do more.
+// prop, `onClear` is there for the odd caller that needs to do more.
 export function SearchInput({ className, inputClassName, onClear, ...props }) {
   const hasValue = String(props.value ?? "").length > 0
   const clear = () => {
@@ -498,7 +498,7 @@ export function ToolbarButton({ variant = "outline", className, children, ...pro
 }
 
 // Export control shared by every list page: a square white button carrying the
-// 20px bold download icon, no label. The fill stays white on hover — only the
+// 20px bold download icon, no label. The fill stays white on hover, only the
 // icon changes, muted to primary, the same way a sidebar nav icon behaves. One
 // component so the list toolbars can't drift apart.
 export function ExportButton({ label = "Export CSV", className, ...props }) {

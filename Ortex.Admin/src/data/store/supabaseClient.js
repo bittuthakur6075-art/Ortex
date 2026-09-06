@@ -1,4 +1,4 @@
-// Supabase browser client — created from Vite env vars. Both values are safe
+// Supabase browser client, created from Vite env vars. Both values are safe
 // to expose in the client (the anon key is public; RLS enforces access). Set
 // them in Ortex.Admin/.env (see .env.example). If they're absent we export
 // null so the app can cleanly fall back to localStore.
@@ -17,15 +17,15 @@ export const supabase = hasSupabase
   : null
 
 // supabase-js throws a generic "Edge Function returned a non-2xx status code"
-// and hides the body, so the specific reason our functions return — quota,
-// safety refusal, missing config — never reaches the user. Dig it back out.
+// and hides the body, so the specific reason our functions return, quota,
+// safety refusal, missing config. Never reaches the user. Dig it back out.
 export async function functionErrorMessage(error, fallback = "Something went wrong") {
   if (!error) return fallback
   try {
     const body = await error.context?.json?.()
     if (body?.error) return body.error
   } catch {
-    /* body was not JSON — fall through to the generic message */
+    /* body was not JSON, fall through to the generic message */
   }
   return error.message || fallback
 }

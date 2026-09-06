@@ -1,4 +1,4 @@
-// Domain layer — business operations that span collections. Components call
+// Domain layer, business operations that span collections. Components call
 // these instead of poking the repository directly, so invariants (document
 // numbering, quote→invoice conversion, payment reconciliation, GST split) live
 // in one place.
@@ -119,7 +119,7 @@ export async function convertQuotationToInvoice(quotationId) {
   })
 
   await repo.update("quotations", quotationId, { status: "invoiced", invoiceId: invoice.id })
-  // Email a copy (mailto or EmailJS per settings). `_notify` is transient — the
+  // Email a copy (mailto or EmailJS per settings). `_notify` is transient, the
   // caller reads it to toast; it is not persisted on the invoice.
   const _notify = await notifyInvoiceCreated(invoice, settings)
   return { ...invoice, _notify }
@@ -149,12 +149,12 @@ export async function createInvoice(draft) {
     amountPaid: 0,
     tally: draft.tally || null,
   })
-  // Drafts aren't "generated" yet — only email when issued as sent/final.
+  // Drafts aren't "generated" yet, only email when issued as sent/final.
   const _notify = invoice.status === "draft" || draft.tally ? { skipped: true } : await notifyInvoiceCreated(invoice, settings)
   return { ...invoice, _notify }
 }
 
-// Manually (re)send the invoice email — used by the "Email copy" button.
+// Manually (re)send the invoice email, used by the "Email copy" button.
 export async function emailInvoice(invoiceId) {
   const settings = await repo.getSettings()
   const invoice = await repo.get("invoices", invoiceId)
@@ -199,7 +199,7 @@ export async function upsertCustomer(customer) {
   const all = await repo.list("customers")
   const match = all.find((c) => sameCustomer(customer, c))
   if (match) {
-    // Fill only blanks — never clobber curated master data with a sparse doc.
+    // Fill only blanks. Never clobber curated master data with a sparse doc.
     const patch = {}
     for (const k of ["company", "gstin", "stateCode", "address"]) {
       if (!match[k] && customer[k]) patch[k] = customer[k]

@@ -1,4 +1,4 @@
-// Growth analytics — pure functions over the raw collections. Everything the
+// Growth analytics, pure functions over the raw collections. Everything the
 // dashboard shows is derived here so the math is testable and lives in one
 // place. Revenue/margin figures are GST-exclusive (taxable value); tax is
 // tracked separately, per the growth spec.

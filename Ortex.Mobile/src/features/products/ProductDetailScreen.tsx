@@ -368,7 +368,7 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
             white page the rule is the only thing separating the two. */}
         <Animated.View
           pointerEvents="none"
-          style={[styles.barRule, { backgroundColor: t.divider, opacity: barFill }]}
+          style={[styles.barRule, { backgroundColor: t.border, opacity: barFill }]}
         />
         <GlassButton icon="back" label="Back" onPress={() => navigation.goBack()} filled={barFill} />
         <Animated.Text
@@ -535,6 +535,9 @@ function GlassButton({
   )
 }
 
+/** The header's bottom rule, in dp. */
+const HEADER_RULE = 2
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   centre: { alignItems: "center", justifyContent: "center" },
@@ -552,7 +555,10 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   barTitle: { flex: 1, marginHorizontal: 8 },
-  barRule: { position: "absolute", left: 0, right: 0, bottom: 0, height: StyleSheet.hairlineWidth },
+  // 2dp, the same band that parts two rows and two panels (ROW_SEPARATOR_HEIGHT,
+  // PanelBand). A hairline here is 0.33dp on a 3x phone: one physical pixel of
+  // #EBEDF3 on white, which is invisible in the hand.
+  barRule: { position: "absolute", left: 0, right: 0, bottom: 0, height: HEADER_RULE },
   glass: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   glassFill: { borderRadius: 20 },
 

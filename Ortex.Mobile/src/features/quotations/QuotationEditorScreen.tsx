@@ -258,7 +258,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
       <View
         style={[
           styles.head,
-          { paddingTop: insets.top, height: insets.top + sizes.appBar, borderBottomColor: t.divider },
+          { paddingTop: insets.top, height: insets.top + sizes.appBar, borderBottomColor: t.border },
         ]}
       >
         <IconButton name="back" onPress={leave} accessibilityLabel="Back" />
@@ -844,6 +844,9 @@ function TotalRow({ label, value, strong }: { label: string; value: string; stro
   )
 }
 
+/** The header's bottom rule, in dp. */
+const HEADER_RULE = 2
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   head: {
@@ -851,7 +854,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: spacing.sm,
     paddingRight: gutter,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: HEADER_RULE,
   },
   headTitle: { flex: 1, marginLeft: 6, textTransform: "capitalize" },
   headDate: { textTransform: "uppercase", letterSpacing: 0.3 },

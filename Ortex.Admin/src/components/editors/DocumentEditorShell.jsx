@@ -94,7 +94,7 @@ export function Section({ title, description, action, children, className, bodyC
 // The editor's action bar, pinned to the bottom of the viewport.
 //
 // It used to be `sticky bottom-0`, which only holds while its containing block
-// is on screen — scroll to the end of the record and the bar reached the bottom
+// is on screen, scroll to the end of the record and the bar reached the bottom
 // of the editor <div> and stopped, leaving the layout's own page footer below
 // it. Fixed positioning keeps Delete and Save reachable no matter how long the
 // record is. The left inset matches AdminLayout's sidebar padding, and the

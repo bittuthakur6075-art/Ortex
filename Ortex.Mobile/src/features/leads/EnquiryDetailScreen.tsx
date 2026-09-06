@@ -152,7 +152,7 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
 
   return (
     <View style={[styles.root, { backgroundColor: t.background }]}>
-      <View style={[styles.bar, { backgroundColor: t.surface, borderBottomColor: t.divider, paddingTop: insets.top }]}>
+      <View style={[styles.bar, { backgroundColor: t.surface, borderBottomColor: t.border, paddingTop: insets.top }]}>
         <IconButton name="back" onPress={() => navigation.goBack()} accessibilityLabel="Back" />
         <Animated.Text
           numberOfLines={1}
@@ -401,6 +401,9 @@ function Total({ label, value }: { label: string; value: string }) {
   )
 }
 
+/** The header's bottom rule, in dp. */
+const HEADER_RULE = 2
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   centre: { alignItems: "center", justifyContent: "center" },
@@ -412,7 +415,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 8,
     paddingBottom: 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: HEADER_RULE,
   },
   barTitle: { flex: 1, marginHorizontal: 4 },
 

@@ -19,7 +19,7 @@ import Profile from "./pages/Profile"
 import { useProfile } from "./hooks/useProfile"
 import { canAccess } from "./data/domain/modules"
 
-// Route-level access gate — mirrors the sidebar filtering so a blocked module
+// Route-level access gate, mirrors the sidebar filtering so a blocked module
 // can't be reached by typing its URL. Redirects home while the profile loads
 // or when access is denied.
 function Guard({ moduleKey, children }) {

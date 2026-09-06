@@ -79,7 +79,7 @@ export function computeVelocity({ enquiries = [], quotations = [], invoices = []
 
 // Monthly enquiry cohorts: of the enquiries that arrived in month M, how many
 // were ever quoted, and how many won? Answers "is this month's intake
-// converting better or worse than last month's" — the growth question the
+// converting better or worse than last month's", the growth question the
 // period-scoped dashboard can't, because it mixes intake months.
 export function computeCohorts({ enquiries = [], quotations = [] }, months = 6, now = new Date()) {
   const quotesByEnquiry = {}

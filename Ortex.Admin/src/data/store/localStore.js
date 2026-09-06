@@ -1,7 +1,7 @@
 import { uid } from "../../lib/id"
 import { DEFAULT_SETTINGS, mergeSettings } from "../domain/settingsDefaults"
 
-// LocalStore — the browser-backed implementation of the repository contract.
+// LocalStore, the browser-backed implementation of the repository contract.
 //
 // Every collection is a JSON array under `ortex_admin_<name>`; settings is a
 // singleton object. All methods are async (return Promises) even though

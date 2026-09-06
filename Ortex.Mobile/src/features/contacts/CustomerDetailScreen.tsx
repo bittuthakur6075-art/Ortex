@@ -140,7 +140,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
           styles.bar,
           {
             backgroundColor: t.surface,
-            borderBottomColor: t.divider,
+            borderBottomColor: t.border,
             paddingTop: insets.top,
             height: insets.top + sizes.appBar,
           },
@@ -454,6 +454,9 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
+/** The header's bottom rule, in dp. */
+const HEADER_RULE = 2
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   centre: { alignItems: "center", justifyContent: "center" },
@@ -463,7 +466,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: HEADER_RULE,
   },
   barTitle: { flex: 1, marginHorizontal: 4 },
   // Full bleed: the page is a stack of panels separated by 2dp bands, so only

@@ -1,6 +1,6 @@
 import { phoneKey } from "./growth"
 
-// Messaging impact — correlation, not causation: of the WhatsApp messages we
+// Messaging impact, correlation, not causation: of the WhatsApp messages we
 // actually dispatched, how many recipients went on to a won order afterwards?
 // wa.me gives no delivery receipt, so "dispatched" (sent/delivered/read) is the
 // strongest claim the data supports.

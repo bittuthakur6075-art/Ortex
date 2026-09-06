@@ -1,4 +1,4 @@
-// CSV helpers — export, raw download (templates) and a small RFC-4180 parser
+// CSV helpers, export, raw download (templates) and a small RFC-4180 parser
 // for the bulk-import flow. CSV opens natively in Excel/Sheets, so the
 // "download template → fill in Excel → upload" loop needs no spreadsheet lib.
 

@@ -104,7 +104,7 @@ export default function QuotationPreview({
         <View
           style={[
             styles.head,
-            { paddingTop: insets.top, height: insets.top + sizes.appBar, borderBottomColor: t.divider },
+            { paddingTop: insets.top, height: insets.top + sizes.appBar, borderBottomColor: t.border },
           ]}
         >
           <IconButton name="close" onPress={onClose} accessibilityLabel="Close preview" />
@@ -135,6 +135,9 @@ export default function QuotationPreview({
   )
 }
 
+/** The header's bottom rule, in dp. */
+const HEADER_RULE = 2
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   head: {
@@ -142,7 +145,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 12,
     gap: 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: HEADER_RULE,
   },
   title: { flex: 1, marginHorizontal: 6, fontSize: 17, fontFamily: font.semibold },
   page: { flex: 1 },

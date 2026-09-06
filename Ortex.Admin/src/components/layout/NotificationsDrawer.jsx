@@ -24,7 +24,7 @@ function saveFlags(flags) {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify(flags))
   } catch {
-    /* private mode / quota — flags are a convenience only */
+    /* private mode / quota, flags are a convenience only */
   }
 }
 
@@ -267,7 +267,7 @@ function LineTab({ active, label, count, onClick }) {
 // ---- Bell + drawer ----------------------------------------------------------
 
 // Top-nav notifications: a bell that opens a right-side drawer (Minimal-style
-// inbox) driven by real signals — new enquiries, due/overdue follow-ups,
+// inbox) driven by real signals, new enquiries, due/overdue follow-ups,
 // expiring quotations, overdue invoices and recent payments.
 export function NotificationsDrawer() {
   const { data } = useCollections(["enquiries", "leads", "quotations", "invoices", "payments"])

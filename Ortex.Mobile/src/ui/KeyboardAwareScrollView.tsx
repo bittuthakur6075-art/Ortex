@@ -1,7 +1,7 @@
 import React from "react"
 import { ScrollView, type ScrollViewProps } from "react-native"
 
-import { useKeyboardAwareScroll } from "@/hooks/useKeyboardAwareScroll"
+import { KeyboardAwareFocusProvider, useKeyboardAwareScroll } from "@/hooks/useKeyboardAwareScroll"
 
 /**
  * A ScrollView that lifts the focused field above the keyboard and reserves the
@@ -22,7 +22,7 @@ export default function KeyboardAwareScrollView({
   /** Space kept below the content besides the keyboard — a sticky footer. */
   bottomOffset?: number
 }) {
-  const { ref, keyboard, onLayout, onScrollOffset } = useKeyboardAwareScroll<ScrollView>()
+  const { ref, keyboard, onLayout, onScrollOffset, reportFocus } = useKeyboardAwareScroll<ScrollView>()
 
   return (
     <ScrollView
@@ -43,7 +43,10 @@ export default function KeyboardAwareScrollView({
       }}
       contentContainerStyle={[contentContainerStyle, { paddingBottom: keyboard + bottomOffset }]}
     >
-      {children}
+      {/* Every TextField below reports its focus up here, so moving BETWEEN
+          fields corrects the scroll too — not just the first tap that opened
+          the keyboard. */}
+      <KeyboardAwareFocusProvider value={reportFocus}>{children}</KeyboardAwareFocusProvider>
     </ScrollView>
   )
 }

@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from "../data/domain/settingsDefaults"
 
 // Subscribes a component to a collection and re-fetches whenever ANY store
 // change fires (create/update/remove in this or another tab). Coarse but
-// correct — data volumes here are tiny. Returns { items, loading, reload }.
+// correct, data volumes here are tiny. Returns { items, loading, reload }.
 export function useCollection(name) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)

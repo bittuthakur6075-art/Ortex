@@ -159,7 +159,7 @@ through an agent:
 supabase login
 ```
 
-Then apply the two migrations. **Read them before running them** — `0013` creates
+Then apply the two migrations. **Read them before running them**, `0013` creates
 the `social` table and a public storage bucket, `0014` adds the approval guard:
 
 ```bash

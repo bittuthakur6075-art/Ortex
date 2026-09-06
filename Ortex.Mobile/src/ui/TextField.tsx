@@ -10,6 +10,7 @@ import {
   type ViewStyle,
 } from "react-native"
 
+import { useReportFocus } from "@/hooks/useKeyboardAwareScroll"
 import { useTheme } from "@/store/ThemeContext"
 import { radius, size as sizes, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
@@ -70,6 +71,10 @@ export default function TextField({
   // Revealing is per-mount and never sticky — a field that remembered would show
   // the password to whoever picks the phone up next.
   const [revealed, setRevealed] = React.useState(false)
+  // Null unless an aware scroll view is above this field, which is what makes
+  // the lift work when focus moves WITHIN a form rather than only when the
+  // keyboard first appears.
+  const reportFocus = useReportFocus()
   const isPassword = secureTextEntry && !multiline
 
   const borderColor = error ? c.danger : focused ? c.fieldBorderFocused : c.border
@@ -134,6 +139,7 @@ export default function TextField({
           accessibilityState={{ disabled }}
           onFocus={(e) => {
             setFocused(true)
+            reportFocus?.()
             rest.onFocus?.(e)
           }}
           onBlur={(e) => {

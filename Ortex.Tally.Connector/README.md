@@ -28,15 +28,15 @@ cp config.example.json config.json      # then edit config.json
 ```
 
 Fill `config.json`:
-- `tally.url` — usually `http://localhost:9000`
-- `tally.company` — the **exact** company name as it appears in Tally
-- `supabase.serviceKey` — your project's **service_role** key (Supabase → Settings → API). This runs only on your machine; never commit it (it's gitignored).
-- `ledgers.*` — the **exact names** of your Tally ledgers: `Sales`, `Output CGST/SGST/IGST`, `Round Off`, the `Sundry Debtors` group, a stock group, and the default receipt account (`Cash`/your bank).
+- `tally.url`: usually `http://localhost:9000`
+- `tally.company`: the **exact** company name as it appears in Tally
+- `supabase.serviceKey`: your project's **service_role** key (Supabase → Settings → API). This runs only on your machine; never commit it (it's gitignored).
+- `ledgers.*`: the **exact names** of your Tally ledgers: `Sales`, `Output CGST/SGST/IGST`, `Round Off`, the `Sundry Debtors` group, a stock group, and the default receipt account (`Cash`/your bank).
 
 ## 3. Run
 
 ```bash
-npm run dry-run   # generate XML into ./out/ WITHOUT touching Tally — inspect first
+npm run dry-run   # generate XML into ./out/ WITHOUT touching Tally, inspect first
 npm run once      # one sync pass into Tally
 npm start         # keep running, sync every sync.intervalSeconds (default 5 min)
 ```
@@ -48,7 +48,7 @@ matches your Tally masters before posting for real.
 
 Each sales voucher debits the party (customer) and credits `Sales` + GST
 (+ round-off). The party debit is computed as the exact sum of the credit lines,
-so every voucher balances — Tally rejects unbalanced vouchers. Verify offline
+so every voucher balances, Tally rejects unbalanced vouchers. Verify offline
 with `npm run fixture` (prints sample XML + a balance check).
 
 ## Idempotency & re-sync
@@ -63,7 +63,7 @@ or database.
 - Vouchers are **accounting** invoices (ledger + GST). Inventory allocation
   (stock item movement inside the sales voucher) is a planned enhancement.
 - Ledger/stock masters use `ACTION="Create"`; Tally ignores duplicates by name.
-  A customer/product must exist as a master before its voucher references it —
+  A customer/product must exist as a master before its voucher references it,
   the sync order (masters → vouchers) handles this in one pass.
 - GST voucher structure must be validated against **your** Tally company's tax
   setup; ledger names in `config.json` must match exactly.

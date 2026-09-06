@@ -1,4 +1,4 @@
-// ApiStore — Supabase-backed implementation of the repository contract.
+// ApiStore, Supabase-backed implementation of the repository contract.
 //
 // Same async surface as localStore (see repository.js), so switching the app
 // from browser storage to a real backend is a one-line change in repository.js.
@@ -32,7 +32,7 @@ const isUuid = (v) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f
 // subscriber. Components each call subscribe(); creating one channel per caller
 // re-adds postgres_changes callbacks to the same topic and the SDK throws
 // ("cannot add callbacks after subscribe()"), so we share one channel and keep
-// a listener set — created on the first subscriber, torn down after the last.
+// a listener set, created on the first subscriber, torn down after the last.
 let _channel = null
 const _subscribers = new Set()
 
@@ -62,7 +62,7 @@ export const apiStore = {
   },
 
   // PostgREST caps a single response at the project's max-rows (1000 by
-  // default) and gives no signal that it truncated — a plain .select("*") on a
+  // default) and gives no signal that it truncated, a plain .select("*") on a
   // growing table silently returns "the newest 1000 rows", so anything counted
   // from the result is wrong without saying so. Page explicitly instead.
   // `limit` bounds the walk for tables that grow without bound; omit it and
@@ -146,7 +146,7 @@ export const apiStore = {
     return next
   },
 
-  // Atomic server-side counter — delegates to the next_sequence() SQL function.
+  // Atomic server-side counter, delegates to the next_sequence() SQL function.
   async nextSequence(series) {
     const { data, error } = await supabase.rpc("next_sequence", { p_series: series })
     if (error) throw error
@@ -154,7 +154,7 @@ export const apiStore = {
   },
 
   async clearAll() {
-    // Guarded destructive op — wipes every business table for this project.
+    // Guarded destructive op, wipes every business table for this project.
     const tables = [
       "products", "categories", "social", "customers", "enquiries", "leads", "quotations", "invoices", "payments", "notifications",
       "user_activities", "event_logs", "whatsapp_logs", "ai_messages", "automation_rules", "message_templates",

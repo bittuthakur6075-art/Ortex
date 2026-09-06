@@ -48,7 +48,7 @@ function findProduct(it, products) {
 //
 // GST deliberately prefers the master over the payload: the website copies
 // gstRate from the same products table, so a legitimate submission always
-// matches — but enquiries accept anonymous inserts, and a forged payload
+// matches, but enquiries accept anonymous inserts, and a forged payload
 // setting gstRate 0 would otherwise flow straight into a tax document. The
 // payload value is only a fallback for items with no master match.
 export function rfqToQuotationLines(items = [], products = []) {
@@ -69,7 +69,7 @@ export function rfqToQuotationLines(items = [], products = []) {
 // Lines whose submitted rate differs from the current catalogue price. The
 // website stamps rate = basePrice at submission time, so a mismatch means
 // either the catalogue changed since, or the payload didn't come from our
-// Quote Calculator — both worth an admin's eyes before the rate lands on a
+// Quote Calculator, both worth an admin's eyes before the rate lands on a
 // branded quotation. Items with no master match can't be checked and are
 // reported so they aren't mistaken for verified.
 export function rfqRateMismatches(items = [], products = []) {

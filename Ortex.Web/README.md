@@ -1,4 +1,4 @@
-# Ortex.Web — Marketing Site
+# Ortex.Web: Marketing Site
 
 Public website for Ortex Industries: brand story, product catalogue, industries,
 quote calculator, contact/lead capture and the **Live Orty** voice assistant.

@@ -1,6 +1,6 @@
 # Ortex Admin Console
 
-Back-office operations console for **Ortex Industries** — a standalone app managing the full **quote-to-cash** lifecycle: Enquiries → Products → Quotations → GST Invoices → Payments/Payouts, with a growth dashboard.
+Back-office operations console for **Ortex Industries**, a standalone app managing the full **quote-to-cash** lifecycle: Enquiries → Products → Quotations → GST Invoices → Payments/Payouts, with a growth dashboard.
 
 This is a **separate application** from the marketing site (`Ortex.Web/`). Everything for the admin is inside this `Ortex.Admin/` folder; the Supabase schema and edge functions live in `supabase/`.
 
@@ -18,7 +18,7 @@ Copy `.env.example` to `.env` with your Supabase project URL/anon key (see `docs
 npm run build      # production build to dist/
 npm run preview    # serve the build
 npm run lint       # oxlint (.oxlintrc.json)
-npm test           # vitest — pure analytics/pricing tests
+npm test           # vitest, pure analytics/pricing tests
 npm run check:functions  # deno check on supabase/functions (Deno 2 via npx)
 ```
 
@@ -27,14 +27,14 @@ npm run check:functions  # deno check on supabase/functions (Deno 2 via npx)
 | Area | Path |
 |---|---|
 | App shell, routing, auth gate | `src/App.jsx`, `src/components/layout/AdminLayout.jsx`, `src/pages/Login.jsx` |
-| Modules (pages) | `src/pages/` — Dashboard, Leads, Enquiries, VoiceLeads, Customers, Products, Categories, Quotations, Invoices, Payments, Work, Social, Automation, Growth, Users, Profile, Settings |
+| Modules (pages) | `src/pages/`, Dashboard, Leads, Enquiries, VoiceLeads, Customers, Products, Categories, Quotations, Invoices, Payments, Work, Social, Automation, Growth, Users, Profile, Settings |
 | Components | `src/components/ui/` (`Ui.jsx` kit, `Icons.jsx`, `Chart`), `layout/` (`AdminLayout`, `PageHeader`), `editors/` (`CustomerFields`, `ShipToFields`, `LineItemsEditor`, `ProductImport`, `TallyInvoiceImport`), `documents/` (`DocumentView`, `ReceiptView`) |
-| Data layer | `src/data/store/` — `repository.js` (facade) → `apiStore.js` (Supabase) or `localStore.js` (offline fallback), `supabaseClient.js`, `sync.js`; `src/data/domain/` — `schema.js`, `domain.js`, `settingsDefaults.js`, `modules.js`; `src/data/seed/` — demo data |
-| Services | `src/services/` — `notify.js`, `users.js`, `integrations.js` |
-| Hooks | `src/hooks/` — `useCollection.js` (`useCollection`, `useCollections`, `useSettings`, `useSorting`), `useProfile.js` |
-| Helpers | `src/lib/` — `pricing.js` (GST engine), `analytics.js` (+ tests), `format.js`, `id.js`, `csv.js`, `cn.js`, `auth.js`, `imageUpload.js`, `quoteRfq.js`, `revalidate.js` |
+| Data layer | `src/data/store/`, `repository.js` (facade) → `apiStore.js` (Supabase) or `localStore.js` (offline fallback), `supabaseClient.js`, `sync.js`; `src/data/domain/`, `schema.js`, `domain.js`, `settingsDefaults.js`, `modules.js`; `src/data/seed/`, demo data |
+| Services | `src/services/`, `notify.js`, `users.js`, `integrations.js` |
+| Hooks | `src/hooks/`, `useCollection.js` (`useCollection`, `useCollections`, `useSettings`, `useSorting`), `useProfile.js` |
+| Helpers | `src/lib/`, `pricing.js` (GST engine), `analytics.js` (+ tests), `format.js`, `id.js`, `csv.js`, `cn.js`, `auth.js`, `imageUpload.js`, `quoteRfq.js`, `revalidate.js` |
 | Backend | `supabase/migrations/` (schema + RLS), `supabase/functions/` (Deno edge functions; shared `_shared/http.ts`, `auth.ts`, `gemini.ts`) |
-| Fixtures | `test/fixtures/tally-sales-invoice.xml` — sample TallyPrime export for the invoice import |
+| Fixtures | `test/fixtures/tally-sales-invoice.xml`, sample TallyPrime export for the invoice import |
 | Docs | `docs/PRD.md`, `docs/ENVIRONMENTS.md`, `docs/GROWTH_TRACKING.md`, `docs/LEADS_AND_RECEIPTS.md` |
 
 ## Architecture notes

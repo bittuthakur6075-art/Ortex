@@ -10,9 +10,9 @@ import { cn } from "../../lib/cn"
 // uppercase head, and a right-half totals block whose rows carry a hairline
 // above them (no boxed summary). Props:
 //   lines, onChange(lines)
-//   products         — product master for the picker (autofills a line)
+//   products        , product master for the picker (autofills a line)
 //   extraDiscountPercent, onExtraDiscountChange
-//   interState       — controls the GST split shown in the summary
+//   interState      , controls the GST split shown in the summary
 export default function LineItemsEditor({ lines, onChange, products, extraDiscountPercent = 0, onExtraDiscountChange, interState }) {
   const totals = computeDocument(lines, { interState, extraDiscountPercent })
 

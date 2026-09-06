@@ -1,4 +1,4 @@
-# Ortex Industries — Digital Platform
+# Ortex Industries: Digital Platform
 
 Monorepo for the digital infrastructure of **Ortex Industries** (customised MDF/acrylic
 products, lanyards, badges, corporate gifts, OEM/white-label manufacturing).
@@ -11,8 +11,8 @@ products, lanyards, badges, corporate gifts, OEM/white-label manufacturing).
 | Tally connector | [`Ortex.Tally.Connector/`](Ortex.Tally.Connector/README.md) | Node CLI | Pushes Admin records into TallyPrime through its local XML gateway |
 
 The four apps are **independent npm projects** (no root workspace). The mobile app is a
-second client of the Admin's Supabase project — same anon key, same `profiles` roles and
-RLS — and mirrors the Admin's pure logic under `Ortex.Mobile/src/domain/`, which must be
+second client of the Admin's Supabase project, same anon key, same `profiles` roles and
+RLS, and mirrors the Admin's pure logic under `Ortex.Mobile/src/domain/`, which must be
 kept in step (its `npm test` asserts the two GST engines agree). The connector must run on
 the Windows PC where TallyPrime is open and shares nothing with the Admin except the
 `doc.tally` field written back onto each Supabase record.
@@ -23,10 +23,10 @@ the Windows PC where TallyPrime is open and shares nothing with the Admin except
 # Marketing site
 cd Ortex.Web && npm install && npm run dev
 
-# Admin console (needs Supabase env vars — see Ortex.Admin/.env.example)
+# Admin console (needs Supabase env vars: see Ortex.Admin/.env.example)
 cd Ortex.Admin && npm install && npm run dev
 
-# Mobile app (needs Supabase env vars — see Ortex.Mobile/.env.example)
+# Mobile app (needs Supabase env vars: see Ortex.Mobile/.env.example)
 cd Ortex.Mobile && npm install && cp .env.example .env && npm run android
 
 # Tally connector (Windows + TallyPrime running)
@@ -73,7 +73,7 @@ Ortex/
 │       ├── theme/ ui/         # One UI kit ported from the C:\Dev\Mobile App project
 │       ├── navigation/ store/ # RootNavigator + tabs; theme and auth contexts
 │       ├── data/              # Supabase client, repository, offline read-cache
-│       ├── domain/            # MIRROR of Ortex.Admin pure logic — keep in step
+│       ├── domain/            # MIRROR of Ortex.Admin pure logic. Keep in step
 │       ├── documents/ lib/    # printable A4 quotation; pdf, contact, auth, haptics
 │       └── features/          # quotations, leads, products, contacts, auth, profile
 ├── Ortex.Tally.Connector/     # Node CLI (src/, test/)
@@ -98,9 +98,9 @@ Ortex/
 
 ## Documentation
 
-- `docs/architecture/ARCHITECTURE.md` — system narrative, data flows, design system
-- `docs/pm/PRODUCT_BACKLOG.md`, `docs/pm/GROWTH_ROADMAP.md` — roadmap and status
-- `docs/guides/GETTING_STARTED.md`, `docs/guides/META_SETUP.md` — setup guides
-- `Ortex.Web/docs/DEPLOY_HOSTINGER.md` — static deploy of the marketing site
-- `Ortex.Admin/docs/ENVIRONMENTS.md` — staging vs production Supabase projects
-- `Ortex.Mobile/README.md` — mobile setup, the ported-logic mirror, bare-workflow notes
+- `docs/architecture/ARCHITECTURE.md`: system narrative, data flows, design system
+- `docs/pm/PRODUCT_BACKLOG.md`, `docs/pm/GROWTH_ROADMAP.md`: roadmap and status
+- `docs/guides/GETTING_STARTED.md`, `docs/guides/META_SETUP.md`, setup guides
+- `Ortex.Web/docs/DEPLOY_HOSTINGER.md`: static deploy of the marketing site
+- `Ortex.Admin/docs/ENVIRONMENTS.md`: staging vs production Supabase projects
+- `Ortex.Mobile/README.md`: mobile setup, the ported-logic mirror, bare-workflow notes

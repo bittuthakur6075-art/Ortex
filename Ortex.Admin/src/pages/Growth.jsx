@@ -280,7 +280,7 @@ function RevenueBars({ title, rows }) {
   )
 }
 
-// Product page views vs orders won — merchandising signal.
+// Product page views vs orders won, merchandising signal.
 function ProductPerformance({ rows }) {
   if (!rows || rows.length === 0) {
     return (
@@ -424,7 +424,7 @@ function MessagingImpact({ m }) {
   )
 }
 
-// Searches with no matching product — a product-roadmap signal.
+// Searches with no matching product, a product-roadmap signal.
 function DemandGaps({ rows }) {
   return (
     <SectionCard

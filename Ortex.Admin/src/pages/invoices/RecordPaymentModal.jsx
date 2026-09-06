@@ -7,8 +7,8 @@ import { toDateInput, formatCurrency } from "../../lib/format"
 import { Button, Input, Select, Field, Textarea, Modal } from "../../components/ui/Ui"
 
 // One payment form for both entry points:
-//  - Invoice editor: pass `invoice` (+ `balance`) — the receipt is pinned to it.
-//  - Payments page: pass `invoices` + `payments` — the user picks an open
+//  - Invoice editor: pass `invoice` (+ `balance`). The receipt is pinned to it.
+//  - Payments page: pass `invoices` + `payments`, the user picks an open
 //    invoice (optional) and the receipt reconciles against it; or `type`
 //    "payout" for a vendor payment with no invoice at all.
 export default function RecordPaymentModal({ type = "inflow", invoice, balance, invoices = [], payments = [], onClose, onDone }) {

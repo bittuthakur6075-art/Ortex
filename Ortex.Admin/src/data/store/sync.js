@@ -12,7 +12,7 @@ const isUuid = (v) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f
 // re-running the migration (e.g. after a mid-run failure) must map each old id
 // to the SAME new id so an upsert overwrites the earlier row instead of the old
 // Math.random() approach, which minted fresh ids every run and duplicated all
-// data into the shared database. Not cryptographic — just a stable, well-spread
+// data into the shared database. Not cryptographic, just a stable, well-spread
 // hash formatted as a v4-shaped UUID.
 function deterministicUuid(str) {
   const fnv = (seed) => {

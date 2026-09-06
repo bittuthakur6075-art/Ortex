@@ -8,7 +8,7 @@ import { Button, StatusBadge, Drawer, Money } from "../../components/ui/Ui"
 import { productAnalytics } from "./helpers"
 
 // The product record as a sales brief rather than a form read-only. The master
-// fields (price, HSN, MOQ) are the least interesting thing here — they are one
+// fields (price, HSN, MOQ) are the least interesting thing here. They are one
 // click away in the editor. What a person opening this actually needs is
 // whether the thing sells, at what price it really closes, and who buys it, so
 // that leads the page and the reference fields sit underneath.

@@ -1,4 +1,4 @@
-// Regression tests for the analytics layer — the pure functions behind the
+// Regression tests for the analytics layer, the pure functions behind the
 // Growth Intelligence dashboard and the money math on the main Dashboard.
 //
 // All fixtures use timestamps RELATIVE to now (daysAgo) with the rolling "30d"
@@ -87,7 +87,7 @@ describe("computeGrowthAnalytics", () => {
 })
 
 describe("computeAttribution", () => {
-  // X was tracked (quote request via Google, older than the period — the
+  // X was tracked (quote request via Google, older than the period, the
   // attribution map is lifetime) and invoiced in-period; Y never touched the web.
   const activities = [
     { metadata: { customer: { email: "X@Co.com", phone: "+91-9810000000" } }, timestamp: daysAgo(40), referrer: "https://www.google.com/", activityType: "Quote request" },

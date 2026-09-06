@@ -124,7 +124,7 @@ function WorkForm({ open, work, onClose }) {
   const [form, setForm] = useState(newWork())
   const [error, setError] = useState("")
   const [aiBusy, setAiBusy] = useState(false)
-  // True once the admin picks "Other" — keeps the free-text input visible even
+  // True once the admin picks "Other", keeps the free-text input visible even
   // while it is empty (otherwise an empty value would snap back to the select).
   const [customCategory, setCustomCategory] = useState(false)
 

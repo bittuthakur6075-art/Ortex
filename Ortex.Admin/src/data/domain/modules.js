@@ -7,7 +7,7 @@
 //  - otherwise: granted per-user via their `modules` list
 
 export const MODULES = [
-  { key: "dashboard", path: "/", label: "Dashboard", section: null, always: true },  { key: "voice-leads", path: "/crm?tab=voice", label: "Leads · Voice calls", section: "CRM" },
+  { key: "dashboard", path: "/", label: "Dashboard", section: null, always: true },  { key: "voice-leads", path: "/crm?tab=voice", label: "Leads · Voice calls", section: "CRM" },
   { key: "enquiries", path: "/crm?tab=enquiries", label: "Leads · Enquiries", section: "CRM" },
   { key: "customers", path: "/customers", label: "Customers", section: "CRM" },
   { key: "products", path: "/catalog?tab=products", label: "Catalog · Products", section: "Catalog" },
@@ -30,7 +30,7 @@ export const ASSIGNABLE_MODULES = MODULES.filter((m) => !m.always && !m.adminOnl
 // Default checklist for a newly-created Sales Executive.
 export const SALES_DEFAULT_MODULES = ["voice-leads", "enquiries", "customers", "quotations"]
 
-// Every grantable key — an admin implicitly has all of these.
+// Every grantable key. An admin implicitly has all of these.
 export const ALL_MODULE_KEYS = ASSIGNABLE_MODULES.map((m) => m.key)
 
 // Can this profile reach the given module?

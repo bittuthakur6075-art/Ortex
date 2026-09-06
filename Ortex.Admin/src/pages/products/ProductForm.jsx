@@ -138,7 +138,7 @@ export default function ProductForm({ open, product, categories = [], onClose })
       triggerSiteRebuild()
       onClose()
     } catch (err) {
-      // Most likely a localStorage quota hit from large base64 images — keep the
+      // Most likely a localStorage quota hit from large base64 images. Keep the
       // drawer open so the user can remove images and retry without losing input.
       console.error("Product save failed:", err)
       toast.error(err?.message || "Couldn't save the product. Please try again.")
@@ -227,7 +227,7 @@ export default function ProductForm({ open, product, categories = [], onClose })
           <Input value={form.material} onChange={(e) => set("material", e.target.value)} placeholder="Enter material or spec" />
         </Field>
 
-        {/* 5. Pricing (Base & Cost Price) — console only, never published */}
+        {/* 5. Pricing (Base & Cost Price), console only, never published */}
         <div className="grid grid-cols-2 gap-4">
           <Field label="Base Price (₹)" required error={errors.basePrice}>
             <Input type="number" min="0" step="0.01" value={form.basePrice} onChange={(e) => set("basePrice", e.target.value)} />

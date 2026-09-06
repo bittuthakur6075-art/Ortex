@@ -2,16 +2,16 @@
 //
 // No backend exists, so "send an email" resolves to one of two client-side
 // strategies, chosen from settings:
-//   1. EmailJS  — if serviceId/templateId/publicKey are set, POST to EmailJS'
+//   1. EmailJS , if serviceId/templateId/publicKey are set, POST to EmailJS'
 //      REST endpoint and the mail is sent silently from the browser.
-//   2. mailto   — otherwise open the user's mail client pre-composed with the
+//   2. mailto  , otherwise open the user's mail client pre-composed with the
 //      document details, ready to send.
 //
 // `notifyInvoiceCreated` is called once from the domain layer whenever an
 // invoice is generated; `notifyQuotationSent` backs the explicit "Send" action
 // on a quotation. Every attempt is logged to a lightweight
 // `notifications` collection for an audit trail (Settings shows recent sends).
-// To send server-side later, add an `api` branch here — nothing else changes.
+// To send server-side later, add an `api` branch here. Nothing else changes.
 
 import { repo } from "../data/store/repository"
 import { formatCurrency, formatDate } from "../lib/format"

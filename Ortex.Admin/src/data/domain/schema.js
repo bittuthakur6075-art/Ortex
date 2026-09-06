@@ -1,12 +1,12 @@
 // Entity definitions, status vocabularies and factory helpers.
 //
 // Collections (persisted as separate keys by the store):
-//   products    — product master data
-//   enquiries   — inbound leads (contact + quote-calculator style)
-//   quotations  — customer quotes with line items
-//   invoices    — tax invoices (often converted from a quotation)
-//   payments    — payment + payout ledger entries
-//   settings    — singleton: company profile, tax + numbering config
+//   products   , product master data
+//   enquiries  , inbound leads (contact + quote-calculator style)
+//   quotations , customer quotes with line items
+//   invoices   , tax invoices (often converted from a quotation)
+//   payments   , payment + payout ledger entries
+//   settings   , singleton: company profile, tax + numbering config
 
 export const COLLECTIONS = [
   "products",
@@ -62,7 +62,7 @@ export const INVOICE_STATUS = [
 
 // Social post pipeline: idea → draft → review → approved → published.
 // Nothing reaches Meta without passing through `approved`, which only an admin
-// can set — see the social-publish Edge Function.
+// can set. See the social-publish Edge Function.
 export const SOCIAL_STATUS = [
   { id: "idea", label: "Idea", tone: "slate" },
   { id: "draft", label: "Draft", tone: "blue" },
@@ -165,7 +165,7 @@ export const GST_RATES = [0, 5, 12, 18, 28]
 
 export const LEAD_SOURCES = ["Website contact form", "Quote calculator", "Orty chatbot", "Voice assistant (Anu)", "WhatsApp", "Phone", "Referral", "Trade show", "Email", "Other"]
 
-// Captured on every lost quotation — turns losses into a fixable list.
+// Captured on every lost quotation, turns losses into a fixable list.
 export const LOST_REASONS = [
   "Price too high",
   "Competitor won",

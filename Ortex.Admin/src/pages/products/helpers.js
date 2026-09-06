@@ -65,7 +65,7 @@ export const imFile = () => `indiamart-products-${new Date().toISOString().slice
 
 // What this product has actually done, rather than what it is. The product
 // master only stores list price and cost; everything a buyer or a sales lead
-// wants to know — has it sold, at what price, to whom, is it still moving — has
+// wants to know, has it sold, at what price, to whom, is it still moving, has
 // to be read back out of the documents that referenced it.
 //
 // Cancelled invoices are excluded: they are not revenue. Quotations are counted

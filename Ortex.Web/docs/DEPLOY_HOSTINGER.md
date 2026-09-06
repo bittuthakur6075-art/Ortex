@@ -17,7 +17,7 @@ supabase secrets set GEMINI_API_KEY=your-google-ai-studio-key
 ```
 
 (The AI product copywriter in the Admin uses the same key via the
-`product-copywriter` function — deploy that too if you haven't.)
+`product-copywriter` function, deploy that too if you haven't.)
 
 ### 2. Point your domain at Hostinger
 In hPanel, add your domain and let DNS propagate. Enable **Force HTTPS**
@@ -61,8 +61,8 @@ In hPanel, add your domain and let DNS propagate. Enable **Force HTTPS**
   prerendered SEO HTML, run `npm run build` and re-upload. On Hostinger there's
   no deploy hook, so leave `VITE_DEPLOY_HOOK_URL` blank in the Admin.
 - **Admin panel** (`Ortex.Admin`) deploys the same way if you host it on
-  Hostinger too — build it and upload its `dist/` to a subdomain (e.g.
+  Hostinger too, build it and upload its `dist/` to a subdomain (e.g.
   `admin.yourdomain.com`). Add the same SPA `.htaccess` there.
 - If Orty ever shows only its short FAQ answers, the `orty-chat` function isn't
-  reachable (not deployed, or missing `GEMINI_API_KEY`) — the widget is designed
+  reachable (not deployed, or missing `GEMINI_API_KEY`). The widget is designed
   to fall back gracefully.

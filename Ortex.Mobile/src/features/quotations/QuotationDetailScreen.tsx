@@ -219,7 +219,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
           pointerEvents="none"
           // Always drawn: the page under this bar is white, and a white bar over
           // a white page has no edge without the divider hairline.
-          style={[styles.headRule, { backgroundColor: t.divider }]}
+          style={[styles.headRule, { backgroundColor: t.border }]}
         />
       </View>
 
@@ -635,13 +635,19 @@ function TotalRow({ label, value, tone }: { label: string; value: string; tone?:
 
 const RULE = StyleSheet.hairlineWidth
 
+/** The header's bottom rule, in dp. */
+const HEADER_RULE = 2
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   centre: { alignItems: "center", justifyContent: "center" },
 
   head: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 2 },
   headTitle: { flex: 1, marginHorizontal: 6, fontSize: 17, fontFamily: font.semibold },
-  headRule: { position: "absolute", left: 0, right: 0, bottom: 0, height: RULE },
+  // 2dp, the same band that parts two rows and two panels (ROW_SEPARATOR_HEIGHT,
+  // PanelBand). A hairline here is 0.33dp on a 3x phone: one physical pixel of
+  // #EBEDF3 on white, which is invisible in the hand.
+  headRule: { position: "absolute", left: 0, right: 0, bottom: 0, height: HEADER_RULE },
 
   // Full bleed: each section head draws the 2dp band that parts it from the one
   // above (the app panel language, ui/Panel.tsx), so only the rows carry the

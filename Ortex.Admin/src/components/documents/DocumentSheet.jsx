@@ -2,7 +2,7 @@ import { forwardRef } from "react"
 import { formatCurrency, formatDate, amountInWords, daysUntil } from "../../lib/format"
 import { stateLabel } from "../../lib/gstStates"
 
-// The A4 sheet for a quotation or tax invoice — the printable document
+// The A4 sheet for a quotation or tax invoice, the printable document
 // itself, without any overlay chrome. A one-to-one port of Keystone's
 // InvoicePdfDocument (QuestPDF): masthead → meta → parties → headline → line
 // table → totals → notes, with the footer pinned to the sheet's bottom edge.

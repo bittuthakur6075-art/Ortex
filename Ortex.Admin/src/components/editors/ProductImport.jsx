@@ -23,8 +23,8 @@ const SAMPLE = [
   ["Acrylic Fridge Magnet", "ACR-MAG-01", "Acrylic products", "3926", "pcs", "35", "14", "100", "18", "6", "active", "3mm acrylic", "UV-printed magnet", ""],
 ]
 
-// Second sheet of the workbook. Whoever fills the file — a colleague or a
-// chatbot — needs the rules next to the data, not in a separate email.
+// Second sheet of the workbook. Whoever fills the file, a colleague or a
+// chatbot, needs the rules next to the data, not in a separate email.
 const GUIDE = [
   ["Column", "Required", "What to put"],
   ["name", "Yes", "Product name as it should appear on quotations and the website."],
@@ -57,7 +57,7 @@ const GUIDE = [
   ["", "", "Prices and quantities must be plain numbers."],
 ]
 
-// Signage only — never part of the data contract, so it stays out of COLUMNS,
+// Signage only. Never part of the data contract, so it stays out of COLUMNS,
 // the CSV template and the AI prompt.
 const PHOTO_COLUMN = "photo (paste pictures on this row)"
 
@@ -152,7 +152,7 @@ function validateRow(raw, categories = [], embedded = []) {
     description: get("description").trim(),
     images,
   })
-  // Pictures pasted into the sheet are uploaded at import time, not now — a
+  // Pictures pasted into the sheet are uploaded at import time, not now, a
   // preview the user may cancel should not leave files in the bucket.
   return { product, errors, valid: errors.length === 0, name: name || "(no name)", droppedImages, embedded }
 }
@@ -164,7 +164,7 @@ export default function ProductImport({ open, onClose }) {
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState(null) // { done, total } while uploading photos
 
-  // SheetJS is ~400KB, and most sessions never open this dialog — load it only
+  // SheetJS is ~400KB, and most sessions never open this dialog, load it only
   // when someone actually asks for a workbook.
   const downloadExcel = async () => {
     setBusy(true)
@@ -175,14 +175,14 @@ export default function ProductImport({ open, onClose }) {
       // over the grid rather than living in a cell, so without a visibly
       // labelled place to drop them nobody can tell the feature exists. The
       // parser keys pictures by their row and ignores the column, and
-      // validateRow only reads known headers — so this strip is pure signage.
+      // validateRow only reads known headers, so this strip is pure signage.
       const header = [...COLUMNS, PHOTO_COLUMN]
       const sheet = XLSX.utils.aoa_to_sheet([header, ...SAMPLE])
       sheet["!cols"] = header.map((c) =>
         c === PHOTO_COLUMN ? { wch: 34 } : { wch: c === "description" || c === "imageUrls" ? 42 : Math.max(12, c.length + 4) },
       )
       // Tall rows so a dropped picture sits inside its own row rather than
-      // straddling the next one — the row is what assigns it to a product.
+      // straddling the next one. The row is what assigns it to a product.
       sheet["!rows"] = [{ hpt: 22 }, ...SAMPLE.map(() => ({ hpt: 90 }))]
       XLSX.utils.book_append_sheet(wb, sheet, "Products")
       const guide = XLSX.utils.aoa_to_sheet(GUIDE)
@@ -225,7 +225,7 @@ export default function ProductImport({ open, onClose }) {
         const buffer = await file.arrayBuffer()
         const XLSX = await import("xlsx")
         const wb = XLSX.read(buffer, { type: "array" })
-        // First sheet wins — the template's second sheet is only instructions.
+        // First sheet wins. The template's second sheet is only instructions.
         const ws = wb.Sheets[wb.SheetNames[0]]
         parsed = XLSX.utils.sheet_to_json(ws, { defval: "", raw: false })
         // Pictures pasted into the sheet, keyed by the row they sit on.

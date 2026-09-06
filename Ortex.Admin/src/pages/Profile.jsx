@@ -51,7 +51,7 @@ function ProfileHeader({ profile }) {
 
 function AccountCard({ profile }) {
   const [name, setName] = useState(profile.name || "")
-  // A colleague's contact number (migration 0021) — the number a teammate rings,
+  // A colleague's contact number (migration 0021), the number a teammate rings,
   // not an auth identity. The field-sales app writes the same column from its
   // Account details page, so it has to be editable on both sides or one of them
   // is quietly the only way to set it.

@@ -11,7 +11,7 @@ import { useLiveCall } from "./useLiveCall"
 // Practice studio: talk to the agent with your microphone, playing the
 // customer. Uses Gemini Live with the exact brief a phone call would get, so
 // what you hear is what a lead would hear. On hang-up the transcript is
-// analysed and saved as a (practice) call, which also moves the lead — pick a
+// analysed and saved as a (practice) call, which also moves the lead. Pick a
 // scratch contact or your own number when you only want to rehearse.
 //
 // `job` (optional): a queued job to practise against. Without it, a small form

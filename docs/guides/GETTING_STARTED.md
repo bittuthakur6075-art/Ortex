@@ -10,7 +10,7 @@ Local setup and orientation for the Ortex Industries website.
 
 ```bash
 npm install      # install dependencies
-npm run dev      # Vite dev server with HMR (URL printed in terminal — not always :5173)
+npm run dev      # Vite dev server with HMR (URL printed in terminal, not always :5173)
 ```
 
 ## Commands
@@ -22,7 +22,7 @@ npm run dev      # Vite dev server with HMR (URL printed in terminal — not alw
 | `npm run preview` | Serve the built `dist/` locally. |
 | `npm run lint` | Oxlint over the codebase. |
 
-There is no automated test suite — "testing" a change means building clean and exercising the running app.
+There is no automated test suite, "testing" a change means building clean and exercising the running app.
 
 ## Where things live
 
@@ -46,6 +46,6 @@ See `docs/pm/PRODUCT_BACKLOG.md` for the plan to route these to a real backend.
 
 ## Further reading
 
-- `docs/architecture/ARCHITECTURE.md` — full codebase + business-context reference.
-- `docs/pm/PRODUCT_BACKLOG.md` — product/feature backlog.
-- `CLAUDE.md` (repo root) — the condensed guide for working in this repo.
+- `docs/architecture/ARCHITECTURE.md`: full codebase + business-context reference.
+- `docs/pm/PRODUCT_BACKLOG.md`: product/feature backlog.
+- `CLAUDE.md` (repo root): the condensed guide for working in this repo.

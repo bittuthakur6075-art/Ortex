@@ -1,6 +1,6 @@
 import { round2 } from "../format"
 
-// Median is used over mean throughout — one stuck 200-day deal shouldn't move
+// Median is used over mean throughout, one stuck 200-day deal shouldn't move
 // the "how fast do we close" answer.
 export function median(values) {
   if (!values.length) return null

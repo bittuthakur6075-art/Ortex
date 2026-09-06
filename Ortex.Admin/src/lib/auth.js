@@ -1,6 +1,6 @@
 // Admin authentication.
 //
-// When Supabase is configured (VITE_SUPABASE_URL/ANON_KEY) this is REAL auth —
+// When Supabase is configured (VITE_SUPABASE_URL/ANON_KEY) this is REAL auth:
 // email + password against Supabase Auth, sessions persisted and refreshed by
 // the SDK. When it isn't, it falls back to the original client-side passphrase
 // gate so the app still runs against localStorage with no backend.
@@ -41,7 +41,7 @@ export function isAuthed() {
   return sessionStorage.getItem(SESSION_KEY) === "1"
 }
 
-// True once we know the real session state — lets the UI avoid a login flash
+// True once we know the real session state, lets the UI avoid a login flash
 // on refresh while getSession() resolves.
 export function authReady() {
   return hasSupabase ? sessionLoaded : true
@@ -57,7 +57,7 @@ export async function login(email, password) {
   // Offline demo mode. The default passphrase is always accepted, alongside any
   // custom one set earlier through changePassword. That is deliberate: this data
   // lives in the visitor's own localStorage, which they can read and edit
-  // directly, so the gate is a speed bump rather than a security control — and a
+  // directly, so the gate is a speed bump rather than a security control, and a
   // stale custom value must never lock someone out of their own demo. Real
   // access control is Supabase auth plus RLS, used whenever it is configured.
   const stored = localStorage.getItem(PASSWORD_KEY)
@@ -92,7 +92,7 @@ export async function verifyPassword(email, password) {
 }
 
 // Step 2. Mail a one-time code. shouldCreateUser:false keeps the console
-// invite-only — without it, any typed address would be created and emailed a
+// invite-only, without it, any typed address would be created and emailed a
 // working code against the public anon key.
 export async function sendEmailOtp(email) {
   if (!hasSupabase) return { error: "Email codes require Supabase to be configured." }
@@ -160,7 +160,7 @@ export function useAuth() {
   return useSyncExternalStore(subscribe, isAuthed, () => false)
 }
 
-// Reactive form of authReady() — re-renders when the session finishes loading,
+// Reactive form of authReady(), re-renders when the session finishes loading,
 // even for a logged-out user (where isAuthed stays false).
 export function useAuthReady() {
   return useSyncExternalStore(subscribe, authReady, () => true)

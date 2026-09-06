@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Growth Intelligence — joins the behavioral top-of-funnel (user_activities /
+// Growth Intelligence, joins the behavioral top-of-funnel (user_activities /
 // event_logs from the marketing site) to the quote-to-cash sales data into one
 // funnel. P1: acquisition, engagement, demand gaps and the unified funnel.
 // ---------------------------------------------------------------------------
@@ -48,7 +48,7 @@ export function computeGrowthAnalytics(
   visitorsSet.forEach((u) => { if (firstSeen[u] >= from) newVisitors++ })
   const returningVisitors = visitorsSet.size - newVisitors
 
-  // Fold activities into sessions once — reused for channel/device/engagement.
+  // Fold activities into sessions once, reused for channel/device/engagement.
   const bySession = {}
   acts.forEach((a) => {
     const s = a.sessionId
@@ -163,7 +163,7 @@ export function computeGrowthAnalytics(
 }
 
 // ---------------------------------------------------------------------------
-// P2: Attribution — ties web behaviour to actual revenue. Contact-level join
+// P2: Attribution, ties web behaviour to actual revenue. Contact-level join
 // (normalised email/phone) is robust even for older enquiries; enquiries stamped
 // with tracking ids (leads.js) are additionally counted as web-originated.
 // ---------------------------------------------------------------------------

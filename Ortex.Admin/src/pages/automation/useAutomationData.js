@@ -20,7 +20,7 @@ export function useAutomationData() {
   // Selection state for timeline
   const [selectedCustomerId, setSelectedCustomerId] = useState("")
 
-  // Collections that failed to load (RLS denial, network) — fed to diagnostics.
+  // Collections that failed to load (RLS denial, network), fed to diagnostics.
   const [loadErrors, setLoadErrors] = useState([])
 
   // True row counts, so we can tell the user when the loaded window is partial.
@@ -34,7 +34,7 @@ export function useAutomationData() {
 
         // Record which collections we couldn't read instead of swallowing the
         // error. An RLS denial used to fall back to [], rendering as "No
-        // activities found" — indistinguishable from a table that is simply
+        // activities found", indistinguishable from a table that is simply
         // empty. Security Diagnostics reports whatever lands in `failures`.
         const failures = []
         const safeList = (name, opts) =>

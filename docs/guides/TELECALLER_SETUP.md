@@ -1,4 +1,4 @@
-# AI Telecaller — setup guide
+# AI Telecaller: setup guide
 
 The Telecaller module in the Admin console is an outbound AI sales agent. It
 rings leads to follow up and pitch, closes or books the next step, comes back
@@ -113,7 +113,7 @@ voice; Hindi and English use fixed-language models. The list lives in
   regional weighting, and an order-by date worked back from production lead
   time; business seasons (wedding, exhibitions, joining, year-end). Your own
   dates go in Agent → "Your upcoming occasions", one per line:
-  `YYYY-MM-DD Name — what to pitch`.
+  `YYYY-MM-DD Name - what to pitch`.
 * **Region** (`telecallerRegion.ts`): the customer's state from the GST state
   code, a GSTIN prefix, or city / address text, never from the phone number
   (number portability makes prefixes unreliable). Sets the local language, the

@@ -1,4 +1,4 @@
-// Icon adapter — the whole admin renders Iconsax "Bulk" icons through this one
+// Icon adapter, the whole admin renders Iconsax "Bulk" icons through this one
 // module. Each export keeps the name the code already used (originally lucide),
 // so modules just import from here instead of the old icon set. Wrapping every
 // icon centralises the variant + colour so the set stays consistent.
@@ -165,7 +165,7 @@ export const MoreHorizontal = wrap(More)
 export const UserCheck = wrap(UserTick)
 export const UserX = wrap(UserRemove)
 
-// A spinner (lucide's Loader2 replacement) — a CSS ring, so it spins cleanly.
+// A spinner (lucide's Loader2 replacement), a CSS ring, so it spins cleanly.
 export function Loader2({ className = "" }) {
   return <span className={`inline-block animate-spin rounded-full border-2 border-current border-t-transparent ${className}`} aria-hidden="true" />
 }

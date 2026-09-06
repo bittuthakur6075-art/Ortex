@@ -235,7 +235,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
       <View
         style={[
           styles.head,
-          { paddingTop: insets.top, height: insets.top + sizes.appBar, borderBottomColor: t.divider },
+          { paddingTop: insets.top, height: insets.top + sizes.appBar, borderBottomColor: t.border },
         ]}
       >
         <IconButton name="back" onPress={leave} accessibilityLabel="Back" />
@@ -568,6 +568,9 @@ function OptionSheet({
   )
 }
 
+/** The header's bottom rule, in dp. */
+const HEADER_RULE = 2
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   centre: { alignItems: "center", justifyContent: "center" },
@@ -576,7 +579,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: HEADER_RULE,
   },
   headTitle: { marginLeft: 4, fontSize: 18, fontFamily: font.semibold, textTransform: "capitalize" },
 

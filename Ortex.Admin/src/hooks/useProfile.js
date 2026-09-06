@@ -2,7 +2,7 @@
 // routes. Reloads whenever the auth state changes, or when refreshProfile() is
 // called after the user edits their own record (name, photo). In no-backend
 // (localStorage) mode there are no profiles, so the single local operator is
-// treated as an admin with every module — the app stays fully usable without
+// treated as an admin with every module. The app stays fully usable without
 // Supabase.
 
 import { useState, useEffect } from "react"

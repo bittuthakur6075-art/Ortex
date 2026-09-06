@@ -11,7 +11,7 @@
 // (id uuid, doc jsonb), and apiStore.toDoc() strips the id before insert,
 // keeping a caller's value only when it is already a uuid. Every seeded row
 // therefore landed with a fresh gen_random_uuid(), and every cross-reference
-// pointed at an id that no longer existed — dangling enquiryId, quotationId and
+// pointed at an id that no longer existed, dangling enquiryId, quotationId and
 // productId links, and `update` calls against missing rows that quietly did
 // nothing, so paid invoices never received their amountPaid.
 //
@@ -247,7 +247,7 @@ export async function seedDemo() {
 
   // ---- User Activities ----
   // Demo geolocation for the fake IPs below. It lives here, in the fixture,
-  // rather than in a lookup table inside the Activities table renderer — that
+  // rather than in a lookup table inside the Activities table renderer. That
   // one guessed "Delhi, India" for every IP it didn't recognise, including real
   // visitor traffic.
   const GEO = {

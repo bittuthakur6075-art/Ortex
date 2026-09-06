@@ -8,7 +8,7 @@ import { canAccess } from "../../data/domain/modules"
 import { dialNow } from "../../services/telecaller"
 import { isValidMobile } from "./helpers"
 
-// "Let the AI call them" — dropped onto Voice Leads cards and the Lead drawer.
+// "Let the AI call them", dropped onto Voice Leads cards and the Lead drawer.
 // `target` is built by targetFromVoiceCall / targetFromLead in ./helpers.
 // Renders nothing for staff without the telecaller module or when the number
 // is not a dialable Indian mobile.

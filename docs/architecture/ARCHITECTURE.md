@@ -135,7 +135,7 @@ The custom hook `src/hooks/useDocumentMetadata.js` dynamically updates `<title>`
 2.  `<Navbar />` (Sticky header).
 3.  `<main className="flex-grow">` containing route paths: `/`, `/about`, `/products`, `/industries`, `/portfolio`, `/contact`, `/quote` (interactive quote builder), `/privacy`, and `/terms`.
 4.  `<Footer />`
-5.  `<LiveOrty />` (lazy-loaded) — the voice assistant.
+5.  `<LiveOrty />` (lazy-loaded): the voice assistant.
 6.  `<Toaster />` from `sonner` for application notifications.
 
 ### 5.3. Contact Submissions Form (`src/pages/Contact.jsx`)

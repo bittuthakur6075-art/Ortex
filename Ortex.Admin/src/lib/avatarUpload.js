@@ -3,7 +3,7 @@
 // re-encodes it as a small JPEG first, so every avatar is the same shape and a
 // few tens of kilobytes regardless of what the user picked.
 //
-// Objects live at `<userId>/<random>.jpg` — the storage policies only let a
+// Objects live at `<userId>/<random>.jpg`, the storage policies only let a
 // user write inside the folder named after their own uid.
 //
 // With no backend configured (localStorage mode) the crop is returned as a
@@ -34,7 +34,7 @@ function squareCrop(file) {
         canvas.width = SIZE
         canvas.height = SIZE
         const ctx = canvas.getContext("2d")
-        // JPEG has no alpha — paint white so transparent PNGs don't go black.
+        // JPEG has no alpha, paint white so transparent PNGs don't go black.
         ctx.fillStyle = "#ffffff"
         ctx.fillRect(0, 0, SIZE, SIZE)
         ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE)
@@ -79,6 +79,6 @@ export async function removeAvatar(url) {
   try {
     await supabase.storage.from(BUCKET).remove([decodeURIComponent(path)])
   } catch {
-    /* cleanup is best-effort — a stale object is harmless */
+    /* cleanup is best-effort. A stale object is harmless */
   }
 }
