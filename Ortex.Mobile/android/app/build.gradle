@@ -66,7 +66,24 @@ react {
     //
     // Added by install-expo-modules
     entryFile = file(["node", "-e", "require('expo/scripts/resolveAppEntry')", rootDir.getAbsoluteFile().getParentFile().getAbsolutePath(), "android", "absolute"].execute(null, rootDir).text.trim())
-    cliFile = new File(["node", "--print", "require.resolve('@expo/cli')"].execute(null, rootDir).text.trim())
+    // RESOLVED FROM `expo`, not from the android directory.
+    //
+    // `install-expo-modules` wrote `require.resolve('@expo/cli')`, which assumes
+    // npm hoisted that package to the top level. Here it did not — it sits at
+    // `node_modules/expo/node_modules/@expo/cli` — so the resolve threw, the
+    // `.execute()` above returned an EMPTY string, and `new File("")` quietly
+    // became the project directory, `android/app`.
+    //
+    // That is the whole reason a release build failed: `BundleHermesCTask` then
+    // declared `android/app` as an @InputFile, so every task writing into
+    // `android/app/build` (BuildConfig, AAR metadata check, each CMake step)
+    // counted as an undeclared input, which Gradle 9 fails the build over
+    // instead of warning about. It would have failed at execution too — there
+    // was no CLI to run `export:embed` with.
+    //
+    // Resolving through `expo`'s own package.json finds the CLI whether npm
+    // hoists it or nests it.
+    cliFile = new File(["node", "--print", "require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })"].execute(null, rootDir).text.trim())
     bundleCommand = "export:embed"
 }
 

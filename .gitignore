@@ -28,6 +28,9 @@ Ortex.Tally.Connector/out
 
 # Build archives / screenshots must never be committed
 *.zip
+# Built app binaries — distributed to the sales team, never committed.
+*.apk
+*.aab
 *.tgz
 
 # Editors & OS
