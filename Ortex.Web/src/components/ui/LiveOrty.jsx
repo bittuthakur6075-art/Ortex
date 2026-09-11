@@ -1,65 +1,46 @@
-import { motion, AnimatePresence } from "framer-motion"
+import { useEffect } from "react"
+import { LayoutGroup, MotionConfig } from "framer-motion"
 import { useLiveSession } from "./live-orty/useLiveSession"
 import CallPanel from "./live-orty/CallPanel"
+import MiniCall from "./live-orty/MiniCall"
 import Launcher from "./live-orty/Launcher"
 
 /* ============================================================
-   Live Orty — realtime VOICE assistant (Gemini Live API)
+   Live Orty — realtime VOICE assistant (Gemini Live API), "Anu" on screen.
 
-   Gemini-style audio UI: a horizontal waveform that reacts to real voice
-   frequencies (yours while listening, Orty's while speaking), live captions,
-   a call timer, and mute / end controls, in a 600x600 squircle panel docked
-   at the centre-bottom of the screen.
+   One floating object in the bottom-right corner that changes shape with the
+   call, never a page-blocking modal:
+     Launcher pill  →  CallPanel (live / error / summary)  ⇄  MiniCall pill
+   All three share `layoutId="anu-morph"`, so each spring-morphs into the next.
+   Anu's face is a canvas orb (./live-orty/Orb) fed by the live audio level.
 
    Flow: ephemeral token (orty-live-token Edge Function) → Live WebSocket →
-   stream mic as 16 kHz PCM, play Orty's 24 kHz PCM voice back.
-
-   The session lifecycle (token, audio contexts, mic, playback, tool calls,
-   lead capture, memory) lives in ./live-orty/useLiveSession; this file only
-   composes the scrim, the call panel and the launcher pill.
+   stream mic as 16 kHz PCM, play Orty's 24 kHz PCM voice back. The session
+   lifecycle (token, audio, tool calls, lead capture, memory, captions) lives
+   in ./live-orty/useLiveSession; this file only picks which shape to show.
    ============================================================ */
 
 export default function LiveOrty() {
-  const { open, status, speaking, errorMsg, seconds, showLauncher, canvasRef, start, openCall, endCall } = useLiveSession()
+  const call = useLiveSession()
+  const { open, minimized, status, ended, showLauncher, minimize } = call
 
-  const mmss = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`
-  const statusLabel =
-    status === "connecting" ? "Connecting…" :
-    status === "error" ? (errorMsg || "Something went wrong") :
-    speaking ? "Anu is speaking" : "Listening…"
+  // Esc tucks a live call away instead of hanging up on the customer.
+  useEffect(() => {
+    if (!open || minimized || ended || status === "error") return
+    const onKey = (e) => { if (e.key === "Escape") minimize() }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [open, minimized, ended, status, minimize])
 
   return (
-    <>
-      {/* Backdrop scrim — fades independently of the morphing widget */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            key="scrim"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={endCall}
-            aria-hidden="true"
-            className="fixed inset-0 z-[70] bg-black/40"
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Morphing widget: the launcher pill and the call panel share a layoutId,
-          so the button smoothly expands into the modal and collapses back. */}
-      {open ? (
-        <CallPanel
-          status={status}
-          speaking={speaking}
-          mmss={mmss}
-          statusLabel={statusLabel}
-          canvasRef={canvasRef}
-          onEnd={endCall}
-          onRetry={start}
-        />
-      ) : showLauncher ? (
-        <Launcher onOpen={openCall} />
-      ) : null}
-    </>
+    <MotionConfig reducedMotion="user">
+      <LayoutGroup id="anu">
+        {open ? (
+          minimized ? <MiniCall call={call} /> : <CallPanel call={call} />
+        ) : showLauncher ? (
+          <Launcher onOpen={call.openCall} />
+        ) : null}
+      </LayoutGroup>
+    </MotionConfig>
   )
 }

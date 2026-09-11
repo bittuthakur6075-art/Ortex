@@ -13,38 +13,75 @@ import { MEMORY_KEY, MAX_MEMORY_LINES, loadMemory } from "./memory"
    Flow: ephemeral token (orty-live-token Edge Function) → Live WebSocket →
    stream mic as 16 kHz PCM, play Orty's 24 kHz PCM voice back.
 
-   Audio contexts, the Live session, the mic stream, the waveform rAF loop and
-   the call timer are all torn down together in `stop`, so they live in one hook
-   rather than being split across several.
+   Audio contexts, the Live session, the mic stream and the call timer are all
+   torn down together in `stop`, so they live in one hook rather than being
+   split across several. Drawing is NOT done here: the orb pulls a loudness
+   value through `readLevel()` on its own animation frame.
+
+   A call ends in one of three ways, all through `finish()`: the visitor hangs
+   up, Anu calls `end_call`, or the server closes the socket. Each leaves the
+   panel open on a summary (`ended`) rather than vanishing mid-sentence.
    ============================================================ */
 
 const LIVE_MODEL = "gemini-3.1-flash-live-preview"
-export const BARS = 54
+const MAX_CAPTION_CHUNKS = 80
+// When the playback queue has run dry (a new reply, or network jitter), start
+// the next chunk this far ahead so the ones behind it arrive in time instead of
+// leaving an audible hole. Measured: one 37 ms hole per ~14 s without it.
+const PLAYBACK_LEAD = 0.08
+// Gemini's voice peaks at about -0.3 dBFS; 0.9x leaves headroom so cheap
+// speakers do not distort on loud syllables.
+const OUTPUT_GAIN = 0.9
+
+// What a visitor sees when the call cannot start. Setup instructions are only
+// useful to a developer; a customer gets a plain sentence.
+function friendlyError(err) {
+  const name = err?.name || ""
+  if (name === "NotAllowedError" || name === "SecurityError") {
+    return "Microphone access is blocked. Allow the mic from your browser's address bar, then try again."
+  }
+  if (name === "NotFoundError" || name === "OverconstrainedError") {
+    return "No microphone found. Plug one in or switch devices, then try again."
+  }
+  return "Couldn't reach Anu. Check your connection and try again."
+}
 
 export function useLiveSession() {
   const [open, setOpen] = useState(false)
   const [status, setStatus] = useState("idle") // idle | connecting | live | error
   const [speaking, setSpeaking] = useState(false)
+  const [muted, setMuted] = useState(false)
+  // True while the browser's autoplay policy holds Anu's audio suspended.
+  const [audioBlocked, setAudioBlocked] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
   const [seconds, setSeconds] = useState(0)
   const [showLauncher, setShowLauncher] = useState(false)
+  const [minimized, setMinimized] = useState(false)
+  // Live caption of whoever spoke last: { id, who: "anu" | "you", chunks: [] }
+  const [caption, setCaption] = useState(null)
+  // Details Anu confirmed and saved during THIS call.
+  const [lead, setLead] = useState(null)
+  // Summary of the call that just finished: { seconds, lead }
+  const [ended, setEnded] = useState(null)
   const autoOpenRef = useRef(false)
 
   const sessionRef = useRef(null)
+  const busyRef = useRef(false)
   const inCtxRef = useRef(null)
   const outCtxRef = useRef(null)
   const streamRef = useRef(null)
   const procRef = useRef(null)
   const inAnalyserRef = useRef(null)
   const outAnalyserRef = useRef(null)
+  const levelBufRef = useRef(null)
   const sourcesRef = useRef([])
   const nextTimeRef = useRef(0)
-  const rafRef = useRef(0)
   const timerRef = useRef(0)
+  const secondsRef = useRef(0)
   const mutedRef = useRef(false)
   const endWantedRef = useRef(false)
-  const smoothRef = useRef(new Float32Array(BARS))
-  const canvasRef = useRef(null)
+  const callLeadRef = useRef(null)
+  const turnDoneRef = useRef(true)
 
   // Conversation memory: rolling transcript lines + latest captured lead.
   const convoRef = useRef([])
@@ -75,23 +112,50 @@ export function useLiveSession() {
     }
   }, [persistMemory])
 
+  // Append streamed transcript text to the on-screen caption. A change of
+  // speaker, or a new turn after turnComplete, starts a fresh caption.
+  const pushCaption = useCallback((who, text) => {
+    const fresh = turnDoneRef.current
+    turnDoneRef.current = false
+    setCaption((c) => {
+      if (c && c.who === who && !fresh) return { ...c, chunks: [...c.chunks, text].slice(-MAX_CAPTION_CHUNKS) }
+      return { id: Date.now(), who, chunks: [text] }
+    })
+  }, [])
+
   const stop = useCallback(() => {
-    cancelAnimationFrame(rafRef.current)
     clearInterval(timerRef.current)
     try { procRef.current?.disconnect() } catch { /* noop */ }
     try { streamRef.current?.getTracks().forEach((t) => t.stop()) } catch { /* noop */ }
-    try { sessionRef.current?.close() } catch { /* noop */ }
+    // Null the session BEFORE closing it: onclose checks it to tell our own
+    // hang-up apart from the server dropping the call.
+    const session = sessionRef.current
+    sessionRef.current = null
+    try { session?.close() } catch { /* noop */ }
+    if (outCtxRef.current) outCtxRef.current.onstatechange = null
     try { inCtxRef.current?.close() } catch { /* noop */ }
     try { outCtxRef.current?.close() } catch { /* noop */ }
     sourcesRef.current = []
-    sessionRef.current = procRef.current = streamRef.current = null
+    procRef.current = streamRef.current = null
     inCtxRef.current = outCtxRef.current = inAnalyserRef.current = outAnalyserRef.current = null
     nextTimeRef.current = 0
-    smoothRef.current = new Float32Array(BARS)
+    secondsRef.current = 0
+    mutedRef.current = false
+    endWantedRef.current = false
+    setMuted(false)
+    setAudioBlocked(false)
     setSpeaking(false)
     setStatus("idle")
     setSeconds(0)
   }, [])
+
+  // End the call and keep the panel open on its summary.
+  const finish = useCallback(() => {
+    const summary = { seconds: secondsRef.current, lead: callLeadRef.current }
+    stop()
+    setEnded(summary)
+    setMinimized(false)
+  }, [stop])
 
   useEffect(() => () => stop(), [stop])
 
@@ -100,13 +164,13 @@ export function useLiveSession() {
     const analyser = outAnalyserRef.current
     if (!ctx) return
     const float = new Float32Array(int16.length)
-    for (let i = 0; i < int16.length; i++) float[i] = int16[i] / 0x8000
+    for (let i = 0; i < int16.length; i++) float[i] = (int16[i] / 0x8000) * OUTPUT_GAIN
     const buffer = ctx.createBuffer(1, float.length, OUTPUT_RATE)
     buffer.copyToChannel(float, 0)
     const src = ctx.createBufferSource()
     src.buffer = buffer
     src.connect(analyser || ctx.destination)
-    const start = Math.max(ctx.currentTime, nextTimeRef.current)
+    const start = nextTimeRef.current > ctx.currentTime ? nextTimeRef.current : ctx.currentTime + PLAYBACK_LEAD
     src.start(start)
     nextTimeRef.current = start + buffer.duration
     setSpeaking(true)
@@ -115,14 +179,11 @@ export function useLiveSession() {
       if (sourcesRef.current.length === 0) {
         setSpeaking(false)
         // Anu asked to end the call: close once her goodbye has finished playing.
-        if (endWantedRef.current) {
-          endWantedRef.current = false
-          stop(); setOpen(false); setShowLauncher(true)
-        }
+        if (endWantedRef.current) finish()
       }
     }
     sourcesRef.current.push(src)
-  }, [stop])
+  }, [finish])
 
   const clearPlayback = useCallback(() => {
     sourcesRef.current.forEach((s) => { try { s.stop() } catch { /* noop */ } })
@@ -143,10 +204,12 @@ export function useLiveSession() {
           // instead of a bad lead landing silently in the Admin.
           const check = validateLead(fc.args || {})
           if (check.ok) {
-            const lead = { ...(fc.args || {}), name: check.name, phone: check.phone }
-            saveVoiceLead(lead)
+            const saved = { ...(fc.args || {}), name: check.name, phone: check.phone }
+            saveVoiceLead(saved)
             // Remember the confirmed details so a reopened call already knows them.
-            leadRef.current = { ...(leadRef.current || {}), ...lead }
+            leadRef.current = { ...(leadRef.current || {}), ...saved }
+            callLeadRef.current = saved
+            setLead(saved)
             persistMemory()
             response = { ok: true, saved: true }
           } else {
@@ -162,111 +225,132 @@ export function useLiveSession() {
         try { sessionRef.current?.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response }] }) } catch { /* noop */ }
       }
       if (endWantedRef.current && sourcesRef.current.length === 0) {
-        window.setTimeout(() => {
-          if (endWantedRef.current) { endWantedRef.current = false; stop(); setOpen(false); setShowLauncher(true) }
-        }, 1200)
+        window.setTimeout(() => { if (endWantedRef.current) finish() }, 1200)
       }
     }
     const sc = message?.serverContent
     if (!sc) return
-    if (sc.interrupted) clearPlayback()
+    if (sc.interrupted) {
+      clearPlayback()
+      if (import.meta.env.DEV && window.__anu) window.__anu.interrupts += 1
+    }
     // Accumulate both sides' transcripts (enabled via in/outputAudioTranscription)
-    // so we can persist a running memory of the conversation across reopens.
-    if (sc.inputTranscription?.text) inBufRef.current += sc.inputTranscription.text
-    if (sc.outputTranscription?.text) outBufRef.current += sc.outputTranscription.text
-    if (sc.turnComplete) flushTranscript()
+    // for the live caption and the running memory persisted across reopens.
+    const heard = sc.inputTranscription?.text
+    const said = sc.outputTranscription?.text
+    if (heard) { inBufRef.current += heard; pushCaption("you", heard) }
+    if (said) { outBufRef.current += said; pushCaption("anu", said) }
+    if (sc.turnComplete) { flushTranscript(); turnDoneRef.current = true }
     for (const part of sc.modelTurn?.parts || []) {
       const inline = part?.inlineData
       if (inline?.data && String(inline.mimeType || "").startsWith("audio/pcm")) {
+        if (import.meta.env.DEV && window.__anu) window.__anu.chunks += 1
         playChunk(base64ToInt16(inline.data))
       }
     }
-  }, [clearPlayback, playChunk, stop, flushTranscript, persistMemory])
+  }, [clearPlayback, playChunk, finish, flushTranscript, persistMemory, pushCaption])
 
-  // rAF: Gemini-style bar equalizer reacting to the active analyser's spectrum
-  // (Anu's voice while speaking, else the mic). Idle ripple when silent.
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current
-    if (canvas) {
-      const dpr = window.devicePixelRatio || 1
-      const cssW = canvas.clientWidth || 460
-      const cssH = canvas.clientHeight || 96
-      if (canvas.width !== Math.round(cssW * dpr)) { canvas.width = cssW * dpr; canvas.height = cssH * dpr }
-      const g = canvas.getContext("2d")
-      g.setTransform(dpr, 0, 0, dpr, 0, 0)
-      g.clearRect(0, 0, cssW, cssH)
+  // Loudness of whoever is talking (Anu while her audio plays, else the mic),
+  // 0..1. Called by the orb every animation frame, so it allocates nothing.
+  const readLevel = useCallback(() => {
+    const anuTalking = sourcesRef.current.length > 0
+    const analyser = anuTalking ? outAnalyserRef.current : (mutedRef.current ? null : inAnalyserRef.current)
+    if (!analyser) return 0
+    const n = analyser.fftSize
+    if (!levelBufRef.current || levelBufRef.current.length !== n) levelBufRef.current = new Uint8Array(n)
+    const buf = levelBufRef.current
+    analyser.getByteTimeDomainData(buf)
+    let sum = 0
+    for (let i = 0; i < n; i++) { const v = (buf[i] - 128) / 128; sum += v * v }
+    return Math.min(1, Math.sqrt(sum / n) * 4.5)
+  }, [])
 
-      const speakingNow = sourcesRef.current.length > 0
-      const analyser = speakingNow ? outAnalyserRef.current : inAnalyserRef.current
-      let bins = null
-      if (analyser) { bins = new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(bins) }
+  // Must run inside a click/keypress to satisfy the autoplay policy.
+  const unlockAudio = useCallback(() => {
+    inCtxRef.current?.resume?.().catch(() => {})
+    outCtxRef.current?.resume?.().catch(() => {})
+  }, [])
 
-      const now = performance.now() / 1000
-      const mid = cssH / 2
-      const step = cssW / BARS
-      const barW = Math.min(4, step * 0.5)
-      const smooth = smoothRef.current
-      for (let i = 0; i < BARS; i++) {
-        const t = i / (BARS - 1)
-        const bell = 0.28 + 0.72 * Math.sin(Math.PI * t) // taller in the centre
-        let target
-        if (bins) {
-          const bin = Math.floor((0.04 + t * 0.5) * bins.length)
-          target = (bins[bin] / 255) * bell
-        } else {
-          target = (0.06 + 0.06 * (0.5 + 0.5 * Math.sin(now * 3 + i * 0.5))) * bell
-        }
-        smooth[i] += (target - smooth[i]) * 0.35
-        const barH = Math.max(barW, 3 + smooth[i] * (cssH * 0.9))
-        const x = i * step + (step - barW) / 2
-        g.fillStyle = speakingNow ? "rgba(150,170,255,0.95)" : "rgba(255,255,255,0.9)"
-        g.beginPath()
-        g.roundRect(x, mid - barH / 2, barW, barH, barW / 2)
-        g.fill()
-      }
-    }
-    rafRef.current = requestAnimationFrame(draw)
+  const toggleMute = useCallback(() => {
+    mutedRef.current = !mutedRef.current
+    setMuted(mutedRef.current)
   }, [])
 
   const start = useCallback(async () => {
-    if (!hasSupabase) { setErrorMsg("Voice assistant not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Ortex.Web/.env and restart the dev server."); setStatus("error"); return }
-    setStatus("connecting"); setErrorMsg("")
-    rafRef.current = requestAnimationFrame(draw) // start the orb loop
+    if (busyRef.current || sessionRef.current) return
+    setEnded(null); setCaption(null); setLead(null); setErrorMsg("")
+    callLeadRef.current = null
+    turnDoneRef.current = true
+    if (!hasSupabase) {
+      setErrorMsg(import.meta.env.DEV
+        ? "Voice assistant not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Ortex.Web/.env and restart the dev server."
+        : "Voice calls are unavailable right now. Please reach us on WhatsApp instead.")
+      setStatus("error")
+      return
+    }
+    busyRef.current = true
+    setStatus("connecting")
     try {
+      // Autoplay policy: the audio contexts are created BEFORE the first await,
+      // so when a click started the call, that click is still the gesture
+      // Chrome requires and Anu is audible. A call auto-opened on the 5s timer
+      // has no gesture: its output starts suspended, `audioBlocked` goes true
+      // and the panel asks for one tap. Any click or key on the page also
+      // unlocks it.
+      const AC = window.AudioContext || window.webkitAudioContext
+      inCtxRef.current = new AC({ sampleRate: INPUT_RATE })
+      // Output runs at the DEVICE's own rate; playChunk still builds 24 kHz
+      // buffers and Web Audio resamples them. Forcing a 24 kHz context is what
+      // some Windows / Bluetooth output drivers play back as silence.
+      const out = new AC()
+      outCtxRef.current = out
+      const syncBlocked = () => setAudioBlocked(out.state === "suspended")
+      out.onstatechange = () => {
+        syncBlocked()
+        if (import.meta.env.DEV) console.info("[Anu] audio output:", out.state)
+      }
+      // Dev-only: type `__anu` in the console to see whether Anu's audio is
+      // arriving (chunks) and whether the output is running (state). Chunks
+      // climbing with state "running" but silence means the device, not the page.
+      if (import.meta.env.DEV) {
+        window.__anu = { get state() { return out.state }, sampleRate: out.sampleRate, chunks: 0, interrupts: 0 }
+      }
+      unlockAudio()
+      // resume() stays pending rather than rejecting while blocked, so look again after a beat.
+      window.setTimeout(syncBlocked, 500)
+      const onGesture = () => {
+        unlockAudio()
+        if (out.state !== "suspended") {
+          window.removeEventListener("pointerdown", onGesture)
+          window.removeEventListener("keydown", onGesture)
+        }
+      }
+      window.addEventListener("pointerdown", onGesture)
+      window.addEventListener("keydown", onGesture)
+      const outAnalyser = out.createAnalyser()
+      outAnalyser.fftSize = 256
+      outAnalyser.connect(out.destination)
+      outAnalyserRef.current = outAnalyser
+
       const { data, error } = await supabase.functions.invoke("orty-live-token", { body: {} })
+      // Closed while connecting: stop() already tore everything down.
+      if (outCtxRef.current !== out) return
       if (error) throw error
       if (data?.error || !data?.token) throw new Error(data?.error || "No token")
 
-      const AC = window.AudioContext || window.webkitAudioContext
-      inCtxRef.current = new AC({ sampleRate: INPUT_RATE })
-      outCtxRef.current = new AC({ sampleRate: OUTPUT_RATE })
-      // Autoplay policy: a call auto-started on a timer may leave the audio
-      // suspended until the visitor interacts. Resume now, and again on the
-      // first click/keypress anywhere on the page.
-      const resumeAudio = () => {
-        inCtxRef.current?.resume?.().catch(() => {})
-        outCtxRef.current?.resume?.().catch(() => {})
-      }
-      resumeAudio()
-      const onGesture = () => { resumeAudio(); window.removeEventListener("pointerdown", onGesture); window.removeEventListener("keydown", onGesture) }
-      window.addEventListener("pointerdown", onGesture)
-      window.addEventListener("keydown", onGesture)
-      const outAnalyser = outCtxRef.current.createAnalyser()
-      outAnalyser.fftSize = 128
-      outAnalyser.connect(outCtxRef.current.destination)
-      outAnalyserRef.current = outAnalyser
-
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      if (outCtxRef.current !== out) { stream.getTracks().forEach((t) => t.stop()); return }
       streamRef.current = stream
 
       const ai = new GoogleGenAI({ apiKey: data.token, httpOptions: { apiVersion: "v1alpha" } })
+      let live = null
       const session = await ai.live.connect({
         model: LIVE_MODEL,
         config: {
           responseModalities: [Modality.AUDIO],
           systemInstruction: VOICE_SYSTEM_INSTRUCTION,
           speechConfig: { languageCode: "hi-IN", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } },
-          // Text of both sides, so we can persist a rolling memory across reopens.
+          // Text of both sides: the live caption, and a rolling memory across reopens.
           inputAudioTranscription: {},
           outputAudioTranscription: {},
           tools: LIVE_TOOLS,
@@ -274,13 +358,24 @@ export function useLiveSession() {
         callbacks: {
           onopen: () => {
             setStatus("live")
-            timerRef.current = window.setInterval(() => setSeconds((s) => s + 1), 1000)
+            timerRef.current = window.setInterval(() => {
+              secondsRef.current += 1
+              setSeconds(secondsRef.current)
+            }, 1000)
           },
           onmessage: handleMessage,
-          onerror: () => { setErrorMsg("Connection error."); setStatus("error") },
-          onclose: () => stop(),
+          onerror: () => {
+            if (sessionRef.current !== live) return
+            stop()
+            setErrorMsg("The call dropped. Check your connection and try again.")
+            setStatus("error")
+          },
+          // Our own hang-up nulls sessionRef first; anything else is the
+          // server ending the call, which gets the same summary as a hang-up.
+          onclose: () => { if (live && sessionRef.current === live) finish() },
         },
       })
+      live = session
       sessionRef.current = session
       // Orty greets first, before the visitor says anything. If the customer has
       // spoken to Anu before (within the memory window), resume with what we know
@@ -294,7 +389,7 @@ export function useLiveSession() {
 
       const micSrc = inCtxRef.current.createMediaStreamSource(stream)
       const inAnalyser = inCtxRef.current.createAnalyser()
-      inAnalyser.fftSize = 128
+      inAnalyser.fftSize = 256
       micSrc.connect(inAnalyser)
       inAnalyserRef.current = inAnalyser
 
@@ -312,14 +407,23 @@ export function useLiveSession() {
       procRef.current = proc
     } catch (err) {
       console.error("Live Orty failed:", err)
-      setErrorMsg(err?.message || "Could not start voice.")
-      setStatus("error")
+      // stop() resets status to idle, so it must run BEFORE the error is set.
       stop()
+      setErrorMsg(friendlyError(err))
+      setStatus("error")
+    } finally {
+      busyRef.current = false
     }
-  }, [draw, handleMessage, stop])
+  }, [handleMessage, stop, finish, unlockAudio])
 
-  const openCall = () => { setOpen(true); start() }
-  const endCall = () => { stop(); setOpen(false); setShowLauncher(true) }
+  const openCall = useCallback(() => { setOpen(true); setMinimized(false); start() }, [start])
+  const endCall = useCallback(() => finish(), [finish])
+  // Close the panel entirely (from the summary or an error) back to the launcher.
+  const dismiss = useCallback(() => {
+    stop()
+    setOpen(false); setMinimized(false); setEnded(null); setErrorMsg("")
+    setShowLauncher(true)
+  }, [stop])
 
   // Auto-open the voice call 5s after load. The launcher stays hidden until the
   // customer closes that first call, then lives in the bottom-right corner.
@@ -334,5 +438,10 @@ export function useLiveSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  return { open, status, speaking, errorMsg, seconds, showLauncher, canvasRef, start, openCall, endCall }
+  return {
+    open, status, speaking, muted, audioBlocked, errorMsg, seconds, showLauncher, minimized, caption, lead, ended,
+    readLevel, start, openCall, endCall, dismiss, toggleMute, unlockAudio,
+    minimize: () => setMinimized(true),
+    expand: () => setMinimized(false),
+  }
 }
