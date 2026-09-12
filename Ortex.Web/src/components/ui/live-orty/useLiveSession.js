@@ -500,7 +500,16 @@ export function useLiveSession() {
         } catch { /* closing */ }
       }
       micSrc.connect(proc)
-      proc.connect(inCtxRef.current.destination)
+      // A ScriptProcessorNode only runs while it is connected to a destination,
+      // but its own output must never reach the speakers: wiring the mic
+      // processor straight to the destination puts the microphone on the
+      // speakers, which feeds back as a beep or whine on a laptop. Route it
+      // through a silent gain node instead, which keeps it pumping while
+      // emitting nothing.
+      const sink = inCtxRef.current.createGain()
+      sink.gain.value = 0
+      proc.connect(sink)
+      sink.connect(inCtxRef.current.destination)
       procRef.current = proc
     } catch (err) {
       console.error("Live Orty failed:", err)

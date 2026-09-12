@@ -12,7 +12,7 @@ import { MORPH_SPRING, EASE, mmss } from "./shared"
    browsing products while Anu talks them through it.
 
    Three faces share the one card: the live call (orb, status sentence, live
-   caption, the "Your details" checklist, mute + end, recording notice), the
+   caption, the "Your details" checklist, mute + end), the
    error (reason, retry, WhatsApp fallback) and the summary after hang-up
    (duration, the confirmed details, call again / request a quote). Shares
    `layoutId="anu-morph"` with the launcher and the minimised pill, so each
@@ -91,7 +91,6 @@ export default function CallPanel({ call }) {
                 : <Caption caption={caption} live={status === "live"} />}
               <DetailsCard details={lead} />
               <Controls muted={muted} disabled={status !== "live"} onMute={toggleMute} onEnd={endCall} />
-              <RecordingNote />
             </motion.div>
           )}
 
@@ -356,7 +355,7 @@ function DetailList({ details, className = "" }) {
 
 function Controls({ muted, disabled, onMute, onEnd }) {
   return (
-    <motion.div {...fadeUp(0.18)} className="mt-4 mb-3 flex w-full items-center justify-center gap-3">
+    <motion.div {...fadeUp(0.18)} className="mt-4 mb-6 flex w-full items-center justify-center gap-3">
       <motion.button
         whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.92 }}
         onClick={onMute} disabled={disabled}
@@ -382,17 +381,6 @@ function Controls({ muted, disabled, onMute, onEnd }) {
         End call
       </motion.button>
     </motion.div>
-  )
-}
-
-// Recording disclosure: Anu says it in her opener too, but it has to be on
-// screen for anyone who joined with the sound off.
-function RecordingNote() {
-  return (
-    <p className="mb-5 flex items-center gap-1.5 text-[12px] text-white/40">
-      <span className="h-1.5 w-1.5 rounded-full bg-red-400/80" />
-      This call is recorded to prepare your quotation.
-    </p>
   )
 }
 
