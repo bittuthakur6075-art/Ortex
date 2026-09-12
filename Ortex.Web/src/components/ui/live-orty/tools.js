@@ -8,7 +8,7 @@ export const LIVE_TOOLS = [{
   functionDeclarations: [
     {
       name: "lookup_product",
-      description: "Look up what Ortex actually lists before you describe, recommend or take an order for anything. Returns the live catalogue entry (material, minimum quantity, dispatch days, description), other products in the same category, and the add-ons worth offering next to it. An empty `matches` means the item is not in the catalogue: that is a custom run to be captured, never a refusal. Call it silently, as often as you need.",
+      description: "Look up what Ortex can supply before you describe, recommend or take an order for anything. The reply is one of three, and none of them is a refusal. (1) `matches` filled: Ortex lists it, so brief the customer from that entry, which carries the material, how it can be customised, the minimum quantity, the dispatch days and the description, plus the add-ons worth offering. (2) `matches` empty with `standard_range`: an everyday Ortex product that is simply not entered in the console list yet, so sell it normally with the minimum given there. (3) both empty: a made-to-order run, so sell the factory's own capability using `materials_we_work_in` and `customisation_methods`, work through `ask`, and capture it as a custom item. Always follow the `next` instruction. Call it silently, as often as you need.",
       parameters: {
         type: "OBJECT",
         properties: {

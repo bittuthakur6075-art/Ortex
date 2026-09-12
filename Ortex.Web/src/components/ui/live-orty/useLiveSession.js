@@ -7,7 +7,7 @@ import { LIVE_TOOLS } from "./tools"
 import { SPOKEN_FIELD, validateLead, saveVoiceLead } from "./leads"
 import { MEMORY_KEY, MAX_MEMORY_LINES, loadMemory } from "./memory"
 import { newCallId, recordingPath, startCallRecording, uploadCallRecording } from "./recording"
-import { catalogueBlock, loadCatalogue, lookupProduct } from "./catalogue"
+import { catalogueBlock, classifyItem, loadCatalogue, lookupProduct } from "./catalogue"
 
 /* ============================================================
    useLiveSession: the whole lifecycle of one voice call.
@@ -262,10 +262,13 @@ export function useLiveSession() {
   // capture_lead: validate, save when the name and number hold up, and tell Anu
   // what is still missing and what to do next.
   const captureLead = useCallback((args) => {
-    // Mark every item the live catalogue does not list as a custom run, rather
-    // than trusting Anu to set the flag. An off-catalogue item filed as a
-    // stock one is a quotation the factory may not be able to honour, and the
-    // sales desk cannot tell the two apart afterwards.
+    // Decide for ourselves what is a custom run, rather than trusting Anu to
+    // set the flag. An off-catalogue item filed as a stock one is a quotation
+    // the factory may not be able to honour, and the sales desk cannot tell the
+    // two apart afterwards. But a product in Ortex's standard range that has
+    // simply not been entered in the console yet (lanyards, trophies,
+    // clipboards) is NOT custom: flagging it as such sent the desk a "custom
+    // item" note for the most ordinary order on the list.
     const catalogue = catalogueRef.current
     const rawItems = Array.isArray(args.items) && args.items.length
       ? args.items
@@ -273,10 +276,13 @@ export function useLiveSession() {
     const enriched = catalogue
       ? {
           ...args,
-          items: rawItems.map((it) => ({
-            ...it,
-            custom: it?.custom === true || lookupProduct(catalogue, String(it?.product || "")).matches.length === 0,
-          })),
+          items: rawItems.map((it) => {
+            const kind = classifyItem(catalogue, it?.product)
+            // Anu may still flag a listed product she agreed to vary; only a
+            // standard-range item has its flag overruled, because that one she
+            // is told to leave alone and the desk needs it clean.
+            return { ...it, custom: kind === "custom" || (kind === "listed" && it?.custom === true) }
+          }),
         }
       : args
     const check = validateLead(enriched)
