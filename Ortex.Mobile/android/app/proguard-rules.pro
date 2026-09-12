@@ -11,30 +11,24 @@
 
 # ── Ortex release (R8 enabled via enableProguardInReleaseBuilds) ─────────────
 #
-# React Native and Expo ship their own consumer rules in their AARs, so this file
-# only covers what those cannot know about: anything reached by REFLECTION or
-# from native code, which R8 cannot see a reference to and will therefore strip.
+# React Native (`ReactAndroid/proguard-rules.pro`) and Expo
+# (`expo-modules-core/proguard-rules.pro`) ship their own CONSUMER rules inside
+# their AARs, and Gradle applies those automatically: the JNI bridge, the
+# `DoNotStrip` annotations, Hermes, and every `expo.modules.kotlin.modules.Module`
+# subclass are already kept by them. Restating those here, and wider (`-keep
+# class expo.modules.** { *; }` kept the whole Expo runtime unobfuscated and
+# unoptimised), only threw away what R8 was switched on to gain and would have
+# hidden a genuinely missing rule until someone tightened it.
 #
-# Symptom when one of these is missing: the JS bundle loads, then a screen that
-# touches the module dies with "ClassNotFoundException" or a native module that
-# is suddenly null — always at runtime, never at build time, which is why the
-# rules are stated rather than discovered on a sales rep's phone.
+# So this file carries ONLY what no library's consumer rules cover. Add a rule
+# here when a release build proves one is needed: the symptom is the JS bundle
+# loading and then a screen dying at runtime with "ClassNotFoundException" or a
+# native module that is suddenly null.
 
-# Anything the C++ layer resolves by name across the JNI boundary.
--keep class com.facebook.jni.** { *; }
--keep @com.facebook.proguard.annotations.DoNotStrip class *
--keepclassmembers class * {
-    @com.facebook.proguard.annotations.DoNotStrip *;
-    @com.facebook.common.internal.DoNotStrip *;
-}
-
-# Expo's module registry finds modules by class name at startup.
--keep class expo.modules.** { *; }
--keep class * extends expo.modules.kotlin.modules.Module { *; }
-
-# Kotlin metadata, which expo-modules reads to build its type converters.
+# Kotlin metadata, which expo-modules reads by reflection to build its type
+# converters. Neither AAR keeps it.
 -keep class kotlin.Metadata { *; }
 
-# Hermes.
+# Hermes' ICU shim, resolved by name from C++. React Native's consumer rules
+# keep `com.facebook.jni.**` for Hermes but not this package.
 -keep class com.facebook.hermes.unicode.** { *; }
--keep class com.facebook.jni.** { *; }

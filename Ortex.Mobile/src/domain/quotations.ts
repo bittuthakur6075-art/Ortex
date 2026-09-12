@@ -195,8 +195,15 @@ export async function updateQuotation(
     merged.extraDiscountPercent,
     merged.shipTo,
   )
+  // The validity end date follows the issue date and the validity days, the same
+  // way it was derived at creation. Without this, editing the days left the
+  // old date on the PDF. MIRRORED in Ortex.Admin/src/data/domain/domain.js.
+  const validUntil =
+    merged.issueDate && merged.validityDays != null
+      ? validUntilFor(merged.issueDate, merged.validityDays)
+      : merged.validUntil
   if (patch.customer) await upsertCustomer(patch.customer)
-  return repo.update<Quotation>("quotations", id, { ...patch, totals })
+  return repo.update<Quotation>("quotations", id, { ...patch, totals, validUntil })
 }
 
 /** Mark the enquiry a quotation came from as quoted, unless it is already won. */

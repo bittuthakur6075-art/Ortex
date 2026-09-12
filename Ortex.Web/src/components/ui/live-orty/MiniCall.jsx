@@ -10,7 +10,7 @@ export default function MiniCall({ call }) {
   const { status, speaking, muted, audioBlocked, seconds, readLevel, toggleMute, endCall, expand } = call
   const mood = status === "connecting" ? "connecting" : muted ? "muted" : speaking ? "speaking" : "listening"
   // Any tap on the pill counts as the gesture that unlocks sound (see useLiveSession).
-  const label = status === "connecting" ? "Connecting…" : audioBlocked ? "Tap for sound" : muted ? "Muted" : speaking ? "Speaking" : "Listening"
+  const label = status === "connecting" ? "Connecting…" : audioBlocked ? "Sound paused" : muted ? "Muted" : speaking ? "Speaking" : "Listening"
 
   return (
     <motion.div
@@ -20,7 +20,7 @@ export default function MiniCall({ call }) {
       style={{ borderRadius: 9999, background: "rgba(12,13,22,0.96)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
     >
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.1 } }} className="flex items-center gap-1">
-        <button onClick={expand} aria-label="Expand call with Anu" className="flex items-center gap-2.5 rounded-full py-0.5 pl-0.5 pr-3 transition hover:bg-white/5">
+        <button onClick={expand} aria-label="Open your call with Anu" className="flex items-center gap-2.5 rounded-full py-0.5 pl-0.5 pr-3 transition hover:bg-white/5">
           <Orb mood={mood} size={44} readLevel={readLevel} />
           <span className="text-left leading-tight">
             <span className="block text-[14px] font-semibold">Anu</span>

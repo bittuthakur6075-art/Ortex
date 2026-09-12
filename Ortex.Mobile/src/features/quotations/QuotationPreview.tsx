@@ -7,7 +7,7 @@ import { quotationHtml } from "@/documents/quotationHtml"
 import type { Quotation } from "@/domain/schema"
 import type { Settings } from "@/domain/settings"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, size as sizes } from "@/theme/tokens"
+import { border, gutter, size as sizes } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 import { IconButton, Spinner } from "@/ui"
 
@@ -135,8 +135,6 @@ export default function QuotationPreview({
   )
 }
 
-/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
-const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -145,7 +143,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 12,
     gap: 2,
-    borderBottomWidth: HEADER_RULE,
+    borderBottomWidth: border.hairline,
   },
   title: { flex: 1, marginHorizontal: 6, fontSize: 17, fontFamily: font.semibold },
   page: { flex: 1 },

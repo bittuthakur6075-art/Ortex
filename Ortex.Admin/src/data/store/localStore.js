@@ -103,6 +103,18 @@ export const localStore = {
     return true
   },
 
+  // Offline mode has no accounts and no server trigger, so there is no actor to
+  // record and no history to show. Returning empty keeps the repository
+  // contract whole and lets the audit card render its own "not recorded" state
+  // rather than making every caller test which store it is talking to.
+  async history() {
+    return []
+  },
+
+  async staffDirectory() {
+    return {}
+  },
+
   async getSettings() {
     try {
       // Deep-merge saved over defaults so new default keys appear for old data.

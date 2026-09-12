@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { KeyboardAwareFocusProvider, useKeyboardAwareScroll } from "@/hooks/useKeyboardAwareScroll"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, size as sizes, spacing } from "@/theme/tokens"
+import { border, gutter, size as sizes, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
 import Icon from "@/ui/Icon"
 import { TAB_BAR_HEIGHT } from "@/ui/Fab"
@@ -141,7 +141,7 @@ export default function AppScreen({
     outputRange: [0, -12],
     extrapolate: "clamp",
   })
-  // The bar's rule (1dp of `divider`, #F4F6F8) is drawn ALWAYS, not only once the
+  // The bar's rule (1dp of `divider`) is drawn ALWAYS, not only once the
   // compact title has taken over. Every AppScreen puts a white canvas under this
   // bar, and a white bar over a white page has no edge at all: the rule is the
   // only thing saying where the chrome stops. A header over a GREY plane needs no
@@ -293,8 +293,6 @@ export default function AppScreen({
   )
 }
 
-/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
-const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -315,12 +313,12 @@ const styles = StyleSheet.create({
   // glyphs themselves still read about 22dp apart.
   barRight: { flexDirection: "row", alignItems: "center", gap: 2 },
   // 1dp, not `StyleSheet.hairlineWidth`: a hairline is 0.33dp on a 3x phone, one
-  // physical pixel of #F4F6F8 on white, which is invisible in the hand.
+  // physical pixel of `divider`, which is invisible in the hand.
   barRule: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    height: HEADER_RULE,
+    height: border.hairline,
   },
 })

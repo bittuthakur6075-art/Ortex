@@ -10,6 +10,8 @@ import { useTheme } from "@/store/ThemeContext"
 import { spacing } from "@/theme/tokens"
 import {
   AppScreen,
+  DataNotice,
+  ListRefreshControl,
   ChipGroup,
   EmptyState,
   Fab,
@@ -35,7 +37,7 @@ const FILTERS = [
 
 export default function QuotationsScreen({ navigation }: TabScreenProps<"Quotes">) {
   const c = useTheme()
-  const { items, loading } = useCollection<Quotation>("quotations")
+  const { items, loading, refreshing, error, fromCache, cachedAt, reload } = useCollection<Quotation>("quotations")
   // Search moved to the app bar as a GLOBAL search (features/search) — a per-tab
   // field could only find what you were already looking at.
   const [filter, setFilter] = React.useState("all")
@@ -63,6 +65,7 @@ export default function QuotationsScreen({ navigation }: TabScreenProps<"Quotes"
         }
         list={{
           data: loading ? [] : visible,
+          refreshControl: <ListRefreshControl refreshing={refreshing} onRefresh={reload} />,
           keyExtractor: (q: unknown) => (q as Quotation).id,
           // A row's 2px band is its own edge, so one is drawn after the last row as
           // well as between every pair (the leading one is in the header below).
@@ -74,6 +77,8 @@ export default function QuotationsScreen({ navigation }: TabScreenProps<"Quotes"
                 <Skeleton key={i} height={72} radius={12} />
               ))}
             </View>
+          ) : error && !items.length ? (
+            <EmptyState icon="warning" title="Could not load quotations" hint={error} actionLabel="Try again" onAction={() => void reload()} />
           ) : (
             <EmptyState
               icon="quote"
@@ -106,6 +111,7 @@ export default function QuotationsScreen({ navigation }: TabScreenProps<"Quotes"
           },
         }}
       >
+        <DataNotice error={error} fromCache={fromCache} cachedAt={cachedAt} onRetry={() => void reload()} />
         <View style={{ marginBottom: spacing.sm }}>
           <ChipGroup options={FILTERS} value={filter} onChange={setFilter} />
         </View>

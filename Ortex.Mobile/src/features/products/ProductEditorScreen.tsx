@@ -12,7 +12,7 @@ import { feedback } from "@/lib/feedback"
 import { MAX_PHOTO_MB, removeProductImage, uploadProductImage } from "@/lib/productImages"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, radius, size as sizes, spacing } from "@/theme/tokens"
+import { border, gutter, radius, size as sizes, spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 import { Button, Dialog, Icon, IconButton, Panel, Sheet, Spinner, Switch, TextField, useToast } from "@/ui"
 import KeyboardAwareScrollView from "@/ui/KeyboardAwareScrollView"
@@ -568,8 +568,6 @@ function OptionSheet({
   )
 }
 
-/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
-const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -579,7 +577,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
-    borderBottomWidth: HEADER_RULE,
+    borderBottomWidth: border.hairline,
   },
   headTitle: { marginLeft: 4, fontSize: 18, fontFamily: font.semibold, textTransform: "capitalize" },
 

@@ -117,6 +117,9 @@ export async function submitEnquiry({
   items = [],
   message = "",
   notes = "",
+  // Voice calls only: { id, recording, confirmed, complete } from live-orty,
+  // tying every row of one conversation to its recording.
+  call = null,
   reference = newReference(),
 }) {
   // Stamp the visitor's tracking ids so the admin Growth dashboard can join this
@@ -138,6 +141,7 @@ export async function submitEnquiry({
     items,
     message,
     notes,
+    ...(call ? { call } : {}),
     submittedAt: new Date().toISOString(),
     tracking: { userId, sessionId },
   }

@@ -4,23 +4,30 @@ import { supabase, hasSupabase } from "../../../lib/supabaseClient"
 import { INPUT_RATE, OUTPUT_RATE, floatTo16BitPCM, int16ToBase64, base64ToInt16 } from "./audio"
 import { VOICE_SYSTEM_INSTRUCTION, buildOpener } from "./prompt"
 import { LIVE_TOOLS } from "./tools"
-import { validateLead, saveVoiceLead } from "./leads"
+import { SPOKEN_FIELD, validateLead, saveVoiceLead } from "./leads"
 import { MEMORY_KEY, MAX_MEMORY_LINES, loadMemory } from "./memory"
+import { newCallId, recordingPath, startCallRecording, uploadCallRecording } from "./recording"
 
 /* ============================================================
-   useLiveSession — the whole lifecycle of one voice call.
+   useLiveSession: the whole lifecycle of one voice call.
 
    Flow: ephemeral token (orty-live-token Edge Function) → Live WebSocket →
    stream mic as 16 kHz PCM, play Orty's 24 kHz PCM voice back.
 
-   Audio contexts, the Live session, the mic stream and the call timer are all
-   torn down together in `stop`, so they live in one hook rather than being
-   split across several. Drawing is NOT done here: the orb pulls a loudness
-   value through `readLevel()` on its own animation frame.
+   Audio contexts, the Live session, the mic stream, the recorder and the call
+   timer are all torn down together in `stop`, so they live in one hook rather
+   than being split across several. Drawing is NOT done here: the orb pulls a
+   loudness value through `readLevel()` on its own animation frame.
+
+   The page, not the model, owns the rules of a call. Every capture_lead is
+   checked by validateLead (leads.js) and answered with what is still missing
+   and what to do next; end_call with reason "completed" is refused once while
+   the five details are missing or unconfirmed.
 
    A call ends in one of three ways, all through `finish()`: the visitor hangs
-   up, Anu calls `end_call`, or the server closes the socket. Each leaves the
-   panel open on a summary (`ended`) rather than vanishing mid-sentence.
+   up, Anu calls end_call, or the server closes the socket. Each leaves the
+   panel open on a summary, and a call that produced a lead has its recording
+   uploaded for the console (recording.js).
    ============================================================ */
 
 const LIVE_MODEL = "gemini-3.1-flash-live-preview"
@@ -32,18 +39,51 @@ const PLAYBACK_LEAD = 0.08
 // Gemini's voice peaks at about -0.3 dBFS; 0.9x leaves headroom so cheap
 // speakers do not distort on loud syllables.
 const OUTPUT_GAIN = 0.9
+// How many times end_call may be refused for missing details before the page
+// lets Anu hang up anyway. Once is enough to make her ask; refusing for ever
+// would trap a customer who simply wants to go.
+const MAX_END_REFUSALS = 1
+
+const spoken = (keys) => keys.map((k) => SPOKEN_FIELD[k]).join(", ")
+
+// What Anu should do after a successful save, from the page's own check.
+function nextStep(check, confirmed) {
+  const checks = check.problems.length ? `First check with the customer: ${check.problems.join("; ")}. ` : ""
+  if (check.missing.length) {
+    return `${checks}Saved. Still needed: ${spoken(check.missing)}. Ask for the ${SPOKEN_FIELD[check.missing[0]]} next, naturally, one question at a time.`
+  }
+  if (!confirmed) {
+    return `${checks}All five details are captured. Read back the complete summary now: name, WhatsApp number in two groups of five digits, every product with its quantity, timeline and delivery city. Ask the customer to confirm. When they confirm, call capture_lead again with the same details and confirmed=true.`
+  }
+  return "Confirmed and saved. Thank the customer, tell them the team will send the free mockup and quotation on WhatsApp, usually within one working day, then say goodbye and call end_call with reason completed."
+}
+
+// Why end_call should be refused, or null when the call may end.
+function endBlocker(reason, details) {
+  if (reason !== "completed") return null
+  if (!details) {
+    return "Do not end yet: the customer's name and WhatsApp number are not saved. Ask for them, explaining that the team sends the free mockup and quotation on WhatsApp. If the customer does not want to share, call end_call with reason customer_declined."
+  }
+  if (!details.complete) {
+    return `Do not end yet. Still needed: ${spoken(details.missing)}. Ask for these first. If the customer has to leave, call end_call with reason customer_busy.`
+  }
+  if (!details.confirmed) {
+    return "Do not end yet. Read back the complete summary, get the customer's confirmation, save it with confirmed=true, then end the call."
+  }
+  return null
+}
 
 // What a visitor sees when the call cannot start. Setup instructions are only
 // useful to a developer; a customer gets a plain sentence.
 function friendlyError(err) {
   const name = err?.name || ""
   if (name === "NotAllowedError" || name === "SecurityError") {
-    return "Microphone access is blocked. Allow the mic from your browser's address bar, then try again."
+    return "Microphone access is blocked. Please allow microphone access from your browser's address bar and try again."
   }
   if (name === "NotFoundError" || name === "OverconstrainedError") {
-    return "No microphone found. Plug one in or switch devices, then try again."
+    return "We could not find a microphone. Please connect one and try again."
   }
-  return "Couldn't reach Anu. Check your connection and try again."
+  return "We could not connect to Anu. Please check your internet connection and try again."
 }
 
 export function useLiveSession() {
@@ -59,7 +99,8 @@ export function useLiveSession() {
   const [minimized, setMinimized] = useState(false)
   // Live caption of whoever spoke last: { id, who: "anu" | "you", chunks: [] }
   const [caption, setCaption] = useState(null)
-  // Details Anu confirmed and saved during THIS call.
+  // What this call has captured so far, as validated by the page:
+  // { name, phone, city, timeline, items, missing, complete, confirmed }
   const [lead, setLead] = useState(null)
   // Summary of the call that just finished: { seconds, lead }
   const [ended, setEnded] = useState(null)
@@ -80,8 +121,12 @@ export function useLiveSession() {
   const secondsRef = useRef(0)
   const mutedRef = useRef(false)
   const endWantedRef = useRef(false)
+  const endRefusalsRef = useRef(0)
   const callLeadRef = useRef(null)
   const turnDoneRef = useRef(true)
+  const callIdRef = useRef(null)
+  const recorderRef = useRef(null)
+  const recPathRef = useRef(null)
 
   // Conversation memory: rolling transcript lines + latest captured lead.
   const convoRef = useRef([])
@@ -94,7 +139,7 @@ export function useLiveSession() {
       const lines = convoRef.current.slice(-MAX_MEMORY_LINES)
       if (!lines.length && !leadRef.current) return
       localStorage.setItem(MEMORY_KEY, JSON.stringify({ v: 1, savedAt: Date.now(), lead: leadRef.current, lines }))
-    } catch { /* localStorage full or blocked — memory is best-effort */ }
+    } catch { /* localStorage full or blocked; memory is best-effort */ }
   }, [])
 
   // Close out a turn: fold the buffered user + Anu transcripts into the rolling
@@ -125,6 +170,11 @@ export function useLiveSession() {
 
   const stop = useCallback(() => {
     clearInterval(timerRef.current)
+    // A recorder still running here belongs to a call being abandoned (closed
+    // while connecting, or torn down on unmount): discard it. finish() and the
+    // error path take theirs out first, through closeRecording.
+    try { recorderRef.current?.stop() } catch { /* noop */ }
+    recorderRef.current = null
     try { procRef.current?.disconnect() } catch { /* noop */ }
     try { streamRef.current?.getTracks().forEach((t) => t.stop()) } catch { /* noop */ }
     // Null the session BEFORE closing it: onclose checks it to tell our own
@@ -149,13 +199,26 @@ export function useLiveSession() {
     setSeconds(0)
   }, [])
 
+  // Hand the call's recording to storage. Only a call that produced a lead is
+  // kept: the recording is filed against that lead, and a call with no details
+  // has nobody to file it under. Must run before stop() closes the audio.
+  const closeRecording = useCallback(() => {
+    const rec = recorderRef.current
+    recorderRef.current = null
+    if (!rec) return
+    const path = recPathRef.current
+    const pending = rec.stop()
+    if (callLeadRef.current && path) pending.then((blob) => uploadCallRecording(path, blob))
+  }, [])
+
   // End the call and keep the panel open on its summary.
   const finish = useCallback(() => {
     const summary = { seconds: secondsRef.current, lead: callLeadRef.current }
+    closeRecording()
     stop()
     setEnded(summary)
     setMinimized(false)
-  }, [stop])
+  }, [stop, closeRecording])
 
   useEffect(() => () => stop(), [stop])
 
@@ -192,36 +255,58 @@ export function useLiveSession() {
     setSpeaking(false)
   }, [])
 
+  // capture_lead: validate, save when the name and number hold up, and tell Anu
+  // what is still missing and what to do next.
+  const captureLead = useCallback((args) => {
+    const check = validateLead(args)
+    if (!check.ok) {
+      return {
+        ok: false,
+        saved: false,
+        errors: check.errors,
+        next: "Nothing was saved. Politely confirm the customer's name and read the WhatsApp number back in two groups of five digits, correct any mistake, then call capture_lead again with the complete details.",
+      }
+    }
+    // A confirmation only counts for a complete order; anything changed after
+    // it arrives without the flag and needs confirming again.
+    const confirmed = args.confirmed === true && check.complete
+    const saved = { ...args, name: check.name, phone: check.phone, city: check.city, timeline: check.timeline, items: check.items }
+    saveVoiceLead(saved, { id: callIdRef.current, recording: recPathRef.current, confirmed, complete: check.complete })
+    // Remember the details so a reopened call already knows them.
+    leadRef.current = { ...(leadRef.current || {}), ...saved }
+    persistMemory()
+    const details = {
+      name: check.name, phone: check.phone, city: check.city, timeline: check.timeline, items: check.items,
+      missing: check.missing, complete: check.complete, confirmed,
+    }
+    callLeadRef.current = details
+    setLead(details)
+    return {
+      ok: true,
+      saved: true,
+      complete: check.complete,
+      confirmed,
+      missing: check.missing.map((k) => SPOKEN_FIELD[k]),
+      problems: check.problems,
+      next: nextStep(check, confirmed),
+    }
+  }, [persistMemory])
+
   const handleMessage = useCallback((message) => {
-    // Tool calls: capture the lead, and/or end the call from Anu's side.
     const calls = message?.toolCall?.functionCalls
     if (calls?.length) {
       for (const fc of calls) {
         let response = { ok: true }
-        if (fc.name === "capture_lead") {
-          // Validate before saving. On failure, tell Anu exactly what is wrong so
-          // she reads the number back and re-asks, then calls capture_lead again,
-          // instead of a bad lead landing silently in the Admin.
-          const check = validateLead(fc.args || {})
-          if (check.ok) {
-            const saved = { ...(fc.args || {}), name: check.name, phone: check.phone }
-            saveVoiceLead(saved)
-            // Remember the confirmed details so a reopened call already knows them.
-            leadRef.current = { ...(leadRef.current || {}), ...saved }
-            callLeadRef.current = saved
-            setLead(saved)
-            persistMemory()
-            response = { ok: true, saved: true }
+        if (fc.name === "capture_lead") response = captureLead(fc.args || {})
+        if (fc.name === "end_call") {
+          const blocker = endBlocker(String(fc.args?.reason || "completed"), callLeadRef.current)
+          if (blocker && endRefusalsRef.current < MAX_END_REFUSALS) {
+            endRefusalsRef.current += 1
+            response = { ok: false, ended: false, next: blocker }
           } else {
-            response = {
-              ok: false,
-              saved: false,
-              errors: check.errors,
-              retry: "Politely read the WhatsApp number back digit by digit to confirm it, correct any mistake, then call capture_lead again.",
-            }
+            endWantedRef.current = true
           }
         }
-        if (fc.name === "end_call") endWantedRef.current = true
         try { sessionRef.current?.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response }] }) } catch { /* noop */ }
       }
       if (endWantedRef.current && sourcesRef.current.length === 0) {
@@ -248,7 +333,7 @@ export function useLiveSession() {
         playChunk(base64ToInt16(inline.data))
       }
     }
-  }, [clearPlayback, playChunk, finish, flushTranscript, persistMemory, pushCaption])
+  }, [captureLead, clearPlayback, playChunk, finish, flushTranscript, pushCaption])
 
   // Loudness of whoever is talking (Anu while her audio plays, else the mic),
   // 0..1. Called by the orb every animation frame, so it allocates nothing.
@@ -274,6 +359,8 @@ export function useLiveSession() {
   const toggleMute = useCallback(() => {
     mutedRef.current = !mutedRef.current
     setMuted(mutedRef.current)
+    // Muted means the line is closed, so the customer is not recorded either.
+    recorderRef.current?.setMicEnabled(!mutedRef.current)
   }, [])
 
   const start = useCallback(async () => {
@@ -281,10 +368,13 @@ export function useLiveSession() {
     setEnded(null); setCaption(null); setLead(null); setErrorMsg("")
     callLeadRef.current = null
     turnDoneRef.current = true
+    endRefusalsRef.current = 0
+    callIdRef.current = newCallId()
+    recPathRef.current = null
     if (!hasSupabase) {
       setErrorMsg(import.meta.env.DEV
         ? "Voice assistant not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Ortex.Web/.env and restart the dev server."
-        : "Voice calls are unavailable right now. Please reach us on WhatsApp instead.")
+        : "Voice calls are currently unavailable. Please contact us on WhatsApp.")
       setStatus("error")
       return
     }
@@ -342,6 +432,12 @@ export function useLiveSession() {
       if (outCtxRef.current !== out) { stream.getTracks().forEach((t) => t.stop()); return }
       streamRef.current = stream
 
+      // Record both voices from the first second. The path is fixed now, so
+      // every lead row saved during the call can point at it.
+      const recorder = startCallRecording(out, outAnalyser, stream)
+      recorderRef.current = recorder
+      recPathRef.current = recorder ? recordingPath(callIdRef.current, recorder.ext) : null
+
       const ai = new GoogleGenAI({ apiKey: data.token, httpOptions: { apiVersion: "v1alpha" } })
       let live = null
       const session = await ai.live.connect({
@@ -366,8 +462,9 @@ export function useLiveSession() {
           onmessage: handleMessage,
           onerror: () => {
             if (sessionRef.current !== live) return
+            closeRecording()
             stop()
-            setErrorMsg("The call dropped. Check your connection and try again.")
+            setErrorMsg("Your call was disconnected. Please check your internet connection and try again.")
             setStatus("error")
           },
           // Our own hang-up nulls sessionRef first; anything else is the
@@ -414,7 +511,7 @@ export function useLiveSession() {
     } finally {
       busyRef.current = false
     }
-  }, [handleMessage, stop, finish, unlockAudio])
+  }, [handleMessage, stop, finish, unlockAudio, closeRecording])
 
   const openCall = useCallback(() => { setOpen(true); setMinimized(false); start() }, [start])
   const endCall = useCallback(() => finish(), [finish])

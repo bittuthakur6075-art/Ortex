@@ -28,9 +28,9 @@ import { callNumber, copy, email as sendEmail, prettyPhone, whatsapp } from "@/l
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, radius, spacing } from "@/theme/tokens"
+import { border, gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { Button, Icon, IconButton, Panel, PanelBand, StatusBadge, useToast } from "@/ui"
+import { Button, Icon, IconButton, Panel, PanelBand, RecordActivityPanel, Spinner, StatusBadge, useToast } from "@/ui"
 import { Advisory, Fact, ItemRow, QuickAction, StatusStepper } from "@/features/leads/leadUi"
 
 /**
@@ -57,7 +57,7 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
   const t = useTheme()
   const insets = useSafeAreaInsets()
   const toast = useToast()
-  const { items } = useCollection<Enquiry>("enquiries")
+  const { items, loading } = useCollection<Enquiry>("enquiries")
   const { items: products } = useCollection<Product>("products")
   const { items: quotations } = useCollection<Quotation>("quotations")
   const scrollY = React.useRef(new Animated.Value(0)).current
@@ -84,6 +84,14 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
       return false
     })
   }, [quotations, enquiry])
+
+  if (!enquiry && loading) {
+    return (
+      <View style={[styles.root, styles.centre, { backgroundColor: t.background, paddingTop: insets.top }]}>
+        <Spinner label="Loading" />
+      </View>
+    )
+  }
 
   if (!enquiry) {
     return (
@@ -366,6 +374,10 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
             </Panel>
           </>
         )}
+
+        {/* Who picked this lead up and who moved it along. The website's own
+            insert shows as Automation, which is what it was. */}
+        <RecordActivityPanel collection="enquiries" record={enquiry} />
       </Animated.ScrollView>
 
       <View
@@ -401,8 +413,6 @@ function Total({ label, value }: { label: string; value: string }) {
   )
 }
 
-/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
-const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -415,7 +425,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 8,
     paddingBottom: 2,
-    borderBottomWidth: HEADER_RULE,
+    borderBottomWidth: border.hairline,
   },
   barTitle: { flex: 1, marginHorizontal: 4 },
 

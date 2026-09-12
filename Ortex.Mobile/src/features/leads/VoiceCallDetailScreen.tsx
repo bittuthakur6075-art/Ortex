@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { repo } from "@/data/repo"
 import { errorMessage } from "@/data/supabase"
-import { formatCurrency, formatDateTime, relativeTime } from "@/domain/format"
+import { formatCurrency, formatDateTime, formatNumber, relativeTime } from "@/domain/format"
 import { ENQUIRY_STATUS, QUOTATION_STATUS, statusMeta, type Enquiry, type Quotation } from "@/domain/schema"
 import { buildQuotationPrefill, parseQuantity, prettyPhone, voiceCallsFrom } from "@/domain/voice"
 import { useCollection } from "@/hooks/useCollection"
@@ -12,9 +12,9 @@ import { callNumber, copy, email as sendEmail, whatsapp } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, radius, spacing } from "@/theme/tokens"
+import { border, gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { Button, Icon, IconButton, Panel, PanelBand, StatusBadge, useToast } from "@/ui"
+import { Button, Icon, IconButton, Panel, PanelBand, RecordActivityPanel, Spinner, StatusBadge, useToast } from "@/ui"
 import { Advisory, Fact, ItemRow, QuickAction, StatusStepper } from "@/features/leads/leadUi"
 
 /**
@@ -39,7 +39,7 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
   const t = useTheme()
   const insets = useSafeAreaInsets()
   const toast = useToast()
-  const { items } = useCollection<Enquiry>("enquiries")
+  const { items, loading } = useCollection<Enquiry>("enquiries")
   const { items: quotations } = useCollection<Quotation>("quotations")
   const scrollY = React.useRef(new Animated.Value(0)).current
   const [saving, setSaving] = React.useState(false)
@@ -61,6 +61,14 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
       return false
     })
   }, [quotations, call])
+
+  if (!call && loading) {
+    return (
+      <View style={[styles.root, styles.centre, { backgroundColor: t.background, paddingTop: insets.top }]}>
+        <Spinner label="Loading" />
+      </View>
+    )
+  }
 
   if (!call) {
     return (
@@ -174,7 +182,7 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
         {call.flags.hugeQty && (
           <Advisory tone="warning" icon="warning">
             {`The quantity on this call is unusually large${
-              biggest ? ` (up to ${biggest.toLocaleString("en-IN")})` : ""
+              biggest ? ` (up to ${formatNumber(biggest)})` : ""
             }. Confirm it before it is used for pricing. Spoken figures like this are often a slip of the tongue.`}
           </Advisory>
         )}
@@ -347,6 +355,11 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
             </Panel>
           </>
         )}
+
+        {/* A folded call is several enquiry rows sharing a phone number, and
+            this is the newest capture. A status change writes to every folded
+            row, so this row's history speaks for the whole call. */}
+        <RecordActivityPanel collection="enquiries" record={call} />
       </Animated.ScrollView>
 
       <View
@@ -386,8 +399,6 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
   }
 }
 
-/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
-const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -400,7 +411,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 8,
     paddingBottom: 2,
-    borderBottomWidth: HEADER_RULE,
+    borderBottomWidth: border.hairline,
   },
   barTitle: { flex: 1, marginHorizontal: 4 },
 

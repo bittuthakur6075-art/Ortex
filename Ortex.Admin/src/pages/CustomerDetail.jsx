@@ -26,6 +26,7 @@ import { formatCurrency, formatDate, formatNumber, relativeTime } from "../lib/f
 import { stateLabel } from "../lib/gstStates"
 import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../components/editors/DocumentEditorShell"
 import { Button, Input, Field, StatusBadge, EmptyState, Money, PageLoader } from "../components/ui/Ui"
+import { RecordActivity } from "../components/ui/RecordActivity"
 
 const byNewest = (a, b) => new Date(b.issueDate || b.createdAt || 0) - new Date(a.issueDate || a.createdAt || 0)
 
@@ -310,6 +311,12 @@ export default function CustomerDetail() {
                 ))}
               </ul>
             )}
+          </Section>
+
+          {/* A customer record is edited by whoever last quoted them, so a
+              changed GSTIN or address needs a name against it. */}
+          <Section title="Activity" description="Who created and edited this customer.">
+            <RecordActivity collection="customers" record={record} bare title="" />
           </Section>
         </div>
       </div>

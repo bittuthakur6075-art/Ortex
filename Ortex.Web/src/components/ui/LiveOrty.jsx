@@ -6,7 +6,7 @@ import MiniCall from "./live-orty/MiniCall"
 import Launcher from "./live-orty/Launcher"
 
 /* ============================================================
-   Live Orty — realtime VOICE assistant (Gemini Live API), "Anu" on screen.
+   Live Orty: realtime VOICE assistant (Gemini Live API), "Anu" on screen.
 
    One floating object in the bottom-right corner that changes shape with the
    call, never a page-blocking modal:

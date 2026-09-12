@@ -15,6 +15,8 @@ import { gutter, size as sizes, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
 import {
   AppScreen,
+  DataNotice,
+  ListRefreshControl,
   EmptyState,
   Fab,
   Icon,
@@ -81,7 +83,7 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
   const t = useTheme()
   const insets = useSafeAreaInsets()
   const toast = useToast()
-  const { items, loading } = useCollection<CustomerRow>("customers")
+  const { items, loading, refreshing, error, fromCache, cachedAt, reload } = useCollection<CustomerRow>("customers")
   const favourites = useFavourites()
 
   const [query, setQuery] = React.useState("")
@@ -220,6 +222,7 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
         }
         sections={{
           sections: loading ? [] : sections,
+          refreshControl: <ListRefreshControl refreshing={refreshing} onRefresh={reload} />,
           keyExtractor: (c: unknown) => (c as CustomerRow).id,
           stickySectionHeadersEnabled: true,
           initialNumToRender: 20,
@@ -237,6 +240,8 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
                 <Skeleton key={i} height={CONTACT_ROW_HEIGHT - 8} radius={12} />
               ))}
             </View>
+          ) : error && !items.length ? (
+            <EmptyState icon="warning" title="Could not load contacts" hint={error} actionLabel="Try again" onAction={() => void reload()} />
           ) : needle ? (
             <EmptyState
               icon="search"
@@ -298,6 +303,7 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
           },
         }}
       >
+        <DataNotice error={error} fromCache={fromCache} cachedAt={cachedAt} onRetry={() => void reload()} />
         {!selecting && <SearchField value={query} onChangeText={setQuery} placeholder="Search contacts" />}
       </AppScreen>
 

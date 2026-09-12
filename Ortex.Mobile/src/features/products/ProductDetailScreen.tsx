@@ -24,9 +24,9 @@ import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, radius, size as sizes, spacing } from "@/theme/tokens"
+import { border, gutter, radius, size as sizes, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { Button, Dialog, Icon, Panel, PanelBand, PopupMenu, useToast } from "@/ui"
+import { Button, Dialog, Icon, Panel, PanelBand, PopupMenu, RecordActivityPanel, Spinner, useToast } from "@/ui"
 import type { IconName } from "@/ui/Icon"
 
 /**
@@ -50,10 +50,11 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
   const t = useTheme()
   const insets = useSafeAreaInsets()
   const toast = useToast()
-  const { items } = useCollection<Product>("products")
-  // Same admin gate as the quotation page — and the same caveat: it is a UI
-  // gate only. `staff_all` grants every authenticated user `for all`, so the
-  // database itself does not refuse a delete from a sales executive.
+  const { items, loading } = useCollection<Product>("products")
+  // Same admin gate as the quotation page. For products it IS a UI gate only:
+  // `staff_products` (0007) is `for all` under has_module_access('products'),
+  // so anyone who can see this tab could delete from the database. Quotations
+  // got a database-side admin rule in 0022; products have not.
   const { profile } = useAuth()
   const isAdmin = profile?.role === "admin"
   const [menuOpen, setMenuOpen] = React.useState(false)
@@ -71,6 +72,14 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
   // cropped to a strip.
   const width = Dimensions.get("window").width
   const heroHeight = Math.round(width * 0.75)
+
+  if (!product && loading) {
+    return (
+      <View style={[styles.root, styles.centre, { backgroundColor: t.background, paddingTop: insets.top }]}>
+        <Spinner label="Loading" />
+      </View>
+    )
+  }
 
   if (!product) {
     return (
@@ -354,6 +363,11 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
             </View>
           </Panel>
         )}
+
+        {/* Who added this product, and every change to its price, photos or
+            website visibility since — the questions a catalogue raises the
+            moment more than one person can edit it. */}
+        <RecordActivityPanel collection="products" record={product} />
       </Animated.ScrollView>
 
       {/* The bar rides OVER the photo: glass while the hero owns the top of the
@@ -538,8 +552,6 @@ function GlassButton({
   )
 }
 
-/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
-const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -559,8 +571,8 @@ const styles = StyleSheet.create({
   },
   barTitle: { flex: 1, marginHorizontal: 8 },
   // 1dp, not `StyleSheet.hairlineWidth`: a hairline is 0.33dp on a 3x phone, one
-  // physical pixel of #F4F6F8 on white, which is invisible in the hand.
-  barRule: { position: "absolute", left: 0, right: 0, bottom: 0, height: HEADER_RULE },
+  // physical pixel of `divider`, which is invisible in the hand.
+  barRule: { position: "absolute", left: 0, right: 0, bottom: 0, height: border.hairline },
   glass: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   glassFill: { borderRadius: 20 },
 

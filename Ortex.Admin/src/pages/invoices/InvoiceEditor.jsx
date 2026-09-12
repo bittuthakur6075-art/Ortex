@@ -19,6 +19,7 @@ import CustomerPicker from "../../components/editors/CustomerPicker"
 import ShipToFields from "../../components/editors/ShipToFields"
 import LineItemsEditor from "../../components/editors/LineItemsEditor"
 import LivePreview from "../../components/editors/LivePreview"
+import { RecordActivity } from "../../components/ui/RecordActivity"
 import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../../components/editors/DocumentEditorShell"
 import ReceiptView from "../../components/documents/ReceiptView"
 import { parseTallyInvoiceXml } from "../../components/editors/TallyInvoiceImport"
@@ -249,8 +250,10 @@ export default function InvoiceEditor({ draft, products, customers, payments, se
           )}
         </div>
 
-        <div className="min-w-0 xl:sticky xl:top-[72px] xl:self-start">
+        <div className="min-w-0 space-y-4 xl:sticky xl:top-[72px] xl:self-start">
           <LivePreview doc={liveDoc} settings={settings} type="invoice" onOpen={() => onPreview(liveDoc)} />
+          {/* An unsaved invoice has no row, so no authorship to report. */}
+          {isEdit && <RecordActivity collection="invoices" record={draft} />}
         </div>
       </div>
 

@@ -1,44 +1,61 @@
 // ---- Gemini Live tool declarations -----------------------------------------
-// Anu calls capture_lead to save/update the lead and end_call to hang up.
+// Anu calls capture_lead to save and update the lead, and end_call to hang up.
+// Both are answered by useLiveSession with a `next` instruction built from
+// validateLead (leads.js), which is how the page, not the model, decides what
+// is still missing and whether the call may end yet.
 
 export const LIVE_TOOLS = [{
   functionDeclarations: [
     {
       name: "capture_lead",
-      description: "Save or UPDATE the customer's lead. Call this as soon as you have their name and a confirmed WhatsApp number, and again every single time any detail changes or is added (a new item, a corrected quantity, the timeline, the delivery city). ALWAYS send the complete current picture, never just the part that changed, because each call replaces the previous one. Call it silently, do not announce it. The details are validated: if the response is ok=false, the name or number was invalid, so confirm it with the customer and call this again.",
+      description: "Save or UPDATE the customer's details. Call it as soon as you have a real name and a WhatsApp number the customer has confirmed, and again every time any detail is added or changes. ALWAYS send the complete current picture, never only the part that changed, because each call replaces the previous one. Call it silently. The reply says whether it was saved, which details are still missing or need checking, and what to do next: follow its `next` instruction.",
       parameters: {
         type: "OBJECT",
         properties: {
-          name: { type: "STRING", description: "Customer's name" },
-          phone: { type: "STRING", description: "WhatsApp number, a 10-digit Indian mobile starting 6-9. Digits only if possible." },
+          name: { type: "STRING", description: "The customer's real name, at least a first name. Never 'sir', 'madam' or 'customer'." },
+          phone: { type: "STRING", description: "WhatsApp number as 10 digits starting with 6, 7, 8 or 9. Digits only, without +91." },
           items: {
             type: "ARRAY",
-            description: "EVERY product the customer wants, each with its own quantity. Send the full list on every call, including items agreed earlier. Use this whenever the order has more than one product.",
+            description: "EVERY product the customer wants, each with its own quantity, including accepted add-ons. Send the full list on every call, including items agreed earlier.",
             items: {
               type: "OBJECT",
               properties: {
-                product: { type: "STRING", description: "Product name, for example 'Customized diaries with individual names'" },
-                quantity: { type: "STRING", description: "Quantity for this item, for example '1000'" },
-                notes: { type: "STRING", description: "Anything specific to this item, such as colour, material or branding" },
+                product: { type: "STRING", description: "Specific product, for example 'Satin lanyards with logo print' or 'Acrylic keychains, custom shape'" },
+                quantity: { type: "STRING", description: "Quantity as digits only, for example '500'. Convert spoken numbers: 'paanch sau' is 500, 'do hazaar' is 2000. Leave empty if the customer has not said yet." },
+                notes: { type: "STRING", description: "Colour, material, size or branding details for this item" },
               },
               required: ["product"],
             },
           },
-          product: { type: "STRING", description: "Main product, for a single-item order. If the order has several items, use `items` instead." },
-          quantity: { type: "STRING", description: "Approximate quantity for the main product" },
-          timeline: { type: "STRING", description: "When they need it" },
-          city: { type: "STRING", description: "Delivery city, if mentioned" },
+          product: { type: "STRING", description: "Main product, only for a single-item order. If the order has several items, use `items` instead." },
+          quantity: { type: "STRING", description: "Quantity for the main product, digits only" },
+          timeline: { type: "STRING", description: "When they need it, as the customer said it, for example 'by 15 October' or 'within two weeks'" },
+          city: { type: "STRING", description: "Delivery city or town. Required before the call ends." },
+          use_case: { type: "STRING", description: "What the order is for, for example 'annual awards', 'employee ID cards' or 'Diwali client gifting'" },
           address: { type: "STRING", description: "Full delivery address, only if the customer volunteers it" },
           company: { type: "STRING", description: "Company or firm name, if they are buying for a business" },
           email: { type: "STRING", description: "Email address, only if the customer gives one" },
-          summary: { type: "STRING", description: "One or two line summary of the requirement" },
+          summary: { type: "STRING", description: "One line on the requirement. Start with 'Support:' for order status, complaints, damage or cancellations." },
+          confirmed: { type: "BOOLEAN", description: "true ONLY in the call made right after you read back every detail (name, number, each product with its quantity, timeline, city) and the customer said it is correct. Otherwise false." },
         },
-        required: ["name"],
+        required: ["name", "phone"],
       },
     },
     {
       name: "end_call",
-      description: "Call this after you have said a warm goodbye and the conversation is complete, to end and close the call.",
+      description: "End the call after a warm goodbye. With reason 'completed' the reply may refuse and say which details to capture or confirm first: follow it, then try again.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          reason: {
+            type: "STRING",
+            format: "enum",
+            enum: ["completed", "customer_declined", "customer_busy", "support_request", "not_relevant"],
+            description: "completed: all five details captured and confirmed. customer_declined: they chose not to share details. customer_busy: they had to leave. support_request: an existing-order issue routed to the team. not_relevant: the call was not about Ortex.",
+          },
+        },
+        required: ["reason"],
+      },
     },
   ],
 }]

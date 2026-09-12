@@ -2,7 +2,7 @@ import { motion } from "framer-motion"
 import Orb from "./Orb"
 import { MORPH_SPRING } from "./shared"
 
-// Bottom-right "Talk to Anu" pill shown once the first (auto-opened) call has
+// Bottom-right "Speak with Anu" pill shown once the first (auto-opened) call has
 // been closed. The idle orb breathes so it reads as a live assistant rather than
 // a plain button; a single soft ring pings once when it first appears. Shares
 // `layoutId="anu-morph"` with the call panel, so it expands into it and back.
@@ -11,7 +11,7 @@ export default function Launcher({ onOpen }) {
     <motion.button
       layoutId="anu-morph"
       onClick={onOpen}
-      aria-label="Talk to Anu by voice"
+      aria-label="Start a voice call with Anu"
       transition={MORPH_SPRING}
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.97 }}
@@ -30,8 +30,8 @@ export default function Launcher({ onOpen }) {
           <Orb mood="idle" size={40} />
         </span>
         <span className="text-left leading-tight">
-          <span className="block whitespace-nowrap text-[16px] font-semibold">Talk to Anu</span>
-          <span className="block whitespace-nowrap text-[12px] text-white/70">Free voice call · Hindi & English</span>
+          <span className="block whitespace-nowrap text-[16px] font-semibold">Speak with Anu</span>
+          <span className="block whitespace-nowrap text-[12px] text-white/70">Free voice consultation · Hindi & English</span>
         </span>
       </motion.span>
     </motion.button>

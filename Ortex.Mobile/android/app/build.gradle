@@ -3,24 +3,35 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 /**
+ * Run a `node` one-liner and hand back the path it printed, as a File. Throws
+ * on an empty result instead of letting `new File("")` silently become the
+ * project directory (see the `entryFile` / `cliFile` notes in `react {}`).
+ */
+def resolveNode(String what, List<String> command) {
+    def out = command.execute(null, rootDir).text.trim()
+    if (!out) {
+        throw new GradleException("Could not resolve ${what}: `${command.join(' ')}` printed nothing. Is node_modules installed?")
+    }
+    return new File(out)
+}
+
+/**
+ * Release signing needs all four properties from ~/.gradle/gradle.properties.
+ * Checked as a set: `android {}` is evaluated at configuration time for EVERY
+ * variant, so a half-filled file that names the keystore but not its password
+ * would fail `assembleDebug` too, with a bare MissingPropertyException.
+ */
+def hasReleaseSigning = ["ORTEX_STORE_FILE", "ORTEX_STORE_PASSWORD", "ORTEX_KEY_ALIAS", "ORTEX_KEY_PASSWORD"]
+    .every { project.hasProperty(it) }
+
+/**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
  */
 react {
     /* Folders */
     //   The root of your project, i.e. where "package.json" lives. Default is '../..'
-    //
-    // STATED, not left to the default. `BundleHermesCTask` builds its `sources`
-    // input as a file tree over `root`, excluding `**/android/**` and
-    // `**/build/**` — so with the JS project as the root there is no overlap with
-    // anything Gradle generates. Left unset, the tree was rooted at
-    // `android/app`, where those two exclusions match nothing, and every task
-    // writing into `android/app/build` became an undeclared input of the bundle
-    // task. Gradle 9 fails the build on that rather than warning:
-    //
-    //   Task ':app:createBundleReleaseJsAndAssets' uses this output of task
-    //   ':app:checkReleaseAarMetadata' without declaring ... a dependency
-    root = file("../../")
+    // root = file("../../")
     //   The folder where the react-native NPM package is. Default is ../../node_modules/react-native
     // reactNativeDir = file("../../node_modules/react-native")
     //   The folder where the react-native Codegen package is. Default is ../../node_modules/@react-native/codegen
@@ -64,8 +75,13 @@ react {
     /* Autolinking */
     autolinkLibrariesWithApp()
     //
-    // Added by install-expo-modules
-    entryFile = file(["node", "-e", "require('expo/scripts/resolveAppEntry')", rootDir.getAbsoluteFile().getParentFile().getAbsolutePath(), "android", "absolute"].execute(null, rootDir).text.trim())
+    // Added by install-expo-modules. Both `node` resolves below go through
+    // `resolveNode`, which refuses an EMPTY result: `new File("")` is the
+    // project directory, `android/app`, and handing that to the bundle task as
+    // an input made every task writing into `android/app/build` an undeclared
+    // dependency, which Gradle 9 fails on with a message that never names the
+    // real cause. Failing here names it.
+    entryFile = resolveNode("entryFile", ["node", "-e", "require('expo/scripts/resolveAppEntry')", rootDir.getAbsoluteFile().getParentFile().getAbsolutePath(), "android", "absolute"])
     // RESOLVED FROM `expo`, not from the android directory.
     //
     // `install-expo-modules` wrote `require.resolve('@expo/cli')`, which assumes
@@ -83,7 +99,7 @@ react {
     //
     // Resolving through `expo`'s own package.json finds the CLI whether npm
     // hoists it or nests it.
-    cliFile = new File(["node", "--print", "require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })"].execute(null, rootDir).text.trim())
+    cliFile = resolveNode("cliFile", ["node", "--print", "require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })"])
     bundleCommand = "export:embed"
 }
 
@@ -136,7 +152,7 @@ android {
         // ⚠️ BACK THE KEYSTORE UP. Android identifies an app by its signature, so
         // a lost key means the sales team must uninstall before they can install
         // the next build — an update signed with a different key is refused.
-        if (project.hasProperty('ORTEX_STORE_FILE')) {
+        if (hasReleaseSigning) {
             release {
                 storeFile file(ORTEX_STORE_FILE)
                 storePassword ORTEX_STORE_PASSWORD
@@ -150,7 +166,7 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            signingConfig project.hasProperty('ORTEX_STORE_FILE') ? signingConfigs.release : signingConfigs.debug
+            signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             // R8 also drops unreferenced resources once it is shrinking code —
             // the two are a pair, and enabling only the first leaves every
@@ -159,39 +175,6 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
-}
-
-/**
- * Ordering for the JS bundle task, so Gradle 9's validation lets a RELEASE build
- * through.
- *
- * Expo's `export:embed` bundle command (see the `react {}` block above) runs with
- * `android/app` as an input directory. Three other tasks WRITE inside that
- * directory — autolinking's generated New Architecture files, the release
- * BuildConfig, and CMake's per-ABI configure step — so Gradle 9, which now fails
- * a build on an undeclared input/output overlap rather than warning, refuses:
- *
- *   Task ':app:createBundleReleaseJsAndAssets' uses this output of task
- *   ':app:generateReleaseBuildConfig' without declaring ... a dependency
- *
- * Nothing is actually raced: the bundler only reads JS and assets, and never
- * looks at generated Java or .so files. But Gradle cannot know that from a
- * directory-level declaration, so the ordering is stated here — `mustRunAfter`,
- * which is exactly what the validation message asks for and, unlike `dependsOn`,
- * adds no work when those tasks are not in the graph.
- *
- * Matched by NAME rather than type: the CMake configure tasks are created per
- * ABI ("configureCMakeRelWithDebInfo[arm64-v8a]") by the Android plugin, so the
- * set is only known once the variants are configured.
- */
-tasks.matching { it.name ==~ /create(Debug|Release)BundleJsAndAssets|createBundle(Debug|Release)JsAndAssets/ }.configureEach { bundleTask ->
-    bundleTask.mustRunAfter(
-        tasks.matching { other ->
-            other.name.startsWith("generateAutolinking") ||
-                other.name ==~ /generate(Debug|Release)BuildConfig/ ||
-                other.name.startsWith("configureCMake")
-        },
-    )
 }
 
 dependencies {

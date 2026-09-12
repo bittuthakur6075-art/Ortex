@@ -10,6 +10,8 @@ import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import {
   AppScreen,
+  DataNotice,
+  ListRefreshControl,
   EmptyState,
   Fab,
   Icon,
@@ -20,9 +22,9 @@ import {
   Skeleton,
 } from "@/ui"
 
-// The catalogue you price from. Read-only on purpose: creating and editing
-// products stays in the console, where the bulk import, the photo pipeline and
-// the website-visibility flag live.
+// The catalogue you price from. Writable since the product editor arrived: the
+// FAB and the detail page's edit button write the same `products` row the
+// console reads. Bulk import and draft/archived status stay console decisions.
 //
 // Same shell and row idiom as Quotes — collapsing title, full-bleed rows with a
 // 2px band between them. A product's leading slot is its photo where it has one,
@@ -33,7 +35,7 @@ const UNCATEGORISED = "Uncategorised"
 
 export default function ProductsScreen({ navigation }: TabScreenProps<"Products">) {
   const t = useTheme()
-  const { items, loading } = useCollection<Product>("products")
+  const { items, loading, refreshing, error, fromCache, cachedAt, reload } = useCollection<Product>("products")
 
   // Draft and archived products never reach the phone: status is the console's
   // to manage, and a rep quoting from the field should only ever see what is
@@ -57,6 +59,7 @@ export default function ProductsScreen({ navigation }: TabScreenProps<"Products"
         }
         list={{
           data: loading ? [] : visible,
+          refreshControl: <ListRefreshControl refreshing={refreshing} onRefresh={reload} />,
           keyExtractor: (p: unknown) => (p as Product).id,
           ItemSeparatorComponent: RowSeparator,
           ListFooterComponent: visible.length ? <RowSeparator /> : null,
@@ -66,11 +69,15 @@ export default function ProductsScreen({ navigation }: TabScreenProps<"Products"
                 <Skeleton key={i} height={88} radius={12} />
               ))}
             </View>
+          ) : error && !items.length ? (
+            <EmptyState icon="warning" title="Could not load products" hint={error} actionLabel="Try again" onAction={() => void reload()} />
           ) : (
             <EmptyState
               icon="product"
               title="No products yet"
-              hint="Products are added in the Ortex admin console."
+              hint="Tap + to add one here, or import the catalogue in the console."
+              actionLabel="New product"
+              onAction={() => navigation.navigate("ProductEditor")}
             />
           ),
           renderItem: ({ item }: { item: unknown }) => {
@@ -111,6 +118,7 @@ export default function ProductsScreen({ navigation }: TabScreenProps<"Products"
           },
         }}
       >
+        <DataNotice error={error} fromCache={fromCache} cachedAt={cachedAt} onRetry={() => void reload()} />
         {visible.length ? <RowSeparator /> : null}
       </AppScreen>
 

@@ -33,12 +33,11 @@ import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, radius, size as sizes, spacing } from "@/theme/tokens"
+import { border, gutter, radius, size as sizes, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
 import {
   Avatar,
   Button,
-  Checkbox,
   Chip,
   Dialog,
   Divider,
@@ -96,7 +95,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
   const t = useTheme()
   const insets = useSafeAreaInsets()
   const toast = useToast()
-  const { settings, loading: settingsLoading } = useSettings()
+  const { settings, loading: settingsLoading, error: settingsError } = useSettings()
   const { profile } = useAuth()
 
   const editingId = route.params?.id
@@ -151,8 +150,10 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         return
       }
 
-      // A new quotation is this rep's, so it carries their name from the start.
-      const base = { ...emptyDraft(settings), sellerName: profile?.name?.trim() || "" }
+      // A new quotation's seller name is NOT stamped here: it is resolved at save
+      // time from the profile (like the console), so a name added on Account
+      // details mid-draft still prints, and a persisted draft never freezes "".
+      const base = emptyDraft(settings)
       if (prefill) {
         setDraft({
           ...base,
@@ -173,12 +174,18 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
     }
 
     void run()
-  }, [seeded, settingsLoading, settings, editingId, prefill, profile?.name])
+  }, [seeded, settingsLoading, settings, editingId, prefill])
 
   // Only a new, unsaved quotation is worth persisting locally.
   usePersistedDraft(draft, seeded && !editingId)
 
   const set = (patch: Partial<QuotationDraft>) => setDraft((d) => ({ ...d, ...patch }))
+
+  // WHOSE NAME goes on the sheet. A new quotation takes the signed-in user's, read
+  // live so a name added on Account details mid-draft is picked up; an existing
+  // one keeps the name it was raised under, because re-stamping it on edit would
+  // quietly reassign a document that has already been sent.
+  const sellerName = editingId ? draft.sellerName || "" : profile?.name?.trim() || ""
 
   const interState = isInterState(
     settings.company.stateCode,
@@ -215,11 +222,23 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         toast.show({ message: "Quotation updated", tone: "success" })
         navigation.goBack()
       } else {
-        const created = await createQuotation(draft, settings)
-        if (draft.enquiryId) await markEnquiryQuoted(draft.enquiryId)
-        await clearStoredDraft()
+        const created = await createQuotation({ ...draft, sellerName }, settings)
+        // The quotation EXISTS from here on, so nothing below may throw into the
+        // catch: a "Could not save" toast after a successful insert makes the
+        // rep press Save again and mint a second number for the same document.
+        // The draft is cleared first, so even a crash cannot offer it back.
+        await clearStoredDraft().catch(() => {})
+        let followUp: string | null = null
+        if (draft.enquiryId) {
+          await markEnquiryQuoted(draft.enquiryId).catch(() => {
+            followUp = "The enquiry could not be marked as quoted."
+          })
+        }
         feedback.created()
-        toast.show({ message: `Quotation ${created.number} created`, tone: "success" })
+        toast.show({
+          message: followUp ? `Quotation ${created.number} created. ${followUp}` : `Quotation ${created.number} created`,
+          tone: followUp ? "neutral" : "success",
+        })
         navigation.replace("QuotationDetail", { id: created.id })
       }
     } catch (e) {
@@ -283,6 +302,17 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
       </View>
 
       <KeyboardAwareScrollView contentContainerStyle={styles.content} bottomOffset={footerHeight}>
+        {/* The company itself could not be loaded, so this document is being
+            priced on the built-in defaults: a placeholder GSTIN and a Delhi
+            home state. Said before anything is typed, not discovered on the PDF. */}
+        {!!settingsError && (
+          <View style={[styles.settingsWarning, { backgroundColor: t.warningBg }]}>
+            <Icon name="warning" size={18} color={t.warning} variant="Bold" />
+            <Text style={[textVariants.caption, { color: t.warning, flex: 1 }]}>
+              {`Company settings could not be loaded (${settingsError}). Numbering, GSTIN and the tax split on this quotation may be wrong. Get signal and reopen before sending it.`}
+            </Text>
+          </View>
+        )}
         {/* ── WHO ────────────────────────────────────────────────────────── */}
         <Panel title="Customer">
           {hasCustomer || customerFormOpen ? (
@@ -569,21 +599,23 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
             customer keeps is a decision worth seeing while writing it, and it is
             one tap. The name is the signed-in profile's, fixed at creation. */}
         <Panel title="On the PDF">
+          {/* A Switch, not the kit Checkbox: that one is a checklist "done" tick
+              that greys and strikes its label when on, so ON would read as OFF. */}
           <View style={styles.checkRow}>
-            <Checkbox
-              checked={draft.showSeller}
-              onChange={(next) => {
-                feedback.toggle(next)
-                set({ showSeller: next })
-              }}
-              label={draft.sellerName ? `Show "Quoted by ${draft.sellerName}"` : "Show my name as the seller"}
+            <Switch
+              value={draft.showSeller}
+              // Switch fires the toggle haptic itself.
+              onValueChange={(next) => set({ showSeller: next })}
+              label={sellerName ? `Show "Quoted by ${sellerName}"` : "Show my name as the seller"}
+              description={
+                sellerName
+                  ? undefined
+                  : editingId
+                    ? "This quotation was raised without a seller name."
+                    : "Add your name on Profile → Account details, and it will print here."
+              }
             />
           </View>
-          {!draft.sellerName && (
-            <Text style={[textVariants.caption, styles.checkHint, { color: t.textTertiary }]}>
-              Add your name on Profile → Account details, and it will print here.
-            </Text>
-          )}
         </Panel>
 
         {/* ── THE REST, folded away ──────────────────────────────────────── */}
@@ -742,7 +774,9 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
           {
             label: "Continue",
             onPress: () => {
-              if (resumeOffer) setDraft(resumeOffer)
+              // Merged over a fresh base so a draft persisted by an older build
+              // still carries every field this one expects.
+              if (resumeOffer) setDraft({ ...emptyDraft(settings), ...resumeOffer })
               setResumeOffer(null)
             },
           },
@@ -875,8 +909,6 @@ function TotalRow({ label, value, strong }: { label: string; value: string; stro
   )
 }
 
-/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
-const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -885,7 +917,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: spacing.sm,
     paddingRight: gutter,
-    borderBottomWidth: HEADER_RULE,
+    borderBottomWidth: border.hairline,
   },
   headTitle: { flex: 1, marginLeft: 6, textTransform: "capitalize" },
   headDate: { textTransform: "uppercase", letterSpacing: 0.3 },
@@ -985,8 +1017,17 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
 
-  checkRow: { paddingHorizontal: gutter, paddingBottom: spacing.md },
-  checkHint: { paddingHorizontal: gutter, paddingBottom: spacing.md },
+  checkRow: { paddingHorizontal: gutter, paddingBottom: spacing.sm },
+  settingsWarning: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginHorizontal: gutter,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+  },
   foldHead: {
     flexDirection: "row",
     alignItems: "center",

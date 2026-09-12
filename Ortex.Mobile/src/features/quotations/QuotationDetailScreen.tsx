@@ -16,9 +16,9 @@ import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import type { StatusTone } from "@/theme/theme"
-import { gutter, size as sizes, spacing } from "@/theme/tokens"
+import { border, gutter, size as sizes, spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
-import { Button, Dialog, Icon, IconButton, PopupMenu, Sheet, Spinner, useToast } from "@/ui"
+import { Button, Dialog, Icon, IconButton, PopupMenu, RecordActivityPanel, Sheet, Spinner, useToast } from "@/ui"
 import type { IconName } from "@/ui/Icon"
 
 /**
@@ -62,12 +62,13 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
   const insets = useSafeAreaInsets()
   const toast = useToast()
   const { settings } = useSettings()
-  // Deleting is ADMIN ONLY — but only in the UI. The base RLS policy in
-  // Ortex.Admin/supabase/migrations/0001_init.sql is `staff_all ... for all to
-  // authenticated using (true)`, so the DATABASE lets any signed-in staff member
-  // delete a quotation. This check hides the control; it does not secure it. A
-  // real gate needs a policy that reads `profiles.role`, which is a console-side
-  // migration, not a change this app can make.
+  // Deleting is ADMIN ONLY, and the DATABASE enforces it:
+  // Ortex.Admin/supabase/migrations/0022_admin_only_quotation_delete.sql splits
+  // 0007's `staff_quotations` `for all` policy into read/insert/update on
+  // has_module_access('quotations') plus a separate admin_quotations_delete on
+  // is_admin(). This check is the second line of defence — it hides a control a
+  // non-admin cannot use anyway, rather than being the only thing standing
+  // between them and a hole in the quotation number series.
   const { profile } = useAuth()
   const isAdmin = profile?.role === "admin"
   const [doc, setDoc] = React.useState<Quotation | null>(null)
@@ -93,7 +94,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
 
   React.useEffect(() => {
     void load()
-    return repo.subscribe(() => void load())
+    return repo.subscribe(() => void load(), "quotations")
   }, [load])
 
   const setStatus = async (status: string, lostReason?: string) => {
@@ -394,6 +395,12 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
             <Text style={[styles.body, { color: t.textTertiary }]}>{doc.terms}</Text>
           </>
         )}
+
+        {/* Who raised this quotation and who changed it since — the question a
+            disputed rate always comes down to. `bare` because this page is a
+            receipt of ruled rows, not a stack of panels. */}
+        <SectionTitle text="Activity" />
+        <RecordActivityPanel collection="quotations" record={doc} bare />
       </Animated.ScrollView>
 
       <View
@@ -635,8 +642,6 @@ function TotalRow({ label, value, tone }: { label: string; value: string; tone?:
 
 const RULE = StyleSheet.hairlineWidth
 
-/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
-const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -645,8 +650,8 @@ const styles = StyleSheet.create({
   head: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 2 },
   headTitle: { flex: 1, marginHorizontal: 6, fontSize: 17, fontFamily: font.semibold },
   // 1dp, not `StyleSheet.hairlineWidth`: a hairline is 0.33dp on a 3x phone, one
-  // physical pixel of #F4F6F8 on white, which is invisible in the hand.
-  headRule: { position: "absolute", left: 0, right: 0, bottom: 0, height: HEADER_RULE },
+  // physical pixel of `divider`, which is invisible in the hand.
+  headRule: { position: "absolute", left: 0, right: 0, bottom: 0, height: border.hairline },
 
   // Full bleed: each section head draws the 2dp band that parts it from the one
   // above (the app panel language, ui/Panel.tsx), so only the rows carry the

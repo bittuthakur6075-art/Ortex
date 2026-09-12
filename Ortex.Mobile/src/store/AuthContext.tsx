@@ -3,7 +3,8 @@ import type { Session } from "@supabase/supabase-js"
 import React from "react"
 
 import { clearCache } from "@/data/cache"
-import { supabase } from "@/data/supabase"
+import { resetCollections } from "@/data/collectionStore"
+import { errorMessage, supabase } from "@/data/supabase"
 import type { Profile } from "@/domain/modules"
 import { signOut as authSignOut } from "@/lib/auth"
 
@@ -15,10 +16,25 @@ import { signOut as authSignOut } from "@/lib/auth"
 // domain/modules.ts.
 
 const BIOMETRIC_KEY = "@ortex/biometric"
+const PROFILE_KEY = "@ortex/profile"
+
+/** The last profile this handset read for `userId`, or null. Never another user's. */
+async function readCachedProfile(userId: string): Promise<Profile | null> {
+  try {
+    const raw = await AsyncStorage.getItem(PROFILE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Profile
+    return parsed?.id === userId ? parsed : null
+  } catch {
+    return null
+  }
+}
 
 type AuthContextValue = {
   session: Session | null
   profile: Profile | null
+  /** Set when the profile could not be read from the server; `profile` may then be the cached copy or null. */
+  profileError: string | null
   /** False until getSession() has resolved — avoids a login flash on launch. */
   ready: boolean
   biometricEnabled: boolean
@@ -34,6 +50,7 @@ const AuthContext = React.createContext<AuthContextValue | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = React.useState<Session | null>(null)
   const [profile, setProfile] = React.useState<Profile | null>(null)
+  const [profileError, setProfileError] = React.useState<string | null>(null)
   const [ready, setReady] = React.useState(false)
   const [biometricEnabled, setBiometricState] = React.useState(false)
   // The app-lock cannot arm until this is true. `biometricEnabled` starts false
@@ -79,13 +96,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadProfile = React.useCallback(async () => {
     if (!userId) {
       setProfile(null)
+      setProfileError(null)
       return
     }
-    const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle()
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle()
+    if (error) {
+      // No signal on a cold start. The profile decides which tabs exist, so
+      // without it the app had nothing to draw and the navigator threw. Use the
+      // copy saved from the last successful read; only a first-ever launch with
+      // no network has nothing, and RootNavigator shows that case as a screen.
+      const cached = await readCachedProfile(userId)
+      setProfile(cached)
+      setProfileError(errorMessage(error, "Could not load your account"))
+      return
+    }
     // A signed-in user with no profile row is a provisioning slip, not a reason
     // to crash — fall back to the least-privileged shape so the app renders and
     // the empty tab list makes the problem obvious.
-    setProfile((data as Profile) || { id: userId, role: "sales", modules: [] })
+    const next = (data as Profile) || { id: userId, role: "sales", modules: [] }
+    setProfile(next)
+    setProfileError(null)
+    AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(next)).catch(() => {})
   }, [userId])
 
   React.useEffect(() => {
@@ -100,13 +131,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = React.useCallback(async () => {
     await authSignOut()
     await clearCache()
+    resetCollections()
+    AsyncStorage.removeItem(PROFILE_KEY).catch(() => {})
     setProfile(null)
+    setProfileError(null)
   }, [])
 
   const value = React.useMemo<AuthContextValue>(
     () => ({
       session,
       profile,
+      profileError,
       ready,
       biometricEnabled,
       biometricReady,
@@ -114,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshProfile: loadProfile,
       signOut,
     }),
-    [session, profile, ready, biometricEnabled, biometricReady, setBiometricEnabled, loadProfile, signOut],
+    [session, profile, profileError, ready, biometricEnabled, biometricReady, setBiometricEnabled, loadProfile, signOut],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

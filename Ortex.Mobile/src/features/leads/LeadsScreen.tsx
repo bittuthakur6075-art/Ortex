@@ -14,6 +14,8 @@ import { useTheme } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
 import {
   AppScreen,
+  DataNotice,
+  ListRefreshControl,
   Chip,
   EmptyState,
   IconButton,
@@ -41,7 +43,7 @@ type Tab = "enquiries" | "voice"
 export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
   const t = useTheme()
   const { profile } = useAuth()
-  const { items, loading } = useCollection<Enquiry>("enquiries")
+  const { items, loading, refreshing, error, fromCache, cachedAt, reload } = useCollection<Enquiry>("enquiries")
 
   const canEnquiries = canAccess(profile, "enquiries")
   const canVoice = canAccess(profile, "voice-leads")
@@ -87,6 +89,7 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
         }
         list={{
           data: loading ? [] : data,
+          refreshControl: <ListRefreshControl refreshing={refreshing} onRefresh={reload} />,
           keyExtractor: (x: unknown) => (x as { id: string }).id,
           ItemSeparatorComponent: RowSeparator,
           ListFooterComponent: data.length ? <RowSeparator /> : null,
@@ -96,6 +99,8 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
                 <Skeleton key={i} height={72} radius={12} />
               ))}
             </View>
+          ) : error && !items.length ? (
+            <EmptyState icon="warning" title="Could not load leads" hint={error} actionLabel="Try again" onAction={() => void reload()} />
           ) : (
             <EmptyState
               icon={showingVoice ? "voice" : "enquiry"}
@@ -184,6 +189,7 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
           },
         }}
       >
+        <DataNotice error={error} fromCache={fromCache} cachedAt={cachedAt} onRetry={() => void reload()} />
         {segments.length > 1 && (
           <View style={styles.segments}>
             <SegmentedControl options={segments} value={tab} onChange={setTab} />

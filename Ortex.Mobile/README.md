@@ -92,11 +92,27 @@ file with an `@/` alias and a Vite-style extensionless-import file.
 Every table is `{ id, doc jsonb, created_at, updated_at }`; `repo.ts` flattens
 rows to `{ ...doc, id, createdAt, updatedAt }` exactly as the console does, pages
 past PostgREST's 1000-row cap, and shares one realtime channel across all
-screens.
+screens with a listener set per table, so a change to `products` wakes only the
+`products` readers.
 
-`repo.list()` mirrors each collection into AsyncStorage and serves the cache when
+`data/collectionStore.ts` keeps one in-memory copy of each collection, shared by
+every `useCollection` call: a table is fetched once however many screens read
+it, a realtime event refetches it once, and coming back to the foreground
+re-joins the channel and refreshes anything older than a few seconds.
+
+`repo.fetch()` mirrors each collection into AsyncStorage and serves the cache when
 the fetch throws, so a salesperson with no signal still has their catalogue and
-contacts. **Writes are never queued offline**: a quotation number comes from the
+contacts, and it says so: the tab lists show "Showing saved copy from 2 h ago"
+with a tap-to-retry, have pull-to-refresh, and show the error when nothing is
+cached. `repo.get()` falls back to the cached collection too, so a record opened
+offline still opens. The profile is cached per user so a cold start with no
+signal draws the right tabs.
+
+Company settings come through the `settings_staff` view (migration 0024). The
+`settings` table itself is admin-only, so a Sales Executive used to get an empty
+read that was merged over the demo defaults and cached, putting the placeholder
+GSTIN on their PDFs. An empty read is now an error, and the quotation editor
+warns before anything is typed. **Writes are never queued offline**: a quotation number comes from the
 server's atomic `next_sequence`, and two phones saving offline would both believe
 they had the next one. What *is* kept locally is the half-finished draft
 (`features/quotations/useQuotationDraft.ts`), offered back on the next launch.

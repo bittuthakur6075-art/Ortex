@@ -14,9 +14,9 @@ import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import type { StatusTone } from "@/theme/theme"
-import { gutter, radius, size as sizes, spacing } from "@/theme/tokens"
+import { border, gutter, radius, size as sizes, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { Avatar, Button, Card, Divider, Icon, IconButton, StatusBadge, useToast } from "@/ui"
+import { Avatar, Button, Card, Divider, Icon, IconButton, RecordActivityPanel, Spinner, StatusBadge, useToast } from "@/ui"
 import type { IconName } from "@/ui/Icon"
 
 /**
@@ -54,7 +54,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
   const insets = useSafeAreaInsets()
   const toast = useToast()
   const favourites = useFavourites()
-  const { items: customers } = useCollection<CustomerRow>("customers")
+  const { items: customers, loading } = useCollection<CustomerRow>("customers")
   const { items: quotations } = useCollection<Quotation>("quotations")
   const { items: enquiries } = useCollection<Enquiry>("enquiries")
   const scrollY = React.useRef(new Animated.Value(0)).current
@@ -85,6 +85,14 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
     () => enquiries.filter((e) => belongs(e.customer)),
     [enquiries, belongs],
   )
+
+  if (!customer && loading) {
+    return (
+      <View style={[styles.root, styles.centre, { backgroundColor: t.background, paddingTop: insets.top }]}>
+        <Spinner label="Loading" />
+      </View>
+    )
+  }
 
   if (!customer) {
     return (
@@ -336,6 +344,10 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
             </Panel>
           </>
         )}
+
+        {/* Who created this contact and who has edited it since — a changed
+            GSTIN or address needs a name against it. */}
+        <RecordActivityPanel collection="customers" record={customer} />
       </Animated.ScrollView>
       <CustomerEditSheet visible={editing} customer={customer} onClose={() => setEditing(false)} />
     </View>
@@ -454,8 +466,6 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-/** The header's bottom rule: 1dp of `divider` (#F4F6F8). */
-const HEADER_RULE = 1
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -466,7 +476,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
-    borderBottomWidth: HEADER_RULE,
+    borderBottomWidth: border.hairline,
   },
   barTitle: { flex: 1, marginHorizontal: 4 },
   // Full bleed: the page is a stack of panels separated by 2dp bands, so only

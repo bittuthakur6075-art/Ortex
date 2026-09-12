@@ -17,6 +17,7 @@ import { cn } from "../lib/cn"
 import ShipToFields from "../components/editors/ShipToFields"
 import LineItemsEditor from "../components/editors/LineItemsEditor"
 import DocumentView from "../components/documents/DocumentView"
+import { RecordActivity } from "../components/ui/RecordActivity"
 import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../components/editors/DocumentEditorShell"
 import {
   Button, ExportButton,
@@ -540,8 +541,11 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
           </div>
         </div>
 
-        <div className="min-w-0 xl:sticky xl:top-[72px] xl:self-start">
+        <div className="min-w-0 space-y-4 xl:sticky xl:top-[72px] xl:self-start">
           <LivePreview doc={liveDoc} settings={settings} type="quotation" onOpen={() => onPreview(liveDoc)} />
+          {/* Only on a saved quotation: a draft has no row yet, so there is no
+              authorship and nothing to show. */}
+          {isEdit && <RecordActivity collection="quotations" record={draft} />}
         </div>
       </div>
 

@@ -1,10 +1,11 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { Mic } from "../components/ui/Icons"
 import { repo } from "../data/store/repository"
 import { useCollection } from "../hooks/useCollection"
 import { ENQUIRY_STATUS } from "../data/domain/schema"
+import { sameCustomer } from "../data/domain/domain"
 import { formatDateTime } from "../lib/format"
 import { exportCsv } from "../lib/csv"
 import { ExportButton, EmptyState, PageLoader } from "../components/ui/Ui"
@@ -20,6 +21,7 @@ import CallDrawer from "./voice-leads/CallDrawer"
 // wires state to the pieces.
 export default function VoiceLeads() {
   const { items, loading } = useCollection("enquiries")
+  const { items: quotations } = useCollection("quotations")
   const navigate = useNavigate()
   const [query, setQuery] = useState("")
   const [range, setRange] = useState("all")
@@ -30,6 +32,17 @@ export default function VoiceLeads() {
   const { calls, stats, visible } = useVoiceCalls(items, { query, range, view })
 
   const active = open ? visible.find((c) => c.id === open) || calls.find((c) => c.id === open) || null : null
+
+  // Quotations already raised for whoever is on the open call, so the drawer can
+  // say so before somebody writes a second one. Scoped to the open call rather
+  // than computed for the whole list: this is a per-call fact and the list can
+  // run to hundreds of calls.
+  const relatedQuotes = useMemo(() => {
+    if (!active) return []
+    return quotations.filter(
+      (q) => active.rows.some((r) => q.enquiryId === r.id) || sameCustomer(active.customer, q.customer),
+    )
+  }, [quotations, active])
 
   // Status lives on the underlying enquiry rows. A call can span several rows,
   // so move all of them together, otherwise the fold would keep showing the
@@ -122,6 +135,7 @@ export default function VoiceLeads() {
 
       <CallDrawer
         active={active}
+        related={relatedQuotes}
         saving={saving}
         onClose={() => setOpen(null)}
         onStatus={setStatus}

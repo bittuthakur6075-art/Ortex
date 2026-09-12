@@ -84,7 +84,14 @@ export async function updateQuotation(id, patch) {
   const merged = { ...existing, ...patch }
   // Recompute totals whenever lines / discount / customer / ship-to change.
   const totals = totalsFor(merged.lines || [], settings, merged.customer, merged.extraDiscountPercent, merged.shipTo)
-  return repo.update("quotations", id, { ...patch, totals })
+  // The validity end date follows the issue date and the validity days, the same
+  // way it was derived at creation. Without this, editing the days left the old
+  // date on the PDF. MIRRORED in Ortex.Mobile/src/domain/quotations.ts.
+  const validUntil =
+    merged.issueDate && merged.validityDays != null
+      ? new Date(new Date(merged.issueDate).getTime() + merged.validityDays * 86400000).toISOString()
+      : merged.validUntil
+  return repo.update("quotations", id, { ...patch, totals, validUntil })
 }
 
 // ---- quotation -> invoice --------------------------------------------------

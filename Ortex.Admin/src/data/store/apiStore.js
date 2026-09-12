@@ -12,21 +12,45 @@ import { mergeSettings, DEFAULT_SETTINGS } from "../domain/settingsDefaults"
 
 const SETTINGS_ROW_ID = true // single-row settings table (id boolean primary key)
 
-// row {id, doc, created_at, updated_at} -> flat app record
+// row {id, doc, created_at, updated_at, created_by, updated_by} -> flat record.
+// The two actor uuids are server-owned (0023 stamps them from auth.uid() in a
+// trigger), so they ride alongside the timestamps and are never part of `doc`.
 function fromRow(row) {
   if (!row) return null
-  const { id, doc, created_at, updated_at } = row
-  return { ...doc, id, createdAt: created_at, updatedAt: updated_at }
+  const { id, doc, created_at, updated_at, created_by, updated_by } = row
+  return {
+    ...doc,
+    id,
+    createdAt: created_at,
+    updatedAt: updated_at,
+    createdBy: created_by ?? null,
+    updatedBy: updated_by ?? null,
+  }
 }
 
-// flat app record -> the JSONB `doc` payload (strip server-managed columns)
+// flat app record -> the JSONB `doc` payload (strip server-managed columns).
+// createdBy/updatedBy are stripped for the same reason as the timestamps: a
+// client that echoed them back would bury a stale copy inside the doc, and the
+// trigger's value is the only one that is trustworthy anyway.
 function toDoc(data) {
-  const { id, createdAt, updatedAt, created_at, updated_at, ...doc } = data || {}
+  const {
+    id, createdAt, updatedAt, created_at, updated_at,
+    createdBy, updatedBy, created_by, updated_by,
+    ...doc
+  } = data || {}
   void id; void createdAt; void updatedAt; void created_at; void updated_at
+  void createdBy; void updatedBy; void created_by; void updated_by
   return doc
 }
 
 const isUuid = (v) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
+
+// PostgREST reports an unknown table or view as 42P01 (and a stale schema cache
+// as PGRST205). Both mean "migration 0023 has not been applied to THIS project"
+// — a real state while production and staging are a push apart — so the audit
+// reads degrade to empty instead of breaking the page they decorate.
+const isMissingRelation = (error) =>
+  error?.code === "42P01" || error?.code === "PGRST205" || /does not exist/i.test(error?.message || "")
 
 // Realtime: a SINGLE shared channel over all public tables fans out to every
 // subscriber. Components each call subscribe(); creating one channel per caller
@@ -130,6 +154,48 @@ export const apiStore = {
     const { error } = await supabase.from(name).delete().eq("id", id)
     if (error) throw error
     return true
+  },
+
+  // Append-only change history for one record (0023). Oldest last, so the UI
+  // reads top-down as "most recent first". Returns [] when the migration has
+  // not been applied yet rather than throwing, because the audit card is an
+  // enhancement on a page that must still render without it.
+  async history(name, id, { limit = 50 } = {}) {
+    const { data, error } = await supabase
+      .from("audit_log")
+      .select("*")
+      .eq("table_name", name)
+      .eq("row_id", id)
+      .order("at", { ascending: false })
+      .limit(limit)
+    if (error) {
+      if (isMissingRelation(error)) return []
+      throw error
+    }
+    return (data || []).map((r) => ({
+      id: r.id,
+      collection: r.table_name,
+      recordId: r.row_id,
+      action: r.action,
+      actor: r.actor,
+      at: r.at,
+      changes: r.changes || {},
+      label: r.label || "",
+    }))
+  },
+
+  // id -> { name, avatarUrl, role } for every staff account, so an actor uuid
+  // can be drawn as a person. Reads the allow-list view, not `profiles`, which
+  // a non-admin cannot read beyond their own row.
+  async staffDirectory() {
+    const { data, error } = await supabase.from("staff_directory").select("*")
+    if (error) {
+      if (isMissingRelation(error)) return {}
+      throw error
+    }
+    const out = {}
+    for (const p of data || []) out[p.id] = { name: p.name || "", avatarUrl: p.avatar_url || "", role: p.role || "" }
+    return out
   },
 
   async getSettings() {

@@ -2,13 +2,13 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
 import { BlurTargetView } from "expo-blur"
 import React from "react"
 
-import { canAccess, type ModuleKey } from "@/domain/modules"
 import ContactsScreen from "@/features/contacts/ContactsScreen"
 import LeadsScreen from "@/features/leads/LeadsScreen"
 import ProductsScreen from "@/features/products/ProductsScreen"
 import QuotationsScreen from "@/features/quotations/QuotationsScreen"
 import { blurTargetRef } from "@/navigation/blurTarget"
 import OneUiTabBar from "@/navigation/OneUiTabBar"
+import { tabAllowed } from "@/navigation/tabAccess"
 import type { TabParamList } from "@/navigation/types"
 import { StyleSheet } from "react-native"
 
@@ -16,22 +16,11 @@ import { useAuth } from "@/store/AuthContext"
 
 const Tab = createBottomTabNavigator<TabParamList>()
 
-// A tab is rendered only if the signed-in profile can reach the module behind
-// it, using the console's own `canAccess`. A Sales Executive is granted
-// voice-leads / enquiries / customers / quotations by default, so Products
-// simply is not there for them — rather than being there and erroring on open.
-//
-// Leads needs either of its two modules, matching the console's HubGuard.
-const REQUIRES: Record<keyof TabParamList, ModuleKey[]> = {
-  Quotes: ["quotations"],
-  Leads: ["enquiries", "voice-leads"],
-  Products: ["products"],
-  Contacts: ["customers"],
-}
-
+// Which tab needs which module lives in navigation/tabAccess.ts, shared with
+// RootNavigator, which refuses to mount this navigator with no tabs at all.
 export default function Tabs() {
   const { profile } = useAuth()
-  const allowed = (name: keyof TabParamList) => REQUIRES[name].some((k) => canAccess(profile, k))
+  const allowed = (name: keyof TabParamList) => tabAllowed(profile, name)
 
   return (
     // Android's blur backend blurs whatever is drawn inside this target view — it

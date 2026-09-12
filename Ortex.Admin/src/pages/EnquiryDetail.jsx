@@ -7,8 +7,12 @@ import { useCollection, useSettings } from "../hooks/useCollection"
 import { ENQUIRY_STATUS, LEAD_SOURCES, PRODUCT_CATEGORIES, newEnquiry } from "../data/domain/schema"
 import { formatDateTime, formatNumber, relativeTime } from "../lib/format"
 import { parseQuoteRfq, rfqToQuotationLines, rfqArtwork, rfqUnits, enquiryAge } from "../lib/quoteRfq"
+import { enquiryAdvisories } from "../lib/advisories"
+import { sameCustomer } from "../data/domain/domain"
+import { Advisories } from "../components/ui/Advisories"
 import { cn } from "../lib/cn"
 import DocumentView from "../components/documents/DocumentView"
+import { RecordActivity } from "../components/ui/RecordActivity"
 import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../components/editors/DocumentEditorShell"
 import { Button, Input, Select, Textarea, Field, StatusBadge, EmptyState, PageLoader, Banner } from "../components/ui/Ui"
 import EnquiryStatusStepper from "./enquiries/EnquiryStatusStepper"
@@ -38,6 +42,20 @@ export default function EnquiryDetail() {
   const linkedQuote = useMemo(
     () => (enquiry?.quotationId ? quotations.find((q) => q.id === enquiry.quotationId) || null : null),
     [quotations, enquiry],
+  )
+
+  // Everything already quoted to this person, not just the one linked to this
+  // enquiry — the advisory exists to stop a second quotation being written in
+  // ignorance of the first, and a repeat enquirer rarely comes back through the
+  // same row. Matched on the console's own email-then-phone rule.
+  const relatedQuotes = useMemo(() => {
+    if (!enquiry) return []
+    return quotations.filter((q) => q.enquiryId === enquiry.id || sameCustomer(enquiry.customer, q.customer))
+  }, [quotations, enquiry])
+
+  const advisories = useMemo(
+    () => enquiryAdvisories(enquiry, { rfq, products, related: relatedQuotes }),
+    [enquiry, rfq, products, relatedQuotes],
   )
 
   const back = () => navigate("/enquiries")
@@ -169,6 +187,11 @@ export default function EnquiryDetail() {
         />
       </Tiles>
 
+      {/* What to do about this lead, before the tiles and the fields. The facts
+          underneath were always here; stated as values they read as data, and
+          the thing that changes a phone call is the sentence. */}
+      <Advisories items={advisories} className="mb-4" />
+
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-4">
           <Section title="Pipeline" description="Move this enquiry along as you work it.">
@@ -298,6 +321,13 @@ export default function EnquiryDetail() {
               </dl>
             </Section>
           )}
+
+          {/* A lead changes hands: who picked it up, who moved it to Quoted,
+              who wrote the note. The website's own insert appears here as
+              Automation, which is what it was. */}
+          <Section title="Activity" description="Who worked this enquiry, and when.">
+            <RecordActivity collection="enquiries" record={enquiry} bare title="" />
+          </Section>
         </div>
       </div>
 

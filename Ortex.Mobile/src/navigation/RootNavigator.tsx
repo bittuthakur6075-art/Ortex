@@ -5,6 +5,7 @@ import {
 } from "@react-navigation/native-stack"
 import React from "react"
 
+import AccountUnavailableView from "@/features/auth/AccountUnavailableView"
 import LockScreen from "@/features/auth/LockScreen"
 import SplashView from "@/features/auth/SplashView"
 import LoginScreen from "@/features/auth/LoginScreen"
@@ -24,6 +25,7 @@ import GlobalSearchScreen from "@/features/search/GlobalSearchScreen"
 import QuotationDetailScreen from "@/features/quotations/QuotationDetailScreen"
 import QuotationEditorScreen from "@/features/quotations/QuotationEditorScreen"
 import Tabs from "@/navigation/Tabs"
+import { hasAnyTab } from "@/navigation/tabAccess"
 import type { RootStackParamList } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
 import { useIsDark, useTheme } from "@/store/ThemeContext"
@@ -43,7 +45,7 @@ const SHEET: NativeStackNavigationOptions = {
 export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const t = useTheme()
   const isDark = useIsDark()
-  const { session, profile, ready, biometricEnabled, biometricReady } = useAuth()
+  const { session, profile, profileError, ready, biometricEnabled, biometricReady } = useAuth()
   // Both readiness flags: the lock arms once, and arming it before the stored
   // preference has been read would arm it as "off" on every launch.
   const { locked, prompting, unlock } = useAppLock(biometricEnabled && !!session, ready && biometricReady)
@@ -71,8 +73,14 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
 
   // The session exists but the profile row has not arrived yet. Everything
   // downstream reads `profile.modules` to decide which tabs exist, so rendering
-  // now would briefly show a tabless shell.
-  if (!profile) return <SplashView message="Loading your account" />
+  // now would briefly show a tabless shell. If it FAILED to arrive and there is
+  // no saved copy either, say so rather than spin forever.
+  if (!profile) {
+    return profileError ? <AccountUnavailableView reason="offline" /> : <SplashView message="Loading your account" />
+  }
+  // A profile that reaches no tab at all would hand the tab navigator zero
+  // screens, which React Navigation refuses with a throw, not a blank page.
+  if (!hasAnyTab(profile)) return <AccountUnavailableView reason="no-modules" />
 
   return (
     <NavigationContainer theme={navTheme}>

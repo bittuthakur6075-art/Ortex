@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react"
 
 /* ============================================================
-   Orb — Anu's face. A liquid sphere on a 2D canvas that breathes while
+   Orb: Anu's face. A liquid sphere on a 2D canvas that breathes while
    connecting, swells with the visitor's voice while listening, throws off
    ripples while Anu speaks, greys out when muted and warms red on an error.
 

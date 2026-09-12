@@ -159,6 +159,20 @@ export async function trackActivity({ activityType, productId = null, metadata =
   await processEventTrigger(doc)
 }
 
+// The automation function only accepts these trigger events (ALLOWED_EVENTS in
+// Ortex.Admin/supabase/functions/automation-engine/index.ts, its guard against
+// the public trigger surface being abused); anything else is answered with a
+// 400 "Unsupported eventType". Keep this list in step with that one. Events
+// outside it are still written to `event_logs`, they just do not fire rules.
+const AUTOMATION_EVENTS = new Set([
+  "quote_requested",
+  "contact_form_submitted",
+  "product_visited",
+  "search_performed",
+  "pdf_downloaded",
+  "cart_added",
+])
+
 // Event generation and rule processing
 async function processEventTrigger(activity) {
   let eventType = ""
@@ -215,7 +229,7 @@ async function processEventTrigger(activity) {
 
     // 🔥 Fire server-side automation engine via Supabase Edge Function
     try {
-      supabase.functions.invoke("automation-engine", {
+      if (AUTOMATION_EVENTS.has(eventType)) supabase.functions.invoke("automation-engine", {
         body: {
           eventType,
           userId: activity.userId,

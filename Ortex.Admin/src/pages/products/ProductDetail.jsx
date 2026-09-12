@@ -5,6 +5,7 @@ import { PRODUCT_STATUS } from "../../data/domain/schema"
 import { formatCurrency, formatNumber, formatDate, relativeTime } from "../../lib/format"
 import { cn } from "../../lib/cn"
 import { Button, StatusBadge, Drawer, Money } from "../../components/ui/Ui"
+import { RecordActivity } from "../../components/ui/RecordActivity"
 import { productAnalytics } from "./helpers"
 
 // The product record as a sales brief rather than a form read-only. The master
@@ -182,6 +183,13 @@ export default function ProductDetail({ open, product, quotations = [], invoices
             <p className="whitespace-pre-line text-[13px] leading-relaxed text-muted-foreground">{product.description}</p>
           </Section>
         )}
+
+        {/* Who added this product and every change to its price, photos or
+            website visibility since — the questions a catalogue raises once
+            more than one person can edit it. */}
+        <Section title="Activity">
+          <RecordActivity collection="products" record={product} bare title="" />
+        </Section>
       </div>
     </Drawer>
   )
