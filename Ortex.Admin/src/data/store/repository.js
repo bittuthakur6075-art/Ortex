@@ -10,7 +10,7 @@
 //   create(collection, data) / bulkCreate(collection, items)
 //   update(collection, id, patch) / remove(collection, id)
 //   getSettings() / saveSettings(next) / nextSequence(series)
-//   history(collection, id, { limit }) / staffDirectory()
+//   history(collection, id, { limit }) / actorHistory(actorId, { limit }) / staffDirectory()
 //   clearAll() / exportAll()
 
 import { localStore } from "./localStore"

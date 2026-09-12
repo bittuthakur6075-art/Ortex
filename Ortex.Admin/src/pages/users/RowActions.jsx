@@ -89,7 +89,7 @@ export default function RowActions({ user, selfId, onEdit, onChanged }) {
       )}
 
       {dialog === "reset" && (
-        <ResetPasswordDialog user={user} onClose={() => setDialog(null)} onDone={() => { setDialog(null); onChanged() }} />
+        <ResetPasswordDialog user={user} isSelf={isSelf} onClose={() => setDialog(null)} onDone={() => { setDialog(null); onChanged() }} />
       )}
       {dialog === "delete" && (
         <DeleteUserDialog user={user} onClose={() => setDialog(null)} onDone={() => { setDialog(null); onChanged() }} />
@@ -124,7 +124,7 @@ export default function RowActions({ user, selfId, onEdit, onChanged }) {
   )
 }
 
-function ResetPasswordDialog({ user, onClose, onDone }) {
+function ResetPasswordDialog({ user, isSelf, onClose, onDone }) {
   const [password, setPassword] = useState(randomPassword)
   const [notify, setNotify] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -155,9 +155,19 @@ function ResetPasswordDialog({ user, onClose, onDone }) {
       }
     >
       <div className="space-y-4">
-        <Banner tone="warning">
-          Their current password stops working immediately, and every session they have open is signed out.
-        </Banner>
+        {/* A reset signs every session of that account out, and the function
+            revokes them globally. On your own row that includes the session you
+            are doing this from, so say so before the button, not after. */}
+        {isSelf ? (
+          <Banner tone="danger">
+            This is your own account. Your current password stops working immediately and you are signed out
+            of the console here and everywhere else, so sign back in with the new password below.
+          </Banner>
+        ) : (
+          <Banner tone="warning">
+            Their current password stops working immediately, and every session they have open is signed out.
+          </Banner>
+        )}
         <Field label="New Temporary Password" required hint="They change it themselves in Settings → Password.">
           <div className="flex gap-2">
             <Input value={password} onChange={(e) => setPassword(e.target.value)} />

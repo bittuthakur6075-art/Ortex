@@ -19,12 +19,16 @@ const config = getDefaultConfig(__dirname)
 // up, and the watch() call on a directory that has just vanished throws
 // ENOENT (-4058) and takes the whole bundler down. None of these paths hold
 // JavaScript, so there is nothing to gain by watching them either.
+// The separators are `[\\/]` because on Windows the watcher matches native
+// backslash paths, and `.cxx` is matched anywhere because Gradle puts it under
+// `android/app/.cxx`, not `android/.cxx` — the forward-slash-only pattern this
+// replaces never matched on this machine and Metro died mid-build.
 config.resolver.blockList = [
-  /\/android\/\.cxx\/.*/,
-  /\/android\/build\/.*/,
-  /\/android\/\.gradle\/.*/,
-  /\/ios\/build\/.*/,
-  /\/ios\/Pods\/.*/,
+  /[\\/]\.cxx[\\/].*/,
+  /[\\/]android[\\/](app[\\/])?build[\\/].*/,
+  /[\\/]android[\\/]\.gradle[\\/].*/,
+  /[\\/]ios[\\/]build[\\/].*/,
+  /[\\/]ios[\\/]Pods[\\/].*/,
 ]
 
 module.exports = config

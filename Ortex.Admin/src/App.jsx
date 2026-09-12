@@ -15,6 +15,7 @@ import Telecaller from "./pages/Telecaller"
 import Quotations from "./pages/Quotations"
 import SettingsPage from "./pages/Settings"
 import Users from "./pages/Users"
+import UserDetail from "./pages/users/UserDetail"
 import Profile from "./pages/Profile"
 import { useProfile } from "./hooks/useProfile"
 import { canAccess } from "./data/domain/modules"
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="invoices" element={<Redirect to="/billing?tab=invoices" />} />
           <Route path="payments" element={<Redirect to="/billing?tab=payments" />} />
           <Route path="users" element={guard("users", <Users />)} />
+          <Route path="users/:id" element={guard("users", <UserDetail />)} />
           <Route path="settings" element={guard("settings", <SettingsPage />)} />
           <Route path="insights" element={<HubGuard keys={INSIGHTS_MODULE_KEYS}><Insights /></HubGuard>} />
           <Route path="growth" element={<Redirect to="/insights?tab=growth" />} />

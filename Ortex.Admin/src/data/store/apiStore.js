@@ -70,6 +70,19 @@ function _ensureChannel() {
     .subscribe()
 }
 
+// One audit_log row as the UI reads it. Shared by history() (one record) and
+// actorHistory() (one person), so both feed the same renderer.
+const toEntry = (r) => ({
+  id: r.id,
+  collection: r.table_name,
+  recordId: r.row_id,
+  action: r.action,
+  actor: r.actor,
+  at: r.at,
+  changes: r.changes || {},
+  label: r.label || "",
+})
+
 export const apiStore = {
   kind: "api",
 
@@ -172,16 +185,33 @@ export const apiStore = {
       if (isMissingRelation(error)) return []
       throw error
     }
-    return (data || []).map((r) => ({
-      id: r.id,
-      collection: r.table_name,
-      recordId: r.row_id,
-      action: r.action,
-      actor: r.actor,
-      at: r.at,
-      changes: r.changes || {},
-      label: r.label || "",
-    }))
+    return (data || []).map(toEntry)
+  },
+
+  // Everything ONE PERSON did, newest first. history() answers "what happened
+  // to this record"; this answers "what has this account been doing", which is
+  // the question the user detail page exists to answer. Served by 0023's
+  // audit_log_actor_idx (actor, at desc), so it stays cheap as the log grows.
+  async actorHistory(actorId, { limit = 200 } = {}) {
+    if (!actorId) return []
+    const { data, error } = await supabase
+      .from("audit_log")
+      .select("*")
+      .eq("actor", actorId)
+      .order("at", { ascending: false })
+      .limit(limit)
+    if (error) {
+      // history() can shrug this off — it is a card on a page about something
+      // else. This read IS the page, so an absent table has to be said out
+      // loud: an empty timeline would read as "this person did nothing".
+      if (isMissingRelation(error)) {
+        throw new Error(
+          "The audit trail is not installed on this Supabase project (migration 0023). Run: supabase db push",
+        )
+      }
+      throw error
+    }
+    return (data || []).map(toEntry)
   },
 
   // id -> { name, avatarUrl, role } for every staff account, so an actor uuid

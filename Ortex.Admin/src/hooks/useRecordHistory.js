@@ -6,7 +6,7 @@ import { repo } from "../data/store/repository"
 // module-level promise means opening ten quotations in a row costs one request,
 // not ten.
 let _directory = null
-function loadDirectory() {
+export function loadDirectory() {
   if (!_directory) {
     _directory = repo.staffDirectory().catch((e) => {
       // A failed lookup must not stop the history rendering — the entries are

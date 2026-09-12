@@ -111,6 +111,10 @@ export const localStore = {
     return []
   },
 
+  async actorHistory() {
+    return []
+  },
+
   async staffDirectory() {
     return {}
   },

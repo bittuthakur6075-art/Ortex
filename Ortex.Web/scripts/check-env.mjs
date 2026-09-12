@@ -63,9 +63,21 @@ if (!url || url.includes("YOUR-")) {
 
 // Development and staging deliberately share ONE database; production is the
 // only environment required to stand alone.
+//
+// Ortex is the exception: it runs ONE Supabase project and that project IS
+// production (Ortex.Admin/docs/ENVIRONMENTS.md), so `npm run dev` deliberately
+// reads the live catalogue and writes real leads. That has to be declared out
+// loud rather than inferred, or this guard cannot tell it apart from the very
+// mistake it exists to catch: a production build pointed at a dev database.
+// ALLOW_SHARED_SUPABASE=true in the non-production file is that declaration.
 if (mode === "production") {
   for (const other of [".env.development", ".env.staging"]) {
-    const otherUrl = readEnv(other)?.VITE_SUPABASE_URL || (other === ".env.development" ? base.VITE_SUPABASE_URL : "") || ""
+    const otherEnv = readEnv(other)
+    const otherUrl = otherEnv?.VITE_SUPABASE_URL || (other === ".env.development" ? base.VITE_SUPABASE_URL : "") || ""
+    if (otherUrl && otherUrl === url && otherEnv?.ALLOW_SHARED_SUPABASE === "true") {
+      console.log(`  ${other} declares ALLOW_SHARED_SUPABASE: one project, and it is production.`)
+      continue
+    }
     if (otherUrl && otherUrl === url) {
       fail(
         `This production build would prerender the public site from the shared DEV/STAGING project.\n` +

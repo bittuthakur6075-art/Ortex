@@ -21,6 +21,16 @@ export async function listProfiles() {
   return data
 }
 
+// One account, for the user detail page. maybeSingle rather than single so a
+// stale link (the account was deleted in another tab) resolves to null and the
+// page can say so, instead of throwing a PostgREST "no rows" error at it.
+export async function getProfile(id) {
+  requireDb()
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle()
+  if (error) throw error
+  return data
+}
+
 // Update a user's role / modules / active flag (never their id or email here).
 export async function updateProfile(id, patch) {
   requireDb()
