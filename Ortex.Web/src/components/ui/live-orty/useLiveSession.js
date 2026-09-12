@@ -44,6 +44,8 @@ const OUTPUT_GAIN = 0.9
 // lets Anu hang up anyway. Once is enough to make her ask; refusing for ever
 // would trap a customer who simply wants to go.
 const MAX_END_REFUSALS = 1
+// Marks that this browser session has already been offered a call.
+const AUTO_OPEN_KEY = "ortex_anu_autocall"
 
 const spoken = (keys) => keys.map((k) => SPOKEN_FIELD[k]).join(", ")
 
@@ -567,12 +569,22 @@ export function useLiveSession() {
     setShowLauncher(true)
   }, [stop])
 
-  // Auto-open the voice call 5s after load. The launcher stays hidden until the
-  // customer closes that first call, then lives in the bottom-right corner.
+  // Auto-open the voice call 5s after load, ONCE per browser session. The
+  // launcher stays hidden until the customer closes that first call, then lives
+  // in the bottom-right corner.
+  //
+  // Once per session, not once per page load: a visitor moving around the site
+  // (or a dev-server hot reload) would otherwise be rung again every few
+  // minutes, and every one of those calls reopens the microphone, which many
+  // laptops and headsets announce with a beep.
   useEffect(() => {
     const t = window.setTimeout(() => {
       if (autoOpenRef.current) return
       autoOpenRef.current = true
+      try {
+        if (sessionStorage.getItem(AUTO_OPEN_KEY)) { setShowLauncher(true); return }
+        sessionStorage.setItem(AUTO_OPEN_KEY, String(Date.now()))
+      } catch { /* private mode or blocked storage: fall through and open */ }
       setOpen(true)
       start()
     }, 5000)
