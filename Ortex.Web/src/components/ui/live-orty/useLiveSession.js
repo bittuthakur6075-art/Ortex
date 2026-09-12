@@ -4,7 +4,7 @@ import { supabase, hasSupabase } from "../../../lib/supabaseClient"
 import { INPUT_RATE, OUTPUT_RATE, floatTo16BitPCM, int16ToBase64, base64ToInt16 } from "./audio"
 import { VOICE_SYSTEM_INSTRUCTION, buildOpener } from "./prompt"
 import { LIVE_TOOLS } from "./tools"
-import { SPOKEN_FIELD, validateLead, saveVoiceLead } from "./leads"
+import { SPOKEN_FIELD, parseQuantity, validateLead, saveVoiceLead } from "./leads"
 import { MEMORY_KEY, MAX_MEMORY_LINES, loadMemory } from "./memory"
 import { newCallId, recordingPath, startCallRecording, uploadCallRecording } from "./recording"
 import { catalogueBlock, classifyItem, loadCatalogue, lookupProduct } from "./catalogue"
@@ -53,7 +53,17 @@ const spoken = (keys) => keys.map((k) => SPOKEN_FIELD[k]).join(", ")
 function nextStep(check, confirmed) {
   const checks = check.problems.length ? `First check with the customer: ${check.problems.join("; ")}. ` : ""
   if (check.missing.length) {
-    return `${checks}Saved. Still needed: ${spoken(check.missing)}. Ask for the ${SPOKEN_FIELD[check.missing[0]]} next, naturally, one question at a time.`
+    const first = check.missing[0]
+    // Name the product rather than the field. "Ask for the products with a
+    // quantity for each" is how a form talks; the customer has already said
+    // what they want, and only the number is missing.
+    const noQty = first === "items" ? (check.items || []).find((i) => !i.quantity || parseQuantity(i.quantity) === null) : null
+    const ask = noQty
+      ? `Ask how many ${noQty.product} they need, and take the answer as a number.`
+      : first === "items"
+        ? "Ask which product they are looking for, then how many they need."
+        : `Ask for the ${SPOKEN_FIELD[first]} next, naturally, one question at a time.`
+    return `${checks}Saved. Still needed: ${spoken(check.missing)}. ${ask}`
   }
   if (!confirmed) {
     return `${checks}All five details are captured. Read back the complete summary now: name, WhatsApp number in two groups of five digits, every product with its quantity, timeline and delivery city. Ask the customer to confirm. When they confirm, call capture_lead again with the same details and confirmed=true.`
@@ -258,6 +268,38 @@ export function useLiveSession() {
   // capture_lead: validate, save when the name and number hold up, and tell Anu
   // what is still missing and what to do next.
   const captureLead = useCallback((args) => {
+    // MERGE OVER WHAT THIS CALL ALREADY CAPTURED, rather than validating the
+    // payload in isolation. Anu is told to resend the complete picture every
+    // time, and often does not: she sends just the city, or just the new item.
+    // Validating that alone reported the name, phone and timeline as missing,
+    // so the reply instructed her to ask for details the customer had already
+    // given, and she sounded like she had forgotten the whole conversation.
+    // Anything she does send still wins, so a correction ("Pune, not Delhi")
+    // overwrites; only blanks fall back to what we already hold.
+    const prior = callLeadRef.current || {}
+    const keep = (next, held) => {
+      const v = String(next ?? "").trim()
+      return v || held || ""
+    }
+    const catalogue = catalogueRef.current
+    const sentItems = Array.isArray(args.items) && args.items.length
+      ? args.items
+      : (args.product ? [{ product: args.product, quantity: args.quantity }] : [])
+    // She is told to send the full list, so a list she sends replaces ours
+    // (that is how an item gets dropped); no list at all keeps what we have.
+    const rawItems = sentItems.length ? sentItems : (prior.items || [])
+    const carried = {
+      ...args,
+      name: keep(args.name, prior.name),
+      phone: keep(args.phone, prior.phone),
+      city: keep(args.city, prior.city),
+      timeline: keep(args.timeline, prior.timeline),
+      company: keep(args.company, prior.company),
+      email: keep(args.email, prior.email),
+      address: keep(args.address, prior.address),
+      use_case: keep(args.use_case, prior.use_case),
+      summary: keep(args.summary, prior.summary),
+    }
     // Decide for ourselves what is a custom run, rather than trusting Anu to
     // set the flag. An off-catalogue item filed as a stock one is a quotation
     // the factory may not be able to honour, and the sales desk cannot tell the
@@ -265,13 +307,9 @@ export function useLiveSession() {
     // simply not been entered in the console yet (lanyards, trophies,
     // clipboards) is NOT custom: flagging it as such sent the desk a "custom
     // item" note for the most ordinary order on the list.
-    const catalogue = catalogueRef.current
-    const rawItems = Array.isArray(args.items) && args.items.length
-      ? args.items
-      : (args.product ? [{ product: args.product, quantity: args.quantity }] : [])
     const enriched = catalogue
       ? {
-          ...args,
+          ...carried,
           items: rawItems.map((it) => {
             const kind = classifyItem(catalogue, it?.product)
             // Anu may still flag a listed product she agreed to vary; only a
@@ -280,14 +318,22 @@ export function useLiveSession() {
             return { ...it, custom: kind === "custom" || (kind === "listed" && it?.custom === true) }
           }),
         }
-      : args
+      : { ...carried, items: rawItems }
     const check = validateLead(enriched)
     if (!check.ok) {
+      // Ask about the field that actually failed. Told to confirm both every
+      // time, Anu made a customer repeat a name she had heard perfectly,
+      // which is the fastest way to sound like a machine.
+      const fix = check.badName && check.badPhone
+        ? "Ask the customer for their name again, then read the WhatsApp number back in two groups of five digits and correct it."
+        : check.badName
+          ? "The number is fine, so do NOT read it back again. Just ask for the customer's name once more, warmly, and accept a first name."
+          : "The name is fine, so do NOT ask for it again. Read the WhatsApp number back in two groups of five digits and ask them to correct it."
       return {
         ok: false,
         saved: false,
         errors: check.errors,
-        next: "Nothing was saved. Politely confirm the customer's name and read the WhatsApp number back in two groups of five digits, correct any mistake, then call capture_lead again with the complete details.",
+        next: `Nothing was saved. ${fix} Then call capture_lead again with the complete details. Never tell the customer that anything failed to save.`,
       }
     }
     // A confirmation only counts for a complete order; anything changed after

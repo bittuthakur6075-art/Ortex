@@ -31,6 +31,10 @@ const PLACEHOLDER_NAMES = new Set([
 // Above this a quantity is repeated back rather than trusted (10 lakh pieces).
 const MAX_SANE_QTY = 1000000
 
+// How an off-catalogue line is marked for the sales desk, in the notes rather
+// than a field of its own, so it shows up wherever notes are already read.
+const CUSTOM_NOTE = "Custom item (not in catalogue)"
+
 // Latin or Devanagari letters, so a filler or a digit run is not taken as a word.
 const letterCount = (s) => (String(s).match(/[a-zA-Zऀ-ॿ]/g) || []).length
 
@@ -91,10 +95,15 @@ export function normalizeItems(args = {}) {
     // A custom request is marked in the notes rather than a field of its own,
     // so it shows up wherever the console and the phone already read notes.
     const notes = String(it?.notes || "").trim()
+    // An item can come back through here more than once in a call (the page
+    // re-validates the accumulated order on every capture), and its notes
+    // already carry the marker. Without this guard the same line grew a
+    // "Custom item" prefix per capture.
+    const marked = notes.includes(CUSTOM_NOTE)
     return {
       product: String(it?.product || "").trim(),
       quantity: n && n > 0 ? String(n) : quantity,
-      notes: it?.custom ? ["Custom item (not in catalogue)", notes].filter(Boolean).join(" · ") : notes,
+      notes: it?.custom && !marked ? [CUSTOM_NOTE, notes].filter(Boolean).join(" · ") : notes,
     }
   }
   const listed = (Array.isArray(args.items) ? args.items : []).map(tidy).filter((it) => it.product)
@@ -112,6 +121,7 @@ export function normalizeItems(args = {}) {
 // plus the normalised name, phone, city, timeline and items.
 export function validateLead(args = {}) {
   const errors = []
+  const errorFields = new Set()
   const problems = []
   const missing = new Set()
 
@@ -123,12 +133,15 @@ export function validateLead(args = {}) {
 
   if (letterCount(name) < 2 || PLACEHOLDER_NAMES.has(name.toLowerCase())) {
     errors.push("the name is missing, unclear, or a placeholder such as 'sir' or 'customer'")
+    errorFields.add("name")
   }
   // Indian mobile: exactly 10 digits, first digit 6-9.
   if (!/^[6-9]\d{9}$/.test(phone)) {
     errors.push("the WhatsApp number is not a valid 10-digit Indian mobile")
+    errorFields.add("phone")
   } else if (isFakePhone(phone)) {
     errors.push("the WhatsApp number looks like a placeholder, not a real mobile")
+    errorFields.add("phone")
   }
 
   if (!items.length) missing.add("items")
@@ -155,7 +168,12 @@ export function validateLead(args = {}) {
 
   const ordered = REQUIRED_FIELDS.filter((k) => missing.has(k))
   const ok = errors.length === 0
-  return { ok, name, phone, city, timeline, items, errors, problems, missing: ordered, complete: ok && ordered.length === 0 }
+  // Which of the two blocking fields failed, so the reply can ask about that
+  // one alone. Told "confirm the name and read the number back" when only the
+  // number was mis-heard, Anu makes the customer repeat a name she already had.
+  const badName = errorFields.has("name")
+  const badPhone = errorFields.has("phone")
+  return { ok, name, phone, city, timeline, items, errors, problems, badName, badPhone, missing: ordered, complete: ok && ordered.length === 0 }
 }
 
 // Persist a voice lead into the shared enquiries backend (same table the Admin
