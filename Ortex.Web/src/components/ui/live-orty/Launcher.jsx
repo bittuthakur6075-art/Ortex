@@ -31,7 +31,6 @@ export default function Launcher({ onOpen }) {
         </span>
         <span className="text-left leading-tight">
           <span className="block whitespace-nowrap text-[16px] font-semibold">Speak with Anu</span>
-          <span className="block whitespace-nowrap text-[12px] text-white/70">Free voice consultation · Hindi & English</span>
         </span>
       </motion.span>
     </motion.button>

@@ -51,7 +51,7 @@ const fadeUp = (delay = 0) => ({
 })
 
 export default function CallPanel({ call }) {
-  const { status, speaking, audioBlocked, errorMsg, seconds, caption, lead, ended, readLevel, unlockAudio, endCall, dismiss, start, minimize } = call
+  const { status, speaking, audioBlocked, errorMsg, seconds, caption, ended, readLevel, unlockAudio, endCall, dismiss, start, minimize } = call
   const view = ended ? "ended" : status === "error" ? "error" : "live"
   const mood = view === "ended" ? "ended" : view === "error" ? "error" : status === "connecting" ? "connecting" : speaking ? "speaking" : "listening"
 
@@ -73,22 +73,21 @@ export default function CallPanel({ call }) {
         <AnimatePresence mode="wait" initial={false}>
           {view === "live" && (
             <motion.div key="live" exit={{ opacity: 0, y: -8, transition: { duration: 0.18 } }} className="flex flex-col items-center px-6">
-              {/* Anu steps back once there are details to show, so the
-                  checklist fits without the card growing past a laptop screen. */}
-              <motion.div animate={{ height: lead ? 148 : 196 }} transition={MORPH_SPRING} className="flex w-full items-center justify-center">
+              {/* Full size throughout: she used to shrink to make room for the
+                  details checklist, which is gone. */}
+              <div className="flex h-[196px] w-full items-center justify-center">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.6, filter: "blur(12px)" }}
-                  animate={{ opacity: 1, scale: lead ? 0.74 : 1, filter: "blur(0px)" }}
+                  animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
                   transition={{ ...MORPH_SPRING, delay: 0.1 }}
                 >
                   <AnuAvatar mood={mood} size={196} readLevel={readLevel} />
                 </motion.div>
-              </motion.div>
+              </div>
               <StatusLine {...statusFor({ status, speaking, audioBlocked })} />
               {audioBlocked && status === "live"
                 ? <SoundPrompt onUnlock={unlockAudio} />
                 : <Caption caption={caption} live={status === "live"} />}
-              <DetailsCard details={lead} />
               <Controls onEnd={endCall} />
             </motion.div>
           )}
@@ -126,7 +125,10 @@ function Header({ view, status, seconds, onMinimize, onClose }) {
       <div className="relative h-10 w-10 flex-none">
         <div className="grid h-full w-full place-items-center overflow-hidden rounded-full bg-primary text-[15px] font-semibold">
           A
-          <img src={ANU_PHOTO} alt="" aria-hidden="true" draggable="false" onError={(e) => { e.currentTarget.style.display = "none" }} className="absolute inset-0 h-full w-full object-cover" />
+          {/* The radius goes on the image itself, not only on the clipping
+              parent: a parent's overflow does not reliably clip a child the
+              compositor has put on its own layer, which drew her square. */}
+          <img src={ANU_PHOTO} alt="" aria-hidden="true" draggable="false" onError={(e) => { e.currentTarget.style.display = "none" }} className="absolute inset-0 h-full w-full object-cover" style={{ borderRadius: 999 }} />
         </div>
         <AnimatePresence>
           {live && (
@@ -258,76 +260,9 @@ function SoundPrompt({ onUnlock }) {
   )
 }
 
-// What Anu has captured so far, checked by the page rather than taken on her
-// word. Collapsed to a progress bar while the call is gathering details; it
-// opens by itself once everything is in, so the customer can check the list
-// while Anu reads it back.
-function DetailsCard({ details }) {
-  const [open, setOpen] = useState(false)
-  const readyToConfirm = Boolean(details?.complete && !details?.confirmed)
-  useEffect(() => { if (readyToConfirm) setOpen(true) }, [readyToConfirm])
-  const count = details ? DETAIL_FIELDS.filter((f) => isDone(details, f)).length : 0
-
-  return (
-    <AnimatePresence initial={false}>
-      {details && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-          transition={MORPH_SPRING}
-          className="w-full overflow-hidden"
-        >
-          <div className="mt-3 rounded-2xl bg-white/[0.06] ring-1 ring-inset ring-white/10">
-            <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-3 px-4 pt-3 pb-2.5 text-left">
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2 text-[13px] font-semibold">
-                  Your details
-                  <AnimatePresence>
-                    {details.confirmed && (
-                      <motion.span
-                        initial={{ opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-                        transition={MORPH_SPRING}
-                        className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300"
-                      >
-                        Confirmed
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </span>
-                <span className="block text-[12px] tabular-nums text-white/50">{count} of {DETAIL_FIELDS.length} captured</span>
-              </span>
-              <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.25 }} className="text-white/50">
-                <ArrowDown2 size={16} variant="Linear" color="currentColor" />
-              </motion.span>
-            </button>
-            <div className="mx-4 mb-3 h-1 overflow-hidden rounded-full bg-white/10">
-              <motion.div
-                className="h-full rounded-full bg-emerald-400"
-                initial={false}
-                animate={{ width: `${(count / DETAIL_FIELDS.length) * 100}%` }}
-                transition={{ duration: 0.6, ease: EASE }}
-              />
-            </div>
-            <AnimatePresence initial={false}>
-              {open && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.3, ease: EASE }}
-                  className="overflow-hidden"
-                >
-                  <DetailList details={details} className="px-4 pb-3.5" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  )
-}
-
-// One row per detail: a tick when the page has accepted it, amber text when
-// something was heard but still needs checking (a product with no quantity),
-// "Pending" when nothing is in yet.
+// The captured details, shown once the call has ENDED. The live checklist that
+// used to sit under Anu during the call was removed on the owner's instruction
+// (2026-09-12): it turned a conversation into a form being filled in.
 function DetailList({ details, className = "" }) {
   return (
     <ul className={`space-y-1.5 text-left ${className}`}>
@@ -337,15 +272,9 @@ function DetailList({ details, className = "" }) {
         return (
           <li key={f.key} className="flex items-start gap-2.5 text-[13px] leading-snug">
             <span className="mt-px grid h-4 w-4 flex-none place-items-center">
-              <AnimatePresence mode="wait" initial={false}>
-                {done ? (
-                  <motion.span key="done" initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0 }} transition={MORPH_SPRING}>
-                    <TickCircle size={16} variant="Bold" color="#34D399" />
-                  </motion.span>
-                ) : (
-                  <motion.span key="pending" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="block h-3.5 w-3.5 rounded-full border border-dashed border-white/30" />
-                )}
-              </AnimatePresence>
+              {done
+                ? <TickCircle size={16} variant="Bold" color="#34D399" />
+                : <span className="block h-3.5 w-3.5 rounded-full border border-dashed border-white/30" />}
             </span>
             <span className="w-[68px] flex-none text-white/45">{f.label}</span>
             <span className={`min-w-0 flex-1 break-words ${done ? "text-white/90" : value ? "text-amber-200/80" : "text-white/35"}`}>
@@ -358,8 +287,6 @@ function DetailList({ details, className = "" }) {
   )
 }
 
-// End is the only control. There is no mute: a muted line looks identical to a
-// dropped one to the caller, and Anu answers silence by asking again.
 function Controls({ onEnd }) {
   return (
     <motion.div {...fadeUp(0.18)} className="mt-4 mb-6 flex w-full items-center justify-center gap-3">

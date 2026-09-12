@@ -37,6 +37,18 @@ const MAX_CAPTION_CHUNKS = 80
 // the next chunk this far ahead so the ones behind it arrive in time instead of
 // leaving an audible hole. Measured: one 37 ms hole per ~14 s without it.
 const PLAYBACK_LEAD = 0.08
+// De-click ramp on every discontinuity in Anu's audio: the start of a chunk
+// that follows silence, and the end of one that is cut short by an
+// interruption. 12 ms is inaudible as a fade and long enough to kill the step.
+const FADE = 0.012
+// Mic capture block. At 16 kHz a 4096-sample buffer is 256 ms, so a quarter of
+// a second of the customer's speech sat in the browser before it was sent, on
+// top of the model's own end-of-speech wait: she answered late for no reason.
+// 1024 samples is 64 ms, still comfortably above the main thread's jitter.
+const MIC_BUFFER = 1024
+// How long the customer has to be silent before the model treats the turn as
+// finished. The default waits noticeably longer than a person would.
+const END_OF_SPEECH_SILENCE_MS = 450
 // Gemini's voice peaks at about -0.3 dBFS; 0.9x leaves headroom so cheap
 // speakers do not distort on loud syllables.
 const OUTPUT_GAIN = 0.9
@@ -68,7 +80,7 @@ function nextStep(check, confirmed) {
   if (!confirmed) {
     return `${checks}All five details are captured. Read back the complete summary now: name, WhatsApp number in two groups of five digits, every product with its quantity, timeline and delivery city. Ask the customer to confirm. When they confirm, call capture_lead again with the same details and confirmed=true.`
   }
-  return "Confirmed and saved. Thank the customer, tell them the team will send the free mockup and quotation on WhatsApp, usually within one working day, then say goodbye and call end_call with reason completed."
+  return "Confirmed and saved. Tell the customer the team will send the free mockup and quotation on WhatsApp, usually within one working day. Then ASK whether they need anything else and WAIT for their answer. If they raise anything, handle it and ask again. Only when they have nothing further, say a short warm goodbye and call end_call with reason completed."
 }
 
 // Why end_call should be refused, or null when the call may end.
@@ -242,24 +254,56 @@ export function useLiveSession() {
     buffer.copyToChannel(float, 0)
     const src = ctx.createBufferSource()
     src.buffer = buffer
-    src.connect(analyser || ctx.destination)
-    const start = nextTimeRef.current > ctx.currentTime ? nextTimeRef.current : ctx.currentTime + PLAYBACK_LEAD
+    // Every chunk gets its own gain, purely so it can be faded. A PCM buffer
+    // that starts or stops mid-waveform is a step change in the signal, and a
+    // step is a click: that is the "beep" heard every few seconds, once when
+    // the queue underruns and restarts, and again each time the visitor
+    // interrupts and the playing buffer is cut dead.
+    const gain = ctx.createGain()
+    gain.connect(analyser || ctx.destination)
+    src.connect(gain)
+    const now = ctx.currentTime
+    // Contiguous with the chunk before it: the waveform continues, so no fade.
+    // Otherwise this is the first chunk after silence and it needs a ramp in.
+    const contiguous = nextTimeRef.current > now
+    const start = contiguous ? nextTimeRef.current : now + PLAYBACK_LEAD
+    if (contiguous) {
+      gain.gain.setValueAtTime(1, start)
+    } else {
+      gain.gain.setValueAtTime(0, start)
+      gain.gain.linearRampToValueAtTime(1, start + FADE)
+    }
     src.start(start)
     nextTimeRef.current = start + buffer.duration
-    setSpeaking(true)
+    // Only on the transition. This used to run per chunk, which meant a React
+    // render for every ~20 ms of speech, on the same main thread the mic's
+    // ScriptProcessorNode runs on: that starved the mic and made her slower to
+    // hear you, as well as causing the underruns above.
+    if (!sourcesRef.current.length) setSpeaking(true)
     src.onended = () => {
-      sourcesRef.current = sourcesRef.current.filter((s) => s !== src)
+      sourcesRef.current = sourcesRef.current.filter((s) => s.src !== src)
       if (sourcesRef.current.length === 0) {
         setSpeaking(false)
         // Anu asked to end the call: close once her goodbye has finished playing.
         if (endWantedRef.current) finish()
       }
     }
-    sourcesRef.current.push(src)
+    sourcesRef.current.push({ src, gain })
   }, [finish])
 
   const clearPlayback = useCallback(() => {
-    sourcesRef.current.forEach((s) => { try { s.stop() } catch { /* noop */ } })
+    const ctx = outCtxRef.current
+    const t = ctx ? ctx.currentTime : 0
+    sourcesRef.current.forEach(({ src, gain }) => {
+      try {
+        // Ramp to silence over a few milliseconds, then stop. Stopping outright
+        // is what makes an interruption click.
+        gain.gain.cancelScheduledValues(t)
+        gain.gain.setValueAtTime(gain.gain.value, t)
+        gain.gain.linearRampToValueAtTime(0, t + FADE)
+        src.stop(t + FADE)
+      } catch { /* already stopped */ }
+    })
     sourcesRef.current = []
     nextTimeRef.current = 0
     setSpeaking(false)
@@ -526,6 +570,11 @@ export function useLiveSession() {
           responseModalities: [Modality.AUDIO],
           systemInstruction: VOICE_SYSTEM_INSTRUCTION + catalogueBlock(catalogue),
           speechConfig: { languageCode: "hi-IN", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } },
+          // Let the model decide a turn has ended sooner than its default, so
+          // she does not leave a long pause after the customer stops speaking.
+          realtimeInputConfig: {
+            automaticActivityDetection: { silenceDurationMs: END_OF_SPEECH_SILENCE_MS },
+          },
           // Text of both sides: the live caption, and a rolling memory across reopens.
           inputAudioTranscription: {},
           outputAudioTranscription: {},
@@ -570,7 +619,7 @@ export function useLiveSession() {
       micSrc.connect(inAnalyser)
       inAnalyserRef.current = inAnalyser
 
-      const proc = inCtxRef.current.createScriptProcessor(4096, 1, 1)
+      const proc = inCtxRef.current.createScriptProcessor(MIC_BUFFER, 1, 1)
       proc.onaudioprocess = (e) => {
         if (!sessionRef.current) return
         try {
