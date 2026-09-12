@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import PageHeader, { ActionBar } from "../components/layout/PageHeader"
-import { Button, SearchInput, PageLoader, Tabs } from "../components/ui/Ui"
+import { Button, SearchInput, PageLoader, PillTabs } from "../components/ui/Ui"
 import { Plus, Eye, AlertTriangle } from "../components/ui/Icons"
 import { useAutomationData } from "./automation/useAutomationData"
 import { useWhatsAppDispatch } from "./automation/useWhatsAppDispatch"
@@ -129,7 +129,7 @@ export default function Automation({ embedded = false }) {
         </div>
       )}
 
-      <Tabs
+      <PillTabs
         items={TABS}
         value={activeTab}
         onChange={(v) => {

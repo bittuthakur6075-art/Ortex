@@ -775,6 +775,27 @@ export function Tabs({ items, value, onChange, className }) {
   )
 }
 
+// Pill tabs: the list-page chip rail used as a tab switch. One white 45px
+// track holding 38px options, the active one tinted blue. Use it where a tab
+// row sits on the canvas rather than over a table; `Tabs` (underline) stays
+// the hub-level switch.
+export function PillTabs({ items, value, onChange, className }) {
+  return (
+    <ChipGroup className={cn("min-w-0 self-start", className)}>
+      {items.map((it) => {
+        const active = it.value === value
+        return (
+          <Chip key={it.value} active={active} onClick={() => onChange(it.value)}>
+            {it.icon && <it.icon className={cn("h-4 w-4 flex-none", active ? "text-primary" : "text-muted-foreground")} />}
+            {it.label}
+            {it.count != null && <span className={cn("tabular", active ? "text-primary/70" : "text-muted-foreground")}>({it.count})</span>}
+          </Chip>
+        )
+      })}
+    </ChipGroup>
+  )
+}
+
 // ---- Banner ----------------------------------------------------------------
 
 const BANNER = {

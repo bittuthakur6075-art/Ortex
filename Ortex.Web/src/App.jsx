@@ -4,7 +4,7 @@ import { Toaster } from "sonner"
 import Navbar from "./components/layout/Navbar"
 import Footer from "./components/layout/Footer"
 import ScrollToTop from "./components/layout/ScrollToTop"
-import { trackActivity } from "./lib/tracker"
+import { trackPageView } from "./lib/tracker"
 import { flushOutbox } from "./lib/leads"
 import useSmoothScroll from "./hooks/useSmoothScroll"
 
@@ -43,42 +43,10 @@ function AppLayout() {
     return () => window.removeEventListener("online", flushOutbox)
   }, [])
 
+  // One row per visit the person actually made: the label, the page name and
+  // any search or product in the query string are all derived in tracker.js.
   useEffect(() => {
-    let activityType = "Home page visit"
-    const path = location.pathname
-
-    if (path === "/") {
-      activityType = "Home page visit"
-    } else if (path === "/products") {
-      activityType = "Product page visit"
-    } else if (path === "/about") {
-      activityType = "Category browsing"
-    } else if (path === "/quote") {
-      activityType = "Checkout"
-    } else if (path === "/contact") {
-      activityType = "Product inquiry"
-    } else if (path === "/privacy" || path === "/terms" || path === "/cookies" || path === "/acceptable-use") {
-      activityType = "File download"
-    } else {
-      activityType = "Category browsing"
-    }
-
-    const params = new URLSearchParams(location.search)
-    const searchVal = params.get("search") || params.get("q")
-    const productVal = params.get("product")
-
-    let metadata = {}
-    if (searchVal) {
-      metadata.searchQuery = searchVal
-      trackActivity({ activityType: "Product search", metadata })
-    }
-
-    if (productVal) {
-      metadata.productName = productVal
-      trackActivity({ activityType: "Product page visit", productId: productVal, metadata })
-    } else {
-      trackActivity({ activityType, metadata })
-    }
+    trackPageView({ pathname: location.pathname, search: location.search })
   }, [location])
 
   return (

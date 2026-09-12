@@ -3,7 +3,12 @@ import { Trash2 } from "../../components/ui/Icons"
 
 export default function TemplatesTab({ templates, onEdit, onDelete }) {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-lg font-semibold leading-none tracking-tight text-foreground">Message templates</h3>
+        <p className="mt-1.5 text-[13px] leading-4 text-muted-foreground">{`${templates.length} ${templates.length === 1 ? "template" : "templates"}`}</p>
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {templates.length === 0 ? (
         <div className="col-span-3 py-12 text-center text-muted-foreground">No message templates created yet.</div>
       ) : (
@@ -45,6 +50,7 @@ export default function TemplatesTab({ templates, onEdit, onDelete }) {
           </Card>
         ))
       )}
+      </div>
     </div>
   )
 }

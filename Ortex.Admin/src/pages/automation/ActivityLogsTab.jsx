@@ -1,9 +1,23 @@
 import { useMemo } from "react"
-import { Card, Badge } from "../../components/ui/Ui"
+import { Card, CardHeader, Badge } from "../../components/ui/Ui"
 import { formatDateTime } from "../../lib/format"
 import { PAGE_SIZE, maskPhone, maskEmail } from "./helpers"
 import WindowNotice from "./WindowNotice"
 import TablePager from "./TablePager"
+
+// A referrer is only ever read as "where did they come from". The full URL
+// (often 90 characters of UTM) crowded out the rest of the row, so we show the
+// host and keep the whole thing in the title attribute.
+const shortReferrer = (ref) => {
+  if (!ref || ref === "Direct") return "Direct"
+  try {
+    const url = new URL(ref)
+    const host = url.hostname.replace(/^www\./, "")
+    return url.pathname && url.pathname !== "/" ? host + url.pathname : host
+  } catch {
+    return ref
+  }
+}
 
 const renderMetadata = (act, mask = true) => {
   const meta = act.metadata || {}
@@ -39,8 +53,9 @@ const renderMetadata = (act, mask = true) => {
 // unrecognised address, inventing a location for real visitors and presenting
 // the guess as fact. Rows with no geolocation now say so.
 const renderLocation = (act) => {
-  if (act.location) return act.location
-  if (act.city && act.country) return `${act.city}, ${act.country}`
+  const pin = act.postal ? ` ${act.postal}` : ""
+  if (act.location) return act.location + pin
+  if (act.city && act.country) return `${act.city}, ${act.country}` + pin
   if (!act.ipAddress || act.ipAddress === "127.0.0.1" || act.ipAddress === "::1") return "Localhost"
   return <span className="text-muted-foreground">Unknown</span>
 }
@@ -60,7 +75,9 @@ export default function ActivityLogsTab({ activities, totals, activityTruncated,
       (a.country || "").toLowerCase().includes(query) ||
       (a.referrer || "").toLowerCase().includes(query) ||
       (a.metadata?.productName || "").toLowerCase().includes(query) ||
-      (a.metadata?.searchQuery || "").toLowerCase().includes(query)
+      (a.metadata?.searchQuery || "").toLowerCase().includes(query) ||
+      (a.metadata?.page || "").toLowerCase().includes(query) ||
+      (a.pageUrl || "").toLowerCase().includes(query)
     )
   }, [activities, searchQuery])
 
@@ -79,35 +96,37 @@ export default function ActivityLogsTab({ activities, totals, activityTruncated,
       <WindowNotice shown={activities.length} total={totals.user_activities} what="tracked actions" />
     )}
     <Card className="overflow-hidden">
+      <CardHeader title="User activity" description={`${filteredActivities.length} tracked ${filteredActivities.length === 1 ? "action" : "actions"}`} />
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left text-sm">
           <thead className="mt-head">
             <tr>
-              <th>Timestamp</th>
-              <th>User ID</th>
-              <th>Session</th>
-              <th>Activity Type</th>
-              <th>Page URL</th>
-              <th>Referrer</th>
-              <th>Location</th>
-              <th>Device / OS</th>
-              <th>IP Address</th>
-              <th>Metadata / Details</th>
+              <th>When</th>
+              <th>Visitor</th>
+              <th>Activity</th>
+              <th>Page</th>
+              <th>Where from</th>
+              <th>Device</th>
+              <th>Details</th>
             </tr>
           </thead>
           <tbody className="mt-body">
             {filteredActivities.length === 0 ? (
               <tr>
-                <td colSpan="10" className="py-12 text-center text-muted-foreground">No activities found.</td>
+                <td colSpan="7" className="py-12 text-center text-muted-foreground">No activities found.</td>
               </tr>
             ) : (
               pagedActivities.map((act) => (
-                <tr key={act.id} className="hover:bg-subtle">
-                  <td className="whitespace-nowrap px-4 py-3 font-medium text-xs">
+                <tr key={act.id} className="hover:bg-subtle align-top">
+                  <td className="whitespace-nowrap px-4 py-3 text-xs font-medium">
                     {formatDateTime(act.timestamp)}
                   </td>
-                  <td className="px-4 py-3 font-semibold text-xs text-primary">{act.userId}</td>
-                  <td className="px-4 py-3 font-mono text-[10px] text-muted-foreground">{act.sessionId}</td>
+                  {/* Who: the visitor id is the join key Growth uses, the session
+                      is only ever read as "the same visit", so it rides beneath. */}
+                  <td className="px-4 py-3">
+                    <div className="text-xs font-semibold text-primary">{act.userId}</div>
+                    <div className="font-mono text-[10px] text-muted-foreground">{act.sessionId}</div>
+                  </td>
                   <td className="px-4 py-3">
                     <Badge tone={
                       act.activityType === "Quote request" ? "amber" :
@@ -117,13 +136,21 @@ export default function ActivityLogsTab({ activities, totals, activityTruncated,
                       {act.activityType}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-xs font-mono text-muted-foreground max-w-xs truncate">{act.pageUrl}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground max-w-xs truncate">{act.referrer || "Direct"}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">{renderLocation(act)}</td>
-                  <td className="px-4 py-3 text-xs">
-                    {act.device} ({act.operatingSystem} / {act.browser})
+                  <td className="px-4 py-3 max-w-xs">
+                    {act.metadata?.page && <div className="truncate text-xs font-medium text-foreground">{act.metadata.page}</div>}
+                    <div className="truncate font-mono text-[11px] text-muted-foreground">{act.pageUrl}</div>
+                    <div className="truncate text-[11px] text-muted-foreground" title={act.referrer || "Direct"}>via {shortReferrer(act.referrer)}</div>
                   </td>
-                  <td className="px-4 py-3 text-xs font-mono">{act.ipAddress}</td>
+                  {/* Where: the place, then the address it was resolved from. Both
+                      answer one question, so they are one column. */}
+                  <td className="px-4 py-3 max-w-[220px]">
+                    <div className="text-xs text-foreground">{renderLocation(act)}</div>
+                    {act.ipAddress && <div className="truncate font-mono text-[10px] text-muted-foreground">{act.ipAddress}{act.isp ? ` · ${act.isp}` : ""}</div>}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-xs">
+                    <div className="text-foreground">{act.device || "Unknown"}</div>
+                    <div className="text-[11px] text-muted-foreground">{[act.operatingSystem, act.browser].filter(Boolean).join(" / ") || "Unknown"}</div>
+                  </td>
                   <td className="px-4 py-3 max-w-md">{renderMetadata(act, maskSensitiveData)}</td>
                 </tr>
               ))

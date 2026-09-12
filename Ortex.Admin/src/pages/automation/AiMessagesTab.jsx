@@ -4,7 +4,12 @@ import { formatDateTime } from "../../lib/format"
 
 export default function AiMessagesTab({ aiMessages }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-lg font-semibold leading-none tracking-tight text-foreground">Suggested messages</h3>
+        <p className="mt-1.5 text-[13px] leading-4 text-muted-foreground">{`${aiMessages.length} ${aiMessages.length === 1 ? "draft" : "drafts"}`}</p>
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       {aiMessages.length === 0 ? (
         <div className="col-span-2 py-16 text-center">
           <EmptyState
@@ -37,6 +42,7 @@ export default function AiMessagesTab({ aiMessages }) {
           </Card>
         ))
       )}
+      </div>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { Button, Card, Badge } from "../../components/ui/Ui"
+import { Button, Card, CardHeader, Badge } from "../../components/ui/Ui"
 import { formatDateTime } from "../../lib/format"
 import { WA_PENDING, maskPhone } from "./helpers"
 
@@ -47,32 +47,38 @@ export default function WhatsAppTab({ whatsappLogs, searchQuery, maskSensitiveDa
       </div>
 
       <Card className="overflow-hidden">
+        <CardHeader title="WhatsApp queue" description={`${whatsappLogs.length} ${whatsappLogs.length === 1 ? "message" : "messages"}`} />
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-sm">
             <thead className="mt-head">
               <tr>
                 <th>Created</th>
-                <th>Customer</th>
-                <th>Phone</th>
-                <th>Template</th>
-                <th>Message Text</th>
+                <th>Recipient</th>
+                <th>Message</th>
                 <th>Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="text-right">Action</th>
               </tr>
             </thead>
             <tbody className="mt-body">
               {filteredWhatsappLogs.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="py-12 text-center text-muted-foreground">No WhatsApp logs found.</td>
+                  <td colSpan="5" className="py-12 text-center text-muted-foreground">No WhatsApp logs found.</td>
                 </tr>
               ) : (
                 filteredWhatsappLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-subtle">
+                  <tr key={log.id} className="hover:bg-subtle align-top">
                     <td className="whitespace-nowrap px-4 py-3 text-xs">{formatDateTime(log.createdAt)}</td>
-                    <td className="px-4 py-3 font-semibold text-xs">{log.customerName}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{maskPhone(log.phone, maskSensitiveData)}</td>
-                    <td className="px-4 py-3 text-xs text-primary">{log.templateName}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground max-w-sm">{log.messageText}</td>
+                    {/* Who it goes to: the name and the number it will actually
+                        dial are one answer, not two columns. */}
+                    <td className="px-4 py-3">
+                      <div className="text-xs font-semibold">{log.customerName || "Unknown"}</div>
+                      <div className="font-mono text-[11px] text-muted-foreground">{maskPhone(log.phone, maskSensitiveData)}</div>
+                    </td>
+                    {/* What it says, under the template it came from. */}
+                    <td className="px-4 py-3 max-w-md">
+                      {log.templateName && <div className="text-[11px] font-medium text-primary">{log.templateName}</div>}
+                      <div className="text-xs text-muted-foreground">{log.messageText}</div>
+                    </td>
                     <td className="px-4 py-3">
                       <Badge tone={
                         log.status === "delivered" || log.status === "read" ? "emerald" :
@@ -87,22 +93,22 @@ export default function WhatsAppTab({ whatsappLogs, searchQuery, maskSensitiveDa
                         <div className="text-[10px] text-destructive mt-1 font-mono max-w-xs">{log.errorMessage}</div>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right space-x-2">
+                    <td className="whitespace-nowrap px-4 py-3 text-right">
                       {(log.status === "failed" || log.status === "queued") && (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => onOpenWhatsApp(log)}
-                          className="h-7 text-[11px] border-success text-success-text hover:bg-success/10"
+                          className="border-success text-success-text hover:bg-success/10"
                         >
-                          📱 Send via WhatsApp
+                          Send via WhatsApp
                         </Button>
                       )}
                       {log.status === "sent" && (
-                        <span className="text-xs text-muted-foreground italic">Sent via WhatsApp Web</span>
+                        <span className="text-xs italic text-muted-foreground">Sent via WhatsApp Web</span>
                       )}
                       {log.status === "delivered" && (
-                        <span className="text-xs text-success-text font-semibold">✓ Delivered</span>
+                        <span className="text-xs font-semibold text-success-text">Delivered</span>
                       )}
                     </td>
                   </tr>

@@ -7,6 +7,10 @@ const NO_LOCATION = {
   city: "Not collected",
   region: "Not collected",
   country: "Not collected",
+  postal: null,
+  isp: null,
+  latitude: null,
+  longitude: null,
   location: "Not collected",
 }
 
@@ -80,25 +84,43 @@ async function getLocationData() {
     const res = await fetch("https://ipapi.co/json/")
     if (!res.ok) throw new Error("Failed to fetch location data")
     const data = await res.json()
+    // Everything the lookup knows about where they are. postal/isp/lat-long
+    // were being thrown away, and they are what turns "New Delhi" into a place
+    // a salesperson can act on: the ISP tells a mobile-network guess (which can
+    // be the operator's gateway city) apart from a broadband one, which is the
+    // visitor's own exchange.
     cachedLocation = {
       ip: data.ip || "127.0.0.1",
       city: data.city || "Unknown City",
       region: data.region || "Unknown Region",
       country: data.country_name || "Unknown Country",
+      postal: data.postal || null,
+      isp: data.org || null,
+      latitude: data.latitude ?? null,
+      longitude: data.longitude ?? null,
       location: data.city && data.country_name ? `${data.city}, ${data.region ? data.region + ', ' : ''}${data.country_name}` : "Unknown Location"
     }
     return cachedLocation
   } catch (err) {
-    console.warn("Geolocation fetch failed, trying fallback IP fetch:", err)
+    console.warn("Geolocation fetch failed, trying the second provider:", err)
+    // ipapi.co's free tier is 1,000 lookups a day and answers 429 after that,
+    // which used to drop every later visitor to an IP with "Unknown City". The
+    // fallback is a second geolocator rather than a bare IP echo, so a busy day
+    // costs precision, not the place itself.
     try {
-      const res = await fetch("https://api.ipify.org?format=json")
+      const res = await fetch("https://ipwho.is/")
       const data = await res.json()
+      if (!data || data.success === false) throw new Error(data?.message || "ipwho.is lookup failed")
       cachedLocation = {
         ip: data.ip || "127.0.0.1",
-        city: "Unknown City",
-        region: "Unknown Region",
-        country: "Unknown Country",
-        location: "Unknown Location"
+        city: data.city || "Unknown City",
+        region: data.region || "Unknown Region",
+        country: data.country || "Unknown Country",
+        postal: data.postal || null,
+        isp: data.connection?.isp || null,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+        location: data.city && data.country ? `${data.city}, ${data.region ? data.region + ', ' : ''}${data.country}` : "Unknown Location"
       }
       return cachedLocation
     } catch {
@@ -113,8 +135,93 @@ async function getLocationData() {
   }
 }
 
+// ---- Page views -------------------------------------------------------------
+//
+// Every route the site actually serves, mapped to the label written to
+// user_activities.activityType. The old map was an ecommerce taxonomy borrowed
+// wholesale: /about was logged as "Category browsing", /quote as "Checkout",
+// /contact as "Product inquiry" and the four legal pages as "File download",
+// and anything not listed fell through to "Category browsing" too. So the
+// console's Web events table described visits that never happened, and the
+// admin's classifyActivity() (which reads these strings) counted a privacy-page
+// read as a catalogue download and a contact-page read as a contact enquiry.
+// Every label here says "visit" or "view" so it classifies as a view, and the
+// page name travels in metadata so the table can name the page, not just "/".
+const PAGE_ACTIVITY = {
+  "/": ["Home page visit", "Home"],
+  "/products": ["Catalog view", "Products"],
+  "/industries": ["Industries page visit", "Industries"],
+  "/oem": ["OEM page visit", "OEM & white label"],
+  "/work": ["Work gallery visit", "Our work"],
+  "/about": ["About page visit", "About"],
+  "/contact": ["Contact page visit", "Contact"],
+  "/quote": ["Quote builder visit", "Quote builder"],
+  "/faq": ["FAQ page visit", "FAQ"],
+  "/privacy": ["Policy page visit", "Privacy policy"],
+  "/terms": ["Policy page visit", "Terms"],
+  "/cookies": ["Policy page visit", "Cookie policy"],
+  "/acceptable-use": ["Policy page visit", "Acceptable use"],
+}
+
+// A path we do not serve is a 404, and saying so is the point: an unknown
+// route used to be indistinguishable from a browse.
+export function activityForPath(path) {
+  const clean = path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path
+  const hit = PAGE_ACTIVITY[clean]
+  if (hit) return { activityType: hit[0], page: hit[1] }
+  // /products/<slug> is a category page, the only dynamic route we serve.
+  if (clean.startsWith("/products/")) return { activityType: "Catalog view", page: "Category: " + clean.slice(10) }
+  return { activityType: "Not found page visit", page: "Not found" }
+}
+
+// A route change fires this, not trackActivity directly. Two reasons:
+// the 300ms debounce collapses React's development double-effect and a
+// redirect's two-step ("/portfolio" -> "/work") into the one visit that
+// really happened, and by the time it runs the lazy page has set
+// document.title, so the row can carry the page's real title.
+let viewTimer = null
+let lastView = { key: "", at: 0 }
+const VIEW_DEDUPE_MS = 5000
+
+export function trackPageView({ pathname, search = "" }) {
+  const params = new URLSearchParams(search)
+  const searchQuery = params.get("search") || params.get("q")
+  const productName = params.get("product")
+
+  clearTimeout(viewTimer)
+  viewTimer = setTimeout(() => {
+    const key = pathname + search
+    const now = Date.now()
+    if (key === lastView.key && now - lastView.at < VIEW_DEDUPE_MS) return
+    lastView = { key, at: now }
+
+    const { activityType, page } = activityForPath(pathname)
+    const base = { page, pageTitle: document.title }
+
+    if (searchQuery) trackActivity({ activityType: "Product search", metadata: { ...base, searchQuery } })
+    if (productName) trackActivity({ activityType: "Product page visit", productId: productName, metadata: { ...base, productName } })
+    else trackActivity({ activityType, metadata: base })
+  }, 300)
+}
+
+// A dev server writes to the same analytics tables the live site does, there
+// is no separate environment for them. An afternoon of `npm run dev` therefore
+// arrives in the console as thousands of visits from one office IP and is
+// counted by the Growth funnel. Local traffic is not recorded unless someone
+// asks for it with VITE_TRACK_LOCAL=true, which is how you test this file
+// itself. (supabase/maintenance/remove-local-traffic.sql clears what earlier
+// dev sessions already wrote.)
+const LOCAL_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "::1", "192.168.", "10.0.", "10.1."]
+export const isLocalTraffic = () => {
+  if (import.meta.env.VITE_TRACK_LOCAL === "true") return false
+  // An IPv6 literal arrives bracketed ("[::1]"); compare the address itself.
+  const host = window.location.hostname.replaceAll("[", "").replaceAll("]", "")
+  return LOCAL_HOSTS.some((h) => host === h || host.startsWith(h)) || host.endsWith(".local")
+}
+
 // Main track function
 export async function trackActivity({ activityType, productId = null, metadata = {} }) {
+  if (isLocalTraffic()) return
   const { userId, sessionId } = getTrackingIds()
   const { browser, os, device } = getUAInfo()
   const loc = await getLocationData()
@@ -134,6 +241,10 @@ export async function trackActivity({ activityType, productId = null, metadata =
     city: loc.city,
     region: loc.region,
     country: loc.country,
+    postal: loc.postal,
+    isp: loc.isp,
+    latitude: loc.latitude,
+    longitude: loc.longitude,
     location: loc.location,
     metadata,
   }
