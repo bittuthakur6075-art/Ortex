@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
-import { ArrowDown2, CallSlash, CloseCircle, Microphone2, MicrophoneSlash1, Refresh2, TickCircle, VolumeHigh, Whatsapp } from "iconsax-react"
-import Orb from "./Orb"
+import { ArrowDown2, CallSlash, CloseCircle, Microphone2, Refresh2, TickCircle, VolumeHigh, Whatsapp } from "iconsax-react"
+import AnuAvatar, { ANU_PHOTO } from "./AnuAvatar"
 import { whatsappLink } from "../../../constants/site"
 import { MORPH_SPRING, EASE, mmss } from "./shared"
 
@@ -11,8 +11,8 @@ import { MORPH_SPRING, EASE, mmss } from "./shared"
    bottom sheet on phones) that never blocks the page, so a visitor can keep
    browsing products while Anu talks them through it.
 
-   Three faces share the one card: the live call (orb, status sentence, live
-   caption, the "Your details" checklist, mute + end), the
+   Three faces share the one card: the live call (Anu's face, status sentence, live
+   caption, the "Your details" checklist and End call), the
    error (reason, retry, WhatsApp fallback) and the summary after hang-up
    (duration, the confirmed details, call again / request a quote). Shares
    `layoutId="anu-morph"` with the launcher and the minimised pill, so each
@@ -38,10 +38,9 @@ const DETAIL_FIELDS = [
 ]
 const isDone = (d, f) => Boolean(f.read(d)) && !(d.missing || []).includes(f.key)
 
-function statusFor({ status, speaking, muted, audioBlocked }) {
+function statusFor({ status, speaking, audioBlocked }) {
   if (status === "connecting") return { text: "Connecting you to Anu…", dot: "bg-slate-400", pulse: true }
   if (audioBlocked) return { text: "Sound is paused by your browser", dot: "bg-amber-400", pulse: true }
-  if (muted) return { text: "Your microphone is muted", dot: "bg-zinc-400", pulse: false }
   if (speaking) return { text: "Anu is speaking", dot: "bg-violet-400", pulse: true }
   return { text: "Anu is listening", dot: "bg-emerald-400", pulse: true }
 }
@@ -52,9 +51,9 @@ const fadeUp = (delay = 0) => ({
 })
 
 export default function CallPanel({ call }) {
-  const { status, speaking, muted, audioBlocked, errorMsg, seconds, caption, lead, ended, readLevel, toggleMute, unlockAudio, endCall, dismiss, start, minimize } = call
+  const { status, speaking, audioBlocked, errorMsg, seconds, caption, lead, ended, readLevel, unlockAudio, endCall, dismiss, start, minimize } = call
   const view = ended ? "ended" : status === "error" ? "error" : "live"
-  const mood = view === "ended" ? "ended" : view === "error" ? "error" : status === "connecting" ? "connecting" : muted ? "muted" : speaking ? "speaking" : "listening"
+  const mood = view === "ended" ? "ended" : view === "error" ? "error" : status === "connecting" ? "connecting" : speaking ? "speaking" : "listening"
 
   return (
     <motion.div
@@ -74,7 +73,7 @@ export default function CallPanel({ call }) {
         <AnimatePresence mode="wait" initial={false}>
           {view === "live" && (
             <motion.div key="live" exit={{ opacity: 0, y: -8, transition: { duration: 0.18 } }} className="flex flex-col items-center px-6">
-              {/* The orb steps back once there are details to show, so the
+              {/* Anu steps back once there are details to show, so the
                   checklist fits without the card growing past a laptop screen. */}
               <motion.div animate={{ height: lead ? 148 : 196 }} transition={MORPH_SPRING} className="flex w-full items-center justify-center">
                 <motion.div
@@ -82,21 +81,21 @@ export default function CallPanel({ call }) {
                   animate={{ opacity: 1, scale: lead ? 0.74 : 1, filter: "blur(0px)" }}
                   transition={{ ...MORPH_SPRING, delay: 0.1 }}
                 >
-                  <Orb mood={mood} size={196} readLevel={readLevel} />
+                  <AnuAvatar mood={mood} size={196} readLevel={readLevel} />
                 </motion.div>
               </motion.div>
-              <StatusLine {...statusFor({ status, speaking, muted, audioBlocked })} />
+              <StatusLine {...statusFor({ status, speaking, audioBlocked })} />
               {audioBlocked && status === "live"
                 ? <SoundPrompt onUnlock={unlockAudio} />
                 : <Caption caption={caption} live={status === "live"} />}
               <DetailsCard details={lead} />
-              <Controls muted={muted} disabled={status !== "live"} onMute={toggleMute} onEnd={endCall} />
+              <Controls onEnd={endCall} />
             </motion.div>
           )}
 
           {view === "error" && (
             <motion.div key="error" {...fadeUp()} exit={{ opacity: 0, transition: { duration: 0.15 } }} className="flex flex-col items-center px-6 pb-6 text-center">
-              <Orb mood="error" size={132} />
+              <AnuAvatar mood="error" size={132} />
               <h3 className="mt-2 text-[19px] font-semibold tracking-tight">We couldn't connect your call</h3>
               <p className="mt-1.5 max-w-[300px] text-[14px] leading-relaxed text-white/60">{errorMsg || "Something went wrong. Please try again."}</p>
               <div className="mt-6 grid w-full grid-cols-2 gap-2.5">
@@ -121,8 +120,14 @@ function Header({ view, status, seconds, onMinimize, onClose }) {
   const live = view === "live" && status === "live"
   return (
     <div className="flex items-center gap-3 px-5 pt-5 pb-1">
-      <div className="relative grid h-10 w-10 flex-none place-items-center rounded-full bg-primary text-[15px] font-semibold">
-        A
+      {/* Her photo, with the monogram behind it so a missing asset still reads
+          as an avatar rather than a hole. The clip stays on the inner circle,
+          or it would cut the live dot off. */}
+      <div className="relative h-10 w-10 flex-none">
+        <div className="grid h-full w-full place-items-center overflow-hidden rounded-full bg-primary text-[15px] font-semibold">
+          A
+          <img src={ANU_PHOTO} alt="" aria-hidden="true" draggable="false" onError={(e) => { e.currentTarget.style.display = "none" }} className="absolute inset-0 h-full w-full object-cover" />
+        </div>
         <AnimatePresence>
           {live && (
             <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-[#0A0B16]" />
@@ -353,25 +358,11 @@ function DetailList({ details, className = "" }) {
   )
 }
 
-function Controls({ muted, disabled, onMute, onEnd }) {
+// End is the only control. There is no mute: a muted line looks identical to a
+// dropped one to the caller, and Anu answers silence by asking again.
+function Controls({ onEnd }) {
   return (
     <motion.div {...fadeUp(0.18)} className="mt-4 mb-6 flex w-full items-center justify-center gap-3">
-      <motion.button
-        whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.92 }}
-        onClick={onMute} disabled={disabled}
-        aria-pressed={muted} aria-label={muted ? "Unmute microphone" : "Mute microphone"} title={muted ? "Unmute" : "Mute"}
-        animate={{ backgroundColor: muted ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.1)", color: muted ? "#18181B" : "#FFFFFF" }}
-        className="grid h-14 w-14 place-items-center rounded-full disabled:opacity-40"
-      >
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.span key={muted ? "off" : "on"} initial={{ scale: 0.4, rotate: -45, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }} exit={{ scale: 0.4, rotate: 45, opacity: 0 }} transition={{ duration: 0.22 }}>
-            {muted
-              ? <MicrophoneSlash1 size={22} variant="Bold" color="currentColor" />
-              : <Microphone2 size={22} variant="Bold" color="currentColor" />}
-          </motion.span>
-        </AnimatePresence>
-      </motion.button>
-
       <motion.button
         whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}
         onClick={onEnd}
@@ -388,7 +379,7 @@ function Summary({ ended, onAgain, onClose }) {
   const d = ended.lead
   return (
     <motion.div {...fadeUp()} exit={{ opacity: 0, transition: { duration: 0.15 } }} className="flex flex-col items-center px-6 pb-6 text-center">
-      <Orb mood="ended" size={104} />
+      <AnuAvatar mood="ended" size={104} />
       <h3 className="mt-1 text-[19px] font-semibold tracking-tight">Call ended</h3>
       <p className="mt-1 text-[14px] tabular-nums text-white/50">Call duration {mmss(ended.seconds)}</p>
 

@@ -1,16 +1,16 @@
 import { motion, AnimatePresence } from "framer-motion"
-import { ArrowUp2, CallSlash, Microphone2, MicrophoneSlash1 } from "iconsax-react"
-import Orb from "./Orb"
+import { ArrowUp2, CallSlash } from "iconsax-react"
+import AnuAvatar from "./AnuAvatar"
 import { MORPH_SPRING, mmss } from "./shared"
 
 // The call, minimised: a dark pill in the launcher's corner that keeps the
-// conversation going while the visitor reads the page. The small orb still
-// reacts to the voice, so it is obvious the line is open. Tap to expand.
+// conversation going while the visitor reads the page. The ring round her face
+// still reacts to the voice, so it is obvious the line is open. Tap to expand.
 export default function MiniCall({ call }) {
-  const { status, speaking, muted, audioBlocked, seconds, readLevel, toggleMute, endCall, expand } = call
-  const mood = status === "connecting" ? "connecting" : muted ? "muted" : speaking ? "speaking" : "listening"
+  const { status, speaking, audioBlocked, seconds, readLevel, endCall, expand } = call
+  const mood = status === "connecting" ? "connecting" : speaking ? "speaking" : "listening"
   // Any tap on the pill counts as the gesture that unlocks sound (see useLiveSession).
-  const label = status === "connecting" ? "Connecting…" : audioBlocked ? "Sound paused" : muted ? "Muted" : speaking ? "Speaking" : "Listening"
+  const label = status === "connecting" ? "Connecting…" : audioBlocked ? "Sound paused" : speaking ? "Speaking" : "Listening"
 
   return (
     <motion.div
@@ -21,7 +21,7 @@ export default function MiniCall({ call }) {
     >
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.1 } }} className="flex items-center gap-1">
         <button onClick={expand} aria-label="Open your call with Anu" className="flex items-center gap-2.5 rounded-full py-0.5 pl-0.5 pr-3 transition hover:bg-white/5">
-          <Orb mood={mood} size={44} readLevel={readLevel} />
+          <AnuAvatar mood={mood} size={44} readLevel={readLevel} />
           <span className="text-left leading-tight">
             <span className="block text-[14px] font-semibold">Anu</span>
             <span className="block text-[12px] tabular-nums text-white/55">
@@ -36,14 +36,6 @@ export default function MiniCall({ call }) {
           <ArrowUp2 size={16} variant="Linear" color="currentColor" className="text-white/40" />
         </button>
 
-        <motion.button
-          whileTap={{ scale: 0.9 }} onClick={toggleMute} disabled={status !== "live"}
-          aria-pressed={muted} aria-label={muted ? "Unmute microphone" : "Mute microphone"}
-          animate={{ backgroundColor: muted ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.1)", color: muted ? "#18181B" : "#FFFFFF" }}
-          className="grid h-10 w-10 place-items-center rounded-full disabled:opacity-40"
-        >
-          {muted ? <MicrophoneSlash1 size={18} variant="Bold" color="currentColor" /> : <Microphone2 size={18} variant="Bold" color="currentColor" />}
-        </motion.button>
         <motion.button
           whileTap={{ scale: 0.9 }} onClick={endCall} aria-label="End call"
           className="grid h-10 w-10 place-items-center rounded-full bg-red-500 transition-colors hover:bg-red-600"

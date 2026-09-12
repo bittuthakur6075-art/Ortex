@@ -1,10 +1,10 @@
 import { motion } from "framer-motion"
-import Orb from "./Orb"
+import AnuAvatar from "./AnuAvatar"
 import { MORPH_SPRING } from "./shared"
 
 // Bottom-right "Speak with Anu" pill shown once the first (auto-opened) call has
-// been closed. The idle orb breathes so it reads as a live assistant rather than
-// a plain button; a single soft ring pings once when it first appears. Shares
+// been closed. Anu's face sits in a ring that breathes, so it reads as a live
+// person rather than a plain button; a single soft ring pings once when it first appears. Shares
 // `layoutId="anu-morph"` with the call panel, so it expands into it and back.
 export default function Launcher({ onOpen }) {
   return (
@@ -27,7 +27,7 @@ export default function Launcher({ onOpen }) {
       />
       <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.1 } }} className="flex items-center gap-3">
         <span className="grid h-11 w-11 place-items-center rounded-full bg-[#0A0B16]/35 transition-transform duration-300 group-hover:scale-110">
-          <Orb mood="idle" size={40} />
+          <AnuAvatar mood="idle" size={40} />
         </span>
         <span className="text-left leading-tight">
           <span className="block whitespace-nowrap text-[16px] font-semibold">Speak with Anu</span>

@@ -93,7 +93,6 @@ export function useLiveSession() {
   const [open, setOpen] = useState(false)
   const [status, setStatus] = useState("idle") // idle | connecting | live | error
   const [speaking, setSpeaking] = useState(false)
-  const [muted, setMuted] = useState(false)
   // True while the browser's autoplay policy holds Anu's audio suspended.
   const [audioBlocked, setAudioBlocked] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
@@ -122,7 +121,6 @@ export function useLiveSession() {
   const nextTimeRef = useRef(0)
   const timerRef = useRef(0)
   const secondsRef = useRef(0)
-  const mutedRef = useRef(false)
   const endWantedRef = useRef(false)
   const endRefusalsRef = useRef(0)
   const callLeadRef = useRef(null)
@@ -194,9 +192,7 @@ export function useLiveSession() {
     inCtxRef.current = outCtxRef.current = inAnalyserRef.current = outAnalyserRef.current = null
     nextTimeRef.current = 0
     secondsRef.current = 0
-    mutedRef.current = false
     endWantedRef.current = false
-    setMuted(false)
     setAudioBlocked(false)
     setSpeaking(false)
     setStatus("idle")
@@ -373,7 +369,7 @@ export function useLiveSession() {
   // 0..1. Called by the orb every animation frame, so it allocates nothing.
   const readLevel = useCallback(() => {
     const anuTalking = sourcesRef.current.length > 0
-    const analyser = anuTalking ? outAnalyserRef.current : (mutedRef.current ? null : inAnalyserRef.current)
+    const analyser = anuTalking ? outAnalyserRef.current : inAnalyserRef.current
     if (!analyser) return 0
     const n = analyser.fftSize
     if (!levelBufRef.current || levelBufRef.current.length !== n) levelBufRef.current = new Uint8Array(n)
@@ -390,12 +386,6 @@ export function useLiveSession() {
     outCtxRef.current?.resume?.().catch(() => {})
   }, [])
 
-  const toggleMute = useCallback(() => {
-    mutedRef.current = !mutedRef.current
-    setMuted(mutedRef.current)
-    // Muted means the line is closed, so the customer is not recorded either.
-    recorderRef.current?.setMicEnabled(!mutedRef.current)
-  }, [])
 
   const start = useCallback(async () => {
     if (busyRef.current || sessionRef.current) return
@@ -536,7 +526,7 @@ export function useLiveSession() {
 
       const proc = inCtxRef.current.createScriptProcessor(4096, 1, 1)
       proc.onaudioprocess = (e) => {
-        if (!sessionRef.current || mutedRef.current) return
+        if (!sessionRef.current) return
         try {
           sessionRef.current.sendRealtimeInput({
             audio: { data: int16ToBase64(floatTo16BitPCM(e.inputBuffer.getChannelData(0))), mimeType: `audio/pcm;rate=${INPUT_RATE}` },
@@ -599,8 +589,8 @@ export function useLiveSession() {
   }, [])
 
   return {
-    open, status, speaking, muted, audioBlocked, errorMsg, seconds, showLauncher, minimized, caption, lead, ended,
-    readLevel, start, openCall, endCall, dismiss, toggleMute, unlockAudio,
+    open, status, speaking, audioBlocked, errorMsg, seconds, showLauncher, minimized, caption, lead, ended,
+    readLevel, start, openCall, endCall, dismiss, unlockAudio,
     minimize: () => setMinimized(true),
     expand: () => setMinimized(false),
   }
