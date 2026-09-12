@@ -88,10 +88,13 @@ export function normalizeItems(args = {}) {
   const tidy = (it) => {
     const quantity = String(it?.quantity ?? "").trim()
     const n = parseQuantity(quantity)
+    // A custom request is marked in the notes rather than a field of its own,
+    // so it shows up wherever the console and the phone already read notes.
+    const notes = String(it?.notes || "").trim()
     return {
       product: String(it?.product || "").trim(),
       quantity: n && n > 0 ? String(n) : quantity,
-      notes: String(it?.notes || "").trim(),
+      notes: it?.custom ? ["Custom item (not in catalogue)", notes].filter(Boolean).join(" · ") : notes,
     }
   }
   const listed = (Array.isArray(args.items) ? args.items : []).map(tidy).filter((it) => it.product)

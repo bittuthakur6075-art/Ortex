@@ -7,6 +7,7 @@ import { LIVE_TOOLS } from "./tools"
 import { SPOKEN_FIELD, validateLead, saveVoiceLead } from "./leads"
 import { MEMORY_KEY, MAX_MEMORY_LINES, loadMemory } from "./memory"
 import { newCallId, recordingPath, startCallRecording, uploadCallRecording } from "./recording"
+import { catalogueBlock, loadCatalogue, lookupProduct } from "./catalogue"
 
 /* ============================================================
    useLiveSession: the whole lifecycle of one voice call.
@@ -125,6 +126,7 @@ export function useLiveSession() {
   const callLeadRef = useRef(null)
   const turnDoneRef = useRef(true)
   const callIdRef = useRef(null)
+  const catalogueRef = useRef(null)
   const recorderRef = useRef(null)
   const recPathRef = useRef(null)
 
@@ -258,7 +260,24 @@ export function useLiveSession() {
   // capture_lead: validate, save when the name and number hold up, and tell Anu
   // what is still missing and what to do next.
   const captureLead = useCallback((args) => {
-    const check = validateLead(args)
+    // Mark every item the live catalogue does not list as a custom run, rather
+    // than trusting Anu to set the flag. An off-catalogue item filed as a
+    // stock one is a quotation the factory may not be able to honour, and the
+    // sales desk cannot tell the two apart afterwards.
+    const catalogue = catalogueRef.current
+    const rawItems = Array.isArray(args.items) && args.items.length
+      ? args.items
+      : (args.product ? [{ product: args.product, quantity: args.quantity }] : [])
+    const enriched = catalogue
+      ? {
+          ...args,
+          items: rawItems.map((it) => ({
+            ...it,
+            custom: it?.custom === true || lookupProduct(catalogue, String(it?.product || "")).matches.length === 0,
+          })),
+        }
+      : args
+    const check = validateLead(enriched)
     if (!check.ok) {
       return {
         ok: false,
@@ -270,7 +289,7 @@ export function useLiveSession() {
     // A confirmation only counts for a complete order; anything changed after
     // it arrives without the flag and needs confirming again.
     const confirmed = args.confirmed === true && check.complete
-    const saved = { ...args, name: check.name, phone: check.phone, city: check.city, timeline: check.timeline, items: check.items }
+    const saved = { ...enriched, name: check.name, phone: check.phone, city: check.city, timeline: check.timeline, items: check.items }
     saveVoiceLead(saved, { id: callIdRef.current, recording: recPathRef.current, confirmed, complete: check.complete })
     // Remember the details so a reopened call already knows them.
     leadRef.current = { ...(leadRef.current || {}), ...saved }
@@ -297,6 +316,13 @@ export function useLiveSession() {
     if (calls?.length) {
       for (const fc of calls) {
         let response = { ok: true }
+        if (fc.name === "lookup_product") {
+          const query = String(fc.args?.query || "")
+          response = lookupProduct(catalogueRef.current, query)
+          if (import.meta.env.DEV) {
+            console.info("[Anu] lookup_product:", query, "->", response.matches?.length ? response.matches.map((m) => m.name).join(" | ") : "not in catalogue (custom run)")
+          }
+        }
         if (fc.name === "capture_lead") response = captureLead(fc.args || {})
         if (fc.name === "end_call") {
           const blocker = endBlocker(String(fc.args?.reason || "completed"), callLeadRef.current)
@@ -422,7 +448,17 @@ export function useLiveSession() {
       outAnalyser.connect(out.destination)
       outAnalyserRef.current = outAnalyser
 
-      const { data, error } = await supabase.functions.invoke("orty-live-token", { body: {} })
+      // The catalogue is read per call, so a product added or edited in the
+      // console is described on the next call without a deploy. It rides
+      // alongside the token fetch rather than delaying the connection.
+      const [{ data, error }, catalogue] = await Promise.all([
+        supabase.functions.invoke("orty-live-token", { body: {} }),
+        loadCatalogue(),
+      ])
+      catalogueRef.current = catalogue
+      if (import.meta.env.DEV) {
+        console.info("[Anu] catalogue:", catalogue ? `${catalogue.products.length} products, ${catalogue.categories.length} categories` : "unavailable, using the prompt's general range")
+      }
       // Closed while connecting: stop() already tore everything down.
       if (outCtxRef.current !== out) return
       if (error) throw error
@@ -444,7 +480,7 @@ export function useLiveSession() {
         model: LIVE_MODEL,
         config: {
           responseModalities: [Modality.AUDIO],
-          systemInstruction: VOICE_SYSTEM_INSTRUCTION,
+          systemInstruction: VOICE_SYSTEM_INSTRUCTION + catalogueBlock(catalogue),
           speechConfig: { languageCode: "hi-IN", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } },
           // Text of both sides: the live caption, and a rolling memory across reopens.
           inputAudioTranscription: {},

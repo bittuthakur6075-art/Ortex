@@ -7,6 +7,17 @@
 export const LIVE_TOOLS = [{
   functionDeclarations: [
     {
+      name: "lookup_product",
+      description: "Look up what Ortex actually lists before you describe, recommend or take an order for anything. Returns the live catalogue entry (material, minimum quantity, dispatch days, description), other products in the same category, and the add-ons worth offering next to it. An empty `matches` means the item is not in the catalogue: that is a custom run to be captured, never a refusal. Call it silently, as often as you need.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          query: { type: "STRING", description: "What the customer asked for, in a few words, for example 'satin lanyards', 'acrylic trophy' or 'steel bottle gift set'" },
+        },
+        required: ["query"],
+      },
+    },
+    {
       name: "capture_lead",
       description: "Save or UPDATE the customer's details. Call it as soon as you have a real name and a WhatsApp number the customer has confirmed, and again every time any detail is added or changes. ALWAYS send the complete current picture, never only the part that changed, because each call replaces the previous one. Call it silently. The reply says whether it was saved, which details are still missing or need checking, and what to do next: follow its `next` instruction.",
       parameters: {
@@ -23,6 +34,7 @@ export const LIVE_TOOLS = [{
                 product: { type: "STRING", description: "Specific product, for example 'Satin lanyards with logo print' or 'Acrylic keychains, custom shape'" },
                 quantity: { type: "STRING", description: "Quantity as digits only, for example '500'. Convert spoken numbers: 'paanch sau' is 500, 'do hazaar' is 2000. Leave empty if the customer has not said yet." },
                 notes: { type: "STRING", description: "Colour, material, size or branding details for this item" },
+                custom: { type: "BOOLEAN", description: "true when this item is not in the Ortex catalogue and the team must quote it as a custom run" },
               },
               required: ["product"],
             },
