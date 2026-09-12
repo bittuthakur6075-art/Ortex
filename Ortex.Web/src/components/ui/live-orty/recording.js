@@ -47,7 +47,13 @@ export function startCallRecording(ctx, voiceNode, micStream) {
     const format = FORMATS.find(([mime]) => window.MediaRecorder?.isTypeSupported?.(mime))
     if (!format) return null
     const [mime, ext] = format
+    // A call is two mono voices, so the recording is mixed down to ONE channel:
+    // createMediaStreamDestination() defaults to stereo, which makes the
+    // encoder carry a second, near-identical channel for nothing.
     const mix = ctx.createMediaStreamDestination()
+    mix.channelCount = 1
+    mix.channelCountMode = "explicit"
+    mix.channelInterpretation = "speakers"
     voiceNode.connect(mix)
     // The mic goes through its own gain so muting also silences the recording.
     const micGain = ctx.createGain()
@@ -56,7 +62,10 @@ export function startCallRecording(ctx, voiceNode, micStream) {
 
     const chunks = []
     const type = mime.split(";")[0]
-    const rec = new MediaRecorder(mix.stream, { mimeType: mime, audioBitsPerSecond: 32000 })
+    // 16 kbps mono Opus: speech stays clear and an hour is about 7 MB, well
+    // inside the bucket's 25 MB limit. Opus is the reason this is cheap; the
+    // mp4/AAC fallback only exists for Safari, which cannot record WebM.
+    const rec = new MediaRecorder(mix.stream, { mimeType: mime, audioBitsPerSecond: 16000 })
     rec.ondataavailable = (e) => { if (e.data?.size) chunks.push(e.data) }
     rec.start(1000)
     const collect = () => (chunks.length ? new Blob(chunks, { type }) : null)
