@@ -121,7 +121,7 @@ export default function ContactIndexBar({
             <Text
               style={[
                 styles.letter,
-                { color: i === active ? t.primary : t.textFaint },
+                { color: i === active ? t.primary : t.textTertiary },
                 i === active && styles.letterActive,
               ]}
             >

@@ -354,7 +354,12 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
                 {description}
               </Text>
               {isLong && (
-                <Pressable onPress={() => setExpanded((v) => !v)} hitSlop={8}>
+                <Pressable
+                  onPress={() => setExpanded((v) => !v)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded }}
+                  hitSlop={8}
+                >
                   <Text style={[styles.more, { color: t.primary }]}>
                     {expanded ? "Show less" : "Read more"}
                   </Text>

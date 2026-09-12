@@ -250,7 +250,13 @@ export default function LoginScreen() {
 
               {onCode && (
                 <View style={styles.secondary}>
-                  <Pressable onPress={resend} disabled={busy} hitSlop={10}>
+                  <Pressable
+                    onPress={resend}
+                    disabled={busy}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: busy }}
+                    hitSlop={10}
+                  >
                     <Text style={[textVariants.smallStrong, { color: c.primary }]}>Send another code</Text>
                   </Pressable>
                   <Pressable

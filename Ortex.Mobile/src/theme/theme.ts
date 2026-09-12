@@ -136,12 +136,12 @@ const lightTones: Record<StatusTone, ToneColors> = {
 
 const darkTones: Record<StatusTone, ToneColors> = {
   slate: { fg: "#AFAFAF", bg: "#1F1F1F" },
-  blue: { fg: "#1B84FF", bg: "#0C2138" },
+  blue: { fg: "#4C9DFF", bg: "#0C2138" },
   cyan: { fg: brand.primary50, bg: "#102A43" },
   violet: { fg: brand.primary50, bg: "#20263F" },
   amber: { fg: "#F6B100", bg: "#2C2405" },
   emerald: { fg: "#17C653", bg: "#0B2B18" },
-  rose: { fg: "#F8285A", bg: "#331019" },
+  rose: { fg: "#FF6B8A", bg: "#331019" },
 }
 
 export const lightColors: Colors = {
