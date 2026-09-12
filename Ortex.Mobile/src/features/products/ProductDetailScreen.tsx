@@ -3,11 +3,9 @@ import React from "react"
 import {
   Animated,
   Dimensions,
-  Modal,
   Pressable,
   ScrollView,
   Share,
-  StatusBar,
   StyleSheet,
   Text,
   View,
@@ -26,7 +24,18 @@ import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import { border, gutter, radius, size as sizes, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { Button, Dialog, Icon, Panel, PanelBand, PopupMenu, RecordActivityPanel, Spinner, useToast } from "@/ui"
+import {
+  Button,
+  Dialog,
+  Icon,
+  ImageViewer,
+  Panel,
+  PanelBand,
+  PopupMenu,
+  RecordActivityPanel,
+  DetailSkeleton,
+  useToast,
+} from "@/ui"
 import type { IconName } from "@/ui/Icon"
 
 /**
@@ -64,6 +73,11 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
   const [page, setPage] = React.useState(0)
   const [viewer, setViewer] = React.useState(false)
   const [expanded, setExpanded] = React.useState(false)
+  // The footer is absolutely anchored over the page, so the page has to reserve
+  // its height or the last line of the description sits behind it — unreadable,
+  // and with no way to scroll further. Measured rather than guessed: the bar
+  // grows with the safe-area inset and with the reader's font size.
+  const [footerH, setFooterH] = React.useState(0)
 
   const product = items.find((p) => p.id === route.params.id)
 
@@ -75,9 +89,10 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
 
   if (!product && loading) {
     return (
-      <View style={[styles.root, styles.centre, { backgroundColor: t.background, paddingTop: insets.top }]}>
-        <Spinner label="Loading" />
-      </View>
+      // The hero is the page's first fact here, so the placeholder reserves it
+      // at the real height — otherwise the gallery drops in and shoves
+      // everything down the moment the product lands.
+      <DetailSkeleton onBack={() => navigation.goBack()} hero={heroHeight} panels={[3, 3]} />
     )
   }
 
@@ -210,7 +225,7 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
           useNativeDriver: true,
         })}
         scrollEventThrottle={16}
-        contentContainerStyle={{ paddingBottom: spacing.xxl }}
+        contentContainerStyle={{ paddingBottom: footerH + spacing.lg }}
         keyboardShouldPersistTaps="handled"
       >
         {/* The gallery. One photo is a plain image; several page horizontally with
@@ -425,6 +440,7 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
       {/* Price and action on one line, the way a product page ends: what it costs
           is the thing you check immediately before putting it on a quotation. */}
       <View
+        onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}
         style={[
           styles.footer,
           {
@@ -477,41 +493,17 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
         ]}
       />
 
-      {/* Full screen, on black: the photo as you hand the phone across a table. */}
-      <Modal visible={viewer} transparent animationType="fade" onRequestClose={() => setViewer(false)}>
-        <View style={styles.viewer}>
-          <StatusBar barStyle="light-content" />
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            contentOffset={{ x: page * width, y: 0 }}
-            onMomentumScrollEnd={(e) =>
-              setPage(Math.round(e.nativeEvent.contentOffset.x / Math.max(1, width)))
-            }
-          >
-            {images.map((uri) => (
-              <Image key={uri} source={{ uri }} style={styles.viewerImage} contentFit="contain" />
-            ))}
-          </ScrollView>
-          <Pressable
-            onPress={() => setViewer(false)}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-            hitSlop={10}
-            style={[styles.viewerClose, { top: insets.top + 8 }]}
-          >
-            <Icon name="close" size={30} color="#FFFFFF" variant="Bulk" />
-          </Pressable>
-          {images.length > 1 && (
-            <View style={[styles.counter, styles.viewerCounter]}>
-              <Text style={styles.counterText}>
-                {page + 1}/{images.length}
-              </Text>
-            </View>
-          )}
-        </View>
-      </Modal>
+      {/* Full screen, on black: the photo as you hand the phone across a table.
+          Shared with the category and work pages (ui/ImageViewer.tsx), and it
+          opens on the photo the pager was showing — which the old inline copy
+          only managed on iOS, because `contentOffset` is ignored on Android. */}
+      <ImageViewer
+        visible={viewer}
+        images={images}
+        index={page}
+        onIndexChange={setPage}
+        onClose={() => setViewer(false)}
+      />
     </View>
   )
 }
@@ -628,7 +620,10 @@ const styles = StyleSheet.create({
   cellLabel: { fontSize: 11, letterSpacing: 0.3, fontFamily: font.semibold },
   cellValue: { marginTop: 4, fontSize: 15, lineHeight: 20, fontFamily: font.semibold },
 
-  about: { marginTop: spacing.xl },
+  // No extra top margin: Panel's head already sets its label 8dp above the
+  // content, and 24 more made the section label look detached from the prose
+  // it titles.
+  about: {},
   sectionLabel: {
     fontSize: 11,
     letterSpacing: 0.4,
@@ -650,8 +645,4 @@ const styles = StyleSheet.create({
   priceUnit: { fontSize: 13, fontFamily: font.medium },
   priceNote: { marginTop: 1, fontSize: 12, fontFamily: font.regular },
 
-  viewer: { flex: 1, backgroundColor: "#000000", justifyContent: "center" },
-  viewerImage: { width: Dimensions.get("window").width, height: "100%" },
-  viewerClose: { position: "absolute", right: gutter },
-  viewerCounter: { bottom: 40 },
 })

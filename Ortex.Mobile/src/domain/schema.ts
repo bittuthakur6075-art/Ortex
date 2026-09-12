@@ -134,6 +134,23 @@ export type Category = Row & {
   image: string
   sortOrder: number
   active: boolean
+  // Website copy. The console writes these (by hand or through its AI
+  // copywriter) and the phone leaves them alone, but they are part of the row's
+  // shape, so newCategory() has to declare them or a category created here
+  // would be missing keys the site's category page reads.
+  intro: string
+  seoTitle: string
+  seoDescription: string
+}
+
+/** A photo on the website's /work gallery (migration 0012). */
+export type Work = Row & {
+  title: string
+  category: string
+  image: string
+  alt: string
+  sortOrder: number
+  active: boolean
 }
 
 export type EnquiryItem = { product: string; quantity: string; notes: string }
@@ -151,6 +168,16 @@ export type Enquiry = Row & {
   items?: EnquiryItem[]
   reference?: string
   leadId?: string | null
+  // Written by Ortex.Web's live-orty/recording.js onto every lead row a call
+  // produced. `recording` is the object path inside the private
+  // `voice-recordings` bucket; `confirmed` is the read-back Anu got agreement
+  // on. Rows saved before migration 0025 carry none of it.
+  call?: {
+    id?: string
+    recording?: string
+    confirmed?: boolean
+    complete?: boolean
+  }
 }
 
 export type Quotation = Row & {
@@ -204,6 +231,49 @@ export function newProduct(overrides: Partial<Product> = {}) {
     showOnWebsite: true,
     description: "",
     images: [] as string[],
+    ...overrides,
+  }
+}
+
+/** Mirrors `newCategory` in Admin/src/data/domain/schema.js, field for field. */
+export function newCategory(overrides: Partial<Category> = {}) {
+  return {
+    name: "",
+    hsn: "",
+    gstRate: 18,
+    description: "",
+    // Website-facing fields (read live by Ortex.Web catalogue pages):
+    slug: "", // URL segment, e.g. "acrylic-products"; auto-derived if blank
+    displayName: "", // heading shown on site; falls back to name
+    intro: "", // marketing paragraph on the category page
+    seoTitle: "", // <title> / og:title for the category page
+    seoDescription: "", // meta description
+    image: "", // hero/card image URL (public bucket or remote)
+    sortOrder: 0, // display order on the /products hub
+    active: true, // when false, hidden from the website
+    ...overrides,
+  }
+}
+
+/** Mirrors `slugifyCategory` in Admin/src/data/domain/schema.js. */
+export function slugifyCategory(name: string): string {
+  return String(name || "")
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+}
+
+/** Mirrors `newWork` in Admin/src/data/domain/schema.js, field for field. */
+export function newWork(overrides: Partial<Work> = {}) {
+  return {
+    title: "", // caption shown on the /work photo
+    category: "", // filter bucket on the /work page
+    image: "", // public bucket URL or remote image URL
+    alt: "", // accessibility text; falls back to title
+    sortOrder: 0, // lower shows first
+    active: true, // when false, hidden from the website
     ...overrides,
   }
 }

@@ -31,6 +31,7 @@ import { APP_CREDIT, APP_VERSION } from "@/constants/app"
 import { biometricAvailable } from "@/features/auth/useAppLock"
 import { MAX_AVATAR_MB, base64Bytes, removeAvatar, uploadAvatar } from "@/lib/avatarUpload"
 import { feedback } from "@/lib/feedback"
+import { useNotificationStore } from "@/lib/notificationStore"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
 import { useThemePref, type ThemePref } from "@/store/ThemeContext"
@@ -60,6 +61,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
   const t = theme.colors
   const toast = useToast()
   const { profile, session, biometricEnabled, setBiometricEnabled, refreshProfile, signOut } = useAuth()
+  const { prefs: notificationPrefs } = useNotificationStore()
 
   const [canBiometric, setCanBiometric] = React.useState(false)
   const [confirmOut, setConfirmOut] = React.useState(false)
@@ -234,6 +236,22 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
             onPress={() => {
               feedback.tap()
               navigation.navigate("ChangePassword")
+            }}
+          />
+        </Section>
+
+        <Section title="Alerts">
+          <SectionRow
+            leadingIcon="bell"
+            title="Notifications"
+            subtitle={
+              notificationPrefs.enabled
+                ? "New enquiries, voice leads and quotation reminders"
+                : "Muted on this phone"
+            }
+            onPress={() => {
+              feedback.tap()
+              navigation.navigate("NotificationSettings")
             }}
           />
         </Section>

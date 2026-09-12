@@ -2,7 +2,7 @@ import { motion } from "framer-motion"
 import AnuAvatar from "./AnuAvatar"
 import { MORPH_SPRING } from "./shared"
 
-// Bottom-right "Speak with Anu" pill shown once the first (auto-opened) call has
+// Bottom-right "Call with Expert" pill shown once the first (auto-opened) call has
 // been closed. Anu's face sits in a ring that breathes, so it reads as a live
 // person rather than a plain button; a single soft ring pings once when it first appears. Shares
 // `layoutId="anu-morph"` with the call panel, so it expands into it and back.
@@ -11,7 +11,7 @@ export default function Launcher({ onOpen }) {
     <motion.button
       layoutId="anu-morph"
       onClick={onOpen}
-      aria-label="Start a voice call with Anu"
+      aria-label="Call with expert: start a voice call with Anu"
       transition={MORPH_SPRING}
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.97 }}
@@ -30,7 +30,7 @@ export default function Launcher({ onOpen }) {
           <AnuAvatar mood="idle" size={40} />
         </span>
         <span className="text-left leading-tight">
-          <span className="block whitespace-nowrap text-[16px] font-semibold">Speak with Anu</span>
+          <span className="block whitespace-nowrap text-[16px] font-semibold">Call with Expert</span>
         </span>
       </motion.span>
     </motion.button>

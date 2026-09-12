@@ -4,4 +4,7 @@
          src/features/auth/SplashView.tsx — the two are shown back to back with
          nothing between them, so a mismatch reads as a flash on every launch. -->
     <color name="splash_background">#2567E8</color>
+    <!-- The accent Android tints a notification with (expo-notifications reads
+         it from the meta-data in AndroidManifest.xml). Same brand blue. -->
+    <color name="notification_accent">#2567E8</color>
 </resources>

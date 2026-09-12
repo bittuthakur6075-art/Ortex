@@ -38,14 +38,35 @@ function withExtension(base) {
 }
 
 const cache = new Map()
+const compiled = new Map()
+
+const SPECIFIER = /(from\s*|import\s*\(\s*)(["'])([^"']+)\2/g
+
+/** Where a specifier written inside `file` actually points, or null for a package. */
+function resolveSpecifier(file, spec) {
+  if (spec.startsWith("@/")) return withExtension(resolve(SRC, spec.slice(2)))
+  if (spec.startsWith(".")) return withExtension(resolve(dirname(file), spec))
+  return null // a real package — let Node resolve it normally
+}
 
 /**
- * @param {string} target Either a path relative to `src/` ("domain/pricing.ts")
- *   or an absolute path to any source file in the repo.
+ * Compile one file, and every file it imports, into data: URLs.
+ *
+ * The rewrite has to be RECURSIVE. Pointing a specifier at the dependency's own
+ * `.ts` path works only one level deep: Node then loads that file itself, and
+ * the `@/` aliases inside IT are specifiers Node has never heard of. That is
+ * exactly what broke the moment a test reached a module two hops away
+ * (notifications → quoteRfq → schema) and asked Node to resolve a package
+ * called "@/domain".
+ *
+ * `inProgress` breaks an import cycle by falling back to the raw file path for
+ * the back-edge — enough for the acyclic `src/domain/` these tests cover, and a
+ * loud failure rather than a hang if that ever stops being true.
  */
-export async function loadModule(target) {
-  const file = withExtension(isAbsolute(target) ? target : resolve(SRC, target))
-  if (cache.has(file)) return cache.get(file)
+function compileToDataUrl(file, inProgress = new Set()) {
+  if (compiled.has(file)) return compiled.get(file)
+  if (inProgress.has(file)) return pathToFileURL(file).href
+  inProgress.add(file)
 
   const source = readFileSync(file, "utf8")
   const { code } = transformSync(source, {
@@ -55,17 +76,27 @@ export async function loadModule(target) {
     configFile: false,
   })
 
-  // Rewrite every specifier to an absolute file URL so the evaluated data: URL
-  // module can reach its dependencies, whichever project they live in.
-  const rewritten = code.replace(/(from\s*|import\s*\(\s*)(["'])([^"']+)\2/g, (match, prefix, quote, spec) => {
-    let base
-    if (spec.startsWith("@/")) base = resolve(SRC, spec.slice(2))
-    else if (spec.startsWith(".")) base = resolve(dirname(file), spec)
-    else return match // a real package — let Node resolve it normally
-    return `${prefix}${quote}${pathToFileURL(withExtension(base)).href}${quote}`
+  const rewritten = code.replace(SPECIFIER, (match, prefix, quote, spec) => {
+    const target = resolveSpecifier(file, spec)
+    if (!target) return match
+    return `${prefix}${quote}${compileToDataUrl(target, inProgress)}${quote}`
   })
 
-  const loaded = import(`data:text/javascript;base64,${Buffer.from(rewritten).toString("base64")}`)
+  const url = `data:text/javascript;base64,${Buffer.from(rewritten).toString("base64")}`
+  inProgress.delete(file)
+  compiled.set(file, url)
+  return url
+}
+
+/**
+ * @param {string} target Either a path relative to `src/` ("domain/pricing.ts")
+ *   or an absolute path to any source file in the repo.
+ */
+export async function loadModule(target) {
+  const file = withExtension(isAbsolute(target) ? target : resolve(SRC, target))
+  if (cache.has(file)) return cache.get(file)
+
+  const loaded = import(compileToDataUrl(file))
   cache.set(file, loaded)
   return loaded
 }

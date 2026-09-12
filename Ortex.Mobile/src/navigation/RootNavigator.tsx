@@ -15,15 +15,23 @@ import CustomerDetailScreen from "@/features/contacts/CustomerDetailScreen"
 import EnquiryDetailScreen from "@/features/leads/EnquiryDetailScreen"
 import VoiceCallDetailScreen from "@/features/leads/VoiceCallDetailScreen"
 import ProductDetailScreen from "@/features/products/ProductDetailScreen"
+import CategoryDetailScreen from "@/features/products/CategoryDetailScreen"
+import CategoryEditorScreen from "@/features/products/CategoryEditorScreen"
+import WorkDetailScreen from "@/features/work/WorkDetailScreen"
+import WorkEditorScreen from "@/features/work/WorkEditorScreen"
 import ProductEditorScreen from "@/features/products/ProductEditorScreen"
 import AccountDetailsScreen from "@/features/profile/AccountDetailsScreen"
 import ChangePasswordScreen from "@/features/profile/ChangePasswordScreen"
 import LegalScreen from "@/features/profile/LegalScreen"
 import ProfileScreen from "@/features/profile/ProfileScreen"
 import TeamScreen from "@/features/profile/TeamScreen"
+import NotificationSettingsScreen from "@/features/notifications/NotificationSettingsScreen"
+import NotificationsScreen from "@/features/notifications/NotificationsScreen"
+import { NotificationEngine } from "@/features/notifications/useNotificationEngine"
 import GlobalSearchScreen from "@/features/search/GlobalSearchScreen"
 import QuotationDetailScreen from "@/features/quotations/QuotationDetailScreen"
 import QuotationEditorScreen from "@/features/quotations/QuotationEditorScreen"
+import { flushPendingNavigation, navigationRef } from "@/navigation/navigationRef"
 import Tabs from "@/navigation/Tabs"
 import { hasAnyTab } from "@/navigation/tabAccess"
 import type { RootStackParamList } from "@/navigation/types"
@@ -83,7 +91,11 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   if (!hasAnyTab(profile)) return <AccountUnavailableView reason="no-modules" />
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer theme={navTheme} ref={navigationRef} onReady={flushPendingNavigation}>
+      {/* Renders nothing: it watches the same collections the screens do, posts
+          what is new to the notification shade and turns a tap there back into a
+          screen. Inside the container so it can navigate. */}
+      <NotificationEngine />
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -104,6 +116,12 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="ContactEditor" component={ContactEditorScreen} />
         <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
         <Stack.Screen name="ProductEditor" component={ProductEditorScreen} />
+        <Stack.Screen name="CategoryDetail" component={CategoryDetailScreen} />
+        <Stack.Screen name="CategoryEditor" component={CategoryEditorScreen} />
+        <Stack.Screen name="WorkDetail" component={WorkDetailScreen} />
+        <Stack.Screen name="WorkEditor" component={WorkEditorScreen} />
+        <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={SHEET} />
         <Stack.Screen name="Search" component={GlobalSearchScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         {/* The Profile hub's inner pages come up as SHEETS, not pushes. Each is a

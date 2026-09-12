@@ -7,7 +7,7 @@ products, lanyards, badges, corporate gifts, OEM/white-label manufacturing).
 |---|---|---|---|
 | Marketing site | [`Ortex.Web/`](Ortex.Web/README.md) | React 19 · Vite 8 · Tailwind v4 · Framer Motion | Public website, catalogue, quote wizard, lead capture, Live Orty voice assistant |
 | Admin console | [`Ortex.Admin/`](Ortex.Admin/README.md) | React 19 · Vite 8 · Tailwind v4 · Supabase | Quote-to-cash back office: enquiries → quotations → GST invoices → payments, plus growth, social and automation modules |
-| Mobile app | [`Ortex.Mobile/`](Ortex.Mobile/README.md) | React Native 0.85 (bare) · Expo SDK 56 modules · TypeScript | Field-sales companion: quick quotations, enquiries and voice leads, catalogue, and a call/WhatsApp contact directory |
+| Mobile app | [`Ortex.Mobile/`](Ortex.Mobile/README.md) | React Native 0.85 (bare) · Expo SDK 56 modules · TypeScript | Field-sales companion: quick quotations, enquiries and voice leads, catalogue, a call/WhatsApp contact directory, and notifications (in-app and in the phone's shade) |
 | Tally connector | [`Ortex.Tally.Connector/`](Ortex.Tally.Connector/README.md) | Node CLI | Pushes Admin records into TallyPrime through its local XML gateway |
 
 The four apps are **independent npm projects** (no root workspace). The mobile app is a

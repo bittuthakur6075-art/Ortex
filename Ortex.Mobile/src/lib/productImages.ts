@@ -48,7 +48,7 @@ const EXTENSIONS: Record<string, string> = {
  * JPEG whenever `quality` is set, while still labelling an iPhone original
  * `image/heic`.
  */
-export async function uploadProductImage(base64: string, mimeType = "image/jpeg") {
+export async function uploadProductImage(base64: string, mimeType = "image/jpeg", folder = "") {
   if (!hasSupabase) throw new Error("Not connected")
 
   // A storage write is an authenticated write: `staff_upload_product_images`
@@ -60,7 +60,11 @@ export async function uploadProductImage(base64: string, mimeType = "image/jpeg"
   const contentType = ALLOWED.includes(mimeType) ? mimeType : "image/jpeg"
   const extension = EXTENSIONS[contentType] ?? "jpg"
   const rand = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-  const path = `${rand}.${extension}`
+  // The console files its uploads by what they are ("products", "categories",
+  // "work") inside the one bucket, and its delete helper matches on that path.
+  // A work photo written to the bucket root would still render, but it would sit
+  // outside the folder the office browses.
+  const path = folder ? `${folder}/${rand}.${extension}` : `${rand}.${extension}`
   const body = toArrayBuffer(decodeBase64(base64))
 
   const { error } = await supabase.storage.from(BUCKET).upload(path, body, {
@@ -107,7 +111,10 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 
 /** The stored object's size in bytes, or 0 when it cannot be read back. */
 async function uploadedSize(path: string): Promise<number> {
-  const { data, error } = await supabase.storage.from(BUCKET).list("", { search: path, limit: 1 })
+  const slash = path.lastIndexOf("/")
+  const prefix = slash < 0 ? "" : path.slice(0, slash)
+  const file = slash < 0 ? path : path.slice(slash + 1)
+  const { data, error } = await supabase.storage.from(BUCKET).list(prefix, { search: file, limit: 1 })
   if (error || !data?.length) return 0
   const size = (data[0].metadata as { size?: number } | null)?.size
   return typeof size === "number" ? size : 0

@@ -57,5 +57,9 @@ const styles = StyleSheet.create({
   },
   action: {
     marginTop: 18,
+    // Button sets `alignSelf: "flex-start"` on itself (ui/Button.tsx), which
+    // beats this box's `alignItems: "center"` — so without this the CTA sits
+    // hard left under a centred title and hint, on every empty state in the app.
+    alignSelf: "center",
   },
 })

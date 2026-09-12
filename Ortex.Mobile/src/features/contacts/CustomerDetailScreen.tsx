@@ -16,7 +16,7 @@ import { useTheme } from "@/store/ThemeContext"
 import type { StatusTone } from "@/theme/theme"
 import { border, gutter, radius, size as sizes, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { Avatar, Button, Card, Divider, Icon, IconButton, RecordActivityPanel, Spinner, StatusBadge, useToast } from "@/ui"
+import { Avatar, Button, Card, Divider, Icon, IconButton, RecordActivityPanel, DetailSkeleton, StatusBadge, useToast } from "@/ui"
 import type { IconName } from "@/ui/Icon"
 
 /**
@@ -88,9 +88,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
 
   if (!customer && loading) {
     return (
-      <View style={[styles.root, styles.centre, { backgroundColor: t.background, paddingTop: insets.top }]}>
-        <Spinner label="Loading" />
-      </View>
+      <DetailSkeleton onBack={() => navigation.goBack()} panels={[3, 3, 2]} />
     )
   }
 

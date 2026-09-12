@@ -18,13 +18,22 @@ export type Profile = {
   phone?: string | null
 }
 
-export type ModuleKey = "voice-leads" | "enquiries" | "customers" | "products" | "quotations"
+export type ModuleKey =
+  | "voice-leads"
+  | "enquiries"
+  | "customers"
+  | "products"
+  | "categories"
+  | "work"
+  | "quotations"
 
 export const MODULES: { key: ModuleKey; label: string; adminOnly?: boolean; always?: boolean }[] = [
   { key: "voice-leads", label: "Voice calls" },
   { key: "enquiries", label: "Enquiries" },
   { key: "customers", label: "Customers" },
   { key: "products", label: "Products" },
+  { key: "categories", label: "Categories" },
+  { key: "work", label: "Work gallery" },
   { key: "quotations", label: "Quotations" },
 ]
 

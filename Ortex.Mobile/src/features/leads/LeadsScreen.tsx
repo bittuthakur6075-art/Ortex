@@ -6,6 +6,7 @@ import { canAccess } from "@/domain/modules"
 import { enquiryAge, parseQuoteRfq, rfqArtwork, rfqUnits } from "@/domain/quoteRfq"
 import { ENQUIRY_STATUS, type Enquiry } from "@/domain/schema"
 import { VOICE_SOURCE, prettyPhone, voiceCallsFrom, type VoiceCall } from "@/domain/voice"
+import NotificationBell from "@/features/notifications/NotificationBell"
 import { useCollection } from "@/hooks/useCollection"
 import { feedback } from "@/lib/feedback"
 import type { TabScreenProps } from "@/navigation/types"
@@ -23,7 +24,7 @@ import {
   ProfileAvatarButton,
   RowSeparator,
   SegmentedControl,
-  Skeleton,
+  SkeletonList,
   StatusBadge,
 } from "@/ui"
 
@@ -81,11 +82,14 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
         }
         headerLeft={<ProfileAvatarButton />}
         headerRight={
-          <IconButton
-            name="search"
-            onPress={() => navigation.navigate("Search")}
-            accessibilityLabel="Search everything"
-          />
+          <>
+            <NotificationBell />
+            <IconButton
+              name="search"
+              onPress={() => navigation.navigate("Search")}
+              accessibilityLabel="Search everything"
+            />
+          </>
         }
         list={{
           data: loading ? [] : data,
@@ -93,12 +97,10 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
           keyExtractor: (x: unknown) => (x as { id: string }).id,
           ItemSeparatorComponent: RowSeparator,
           ListFooterComponent: data.length ? <RowSeparator /> : null,
+          // Lead rows carry an icon well and a status on the right, so the
+          // placeholder does too.
           ListEmptyComponent: loading ? (
-            <View style={{ paddingHorizontal: gutter, gap: spacing.sm }}>
-              {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} height={72} radius={12} />
-              ))}
-            </View>
+            <SkeletonList count={6} leading="well" value />
           ) : error && !items.length ? (
             <EmptyState icon="warning" title="Could not load leads" hint={error} actionLabel="Try again" onAction={() => void reload()} />
           ) : (

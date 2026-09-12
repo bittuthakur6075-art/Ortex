@@ -78,15 +78,31 @@ function synthCategory(live) {
   }
 }
 
-/** Merge Admin category docs over static marketing entries. */
+/**
+ * Merge Admin category docs over static marketing entries.
+ *
+ * The console is the catalogue of record: once it answers with ANY category,
+ * a static entry survives only if the console still has that category. It used
+ * to keep all twelve regardless, so the Products hub and the home page went on
+ * advertising Keychains, Wall clocks, Flags & banners and Fridge magnets that
+ * the console does not carry, while /quote — which reads products directly —
+ * showed the real eight. Two pages of one site disagreeing about what Ortex
+ * sells, and the wrong half is the half a buyer lands on first.
+ *
+ * A static entry is still the PRESENTATION for a category the console has
+ * (hand-tuned SEO copy, FAQs, the production-photo keywords); the console only
+ * decides which of them exist. An empty read is treated as "could not read",
+ * not "we sell nothing", so a failed fetch falls back to the static set.
+ */
 export function mergeCategories(liveCats) {
   if (!liveCats || !liveCats.length) return staticCategories()
   const byName = new Map(liveCats.map((c) => [c.name, c]))
   const base = PRODUCT_CATEGORIES.map((entry, i) => {
     const live = byName.get(entry.category)
-    if (live) byName.delete(entry.category)
+    if (!live) return null
+    byName.delete(entry.category)
     return applyOverrides(entry, live, i)
-  })
+  }).filter(Boolean)
   const extra = [...byName.values()].map(synthCategory)
   return [...base, ...extra]
     .filter((c) => c._live?.active !== false)

@@ -7,6 +7,8 @@ import { resetCollections } from "@/data/collectionStore"
 import { errorMessage, supabase } from "@/data/supabase"
 import type { Profile } from "@/domain/modules"
 import { signOut as authSignOut } from "@/lib/auth"
+import { resetNotificationState } from "@/lib/notificationStore"
+import { dismissAll } from "@/lib/push"
 
 // Session + profile for the whole app.
 //
@@ -132,6 +134,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await authSignOut()
     await clearCache()
     resetCollections()
+    // The next person to sign in on this handset starts with an empty inbox and
+    // an empty shade, not the last rep's read marks.
+    resetNotificationState()
+    void dismissAll()
     AsyncStorage.removeItem(PROFILE_KEY).catch(() => {})
     setProfile(null)
     setProfileError(null)

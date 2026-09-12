@@ -44,7 +44,7 @@ export default function Tabs() {
         )}
         {allowed("Leads") && <Tab.Screen name="Leads" component={LeadsScreen} options={{ title: "Leads" }} />}
         {allowed("Products") && (
-          <Tab.Screen name="Products" component={ProductsScreen} options={{ title: "Products" }} />
+          <Tab.Screen name="Products" component={ProductsScreen} options={{ title: "Catalogue" }} />
         )}
         {allowed("Contacts") && (
           <Tab.Screen name="Contacts" component={ContactsScreen} options={{ title: "Contacts" }} />

@@ -43,6 +43,9 @@ import { TAB_BAR_HEIGHT } from "@/ui/Fab"
 /** The band the large title occupies, and the distance the bar title fades over. */
 const COLLAPSE_DISTANCE = 48
 
+/** How far the page has to move before the app bar draws its bottom rule. */
+const RULE_DISTANCE = 8
+
 /**
  * How far each app-bar slot's DRAWN mark sits inside its own 44dp touch box. The
  * bar subtracts these so the back arrow and the avatar begin on the same 16dp
@@ -141,12 +144,19 @@ export default function AppScreen({
     outputRange: [0, -12],
     extrapolate: "clamp",
   })
-  // The bar's rule (1dp of `divider`) is drawn ALWAYS, not only once the
-  // compact title has taken over. Every AppScreen puts a white canvas under this
-  // bar, and a white bar over a white page has no edge at all: the rule is the
-  // only thing saying where the chrome stops. A header over a GREY plane needs no
-  // rule and must not draw one.
-  const barRuleOpacity = 1
+  // The bar's rule (1dp of `divider`) is drawn ONLY once the page has moved
+  // under it. At rest the bar and the canvas are one unbroken white plane and
+  // there is nothing to separate — a rule there is a line drawn across nothing,
+  // and it cuts the large title off from the bar it belongs to. The moment
+  // content slides beneath the bar, that same rule is the only thing saying
+  // where the chrome stops and the page begins, so it fades in over the first
+  // few dp of scroll: fast enough to be there before anything reaches it, slow
+  // enough not to blink.
+  const barRuleOpacity = scrollY.interpolate({
+    inputRange: [0, RULE_DISTANCE],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  })
 
   const appBar = (
     <View style={[styles.bar, { height: sizes.appBar, backgroundColor: c.appBar }]}>

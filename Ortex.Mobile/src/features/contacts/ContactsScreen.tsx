@@ -4,7 +4,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import type { Customer, Row } from "@/domain/schema"
 import ContactIndexBar from "@/features/contacts/ContactIndexBar"
-import ContactRow, { CONTACT_ROW_HEIGHT } from "@/features/contacts/ContactRow"
+import ContactRow from "@/features/contacts/ContactRow"
+import NotificationBell from "@/features/notifications/NotificationBell"
 import { useCollection } from "@/hooks/useCollection"
 import { prettyPhone } from "@/lib/contact"
 import { setFavourites, useFavourites } from "@/lib/favourites"
@@ -24,7 +25,7 @@ import {
   PopupMenu,
   ProfileAvatarButton,
   SearchField,
-  Skeleton,
+  SkeletonList,
   useToast,
 } from "@/ui"
 import type { ScrollableList } from "@/ui/AppScreen"
@@ -204,7 +205,10 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
               }}
             />
           ) : (
-            <IconButton name="more" onPress={() => setMenuOpen(true)} accessibilityLabel="More options" />
+            <>
+              <NotificationBell />
+              <IconButton name="more" onPress={() => setMenuOpen(true)} accessibilityLabel="More options" />
+            </>
           )
         }
         listRef={listRef}
@@ -234,12 +238,10 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
           renderSectionHeader: ({ section }: { section: unknown }) => (
             <SectionHeader letter={(section as ContactSection).letter} />
           ),
+          // A contact leads with a round 38dp initials avatar and carries no
+          // figure — name over company, nothing on the right.
           ListEmptyComponent: loading ? (
-            <View style={{ paddingHorizontal: gutter, gap: spacing.sm }}>
-              {[0, 1, 2, 3, 4, 5].map((i) => (
-                <Skeleton key={i} height={CONTACT_ROW_HEIGHT - 8} radius={12} />
-              ))}
-            </View>
+            <SkeletonList count={8} leading="avatar" leadingSize={38} />
           ) : error && !items.length ? (
             <EmptyState icon="warning" title="Could not load contacts" hint={error} actionLabel="Try again" onAction={() => void reload()} />
           ) : needle ? (

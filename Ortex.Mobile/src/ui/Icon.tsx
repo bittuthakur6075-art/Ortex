@@ -35,9 +35,13 @@ import Logout from "iconsax-react-native/dist/esm/Logout"
 import Microphone2 from "iconsax-react-native/dist/esm/Microphone2"
 import Minus from "iconsax-react-native/dist/esm/Minus"
 import Money from "iconsax-react-native/dist/esm/Money"
+import Notification from "iconsax-react-native/dist/esm/Notification"
 import Moon from "iconsax-react-native/dist/esm/Moon"
+import Archive from "iconsax-react-native/dist/esm/Archive"
 import More from "iconsax-react-native/dist/esm/More"
+import Pause from "iconsax-react-native/dist/esm/Pause"
 import PercentageSquare from "iconsax-react-native/dist/esm/PercentageSquare"
+import Play from "iconsax-react-native/dist/esm/Play"
 import Personalcard from "iconsax-react-native/dist/esm/Personalcard"
 import Printer from "iconsax-react-native/dist/esm/Printer"
 import Profile2User from "iconsax-react-native/dist/esm/Profile2User"
@@ -97,6 +101,8 @@ const GLYPHS = {
   // The Leads tab, which is enquiries AND voice calls: what came IN, not mail.
   leads: DirectInbox,
   voice: Microphone2,
+  play: Play,
+  pause: Pause,
   gst: Personalcard,
   money: Money,
   discount: DiscountShape,
@@ -115,6 +121,9 @@ const GLYPHS = {
   image: Gallery,
   camera: Camera,
   theme: Moon,
+  // The notification bell, and the shelf a dismissed notification goes to.
+  bell: Notification,
+  archive: Archive,
   // account
   profile: ProfileCircle,
   lock: Lock,

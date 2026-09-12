@@ -6,7 +6,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { repo } from "@/data/repo"
 import { errorMessage } from "@/data/supabase"
-import { GST_RATES, PRODUCT_CATEGORIES, UNITS, newProduct, type Product } from "@/domain/schema"
+import { canAccess } from "@/domain/modules"
+import { GST_RATES, PRODUCT_CATEGORIES, UNITS, newProduct, type Category, type Product, type Row } from "@/domain/schema"
+import { useCollection } from "@/hooks/useCollection"
+import { useAuth } from "@/store/AuthContext"
 import { base64Bytes } from "@/lib/avatarUpload"
 import { feedback } from "@/lib/feedback"
 import { MAX_PHOTO_MB, removeProductImage, uploadProductImage } from "@/lib/productImages"
@@ -14,7 +17,7 @@ import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { border, gutter, radius, size as sizes, spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
-import { Button, Dialog, Icon, IconButton, Panel, Sheet, Spinner, Switch, TextField, useToast } from "@/ui"
+import { Button, Dialog, Icon, IconButton, OptionSheet, Panel, Spinner, Switch, TextField, useToast } from "@/ui"
 import KeyboardAwareScrollView from "@/ui/KeyboardAwareScrollView"
 
 /**
@@ -60,6 +63,40 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
   const [confirmLeave, setConfirmLeave] = React.useState(false)
   const [picker, setPicker] = React.useState<null | "category" | "unit" | "gst">(null)
   const [touched, setTouched] = React.useState<Partial<Record<keyof Draft, boolean>>>({})
+
+  // The picker used to offer a hardcoded list, so a category the office added
+  // last week did not exist on the phone and a product saved here could not be
+  // filed under it. Read the real `categories` collection, and keep the
+  // constant only as the fallback for a project whose table is still empty.
+  const { items: categories } = useCollection<Category & Row>("categories")
+  const { profile } = useAuth()
+  // Categories are their own module in the database (staff_categories, 0007),
+  // not part of `products`: offering "New category" to someone the row-level
+  // policy will refuse is a promise the phone cannot keep.
+  const canAddCategory = canAccess(profile, "categories")
+  const categoryOptions = React.useMemo(() => {
+    const live = categories
+      .map((c) => (c.name || "").trim())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b))
+    // Whatever this product already says, even if that category was since
+    // renamed or deleted — dropping it would silently re-file the product on
+    // the next save.
+    const current = (draft.category || "").trim()
+    const base = live.length ? live : [...PRODUCT_CATEGORIES]
+    return current && !base.includes(current) ? [current, ...base] : base
+  }, [categories, draft.category])
+
+  // CategoryEditorScreen navigates back here with merge: true rather than
+  // handing over a callback (a function is not a serialisable route param), so
+  // the category someone just created is the one selected when they return.
+  const presetCategory = route.params?.presetCategory
+  React.useEffect(() => {
+    if (!presetCategory) return
+    setDraft((prev) => ({ ...prev, category: presetCategory }))
+    setDirty(true)
+    navigation.setParams({ presetCategory: undefined })
+  }, [presetCategory, navigation])
 
   React.useEffect(() => {
     if (!editingId) return
@@ -443,8 +480,23 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
       <OptionSheet
         visible={picker === "category"}
         title="Category"
-        options={PRODUCT_CATEGORIES}
+        options={categoryOptions}
         value={draft.category}
+        extra={
+          canAddCategory ? (
+            <Pressable
+              onPress={() => {
+                setPicker(null)
+                navigation.navigate("CategoryEditor", { pickFor: "ProductEditor" })
+              }}
+              android_ripple={{ color: t.accentTint }}
+              style={styles.newCategoryRow}
+            >
+              <Icon name="add" size={20} color={t.primary} variant="Linear" />
+              <Text style={[styles.newCategoryLabel, { color: t.primary }]}>New category</Text>
+            </Pressable>
+          ) : null
+        }
         onClose={() => setPicker(null)}
         onPick={(v) => {
           set({ category: v })
@@ -522,53 +574,6 @@ function PickerRow({ label, value, onPress }: { label: string; value: string; on
   )
 }
 
-function OptionSheet({
-  visible,
-  title,
-  options,
-  value,
-  onClose,
-  onPick,
-}: {
-  visible: boolean
-  title: string
-  options: string[]
-  value?: string
-  onClose: () => void
-  onPick: (value: string) => void
-}) {
-  const t = useTheme()
-  return (
-    <Sheet visible={visible} onClose={onClose} title={title}>
-      {options.map((option) => {
-        const active = option === value
-        return (
-          <Pressable
-            key={option}
-            onPress={() => {
-              feedback.select()
-              onPick(option)
-            }}
-            android_ripple={{ color: t.accentTint }}
-            style={styles.optionRow}
-          >
-            <Text
-              style={[
-                styles.optionLabel,
-                { color: t.text, fontFamily: active ? font.semibold : font.regular },
-              ]}
-            >
-              {option}
-            </Text>
-            {active && <Icon name="tick" size={20} color={t.primary} variant="Bulk" />}
-          </Pressable>
-        )
-      })}
-    </Sheet>
-  )
-}
-
-
 const styles = StyleSheet.create({
   root: { flex: 1 },
   centre: { alignItems: "center", justifyContent: "center" },
@@ -626,14 +631,14 @@ const styles = StyleSheet.create({
   },
   pickerValue: { flex: 1, fontSize: 15, fontFamily: font.medium },
 
-  optionRow: {
+  newCategoryRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 10,
     paddingVertical: 14,
     paddingHorizontal: 4,
   },
-  optionLabel: { fontSize: 15.5 },
+  newCategoryLabel: { fontSize: 15.5, fontFamily: font.semibold },
 
   footer: {
     paddingHorizontal: gutter,

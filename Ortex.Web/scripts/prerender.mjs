@@ -12,7 +12,7 @@
 // If a page's title changes, change it here too — `npm run build` runs this on
 // every deploy, and scripts/check is the place a mismatch would surface.
 
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs"
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { createClient } from "@supabase/supabase-js"
@@ -25,11 +25,36 @@ const template = readFileSync(join(dist, "index.html"), "utf8")
 
 // Pull the live, Admin-managed catalogue at build time so prerendered SEO/
 // JSON-LD reflects Admin edits. Falls back to the static constants when Supabase
-// env vars are absent (e.g. local build) or the fetch fails.
+// credentials cannot be found at all, or the fetch fails.
+//
+// Vite reads .env files for the CLIENT bundle only; this is a plain node
+// script, so nothing has populated process.env by the time it runs. A build
+// on a machine that does not export the variables (Hostinger, a laptop) would
+// therefore prerender the static demo catalogue into the public site's SEO
+// while the bundle it ships alongside reads the live one — the two disagreeing
+// with no error anywhere. So read the same files Vite would, in Vite's own
+// precedence: a real environment variable wins, then .env.<mode>, then .env.
+function envFromFiles(mode) {
+  const out = {}
+  for (const file of [".env", `.env.${mode}`]) {
+    const path = resolve(dirname(fileURLToPath(import.meta.url)), "..", file)
+    if (!existsSync(path)) continue
+    for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
+      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/)
+      if (m) out[m[1]] = m[2].trim().replace(/^["']|["']$/g, "")
+    }
+  }
+  return out
+}
+
 async function loadLiveCatalogue() {
-  const url = process.env.VITE_SUPABASE_URL
-  const key = process.env.VITE_SUPABASE_ANON_KEY
-  if (!url || !key) return null
+  const fileEnv = envFromFiles(process.env.NODE_ENV === "staging" ? "staging" : "production")
+  const url = process.env.VITE_SUPABASE_URL || fileEnv.VITE_SUPABASE_URL
+  const key = process.env.VITE_SUPABASE_ANON_KEY || fileEnv.VITE_SUPABASE_ANON_KEY
+  if (!url || !key || url.includes("YOUR-")) {
+    console.warn("prerender: no Supabase credentials — baking the STATIC catalogue, not the live one")
+    return null
+  }
   try {
     const sb = createClient(url, key)
     const [prodRes, catRes] = await Promise.all([

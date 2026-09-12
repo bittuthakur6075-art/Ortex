@@ -18,7 +18,7 @@ import { useTheme } from "@/store/ThemeContext"
 import type { StatusTone } from "@/theme/theme"
 import { border, gutter, size as sizes, spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
-import { Button, Dialog, Icon, IconButton, PopupMenu, RecordActivityPanel, Sheet, Spinner, useToast } from "@/ui"
+import { Button, Dialog, Icon, IconButton, PopupMenu, RecordActivityPanel, Sheet, DetailSkeleton, useToast } from "@/ui"
 import type { IconName } from "@/ui/Icon"
 
 /**
@@ -136,14 +136,23 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
     if (!doc) return
     setSharing(true)
     try {
-      // Straight into the customer's own WhatsApp thread when we hold a number:
-      // no share sheet, no contact picker. `shareQuotationOnWhatsApp` reports
-      // false rather than throwing when WhatsApp is missing or declines the
-      // intent, and the system share sheet is the fallback — the send still has
-      // to be possible on a phone without WhatsApp.
+      // Straight into that customer's own WhatsApp chat, PDF attached, with the
+      // covering message on the clipboard: WhatsApp drops a caption sent with a
+      // DOCUMENT (it honours one for an image), so the note cannot travel with
+      // the file and is pasted into WhatsApp's own caption box instead —
+      // lib/pdf.ts has the detail. `shareQuotationOnWhatsApp` reports false
+      // rather than throwing when WhatsApp is missing or declines the intent,
+      // and the system share sheet is the fallback — the send still has to be
+      // possible on a phone without WhatsApp.
       const sent =
         !!doc.customer?.phone && (await shareQuotationOnWhatsApp(doc, settings, doc.customer.phone, pitch))
-      if (!sent) await shareQuotationPdf(doc, settings)
+      if (sent) {
+        // Said out loud, because a clipboard nobody knows about is the same as
+        // no message at all.
+        toast.show({ message: "Message copied — paste it with the PDF" })
+      } else {
+        await shareQuotationPdf(doc, settings)
+      }
       // Sending is what "sent" means, so the status follows the action rather
       // than waiting for someone to remember to set it.
       if (doc.status === "draft") await repo.update("quotations", doc.id, { status: "sent" })
@@ -157,9 +166,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
 
   if (loading) {
     return (
-      <View style={[styles.root, styles.centre, { backgroundColor: t.surface }]}>
-        <Spinner label="Loading quotation" />
-      </View>
+      <DetailSkeleton onBack={() => navigation.goBack()} panels={[3, 4, 3]} />
     )
   }
 

@@ -48,7 +48,8 @@ src/
 ├── hooks/        useCollection · useSettings
 ├── lib/          auth · contact (call/WhatsApp/email) · pdf · feedback (haptics)
 ├── documents/    quotationHtml.ts, the printable A4 quotation
-└── features/     auth · quotations · leads · products · contacts · profile
+└── features/     auth · quotations · leads · products · contacts ·
+                  notifications · profile
 ```
 
 ## `src/domain/` is a mirror of `Ortex.Admin`: keep it in step
@@ -138,6 +139,48 @@ config plugin, which never runs in a bare project. `navigation/OneUiTabBar.tsx`
 replaces it with an opaque One UI bar (hairline rule, Linear→Bold icon swap, the
 same spring lens). `expo-blur` is not installed.
 
+## Notifications
+
+Everything that happened while the rep was looking at something else: a bell with
+an unread badge on all four tab bars, a Notifications page (All / Unread /
+Archived), a settings sheet, and the same items posted to the phone's own
+notification shade.
+
+**Nothing is stored.** A notification is a *derived* view of the `enquiries` and
+`quotations` rows the app already holds and already watches over realtime —
+`src/domain/notifications.ts` builds it, pure and tested
+(`test/notifications.test.mjs`), and `Ortex.Admin`'s own NotificationsDrawer
+works the same way. No migration, no `notifications` table, no device-token
+registry, and a notification that can never drift from the record it describes.
+
+What becomes a signal: a new enquiry; a voice call from Anu (folded, so a
+three-capture conversation is one notification, and a complaint is flagged as
+support rather than pitched as a sale); an enquiry still new after two days; a
+sent quotation expiring within three days, or already expired. Invoices,
+payments and the pipeline stay in the console — a notification about a record
+this app cannot open is a dead end in the hand.
+
+Read / archived / already-pushed flags live in AsyncStorage
+(`lib/notificationStore.ts`), local to the handset exactly as favourites are:
+"I have seen this" is a fact about a person and a device, and writing it to the
+shared row would mark a lead read for the whole team.
+
+**Push is local, not remote** (`lib/push.ts`, `expo-notifications`). The phone
+posts what it derives, so there are no FCM/APNs credentials and no server
+fan-out — at the honest cost that the app must be running for a signal to reach
+the shade. Waking a killed app needs FCM and is separate work. Every push
+carries the detail (what they want, the number, the place, the value, the
+timing) and its actions: **Call** and **WhatsApp** open straight from the shade
+without bringing the app up, **Open** deep-links to the record through
+`navigation/navigationRef.ts`, which replays the intent once the container is
+ready (a cold-start tap would otherwise only launch the app).
+
+The engine (`features/notifications/useNotificationEngine.ts`, mounted as
+`<NotificationEngine />` inside RootNavigator's authenticated branch) marks the
+whole existing feed as already announced on its first pass after **every** cold
+start. Whatever landed while the app was dead is on the screen the rep is
+already reading, and thirty notifications at once is a phone that gets silenced.
+
 ## Bare-workflow notes
 
 `app.json` config plugins **do not run** here, so native wiring is by hand:
@@ -145,6 +188,9 @@ same spring lens). `expo-blur` is not installed.
 * `android/app/src/main/AndroidManifest.xml`: `USE_BIOMETRIC`, `VIBRATE`, and an
   Android 11+ `<queries>` block. Without those queries `Linking` cannot see the
   phone/mail/WhatsApp apps and the Contacts buttons silently do nothing.
+* `POST_NOTIFICATIONS` in the same manifest, plus the
+  `expo.modules.notifications.default_notification_color` meta-data. Android 13+
+  shows nothing at all without the runtime grant; `lib/push.ts` asks for it.
 * `ios/OrtexMobile/Info.plist`: `NSFaceIDUsageDescription` and
   `LSApplicationQueriesSchemes` for the same reason.
 * `babel.config.js` carries the `@/` → `./src` alias via

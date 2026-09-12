@@ -6,6 +6,11 @@
     <!-- Haptic feedback (expo-haptics), used by every interaction in src/lib/feedback.ts. -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Notifications (expo-notifications). Android 13+ refuses to show anything
+         without the runtime grant this declares; below 13 the permission does not
+         exist and the notification simply posts. lib/push.ts asks for it. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Picking a profile photo or a product photo (expo-image-picker). Its config
          plugin normally declares these, and config plugins DO NOT RUN in this bare
          project, so they are declared by hand. Android 13+ uses the scoped media
@@ -45,6 +50,14 @@
       android:theme="@style/AppTheme"
       android:usesCleartextTraffic="${usesCleartextTraffic}"
       android:supportsRtl="true">
+      <!-- expo-notifications, wired by hand because config plugins do not run in
+           a bare project. The icon is deliberately NOT overridden: Android would
+           draw a custom one as a white silhouette, and there is no monochrome
+           asset for it yet. -->
+      <meta-data
+          android:name="expo.modules.notifications.default_notification_color"
+          android:resource="@color/notification_accent" />
+
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"

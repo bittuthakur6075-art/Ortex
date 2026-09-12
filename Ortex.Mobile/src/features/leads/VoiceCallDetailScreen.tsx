@@ -14,8 +14,9 @@ import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { border, gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { Button, Icon, IconButton, Panel, PanelBand, RecordActivityPanel, Spinner, StatusBadge, useToast } from "@/ui"
+import { Button, Icon, IconButton, Panel, PanelBand, RecordActivityPanel, DetailSkeleton, StatusBadge, useToast } from "@/ui"
 import { Advisory, Fact, ItemRow, QuickAction, StatusStepper } from "@/features/leads/leadUi"
+import CallRecordings from "@/features/leads/CallRecordings"
 
 /**
  * One call with Anu, the website's voice assistant.
@@ -64,9 +65,7 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
 
   if (!call && loading) {
     return (
-      <View style={[styles.root, styles.centre, { backgroundColor: t.background, paddingTop: insets.top }]}>
-        <Spinner label="Loading" />
-      </View>
+      <DetailSkeleton onBack={() => navigation.goBack()} panels={[4, 3, 3]} />
     )
   }
 
@@ -319,6 +318,10 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
             </View>
           ))}
         </Panel>
+
+        {/* The tape, under the paraphrase. What Anu wrote down is above; this is
+            what the customer actually said. */}
+        <CallRecordings call={call} />
 
         <Panel title="Record" padded>
           <Fact icon="voice" label="Captured by" value="Anu, the website voice assistant" />

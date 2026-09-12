@@ -30,7 +30,7 @@ import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { border, gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { Button, Icon, IconButton, Panel, PanelBand, RecordActivityPanel, Spinner, StatusBadge, useToast } from "@/ui"
+import { Button, Icon, IconButton, Panel, PanelBand, RecordActivityPanel, DetailSkeleton, StatusBadge, useToast } from "@/ui"
 import { Advisory, Fact, ItemRow, QuickAction, StatusStepper } from "@/features/leads/leadUi"
 
 /**
@@ -87,9 +87,7 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
 
   if (!enquiry && loading) {
     return (
-      <View style={[styles.root, styles.centre, { backgroundColor: t.background, paddingTop: insets.top }]}>
-        <Spinner label="Loading" />
-      </View>
+      <DetailSkeleton onBack={() => navigation.goBack()} panels={[4, 3, 3]} />
     )
   }
 

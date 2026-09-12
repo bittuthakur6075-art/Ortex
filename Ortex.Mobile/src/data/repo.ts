@@ -13,7 +13,7 @@ import { supabase } from "@/data/supabase"
 
 const SETTINGS_ROW_ID = true // single-row settings table (id boolean primary key)
 
-export type Collection = "products" | "categories" | "customers" | "enquiries" | "quotations"
+export type Collection = "products" | "categories" | "customers" | "enquiries" | "quotations" | "work"
 
 type Row = {
   id: string
@@ -108,7 +108,7 @@ function isMissingRelation(error: { code?: string; message?: string } | null): b
 // of this (data/collectionStore.ts) fetches each table once however many
 // screens are reading it.
 export type Table = Collection | "audit_log"
-const REALTIME_TABLES: Table[] = ["products", "categories", "customers", "enquiries", "quotations", "audit_log"]
+const REALTIME_TABLES: Table[] = ["products", "categories", "customers", "enquiries", "quotations", "work", "audit_log"]
 
 let channel: ReturnType<typeof supabase.channel> | null = null
 const listeners = new Map<Table | "*", Set<() => void>>()

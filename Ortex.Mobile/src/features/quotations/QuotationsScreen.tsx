@@ -3,6 +3,7 @@ import { View } from "react-native"
 
 import { formatCurrency, shortAge } from "@/domain/format"
 import { QUOTATION_STATUS, type Quotation } from "@/domain/schema"
+import NotificationBell from "@/features/notifications/NotificationBell"
 import { useCollection } from "@/hooks/useCollection"
 import { feedback } from "@/lib/feedback"
 import type { TabScreenProps } from "@/navigation/types"
@@ -19,7 +20,7 @@ import {
   ListRow,
   ProfileAvatarButton,
   RowSeparator,
-  Skeleton,
+  SkeletonList,
   StatusBadge,
 } from "@/ui"
 
@@ -57,11 +58,14 @@ export default function QuotationsScreen({ navigation }: TabScreenProps<"Quotes"
         title="Quotations"
         headerLeft={<ProfileAvatarButton />}
         headerRight={
-          <IconButton
-            name="search"
-            onPress={() => navigation.navigate("Search")}
-            accessibilityLabel="Search everything"
-          />
+          <>
+            <NotificationBell />
+            <IconButton
+              name="search"
+              onPress={() => navigation.navigate("Search")}
+              accessibilityLabel="Search everything"
+            />
+          </>
         }
         list={{
           data: loading ? [] : visible,
@@ -71,12 +75,10 @@ export default function QuotationsScreen({ navigation }: TabScreenProps<"Quotes"
           // well as between every pair (the leading one is in the header below).
           ItemSeparatorComponent: RowSeparator,
           ListFooterComponent: visible.length ? <RowSeparator /> : null,
+          // Shaped like the rows below: icon well, customer, number and age,
+          // and the figure with its status on the right.
           ListEmptyComponent: loading ? (
-            <View style={{ paddingHorizontal: spacing.md, gap: spacing.sm }}>
-              {[0, 1, 2, 3, 4].map((i) => (
-                <Skeleton key={i} height={72} radius={12} />
-              ))}
-            </View>
+            <SkeletonList count={6} leading="well" value />
           ) : error && !items.length ? (
             <EmptyState icon="warning" title="Could not load quotations" hint={error} actionLabel="Try again" onAction={() => void reload()} />
           ) : (

@@ -29,7 +29,17 @@ export type RootStackParamList = {
   VoiceCallDetail: { id: string }
   ContactEditor: { prefill?: Partial<Customer> } | undefined
   ProductDetail: { id: string }
-  ProductEditor: { id?: string } | undefined
+  // presetCategory is how CategoryEditor hands back the category somebody just
+  // created (navigate with merge: true), since a callback cannot be a param.
+  ProductEditor: { id?: string; presetCategory?: string } | undefined
+  CategoryDetail: { id: string }
+  // pickFor names the screen waiting on this category, so saving can return the
+  // name to it instead of dead-ending on a list the caller never asked for.
+  CategoryEditor: { id?: string; pickFor?: "ProductEditor" } | undefined
+  WorkDetail: { id: string }
+  WorkEditor: { id?: string } | undefined
+  Notifications: undefined
+  NotificationSettings: undefined
   Search: undefined
   Profile: undefined
   AccountDetails: undefined

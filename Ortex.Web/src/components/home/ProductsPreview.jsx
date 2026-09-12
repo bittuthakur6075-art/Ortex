@@ -2,7 +2,8 @@ import { useRef, useState } from "react"
 import { motion, useMotionValue, useSpring } from "framer-motion"
 import { Link } from "react-router-dom"
 import { ArrowRight } from "../ui/Icons"
-import { PRODUCT_CATEGORIES, photosForCategory, categoryStats } from "../../constants/categories"
+import { photosForCategory, categoryStats } from "../../constants/categories"
+import { useCatalog } from "../../lib/catalog"
 import { fadeUp, EASE } from "../ui/Section"
 
 /**
@@ -77,14 +78,20 @@ function OverlayCard({ to, image, eyebrow, title, cta, big }) {
 }
 
 export default function ProductsPreview() {
-  const categories = PRODUCT_CATEGORIES.map((entry) => {
+  // The live, Admin-managed catalogue — the same source /products and /quote
+  // read. This section used to be built from the static constants alone, so the
+  // first thing a visitor saw on the homepage was a range the console does not
+  // carry, with counts from the demo data. An Admin-set image wins over the
+  // production photo; useCatalog keeps the static set as its offline fallback.
+  const { products, categories: liveCategories } = useCatalog()
+  const categories = liveCategories.map((entry) => {
     const photo = photosForCategory(entry, 1)[0]
     return {
       slug: entry.slug,
       name: entry.name,
       category: entry.category,
-      count: categoryStats(entry).count,
-      image: photo?.url || FALLBACK_IMAGE,
+      count: categoryStats(entry, products).count,
+      image: entry.image || photo?.url || FALLBACK_IMAGE,
     }
   })
 

@@ -1,6 +1,8 @@
+import * as Clipboard from "expo-clipboard"
 import { File, Paths } from "expo-file-system"
 import * as Print from "expo-print"
 import * as Sharing from "expo-sharing"
+import { NativeModules, Platform } from "react-native"
 import Share, { Social, type ShareSingleOptions } from "react-native-share"
 
 import { quotationHtml } from "@/documents/quotationHtml"
@@ -58,17 +60,35 @@ export async function shareQuotationPdf(doc: Quotation, settings: Settings): Pro
 }
 
 /**
- * Send the PDF straight into ONE customer's WhatsApp chat.
+ * Our own single-intent sender (android/app/src/main/java/.../WhatsAppDocModule.kt).
+ * Absent on iOS, and on an Android build made before it existed — hence the
+ * optional shape rather than a hard import.
+ */
+const WhatsAppDoc = NativeModules.WhatsAppDoc as
+  | { send(filePath: string, mimeType: string, number: string, message: string): Promise<boolean> }
+  | undefined
+
+/**
+ * Send the quotation PDF into ONE customer's WhatsApp chat.
  *
- * `wa.me` cannot do this: a deep link carries text only, so the file would be
- * dropped. react-native-share's `shareSingle` builds the Android intent WhatsApp
- * actually wants — ACTION_SEND at `com.whatsapp` with the number as the chat
- * target and a FileProvider content URI for the attachment — which is the only
- * route that skips both the system share sheet and the contact picker.
+ * THE CHAT OPENS AND THE FILE DOES NOT ARRIVE — that is what react-native-share
+ * does on this hardware, and why there is a native module here. `shareSingle`
+ * with `whatsAppNumber` fires TWO intents ~10ms apart (WhatsAppShare.java): the
+ * first opens `com.whatsapp.Conversation` for the number and ignores the
+ * attachment, the second carries the file. A Samsung that freezes or defers
+ * background starts drops the second, so the salesperson lands in the right
+ * chat with nothing in it and no error anywhere — the worst possible failure,
+ * because it looks like it worked. Our module sends ONE intent carrying the
+ * `jid` and EXTRA_STREAM together: both arrive, or the send visibly fails.
  *
- * It returns false rather than throwing when WhatsApp is absent or refuses the
- * intent, so the caller can fall back to the ordinary share sheet. A missed send
- * is not worth an error dialog when the share sheet is one line away.
+ * WHAT STILL CANNOT BE DONE: WhatsApp honours EXTRA_TEXT as a caption for an
+ * IMAGE and drops it for a DOCUMENT. The covering note therefore cannot travel
+ * with the PDF by any route, so it goes on the clipboard and the caller says
+ * so, ready to paste into WhatsApp's own caption box. The intent carries the
+ * text anyway, which costs nothing and starts working if WhatsApp relents.
+ *
+ * Returns false when WhatsApp is absent or refuses the intent, so the caller
+ * can fall back to the ordinary share sheet.
  */
 export async function shareQuotationOnWhatsApp(
   doc: Quotation,
@@ -80,13 +100,21 @@ export async function shareQuotationOnWhatsApp(
   if (!number) return false
   try {
     const uri = await renderPdf(doc, settings)
+    // Before WhatsApp opens, not after: by the time the send screen is up the
+    // salesperson is already there to paste it.
+    await Clipboard.setStringAsync(message).catch(() => {})
+
+    if (Platform.OS === "android" && WhatsAppDoc) {
+      await WhatsAppDoc.send(uri, "application/pdf", number, message)
+      feedback.created()
+      return true
+    }
+
+    // iOS, and any Android build older than the native module: the library's
+    // two-intent path is still the only way to address one chat, and it does
+    // work where background starts are not being throttled.
     await Share.shareSingle({
       social: Social.Whatsapp,
-      // `whatsAppNumber` is missing from the shipped .d.ts but IS read by the
-      // native module (android/.../social/WhatsAppShare.java opens the
-      // conversation for it before attaching), so the option is widened here
-      // rather than dropped — without it the send falls back to the contact
-      // picker, which is the whole thing this function exists to skip.
       whatsAppNumber: number,
       url: uri,
       type: "application/pdf",
