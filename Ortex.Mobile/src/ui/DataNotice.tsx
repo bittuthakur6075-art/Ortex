@@ -38,7 +38,7 @@ function DataNotice({ error, fromCache, cachedAt, onRetry }: Props) {
 
   const stale = !!fromCache
   const tint = stale ? t.warningBg : t.dangerBg
-  const ink = stale ? t.warning : t.danger
+  const ink = stale ? t.warningText : t.dangerText
   const headline = stale ? `Showing saved copy${cachedAt ? ` from ${ago(cachedAt)}` : ""}` : error || "Could not load"
   const detail = stale && error ? error : null
 

@@ -337,7 +337,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
                   </Text>
                   <Text style={[styles.lineTag, { color: t.textTertiary }]}>{line.gstRate}% GST</Text>
                   {!!line.discountPercent && (
-                    <Text style={[styles.lineTag, { color: t.success }]}>{line.discountPercent}% off</Text>
+                    <Text style={[styles.lineTag, { color: t.successText }]}>{line.discountPercent}% off</Text>
                   )}
                 </View>
               </View>
@@ -635,7 +635,7 @@ function TotalRow({ label, value, tone }: { label: string; value: string; tone?:
   return (
     <View style={styles.totalRow}>
       <Text style={[styles.totalLabel, { color: t.textSecondary }]}>{label}</Text>
-      <Text style={[styles.totalValue, { color: tone === "success" ? t.success : t.text }]}>{value}</Text>
+      <Text style={[styles.totalValue, { color: tone === "success" ? t.successText : t.text }]}>{value}</Text>
     </View>
   )
 }

@@ -83,7 +83,7 @@ export default function Dialog({ visible, onClose, title, message, children, act
                 style={({ pressed }) => [styles.action, { opacity: pressed ? 0.6 : 1 }]}
               >
                 <Text
-                  style={[styles.actionLabel, { color: action.tone === "danger" ? t.danger : t.primary }]}
+                  style={[styles.actionLabel, { color: action.tone === "danger" ? t.dangerText : t.primary }]}
                 >
                   {action.label}
                 </Text>

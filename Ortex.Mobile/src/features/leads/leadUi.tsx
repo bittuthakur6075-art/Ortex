@@ -35,11 +35,13 @@ export function Advisory({ tone, icon, children }: { tone: AdvisoryTone; icon: I
     info: t.iconWell,
     success: t.successBg,
   }
+  // The READABLE step of each hue, not the saturated one: an advisory is a
+  // sentence to be read on a tinted well, and #DFA000 on #FFF8E6 is 2.16:1.
   const inks: Record<AdvisoryTone, string> = {
-    danger: t.danger,
-    warning: t.warning,
+    danger: t.dangerText,
+    warning: t.warningText,
     info: t.primary,
-    success: t.success,
+    success: t.successText,
   }
   return (
     <View style={[styles.advisory, { backgroundColor: fills[tone] }]}>
@@ -167,7 +169,7 @@ export function Fact({
 }) {
   const t = useTheme()
   const has = Boolean(value && value.trim())
-  const ink = has ? t.text : important ? t.warning : t.textTertiary
+  const ink = has ? t.text : important ? t.warningText : t.textTertiary
   return (
     <View style={styles.fact}>
       <Icon name={icon} size={18} color={t.textTertiary} variant="Bulk" />
@@ -214,7 +216,7 @@ export function ItemRow({
       <Text
         style={[
           textVariants.amount,
-          { color: quantity ? t.text : t.warning, fontFamily: quantity ? font.bold : font.medium },
+          { color: quantity ? t.text : t.warningText, fontFamily: quantity ? font.bold : font.medium },
         ]}
       >
         {quantity || "No qty"}

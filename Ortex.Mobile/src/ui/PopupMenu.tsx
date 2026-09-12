@@ -99,7 +99,7 @@ export default function PopupMenu({ visible, onClose, items, top = 56 }: Props) 
                   <Icon name={item.icon} size={18} color={item.destructive ? t.danger : t.textSecondary} />
                 </View>
               )}
-              <Text style={[styles.label, { color: item.destructive ? t.danger : t.text }]}>
+              <Text style={[styles.label, { color: item.destructive ? t.dangerText : t.text }]}>
                 {item.label}
               </Text>
             </Pressable>

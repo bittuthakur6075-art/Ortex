@@ -83,14 +83,26 @@ export type Colors = {
   fieldBorderFocused: string
   fieldCursor: string
   // semantic
+  //
+  // Each status has THREE tokens, because one colour cannot do both jobs. The
+  // bare name (`warning`) is the FILL and the icon: a saturated hue that has to
+  // be seen across a room. The `*Text` variant is the same hue pushed until it
+  // passes WCAG AA (4.5:1) as body text on its own `*Bg`, because the saturated
+  // one does not: #DFA000 on #FFF8E6 is 2.16:1, which is a warning a rep cannot
+  // read in sunlight. Text on a tinted well uses `*Text`; a glyph, a rule or a
+  // solid fill uses the bare name.
   success: string
   successBg: string
+  successText: string
   warning: string
   warningBg: string
+  warningText: string
   danger: string
   dangerBg: string
+  dangerText: string
   info: string
   infoBg: string
+  infoText: string
   muted: string
   mutedBg: string
   // chrome
@@ -109,14 +121,17 @@ export type Colors = {
 
 export type Theme = { dark: boolean; colors: Colors }
 
+// A tone's `fg` is drawn as TEXT on its own `bg` (that is what a StatusBadge is),
+// so each one is the readable step of the hue, not the saturated one. The bright
+// versions live on `colors.warning` / `.success` / `.danger` for fills and icons.
 const lightTones: Record<StatusTone, ToneColors> = {
   slate: { fg: "#4B5675", bg: "#EBEDF3" },
-  blue: { fg: "#056EE9", bg: "#E9F3FF" },
+  blue: { fg: "#0355B5", bg: "#E9F3FF" },
   cyan: { fg: brand.primaryPressed, bg: brand.primary10 },
-  violet: { fg: brand.primary, bg: brand.primary20 },
-  amber: { fg: "#DFA000", bg: "#FFF8E6" },
-  emerald: { fg: "#04B440", bg: "#E8FAEE" },
-  rose: { fg: "#E82646", bg: "#FFEAEF" },
+  violet: { fg: brand.primaryPressed, bg: brand.primary20 },
+  amber: { fg: "#8A6200", bg: "#FFF8E6" },
+  emerald: { fg: "#0B7A2E", bg: "#E8FAEE" },
+  rose: { fg: "#C41232", bg: "#FFEAEF" },
 }
 
 const darkTones: Record<StatusTone, ToneColors> = {
@@ -140,9 +155,12 @@ export const lightColors: Colors = {
   text: "#071437",
   textStrong: "#252F4A",
   textSecondary: "#4B5675",
-  textTertiary: "#78829D",
-  textFaint: "#99A1B7",
-  textHint: "#C4CADA",
+  // Captions, hints, placeholders, panel titles and list subtitles — a large
+  // share of the words in the app — so it is held at AA (5.4:1 on white, 5.0:1
+  // on the inset plane). The old #78829D was 3.83:1 and lost in daylight.
+  textTertiary: "#5E6A85",
+  textFaint: "#78829D",
+  textHint: "#A1A9BD",
   textInverse: "#FFFFFF",
   textOnPrimary: "#FFFFFF",
 
@@ -167,13 +185,17 @@ export const lightColors: Colors = {
 
   success: "#04B440",
   successBg: "#E8FAEE",
+  successText: "#0B7A2E",
   warning: "#DFA000",
   warningBg: "#FFF8E6",
+  warningText: "#8A6200",
   danger: "#E82646",
   dangerBg: "#FFEAEF",
+  dangerText: "#C41232",
   info: "#056EE9",
   infoBg: "#E9F3FF",
-  muted: "#78829D",
+  infoText: "#0355B5",
+  muted: "#5E6A85",
   mutedBg: "#EBEDF3",
 
   tabBar: "#FFFFFF",
@@ -202,9 +224,11 @@ export const darkColors: Colors = {
   text: "#FFFFFF",
   textStrong: "#E2E2E2",
   textSecondary: "#AFAFAF",
-  textTertiary: "#757575",
-  textFaint: "#5C5C5C",
-  textHint: "#454545",
+  // Raised to clear AA on the sheet/dialog plane (#1F1F1F), not just on black:
+  // #757575 was 3.58:1 there, and sheets are where the small print lives.
+  textTertiary: "#8A8A8A",
+  textFaint: "#757575",
+  textHint: "#545454",
   textInverse: "#071437",
   textOnPrimary: "#FFFFFF",
 
@@ -227,15 +251,21 @@ export const darkColors: Colors = {
   fieldBorderFocused: "rgba(76,134,245,0.5)",
   fieldCursor: "#6BAEFF",
 
+  // On dark the saturated hues already clear AA on their own wells, so text and
+  // fill are the same colour; the pair exists so call sites read identically.
   success: "#17C653",
   successBg: "#0B2B18",
+  successText: "#17C653",
   warning: "#F6B100",
   warningBg: "#2C2405",
+  warningText: "#F6B100",
   danger: "#F8285A",
   dangerBg: "#331019",
+  dangerText: "#FF6B8A",
   info: "#1B84FF",
   infoBg: "#0C2138",
-  muted: "#757575",
+  infoText: "#4C9DFF",
+  muted: "#8A8A8A",
   mutedBg: "#1F1F1F",
 
   tabBar: "#000000",

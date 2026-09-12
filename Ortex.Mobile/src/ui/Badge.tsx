@@ -22,8 +22,8 @@ function Badge({ label, tone = "accent", dotOnly }: Props) {
 
   const colors: Record<BadgeTone, { bg: string; text: string }> = {
     accent: { bg: t.primary10, text: t.primary },
-    danger: { bg: `${t.danger}22`, text: t.danger },
-    warning: { bg: `${t.warning}22`, text: t.warning },
+    danger: { bg: t.dangerBg, text: t.dangerText },
+    warning: { bg: t.warningBg, text: t.warningText },
     neutral: { bg: t.fieldBg, text: t.textSecondary },
   }
   const { bg, text } = colors[tone]

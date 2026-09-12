@@ -306,8 +306,8 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
 
           {!!artwork && !artwork.failed && (
             <View style={[styles.artwork, { backgroundColor: t.successBg }]}>
-              <Icon name="image" size={18} color={t.success} variant="Bulk" />
-              <Text style={[textVariants.smallStrong, { color: t.success, flex: 1 }]}>
+              <Icon name="image" size={18} color={t.successText} variant="Bulk" />
+              <Text style={[textVariants.smallStrong, { color: t.successText, flex: 1 }]}>
                 Artwork attached: {artwork.fileName}
               </Text>
             </View>

@@ -374,8 +374,8 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
       >
         {call.flags.support ? (
           <View style={styles.supportFooter}>
-            <Icon name="warning" size={18} color={t.danger} variant="Bulk" />
-            <Text style={[textVariants.small, { color: t.danger, flex: 1 }]}>
+            <Icon name="warning" size={18} color={t.dangerText} variant="Bulk" />
+            <Text style={[textVariants.small, { color: t.dangerText, flex: 1 }]}>
               Support first. Call them back before quoting.
             </Text>
             <Button

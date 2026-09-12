@@ -148,7 +148,7 @@ export function SectionRow({
 
       <View style={styles.body}>
         {typeof title === "string" ? (
-          <Text numberOfLines={2} style={[textVariants.bodyStrong, { color: danger ? t.danger : t.text }]}>
+          <Text numberOfLines={2} style={[textVariants.bodyStrong, { color: danger ? t.dangerText : t.text }]}>
             {title}
           </Text>
         ) : (

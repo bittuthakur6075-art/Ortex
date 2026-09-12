@@ -139,9 +139,9 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
                   valueSub={
                     flagged ? (
                       <View style={styles.flags}>
-                        {call.flags.support && <Chip label="Support" tint={t.danger} active small />}
+                        {call.flags.support && <Chip label="Support" tint={t.dangerText} active small />}
                         {!call.flags.support && call.flags.urgent && (
-                          <Chip label="Urgent" tint={t.warning} active small />
+                          <Chip label="Urgent" tint={t.warningText} active small />
                         )}
                         {!call.flags.support && !call.flags.urgent && call.flags.incomplete && (
                           <Chip label="No qty" tint={t.textTertiary} active small />

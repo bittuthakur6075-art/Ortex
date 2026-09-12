@@ -87,8 +87,8 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
             statement about the record and not about one box. */}
         {!!errors.form && (
           <View style={[styles.banner, { backgroundColor: t.dangerBg }]}>
-            <Icon name="warning" size={18} color={t.danger} variant="Bulk" />
-            <Text style={[textVariants.small, styles.bannerText, { color: t.danger }]}>{errors.form}</Text>
+            <Icon name="warning" size={18} color={t.dangerText} variant="Bulk" />
+            <Text style={[textVariants.small, styles.bannerText, { color: t.dangerText }]}>{errors.form}</Text>
           </View>
         )}
 
@@ -224,7 +224,7 @@ function FieldButton({
         </Text>
         <Icon name="down" size={16} color={t.textTertiary} />
       </Pressable>
-      {!!error && <Text style={[textVariants.caption, { color: t.danger, marginTop: 4 }]}>{error}</Text>}
+      {!!error && <Text style={[textVariants.caption, { color: t.dangerText, marginTop: 4 }]}>{error}</Text>}
     </View>
   )
 }

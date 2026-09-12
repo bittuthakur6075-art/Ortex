@@ -103,7 +103,7 @@ export default function CustomerEditSheet({
       <Sheet visible={visible} onClose={onClose} title="Edit contact">
         <View style={styles.form}>
           {!!errors.form && (
-            <Text style={[textVariants.small, { color: t.danger }]}>{errors.form}</Text>
+            <Text style={[textVariants.small, { color: t.dangerText }]}>{errors.form}</Text>
           )}
           <TextField
             label="Contact Name"

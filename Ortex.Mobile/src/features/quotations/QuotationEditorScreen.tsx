@@ -307,8 +307,8 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
             home state. Said before anything is typed, not discovered on the PDF. */}
         {!!settingsError && (
           <View style={[styles.settingsWarning, { backgroundColor: t.warningBg }]}>
-            <Icon name="warning" size={18} color={t.warning} variant="Bold" />
-            <Text style={[textVariants.caption, { color: t.warning, flex: 1 }]}>
+            <Icon name="warning" size={18} color={t.warningText} variant="Bold" />
+            <Text style={[textVariants.caption, { color: t.warningText, flex: 1 }]}>
               {`Company settings could not be loaded (${settingsError}). Numbering, GSTIN and the tax split on this quotation may be wrong. Get signal and reopen before sending it.`}
             </Text>
           </View>
@@ -703,7 +703,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
           {blocker ? (
             <>
               <Text style={[textVariants.microLabel, { color: t.textTertiary }]}>NEXT</Text>
-              <Text style={[textVariants.cardTitle, { color: t.warning }]}>{blocker}</Text>
+              <Text style={[textVariants.cardTitle, { color: t.warningText }]}>{blocker}</Text>
             </>
           ) : (
             <>
