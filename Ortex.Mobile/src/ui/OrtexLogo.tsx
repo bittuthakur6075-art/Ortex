@@ -6,7 +6,8 @@ import { ORTEX_SYMBOL_SVG, ORTEX_WORDMARK_SVG, tintSvg } from "@/theme/logo"
 // The real brand mark. Rendered as SVG rather than a bitmap so it stays sharp
 // on every density and can be tinted white for the splash and lock screens.
 
-const WORDMARK_RATIO = 1305 / 357
+/** Width per unit of height, for anything laid out to the wordmark's width. */
+export const WORDMARK_RATIO = 1305 / 357
 const SYMBOL_RATIO = 320 / 340
 
 /** The full "ORTEX" wordmark. Give it a height; the width follows. */

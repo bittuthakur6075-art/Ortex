@@ -347,7 +347,7 @@ export default function UserDetailScreen({ navigation, route }: StackScreenProps
           <InfoRow
             icon={active ? "tick" : "warning"}
             label="Sign-in"
-            value={active ? "Allowed — password or emailed code" : "Blocked until reactivated"}
+            value={active ? "Allowed: password or emailed code" : "Blocked until reactivated"}
             last
           />
           <View style={[styles.modules, { borderTopColor: t.divider }]}>

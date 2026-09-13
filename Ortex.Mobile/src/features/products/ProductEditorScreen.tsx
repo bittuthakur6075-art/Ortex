@@ -17,7 +17,7 @@ import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { border, gutter, radius, size as sizes, spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
-import { Button, Dialog, Icon, IconButton, OptionSheet, Panel, Spinner, Switch, TextField, useToast } from "@/ui"
+import { Button, Dialog, Icon, IconButton, OptionSheet, Panel, ScreenLoader, Spinner, Switch, TextField, useToast } from "@/ui"
 import KeyboardAwareScrollView from "@/ui/KeyboardAwareScrollView"
 
 /**
@@ -257,10 +257,27 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
     }
   }
 
+  const head = (
+    <View
+      style={[
+        styles.head,
+        { paddingTop: insets.top, height: insets.top + sizes.appBar, borderBottomColor: t.divider },
+      ]}
+    >
+      <IconButton name="back" onPress={leave} accessibilityLabel="Back" />
+      <Text style={[styles.headTitle, { color: t.text }]}>
+        {editingId ? "Edit product" : "New product"}
+      </Text>
+    </View>
+  )
+
+  // The bar stays real while the product loads, so a slow connection never
+  // strands someone on a page with no way back.
   if (loading) {
     return (
-      <View style={[styles.root, styles.centre, { backgroundColor: t.background }]}>
-        <Spinner label="Loading product" />
+      <View style={[styles.root, { backgroundColor: t.background }]}>
+        {head}
+        <ScreenLoader label="Loading product" />
       </View>
     )
   }
@@ -269,17 +286,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
 
   return (
     <View style={[styles.root, { backgroundColor: t.background }]}>
-      <View
-        style={[
-          styles.head,
-          { paddingTop: insets.top, height: insets.top + sizes.appBar, borderBottomColor: t.divider },
-        ]}
-      >
-        <IconButton name="back" onPress={leave} accessibilityLabel="Back" />
-        <Text style={[styles.headTitle, { color: t.text }]}>
-          {editingId ? "Edit product" : "New product"}
-        </Text>
-      </View>
+      {head}
 
       {/* The form's own scroll view is keyboard-aware: pricing, MOQ and lead time
           sit at the bottom, exactly where the keyboard lands. It replaces a

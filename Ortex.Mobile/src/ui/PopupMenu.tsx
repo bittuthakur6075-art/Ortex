@@ -122,11 +122,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     paddingVertical: 6,
-    elevation: 8,
-    shadowColor: "#071437",
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
   },
   item: {
     flexDirection: "row",

@@ -20,6 +20,7 @@ export type Profile = {
 }
 
 export type ModuleKey =
+  | "dashboard"
   | "voice-leads"
   | "enquiries"
   | "customers"
@@ -29,6 +30,9 @@ export type ModuleKey =
   | "quotations"
 
 export const MODULES: { key: ModuleKey; label: string; adminOnly?: boolean; always?: boolean }[] = [
+  // The console's Dashboard, which every signed-in user reaches. On the phone it
+  // is the Home tab; what it SHOWS is still gated section by section.
+  { key: "dashboard", label: "Dashboard", always: true },
   { key: "voice-leads", label: "Voice calls" },
   { key: "enquiries", label: "Enquiries" },
   { key: "customers", label: "Customers" },

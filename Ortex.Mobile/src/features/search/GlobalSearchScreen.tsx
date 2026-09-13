@@ -105,7 +105,7 @@ export default function GlobalSearchScreen({ navigation }: StackScreenProps<"Sea
     return [
       { title: "Quotations", data: quoteHits },
       { title: "Leads", data: enquiryHits },
-      { title: "Contacts", data: customerHits },
+      { title: "Customers", data: customerHits },
       { title: "Products", data: productHits },
     ].filter((s) => s.data.length)
   }, [query, quotations, enquiries, products, customers])
@@ -180,7 +180,7 @@ export default function GlobalSearchScreen({ navigation }: StackScreenProps<"Sea
         return (
           <ListRow
             leadingIcon="customer"
-            title={hit.doc.company || hit.doc.name || "Unnamed contact"}
+            title={hit.doc.company || hit.doc.name || "Unnamed customer"}
             subtitle={hit.doc.phone ? prettyPhone(hit.doc.phone) : hit.doc.email}
             onPress={() => open(hit)}
           />
@@ -219,7 +219,7 @@ export default function GlobalSearchScreen({ navigation }: StackScreenProps<"Sea
             ref={inputRef}
             value={query}
             onChangeText={setQuery}
-            placeholder="Quotes, leads, products, contacts"
+            placeholder="Quotes, leads, products, customers"
             placeholderTextColor={c.textTertiary}
             autoCorrect={false}
             autoCapitalize="none"

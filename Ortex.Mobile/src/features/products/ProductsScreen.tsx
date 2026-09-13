@@ -4,6 +4,7 @@ import { StyleSheet, View } from "react-native"
 
 import { canAccess } from "@/domain/modules"
 import { type Category, type Product, type Row, type Work } from "@/domain/schema"
+import AnuButton from "@/features/anu/AnuButton"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { useCollection } from "@/hooks/useCollection"
 import { feedback } from "@/lib/feedback"
@@ -26,6 +27,7 @@ import {
   SkeletonList,
 } from "@/ui"
 import type { IconName } from "@/ui/Icon"
+import LineTabs from "@/ui/LineTabs"
 
 // The catalogue you price from, and the two things behind it.
 //
@@ -65,6 +67,7 @@ export default function ProductsScreen({ navigation }: TabScreenProps<"Products"
     [canCategories, canWork],
   )
   const [tab, setTab] = React.useState<Tab>("products")
+  const [segmentsBottom, setSegmentsBottom] = React.useState(0)
 
   // Draft and archived products never reach the phone: status is the console's
   // to manage, and a rep quoting from the field should only ever see what is
@@ -117,12 +120,24 @@ export default function ProductsScreen({ navigation }: TabScreenProps<"Products"
 
   return (
     <View style={{ flex: 1, backgroundColor: t.background }}>
-      {/* Remounted per segment on purpose, so switching segment starts at the
-          top: the three collections are different lengths, and inheriting a
-          scroll offset from Products drops you into the middle of Our work. */}
+      {/* The segment switch follows the content up and then STAYS, as underline
+          tabs pinned under the bar — the Capnix Partner app's Loans pattern. Two
+          controls, one state: whichever you touch, both move.
+
+          No longer remounted per segment (`key={tab}`), because a remount is
+          a scroll back to the very top, which would throw away the pinned tabs
+          the moment you used them. `stickyKey` does the job instead: switching
+          while pinned lands on the threshold, so the tabs stay put and the new
+          collection starts at its first row rather than at Products' offset. */}
       <AppScreen
-        key={tab}
         title="Catalogue"
+        stickyKey={tab}
+        stickyThreshold={segmentsBottom}
+        stickyBar={
+          segments.length > 1 ? (
+            <LineTabs options={segments} value={tab} onChange={setTab} style={styles.lineTabs} />
+          ) : null
+        }
         subtitle={
           loading
             ? "Loading…"
@@ -135,12 +150,13 @@ export default function ProductsScreen({ navigation }: TabScreenProps<"Products"
         headerLeft={<ProfileAvatarButton />}
         headerRight={
           <>
-            <NotificationBell />
+            <AnuButton />
             <IconButton
               name="search"
               onPress={() => navigation.navigate("Search")}
               accessibilityLabel="Search everything"
             />
+            <NotificationBell />
           </>
         }
         list={{
@@ -267,7 +283,17 @@ export default function ProductsScreen({ navigation }: TabScreenProps<"Products"
           onRetry={() => void source.reload()}
         />
         {segments.length > 1 && (
-          <View style={styles.segments}>
+          <View
+            style={styles.segments}
+            // Measured, not guessed: the handover point is wherever THIS
+            // control's bottom edge lands, which moves with the subtitle and the
+            // offline notice above it. y is relative to the list header, which
+            // starts at content offset 0, so y + height IS the scroll offset.
+            onLayout={(e) => {
+              const { y, height } = e.nativeEvent.layout
+              setSegmentsBottom(y + height)
+            }}
+          >
             <SegmentedControl options={segments} value={tab} onChange={setTab} />
           </View>
         )}
@@ -307,6 +333,7 @@ function Thumb({ uri, fallback }: { uri?: string; fallback: IconName }) {
 
 const styles = StyleSheet.create({
   segments: { paddingHorizontal: gutter, marginBottom: spacing.sm },
+  lineTabs: { paddingHorizontal: gutter },
 
   // Bigger than the 38dp icon well the other tabs use: on this tab the photo IS
   // the identifying mark, and 38 is too small to tell two lanyards apart.

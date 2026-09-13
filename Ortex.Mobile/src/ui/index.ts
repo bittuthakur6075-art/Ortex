@@ -8,7 +8,7 @@
  * folder (custom fonts do not synthesise weights on Android).
  */
 
-export { default as AppLoader } from "@/ui/AppLoader"
+export { default as ScreenLoader, LoaderBar } from "@/ui/ScreenLoader"
 export { default as IconButton } from "@/ui/IconButton"
 export { default as PopupMenu, type MenuItem } from "@/ui/PopupMenu"
 export { ToastProvider, useToast, type ToastTone } from "@/ui/Toast"

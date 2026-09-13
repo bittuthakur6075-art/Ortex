@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { Customer, Row } from "@/domain/schema"
 import ContactIndexBar from "@/features/contacts/ContactIndexBar"
 import ContactRow from "@/features/contacts/ContactRow"
+import AnuButton from "@/features/anu/AnuButton"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { useCollection } from "@/hooks/useCollection"
 import { prettyPhone } from "@/lib/contact"
@@ -61,7 +62,7 @@ type ContactSection = { letter: string; data: CustomerRow[] }
 
 const FAVOURITES = "★"
 
-const displayName = (c: CustomerRow) => c.name || c.company || "Unnamed contact"
+const displayName = (c: CustomerRow) => c.name || c.company || "Unnamed customer"
 
 /** What a row sorts and letters under, given the current Sort by choice. */
 const sortKey = (c: CustomerRow, mode: SortMode) =>
@@ -184,7 +185,7 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
   return (
     <View style={{ flex: 1, backgroundColor: t.background }}>
       <AppScreen
-        title={selecting ? `${selected.size} selected` : "Contacts"}
+        title={selecting ? `${selected.size} selected` : "Customers"}
         headerLeft={
           selecting ? (
             <IconButton name="close" onPress={endSelecting} accessibilityLabel="Cancel selection" />
@@ -206,8 +207,9 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
             />
           ) : (
             <>
-              <NotificationBell />
+              <AnuButton />
               <IconButton name="more" onPress={() => setMenuOpen(true)} accessibilityLabel="More options" />
+              <NotificationBell />
             </>
           )
         }
@@ -243,28 +245,28 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
           ListEmptyComponent: loading ? (
             <SkeletonList count={8} leading="avatar" leadingSize={38} />
           ) : error && !items.length ? (
-            <EmptyState icon="warning" title="Could not load contacts" hint={error} actionLabel="Try again" onAction={() => void reload()} />
+            <EmptyState icon="warning" title="Could not load customers" hint={error} actionLabel="Try again" onAction={() => void reload()} />
           ) : needle ? (
             <EmptyState
               icon="search"
               title="No matches"
               hint={`Nothing here matches “${query.trim()}”.`}
-              actionLabel="Add them as a contact"
+              actionLabel="Add them as a customer"
               onAction={() => navigation.navigate("ContactEditor", { prefill: { name: query.trim() } })}
             />
           ) : (
             <EmptyState
               icon="customer"
-              title="No contacts yet"
+              title="No customers yet"
               hint="Add someone here, or one appears the first time you quote them."
-              actionLabel="Add a contact"
+              actionLabel="Add a customer"
               onAction={() => navigation.navigate("ContactEditor")}
             />
           ),
           ListFooterComponent:
             loading || !total ? null : (
               <Text style={[styles.count, { color: t.textTertiary }]}>
-                {total} {total === 1 ? "contact" : "contacts"}
+                {total} {total === 1 ? "customer" : "customers"}
               </Text>
             ),
           renderItem: ({ item }: { item: unknown }) => {
@@ -306,7 +308,7 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
         }}
       >
         <DataNotice error={error} fromCache={fromCache} cachedAt={cachedAt} onRetry={() => void reload()} />
-        {!selecting && <SearchField value={query} onChangeText={setQuery} placeholder="Search contacts" />}
+        {!selecting && <SearchField value={query} onChangeText={setQuery} placeholder="Search customers" />}
       </AppScreen>
 
       {/* Samsung's "+" on the directory. Hidden while selecting, where the
@@ -314,7 +316,7 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
       {!selecting && (
         <Fab
           icon="add"
-          accessibilityLabel="Add a contact"
+          accessibilityLabel="Add a customer"
           onPress={() =>
             // A search that found nobody is the commonest moment for this: carry
             // what they typed into the name field rather than making them type

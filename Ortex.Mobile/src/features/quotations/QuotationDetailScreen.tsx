@@ -24,7 +24,8 @@ import { useTheme } from "@/store/ThemeContext"
 import type { StatusTone } from "@/theme/theme"
 import { border, gutter, size as sizes, spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
-import { Button, Dialog, Icon, IconButton, PopupMenu, RecordActivityPanel, Sheet, DetailSkeleton, useToast } from "@/ui"
+import { Button, Dialog, Icon, IconButton, PopupMenu, RecordActivityPanel, ScreenLoader, Sheet, useToast } from "@/ui"
+import ActionButton from "@/ui/ActionButton"
 import type { IconName } from "@/ui/Icon"
 
 /**
@@ -175,9 +176,16 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
     }
   }
 
+  // The bar loader, not a skeleton (the owner's call, 2026-09-13). The back arrow
+  // stays live above it so a slow load never strands anyone on this page.
   if (loading) {
     return (
-      <DetailSkeleton onBack={() => navigation.goBack()} panels={[3, 4, 3]} />
+      <View style={[styles.root, { backgroundColor: t.surface }]}>
+        <View style={[styles.head, { paddingTop: insets.top, height: insets.top + sizes.appBar }]}>
+          <IconButton name="back" onPress={() => navigation.goBack()} accessibilityLabel="Back" />
+        </View>
+        <ScreenLoader label="Loading quotation" />
+      </View>
     )
   }
 
@@ -308,28 +316,28 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
             saturated pills: on a white sheet the amount should be the loudest
             thing, and four solid colours next to it flatten that. */}
           <View style={styles.actions}>
-            <QuickAction
+            <ActionButton
               icon="call"
               label="Call"
               tone="blue"
               disabled={!hasPhone}
               onPress={() => void callNumber(phone)}
             />
-            <QuickAction
+            <ActionButton
               icon="whatsapp"
               label="WhatsApp"
               tone="emerald"
               disabled={!hasPhone}
               onPress={() => void whatsapp(phone, pitch)}
             />
-            <QuickAction
+            <ActionButton
               icon="print"
               label="Print"
               tone="violet"
               onPress={() => void printQuotation(doc, settings)}
             />
             {/* The document itself, before it goes anywhere. */}
-            <QuickAction
+            <ActionButton
               icon="preview"
               label="Preview"
               tone="slate"
@@ -611,40 +619,6 @@ function SectionTitle({ text }: { text: string }) {
   )
 }
 
-/** A tinted well with the glyph in its own tone — quiet enough to sit under the amount. */
-function QuickAction({
-  icon,
-  label,
-  onPress,
-  disabled,
-  tone,
-}: {
-  icon: IconName
-  label: string
-  onPress: () => void
-  disabled?: boolean
-  tone: StatusTone
-}) {
-  const t = useTheme()
-  const { fg, bg } = t.tones[tone]
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: !!disabled }}
-      style={({ pressed }) => [styles.action, { opacity: disabled ? 0.35 : pressed ? 0.65 : 1 }]}
-    >
-      <View style={[styles.actionWell, { backgroundColor: bg }]}>
-        <Icon name={icon} size={22} color={fg} variant="Bulk" />
-      </View>
-      <Text numberOfLines={1} style={[styles.actionLabel, { color: t.text }]}>
-        {label}
-      </Text>
-    </Pressable>
-  )
-}
 
 /** A labelled fact, label over value. */
 function Fact({
@@ -739,9 +713,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.xs,
   },
-  action: { alignItems: "center", width: 64 },
-  actionWell: { width: 52, height: 52, borderRadius: 999, alignItems: "center", justifyContent: "center" },
-  actionLabel: { marginTop: 7, fontSize: 12, fontFamily: font.medium },
 
   sectionHead: {
     marginTop: spacing.lg,

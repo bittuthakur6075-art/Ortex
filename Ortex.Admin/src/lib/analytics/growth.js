@@ -17,8 +17,10 @@ function channelOf(ref) {
   try {
     const host = new URL(ref).hostname.replace(/^www\./, "")
     if (/google|bing|duckduckgo|yahoo|ecosia/.test(host)) return "Organic search"
-    if (/facebook|instagram|linkedin|twitter|t\.co|youtube|whatsapp/.test(host)) return "Social"
+    // Marketplaces before social, and t.co as a whole host: an unanchored `t\.co`
+    // matches "indiamart.com", which filed every IndiaMART visit under Social.
     if (/indiamart|justdial|tradeindia|amazon|flipkart/.test(host)) return "Marketplace"
+    if (/facebook|instagram|linkedin|twitter|youtube|whatsapp/.test(host) || host === "t.co") return "Social"
     return host
   } catch {
     return "Referral"

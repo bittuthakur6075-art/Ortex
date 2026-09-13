@@ -146,11 +146,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    elevation: 8,
-    shadowColor: "#071437",
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
   },
   icon: {
     marginRight: 10,

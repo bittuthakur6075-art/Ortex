@@ -3,6 +3,7 @@ import { View } from "react-native"
 
 import { formatCurrency, shortAge } from "@/domain/format"
 import { QUOTATION_STATUS, type Quotation } from "@/domain/schema"
+import AnuButton from "@/features/anu/AnuButton"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { useCollection } from "@/hooks/useCollection"
 import { feedback } from "@/lib/feedback"
@@ -59,12 +60,13 @@ export default function QuotationsScreen({ navigation }: TabScreenProps<"Quotes"
         headerLeft={<ProfileAvatarButton />}
         headerRight={
           <>
-            <NotificationBell />
+            <AnuButton />
             <IconButton
               name="search"
               onPress={() => navigation.navigate("Search")}
               accessibilityLabel="Search everything"
             />
+            <NotificationBell />
           </>
         }
         list={{

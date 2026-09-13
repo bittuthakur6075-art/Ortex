@@ -89,7 +89,7 @@ export default function InviteUserSheet({
     // has faded by the time they look. The old test was `includes("@")`, which
     // accepts "@" on its own.
     const found: { name?: string; email?: string; password?: string } = {}
-    if (!name.trim()) found.name = "Enter their name — the invite email greets them by it"
+    if (!name.trim()) found.name = "Enter their name. The invite email greets them by it"
     if (!address) found.email = "Enter their email address"
     else found.email = emailProblem(address) ?? undefined
     // Supabase refuses a password under six characters, and the refusal reaches

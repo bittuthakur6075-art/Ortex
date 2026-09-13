@@ -35,7 +35,7 @@ type Props<T extends string> = {
  *
  * NO SHADOW, deliberately. The lens is a flat accent tint on a filled track —
  * depth in this app comes from layered planes and hairlines. The tab capsule's
- * `barShadow` is the only shadow in the app; see theme/tokens.ts `elevation()`.
+ * The tab capsule's `barShadow` is the only shadow in the app; see theme/tokens.ts `elevation()`.
  */
 function SegmentedControl<T extends string>({ options, value, onChange }: Props<T>) {
   const t = useTheme()

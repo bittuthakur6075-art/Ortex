@@ -9,7 +9,7 @@ import type { Settings } from "@/domain/settings"
 import { useTheme } from "@/store/ThemeContext"
 import { border, gutter, size as sizes } from "@/theme/tokens"
 import { font } from "@/theme/typography"
-import { IconButton, Spinner } from "@/ui"
+import { IconButton, ScreenLoader } from "@/ui"
 
 /**
  * The quotation as the customer will receive it.
@@ -58,7 +58,7 @@ const VIEWER_CSS = `
   body { background: #EDEFF2; padding: ${PAGE_MARGIN}px 0; }
   .doc-sheet {
     background: #fff;
-    box-shadow: 0 1px 3px rgba(16,24,40,0.16), 0 8px 24px rgba(16,24,40,0.12);
+    border: 1px solid #D8DCE3;
     margin: 0 auto;
   }
 `
@@ -126,7 +126,7 @@ export default function QuotationPreview({
           />
           {loading && (
             <View style={styles.loading} pointerEvents="none">
-              <Spinner label="Rendering" />
+              <ScreenLoader label="Rendering the quotation" />
             </View>
           )}
         </View>

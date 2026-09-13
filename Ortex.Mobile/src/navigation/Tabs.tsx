@@ -3,6 +3,7 @@ import { BlurTargetView } from "expo-blur"
 import React from "react"
 
 import ContactsScreen from "@/features/contacts/ContactsScreen"
+import HomeScreen from "@/features/home/HomeScreen"
 import LeadsScreen from "@/features/leads/LeadsScreen"
 import ProductsScreen from "@/features/products/ProductsScreen"
 import QuotationsScreen from "@/features/quotations/QuotationsScreen"
@@ -39,6 +40,8 @@ export default function Tabs() {
           },
         }}
       >
+        {/* First, so it is where the app opens: the day's work before any list. */}
+        {allowed("Home") && <Tab.Screen name="Home" component={HomeScreen} options={{ title: "Home" }} />}
         {allowed("Quotes") && (
           <Tab.Screen name="Quotes" component={QuotationsScreen} options={{ title: "Quotes" }} />
         )}
@@ -47,7 +50,7 @@ export default function Tabs() {
           <Tab.Screen name="Products" component={ProductsScreen} options={{ title: "Catalogue" }} />
         )}
         {allowed("Contacts") && (
-          <Tab.Screen name="Contacts" component={ContactsScreen} options={{ title: "Contacts" }} />
+          <Tab.Screen name="Contacts" component={ContactsScreen} options={{ title: "Customers" }} />
         )}
       </Tab.Navigator>
     </BlurTargetView>

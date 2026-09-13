@@ -51,7 +51,7 @@ export const PRIVACY: LegalDoc = {
     {
       title: "4. Analytics, IP Address, and Consent",
       content:
-        "We collect page-visit records containing your device type, browser, operating system, and referring site. If — and only if — you accept analytics on our consent banner, these records additionally include your public IP address and the approximate city, region, and country derived from it by ipapi.co. Declining means no request is sent to ipapi.co and no IP address or location is stored. You can withdraw consent at any time by clearing this site's browser storage. See our Cookie Policy for the precise list of what is stored in your browser.",
+        "We collect page-visit records containing your device type, browser, operating system, and referring site. If, and only if, you accept analytics on our consent banner, these records additionally include your public IP address and the approximate city, region, and country derived from it by ipapi.co. Declining means no request is sent to ipapi.co and no IP address or location is stored. You can withdraw consent at any time by clearing this site's browser storage. See our Cookie Policy for the precise list of what is stored in your browser.",
     },
     {
       title: "5. Intellectual Property and Asset Retention",

@@ -66,7 +66,7 @@ export default function NotificationSettingsScreen({
         {granted === false && (
           <SectionRow
             title="Allowed by Android"
-            subtitle="Turned off in system settings — tap to open them"
+            subtitle="Turned off in system settings. Tap to open them"
             leadingIcon="warning"
             leadingTone="warning"
             onPress={() => void Linking.openSettings()}
@@ -102,7 +102,7 @@ export default function NotificationSettingsScreen({
             const sent = await sendTestNotification(profile?.phone || "")
             toast.show(
               sent
-                ? { message: "Sent — pull down the notification shade", tone: "success" }
+                ? { message: "Sent. Pull down the notification shade", tone: "success" }
                 : { message: "Android is blocking notifications. Allow them in Settings", tone: "danger" },
             )
           }}

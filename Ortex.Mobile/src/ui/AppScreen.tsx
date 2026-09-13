@@ -2,6 +2,8 @@ import React from "react"
 import {
   Animated,
   Pressable,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   ScrollView,
   StyleSheet,
   Text,
@@ -103,6 +105,26 @@ type Props = {
    */
   inset?: boolean
   contentStyle?: StyleProp<ViewStyle>
+  /**
+   * A control that PINS under the app bar once the content has carried its
+   * in-list twin out of view — the Catalogue's underline tabs standing in for
+   * its segmented control. Pass the pill in `children` and this copy here; both
+   * read the same state, so touching either moves both.
+   */
+  stickyBar?: React.ReactNode
+  /**
+   * The content offset at which the handover happens: the bottom edge of the
+   * in-list twin, MEASURED by the screen (`onLayout` y + height) rather than
+   * guessed, because it moves with the subtitle and any notice above it.
+   */
+  stickyThreshold?: number
+  /**
+   * Changes when the content under the sticky bar is swapped (a new segment).
+   * If the page is scrolled past `stickyThreshold` at that moment, the shell
+   * scrolls back to exactly the threshold: the bar stays pinned and the new
+   * collection starts at its first row instead of mid-way down.
+   */
+  stickyKey?: string
 }
 
 export default function AppScreen({
@@ -120,12 +142,29 @@ export default function AppScreen({
   inTabs = true,
   inset = false,
   contentStyle,
+  stickyBar,
+  stickyThreshold = 0,
+  stickyKey,
 }: Props) {
   const c = useTheme()
   const ground = inset ? c.surfaceInset : c.background
   const insets = useSafeAreaInsets()
   const scrollY = React.useRef(new Animated.Value(0)).current
   const keyboardAware = useKeyboardAwareScroll<ScrollView>()
+
+  // The shell holds the list itself, because it owns the scroll and so owns
+  // putting it back (`stickyKey`); a screen's `listRef` is a proxy onto it.
+  const innerListRef = React.useRef<ScrollableList | null>(null)
+  React.useImperativeHandle(
+    listRef,
+    () => ({
+      scrollToLocation: (opts) => innerListRef.current?.scrollToLocation?.(opts),
+      scrollToOffset: (opts) => innerListRef.current?.scrollToOffset?.(opts),
+    }),
+    [],
+  )
+  const offsetY = React.useRef(0)
+  const [viewportHeight, setViewportHeight] = React.useState(0)
 
   // The large title occupies its own band; the compact bar title cross-fades in
   // over exactly that distance, so the two never both read as the page heading.
@@ -157,6 +196,55 @@ export default function AppScreen({
     outputRange: [0, 1],
     extrapolate: "clamp",
   })
+
+  /**
+   * The sticky bar's handover, over the last 16dp before its in-list twin slides
+   * under the bar. Short on purpose: this is a SWAP, not a reveal — the same
+   * switch in two costumes, and the eye should read one replacing the other.
+   *
+   * `stuck` mirrors the threshold in React state because `pointerEvents` cannot
+   * be animated: at opacity 0 an `auto` overlay would still swallow every tap in
+   * a band across the top of the list, and the taps it eats are the first rows.
+   */
+  const HANDOVER = 16
+  const stickyOpacity = scrollY.interpolate({
+    inputRange: [stickyThreshold - HANDOVER, stickyThreshold],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  })
+  const stickyShift = scrollY.interpolate({
+    inputRange: [stickyThreshold - HANDOVER, stickyThreshold],
+    outputRange: [-8, 0],
+    extrapolate: "clamp",
+  })
+  const [stuck, setStuck] = React.useState(false)
+  const stuckRef = React.useRef(false)
+
+  const trackOffset = React.useCallback(
+    (y: number) => {
+      offsetY.current = y
+      if (!stickyBar) return
+      const next = stickyThreshold > 0 && y >= stickyThreshold
+      if (next !== stuckRef.current) {
+        stuckRef.current = next
+        setStuck(next)
+      }
+    },
+    [stickyBar, stickyThreshold],
+  )
+
+  // A new segment under a pinned bar: return to the threshold, not to the top,
+  // so the bar stays where the thumb just was. Unpinned, the page is already
+  // showing the start of the list and nothing moves.
+  const lastStickyKey = React.useRef(stickyKey)
+  React.useEffect(() => {
+    if (lastStickyKey.current === stickyKey) return
+    lastStickyKey.current = stickyKey
+    if (!stickyBar || stickyThreshold <= 0 || offsetY.current <= stickyThreshold) return
+    innerListRef.current?.scrollToOffset?.({ offset: stickyThreshold, animated: false })
+    scrollY.setValue(stickyThreshold)
+    trackOffset(stickyThreshold)
+  }, [stickyKey, stickyBar, stickyThreshold, scrollY, trackOffset])
 
   const appBar = (
     <View style={[styles.bar, { height: sizes.appBar, backgroundColor: c.appBar }]}>
@@ -198,9 +286,23 @@ export default function AppScreen({
 
       <View style={[styles.barRight, { marginRight: gutter - SLOT_INSET.icon }]}>{headerRight}</View>
 
+      {/* While a sticky bar is pinned it brings its own bottom rule, and two
+          rules 30dp apart read as a box drawn around the tabs. So this one hands
+          its job over on exactly the curve the sticky bar arrives on. */}
       <Animated.View
         pointerEvents="none"
-        style={[styles.barRule, { opacity: barRuleOpacity, backgroundColor: c.divider }]}
+        style={[
+          styles.barRule,
+          {
+            opacity: stickyBar
+              ? Animated.multiply(
+                  barRuleOpacity,
+                  stickyOpacity.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+                )
+              : barRuleOpacity,
+            backgroundColor: c.divider,
+          },
+        ]}
       />
     </View>
   )
@@ -234,7 +336,10 @@ export default function AppScreen({
     useNativeDriver: true,
     // The native driver still forwards the event to a JS listener, which is how
     // the keyboard helper knows where the user has scrolled to.
-    listener: keyboardAware.onScrollOffset,
+    listener: (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      keyboardAware.onScrollOffset(e)
+      trackOffset(e.nativeEvent.contentOffset.y)
+    },
   })
 
   return (
@@ -242,7 +347,7 @@ export default function AppScreen({
       {appBar}
       {sections ? (
         <Animated.SectionList
-          ref={listRef as never}
+          ref={innerListRef as never}
           {...sections}
           onScroll={onScroll}
           scrollEventThrottle={16}
@@ -261,7 +366,7 @@ export default function AppScreen({
         />
       ) : list ? (
         <Animated.FlatList
-          ref={listRef as never}
+          ref={innerListRef as never}
           {...list}
           onScroll={onScroll}
           scrollEventThrottle={16}
@@ -272,7 +377,20 @@ export default function AppScreen({
               {list.ListHeaderComponent as React.ReactElement}
             </>
           }
-          contentContainerStyle={[{ paddingBottom: bottomReserve }, list.contentContainerStyle, contentStyle]}
+          onLayout={(e) => {
+            setViewportHeight(e.nativeEvent.layout.height)
+            list.onLayout?.(e)
+          }}
+          contentContainerStyle={[
+            { paddingBottom: bottomReserve },
+            // With a sticky bar the list is never shorter than one screen past
+            // the threshold, so a switch to a SHORT collection (an empty gallery)
+            // can still sit at the threshold. Without it the offset clamps to 0,
+            // the pill is back on screen, and the pinned copy is drawn over it.
+            stickyBar && viewportHeight > 0 ? { minHeight: viewportHeight + stickyThreshold } : null,
+            list.contentContainerStyle,
+            contentStyle,
+          ]}
           keyboardShouldPersistTaps="handled"
         />
       ) : (
@@ -298,6 +416,25 @@ export default function AppScreen({
           <KeyboardAwareFocusProvider value={keyboardAware.reportFocus}>{children}</KeyboardAwareFocusProvider>
         </Animated.ScrollView>
       )}
+      {/* An OVERLAY, not a layout row: inserting real height mid-scroll would
+          shove the list by that height at the moment someone is reading it. */}
+      {stickyBar ? (
+        <Animated.View
+          pointerEvents={stuck ? "auto" : "none"}
+          style={[
+            styles.sticky,
+            {
+              top: insets.top + sizes.appBar,
+              backgroundColor: c.appBar,
+              borderBottomColor: c.divider,
+              opacity: stickyOpacity,
+              transform: [{ translateY: stickyShift }],
+            },
+          ]}
+        >
+          {stickyBar}
+        </Animated.View>
+      ) : null}
       {overlay}
     </View>
   )
@@ -330,5 +467,11 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: border.hairline,
+  },
+  sticky: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    borderBottomWidth: border.hairline,
   },
 })

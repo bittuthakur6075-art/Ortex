@@ -89,7 +89,7 @@ export default function CustomerEditSheet({
       // blank place of supply. Saving `draft.phone.trim()` — what this did — left
       // "+91 98765 43210" in a column the matcher compares against "9876543210".
       await repo.update("customers", customer.id, normaliseContact(draft))
-      toast.show({ message: "Contact updated", tone: "success" })
+      toast.show({ message: "Customer updated", tone: "success" })
       onClose()
     } catch (e) {
       toast.show({ message: errorMessage(e, "Could not save"), tone: "danger" })
@@ -100,7 +100,7 @@ export default function CustomerEditSheet({
 
   return (
     <>
-      <Sheet visible={visible} onClose={onClose} title="Edit contact">
+      <Sheet visible={visible} onClose={onClose} title="Edit customer">
         <View style={styles.form}>
           {!!errors.form && (
             <Text style={[textVariants.small, { color: t.dangerText }]}>{errors.form}</Text>

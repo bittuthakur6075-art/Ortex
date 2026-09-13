@@ -4,7 +4,7 @@
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
-        <!-- The field the OS paints before any JS runs. It MUST match SplashView's
+        <!-- The field the OS paints before any JS runs. It MUST match brandField.ts's
              BRAND, or every cold start flashes white between the two. -->
         <item name="android:windowBackground">@color/splash_background</item>
     </style>

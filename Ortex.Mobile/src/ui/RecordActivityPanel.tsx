@@ -214,7 +214,7 @@ export default function RecordActivityPanel({
         // is not the same as one nobody has touched.
         <Text style={[styles.note, { color: t.textTertiary }]}>
           No change history. Records created before the audit trail was switched on carry none, and it cannot be
-          reconstructed — every edit from now on is logged here.
+          reconstructed. Every edit from now on is logged here.
         </Text>
       ) : (
         <View style={styles.timeline}>

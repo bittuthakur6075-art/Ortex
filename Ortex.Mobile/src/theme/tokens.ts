@@ -133,7 +133,7 @@ export const state = {
  * THE APP DRAWS NO SHADOWS. Depth is expressed by LAYERING background tones and
  * hairline borders, never by dropping a shadow — the one exception is the
  * floating tab capsule, whose two-layer shadow lives in the palette as
- * `barShadow` because it is the only one.
+ * `barShadow`, the tab capsule's, because it is the only one.
  *
  * Kept as a function returning `{}` so the intent stays greppable and call sites
  * keep working. A surface that needs an edge takes a hairline or a background

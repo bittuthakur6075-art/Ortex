@@ -4,7 +4,7 @@
  * STRUCTURE PORTED FROM C:\code\capnix\Capnix.Mobile.Partner\src\theme\colors.js
  * — the same token vocabulary, the same light/dark strategy, the same rule that
  * depth comes from LAYERED BACKGROUND PLANES and hairlines rather than shadows
- * (the floating tab capsule's `barShadow` is the only shadow in the app).
+ * (the only shadow is `barShadow`, under the floating tab capsule, and the only glow is that capsule's glass).
  *
  * The BRAND is Ortex's, not Capnix's: the primary ramp below is the same
  * Metronic-derived blue `Ortex.Admin/src/index.css` is built on, so a badge or a
@@ -110,7 +110,11 @@ export type Colors = {
   tabBarBorder: string
   appBar: string
   scrim: string
-  shadow: string
+  /**
+   * THE ONLY SHADOW IN THE APP, under the floating tab capsule (owner, 2026-09-13).
+   * Four stacked layers, each twice the offset and blur of the last at a low
+   * alpha, so the falloff is a smooth gradient rather than one hard-edged blur.
+   */
   barShadow: string
   skeleton: string
   skeletonHighlight: string
@@ -202,10 +206,10 @@ export const lightColors: Colors = {
   tabBarBorder: "#EBEDF3",
   appBar: "#FFFFFF",
   scrim: "rgba(0,0,0,0.45)",
-  shadow: "#000000",
-  // The only shadow in the app: two layers, contact + ambient, under the floating
-  // tab capsule.
-  barShadow: "0px 2px 6px rgba(7, 20, 55, 0.10), 0px 12px 28px rgba(7, 20, 55, 0.18)",
+  // Tinted with the heading navy, never pure black, so it reads as depth on the
+  // brand ground rather than dirt.
+  barShadow:
+    "0px 1px 2px rgba(7, 20, 55, 0.04), 0px 3px 6px rgba(7, 20, 55, 0.04), 0px 8px 16px rgba(7, 20, 55, 0.06), 0px 18px 36px rgba(7, 20, 55, 0.08)",
   skeleton: "#EBEDF3",
   skeletonHighlight: "#F5F6FA",
   statusBar: "dark",
@@ -272,8 +276,8 @@ export const darkColors: Colors = {
   tabBarBorder: "#333333",
   appBar: "#000000",
   scrim: "rgba(0,0,0,0.6)",
-  shadow: "#000000",
-  barShadow: "0px 2px 6px rgba(0, 0, 0, 0.45), 0px 14px 32px rgba(0, 0, 0, 0.65)",
+  barShadow:
+    "0px 1px 2px rgba(0, 0, 0, 0.28), 0px 3px 8px rgba(0, 0, 0, 0.30), 0px 10px 22px rgba(0, 0, 0, 0.36), 0px 22px 44px rgba(0, 0, 0, 0.42)",
   skeleton: "#1F1F1F",
   skeletonHighlight: "#292929",
   statusBar: "light",

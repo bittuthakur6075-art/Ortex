@@ -2,10 +2,13 @@ import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs"
 import type { CompositeScreenProps } from "@react-navigation/native"
 import type { NativeStackScreenProps } from "@react-navigation/native-stack"
 
+import type { RangeKey } from "@/domain/dashboard"
 import type { Customer, Line } from "@/domain/schema"
+import type { InsightSection } from "@/features/home/InsightsScreen"
 import type { LegalDocKey } from "@/features/profile/legal"
 
 export type TabParamList = {
+  Home: undefined
   Quotes: undefined
   Leads: undefined
   Products: undefined
@@ -41,6 +44,10 @@ export type RootStackParamList = {
   Notifications: undefined
   NotificationSettings: undefined
   Search: undefined
+  // The team's voice assistant; `ask` starts the call with that question.
+  Anu: { ask?: string } | undefined
+  // Home's deeper analysis: opened on Home's period, scrolled to a section.
+  Insights: { range?: RangeKey; section?: InsightSection } | undefined
   Profile: undefined
   AccountDetails: undefined
   Team: undefined

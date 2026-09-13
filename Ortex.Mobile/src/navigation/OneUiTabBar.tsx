@@ -5,6 +5,7 @@ import React from "react"
 import { Animated, Pressable, StyleSheet, View, useWindowDimensions } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { useNotifications } from "@/features/notifications/useNotifications"
 import { feedback } from "@/lib/feedback"
 import { blurTargetRef } from "@/navigation/blurTarget"
 import { useIsDark, useTheme } from "@/store/ThemeContext"
@@ -17,25 +18,24 @@ import Icon, { type IconName } from "@/ui/Icon"
  *
  * Structurally still the floating bar ported from
  * C:\code\capnix\Capnix.Mobile.Partner\src\navigation\UserNavigator.jsx: detached
- * from the screen edges, lifted clear of the home indicator, and carrying the ONLY
- * shadow in the app (`colors.barShadow`, contact + ambient) through the
- * `boxShadow` prop rather than native elevation — elevation cannot coexist with
- * the `overflow: "hidden"` the blur needs in order to be clipped to the capsule.
+ * from the screen edges and lifted clear of the home indicator. It carries the
+ * ONLY shadow and the ONLY glow in the app (owner, 2026-09-13): `colors.barShadow`,
+ * four soft stacked layers for a smooth falloff, set through `boxShadow` rather
+ * than native elevation, because elevation cannot coexist with the
+ * `overflow: "hidden"` the blur needs in order to be clipped to the capsule.
  *
- * The MATERIAL is Apple's iOS-26 idiom, built from four stacked layers because
+ * The MATERIAL is Apple's iOS-26 glass, built from four stacked layers because
  * React Native has no single "glass" primitive:
- *   1. `BlurView` — the real backdrop sample.
- *   2. a thin wash — barely opaque, just enough that the capsule still reads as a
- *      surface where the backdrop behind it happens to be flat.
- *   3. a vertical sheen — bright at the top, clear by the middle, faintly back at
- *      the bottom. This is light refracting THROUGH the slab, and it is what
- *      separates glass from a frosted rectangle.
+ *   1. `BlurView`, the real backdrop sample.
+ *   2. a thin wash, just opaque enough that the capsule still reads as a surface
+ *      where the backdrop behind it happens to be flat.
+ *   3. a vertical sheen: bright at the top, clear by the middle, faintly back at
+ *      the bottom. Light refracting THROUGH the slab; this is the glow.
  *   4. a rim: a hairline all the way round, plus a brighter inset specular line
  *      along the top edge where a real bevel would catch the light.
- * The wash stays thin deliberately: opacity here buys legibility and costs the
- * whole effect, so contrast is bought with the sheen and rim instead.
+ * With no shadow under it, the rim is the capsule's edge on a white page.
  *
- * EACH TAB IS A GLYPH OVER ITS NAME (20dp glyph, 10/medium label, 2dp under the icon), and ONLY
+ * EACH TAB IS A GLYPH OVER ITS NAME (20dp glyph, 9/medium label, 2dp under the icon), and ONLY
  * THE SELECTED TAB IS FILLED: idle tabs are a bare Linear glyph on the glass, the
  * current one a light brand-tint disc under a Bold brand glyph. Icon and label
  * are both stacked pairs cross-faded on the same `near` value, because neither an
@@ -80,7 +80,8 @@ const chipWidthFor = (tabs: number, windowWidth: number) => {
   const room = windowWidth - BAR_INSET_X * 2 - INNER_PADDING * 2 - (n - 1) * TAB_GAP
   return Math.min(CHIP_W_MAX, Math.floor(room / n))
 }
-const CHIP_H = 60
+/** 56dp, so the capsule is 64dp: 20 icon + 2 gap + 11 label leaves 11.5dp above and below. */
+const CHIP_H = 56
 /** Glyph size. 20dp: at 24 the icons crowded the labels under them. */
 const ICON_SIZE = 20
 
@@ -93,10 +94,37 @@ const ICON_SIZE = 20
 export const TAB_BAR_HEIGHT = CHIP_H + INNER_PADDING * 2
 
 const ICONS: Record<string, IconName> = {
+  Home: "home",
   Quotes: "quote",
   Leads: "leads",
   Products: "product",
   Contacts: "customer",
+}
+
+/** The tab each notification target opens under. */
+const TAB_FOR_SCREEN: Record<string, string> = {
+  EnquiryDetail: "Leads",
+  VoiceCallDetail: "Leads",
+  QuotationDetail: "Quotes",
+}
+
+/**
+ * The unread dot on a tab glyph: the same red dot as the header bell, on the
+ * glyph's top-right shoulder, ringed so it reads as its own mark over the glass.
+ * It springs in and out rather than blinking, and sits above both cross-faded
+ * glyphs so it stays put while the chip travels.
+ */
+function TabDot({ on, color, ring }: { on: boolean; color: string; ring: string }) {
+  const v = React.useRef(new Animated.Value(on ? 1 : 0)).current
+  React.useEffect(() => {
+    Animated.spring(v, { toValue: on ? 1 : 0, stiffness: 320, damping: 24, mass: 0.6, useNativeDriver: true }).start()
+  }, [on, v])
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[styles.tabDot, { backgroundColor: color, borderColor: ring, opacity: v, transform: [{ scale: v }] }]}
+    />
+  )
 }
 
 /** The two glass recipes. Everything tonal about the bar is in here. */
@@ -104,7 +132,8 @@ const GLASS = {
   light: {
     wash: "rgba(255,255,255,0.52)",
     sheen: ["rgba(255,255,255,0.70)", "rgba(255,255,255,0.06)", "rgba(255,255,255,0.22)"] as const,
-    rim: "rgba(255,255,255,0.70)",
+    // No shadow under the capsule, so the rim has to be visible on a white page.
+    rim: "#E3E6EE",
     specular: ["rgba(255,255,255,0)", "rgba(255,255,255,0.95)", "rgba(255,255,255,0)"] as const,
     activeChip: "#EAEDFC",
     // The idle chip is WHITE, not the grey wash: the tint stays reserved for the
@@ -134,6 +163,19 @@ export default function OneUiTabBar({ state: navState, descriptors, navigation }
   const slotPitch = chipW + TAB_GAP
   const insets = useSafeAreaInsets()
   const g = isDark ? GLASS.dark : GLASS.light
+
+  // Which tabs hold something unread, from the same feed the header bell reads
+  // (so a tab dot and the bell dot can never disagree). A notification belongs
+  // to the tab that opens its record; tabs no notification leads to never dot.
+  const { unread } = useNotifications()
+  const dotted = React.useMemo(() => {
+    const out = new Set<string>()
+    for (const n of unread) {
+      const tab = TAB_FOR_SCREEN[n.target.screen]
+      if (tab) out.add(tab)
+    }
+    return out
+  }, [unread])
 
   const press = React.useRef<Animated.Value[]>([]).current
   navState.routes.forEach((_, i) => {
@@ -320,6 +362,7 @@ export default function OneUiTabBar({ state: navState, descriptors, navigation }
                   <Animated.View style={[styles.glyph, styles.glyphOver, { opacity: near }]}>
                     <Icon name={ICONS[route.name] ?? "quote"} size={ICON_SIZE} color={c.primary} variant="Bulk" />
                   </Animated.View>
+                  <TabDot on={dotted.has(route.name)} ring={isDark ? "#1B1B1E" : "#FFFFFF"} color={c.danger} />
                 </View>
 
                 {/* The destination in words, 2dp under its glyph. Stacked and
@@ -372,15 +415,15 @@ const styles = StyleSheet.create({
     // Clips the blur and the sheens to the capsule.
     overflow: "hidden",
   },
-  rim: {
-    borderWidth: 1,
-  },
   specular: {
     position: "absolute",
     top: 1,
     left: "12%",
     right: "12%",
     height: 1,
+  },
+  rim: {
+    borderWidth: 1,
   },
   indicator: {
     position: "absolute",
@@ -404,13 +447,23 @@ const styles = StyleSheet.create({
   },
   // The icon and its label are a column now, so the glyph pair needs a box of
   // its own to stack inside.
+  tabDot: {
+    position: "absolute",
+    top: -3,
+    right: -5,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+  },
   iconBox: { width: ICON_SIZE, height: ICON_SIZE, alignItems: "center", justifyContent: "center" },
   glyph: {
     alignItems: "center",
     justifyContent: "center",
   },
   labelBox: { marginTop: 2, alignItems: "center", justifyContent: "center" },
-  label: { ...textVariants.microLabel, textAlign: "center" },
+  // 9dp, set here rather than as a shared role: only the tab bar runs this small.
+  label: { ...textVariants.microLabel, fontSize: 9, lineHeight: 11, textAlign: "center" },
   labelOver: { position: "absolute", left: 0, right: 0 },
   // The Bulk glyph is stacked ON the Linear one so the pair cross-fade in place;
   // laid out normally they would sit side by side and double the chip's width.

@@ -17,12 +17,49 @@ const SRC = new URL("../public/icons/app-icon-1000.png", import.meta.url)
 const OUT = (name) => new URL(`../public/icons/${name}`, import.meta.url)
 
 // 192 and 512 are what Android asks for; 180 is the iOS home-screen size.
+//
+// `rounded` icons carry their own rounded corners (transparent outside), for
+// every place that draws the file as-is: the browser tab, the manifest's
+// "any" icons, a desktop install. Two stay SQUARE on purpose: the maskable
+// icon, because Android cuts its own shape and a pre-rounded file would show
+// the brand blue's corners as a second, smaller rounding inside the mask; and
+// the apple-touch-icon, because iOS rounds it and paints any transparency
+// black.
 const SIZES = [
-  { size: 512, name: "app-icon-512.png" },
-  { size: 192, name: "app-icon-192.png" },
+  { size: 512, name: "app-icon-512.png", rounded: true },
+  { size: 192, name: "app-icon-192.png", rounded: true },
+  { size: 512, name: "app-icon-maskable-512.png" },
   { size: 180, name: "apple-touch-icon.png" },
-  { size: 32, name: "favicon-32.png" },
+  { size: 32, name: "favicon-32.png", rounded: true },
 ]
+
+/** The share of the side taken by the corner radius — iOS/One UI's proportion. */
+const CORNER = 0.225
+
+/** Transparent outside a rounded square; 4x4 supersampled at the corners. */
+function rounded(png) {
+  const out = new PNG({ width: png.width, height: png.height })
+  png.data.copy(out.data)
+  const size = png.width
+  const r = size * CORNER
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let hits = 0
+      for (let sy = 0; sy < 4; sy++) {
+        for (let sx = 0; sx < 4; sx++) {
+          const px = x + (sx + 0.5) / 4
+          const py = y + (sy + 0.5) / 4
+          const cx = px < r ? r : px > size - r ? size - r : px
+          const cy = py < r ? r : py > size - r ? size - r : py
+          if (Math.hypot(px - cx, py - cy) <= r) hits++
+        }
+      }
+      const i = (y * size + x) << 2
+      out.data[i + 3] = Math.round((out.data[i + 3] * hits) / 16)
+    }
+  }
+  return out
+}
 
 /** Average every source pixel that falls inside a destination pixel. */
 function resize(src, size) {
@@ -61,7 +98,8 @@ if (master.width !== master.height) {
   process.exit(1)
 }
 
-for (const { size, name } of SIZES) {
-  writeFileSync(OUT(name), PNG.sync.write(resize(master, size)))
-  console.log(`wrote public/icons/${name} (${size}x${size})`)
+for (const { size, name, rounded: round } of SIZES) {
+  const icon = resize(master, size)
+  writeFileSync(OUT(name), PNG.sync.write(round ? rounded(icon) : icon))
+  console.log(`wrote public/icons/${name} (${size}x${size}${round ? ", rounded" : ""})`)
 }

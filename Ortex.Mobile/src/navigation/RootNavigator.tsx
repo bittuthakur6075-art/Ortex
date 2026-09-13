@@ -30,6 +30,8 @@ import NotificationSettingsScreen from "@/features/notifications/NotificationSet
 import NotificationsScreen from "@/features/notifications/NotificationsScreen"
 import { NotificationEngine } from "@/features/notifications/useNotificationEngine"
 import GlobalSearchScreen from "@/features/search/GlobalSearchScreen"
+import AnuScreen from "@/features/anu/AnuScreen"
+import InsightsScreen from "@/features/home/InsightsScreen"
 import QuotationDetailScreen from "@/features/quotations/QuotationDetailScreen"
 import QuotationEditorScreen from "@/features/quotations/QuotationEditorScreen"
 import { flushPendingNavigation, navigationRef } from "@/navigation/navigationRef"
@@ -57,7 +59,7 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const { session, profile, profileError, ready, biometricEnabled, biometricReady } = useAuth()
   // Both readiness flags: the lock arms once, and arming it before the stored
   // preference has been read would arm it as "off" on every launch.
-  const { locked, prompting, unlock } = useAppLock(biometricEnabled && !!session, ready && biometricReady)
+  const { locked, prompting, error: lockError, method: lockMethod, unlock } = useAppLock(biometricEnabled && !!session, ready && biometricReady)
 
   const navTheme = {
     ...(isDark ? DarkTheme : DefaultTheme),
@@ -78,7 +80,9 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
 
   if (!session) return <LoginScreen />
 
-  if (locked) return <LockScreen prompting={prompting} onUnlock={() => void unlock()} />
+  if (locked) {
+    return <LockScreen prompting={prompting} error={lockError} method={lockMethod} onUnlock={() => void unlock()} />
+  }
 
   // The session exists but the profile row has not arrived yet. Everything
   // downstream reads `profile.modules` to decide which tabs exist, so rendering
@@ -124,6 +128,13 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={SHEET} />
         <Stack.Screen name="Search" component={GlobalSearchScreen} />
+        {/* Anu takes the whole screen and rises from the bottom, like a call. */}
+        <Stack.Screen
+          name="Anu"
+          component={AnuScreen}
+          options={{ presentation: "fullScreenModal", animation: "slide_from_bottom", gestureEnabled: false }}
+        />
+        <Stack.Screen name="Insights" component={InsightsScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         {/* The Profile hub's inner pages come up as SHEETS, not pushes. Each is a
             short errand off a settings menu — read a fact, flip a switch, sign a

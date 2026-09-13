@@ -74,7 +74,7 @@ export default function NotificationsScreen({ navigation }: StackScreenProps<"No
           ? "Loading…"
           : prefs.enabled
             ? `${unread.length} unread of ${active.length}`
-            : "Muted — nothing will be announced"
+            : "Muted. Nothing will be announced"
       }
       back
       onBack={() => navigation.goBack()}

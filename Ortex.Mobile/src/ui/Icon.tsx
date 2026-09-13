@@ -28,11 +28,16 @@ import EyeSlash from "iconsax-react-native/dist/esm/EyeSlash"
 import Filter from "iconsax-react-native/dist/esm/Filter"
 import FingerScan from "iconsax-react-native/dist/esm/FingerScan"
 import Gallery from "iconsax-react-native/dist/esm/Gallery"
+import Home2 from "iconsax-react-native/dist/esm/Home2"
+import Chart21 from "iconsax-react-native/dist/esm/Chart21"
+import Global from "iconsax-react-native/dist/esm/Global"
 import InfoCircle from "iconsax-react-native/dist/esm/InfoCircle"
 import Location from "iconsax-react-native/dist/esm/Location"
 import Lock from "iconsax-react-native/dist/esm/Lock"
 import Logout from "iconsax-react-native/dist/esm/Logout"
 import Microphone2 from "iconsax-react-native/dist/esm/Microphone2"
+import MicrophoneSlash1 from "iconsax-react-native/dist/esm/MicrophoneSlash1"
+import CallSlash from "iconsax-react-native/dist/esm/CallSlash"
 import Minus from "iconsax-react-native/dist/esm/Minus"
 import Money from "iconsax-react-native/dist/esm/Money"
 import Notification from "iconsax-react-native/dist/esm/Notification"
@@ -90,6 +95,9 @@ const GLYPHS = {
   hidden: EyeSlash,
   send: Send,
   // business objects — one per tab, plus the record types behind them
+  home: Home2,
+  insights: Chart21,
+  website: Global,
   quote: DocumentText,
   invoice: Receipt21,
   product: Box,
@@ -100,6 +108,8 @@ const GLYPHS = {
   // The Leads tab, which is enquiries AND voice calls: what came IN, not mail.
   leads: DirectInbox,
   voice: Microphone2,
+  voiceOff: MicrophoneSlash1,
+  callEnd: CallSlash,
   play: Play,
   pause: Pause,
   gst: Personalcard,

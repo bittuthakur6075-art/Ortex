@@ -6,6 +6,7 @@ import { canAccess } from "@/domain/modules"
 import { enquiryAge, parseQuoteRfq, rfqArtwork, rfqUnits } from "@/domain/quoteRfq"
 import { ENQUIRY_STATUS, type Enquiry } from "@/domain/schema"
 import { VOICE_SOURCE, prettyPhone, voiceCallsFrom, type VoiceCall } from "@/domain/voice"
+import AnuButton from "@/features/anu/AnuButton"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { useCollection } from "@/hooks/useCollection"
 import { feedback } from "@/lib/feedback"
@@ -27,6 +28,7 @@ import {
   SkeletonList,
   StatusBadge,
 } from "@/ui"
+import LineTabs from "@/ui/LineTabs"
 
 // Enquiries and voice calls read the SAME `enquiries` collection — a voice lead
 // is just a row tagged with VOICE_SOURCE. The console splits them into two tabs
@@ -49,6 +51,7 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
   const canEnquiries = canAccess(profile, "enquiries")
   const canVoice = canAccess(profile, "voice-leads")
   const [tab, setTab] = React.useState<Tab>(canEnquiries ? "enquiries" : "voice")
+  const [segmentsBottom, setSegmentsBottom] = React.useState(0)
 
   const segments = React.useMemo(
     () =>
@@ -75,20 +78,31 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
 
   return (
     <View style={{ flex: 1, backgroundColor: t.background }}>
+      {/* Same as the Catalogue: the switch follows the content up and then pins
+          under the bar as underline tabs, and switching while pinned keeps them
+          pinned with the other list starting at its first row. */}
       <AppScreen
         title="Leads"
+        stickyKey={tab}
+        stickyThreshold={segmentsBottom}
+        stickyBar={
+          segments.length > 1 ? (
+            <LineTabs options={segments} value={tab} onChange={setTab} style={styles.lineTabs} />
+          ) : null
+        }
         subtitle={
           loading ? "Loading…" : showingVoice ? `${calls.length} calls` : `${enquiries.length} enquiries`
         }
         headerLeft={<ProfileAvatarButton />}
         headerRight={
           <>
-            <NotificationBell />
+            <AnuButton />
             <IconButton
               name="search"
               onPress={() => navigation.navigate("Search")}
               accessibilityLabel="Search everything"
             />
+            <NotificationBell />
           </>
         }
         list={{
@@ -193,7 +207,15 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
       >
         <DataNotice error={error} fromCache={fromCache} cachedAt={cachedAt} onRetry={() => void reload()} />
         {segments.length > 1 && (
-          <View style={styles.segments}>
+          <View
+            style={styles.segments}
+            // The handover point: y is relative to the list header, which starts
+            // at content offset 0, so y + height IS the scroll offset.
+            onLayout={(e) => {
+              const { y, height } = e.nativeEvent.layout
+              setSegmentsBottom(y + height)
+            }}
+          >
             <SegmentedControl options={segments} value={tab} onChange={setTab} />
           </View>
         )}
@@ -205,5 +227,6 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
 
 const styles = StyleSheet.create({
   segments: { paddingHorizontal: gutter, marginBottom: spacing.sm },
+  lineTabs: { paddingHorizontal: gutter },
   flags: { flexDirection: "row", justifyContent: "flex-end" },
 })

@@ -1,71 +1,195 @@
+import { Image } from "expo-image"
+import { LinearGradient } from "expo-linear-gradient"
 import React from "react"
-import { Pressable, StyleSheet, Text, View } from "react-native"
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type ImageSourcePropType,
+} from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { emailProblem } from "@/features/contacts/validateContact"
-
 import { sendEmailOtp, verifyEmailOtp, verifyPassword } from "@/lib/auth"
 import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, radius, spacing } from "@/theme/tokens"
-import { textVariants } from "@/theme/typography"
-import AuroraBackground from "@/ui/AuroraBackground"
-import { Button, Icon, TextField } from "@/ui"
-import KeyboardAwareScrollView from "@/ui/KeyboardAwareScrollView"
-import { OrtexWordmark } from "@/ui/OrtexLogo"
+import { gutter, spacing } from "@/theme/tokens"
+import { font, textVariants } from "@/theme/typography"
+import { Button, TextField, useToast } from "@/ui"
 
 /**
  * Sign in.
  *
- * PORTED FROM C:\code\capnix\Capnix.Mobile.Partner\src\screens\public\SignInScreen.jsx.
- * The screen is two regions:
+ * PORTED FROM C:\code\lumex\Lumex.Mobile.Surveyor\src\screens\public\LoginScreen.js:
  *
- *   TOP     the aurora wash, with the Ortex lockup centred in it.
- *   BOTTOM  an opaque sheet carrying the whole form, anchored to the bottom edge.
+ *   TOP     a three-column photo collage bleeding off the top edge, each column
+ *           drifting endlessly (the middle one against the other two), fading
+ *           into the page colour so the form reads on a plain surface.
+ *   CENTRE  "Welcome to Ortex" — one bold line, the brand word in the primary.
+ *   BOTTOM  labelled fields with leading icons, "Forgot password?" under the
+ *           password, and a full-width button.
  *
- * Two things are deliberate and easy to undo by accident:
+ * Substitutions from the Lumex screen, all deliberate: Reanimated is not a
+ * dependency here, so the marquee runs on RN's Animated with the native driver
+ * (a transform loop, so it stays off the JS thread); the tiles are expo-image
+ * with a plain radius instead of SVG-clipped squircles, because nine SVG image
+ * clips animating at once is the costliest possible way to draw a login page;
+ * and the fade is a real gradient in the THEME's page colour, so dark mode fades
+ * to black rather than white.
  *
- * 1. THE SHEET IS THE PAGE COLOUR, NOT WHITE. Hardcoding white would put
- *    near-black text on white inside a dark-mode app. It is opaque on purpose —
- *    the form reads on a plain surface, and the wash is the region above it.
+ * THE PHOTOS are free Pexels stock (assets/login, no attribution required),
+ * chosen for what Ortex makes: lanyards and ID cards, laser cutting and
+ * engraving, trophies, keychains, gift boxes, screen printing. Replace them with
+ * Ortex's own factory photography when it exists.
  *
- * 2. THE WASH REGION SHRINKS BUT NEVER DISAPPEARS. `flexShrink` with a
- *    `minHeight` is the pair that matters: shrink alone would let the region
- *    squeeze to nothing and the opaque sheet would paint over the mark, which
- *    reads as the logo being cropped by the card. Not shrinking pushes the region
- *    past the viewport instead and the mark leaves the top of the screen when the
- *    keyboard opens. The floor is the mark plus its own air.
- *
- * The flow itself is unchanged: password, then a code emailed to the same
- * address. Ortex is invite-only, so there is no sign-up path — a wrong email gets
- * "we could not sign you in", never an offer to register.
+ * THE FLOW IS UNCHANGED: password, then a code emailed to the same address.
+ * Ortex is invite-only, so there is no sign-up, and "Forgot password?" says who
+ * can reset it (an admin, from Team) rather than pretending to a self-service
+ * reset the backend does not offer.
  */
 
-/** Supabase emails a six-digit OTP. */
 const OTP_LENGTH = 6
-const LOCKUP_HEIGHT = 34
+
+/** Every tile is 3:4, so the column geometry follows from its measured width. */
+const COLLAGE: { top: number; images: ImageSourcePropType[] }[] = [
+  {
+    top: 18,
+    images: [
+      require("../../../assets/login/lanyard-badges.jpg"),
+      require("../../../assets/login/cnc-laser.jpg"),
+      require("../../../assets/login/gift-box.jpg"),
+    ],
+  },
+  {
+    top: 0,
+    images: [
+      require("../../../assets/login/engraving-machine.jpg"),
+      require("../../../assets/login/trophies.jpg"),
+      require("../../../assets/login/keychain.jpg"),
+    ],
+  },
+  {
+    top: 18,
+    images: [
+      require("../../../assets/login/lanyard-person.jpg"),
+      require("../../../assets/login/screen-printing.jpg"),
+      require("../../../assets/login/laser-cutting.jpg"),
+    ],
+  },
+]
+
+const COLLAGE_GAP = 8
+const TILE_RADIUS = 14
+/** px per second. Slow: the page is for typing a password, not watching. */
+const MARQUEE_SPEED = 14
+/** How many times the set is repeated, so the loop never shows an empty tail. */
+const REPEATS = 4
 
 type Step = "password" | "code"
 
+/**
+ * One endlessly scrolling column: the set rendered REPEATS times and translated
+ * by exactly one set-height per cycle, so the wrap is seamless.
+ */
+function MarqueeColumn({ images, top, reverse }: { images: ImageSourcePropType[]; top: number; reverse: boolean }) {
+  const [width, setWidth] = React.useState(0)
+  const tile = (width * 4) / 3
+  const setHeight = images.length * (tile + COLLAGE_GAP)
+  const progress = React.useRef(new Animated.Value(0)).current
+
+  React.useEffect(() => {
+    if (!setHeight) return
+    let loop: Animated.CompositeAnimation | null = null
+    let cancelled = false
+    // Reduce-motion holds the collage still rather than drifting it.
+    void AccessibilityInfo.isReduceMotionEnabled().then((reduced) => {
+      if (reduced || cancelled) return
+      progress.setValue(0)
+      loop = Animated.loop(
+        Animated.timing(progress, {
+          toValue: 1,
+          duration: (setHeight / MARQUEE_SPEED) * 1000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      )
+      loop.start()
+    })
+    return () => {
+      cancelled = true
+      loop?.stop()
+    }
+  }, [setHeight, progress])
+
+  const translateY = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: reverse ? [-setHeight, 0] : [0, -setHeight],
+  })
+
+  return (
+    <View style={[styles.column, { marginTop: top }]} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+      {width > 0 && (
+        <Animated.View style={{ transform: [{ translateY }] }}>
+          {Array.from({ length: REPEATS }, () => images)
+            .flat()
+            .map((src, i) => (
+              <Image
+                key={i}
+                source={src}
+                contentFit="cover"
+                transition={0}
+                style={{ width, height: tile, borderRadius: TILE_RADIUS, marginBottom: COLLAGE_GAP }}
+              />
+            ))}
+        </Animated.View>
+      )}
+    </View>
+  )
+}
+
 export default function LoginScreen() {
   const c = useTheme()
+  const toast = useToast()
   const insets = useSafeAreaInsets()
   const [step, setStep] = React.useState<Step>("password")
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [code, setCode] = React.useState("")
   const [error, setError] = React.useState("")
-  // Per-field messages. The shared `error` line stays for what the SERVER says
-  // ("wrong password"), which belongs to the attempt rather than to one input.
-  const [fieldErrors, setFieldErrors] = React.useState<{ email?: string; password?: string; code?: string }>(
-    {},
-  )
+  // Per-field messages. `error` stays for what the SERVER says ("wrong password"),
+  // which belongs to the attempt rather than to one input.
+  const [fieldErrors, setFieldErrors] = React.useState<{ email?: string; password?: string; code?: string }>({})
   const [busy, setBusy] = React.useState(false)
 
+  // KEYBOARD: slide the whole page up exactly far enough that the form ends just
+  // above the keyboard — the Lumex approach. A scroll view would let the collage
+  // and the form scroll apart; this keeps the page one piece.
+  const formRef = React.useRef<View>(null)
+  const shift = React.useRef(new Animated.Value(0)).current
+  React.useEffect(() => {
+    const move = (to: number) =>
+      Animated.timing(shift, { toValue: to, duration: 220, easing: Easing.out(Easing.quad), useNativeDriver: true }).start()
+    const show = Keyboard.addListener("keyboardDidShow", (e) => {
+      formRef.current?.measureInWindow((_x, y, _w, h) => {
+        const overlap = y + h + spacing.md - e.endCoordinates.screenY
+        if (overlap > 0) move(-overlap)
+      })
+    })
+    const hide = Keyboard.addListener("keyboardDidHide", () => move(0))
+    return () => {
+      show.remove()
+      hide.remove()
+    }
+  }, [shift])
+
   const submitPassword = async () => {
-    // Checked here rather than left to the server: a malformed address costs a
-    // round trip and comes back as "invalid login credentials", which reads as
-    // "wrong password" and sends people hunting for the wrong mistake.
+    // Checked here rather than left to the server: a malformed address comes back
+    // as "invalid login credentials", which reads as "wrong password".
     const found: { email?: string; password?: string } = {}
     if (!email.trim()) found.email = "Enter your email address"
     else found.email = emailProblem(email) ?? undefined
@@ -75,6 +199,7 @@ export default function LoginScreen() {
       feedback.error()
       return
     }
+    Keyboard.dismiss()
     setBusy(true)
     setError("")
     const checked = await verifyPassword(email, password)
@@ -96,10 +221,12 @@ export default function LoginScreen() {
   }
 
   const submitCode = async () => {
-    // The emailed OTP is exactly six digits, and the field is digits-only, so a
-    // short code is a typo the phone can catch without asking the server.
     const digits = code.replace(/[^0-9]/g, "")
-    const problem = !digits ? "Enter the code from your email" : digits.length !== OTP_LENGTH ? `The code is ${OTP_LENGTH} digits` : undefined
+    const problem = !digits
+      ? "Enter the code from your email"
+      : digits.length !== OTP_LENGTH
+        ? `The code is ${OTP_LENGTH} digits`
+        : undefined
     setFieldErrors({ code: problem })
     if (problem) {
       feedback.error()
@@ -114,8 +241,8 @@ export default function LoginScreen() {
       feedback.error()
       return
     }
-    // No navigation here: verifyOtp establishes the session, onAuthStateChange
-    // fires, and RootNavigator swaps this screen for the tabs.
+    // No navigation: verifyOtp establishes the session and RootNavigator swaps
+    // this screen for the tabs.
     feedback.unlocked()
   }
 
@@ -124,101 +251,94 @@ export default function LoginScreen() {
     const sent = await sendEmailOtp(email)
     setBusy(false)
     setError("error" in sent ? sent.error : "")
-    if (!("error" in sent)) feedback.tap()
+    if (!("error" in sent)) {
+      feedback.tap()
+      toast.show({ message: `A new code is on its way to ${email.trim()}`, tone: "success" })
+    }
   }
 
   const onCode = step === "code"
 
   return (
     <View style={[styles.root, { backgroundColor: c.background }]}>
-      <AuroraBackground />
-      {/* The password and OTP fields sit at the bottom of the sheet, exactly where
-          the keyboard lands. This replaces a `KeyboardAvoidingView` that was a
-          no-op on Android, and whose iOS behaviour would have pushed the wordmark
-          off the top rather than moving the field. */}
-      <KeyboardAwareScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
-          {/* THE WASH REGION — the lockup centred in whatever the sheet leaves. */}
-          <View
-            style={[
-              styles.wash,
-              {
-                minHeight: insets.top + spacing.xxl + LOCKUP_HEIGHT + spacing.lg,
-                paddingTop: insets.top + spacing.xxl,
-              },
-            ]}
-          >
-            <OrtexWordmark height={LOCKUP_HEIGHT} />
+      <Animated.View style={[styles.root, { transform: [{ translateY: shift }] }]}>
+        {/* THE COLLAGE — bleeds off the top edge, fades into the page. */}
+        <View style={styles.collage} pointerEvents="none">
+          <View style={styles.collageRow}>
+            {COLLAGE.map((col, i) => (
+              <MarqueeColumn key={i} images={col.images} top={col.top} reverse={i === 1} />
+            ))}
           </View>
+          <LinearGradient
+            colors={[`${c.background}00`, `${c.background}CC`, c.background]}
+            locations={[0, 0.55, 1]}
+            style={styles.fade}
+          />
+          {/* A light veil under the status bar so the clock stays readable over a photo. */}
+          <LinearGradient
+            colors={[`${c.background}B3`, `${c.background}00`]}
+            style={[styles.topVeil, { height: insets.top + 24 }]}
+          />
+        </View>
 
-          {/* THE SHEET — opaque, full-bleed, anchored to the bottom edge. */}
-          <View
-            style={[
-              styles.sheet,
-              {
-                backgroundColor: c.background,
-                paddingBottom: insets.bottom + spacing.xxl,
-              },
-            ]}
-          >
-            {onCode && (
-              <View style={[styles.badge, { backgroundColor: c.accentTint }]}>
-                <Icon name="mail" size={34} variant="Bulk" color={c.primary} />
-              </View>
+        {/* THE FORM */}
+        <View style={[styles.content, { backgroundColor: c.background, paddingBottom: insets.bottom + spacing.xl }]}>
+          <Text style={[styles.title, { color: c.text }]}>
+            {onCode ? (
+              "Check your email"
+            ) : (
+              <>
+                Welcome to <Text style={{ color: c.primary, fontFamily: font.bold }}>Ortex</Text>
+              </>
             )}
+          </Text>
+          <Text style={[textVariants.screenSubtitle, styles.subtitle, { color: c.textSecondary }]}>
+            {onCode
+              ? `We sent a ${OTP_LENGTH}-digit code to ${email.trim()}. It expires in a few minutes.`
+              : "Sign in with your Ortex console account."}
+          </Text>
 
-            <Text style={[textVariants.largeTitle, { color: c.text }, onCode && styles.centre]}>
-              {onCode ? "Check your email" : "Sign in"}
-            </Text>
-            <Text
-              style={[
-                textVariants.screenSubtitle,
-                { color: c.textSecondary, marginTop: spacing.sm },
-                onCode && styles.centre,
-              ]}
-            >
-              {onCode
-                ? `We sent a one-time code to ${email.trim()}. It expires in a few minutes.`
-                : "Use the same account as the Ortex admin console."}
-            </Text>
-
-            <View style={styles.form}>
-              {onCode ? (
+          <View ref={formRef} collapsable={false} style={styles.fields}>
+            {onCode ? (
+              <TextField
+                label="One-Time Code"
+                value={code}
+                onChangeText={(v) => {
+                  setCode(v.replace(/[^0-9]/g, ""))
+                  setFieldErrors((e) => ({ ...e, code: undefined }))
+                }}
+                error={fieldErrors.code}
+                maxLength={OTP_LENGTH}
+                placeholder="Enter the 6-digit code"
+                keyboardType="number-pad"
+                autoComplete="one-time-code"
+                editable={!busy}
+                leadingIcon="lock"
+                onSubmitEditing={submitCode}
+                returnKeyType="go"
+                fieldStyle={styles.noMargin}
+              />
+            ) : (
+              <>
                 <TextField
-                  label="One-Time Code"
-                  value={code}
+                  label="Email"
+                  value={email}
                   onChangeText={(v) => {
-                    setCode(v.replace(/[^0-9]/g, ""))
-                    setFieldErrors((e) => ({ ...e, code: undefined }))
+                    setEmail(v)
+                    setFieldErrors((e) => ({ ...e, email: undefined }))
                   }}
-                  error={fieldErrors.code}
-                  maxLength={OTP_LENGTH}
-                  placeholder="Enter the 6-digit code"
-                  keyboardType="number-pad"
-                  autoComplete="one-time-code"
+                  error={fieldErrors.email}
+                  placeholder="Enter your email"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  keyboardType="email-address"
                   editable={!busy}
-                  onSubmitEditing={submitCode}
-                  returnKeyType="go"
+                  leadingIcon="mail"
+                  returnKeyType="next"
+                  fieldStyle={styles.noMargin}
                 />
-              ) : (
-                <>
-                  <TextField
-                    label="Email"
-                    value={email}
-                    onChangeText={(v) => {
-                      setEmail(v)
-                      setFieldErrors((e) => ({ ...e, email: undefined }))
-                    }}
-                    error={fieldErrors.email}
-                    placeholder="Enter email address"
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    keyboardType="email-address"
-                    editable={!busy}
-                    leadingIcon="mail"
-                  />
+                <View>
                   <TextField
                     label="Password"
                     value={password}
@@ -227,90 +347,93 @@ export default function LoginScreen() {
                       setFieldErrors((e) => ({ ...e, password: undefined }))
                     }}
                     error={fieldErrors.password}
-                    placeholder="Enter password"
+                    placeholder="Enter your password"
                     secureTextEntry
                     autoCapitalize="none"
                     editable={!busy}
                     leadingIcon="lock"
                     onSubmitEditing={submitPassword}
                     returnKeyType="go"
+                    fieldStyle={styles.noMargin}
                   />
-                </>
-              )}
-
-              {!!error && <Text style={[textVariants.small, { color: c.danger }]}>{error}</Text>}
-
-              <Button
-                label={onCode ? "Sign in" : "Continue"}
-                onPress={onCode ? submitCode : submitPassword}
-                loading={busy}
-                fullWidth
-                style={{ marginTop: spacing.md }}
-              />
-
-              {onCode && (
-                <View style={styles.secondary}>
                   <Pressable
-                    onPress={resend}
-                    disabled={busy}
+                    onPress={() =>
+                      toast.show({
+                        message: "Ask an Ortex admin to reset it from Team → your name → Reset password.",
+                        tone: "neutral",
+                      })
+                    }
+                    hitSlop={10}
+                    style={styles.link}
                     accessibilityRole="button"
-                    accessibilityState={{ disabled: busy }}
-                    hitSlop={10}
                   >
-                    <Text style={[textVariants.smallStrong, { color: c.primary }]}>Send another code</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => {
-                      setStep("password")
-                      setCode("")
-                      setError("")
-                    }}
-                    disabled={busy}
-                    hitSlop={10}
-                    style={{ marginTop: spacing.md }}
-                  >
-                    <Text style={[textVariants.small, { color: c.textTertiary }]}>Use a different email</Text>
+                    <Text style={[styles.linkText, { color: c.primary }]}>Forgot password?</Text>
                   </Pressable>
                 </View>
-              )}
-            </View>
+              </>
+            )}
+
+            {!!error && <Text style={[textVariants.small, { color: c.dangerText }]}>{error}</Text>}
           </View>
-      </KeyboardAwareScrollView>
+
+          <Button
+            label={onCode ? "Sign in" : "Login"}
+            onPress={onCode ? submitCode : submitPassword}
+            loading={busy}
+            fullWidth
+            style={styles.submit}
+          />
+
+          {onCode && (
+            <View style={styles.secondary}>
+              <Pressable onPress={resend} disabled={busy} hitSlop={10} accessibilityRole="button">
+                <Text style={[styles.linkText, { color: c.primary }]}>Send another code</Text>
+              </Pressable>
+              <Text style={{ color: c.textTertiary }}>·</Text>
+              <Pressable
+                onPress={() => {
+                  setStep("password")
+                  setCode("")
+                  setError("")
+                }}
+                disabled={busy}
+                hitSlop={10}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.linkText, { color: c.textSecondary }]}>Use a different email</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      </Animated.View>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  scroll: { flexGrow: 1 },
-  wash: {
-    flexGrow: 1,
-    flexShrink: 1,
-    // The guarantee rather than the mechanism: if a device ever squeezes below the
-    // floor, the wash clips its own content instead of spilling under the sheet.
-    overflow: "hidden",
-    alignItems: "center",
+  // flex: 1 with a floor: the collage takes whatever the form leaves, and never
+  // shrinks to a sliver on a short phone.
+  collage: { flex: 1, minHeight: 280, overflow: "hidden", marginTop: -30 },
+  collageRow: { flexDirection: "row", gap: COLLAGE_GAP, paddingHorizontal: COLLAGE_GAP },
+  column: { flex: 1 },
+  fade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 160 },
+  topVeil: { position: "absolute", left: 0, right: 0, top: 30 },
+  // Overlaps the fade by a little so there is no hard seam between the two.
+  content: { paddingHorizontal: gutter, marginTop: -24 },
+  title: { fontSize: 28, lineHeight: 36, fontFamily: font.semibold },
+  subtitle: { marginTop: spacing.xs },
+  // Rhythm: title block to fields 28, fields 20 apart, fields to button 32.
+  fields: { marginTop: 28, gap: 20 },
+  noMargin: { marginBottom: 0 },
+  link: { alignSelf: "flex-end", marginTop: spacing.sm },
+  linkText: { fontSize: 14, lineHeight: 20, fontFamily: font.medium },
+  submit: { marginTop: 32 },
+  secondary: {
+    flexDirection: "row",
     justifyContent: "center",
-    // The lockup must never sit flush against the sheet's top edge — touching it
-    // reads as the mark being cropped, not as tight spacing.
-    paddingBottom: spacing.lg,
-  },
-  sheet: {
-    paddingHorizontal: gutter,
-    paddingTop: spacing.xxl,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-  },
-  badge: {
-    width: 76,
-    height: 76,
-    borderRadius: radius.pill,
     alignItems: "center",
-    justifyContent: "center",
-    alignSelf: "center",
-    marginBottom: spacing.lg,
+    gap: spacing.md,
+    marginTop: spacing.lg,
   },
-  centre: { textAlign: "center" },
-  form: { marginTop: spacing.xl },
-  secondary: { alignItems: "center", marginTop: spacing.lg },
 })

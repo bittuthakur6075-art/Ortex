@@ -61,13 +61,13 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
     try {
       const row = await repo.create<Customer & Row>("customers", normaliseContact(draft))
       feedback.created()
-      toast.show({ message: "Contact saved", tone: "success" })
+      toast.show({ message: "Customer saved", tone: "success" })
       // Replace rather than push: coming back to a half-filled form you have
       // already submitted is never what anyone wants.
       navigation.replace("CustomerDetail", { id: row.id })
     } catch (e) {
       feedback.error()
-      toast.show({ message: (e as Error)?.message || "Could not save this contact", tone: "danger" })
+      toast.show({ message: (e as Error)?.message || "Could not save this customer", tone: "danger" })
     } finally {
       setSaving(false)
     }
@@ -76,7 +76,7 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
   return (
     <>
       <AppScreen
-        title="New contact"
+        title="New customer"
         back
         onBack={() => navigation.goBack()}
         inTabs={false}
@@ -165,7 +165,7 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
         </Section>
 
         <View style={styles.pageBlock}>
-          <Button label="Save contact" fullWidth loading={saving} onPress={() => void save()} />
+          <Button label="Save customer" fullWidth loading={saving} onPress={() => void save()} />
           <Text style={[textVariants.caption, styles.hint, { color: t.textTertiary }]}>
             This adds a customer to the shared master, so the console and everyone else's phone see it too.
           </Text>

@@ -13,10 +13,10 @@ import { toggleFavourite, useFavourites } from "@/lib/favourites"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
-import type { StatusTone } from "@/theme/theme"
 import { border, gutter, radius, size as sizes, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
 import { Avatar, Button, Card, Divider, Icon, IconButton, RecordActivityPanel, DetailSkeleton, StatusBadge, useToast } from "@/ui"
+import ActionButton from "@/ui/ActionButton"
 import type { IconName } from "@/ui/Icon"
 
 /**
@@ -96,7 +96,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
     return (
       <View style={[styles.root, styles.centre, { backgroundColor: t.background, paddingTop: insets.top }]}>
         <Text style={{ color: t.textSecondary, fontFamily: font.medium }}>
-          This contact no longer exists.
+          This customer no longer exists.
         </Text>
         <View style={{ marginTop: 14 }}>
           <Button label="Go back" variant="ghost" onPress={() => navigation.goBack()} />
@@ -105,7 +105,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
     )
   }
 
-  const name = customer.name || customer.company || "Unnamed contact"
+  const name = customer.name || customer.company || "Unnamed customer"
   const hasPhone = !!digits(customer.phone)
   const starred = favourites.has(customer.id)
   const won = theirQuotes.filter((q) => q.status === "accepted" || q.status === "invoiced")
@@ -159,7 +159,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
         >
           {name}
         </Animated.Text>
-        <IconButton name="edit" onPress={() => setEditing(true)} accessibilityLabel="Edit contact" />
+        <IconButton name="edit" onPress={() => setEditing(true)} accessibilityLabel="Edit customer" />
         <IconButton
           name="star"
           variant={starred ? "Bold" : "Linear"}
@@ -173,7 +173,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
             })
           }}
         />
-        <IconButton name="share" onPress={() => void share()} accessibilityLabel="Share contact" />
+        <IconButton name="share" onPress={() => void share()} accessibilityLabel="Share customer" />
       </View>
 
       <Animated.ScrollView
@@ -206,28 +206,28 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
             thumb-length from the name, and nothing between them and it. */}
         <Panel>
           <View style={styles.quickRow}>
-            <QuickAction
+            <ActionButton
               icon="call"
               label="Call"
               tone="blue"
               disabled={!hasPhone}
               onPress={() => void callNumber(customer.phone)}
             />
-            <QuickAction
+            <ActionButton
               icon="whatsapp"
               label="WhatsApp"
               tone="emerald"
               disabled={!hasPhone}
               onPress={() => void whatsapp(customer.phone)}
             />
-            <QuickAction
+            <ActionButton
               icon="mail"
               label="Email"
               tone="amber"
               disabled={!customer.email}
               onPress={() => void sendEmail(customer.email)}
             />
-            <QuickAction
+            <ActionButton
               icon="quote"
               label="Quote"
               tone="primary"
@@ -371,37 +371,6 @@ function Panel({ title, children }: { title?: string; children: React.ReactNode 
   )
 }
 
-function QuickAction({
-  icon,
-  label,
-  onPress,
-  disabled,
-  tone = "primary",
-}: {
-  icon: IconName
-  label: string
-  onPress: () => void
-  disabled?: boolean
-  tone?: StatusTone | "primary"
-}) {
-  const t = useTheme()
-  const fill = tone === "primary" ? t.primary : t.tones[tone].fg
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={({ pressed }) => [styles.quick, { opacity: disabled ? 0.35 : pressed ? 0.65 : 1 }]}
-    >
-      <View style={[styles.quickCircle, { backgroundColor: fill }]}>
-        <Icon name={icon} size={22} color={t.textOnPrimary} variant="Bold" />
-      </View>
-      <Text style={[styles.quickLabel, { color: t.text }]}>{label}</Text>
-    </Pressable>
-  )
-}
-
 /**
  * A fact, and what you can do with it. The row itself performs the obvious verb
  * (ring the number, compose to the address); the trailing circle carries the
@@ -507,15 +476,6 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: spacing.md,
   },
-  quick: { alignItems: "center", width: 76 },
-  quickCircle: {
-    width: 76,
-    height: 54,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  quickLabel: { marginTop: 7, fontSize: 12, fontFamily: font.semibold },
 
   sectionLabel: {
     fontSize: 12,

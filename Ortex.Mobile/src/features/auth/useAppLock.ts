@@ -22,7 +22,22 @@ export function useAppLock(enabled: boolean, ready: boolean) {
   // exists for. Arming is done below, once `ready` says both have landed.
   const [locked, setLocked] = React.useState(false)
   const [prompting, setPrompting] = React.useState(false)
+  // What the last attempt said, in words a person can act on. Null after a
+  // cancel: backing out of the prompt is a choice, not a failure to report.
+  const [error, setError] = React.useState<string | null>(null)
+  // Named on the button ("Unlock with fingerprint"), so the one control on the
+  // lock screen says which sensor it is about to wake.
+  const [method, setMethod] = React.useState<BiometricMethod>("fingerprint")
   const backgroundedAt = React.useRef<number | null>(null)
+
+  React.useEffect(() => {
+    LocalAuthentication.supportedAuthenticationTypesAsync()
+      .then((types) => {
+        if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) setMethod("fingerprint")
+        else if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) setMethod("face")
+      })
+      .catch(() => {})
+  }, [])
   const armed = React.useRef(false)
 
   // THE COLD START. The first time the app is ready with the setting on, lock —
@@ -58,6 +73,7 @@ export function useAppLock(enabled: boolean, ready: boolean) {
   const unlock = React.useCallback(async () => {
     if (prompting) return
     setPrompting(true)
+    setError(null)
     try {
       const hasHardware = await LocalAuthentication.hasHardwareAsync()
       const enrolled = await LocalAuthentication.isEnrolledAsync()
@@ -74,9 +90,17 @@ export function useAppLock(enabled: boolean, ready: boolean) {
       if (result.success) {
         feedback.unlocked()
         setLocked(false)
+      } else if (!CANCELLED.has(result.error)) {
+        feedback.error()
+        setError(
+          result.error === "lockout"
+            ? "Too many attempts. Wait a moment, then try again."
+            : "Not recognised. Try again.",
+        )
       }
     } catch {
       feedback.error()
+      setError("Could not start the unlock. Try again.")
     } finally {
       setPrompting(false)
     }
@@ -91,8 +115,13 @@ export function useAppLock(enabled: boolean, ready: boolean) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, locked])
 
-  return { locked, prompting, unlock }
+  return { locked, prompting, error, method, unlock }
 }
+
+export type BiometricMethod = "fingerprint" | "face"
+
+/** The prompt was dismissed rather than failed: say nothing. */
+const CANCELLED = new Set<string>(["user_cancel", "system_cancel", "app_cancel"])
 
 /** Is there a usable biometric on this device? Drives the Profile toggle. */
 export async function biometricAvailable(): Promise<boolean> {
