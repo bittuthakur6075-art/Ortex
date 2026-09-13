@@ -1,4 +1,4 @@
-import React, { memo } from "react"
+import React, { memo, useState } from "react"
 import { Image, StyleSheet, Text, View } from "react-native"
 
 import { useTheme } from "@/store/ThemeContext"
@@ -54,11 +54,17 @@ function Avatar({ name, uri, size = "md", ring, ringGap = 3, edit }: Props) {
     ? { primary: t.primary, success: t.success, warning: t.warning, danger: t.danger }[ring]
     : undefined
   const badge = Math.max(22, Math.round(dimension * 0.3))
+  // A photo that will not load (deleted object, no signal) falls back to the
+  // initials rather than leaving an empty disc where a colleague's face was.
+  // Keyed by uri, so a newly uploaded photo gets its own attempt.
+  const [failedUri, setFailedUri] = useState<string | null>(null)
+  const showPhoto = Boolean(uri) && failedUri !== uri
 
-  const face = uri ? (
+  const face = showPhoto ? (
     <Image
       source={{ uri }}
       accessibilityLabel={name}
+      onError={() => setFailedUri(uri ?? null)}
       style={[styles.image, { width: dimension, height: dimension, borderRadius: dimension / 2 }]}
     />
   ) : (

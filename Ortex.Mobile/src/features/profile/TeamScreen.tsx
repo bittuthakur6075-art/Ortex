@@ -1,190 +1,406 @@
 import React from "react"
-import { StyleSheet, Text, View } from "react-native"
+import { Pressable, StyleSheet, Text, View } from "react-native"
 
+import { repo } from "@/data/repo"
 import { supabase, errorMessage } from "@/data/supabase"
-import { MODULES, roleLabel, type Profile } from "@/domain/modules"
+import { formatDate, relativeTime } from "@/domain/format"
+import { roleLabel, type Profile } from "@/domain/modules"
 import InviteUserSheet from "@/features/profile/InviteUserSheet"
-import { callNumber, prettyPhone } from "@/lib/contact"
+import { callNumber } from "@/lib/contact"
+import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
-import { spacing } from "@/theme/tokens"
-import { font } from "@/theme/typography"
-import { AppScreen, Badge, EmptyState, IconButton, Section, SectionRow, Spinner, useToast } from "@/ui"
+import { gutter, radius, spacing, state } from "@/theme/tokens"
+import { font, textVariants } from "@/theme/typography"
+import {
+  AppScreen,
+  Avatar,
+  ChipGroup,
+  EmptyState,
+  Icon,
+  IconButton,
+  ListRefreshControl,
+  RowSeparator,
+  SearchField,
+  SkeletonList,
+  useToast,
+  type ChipOption,
+} from "@/ui"
 
 /**
- * Team — who else is on this Ortex account.
+ * Team — who else is on this Ortex account. A full page, the phone's version of
+ * the console's /users table.
  *
- * PORTED FROM C:\code\capnix\Capnix.Mobile.Partner\src\screens\user\TeamScreen.jsx:
- * the roster as a grouped list, one row per person, standing said in words rather
- * than in colour alone.
+ *   · a summary strip (people, active, admins, deactivated) that doubles as the
+ *     answer to "is anyone locked out?" before a row is read
+ *   · search over name, email and phone, and a filter rail with counts
+ *   · one row per person: their own photo (`profiles.avatar_url`, initials when
+ *     none) with a live dot, name, email, then role · module reach · when they
+ *     last changed anything (from `audit_log`), standing said in words
  *
- * INVITING IS HERE; MANAGING IS NOT. An admin can create a login from the phone
- * (InviteUserSheet, which calls the console's own `admin-create-user`), because
- * meeting someone who needs an account happens away from a desk. Changing a
- * role, deactivating and deleting stay in the console: those rules live
- * server-side in `admin-manage-user` — an admin cannot disable their own
- * account, deleting cascades `profiles.id` — and a phone that could half-do
- * them would be a second place to get it wrong.
+ * INVITING, ENABLING AND RESETTING ARE HERE; THE REST IS NOT. InviteUserSheet is
+ * the console's `admin-create-user`; a row opens UserDetailScreen — the
+ * console's /users/:id — which deactivates, reactivates and resets passwords
+ * through `admin-manage-user`, where the rules live. Role/module edits and
+ * deleting a login stay in the console.
  *
- * ADMIN-ONLY, AND NOT MERELY IN THE UI. `profiles_self_read` (migration 0002) is
- * `id = auth.uid() or is_admin()`, so a Sales Executive asking for the roster gets
- * exactly one row back — themselves. The Profile hub hides the door for them; this
- * says so plainly for anyone who reaches it another way.
+ * ADMIN-ONLY, AND NOT MERELY IN THE UI. `profiles_self_read` (0002) is
+ * `id = auth.uid() or is_admin()`, so a Sales Executive gets exactly one row
+ * back — themselves — and the page says so.
  */
+
+type Filter = "all" | "active" | "admin" | "sales" | "off"
+type Activity = Record<string, { at: string; count: number }>
+
 export default function TeamScreen({ navigation }: StackScreenProps<"Team">) {
   const t = useTheme()
   const toast = useToast()
   const { profile } = useAuth()
+  const isAdmin = profile?.role === "admin"
 
   const [people, setPeople] = React.useState<Profile[]>([])
+  const [activity, setActivity] = React.useState<Activity>({})
   const [failed, setFailed] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(true)
-
+  const [refreshing, setRefreshing] = React.useState(false)
+  const [query, setQuery] = React.useState("")
+  const [filter, setFilter] = React.useState<Filter>("all")
   const [inviting, setInviting] = React.useState(false)
-  const [reloadKey, setReloadKey] = React.useState(0)
 
-  React.useEffect(() => {
-    let alive = true
-    const load = async () => {
-      try {
-        // `select("*")`, NOT a column list. Naming columns makes this screen
-        // fail closed on schema drift: `phone` arrived in migration 0021, and
-        // against a database that has not run it yet PostgREST rejects the whole
-        // request — so the roster came back EMPTY because of one optional field
-        // nothing here requires. A star selects what exists; a person with no
-        // phone column simply has no phone.
-        const { data, error } = await supabase.from("profiles").select("*").order("email")
-        if (error) throw error
-        if (alive) setPeople((data as Profile[]) || [])
-      } catch (e) {
-        const message = errorMessage(e, "Could not load the team")
-        if (alive) setFailed(message)
-        if (alive) toast.show({ message, tone: "danger" })
-      } finally {
-        if (alive) setLoading(false)
-      }
+  const load = React.useCallback(async () => {
+    try {
+      // `select("*")`, NOT a column list: `phone` arrived in migration 0021, and
+      // naming it fails the WHOLE read against a project that has not run it.
+      const [{ data, error }, recent] = await Promise.all([
+        supabase.from("profiles").select("*").order("email"),
+        // Nice to have, never a reason for the roster to fail.
+        repo.lastActivityByActor().catch(() => ({}) as Activity),
+      ])
+      if (error) throw error
+      setPeople((data as Profile[]) || [])
+      setActivity(recent)
+      setFailed(null)
+    } catch (e) {
+      const message = errorMessage(e, "Could not load the team")
+      setFailed(message)
+      toast.show({ message, tone: "danger" })
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
-    void load()
-    return () => {
-      alive = false
-    }
-  }, [toast, reloadKey])
+  }, [toast])
 
-  // Admins first, then everyone alphabetically — the console's Users list order.
+  // Load on every focus: coming back from a user's page after deactivating them
+  // should show the new standing without a pull. The first focus is the mount.
+  React.useEffect(() => navigation.addListener("focus", () => void load()), [navigation, load])
+
   const roster = React.useMemo(
     () =>
       [...people].sort((a, b) => {
+        // Active before deactivated, admins first, then by name.
+        if ((a.active === false) !== (b.active === false)) return a.active === false ? 1 : -1
         if ((a.role === "admin") !== (b.role === "admin")) return a.role === "admin" ? -1 : 1
         return (a.name || a.email || "").localeCompare(b.name || b.email || "")
       }),
     [people],
   )
 
-  // What came back IS the answer on access: RLS returns everyone to an admin and
-  // only the caller to anybody else, so one row that is you means "not an admin"
-  // without the client having to decide that for itself.
+  const counts = React.useMemo(
+    () => ({
+      all: roster.length,
+      active: roster.filter((p) => p.active !== false).length,
+      admin: roster.filter((p) => p.role === "admin").length,
+      sales: roster.filter((p) => p.role !== "admin").length,
+      off: roster.filter((p) => p.active === false).length,
+    }),
+    [roster],
+  )
+
+  const needle = query.trim().toLowerCase()
+  const digits = needle.replace(/\D/g, "")
+  const shown = roster.filter((p) => {
+    if (filter === "active" && p.active === false) return false
+    if (filter === "off" && p.active !== false) return false
+    if (filter === "admin" && p.role !== "admin") return false
+    if (filter === "sales" && p.role === "admin") return false
+    if (!needle) return true
+    return (
+      (p.name || "").toLowerCase().includes(needle) ||
+      (p.email || "").toLowerCase().includes(needle) ||
+      (!!digits && String(p.phone || "").includes(digits))
+    )
+  })
+
+  const filters: ChipOption<Filter>[] = [
+    { key: "all", label: `All ${counts.all}` },
+    { key: "active", label: `Active ${counts.active}` },
+    { key: "admin", label: `Admins ${counts.admin}` },
+    { key: "sales", label: `Sales ${counts.sales}` },
+    ...(counts.off ? [{ key: "off" as const, label: `Deactivated ${counts.off}`, tint: t.danger }] : []),
+  ]
+
   const onlyMe = roster.length === 1 && roster[0]?.id === profile?.id
-  const active = roster.filter((p) => p.active !== false)
-  const disabled = roster.filter((p) => p.active === false)
+
+  const open = (p: Profile) => {
+    feedback.tap()
+    if (isAdmin) navigation.navigate("UserDetail", { id: p.id! })
+    else if (p.phone) void callNumber(p.phone)
+  }
+
+  const header = loading || failed || roster.length === 0 ? null : (
+    <View>
+      <View style={styles.stats}>
+        <Stat icon="customer" label="People" value={counts.all} tone="primary" />
+        <Stat icon="tick" label="Active" value={counts.active} tone="success" />
+        <Stat icon="lock" label="Admins" value={counts.admin} tone="primary" />
+        <Stat icon="warning" label="Off" value={counts.off} tone={counts.off ? "danger" : "muted"} />
+      </View>
+      {onlyMe && (
+        <Text style={[textVariants.small, styles.notice, { color: t.warningText, backgroundColor: t.warningBg }]}>
+          Only your own account is visible. Ask an administrator to see the rest of the team.
+        </Text>
+      )}
+      <RowSeparator />
+    </View>
+  )
 
   return (
-    <AppScreen
-      title="Team"
-      back
-      onBack={() => navigation.goBack()}
-      inTabs={false}
-      headerRight={
-        profile?.role === "admin" ? (
-          <IconButton
-            name="add"
-            accessibilityLabel="Invite a colleague"
-            onPress={() => setInviting(true)}
-          />
-        ) : undefined
-      }
-    >
-      {loading ? (
-        <View style={styles.centre}>
-          <Spinner label="Loading the team" />
+    <>
+      <AppScreen
+        title="Team"
+        subtitle={loading ? "Loading…" : `${counts.all} ${counts.all === 1 ? "person" : "people"} · ${counts.active} active`}
+        back
+        onBack={() => navigation.goBack()}
+        inTabs={false}
+        headerRight={
+          isAdmin ? (
+            <IconButton name="add" accessibilityLabel="Invite a colleague" onPress={() => setInviting(true)} />
+          ) : undefined
+        }
+        list={{
+          data: loading || failed ? [] : shown,
+          keyExtractor: (p: unknown) => (p as Profile).id!,
+          refreshControl: (
+            <ListRefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true)
+                void load()
+              }}
+            />
+          ),
+          ListHeaderComponent: header,
+          ItemSeparatorComponent: RowSeparator,
+          ListFooterComponent:
+            shown.length > 0 ? (
+              <View>
+                <RowSeparator />
+                <Text style={[textVariants.caption, styles.footer, { color: t.textTertiary }]}>
+                  {isAdmin
+                    ? "Tap a person for their activity, to deactivate them or to reset their password. Roles and module access are edited in the Ortex console."
+                    : "Roles and module access are managed by an administrator in the Ortex console."}
+                </Text>
+              </View>
+            ) : null,
+          ListEmptyComponent: loading ? (
+            <SkeletonList count={6} leading="avatar" leadingSize={48} />
+          ) : failed ? (
+            <EmptyState
+              icon="warning"
+              title="Could not load the team"
+              hint={failed}
+              actionLabel="Try again"
+              onAction={() => void load()}
+            />
+          ) : roster.length === 0 ? (
+            <EmptyState icon="customer" title="No one to show" hint="The account has no logins yet." />
+          ) : (
+            <EmptyState
+              icon="search"
+              title="No one matches"
+              hint={needle ? `Nobody on the team matches “${query.trim()}”.` : "Nobody in this group."}
+              actionLabel="Clear filters"
+              onAction={() => {
+                setQuery("")
+                setFilter("all")
+              }}
+            />
+          ),
+          renderItem: ({ item }: { item: unknown }) => {
+            const p = item as Profile
+            return (
+              <PersonRow
+                person={p}
+                you={p.id === profile?.id}
+                lastAt={activity[p.id!]?.at}
+                onPress={isAdmin || p.phone ? () => open(p) : undefined}
+              />
+            )
+          },
+        }}
+      >
+        <View style={styles.tools}>
+          <SearchField value={query} onChangeText={setQuery} placeholder="Search name, email or phone" />
         </View>
-      ) : failed ? (
-        // Say WHY. An empty roster and a refused query look identical otherwise,
-        // and the two have nothing to do with each other.
-        <EmptyState icon="warning" title="Could not load the team" hint={failed} />
-      ) : roster.length === 0 ? (
-        <EmptyState
-          icon="customer"
-          title="No one to show"
-          hint="The account has no other logins yet."
-        />
-      ) : (
-        <>
-          <Section title={`Active · ${active.length}`}>
-            {active.map((p) => (
-              <PersonRow key={p.id} person={p} you={p.id === profile?.id} />
-            ))}
-          </Section>
+        {roster.length > 1 && <ChipGroup options={filters} value={filter} onChange={setFilter} />}
+      </AppScreen>
 
-          {disabled.length > 0 && (
-            <Section title={`Deactivated · ${disabled.length}`}>
-              {disabled.map((p) => (
-                <PersonRow key={p.id} person={p} you={p.id === profile?.id} />
-              ))}
-            </Section>
-          )}
+      <InviteUserSheet visible={inviting} onClose={() => setInviting(false)} onInvited={() => void load()} />
+    </>
+  )
+}
 
-          <Text style={[styles.note, { color: t.textTertiary }]}>
-            {onlyMe
-              ? "Only your own account is visible. Ask an administrator to see the rest of the team."
-              : "Logins, roles and module access are managed in the Ortex console."}
-          </Text>
-        </>
-      )}
-
-      <InviteUserSheet
-        visible={inviting}
-        onClose={() => setInviting(false)}
-        onInvited={() => setReloadKey((n) => n + 1)}
-      />
-    </AppScreen>
+function Stat({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ComponentProps<typeof Icon>["name"]
+  label: string
+  value: number
+  tone: "primary" | "success" | "danger" | "muted"
+}) {
+  const t = useTheme()
+  const ink = { primary: t.primary, success: t.success, danger: t.danger, muted: t.textTertiary }[tone]
+  const well = { primary: t.iconWell, success: t.successBg, danger: t.dangerBg, muted: t.surface }[tone]
+  return (
+    <View style={[styles.stat, { backgroundColor: t.surfaceInset }]}>
+      <View style={[styles.statWell, { backgroundColor: well }]}>
+        <Icon name={icon} size={16} color={ink} variant="Bulk" />
+      </View>
+      <Text style={[styles.statValue, { color: t.text }]}>{value}</Text>
+      <Text style={[textVariants.caption, { color: t.textTertiary }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
   )
 }
 
 /**
- * One person. The subtitle carries what an admin actually opens this list to
- * check — the role, and how much of the app that role can reach — rather than
- * repeating the email that is already the row's own fallback title.
+ * One person. Two lines under the name because an admin opens this list to
+ * check three things at once — who, can they sign in, and are they actually
+ * using it — and a single truncated subtitle could only answer one.
  */
-function PersonRow({ person, you }: { person: Profile; you: boolean }) {
+function PersonRow({
+  person,
+  you,
+  lastAt,
+  onPress,
+}: {
+  person: Profile
+  you: boolean
+  lastAt?: string
+  onPress?: () => void
+}) {
+  const t = useTheme()
   const name = person.name?.trim() || person.email || "Unnamed"
-  const granted = person.role === "admin" ? MODULES.length : (person.modules || []).length
-  const reach = person.role === "admin" ? "Everything" : `${granted} of ${MODULES.length} modules`
-  const phone = String(person.phone || "").replace(/\D/g, "")
+  const off = person.active === false
+  const admin = person.role === "admin"
+  const granted = (person.modules || []).length
+  const reach = admin ? "All modules" : `${granted} ${granted === 1 ? "module" : "modules"}`
+  const seen = lastAt
+    ? `Active ${relativeTime(lastAt)}`
+    : person.created_at
+      ? `Joined ${formatDate(person.created_at)}`
+      : "No recent activity"
 
+  const body = (
+    <View style={[styles.row, off && { opacity: 0.72 }]}>
+      <View>
+        <Avatar name={name} uri={person.avatar_url || undefined} size={48} />
+        <View
+          style={[
+            styles.dot,
+            { backgroundColor: off ? t.danger : t.success, borderColor: t.surface },
+          ]}
+        />
+      </View>
+
+      <View style={styles.body}>
+        <View style={styles.nameLine}>
+          <Text numberOfLines={1} style={[textVariants.listTitle, styles.name, { color: t.text }]}>
+            {name}
+          </Text>
+          {you && <Pill label="You" fg={t.primary} bg={t.primary10} />}
+        </View>
+        {!!person.email && person.email !== name && (
+          <Text numberOfLines={1} style={[textVariants.small, { color: t.textSecondary }]}>
+            {person.email}
+          </Text>
+        )}
+        <View style={styles.metaLine}>
+          <Pill
+            label={roleLabel(person.role) || "No role"}
+            fg={admin ? t.tones.violet.fg : t.tones.blue.fg}
+            bg={admin ? t.tones.violet.bg : t.tones.blue.bg}
+          />
+          {off ? (
+            <Pill label="Deactivated" fg={t.dangerText} bg={t.dangerBg} />
+          ) : (
+            <Text numberOfLines={1} style={[textVariants.caption, styles.meta, { color: t.textTertiary }]}>
+              {reach} · {seen}
+            </Text>
+          )}
+        </View>
+      </View>
+
+      {!!onPress && <Icon name="forward" size={18} color={t.textTertiary} />}
+    </View>
+  )
+
+  if (!onPress) return body
   return (
-    <SectionRow
-      leadingIcon="profile"
-      leadingTone={person.active === false ? "danger" : "primary"}
-      title={you ? `${name} (you)` : name}
-      subtitle={`${roleLabel(person.role) || "No role"} · ${reach}`}
-      chevron={!!phone}
-      onPress={phone ? () => void callNumber(person.phone || "") : undefined}
-      accessibilityLabel={
-        phone ? `${name}, ${roleLabel(person.role)}. Call ${prettyPhone(person.phone || "")}` : undefined
-      }
-      trailing={person.active === false ? <Badge label="Off" tone="danger" /> : undefined}
-    />
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${name}, ${roleLabel(person.role)}${off ? ", deactivated" : ""}`}
+      style={({ pressed }) => ({ opacity: pressed ? state.pressedOpacity : 1 })}
+    >
+      {body}
+    </Pressable>
+  )
+}
+
+function Pill({ label, fg, bg }: { label: string; fg: string; bg: string }) {
+  return (
+    <View style={[styles.pill, { backgroundColor: bg }]}>
+      <Text style={[styles.pillText, { color: fg }]}>{label}</Text>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  centre: { paddingVertical: spacing.xxxl, alignItems: "center" },
-  note: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    fontSize: 12.5,
-    lineHeight: 18,
-    fontFamily: font.regular,
+  // SearchField carries its own gutter margin.
+  tools: { paddingBottom: spacing.sm },
+  stats: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: gutter, paddingVertical: spacing.md },
+  stat: { flex: 1, borderRadius: 16, paddingVertical: spacing.md, paddingHorizontal: spacing.sm, alignItems: "center", gap: 4 },
+  statWell: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
+  statValue: { fontSize: 20, lineHeight: 26, fontFamily: font.bold },
+  notice: { marginHorizontal: gutter, marginBottom: spacing.md, padding: spacing.md, borderRadius: 12 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingHorizontal: gutter,
+    paddingVertical: spacing.md,
   },
+  dot: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+  },
+  body: { flex: 1, minWidth: 0, gap: 3 },
+  nameLine: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  name: { flexShrink: 1 },
+  metaLine: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: 3 },
+  meta: { flexShrink: 1 },
+  pill: { borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3 },
+  pillText: { fontSize: 11, lineHeight: 14, fontFamily: font.semibold },
+  footer: { paddingHorizontal: gutter, paddingTop: spacing.md, paddingBottom: spacing.xxl, lineHeight: 18 },
 })

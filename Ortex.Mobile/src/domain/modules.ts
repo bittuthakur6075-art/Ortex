@@ -16,6 +16,7 @@ export type Profile = {
   avatar_url?: string | null
   /** Set by the user on their own Account details page (migration 0021). */
   phone?: string | null
+  created_at?: string
 }
 
 export type ModuleKey =

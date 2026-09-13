@@ -2,7 +2,7 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs"
 import { BlurView } from "expo-blur"
 import { LinearGradient } from "expo-linear-gradient"
 import React from "react"
-import { Animated, Pressable, StyleSheet, View } from "react-native"
+import { Animated, Pressable, StyleSheet, View, useWindowDimensions } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { feedback } from "@/lib/feedback"
@@ -13,7 +13,7 @@ import { textVariants } from "@/theme/typography"
 import Icon, { type IconName } from "@/ui/Icon"
 
 /**
- * The bottom navigation — a LIQUID GLASS capsule of four labelled icons.
+ * The bottom navigation — a LIQUID GLASS capsule of labelled icons, one per tab.
  *
  * Structurally still the floating bar ported from
  * C:\code\capnix\Capnix.Mobile.Partner\src\navigation\UserNavigator.jsx: detached
@@ -35,7 +35,7 @@ import Icon, { type IconName } from "@/ui/Icon"
  * The wash stays thin deliberately: opacity here buys legibility and costs the
  * whole effect, so contrast is bought with the sheen and rim instead.
  *
- * EACH TAB IS A GLYPH OVER ITS NAME (10/medium, 2dp under the icon), and ONLY
+ * EACH TAB IS A GLYPH OVER ITS NAME (20dp glyph, 10/medium label, 2dp under the icon), and ONLY
  * THE SELECTED TAB IS FILLED: idle tabs are a bare Linear glyph on the glass, the
  * current one a light brand-tint disc under a Bold brand glyph. Icon and label
  * are both stacked pairs cross-faded on the same `near` value, because neither an
@@ -51,11 +51,12 @@ import Icon, { type IconName } from "@/ui/Icon"
  */
 
 /**
- * Minimum side margin, NOT the capsule's width — the capsule hugs its chips and
- * is centred. At 80dp chips the row is already 340dp wide, so this is down to 8:
- * a 360dp phone has only 20dp to spare and half of it goes each side.
+ * Side margin. The capsule now SPANS the screen less this on each side: the
+ * chips are sized from the window width (chipWidthFor), so the bar is as wide
+ * as the phone allows instead of hugging fixed 62/80dp chips and leaving a wide
+ * empty margin on every phone bigger than 360dp.
  */
-const BAR_INSET_X = 8
+const BAR_INSET_X = 10
 const BAR_LIFT = 10
 /** Inset of the tabs from the capsule's own edges, on all four. */
 const INNER_PADDING = 4
@@ -63,18 +64,25 @@ const INNER_PADDING = 4
  * The chip each glyph sits in — a stadium, wider than it is tall, painted only
  * under the selected tab.
  *
- * The width is a BUDGET as much as a look: the row must fit
- * 4 * CHIP_W + 3 * TAB_GAP + 2 * INNER_PADDING = 340dp inside the 344dp a 360dp
- * screen leaves after BAR_INSET_X. There is 4dp of headroom left. A wider chip, a
- * bigger gap or a fifth tab overflows a narrow phone, and the row is clipped by
- * the capsule's `overflow: "hidden"` rather than wrapping visibly.
+ * The width is DERIVED, not typed: whatever the window leaves after
+ * BAR_INSET_X, the capsule's INNER_PADDING and the gaps, split evenly between
+ * the tabs. The row therefore always fits exactly — it can never be clipped by
+ * the capsule's `overflow: "hidden"` — and a sixth tab simply gets narrower
+ * chips. Five tabs on a 360dp phone get 62dp (still enough for "Catalogue" at
+ * 10dp type); on a 412dp phone, 73dp. CHIP_W_MAX stops a tablet stretching the
+ * chips into bars.
  */
-const CHIP_W = 80
-const CHIP_H = 60
+const CHIP_W_MAX = 110
 /** Space between two chips. */
 const TAB_GAP = 4
-/** Distance the travelling chip covers between two neighbouring tabs. */
-const SLOT_PITCH = CHIP_W + TAB_GAP
+const chipWidthFor = (tabs: number, windowWidth: number) => {
+  const n = Math.max(1, tabs)
+  const room = windowWidth - BAR_INSET_X * 2 - INNER_PADDING * 2 - (n - 1) * TAB_GAP
+  return Math.min(CHIP_W_MAX, Math.floor(room / n))
+}
+const CHIP_H = 60
+/** Glyph size. 20dp: at 24 the icons crowded the labels under them. */
+const ICON_SIZE = 20
 
 /**
  * The capsule HUGS its chips in both axes: this is the row height plus the inset,
@@ -120,6 +128,10 @@ const GLASS = {
 export default function OneUiTabBar({ state: navState, descriptors, navigation }: BottomTabBarProps) {
   const c = useTheme()
   const isDark = useIsDark()
+  const { width: windowWidth } = useWindowDimensions()
+  const chipW = chipWidthFor(navState.routes.length, windowWidth)
+  /** Distance the travelling chip covers between two neighbouring tabs. */
+  const slotPitch = chipW + TAB_GAP
   const insets = useSafeAreaInsets()
   const g = isDark ? GLASS.dark : GLASS.light
 
@@ -168,7 +180,7 @@ export default function OneUiTabBar({ state: navState, descriptors, navigation }
 
   const translateX = slide.interpolate({
     inputRange: navState.routes.map((_, i) => i),
-    outputRange: navState.routes.map((_, i) => i * SLOT_PITCH),
+    outputRange: navState.routes.map((_, i) => i * slotPitch),
     // A single-tab bar would give interpolate a degenerate range.
     extrapolate: "clamp",
   })
@@ -239,6 +251,7 @@ export default function OneUiTabBar({ state: navState, descriptors, navigation }
           pointerEvents="none"
           style={[
             styles.indicator,
+            { width: chipW },
             {
               backgroundColor: g.activeChip,
               transform: [{ translateX }, { scaleX: stretch }, { scaleY: squash }],
@@ -278,7 +291,7 @@ export default function OneUiTabBar({ state: navState, descriptors, navigation }
               }}
               style={styles.tab}
             >
-              <Animated.View style={[styles.chip, { transform: [{ scale: press[index] }] }]}>
+              <Animated.View style={[styles.chip, { width: chipW, transform: [{ scale: press[index] }] }]}>
                 {/*
                   The idle fill. It FADES OUT as the travelling chip arrives —
                   painted flat it would sit on top of the indicator (the tabs are
@@ -302,10 +315,10 @@ export default function OneUiTabBar({ state: navState, descriptors, navigation }
                 */}
                 <View style={styles.iconBox}>
                   <Animated.View style={[styles.glyph, { opacity: Animated.subtract(1, near) }]}>
-                    <Icon name={ICONS[route.name] ?? "quote"} size={24} color={c.text} variant="Linear" />
+                    <Icon name={ICONS[route.name] ?? "quote"} size={ICON_SIZE} color={c.text} variant="Linear" />
                   </Animated.View>
                   <Animated.View style={[styles.glyph, styles.glyphOver, { opacity: near }]}>
-                    <Icon name={ICONS[route.name] ?? "quote"} size={24} color={c.primary} variant="Bulk" />
+                    <Icon name={ICONS[route.name] ?? "quote"} size={ICON_SIZE} color={c.primary} variant="Bulk" />
                   </Animated.View>
                 </View>
 
@@ -373,7 +386,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: INNER_PADDING,
     top: INNER_PADDING,
-    width: CHIP_W,
+    // Width is set inline from the tab count (chipWidthFor).
     height: CHIP_H,
     borderRadius: radius.pill,
   },
@@ -391,7 +404,7 @@ const styles = StyleSheet.create({
   },
   // The icon and its label are a column now, so the glyph pair needs a box of
   // its own to stack inside.
-  iconBox: { width: 24, height: 24, alignItems: "center", justifyContent: "center" },
+  iconBox: { width: ICON_SIZE, height: ICON_SIZE, alignItems: "center", justifyContent: "center" },
   glyph: {
     alignItems: "center",
     justifyContent: "center",
@@ -409,7 +422,7 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   chip: {
-    width: CHIP_W,
+    // Width is set inline from the tab count (chipWidthFor).
     height: CHIP_H,
     borderRadius: radius.pill,
     alignItems: "center",

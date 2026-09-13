@@ -25,6 +25,7 @@ import ChangePasswordScreen from "@/features/profile/ChangePasswordScreen"
 import LegalScreen from "@/features/profile/LegalScreen"
 import ProfileScreen from "@/features/profile/ProfileScreen"
 import TeamScreen from "@/features/profile/TeamScreen"
+import UserDetailScreen from "@/features/profile/UserDetailScreen"
 import NotificationSettingsScreen from "@/features/notifications/NotificationSettingsScreen"
 import NotificationsScreen from "@/features/notifications/NotificationsScreen"
 import { NotificationEngine } from "@/features/notifications/useNotificationEngine"
@@ -132,7 +133,11 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
             the grabber and the near-full detent come from there, not from a
             hand-rolled panel. */}
         <Stack.Screen name="AccountDetails" component={AccountDetailsScreen} options={SHEET} />
-        <Stack.Screen name="Team" component={TeamScreen} options={SHEET} />
+        {/* Team and a user's page are the exception: a searchable roster and a
+            record with a timeline are places you work in, not errands, so they
+            are full-screen pushes. */}
+        <Stack.Screen name="Team" component={TeamScreen} />
+        <Stack.Screen name="UserDetail" component={UserDetailScreen} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={SHEET} />
         <Stack.Screen name="Legal" component={LegalScreen} options={SHEET} />
       </Stack.Navigator>

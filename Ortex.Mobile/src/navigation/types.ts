@@ -44,6 +44,7 @@ export type RootStackParamList = {
   Profile: undefined
   AccountDetails: undefined
   Team: undefined
+  UserDetail: { id: string }
   ChangePassword: undefined
   Legal: { doc: LegalDocKey }
 }

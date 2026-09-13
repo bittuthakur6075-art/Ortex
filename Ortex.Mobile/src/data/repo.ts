@@ -292,6 +292,60 @@ export const repo = {
     }))
   },
 
+  // actor uuid -> { at, count } over the newest `window` audit rows: when each
+  // colleague last changed anything, for the Team roster. A bounded window
+  // rather than a GROUP BY (PostgREST has none without an RPC), so someone idle
+  // for longer than it reaches reads as "no recent activity", never as a lie.
+  async lastActivityByActor(window = 1000): Promise<Record<string, { at: string; count: number }>> {
+    const { data, error } = await supabase
+      .from("audit_log")
+      .select("actor, at")
+      .not("actor", "is", null)
+      .order("at", { ascending: false })
+      .limit(window)
+    if (error) {
+      if (isMissingRelation(error)) return {}
+      throw error
+    }
+    const out: Record<string, { at: string; count: number }> = {}
+    for (const r of (data || []) as Array<{ actor: string; at: string }>) {
+      const hit = out[r.actor]
+      if (hit) hit.count += 1
+      else out[r.actor] = { at: r.at, count: 1 }
+    }
+    return out
+  },
+
+  // Every audited change ONE account made, newest first — history() asked the
+  // other way round. Mirrors apiStore.actorHistory(). Unlike history(), an
+  // absent audit_log is an error: this read IS the user page, and an empty
+  // timeline would say "this person did nothing".
+  async actorHistory(actorId: string, limit = 200): Promise<HistoryEntry[]> {
+    if (!actorId) return []
+    const { data, error } = await supabase
+      .from("audit_log")
+      .select("*")
+      .eq("actor", actorId)
+      .order("at", { ascending: false })
+      .limit(limit)
+    if (error) {
+      if (isMissingRelation(error)) {
+        throw new Error("The audit trail is not installed on this Supabase project (migration 0023). Run: supabase db push")
+      }
+      throw error
+    }
+    return ((data || []) as Array<Record<string, unknown>>).map((r) => ({
+      id: r.id as number,
+      collection: r.table_name as string,
+      recordId: r.row_id as string,
+      action: r.action as HistoryEntry["action"],
+      actor: (r.actor as string | null) ?? null,
+      at: r.at as string,
+      changes: (r.changes || {}) as HistoryEntry["changes"],
+      label: (r.label as string) || "",
+    }))
+  },
+
   // id -> person, for drawing an actor uuid as a name and a face. Reads the
   // allow-list view: `profiles` is owner-or-admin readable, so a sales user
   // querying it directly would get back only themselves.

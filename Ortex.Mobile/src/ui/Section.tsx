@@ -97,6 +97,8 @@ type SectionRowProps = {
   value?: React.ReactNode
   leadingIcon?: IconName
   leadingTone?: SectionRowTone
+  /** A node in place of the icon well — a colleague's face on the Team roster. */
+  leading?: React.ReactNode
   trailing?: React.ReactNode
   onPress?: () => void
   danger?: boolean
@@ -112,6 +114,7 @@ export function SectionRow({
   value,
   leadingIcon,
   leadingTone = "primary",
+  leading,
   trailing,
   onPress,
   danger,
@@ -140,11 +143,11 @@ export function SectionRow({
 
   const content = (
     <View style={[styles.row, style]}>
-      {!!leadingIcon && (
+      {leading ?? (!!leadingIcon && (
         <View style={[styles.well, { backgroundColor: wells[leadingTone] }]}>
           <Icon name={leadingIcon} size={19} variant="Bulk" color={inks[leadingTone]} />
         </View>
-      )}
+      ))}
 
       <View style={styles.body}>
         {typeof title === "string" ? (

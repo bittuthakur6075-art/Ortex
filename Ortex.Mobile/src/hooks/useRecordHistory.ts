@@ -6,12 +6,23 @@ import { repo, type Collection, type HistoryEntry, type StaffDirectory } from "@
 // audit_log and the same staff_directory view, so a quotation edited on a phone
 // and opened in the console tells one story, not two.
 
-// The directory is the same handful of rows for every record on every screen
-// and changes about as often as somebody joins the company, so one module-level
-// promise serves the whole session.
+// The directory is the same handful of rows for every record on every screen,
+// so one module-level promise is shared — but only for a minute. It used to
+// serve the whole session, which meant a colleague who uploaded a photo (or
+// joined) stayed a letter in a circle until the app was killed and reopened.
+const DIRECTORY_TTL_MS = 60_000
 let directoryPromise: Promise<StaffDirectory> | null = null
-function loadDirectory(): Promise<StaffDirectory> {
+let directoryAt = 0
+
+/** Drop the cached directory, e.g. after an admin changes an account. */
+export function invalidateDirectory() {
+  directoryPromise = null
+}
+
+export function loadDirectory(): Promise<StaffDirectory> {
+  if (directoryPromise && Date.now() - directoryAt > DIRECTORY_TTL_MS) directoryPromise = null
   if (!directoryPromise) {
+    directoryAt = Date.now()
     directoryPromise = repo.staffDirectory().catch((e) => {
       // A failed lookup must not stop the history rendering — the entries are
       // still true, they just say "Unknown" instead of a name. Dropping the

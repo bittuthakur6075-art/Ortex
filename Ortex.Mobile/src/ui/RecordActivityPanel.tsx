@@ -99,7 +99,7 @@ function Person({ name, avatarUrl, known }: { name: string; avatarUrl: string; k
   const t = useTheme()
   return (
     <View style={styles.person}>
-      <Avatar name={name} uri={avatarUrl || undefined} size={20} />
+      <Avatar name={name} uri={avatarUrl || undefined} size={28} />
       <Text style={[styles.personName, { color: known ? t.text : t.textTertiary, fontFamily: known ? font.medium : font.regular }]}>
         {name}
       </Text>
