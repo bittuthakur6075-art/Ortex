@@ -660,10 +660,10 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
         onClose={() => setStudioFor(null)}
         imageUrl={studioFor || ""}
         productName={draft.name}
-        onReplace={(url) => {
+        onReplace={(newUrl, oldUrl) => {
           setDraft((d) => ({
             ...d,
-            images: (d.images || []).map((u) => (u === studioFor ? url : u)),
+            images: (d.images || []).map((u) => (u === oldUrl ? newUrl : u)),
           }))
           setDirty(true)
           toast.show({ message: "Photo replaced with enhanced version", tone: "success" })

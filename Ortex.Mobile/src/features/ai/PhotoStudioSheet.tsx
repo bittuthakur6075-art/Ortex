@@ -40,7 +40,7 @@ type Props = {
   /** Adds the new photo to the product beside the original. */
   onAdd: (url: string) => void
   /** Replaces the original photo with the enhanced one. */
-  onReplace?: (url: string) => void
+  onReplace?: (newUrl: string, oldUrl: string) => void
 }
 
 export default function PhotoStudioSheet({ visible, onClose, imageUrl, productName, onAdd, onReplace }: Props) {
@@ -138,7 +138,7 @@ export default function PhotoStudioSheet({ visible, onClose, imageUrl, productNa
                 icon="tick"
                 onPress={() => {
                   feedback.created()
-                  onReplace(result)
+                  onReplace(result, imageUrl)
                   onClose()
                 }}
                 fullWidth
