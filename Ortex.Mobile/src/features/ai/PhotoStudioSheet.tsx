@@ -37,11 +37,13 @@ type Props = {
   onClose: () => void
   imageUrl: string
   productName?: string
-  /** Adds the new photo to the product. The original stays where it is. */
+  /** Adds the new photo to the product beside the original. */
   onAdd: (url: string) => void
+  /** Replaces the original photo with the enhanced one. */
+  onReplace?: (url: string) => void
 }
 
-export default function PhotoStudioSheet({ visible, onClose, imageUrl, productName, onAdd }: Props) {
+export default function PhotoStudioSheet({ visible, onClose, imageUrl, productName, onAdd, onReplace }: Props) {
   const t = useTheme()
   const [style, setStyle] = React.useState<PhotoStyle>("studio")
   const [instruction, setInstruction] = React.useState("")
@@ -130,17 +132,32 @@ export default function PhotoStudioSheet({ visible, onClose, imageUrl, productNa
       <View style={styles.actions}>
         {result ? (
           <>
-            <Button
-              label="Add as new photo"
-              icon="add"
-              onPress={() => {
-                feedback.created()
-                onAdd(result)
-                onClose()
-              }}
-              fullWidth
-            />
-            <Button label="Try again" variant="outline" size="md" onPress={() => void generate()} loading={busy} fullWidth />
+            {onReplace ? (
+              <Button
+                label="Replace original"
+                icon="tick"
+                onPress={() => {
+                  feedback.created()
+                  onReplace(result)
+                  onClose()
+                }}
+                fullWidth
+              />
+            ) : null}
+            <View style={styles.buttonRow}>
+              <Button
+                label="Add as new photo"
+                icon="add"
+                variant={onReplace ? "outline" : "primary"}
+                onPress={() => {
+                  feedback.created()
+                  onAdd(result)
+                  onClose()
+                }}
+                style={styles.flex}
+              />
+              <Button label="Try again" variant="outline" size="md" onPress={() => void generate()} loading={busy} style={styles.flex} />
+            </View>
           </>
         ) : (
           <Button
@@ -195,4 +212,6 @@ const styles = StyleSheet.create({
   },
   noteText: { flex: 1 },
   actions: { gap: spacing.sm, paddingBottom: spacing.sm },
+  buttonRow: { flexDirection: "row", gap: spacing.sm },
+  flex: { flex: 1 },
 })

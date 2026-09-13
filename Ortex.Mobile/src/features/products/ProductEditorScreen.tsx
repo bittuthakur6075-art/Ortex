@@ -288,7 +288,14 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
   const canSave = !Object.values(problems).some(Boolean) && !saving && !uploading
 
   const save = async () => {
-    if (!canSave) return
+    if (saving || uploading) return
+    const firstProblem = Object.values(problems).find(Boolean)
+    if (firstProblem) {
+      setTouched({ name: true, hsn: true, moq: true, leadTimeDays: true })
+      feedback.warn()
+      toast.show({ message: firstProblem, tone: "danger" })
+      return
+    }
     setSaving(true)
     try {
       const payload = { ...draft, name: draft.name.trim(), sku: draft.sku.trim() }
@@ -594,7 +601,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
           label={editingId ? "Save changes" : "Add product"}
           onPress={() => void save()}
           loading={saving}
-          disabled={!canSave}
+          disabled={saving || uploading}
           fullWidth
         />
       </View>
@@ -653,8 +660,15 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
         onClose={() => setStudioFor(null)}
         imageUrl={studioFor || ""}
         productName={draft.name}
+        onReplace={(url) => {
+          setDraft((d) => ({
+            ...d,
+            images: (d.images || []).map((u) => (u === studioFor ? url : u)),
+          }))
+          setDirty(true)
+          toast.show({ message: "Photo replaced with enhanced version", tone: "success" })
+        }}
         onAdd={(url) => {
-          // Beside the original, never over it.
           setDraft((d) => ({ ...d, images: [...(d.images || []), url] }))
           setDirty(true)
           toast.show({ message: "New photo added beside the original", tone: "success" })

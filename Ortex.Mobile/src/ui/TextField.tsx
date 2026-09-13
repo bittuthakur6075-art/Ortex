@@ -10,7 +10,7 @@ import {
   type ViewStyle,
 } from "react-native"
 
-import AiWriterSheet, { type AiFieldConfig } from "@/features/ai/AiWriterSheet"
+import type { AiFieldConfig } from "@/features/ai/AiWriterSheet"
 import { useReportFocus } from "@/hooks/useKeyboardAwareScroll"
 import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
@@ -54,6 +54,17 @@ type Props = Omit<TextInputProps, "style" | "placeholderTextColor"> & {
    * terms), never for a phone number, a price or a GSTIN.
    */
   ai?: AiFieldConfig
+}
+
+// Breaks the require cycle with AiWriterSheet, which renders a TextField for its instruction field.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _AiWriterSheet: React.ComponentType<any> | null = null
+function getAiWriterSheet() {
+  if (!_AiWriterSheet) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    _AiWriterSheet = require("@/features/ai/AiWriterSheet").default
+  }
+  return _AiWriterSheet
 }
 
 export default function TextField({
@@ -118,15 +129,15 @@ export default function TextField({
           ) : null}
         </View>
       ) : null}
-      {ai ? (
-        <AiWriterSheet
-          {...ai}
-          visible={writing}
-          onClose={() => setWriting(false)}
-          current={String(rest.value ?? "")}
-          onApply={(text) => rest.onChangeText?.(text)}
-        />
-      ) : null}
+      {ai && writing
+        ? React.createElement(getAiWriterSheet()!, {
+            ...ai,
+            visible: writing,
+            onClose: () => setWriting(false),
+            current: String(rest.value ?? ""),
+            onApply: (text: string) => rest.onChangeText?.(text),
+          })
+        : null}
 
       <View
         style={[

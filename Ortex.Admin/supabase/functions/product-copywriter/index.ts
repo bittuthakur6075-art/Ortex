@@ -101,12 +101,16 @@ Deno.serve(async (req) => {
     const data = await gemRes.json()
     const raw = extractText(data)
 
-    // Strip any accidental code fences, then parse.
-    const cleaned = raw.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim()
+    // Strip code fences, locate the outermost JSON object if model added prose, and parse.
+    const fenceStripped = raw.replace(/```(?:json)?/gi, "").trim()
+    const jsonMatch = fenceStripped.match(/\{[\s\S]*\}/)
+    const toParse = jsonMatch ? jsonMatch[0] : fenceStripped
+
     let parsed: { name?: string; description?: string; category?: string; material?: string }
     try {
-      parsed = JSON.parse(cleaned)
-    } catch {
+      parsed = JSON.parse(toParse)
+    } catch (parseErr) {
+      console.error("product-copywriter JSON parse failure:", parseErr, "Raw text:", raw)
       return json({ error: "Could not parse AI response." }, 502)
     }
 
