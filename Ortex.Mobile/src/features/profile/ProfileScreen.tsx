@@ -27,11 +27,13 @@ import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { supabase } from "@/data/supabase"
 import { roleLabel } from "@/domain/modules"
+import { hasDefaults } from "@/domain/quotationDefaults"
 import { APP_CREDIT, APP_VERSION } from "@/constants/app"
 import { biometricAvailable } from "@/features/auth/useAppLock"
 import { MAX_AVATAR_MB, base64Bytes, removeAvatar, uploadAvatar } from "@/lib/avatarUpload"
 import { feedback } from "@/lib/feedback"
 import { useNotificationStore } from "@/lib/notificationStore"
+import { useQuotationDefaults } from "@/lib/quotationDefaults"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
 import { useThemePref, type ThemePref } from "@/store/ThemeContext"
@@ -62,6 +64,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
   const toast = useToast()
   const { profile, session, biometricEnabled, setBiometricEnabled, refreshProfile, signOut } = useAuth()
   const { prefs: notificationPrefs } = useNotificationStore()
+  const { defaults: quoteDefaults } = useQuotationDefaults()
 
   const [canBiometric, setCanBiometric] = React.useState(false)
   const [confirmOut, setConfirmOut] = React.useState(false)
@@ -236,6 +239,18 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
             onPress={() => {
               feedback.tap()
               navigation.navigate("ChangePassword")
+            }}
+          />
+        </Section>
+
+        <Section title="Quotations">
+          <SectionRow
+            leadingIcon="quote"
+            title="Quotation defaults"
+            subtitle={hasDefaults(quoteDefaults) ? "Your own payment terms, T&C and notes" : "Payment terms, T&C and notes for new quotes"}
+            onPress={() => {
+              feedback.tap()
+              navigation.navigate("QuotationDefaults")
             }}
           />
         </Section>

@@ -17,6 +17,12 @@ export type Profile = {
   /** Set by the user on their own Account details page (migration 0021). */
   phone?: string | null
   created_at?: string
+  /**
+   * The user's own payment terms, T&C and notes for new quotations (migration
+   * 0027). Absent entirely on a project that has not had 0027 pushed, which the
+   * app treats as "keep them on this phone".
+   */
+  quotation_defaults?: { paymentTerms?: string | null; terms?: string | null; notes?: string | null } | null
 }
 
 export type ModuleKey =
@@ -43,14 +49,9 @@ export const MODULES: { key: ModuleKey; label: string; adminOnly?: boolean; alwa
 ]
 
 // Can this profile reach the given module?
-export function canAccess(profile: Profile | null | undefined, key: ModuleKey): boolean {
-  if (!profile) return false
-  const m = MODULES.find((x) => x.key === key)
-  if (!m) return false
-  if (m.always) return true
-  if (profile.role === "admin") return true
-  if (m.adminOnly) return false
-  return Array.isArray(profile.modules) && profile.modules.includes(key)
+// Module permissions bypassed: all modules and tabs are accessible to any signed-in user.
+export function canAccess(profile: Profile | null | undefined, _key: ModuleKey): boolean {
+  return Boolean(profile)
 }
 
 export const ROLE_LABEL: Record<string, string> = { admin: "Admin", sales: "Sales Executive" }

@@ -515,7 +515,22 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
 
           {/* 4. Terms - always present, rarely edited */}
           <Section title="Terms & conditions" description="Printed at the foot of the quotation">
-            <Textarea value={form.terms} onChange={(e) => set({ terms: e.target.value })} className="min-h-[110px]" />
+            <Textarea
+              ai={{
+                purpose: "Terms and conditions printed at the foot of a sales quotation from Ortex Industries: validity, payment, artwork approval, production and delivery, one term per line",
+                context: () => ({
+                  validityDays: form.validityDays,
+                  validUntil: form.validUntil,
+                  paymentTerms: form.paymentTerms,
+                  items: (form.lines || []).map((l) => l.description).filter(Boolean).slice(0, 10),
+                }),
+                format: "lines",
+                maxChars: 900,
+              }}
+              value={form.terms}
+              onChange={(e) => set({ terms: e.target.value })}
+              className="min-h-[110px]"
+            />
           </Section>
 
           {/* 5. Optional extras, collapsed until needed */}
@@ -534,7 +549,21 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
               <div className="space-y-5 border-t border-border px-5 py-5">
                 <ShipToFields value={form.shipTo} onChange={(shipTo) => set({ shipTo })} customers={customers} />
                 <Field label="Notes" hint="Printed under the totals">
-                  <Textarea value={form.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Enter notes" className="min-h-[80px]" />
+                  <Textarea
+                    ai={{
+                      purpose: "Short note printed under the totals of a sales quotation, for example what is included, a free mockup offer or a thank you",
+                      context: () => ({
+                        validUntil: form.validUntil,
+                        paymentTerms: form.paymentTerms,
+                        items: (form.lines || []).map((l) => l.description).filter(Boolean).slice(0, 10),
+                      }),
+                      maxChars: 300,
+                    }}
+                    value={form.notes}
+                    onChange={(e) => set({ notes: e.target.value })}
+                    placeholder="Enter notes"
+                    className="min-h-[80px]"
+                  />
                 </Field>
               </div>
             )}

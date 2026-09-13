@@ -4,6 +4,10 @@ import { X, ArrowUpDown, ArrowDownLeft, CheckCircle2, Loader2, Search, Download 
 import { cn } from "../../lib/cn"
 import { statusMeta } from "../../data/domain/schema"
 import { initials, formatCurrency } from "../../lib/format"
+// A deliberate cycle: AiWriter uses Button/Modal from this file, and Textarea
+// renders AiWriter. Both only touch each other at render time, never while the
+// modules are being evaluated, so the import order cannot break it.
+import AiWriter from "./AiWriter"
 
 // The kit follows Metronic 9 Demo 1 (tokens in src/index.css): white surfaces,
 // zinc neutrals, blue-500 primary, 34px controls with 6px corners, 12px cards
@@ -247,8 +251,37 @@ export function Input({ className, ...props }) {
   return <input className={cn(CONTROL, className)} {...props} />
 }
 
-export function Textarea({ className, ...props }) {
-  return <textarea className={cn(CONTROL, "h-auto min-h-[100px] resize-y py-2", className)} {...props} />
+// `ai={{ purpose, context, format, maxChars }}` adds a "Write with AI" trigger in
+// the control's bottom-right corner (components/ui/AiWriter.jsx). Without `ai` the
+// textarea renders exactly as before. Applying a suggestion calls the caller's own
+// onChange with `{ target: { value } }`, so no call site needs a new handler.
+export function Textarea({ className, ai, ...props }) {
+  if (!ai) return <textarea className={cn(CONTROL, "h-auto min-h-[100px] resize-y py-2", className)} {...props} />
+  // `onApplied(value)` is for a field that persists on blur: applying a suggestion
+  // happens in a modal, after the textarea has already blurred with the old text,
+  // so such a caller saves the new value here or loses it.
+  const { purpose, context, format, maxChars, label, onApplied } = ai
+  return (
+    <div className="relative">
+      <textarea className={cn(CONTROL, "h-auto min-h-[100px] resize-y py-2 pb-11", className)} {...props} />
+      {!props.disabled && !props.readOnly && (
+        <div className="absolute bottom-2.5 right-2.5">
+          <AiWriter
+            value={props.value}
+            purpose={purpose}
+            context={context}
+            format={format}
+            maxChars={maxChars}
+            label={label}
+            onApply={(value) => {
+              props.onChange?.({ target: { value } })
+              onApplied?.(value)
+            }}
+          />
+        </div>
+      )}
+    </div>
+  )
 }
 
 // Select is a listbox of our own rather than a native <select>, because the

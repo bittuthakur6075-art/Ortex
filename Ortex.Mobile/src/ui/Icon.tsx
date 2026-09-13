@@ -37,7 +37,7 @@ import Lock from "iconsax-react-native/dist/esm/Lock"
 import Logout from "iconsax-react-native/dist/esm/Logout"
 import Microphone2 from "iconsax-react-native/dist/esm/Microphone2"
 import MicrophoneSlash1 from "iconsax-react-native/dist/esm/MicrophoneSlash1"
-import CallSlash from "iconsax-react-native/dist/esm/CallSlash"
+import MagicStar from "iconsax-react-native/dist/esm/MagicStar"
 import Minus from "iconsax-react-native/dist/esm/Minus"
 import Money from "iconsax-react-native/dist/esm/Money"
 import Notification from "iconsax-react-native/dist/esm/Notification"
@@ -109,7 +109,8 @@ const GLYPHS = {
   leads: DirectInbox,
   voice: Microphone2,
   voiceOff: MicrophoneSlash1,
-  callEnd: CallSlash,
+  // Anu. The sparkle is the glyph people now read as "AI" (Galaxy AI, Gemini).
+  assistant: MagicStar,
   play: Play,
   pause: Pause,
   gst: Personalcard,

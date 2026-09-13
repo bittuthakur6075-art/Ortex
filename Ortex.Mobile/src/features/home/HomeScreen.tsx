@@ -14,6 +14,8 @@ import {
 } from "@/domain/dashboard"
 import { formatCurrency, formatNumber } from "@/domain/format"
 import { QUOTATION_STATUS, statusMeta } from "@/domain/schema"
+import AnuButton from "@/features/anu/AnuButton"
+import AnuHomeCard from "@/features/anu/AnuHomeCard"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { callNumber } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
@@ -149,6 +151,7 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
         headerLeft={<ProfileAvatarButton />}
         headerRight={
           <>
+            <AnuButton />
             <IconButton name="search" onPress={() => navigation.navigate("Search")} accessibilityLabel="Search everything" />
             <NotificationBell />
           </>
@@ -174,6 +177,9 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
             <QuickAction icon="insights" label="Insights" onPress={() => openInsights()} />
           </View>
         )}
+
+        {/* ---- the AI assistant, one tap from launch ---- */}
+        <AnuHomeCard />
 
         {nothingGranted ? (
           <EmptyState
@@ -536,9 +542,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
   },
   clear: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingHorizontal: gutter, paddingBottom: gutter },
-  clearWell: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  clearWell: { width: 44, height: 44, borderRadius: 999, alignItems: "center", justifyContent: "center" },
   callSlot: { marginLeft: spacing.md },
-  callButton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  callButton: { width: 40, height: 40, borderRadius: 999, alignItems: "center", justifyContent: "center" },
   more: {
     flexDirection: "row",
     alignItems: "center",

@@ -8,7 +8,9 @@ import { repo } from "@/data/repo"
 import { errorMessage } from "@/data/supabase"
 import { canAccess } from "@/domain/modules"
 import { GST_RATES, PRODUCT_CATEGORIES, UNITS, newProduct, type Category, type Product, type Row } from "@/domain/schema"
+import PhotoStudioSheet from "@/features/ai/PhotoStudioSheet"
 import { useCollection } from "@/hooks/useCollection"
+import { aiProductCopy, isUploadedPhoto } from "@/lib/ai"
 import { useAuth } from "@/store/AuthContext"
 import { base64Bytes } from "@/lib/avatarUpload"
 import { feedback } from "@/lib/feedback"
@@ -63,6 +65,9 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
   const [confirmLeave, setConfirmLeave] = React.useState(false)
   const [picker, setPicker] = React.useState<null | "category" | "unit" | "gst">(null)
   const [touched, setTouched] = React.useState<Partial<Record<keyof Draft, boolean>>>({})
+  const [writingCopy, setWritingCopy] = React.useState(false)
+  // The photo the AI studio is open for, or null.
+  const [studioFor, setStudioFor] = React.useState<string | null>(null)
 
   // The picker used to offer a hardcoded list, so a category the office added
   // last week did not exist on the phone and a product saved here could not be
@@ -206,6 +211,52 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
     }
   }
 
+  /**
+   * Name, description and category from the console's `product-copywriter`,
+   * which LOOKS AT the first uploaded photo when there is one. It fills a
+   * material only into an empty field: a material the person typed is a fact
+   * about the product, and the model's guess from a photo is not.
+   */
+  const writeCopy = async () => {
+    if (writingCopy) return
+    const photo = (draft.images || []).find(isUploadedPhoto)
+    if (!photo && !draft.name.trim() && !draft.material.trim()) {
+      feedback.warn()
+      toast.show({ message: "Add a photo or a product name first", tone: "danger" })
+      return
+    }
+    feedback.tap()
+    setWritingCopy(true)
+    const res = await aiProductCopy({
+      name: draft.name,
+      category: draft.category,
+      material: draft.material,
+      basePrice: draft.basePrice,
+      unit: draft.unit,
+      moq: draft.moq,
+      allowedCategories: categoryOptions,
+      imageUrl: photo,
+    })
+    setWritingCopy(false)
+    if (res.error || !res.data) {
+      feedback.error()
+      toast.show({ message: res.error || "The copywriter returned nothing", tone: "danger" })
+      return
+    }
+    const copy = res.data
+    set({
+      ...(copy.name ? { name: copy.name } : {}),
+      ...(copy.description ? { description: copy.description } : {}),
+      ...(copy.category ? { category: copy.category } : {}),
+      ...(copy.material && !draft.material.trim() ? { material: copy.material } : {}),
+    })
+    feedback.created()
+    toast.show({
+      message: copy.usedPhoto ? "Written from your photo. Check it before saving" : "Written. Check it before saving",
+      tone: "success",
+    })
+  }
+
   const removePhoto = (url: string) => {
     setDraft((d) => ({ ...d, images: (d.images || []).filter((u) => u !== url) }))
     setDirty(true)
@@ -303,6 +354,21 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
             {images.map((uri) => (
               <View key={uri} style={styles.photo}>
                 <Image source={{ uri }} style={styles.photoImage} contentFit="cover" transition={120} />
+                {isUploadedPhoto(uri) ? (
+                  <Pressable
+                    onPress={() => {
+                      feedback.tap()
+                      setStudioFor(uri)
+                    }}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel="Enhance this photo with AI"
+                    style={[styles.photoEnhance, { backgroundColor: t.surface }]}
+                  >
+                    <Icon name="assistant" size={16} color={t.primary} variant="Bulk" />
+                    <Text style={[styles.photoEnhanceText, { color: t.primary }]}>Enhance</Text>
+                  </Pressable>
+                ) : null}
                 <Pressable
                   onPress={() => removePhoto(uri)}
                   hitSlop={6}
@@ -335,12 +401,36 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
             </Pressable>
           </ScrollView>
           <Text style={[styles.hint, { color: t.textTertiary }]}>
-            The first photo is the one the list and the product page lead with.
+            The first photo is the one the list and the product page lead with. Tap Enhance on a photo for an AI
+            studio shot.
           </Text>
         </Panel>
 
         <Panel title="Details" padded>
           <View style={styles.form}>
+            {/* One tap for the whole listing: name, description, category and,
+                if empty, material, written from the first photo. Every field
+                stays editable, and nothing saves until the person does. */}
+            <Pressable
+              onPress={() => void writeCopy()}
+              disabled={writingCopy}
+              accessibilityRole="button"
+              accessibilityLabel="Write the product details with AI"
+              style={({ pressed }) => [
+                styles.aiBanner,
+                { backgroundColor: t.primary10, opacity: pressed || writingCopy ? 0.7 : 1 },
+              ]}
+            >
+              {writingCopy ? <Spinner /> : <Icon name="assistant" size={24} color={t.primary} variant="Bulk" />}
+              <View style={styles.aiBannerBody}>
+                <Text style={[styles.aiBannerTitle, { color: t.primary }]}>
+                  {writingCopy ? "Writing the details" : "Write with AI"}
+                </Text>
+                <Text style={[styles.aiBannerHint, { color: t.textSecondary }]}>
+                  Name, description and category from your photo and details
+                </Text>
+              </View>
+            </Pressable>
             <TextField
               label="Product Name"
               error={touched.name ? problems.name : undefined}
@@ -348,6 +438,18 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
               value={draft.name}
               onChangeText={(v) => set({ name: v })}
               placeholder="Enter product name"
+              ai={{
+                purpose: "Product title for the catalogue and website, keyword rich, under 60 characters, Title Case",
+                format: "short",
+                maxChars: 60,
+                context: () => ({
+                  category: draft.category,
+                  material: draft.material,
+                  description: draft.description,
+                  unit: draft.unit,
+                  moq: draft.moq,
+                }),
+              }}
             />
             <PickerRow
               label="Category"
@@ -388,6 +490,19 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
               placeholder="Enter description"
               multiline
               numberOfLines={4}
+              ai={{
+                purpose:
+                  "Product description for the Ortex catalogue and website: material, how it is customised with the buyer's branding, and real use cases. 3 to 5 sentences.",
+                maxChars: 700,
+                context: () => ({
+                  name: draft.name,
+                  category: draft.category,
+                  material: draft.material,
+                  unit: draft.unit,
+                  minimumOrder: draft.moq,
+                  leadTimeDays: draft.leadTimeDays,
+                }),
+              }}
             />
           </View>
         </Panel>
@@ -533,6 +648,19 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
         }}
       />
 
+      <PhotoStudioSheet
+        visible={studioFor !== null}
+        onClose={() => setStudioFor(null)}
+        imageUrl={studioFor || ""}
+        productName={draft.name}
+        onAdd={(url) => {
+          // Beside the original, never over it.
+          setDraft((d) => ({ ...d, images: [...(d.images || []), url] }))
+          setDirty(true)
+          toast.show({ message: "New photo added beside the original", tone: "success" })
+        }}
+      />
+
       <Dialog
         visible={confirmLeave}
         title="Discard changes?"
@@ -616,6 +744,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  photoEnhance: {
+    position: "absolute",
+    left: 4,
+    bottom: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    height: 24,
+    paddingHorizontal: 6,
+    borderRadius: radius.pill,
+  },
+  photoEnhanceText: { fontSize: 11, fontFamily: font.semibold },
+  aiBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.card,
+  },
+  aiBannerBody: { flex: 1 },
+  aiBannerTitle: { fontSize: 15, fontFamily: font.semibold },
+  aiBannerHint: { fontSize: 12.5, lineHeight: 17, fontFamily: font.regular, marginTop: 2 },
   photoAdd: {
     width: 96,
     height: 96,

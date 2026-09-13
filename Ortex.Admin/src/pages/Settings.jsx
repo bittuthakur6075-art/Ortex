@@ -176,7 +176,17 @@ export default function Settings() {
               <Input type="number" min="1" value={draft.quotation.validityDays} onChange={(e) => setQuotation("validityDays", Number(e.target.value))} />
             </Field>
             <Field label="Terms & Conditions" className="sm:col-span-3">
-              <Textarea value={draft.quotation.terms} onChange={(e) => setQuotation("terms", e.target.value)} className="min-h-[120px]" />
+              <Textarea
+                ai={{
+                  purpose: "Default terms and conditions pre-filled on every new sales quotation from Ortex Industries: validity, payment, artwork approval, production time and delivery, one term per line",
+                  context: () => ({ validityDays: draft.quotation.validityDays }),
+                  format: "lines",
+                  maxChars: 900,
+                }}
+                value={draft.quotation.terms}
+                onChange={(e) => setQuotation("terms", e.target.value)}
+                className="min-h-[120px]"
+              />
             </Field>
           </div>
         </SettingsCard>
@@ -338,6 +348,10 @@ function AiUsageCard() {
       totalTokens: sum("totalTokens"),
       chatbot: { n: feat("chatbot").length, t: featTokens("chatbot") },
       copywriter: { n: feat("copywriter").length, t: featTokens("copywriter") },
+      writer: { n: feat("writer").length, t: featTokens("writer") },
+      // Cloudflare reports no tokens, so the studio row counts renders only.
+      imageStudio: { n: feat("image-studio").length },
+      imageStudioToday: feat("image-studio").filter((r) => r.createdAt && new Date(r.createdAt).toDateString() === today).length,
       lastAt,
       model: rows.find((r) => r.model)?.model || "gemini-flash-lite-latest",
     }
@@ -349,7 +363,7 @@ function AiUsageCard() {
     <SettingsCard
       icon={Sparkles}
       title="AI assistant (LLM)"
-      description="Google Gemini powers Orty (website chat) and the product copywriter. Token usage is tracked per call."
+      description="Google Gemini powers Orty (website chat), the product copywriter and the AI writer on every text field. Product photo edits run on Cloudflare Workers AI (FLUX.2 klein). Usage is tracked per call."
     >
       {/* Configuration */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -391,6 +405,16 @@ function AiUsageCard() {
         <div className="rounded-lg bg-muted/30 p-3">
           <div className="text-sm font-semibold text-foreground">AI copywriter</div>
           <div className="mt-1 text-xs text-muted-foreground">{nf(stats.copywriter.n)} requests · {nf(stats.copywriter.t)} tokens</div>
+        </div>
+        <div className="rounded-lg bg-muted/30 p-3">
+          <div className="text-sm font-semibold text-foreground">AI writer</div>
+          <div className="mt-1 text-xs text-muted-foreground">{nf(stats.writer.n)} requests · {nf(stats.writer.t)} tokens · ai-writer</div>
+        </div>
+        <div className="rounded-lg bg-muted/30 p-3">
+          <div className="text-sm font-semibold text-foreground">Photo studio</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {nf(stats.imageStudio.n)} photos · {nf(stats.imageStudioToday)} today, about 80 free a day on Cloudflare · product-image-studio
+          </div>
         </div>
       </div>
 

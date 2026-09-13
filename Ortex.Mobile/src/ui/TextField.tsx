@@ -10,7 +10,9 @@ import {
   type ViewStyle,
 } from "react-native"
 
+import AiWriterSheet, { type AiFieldConfig } from "@/features/ai/AiWriterSheet"
 import { useReportFocus } from "@/hooks/useKeyboardAwareScroll"
+import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
 import { radius, size as sizes, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
@@ -46,6 +48,12 @@ type Props = Omit<TextInputProps, "style" | "placeholderTextColor"> & {
   style?: StyleProp<ViewStyle>
   /** Targets the WRAPPER — the label, control and error travel together. */
   fieldStyle?: StyleProp<ViewStyle>
+  /**
+   * Opt in to "Write with AI": a sparkle in the label row opens the writer sheet
+   * for this field. Only for free text a person composes (descriptions, notes,
+   * terms), never for a phone number, a price or a GSTIN.
+   */
+  ai?: AiFieldConfig
 }
 
 export default function TextField({
@@ -61,10 +69,12 @@ export default function TextField({
   secureTextEntry = false,
   style,
   fieldStyle,
+  ai,
   ...rest
 }: Props) {
   const c = useTheme()
   const [focused, setFocused] = React.useState(false)
+  const [writing, setWriting] = React.useState(false)
   // A password field reveals itself. Built in HERE rather than at each call site
   // so every password in the app gets it and none can forget: the alternative is
   // four screens each wiring their own eye, drifting in icon, size and hit area.
@@ -85,11 +95,37 @@ export default function TextField({
 
   return (
     <View style={[{ marginBottom: spacing.md }, fieldStyle]}>
-      {label ? (
+      {label || ai ? (
         <View style={styles.labelRow}>
-          <Text style={[textVariants.label, { color: c.textStrong }]}>{label}</Text>
+          {label ? <Text style={[textVariants.label, { color: c.textStrong }]}>{label}</Text> : null}
           {required ? <Text style={[textVariants.label, { color: c.danger, marginLeft: 2 }]}>*</Text> : null}
+          {ai && !disabled ? (
+            <Pressable
+              onPress={() => {
+                feedback.tap()
+                setWriting(true)
+              }}
+              // The chip is small so it sits in the label row without growing it;
+              // the slop brings the touch target back to the 44dp minimum.
+              hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={label ? `Write ${label} with AI` : "Write with AI"}
+              style={({ pressed }) => [styles.aiChip, { backgroundColor: c.primary10, opacity: pressed ? 0.7 : 1 }]}
+            >
+              <Icon name="assistant" size={14} color={c.primary} variant="Bulk" />
+              <Text style={[textVariants.captionStrong, { color: c.primary }]}>AI</Text>
+            </Pressable>
+          ) : null}
         </View>
+      ) : null}
+      {ai ? (
+        <AiWriterSheet
+          {...ai}
+          visible={writing}
+          onClose={() => setWriting(false)}
+          current={String(rest.value ?? "")}
+          onApply={(text) => rest.onChangeText?.(text)}
+        />
       ) : null}
 
       <View
@@ -202,6 +238,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: spacing.xs,
+  },
+  aiChip: {
+    marginLeft: "auto",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 8,
+    height: 22,
+    borderRadius: radius.pill,
   },
   control: {
     flexDirection: "row",

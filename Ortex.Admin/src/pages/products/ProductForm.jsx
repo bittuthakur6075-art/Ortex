@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { Trash2 } from "../../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../../data/store/repository"
-import { supabase, hasSupabase } from "../../data/store/supabaseClient"
+import { hasSupabase } from "../../data/store/supabaseClient"
 import { triggerSiteRebuild } from "../../lib/revalidate"
 import { PRODUCT_STATUS, UNITS, GST_RATES, newProduct, autoDetectCategory } from "../../data/domain/schema"
 import { formatCurrency, round2 } from "../../lib/format"
@@ -10,6 +10,7 @@ import { Button, Input, Select, Textarea, Field, Drawer } from "../../components
 import AiCopyPanel from "./AiCopyPanel"
 import ImageField from "../../components/editors/ImageField"
 import { MAX_IMAGES } from "./helpers"
+import { aiProductCopy, isStoredPhoto } from "../../services/ai"
 
 export default function ProductForm({ open, product, categories = [], onClose }) {
   const isEdit = !!product
@@ -18,43 +19,40 @@ export default function ProductForm({ open, product, categories = [], onClose })
   const [hasManuallyChangedCategory, setHasManuallyChangedCategory] = useState(false)
   const [aiBusy, setAiBusy] = useState(false)
 
-  // Generate SEO- and marketing-optimised title, description, and category via
-  // the product-copywriter Edge Function (Gemini, key held server-side).
+  // Generate SEO- and marketing-optimised title, description, category and a
+  // material suggestion via the product-copywriter Edge Function (Gemini, key held
+  // server-side). The first photo goes too when it is one of ours, so the copy
+  // describes the product actually pictured rather than guessing from a name.
   const generateCopy = async () => {
     if (!hasSupabase) return toast.error("Connect Supabase to use AI copy.")
-    if (!form.name.trim() && !form.material.trim()) {
-      return toast.error("Enter a product name or a few keywords first.")
+    const photo = (form.images || []).find(isStoredPhoto)
+    if (!form.name.trim() && !form.material.trim() && !photo) {
+      return toast.error("Add a photo, or enter a product name or a few keywords first.")
     }
     setAiBusy(true)
-    try {
-      const allowedCategories = categories.map((c) => c.name)
-      const { data, error } = await supabase.functions.invoke("product-copywriter", {
-        body: {
-          name: form.name,
-          category: form.category,
-          material: form.material,
-          basePrice: form.basePrice,
-          unit: form.unit,
-          moq: form.moq,
-          allowedCategories,
-        },
-      })
-      if (error) throw error
-      if (data?.error) throw new Error(data.error)
-      setForm((f) => ({
-        ...f,
-        name: data.name?.trim() || f.name,
-        description: data.description?.trim() || f.description,
-        category: allowedCategories.includes(data.category) ? data.category : f.category,
-      }))
-      if (data.category && allowedCategories.includes(data.category)) setHasManuallyChangedCategory(true)
-      toast.success("AI copy generated - review before saving")
-    } catch (err) {
-      console.error("AI copy failed:", err)
-      toast.error(err?.message || "AI generation failed")
-    } finally {
-      setAiBusy(false)
-    }
+    const allowedCategories = categories.map((c) => c.name)
+    const { data, error } = await aiProductCopy({
+      name: form.name,
+      category: form.category,
+      material: form.material,
+      basePrice: form.basePrice,
+      unit: form.unit,
+      moq: form.moq,
+      allowedCategories,
+      imageUrl: photo,
+    })
+    setAiBusy(false)
+    if (error) return toast.error(error)
+    setForm((f) => ({
+      ...f,
+      name: data.name?.trim() || f.name,
+      description: data.description?.trim() || f.description,
+      category: allowedCategories.includes(data.category) ? data.category : f.category,
+      // A suggestion only: a material the person already typed is never replaced.
+      material: f.material?.trim() ? f.material : data.material?.trim() || f.material,
+    }))
+    if (data.category && allowedCategories.includes(data.category)) setHasManuallyChangedCategory(true)
+    toast.success(data.usedPhoto ? "AI copy written from the photo. Review before saving" : "AI copy generated. Review before saving")
   }
 
   const categoriesRef = useRef(categories)
@@ -280,10 +278,34 @@ export default function ProductForm({ open, product, categories = [], onClose })
           </Field>
         </div>
 
-        <ImageField images={form.images || []} onChange={(images) => set("images", images)} bucket="products" label="Product Images" max={MAX_IMAGES} />
+        <ImageField
+          images={form.images || []}
+          onChange={(images) => set("images", images)}
+          bucket="products"
+          label="Product Images"
+          max={MAX_IMAGES}
+          enhance={hasSupabase ? { productName: form.name } : undefined}
+        />
 
         <Field label="Description">
-          <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Enter description" />
+          <Textarea
+            ai={{
+              purpose:
+                "Product description on the Ortex website catalogue and in quotations: 3 to 5 benefit-led, SEO-friendly sentences covering the material, how it is customised with the buyer's branding and typical use-cases",
+              context: () => ({
+                name: form.name,
+                category: form.category,
+                material: form.material,
+                unit: form.unit,
+                moq: form.moq,
+                leadTimeDays: form.leadTimeDays,
+              }),
+              maxChars: 900,
+            }}
+            value={form.description}
+            onChange={(e) => set("description", e.target.value)}
+            placeholder="Enter description"
+          />
         </Field>
 
         {/* 8. Where it appears */}

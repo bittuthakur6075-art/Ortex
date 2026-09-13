@@ -1,9 +1,11 @@
 import { useState } from "react"
 import { toast } from "sonner"
-import { Upload, X } from "../ui/Icons"
+import { Sparkles, Upload, X } from "../ui/Icons"
 import { uploadImage, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "../../lib/imageUpload"
 import { cn } from "../../lib/cn"
 import { Button, Input, Field } from "../ui/Ui"
+import PhotoStudioModal from "./PhotoStudioModal"
+import { isStoredPhoto } from "../../services/ai"
 
 // One image picker for every catalogue editor: upload files to the Storage
 // bucket (compressed client-side by lib/imageUpload) or paste an https URL.
@@ -17,7 +19,11 @@ import { Button, Input, Field } from "../ui/Ui"
 
 const isHttpUrl = (u) => /^https?:\/\//i.test(u)
 
-export default function ImageField({ value, images, onChange, bucket, label = "Image", max = 8, required, error, hint }) {
+// `enhance={{ productName }}` (list shape only) adds an "Enhance" action on every
+// uploaded photo, opening PhotoStudioModal. The AI version is appended as a new
+// photo; the original is never replaced.
+export default function ImageField({ value, images, onChange, bucket, label = "Image", max = 8, required, error, hint, enhance }) {
+  const [studioFor, setStudioFor] = useState(null)
   const multiple = Array.isArray(images)
   const list = multiple ? images : value ? [value] : []
   const limit = multiple ? max : 1
@@ -121,6 +127,16 @@ export default function ImageField({ value, images, onChange, bucket, label = "I
                     Primary
                   </span>
                 )}
+                {enhance && isStoredPhoto(img) && (
+                  <button
+                    type="button"
+                    onClick={() => setStudioFor(img)}
+                    className="absolute bottom-1 right-1 inline-flex cursor-pointer items-center gap-1 rounded bg-background/90 px-1.5 py-0.5 text-[10px] font-bold text-primary transition-colors hover:bg-background"
+                    title="Enhance with AI"
+                  >
+                    <Sparkles className="h-3 w-3" /> Enhance
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -163,6 +179,21 @@ export default function ImageField({ value, images, onChange, bucket, label = "I
           </div>
         )}
       </div>
+
+      {enhance && (
+        <PhotoStudioModal
+          open={!!studioFor}
+          source={studioFor}
+          productName={enhance.productName}
+          canAdd={room > 0}
+          onClose={() => setStudioFor(null)}
+          onAdd={(url) => {
+            if (room <= 0) return toast.error(`You can add up to ${limit} image(s).`)
+            commit([...list, url])
+            toast.success("AI photo added. The original is kept")
+          }}
+        />
+      )}
     </Field>
   )
 }

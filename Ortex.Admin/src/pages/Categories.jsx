@@ -290,7 +290,16 @@ function CategoryForm({ open, category, products, usage, onClose }) {
           </div>
 
           <Field label="Intro Paragraph" hint="Marketing copy on the category page">
-            <Textarea value={form.intro} onChange={(e) => set("intro", e.target.value)} placeholder="Enter intro paragraph" />
+            <Textarea
+              ai={{
+                purpose: "Intro paragraph at the top of a product category page on the Ortex website, 2 to 3 persuasive SEO-friendly sentences for B2B buyers",
+                context: () => ({ category: form.name, displayName: form.displayName, hsn: form.hsn, internalNotes: form.description }),
+                maxChars: 450,
+              }}
+              value={form.intro}
+              onChange={(e) => set("intro", e.target.value)}
+              placeholder="Enter intro paragraph"
+            />
           </Field>
 
           <ImageField label="Category Image" value={form.image} onChange={(url) => set("image", url)} bucket="categories" />
@@ -303,7 +312,17 @@ function CategoryForm({ open, category, products, usage, onClose }) {
               label="SEO Description"
               hint={`Google result snippet, ${(form.seoDescription || "").length}/155 characters`}
             >
-              <Textarea value={form.seoDescription} onChange={(e) => set("seoDescription", e.target.value)} placeholder="Enter SEO description" />
+              <Textarea
+                ai={{
+                  purpose: "Google meta description for a product category page, 140 to 155 characters, includes the main keyword and a call to action",
+                  context: () => ({ category: form.name, displayName: form.displayName, seoTitle: form.seoTitle, intro: form.intro }),
+                  format: "short",
+                  maxChars: 155,
+                }}
+                value={form.seoDescription}
+                onChange={(e) => set("seoDescription", e.target.value)}
+                placeholder="Enter SEO description"
+              />
             </Field>
           </div>
         </div>
@@ -311,7 +330,16 @@ function CategoryForm({ open, category, products, usage, onClose }) {
 
         <Group title="Internal">
           <Field label="Notes" hint="Private. Never shown on the website">
-            <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Enter notes" />
+            <Textarea
+              ai={{
+                purpose: "Private internal notes about a product category for the Ortex team, never shown on the website",
+                context: () => ({ category: form.name, displayName: form.displayName, hsn: form.hsn, gstRate: form.gstRate }),
+                maxChars: 500,
+              }}
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+              placeholder="Enter notes"
+            />
           </Field>
         </Group>
       </div>

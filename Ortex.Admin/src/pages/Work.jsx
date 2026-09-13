@@ -274,7 +274,17 @@ function WorkForm({ open, work, onClose }) {
         </div>
 
         <Field label="Alt Text" hint="Read aloud by screen readers and used by Google Images; falls back to the title">
-          <Textarea value={form.alt} onChange={(e) => set("alt", e.target.value)} placeholder="Enter alt text" />
+          <Textarea
+            ai={{
+              purpose: "Accessibility alt text for a photo in the Ortex website's Our work gallery: one plain sentence of 12 to 20 words describing the product, material and setting shown",
+              context: () => ({ title: form.title, category: form.category }),
+              format: "short",
+              maxChars: 160,
+            }}
+            value={form.alt}
+            onChange={(e) => set("alt", e.target.value)}
+            placeholder="Enter alt text"
+          />
         </Field>
         </div>
         </Group>

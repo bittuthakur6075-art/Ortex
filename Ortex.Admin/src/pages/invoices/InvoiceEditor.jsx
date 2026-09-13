@@ -219,7 +219,17 @@ export default function InvoiceEditor({ draft, products, customers, payments, se
           </Section>
 
           <Section title="Terms & conditions" description="Printed at the foot of the invoice">
-            <Textarea value={form.terms || ""} onChange={(e) => set({ terms: e.target.value })} className="min-h-[110px]" />
+            <Textarea
+              ai={{
+                purpose: "Terms and conditions printed at the foot of a GST tax invoice from Ortex Industries: payment, delivery, returns and jurisdiction, one term per line",
+                context: () => ({ paymentTerms: form.paymentTerms, dueDate: form.dueDate, items: (form.lines || []).map((l) => l.description).filter(Boolean).slice(0, 10) }),
+                format: "lines",
+                maxChars: 900,
+              }}
+              value={form.terms || ""}
+              onChange={(e) => set({ terms: e.target.value })}
+              className="min-h-[110px]"
+            />
           </Section>
 
           <div className="rounded-card bg-card shadow-card">
@@ -237,7 +247,16 @@ export default function InvoiceEditor({ draft, products, customers, payments, se
               <div className="space-y-5 border-t border-border px-5 py-5">
                 <ShipToFields value={form.shipTo} onChange={(shipTo) => set({ shipTo })} customers={customers} />
                 <Field label="Notes" hint="Printed under the totals">
-                  <Textarea value={form.notes} onChange={(e) => set({ notes: e.target.value })} className="min-h-[80px]" />
+                  <Textarea
+                    ai={{
+                      purpose: "Short note printed under the totals of a customer invoice, for example a thank you, bank transfer reminder or delivery remark",
+                      context: () => ({ paymentTerms: form.paymentTerms, dueDate: form.dueDate, items: (form.lines || []).map((l) => l.description).filter(Boolean).slice(0, 10) }),
+                      maxChars: 300,
+                    }}
+                    value={form.notes}
+                    onChange={(e) => set({ notes: e.target.value })}
+                    className="min-h-[80px]"
+                  />
                 </Field>
               </div>
             )}

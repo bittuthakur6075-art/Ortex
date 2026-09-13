@@ -56,7 +56,17 @@ export default function NewCallModal({ open, onClose, onDialed }) {
           </Select>
         </Field>
         <Field label="Objective / What the Agent Should Know" className="sm:col-span-2">
-          <Textarea rows={3} value={f.objective} onChange={(e) => set("objective", e.target.value)} placeholder="Enter objective" />
+          <Textarea
+            rows={3}
+            ai={{
+              purpose: "Brief for the AI sales telecaller on one outbound call: why we are calling, what to find out and what outcome to aim for",
+              context: () => ({ callType: TELECALL_KINDS.find((k) => k.id === f.kind)?.label, company: f.company }),
+              maxChars: 500,
+            }}
+            value={f.objective}
+            onChange={(e) => set("objective", e.target.value)}
+            placeholder="Enter objective"
+          />
         </Field>
         <Field label="Schedule (Optional)" hint="Leave empty to call right away." className="sm:col-span-2">
           <Input type="datetime-local" value={f.when} min={toLocalInput(new Date().toISOString())} onChange={(e) => set("when", e.target.value)} />

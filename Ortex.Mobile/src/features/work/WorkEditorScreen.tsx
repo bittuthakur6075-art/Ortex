@@ -242,6 +242,12 @@ export default function WorkEditorScreen({ route, navigation }: StackScreenProps
             onChangeText={(v) => set({ title: v })}
             placeholder="e.g. Acrylic award trophies for an annual day"
             autoCapitalize="sentences"
+            ai={{
+              purpose: "Caption for a photo of finished work in the website gallery, 3 to 8 words, specific and searchable",
+              format: "short",
+              maxChars: 70,
+              context: () => ({ category: draft.category, altText: draft.alt }),
+            }}
           />
           <Pressable onPress={() => setCategoryOpen(true)}>
             <Text style={[textVariants.caption, styles.pickerLabel, { color: t.textSecondary }]}>Category</Text>
@@ -259,6 +265,13 @@ export default function WorkEditorScreen({ route, navigation }: StackScreenProps
             placeholder="Describe the photo for screen readers"
             hint="Left empty, the website uses the caption"
             autoCapitalize="sentences"
+            ai={{
+              purpose:
+                "Accessibility alt text for a photo of finished work: one plain sentence describing the product, material and setting",
+              format: "short",
+              maxChars: 160,
+              context: () => ({ caption: draft.title, category: draft.category }),
+            }}
           />
         </Section>
 

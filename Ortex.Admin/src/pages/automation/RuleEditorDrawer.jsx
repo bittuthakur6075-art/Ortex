@@ -57,6 +57,12 @@ export default function RuleEditorDrawer({ open, onClose, editingRule, ruleForm,
 
         <Field label="Description">
           <Textarea
+            ai={{
+              purpose: "Internal description of an automation rule: what triggers it, what it sends and why, for the team reading the rules list",
+              context: () => ({ ruleName: ruleForm.name, triggerEvent: ruleForm.triggerEvent, delayMinutes: ruleForm.delayMinutes }),
+              format: "short",
+              maxChars: 240,
+            }}
             value={ruleForm.description}
             onChange={(e) => setRuleForm({ ...ruleForm, description: e.target.value })}
             placeholder="Enter description"

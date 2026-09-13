@@ -12,6 +12,7 @@
 
 import { supabase } from "@/data/supabase"
 import type { Profile } from "@/domain/modules"
+import { invokeEdge } from "@/lib/edgeFunction"
 
 export type FunctionResult = {
   ok?: boolean
@@ -31,33 +32,11 @@ export async function getProfile(id: string): Promise<Profile | null> {
   return (data as Profile | null) ?? null
 }
 
-// supabase-js turns any non-2xx into a generic FunctionsHttpError whose message
-// is "Edge Function returned a non-2xx status code"; the function's own sentence
-// ("You can't disable your own account") is in the response body.
+// The error unwrapping lives in lib/edgeFunction.ts, shared with the AI calls.
 async function invokeFunction(name: string, body: Record<string, unknown>): Promise<FunctionResult> {
-  const { data, error } = await supabase.functions.invoke(name, { body })
-  if (error) {
-    const context = (error as { context?: { status?: number; json?: () => Promise<unknown> } }).context
-    try {
-      const parsed = (await context?.json?.()) as { error?: string } | undefined
-      if (parsed?.error) return { error: parsed.error }
-    } catch {
-      /* not JSON — fall through */
-    }
-    if (context?.status === 404 || /failed to send a request|failed to fetch/i.test(error.message)) {
-      return {
-        error: `The "${name}" function is not deployed on this Supabase project. Run: supabase functions deploy ${name}`,
-        notDeployed: true,
-      }
-    }
-    if (/network request failed/i.test(error.message)) {
-      return { error: "No connection. Check your mobile data and try again." }
-    }
-    return { error: error.message }
-  }
-  const payload = (data || {}) as FunctionResult
-  if (payload.error) return { error: payload.error }
-  return { ok: true, ...payload }
+  const res = await invokeEdge<FunctionResult>(name, body)
+  if (res.error) return { error: res.error, notDeployed: res.notDeployed }
+  return { ok: true, ...res.data }
 }
 
 /**

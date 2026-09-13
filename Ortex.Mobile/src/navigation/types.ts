@@ -53,6 +53,8 @@ export type RootStackParamList = {
   Team: undefined
   UserDetail: { id: string }
   ChangePassword: undefined
+  // The rep's own payment terms, T&C and notes for new quotations.
+  QuotationDefaults: undefined
   Legal: { doc: LegalDocKey }
 }
 

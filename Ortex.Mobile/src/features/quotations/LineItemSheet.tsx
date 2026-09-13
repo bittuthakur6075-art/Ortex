@@ -169,6 +169,13 @@ export default function LineItemSheet({
             placeholder="Enter description"
             trailingIcon="catalogue"
             onTrailingPress={() => setMode("product")}
+            ai={{
+              purpose:
+                "One line item description on a B2B quotation: the product, material, size or finish and the customisation, in one concise line",
+              format: "short",
+              maxChars: 140,
+              context: () => ({ quantity: draft.quantity, unit: draft.unit, hsn: draft.hsn }),
+            }}
           />
 
           {/* THE UNIT IS NOT PICKED HERE. It is a property of the product, set

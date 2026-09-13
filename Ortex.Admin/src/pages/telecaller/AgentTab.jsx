@@ -122,11 +122,32 @@ export default function AgentTab({ isAdmin, onPractice }) {
 
       <Section title="Training" hint="How the agent should sound, and what each type of call must achieve. Blank fields keep the built-in defaults. Rehearse with Practice, read the transcript, refine, repeat.">
         <Field label="Persona & Style" hint="Tone, phrases to use, phrases to avoid, how to handle Hindi vs English, how formal to be." className="sm:col-span-2">
-          <Textarea rows={4} value={t.scripts?.persona || ""} onChange={(e) => setIn("scripts", "persona", e.target.value)} placeholder="Enter persona and style" />
+          <Textarea
+            rows={4}
+            ai={{
+              purpose:
+                "Persona and speaking style for Ortex's AI sales telecaller: tone, phrases to use and avoid, when to switch between Hindi and English, and how formal to be with Indian B2B buyers",
+              context: () => ({ pitchNotes: t.pitchNotes }),
+              maxChars: 900,
+            }}
+            value={t.scripts?.persona || ""}
+            onChange={(e) => setIn("scripts", "persona", e.target.value)}
+            placeholder="Enter persona and style"
+          />
         </Field>
         {TELECALL_KINDS.filter((k) => k.id !== "manual").map((k) => (
           <Field key={k.id} label={`${k.label} Call Script`} hint={SCRIPT_HINT[k.id]}>
-            <Textarea rows={4} value={t.scripts?.[k.id] || ""} onChange={(e) => setIn("scripts", k.id, e.target.value)} />
+            <Textarea
+              rows={4}
+              ai={{
+                purpose: `Call script for Ortex's AI sales telecaller on a "${k.label}" call: the goal, the steps in order, objection handling and how to close. ${SCRIPT_HINT[k.id] || ""}`,
+                context: () => ({ callType: k.label, persona: t.scripts?.persona, pitchNotes: t.pitchNotes }),
+                format: "lines",
+                maxChars: 1200,
+              }}
+              value={t.scripts?.[k.id] || ""}
+              onChange={(e) => setIn("scripts", k.id, e.target.value)}
+            />
           </Field>
         ))}
         {onPractice && (
@@ -153,7 +174,19 @@ export default function AgentTab({ isAdmin, onPractice }) {
 
       <Section title="Pitch notes" hint="Current offers, seasonal pushes, products to lead with, things to never say. The agent reads this before every call.">
         <Field className="sm:col-span-2">
-          <Textarea rows={5} value={t.pitchNotes} onChange={(e) => set("pitchNotes", e.target.value)} placeholder="Enter pitch notes" />
+          <Textarea
+            rows={5}
+            ai={{
+              purpose:
+                "Pitch notes the AI sales telecaller reads before every call: current offers, seasonal pushes, products to lead with and things never to say. Only restate offers already written here, never invent a discount",
+              context: () => ({ persona: t.scripts?.persona, occasions: t.occasions }),
+              format: "lines",
+              maxChars: 1000,
+            }}
+            value={t.pitchNotes}
+            onChange={(e) => set("pitchNotes", e.target.value)}
+            placeholder="Enter pitch notes"
+          />
         </Field>
         <Field label="Your Upcoming Occasions" hint="Sneha already knows the Indian festival calendar, IST time and regional festivals by city. Add your own dates here, one per line: YYYY-MM-DD Name - what to pitch (e.g. 2026-10-15 Delhi Corporate Gifting Expo - invite buyers to the stall, offer exhibition pricing)." className="sm:col-span-2">
           <Textarea rows={3} value={t.occasions || ""} onChange={(e) => set("occasions", e.target.value)} placeholder="Enter upcoming occasions" />

@@ -24,8 +24,9 @@ import type { IconName } from "@/ui/Icon"
  *   · Cleo and Tiimo: tap-to-ask suggestion chips under the greeting, so the
  *     first question costs one tap and teaches what she can do.
  *   · Gemini Live and Meta AI: while live, the caption IS the content, large
- *     and centred, with the call clock at the top and a pill of controls at the
- *     foot (mute, and a red end).
+ *     and centred, with the clock at the top and a pill of controls at the foot
+ *     (mute, and a quiet dark Done rather than a red hang-up: this is an
+ *     assistant, not a phone call).
  *   · ChatGPT Voice: one centred visual that reacts to sound, nothing else
  *     moving on the page.
  * Ortex's own additions: the records Anu mentions surface as tappable cards
@@ -43,12 +44,12 @@ const EngineView = WebView as unknown as React.ComponentType<
 >
 
 const SUGGESTIONS: { label: string; ask: string; icon: IconName }[] = [
-  { label: "What needs me today?", ask: "What needs my attention today?", icon: "bell" },
-  { label: "New leads this week", ask: "Show me the new leads from this week.", icon: "leads" },
-  { label: "Quotes expiring soon", ask: "Which of my quotations are expiring soon?", icon: "quote" },
-  { label: "Sales this month", ask: "How are sales this month?", icon: "money" },
-  { label: "Find a customer", ask: "I want to look up a customer.", icon: "customer" },
-  { label: "Check a price", ask: "I want to check a product price.", icon: "product" },
+  { label: "Aaj kya pending hai?", ask: "Aaj mere liye kya pending hai?", icon: "bell" },
+  { label: "Is hafte ke new leads", ask: "Is hafte ke new leads batao.", icon: "leads" },
+  { label: "Expire hone wale quotes", ask: "Kaunse quotations jaldi expire hone wale hain?", icon: "quote" },
+  { label: "Is mahine ki sales", ask: "Is mahine sales kaisi chal rahi hai?", icon: "money" },
+  { label: "Customer dhoondo", ask: "Mujhe ek customer dhoondna hai.", icon: "customer" },
+  { label: "Price check karo", ask: "Mujhe ek product ka price check karna hai.", icon: "product" },
 ]
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`
@@ -145,7 +146,7 @@ export default function AnuScreen({ navigation, route }: StackScreenProps<"Anu">
               ? "Muted"
               : "Listening"
         : anu.status === "ended"
-          ? `Call ended · ${clock(anu.seconds)}`
+          ? `Conversation ended · ${clock(anu.seconds)}`
           : anu.status === "error"
             ? "Could not connect"
             : "Your Ortex assistant"
@@ -171,7 +172,10 @@ export default function AnuScreen({ navigation, route }: StackScreenProps<"Anu">
       <View style={styles.bar}>
         <IconButton name="close" onPress={close} accessibilityLabel="Close Anu" />
         <View style={styles.barCentre}>
-          <Text style={[styles.barTitle, { color: t.text }]}>Anu</Text>
+          <View style={styles.titleRow}>
+            <Icon name="assistant" size={16} color={t.primary} variant="Bulk" />
+            <Text style={[styles.barTitle, { color: t.text }]}>Anu</Text>
+          </View>
           <View style={styles.statusRow}>
             {anu.status === "live" && <View style={[styles.liveDot, { backgroundColor: anu.muted ? t.warning : t.success }]} />}
             <Text style={[textVariants.caption, { color: anu.status === "error" ? t.dangerText : t.textSecondary }]}>{statusLine}</Text>
@@ -194,7 +198,7 @@ export default function AnuScreen({ navigation, route }: StackScreenProps<"Anu">
               Hi{first ? ` ${first}` : ""}, I'm <Text style={{ color: t.primary }}>Anu</Text>.
             </Text>
             <Text style={[textVariants.screenSubtitle, styles.helloSub, { color: t.textSecondary }]}>
-              Ask me about your leads, quotations, customers and products. I read the live Ortex data you have access to.
+              Leads, quotations, customers ya products, kuch bhi puchiye. Main aapka live Ortex data dekhkar batati hoon.
             </Text>
           </View>
         ) : anu.status === "error" ? (
@@ -209,13 +213,17 @@ export default function AnuScreen({ navigation, route }: StackScreenProps<"Anu">
                 {userLine}
               </Text>
             )}
-            <Text numberOfLines={6} style={[styles.anuLine, { color: t.text }]}>
+            <Text
+              numberOfLines={10}
+              // A briefing runs long: step the type down rather than cut it mid-sentence.
+              style={[styles.anuLine, anuLine.length > 140 && styles.anuLineLong, { color: t.text }]}
+            >
               {anuLine ||
                 (anu.status === "connecting"
-                  ? "Getting Anu on the line"
+                  ? "Anu se connect ho raha hai"
                   : anu.status === "ended"
-                    ? "Talk again whenever you need something."
-                    : "Go ahead, I'm listening.")}
+                    ? "Jab bhi zarurat ho, phir se baat kariye."
+                    : "Boliye, main sun rahi hoon.")}
             </Text>
             {anu.thinking && anu.status === "live" && <ThinkingDots />}
           </Animated.View>
@@ -289,17 +297,20 @@ export default function AnuScreen({ navigation, route }: StackScreenProps<"Anu">
             >
               <Icon name={anu.muted ? "voiceOff" : "voice"} size={24} color={anu.muted ? t.background : t.text} variant="Bold" />
             </Pressable>
+            {/* NOT a red hang-up: this is an assistant, not a phone call. ChatGPT
+                Voice and Claude close a voice session with a quiet dark control,
+                so "Done" finishes the conversation the way closing a sheet does. */}
             <Pressable
               onPress={() => {
                 feedback.tap()
                 anu.hangUp()
               }}
-              style={({ pressed }) => [styles.end, { backgroundColor: t.danger, opacity: pressed ? state.pressedOpacity : 1 }]}
+              style={({ pressed }) => [styles.done, { backgroundColor: t.text, opacity: pressed ? state.pressedOpacity : 1 }]}
               accessibilityRole="button"
-              accessibilityLabel="End the call"
+              accessibilityLabel="Done, finish talking to Anu"
             >
-              <Icon name="callEnd" size={22} color={t.textOnPrimary} variant="Bold" />
-              <Text style={[styles.endText, { color: t.textOnPrimary }]}>End</Text>
+              <Icon name="tick" size={22} color={t.background} variant="Bold" />
+              <Text style={[styles.doneText, { color: t.background }]}>Done</Text>
             </Pressable>
           </>
         ) : (
@@ -361,6 +372,7 @@ const styles = StyleSheet.create({
   engine: { position: "absolute", width: 1, height: 1, opacity: 0, left: -10, top: -10 },
   bar: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.sm, height: 56 },
   barCentre: { flex: 1, alignItems: "center" },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   barTitle: { fontSize: 16, lineHeight: 21, fontFamily: font.semibold },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   liveDot: { width: 7, height: 7, borderRadius: 4 },
@@ -375,6 +387,7 @@ const styles = StyleSheet.create({
   captions: { alignItems: "center", marginTop: spacing.xs, minHeight: 150, width: "100%" },
   userLine: { fontSize: 15, lineHeight: 21, fontFamily: font.regular, textAlign: "center", marginBottom: spacing.sm },
   anuLine: { fontSize: 22, lineHeight: 31, fontFamily: font.medium, textAlign: "center" },
+  anuLineLong: { fontSize: 18, lineHeight: 26 },
   dots: { flexDirection: "row", gap: 6, marginTop: spacing.md },
   dot: { width: 7, height: 7, borderRadius: 4 },
 
@@ -391,8 +404,8 @@ const styles = StyleSheet.create({
 
   controls: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.md, paddingHorizontal: gutter, paddingTop: spacing.sm },
   round: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center" },
-  end: { flexDirection: "row", alignItems: "center", gap: 8, height: 64, paddingHorizontal: 34, borderRadius: 32 },
-  endText: { fontSize: 16, fontFamily: font.semibold },
+  done: { flexDirection: "row", alignItems: "center", gap: 8, height: 64, paddingHorizontal: 34, borderRadius: 32 },
+  doneText: { fontSize: 16, fontFamily: font.semibold },
   talk: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, height: 58, borderRadius: 29 },
   talkText: { fontSize: 16, fontFamily: font.semibold },
 })

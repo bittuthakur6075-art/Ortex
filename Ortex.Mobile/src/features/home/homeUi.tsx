@@ -260,6 +260,6 @@ const styles = StyleSheet.create({
   tileNote: { flexShrink: 1 },
   quick: { flex: 1, alignItems: "center" },
   quickInner: { alignItems: "center" },
-  quickWell: { width: 56, height: 56, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  quickWell: { width: 56, height: 56, borderRadius: 999, alignItems: "center", justifyContent: "center" },
   quickLabel: { marginTop: 8, textAlign: "center" },
 })

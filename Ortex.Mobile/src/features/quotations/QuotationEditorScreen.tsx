@@ -29,6 +29,8 @@ import {
 } from "@/features/quotations/useQuotationDraft"
 import { useSettings } from "@/hooks/useSettings"
 import { prettyPhone } from "@/lib/contact"
+import { useQuotationDefaults } from "@/lib/quotationDefaults"
+import { withDefaults } from "@/domain/quotationDefaults"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
@@ -47,6 +49,7 @@ import {
   TextField,
   useToast,
 } from "@/ui"
+import ListTextField from "@/ui/ListTextField"
 import KeyboardAwareScrollView from "@/ui/KeyboardAwareScrollView"
 
 /**
@@ -97,6 +100,9 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
   const toast = useToast()
   const { settings, loading: settingsLoading, error: settingsError } = useSettings()
   const { profile } = useAuth()
+  // The rep's own starting text (Profile > Quotation defaults), laid over the
+  // company terms for a NEW quotation only; an edited one keeps its own text.
+  const { defaults: quoteDefaults, loaded: defaultsLoaded } = useQuotationDefaults()
 
   const editingId = route.params?.id
   const prefill = route.params?.prefill
@@ -118,7 +124,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
   // Seed once the settings row has arrived: `validityDays` and the default terms
   // both come from it, and seeding earlier would bake in the fallbacks.
   React.useEffect(() => {
-    if (seeded || settingsLoading) return
+    if (seeded || settingsLoading || !defaultsLoaded) return
 
     const run = async () => {
       if (editingId) {
@@ -153,7 +159,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
       // A new quotation's seller name is NOT stamped here: it is resolved at save
       // time from the profile (like the console), so a name added on Account
       // details mid-draft still prints, and a persisted draft never freezes "".
-      const base = emptyDraft(settings)
+      const base = withDefaults(emptyDraft(settings), quoteDefaults)
       if (prefill) {
         setDraft({
           ...base,
@@ -174,7 +180,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
     }
 
     void run()
-  }, [seeded, settingsLoading, settings, editingId, prefill])
+  }, [seeded, settingsLoading, settings, editingId, prefill, defaultsLoaded, quoteDefaults])
 
   // Only a new, unsaved quotation is worth persisting locally.
   usePersistedDraft(draft, seeded && !editingId)
@@ -668,22 +674,44 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                 value={draft.paymentTerms}
                 onChangeText={(v) => set({ paymentTerms: v })}
                 placeholder="Enter payment terms"
+                ai={{
+                  purpose: "Payment terms printed on a B2B quotation, one short line (for example the advance and when the balance is due)",
+                  format: "short",
+                  maxChars: 160,
+                  context: () => ({ validityDays: draft.validityDays, lineCount: draft.lines.length }),
+                }}
               />
-              <TextField
+              <ListTextField
                 label="Terms and Conditions"
                 value={draft.terms}
                 onChangeText={(v) => set({ terms: v })}
                 placeholder="Enter terms and conditions"
-                multiline
-                numberOfLines={4}
+                numberOfLines={6}
+                ai={{
+                  purpose:
+                    "Terms and conditions on a B2B quotation for custom manufactured products: validity, artwork approval, production after confirmation, delivery and taxes. One clause per line.",
+                  maxChars: 1200,
+                  context: () => ({
+                    validityDays: draft.validityDays,
+                    paymentTerms: draft.paymentTerms,
+                    items: draft.lines.map((l) => l.description).filter(Boolean).slice(0, 10),
+                  }),
+                }}
               />
-              <TextField
+              <ListTextField
                 label="Notes"
                 value={draft.notes}
                 onChangeText={(v) => set({ notes: v })}
                 placeholder="Enter notes"
-                multiline
-                numberOfLines={3}
+                numberOfLines={4}
+                ai={{
+                  purpose: "Short notes to the customer printed on the quotation, such as artwork proofs, samples or delivery notes. One note per line.",
+                  maxChars: 500,
+                  context: () => ({
+                    items: draft.lines.map((l) => l.description).filter(Boolean).slice(0, 10),
+                    paymentTerms: draft.paymentTerms,
+                  }),
+                }}
               />
             </View>
           )}
@@ -776,7 +804,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
             onPress: () => {
               // Merged over a fresh base so a draft persisted by an older build
               // still carries every field this one expects.
-              if (resumeOffer) setDraft({ ...emptyDraft(settings), ...resumeOffer })
+              if (resumeOffer) setDraft({ ...withDefaults(emptyDraft(settings), quoteDefaults), ...resumeOffer })
               setResumeOffer(null)
             },
           },

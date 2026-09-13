@@ -427,13 +427,14 @@ export function useAnuSession(profile: Profile | null) {
           type: "start",
           url: LIVE_URL + token,
           opening: question
-            ? `[${first} opened Anu and asks:] ${question}`
-            : `[${first} just opened Anu. Greet them in one short line.]`,
+            ? `[${first} opened Anu and asks (reply in Hinglish):] ${question}`
+            : `[${first} just opened Anu. Greet them in one short Hinglish line.]`,
           setup: {
             model: LIVE_MODEL,
             generationConfig: {
               responseModalities: ["AUDIO"],
-              speechConfig: { languageCode: "en-IN", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } },
+              // hi-IN, as on the website: the voice that carries Hinglish naturally.
+              speechConfig: { languageCode: "hi-IN", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } },
             },
             systemInstruction: { parts: [{ text: staffInstruction(profile) }] },
             tools: ANU_TOOLS,

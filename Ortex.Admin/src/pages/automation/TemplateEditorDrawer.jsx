@@ -29,6 +29,13 @@ export default function TemplateEditorDrawer({ open, onClose, editingTemplate, t
         <Field label="Message Body" required hint="Use placeholders in curly braces: {name}, {product_name}, {quantity}, {unit}, {amount}, {invoice_number}, {message_snippet}">
           <Textarea
             required
+            ai={{
+              purpose:
+                "Body of an automated WhatsApp or email message template sent to customers. Keep any placeholders in curly braces exactly as written, and use only these: {name}, {product_name}, {quantity}, {unit}, {amount}, {invoice_number}, {message_snippet}",
+              context: () => ({ templateName: templateForm.name, category: templateForm.category }),
+              format: "message",
+              maxChars: 700,
+            }}
             value={templateForm.body}
             onChange={(e) => setTemplateForm({ ...templateForm, body: e.target.value })}
             placeholder="Enter message body"

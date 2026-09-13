@@ -280,6 +280,12 @@ export default function CategoryEditorScreen({ route, navigation }: StackScreenP
             placeholder="What belongs on this shelf"
             multiline
             numberOfLines={3}
+            ai={{
+              purpose:
+                "Short description of a product category in the Ortex catalogue: what products it covers and who buys them. 2 to 3 sentences.",
+              maxChars: 400,
+              context: () => ({ categoryName: draft.name, defaultHsn: draft.hsn }),
+            }}
           />
           {/* The slug is shown, not asked for: it is derived, and the only
               reason to surface it is so nobody is surprised by the URL the

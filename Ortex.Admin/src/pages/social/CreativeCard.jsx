@@ -22,6 +22,13 @@ export default function CreativeCard({ form, set, format, setFormat, generate, d
           <Field label="Image Prompt" hint="What the image model renders. No text or logos - the caption carries the words.">
             <Textarea
               rows={5}
+              ai={{
+                purpose:
+                  "Prompt for an AI image model that renders a social media product photo: describe the product, material, setting, lighting and composition. Never ask for text, letters, logos or watermarks in the image",
+                context: () => ({ topic: form.topic, caption: form.caption }),
+                format: "short",
+                maxChars: 600,
+              }}
               value={form.imagePrompt}
               onChange={(e) => set("imagePrompt", e.target.value)}
               placeholder="Enter image prompt"

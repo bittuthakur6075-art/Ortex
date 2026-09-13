@@ -2,12 +2,12 @@ import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { ENQUIRY_STATUS } from "@/domain/schema"
-import type { StatusTone } from "@/theme/theme"
 import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
 import { Icon } from "@/ui"
+import ActionButton, { type ActionTone } from "@/ui/ActionButton"
 import type { IconName } from "@/ui/Icon"
 
 /**
@@ -107,36 +107,18 @@ export function StatusStepper({
  * moves between an enquiry and the customer behind it constantly, and "Call"
  * should not be a different object on the two pages.
  */
-export function QuickAction({
-  icon,
-  label,
-  onPress,
-  disabled,
-  tone = "primary",
-}: {
+export function QuickAction(props: {
   icon: IconName
   label: string
   onPress: () => void
   disabled?: boolean
   /** A console status tone, or the brand. */
-  tone?: StatusTone | "primary"
+  tone?: ActionTone
 }) {
-  const t = useTheme()
-  const fill = tone === "primary" ? t.primary : t.tones[tone].fg
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={({ pressed }) => [styles.quick, { opacity: disabled ? 0.35 : pressed ? 0.65 : 1 }]}
-    >
-      <View style={[styles.quickCircle, { backgroundColor: fill }]}>
-        <Icon name={icon} size={22} color={t.textOnPrimary} variant="Bold" />
-      </View>
-      <Text style={[styles.quickLabel, { color: t.text }]}>{label}</Text>
-    </Pressable>
-  )
+  // The shared record-page action (ui/ActionButton): same pill, and the
+  // SATURATED fill. This used to fill with a tone's `fg`, the darkened text
+  // step, which made Call and WhatsApp muddy here and on the user page.
+  return <ActionButton {...props} />
 }
 
 /** An uppercase heading over a group. */
@@ -247,16 +229,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   stepLabel: { fontSize: 13, fontFamily: font.medium },
-
-  quick: { alignItems: "center", width: 76 },
-  quickCircle: {
-    width: 76,
-    height: 54,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  quickLabel: { marginTop: 7, fontSize: 12, fontFamily: font.semibold },
 
   groupLabel: { marginBottom: spacing.sm, marginLeft: spacing.xs },
 

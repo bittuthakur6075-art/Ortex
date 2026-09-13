@@ -133,7 +133,19 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
         </Field>
         {!pinned && (
           <Field label="Note">
-            <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Enter note" />
+            <Textarea
+              ai={{
+                purpose: isPayout
+                  ? "Short internal note on a vendor payout: what it was for"
+                  : "Short internal note on a received customer payment: what it covers",
+                context: () => ({ type, reference, invoiceId: invoiceId || undefined }),
+                format: "short",
+                maxChars: 200,
+              }}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Enter note"
+            />
           </Field>
         )}
         {due !== null && Number(amount) > due && (

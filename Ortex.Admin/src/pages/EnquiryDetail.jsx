@@ -294,6 +294,17 @@ export default function EnquiryDetail() {
               <Banner tone="info">This enquiry stores its quote request in the notes field, so it is kept read-only here.</Banner>
             ) : (
               <Textarea
+                ai={{
+                  purpose: "Private internal notes on a sales enquiry: what the customer wants, what was discussed, and the next step for the sales team",
+                  context: () => ({
+                    source: enquiry.source,
+                    status: enquiry.status,
+                    productInterest: form.productInterest,
+                    customerMessage: form.message,
+                  }),
+                  maxChars: 600,
+                  onApplied: (notes) => repo.update("enquiries", enquiry.id, { notes }),
+                }}
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                 onBlur={() => repo.update("enquiries", enquiry.id, { notes: form.notes })}

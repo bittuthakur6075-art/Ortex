@@ -12,7 +12,19 @@ export default function CopyCard({ form, set, locked }) {
           <Input value={form.topic} onChange={(e) => set("topic", e.target.value)} placeholder="Enter topic" disabled={locked} />
         </Field>
         <Field label="Caption" hint={`${form.caption.length} characters - Instagram cuts off around 125 in the feed`}>
-          <Textarea rows={7} value={form.caption} onChange={(e) => set("caption", e.target.value)} placeholder="Enter caption" disabled={locked} />
+          <Textarea
+            rows={7}
+            ai={{
+              purpose: "Instagram and Facebook caption for an Ortex Industries post. Hook in the first 125 characters, a clear call to enquire, no hashtags (they are a separate field)",
+              context: () => ({ topic: form.topic, hashtags: form.hashtags }),
+              format: "message",
+              maxChars: 1500,
+            }}
+            value={form.caption}
+            onChange={(e) => set("caption", e.target.value)}
+            placeholder="Enter caption"
+            disabled={locked}
+          />
         </Field>
         <Field label="Hashtags" hint="Comma separated, without the # sign">
           <Input

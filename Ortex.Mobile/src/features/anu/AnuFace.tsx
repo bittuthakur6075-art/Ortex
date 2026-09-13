@@ -5,8 +5,9 @@ import type { AnuStatus } from "@/features/anu/useAnuSession"
 import { useTheme } from "@/store/ThemeContext"
 
 /**
- * Anu's face: the website's photo (Ortex.Web/public/img/anu.jpg) inside three
- * flat rings that answer the call.
+ * Anu's face: assets/anu.jpg, the portrait photo the owner chose (2026-09-13),
+ * cropped square to the face. Inside three flat rings that answer the
+ * conversation.
  *
  * On a voice call the only proof the line is open is something reacting to
  * your own voice, so the rings are driven by the audio levels the engine posts:

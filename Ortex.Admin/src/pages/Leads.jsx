@@ -536,7 +536,26 @@ function LeadDrawer({ lead, onClose }) {
         )}
 
         <Field label="Notes">
-          <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} onBlur={() => !isNew && repo.update("leads", lead.id, { notes: form.notes })} placeholder="Enter notes" />
+          <Textarea
+            ai={{
+              purpose: "Private notes on a sales pipeline lead: requirement, what was discussed, objections and the next follow-up step",
+              context: () => ({
+                stage: form.stage,
+                source: form.source,
+                productInterest: form.productInterest,
+                quantityEstimate: form.quantityEstimate,
+                estimatedValue: form.estimatedValue,
+                nextFollowUp: form.nextFollowUp,
+                lostReason: form.lostReason,
+              }),
+              maxChars: 600,
+              onApplied: (notes) => !isNew && repo.update("leads", lead.id, { notes }),
+            }}
+            value={form.notes}
+            onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+            onBlur={() => !isNew && repo.update("leads", lead.id, { notes: form.notes })}
+            placeholder="Enter notes"
+          />
         </Field>
       </div>
     </Drawer>
