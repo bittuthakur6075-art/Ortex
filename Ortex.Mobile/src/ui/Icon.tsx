@@ -37,7 +37,6 @@ import Minus from "iconsax-react-native/dist/esm/Minus"
 import Money from "iconsax-react-native/dist/esm/Money"
 import Notification from "iconsax-react-native/dist/esm/Notification"
 import Moon from "iconsax-react-native/dist/esm/Moon"
-import Archive from "iconsax-react-native/dist/esm/Archive"
 import More from "iconsax-react-native/dist/esm/More"
 import Pause from "iconsax-react-native/dist/esm/Pause"
 import PercentageSquare from "iconsax-react-native/dist/esm/PercentageSquare"
@@ -121,9 +120,7 @@ const GLYPHS = {
   image: Gallery,
   camera: Camera,
   theme: Moon,
-  // The notification bell, and the shelf a dismissed notification goes to.
   bell: Notification,
-  archive: Archive,
   // account
   profile: ProfileCircle,
   lock: Lock,

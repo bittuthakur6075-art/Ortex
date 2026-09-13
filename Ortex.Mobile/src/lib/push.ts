@@ -39,6 +39,9 @@ export type PushPayload = {
   title: string
 }
 
+/** The sample's id, special-cased by the engine's response handler. */
+export const TEST_NOTIFICATION_ID = "ortex.test"
+
 let configured = false
 
 // A tapped or actioned notification should open the app, not just dismiss.
@@ -146,15 +149,73 @@ export async function presentNotification(item: AppNotification): Promise<void> 
         ? Notifications.AndroidNotificationPriority.MAX
         : Notifications.AndroidNotificationPriority.HIGH,
       color: "#2F50E4",
-      ...(Platform.OS === "android"
-        ? { channelId: REMINDER_KINDS.has(item.kind) ? CHANNEL_REMINDERS : CHANNEL_LEADS }
-        : null),
     },
     // The same deterministic id the feed uses, so the OS replaces an earlier
     // copy of the same signal instead of stacking duplicates.
     identifier: item.id,
-    trigger: null,
+    // THE CHANNEL GOES ON THE TRIGGER, NOT ON `content`.
+    //
+    // `ChannelAwareTriggerInput` — `{ channelId }` alone — is expo's way of
+    // saying "deliver now, on this channel"; it is still immediate, exactly as
+    // `trigger: null` is. A `channelId` set on `content` is silently dropped,
+    // and the notification lands in
+    // `expo_notifications_fallback_notification_channel` instead, which is how
+    // this was first written and what a `dumpsys notification` on a real
+    // handset showed on 2026-09-12. Nothing fails loudly: the banner appears,
+    // so the only symptom is that the Leads/Reminders split does not exist, the
+    // importance and vibration pattern configured in `configurePush` never
+    // apply, and a rep silencing "Reminders" silences their leads with it.
+    trigger:
+      Platform.OS === "android"
+        ? { channelId: REMINDER_KINDS.has(item.kind) ? CHANNEL_REMINDERS : CHANNEL_LEADS }
+        : null,
   })
+}
+
+/**
+ * Post a sample notification, from the Notifications settings screen.
+ *
+ * Not a developer toy: "I am not getting alerts" is the single hardest support
+ * question to answer on Android, because the answer can be the app's own switch,
+ * the OS permission, a silenced channel, a battery optimiser, or Do Not Disturb —
+ * and five of those six are invisible from inside the app. One tap that either
+ * appears in the shade or does not splits that question in half, and the sample
+ * carries the real Call / WhatsApp buttons so the whole path is what gets tested,
+ * not just the banner.
+ *
+ * Returns false when the OS refused permission outright, so the caller can say
+ * something more useful than "sent".
+ */
+export async function sendTestNotification(phone = ""): Promise<boolean> {
+  if (!(await ensurePushPermission())) return false
+  await presentNotification({
+    id: TEST_NOTIFICATION_ID,
+    kind: "enquiry-new",
+    module: "Test",
+    icon: "enquiry",
+    tone: "primary",
+    when: new Date().toISOString(),
+    urgent: false,
+    title: "Test notification",
+    body: "This is what a new lead looks like.",
+    facts: [],
+    customerName: "Ortex Industries",
+    // The rep's OWN number, when the profile carries one: the sample then shows
+    // the real Call / WhatsApp buttons, and pressing one rings the only person
+    // it is safe to ring — themselves. With no number on the profile the sample
+    // falls back to the plain category, which still proves the banner.
+    phone,
+    // Tapping it goes to the Notifications list. The engine special-cases this
+    // id, because there is no record behind a sample and a detail screen opened
+    // on a fake row is a worse answer than no answer.
+    target: { screen: "EnquiryDetail", id: TEST_NOTIFICATION_ID },
+    actions: [{ id: "open", label: "Open" }],
+    push: {
+      title: "Ortex notifications are working",
+      body: "A real lead shows the customer, what they want, their number, and Call / WhatsApp buttons here.",
+    },
+  })
+  return true
 }
 
 /** Clear the shade — used when the rep marks everything read in the app. */

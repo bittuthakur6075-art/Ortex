@@ -314,11 +314,16 @@ function voiceNotifications(calls: VoiceCall[], now: number): AppNotification[] 
       tone: support ? "rose" : call.flags.urgent ? "amber" : "primary",
       when: iso(call.endedAt, ended),
       urgent: support || call.flags.urgent,
+      // The caller's NAME leads, not Anu's. "Anu captured a lead from Rakesh"
+      // wraps to two lines on a phone, buries the one word a rep scans for, and
+      // reads as "from Anu" the day a caller is herself called Anu — which is
+      // exactly what the live feed showed on 2026-09-12. The meta line under it
+      // already says "Voice calls", so the channel never needed saying twice.
       title: support
         ? `${call.name} called about a problem`
         : call.flags.urgent
           ? `${call.name} needs it urgently`
-          : `Anu captured a lead from ${call.name}`,
+          : `${call.name} spoke to Anu`,
       body: support ? `Support, not a sale. ${detail}` : detail,
       facts: [
         support ? "Support" : null,

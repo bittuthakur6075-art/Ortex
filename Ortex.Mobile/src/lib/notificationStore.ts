@@ -5,8 +5,8 @@ import { DEFAULT_PREFS, type NotificationPrefs } from "@/domain/notifications"
 
 /**
  * What this handset knows about its own notifications: which have been read,
- * which have been archived, which have already been pushed to the shade, and
- * which signals the rep wants at all.
+ * which have already been pushed to the shade, and which signals the rep wants
+ * at all.
  *
  * It is LOCAL, exactly as the console's drawer is (its flags live in
  * localStorage under `ortex.admin.notifications`). A notification is derived
@@ -24,7 +24,6 @@ const PREFS_KEY = "ortex.notifications.prefs"
 
 export type NotificationFlags = {
   read?: boolean
-  archived?: boolean
   /**
    * This item has already been posted to the notification shade. It is what
    * stops a re-fetch, a pull-to-refresh or a cold start from ringing the phone
@@ -69,7 +68,6 @@ export function hydrateNotifications(): Promise<void> {
 
 export const notificationFlags = () => flags
 export const isRead = (id: string) => Boolean(flags[id]?.read)
-export const isArchived = (id: string) => Boolean(flags[id]?.archived)
 export const wasPushed = (id: string) => Boolean(flags[id]?.pushed)
 
 function patch(id: string, next: NotificationFlags) {
@@ -78,14 +76,6 @@ function patch(id: string, next: NotificationFlags) {
 
 export function markRead(id: string, read = true) {
   patch(id, { read })
-  persistFlags()
-  emit()
-}
-
-export function markArchived(id: string, archived = true) {
-  // Archiving is also reading it: an archived row should never come back as an
-  // unread count on the bell.
-  patch(id, { archived, read: true })
   persistFlags()
   emit()
 }

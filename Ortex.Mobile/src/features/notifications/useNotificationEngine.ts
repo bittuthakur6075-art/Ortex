@@ -20,6 +20,7 @@ import {
   presentNotification,
   pushPermissionGranted,
   setBadge,
+  TEST_NOTIFICATION_ID,
 } from "@/lib/push"
 import { navigateWhenReady } from "@/navigation/navigationRef"
 
@@ -134,6 +135,12 @@ export function useNotificationEngine() {
       if (action === "whatsapp" && payload.phone) {
         const item = feedRef.current.find((n) => n.id === payload.id)
         void whatsapp(payload.phone, item ? greeting(item) : undefined)
+        return
+      }
+
+      // The sample from Settings has no record behind it.
+      if (payload.id === TEST_NOTIFICATION_ID) {
+        navigateWhenReady("Notifications")
         return
       }
 

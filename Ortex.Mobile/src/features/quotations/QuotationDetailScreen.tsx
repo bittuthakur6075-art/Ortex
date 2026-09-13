@@ -10,7 +10,13 @@ import { LOST_REASONS, QUOTATION_STATUS, statusMeta, type Quotation } from "@/do
 import { useSettings } from "@/hooks/useSettings"
 import { callNumber, prettyPhone, whatsapp } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
-import { printQuotation, shareQuotationOnWhatsApp, shareQuotationPdf } from "@/lib/pdf"
+import {
+  attachQuotationPdf,
+  printQuotation,
+  sendQuotationMessage,
+  shareQuotationOnWhatsApp,
+  shareQuotationPdf,
+} from "@/lib/pdf"
 import QuotationPreview from "@/features/quotations/QuotationPreview"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
@@ -78,6 +84,10 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
   const [menuOpen, setMenuOpen] = React.useState(false)
   const [previewOpen, setPreviewOpen] = React.useState(false)
   const [confirmDelete, setConfirmDelete] = React.useState(false)
+  // Raised after the PDF has been handed to WhatsApp, and waiting when the
+  // salesperson comes back — the covering note cannot ride with a document, so
+  // it is a second message and this is the prompt to send it.
+  const [offerMessage, setOfferMessage] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
   const [sharing, setSharing] = React.useState(false)
   const scrollY = React.useRef(new Animated.Value(0)).current
@@ -147,9 +157,10 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
       const sent =
         !!doc.customer?.phone && (await shareQuotationOnWhatsApp(doc, settings, doc.customer.phone, pitch))
       if (sent) {
-        // Said out loud, because a clipboard nobody knows about is the same as
-        // no message at all.
-        toast.show({ message: "Message copied — paste it with the PDF" })
+        // Not a toast: a toast is gone before they are back from WhatsApp, and
+        // the note is half the send. The prompt waits on the screen they return
+        // to, with the words already on the clipboard either way.
+        setOfferMessage(true)
       } else {
         await shareQuotationPdf(doc, settings)
       }
@@ -476,6 +487,37 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
                 },
               ]
             : []),
+        ]}
+      />
+
+{/* WhatsApp keeps a caption on an IMAGE and drops it on a DOCUMENT, which
+          is why the quotation goes twice on purpose: page one as a picture
+          carrying the covering message (one message, both things), then the
+          real PDF so they can download and forward it. This is the prompt for
+          that second half. It doubles as the answer to WhatsApp's App lock
+          eating the first intent — sending again lands instantly once the
+          fingerprint has cleared, rather than making somebody start over. */}
+      <Dialog
+        visible={offerMessage}
+        onClose={() => setOfferMessage(false)}
+        title="Send the PDF as well?"
+        message={`The quotation went to ${who} as a picture with your message written on it. Send the PDF too, so they can download and forward a proper document.`}
+        actions={[
+          { label: "Not now", onPress: () => setOfferMessage(false) },
+          {
+            label: "Message only",
+            onPress: () => {
+              setOfferMessage(false)
+              void sendQuotationMessage(doc.customer?.phone || "", pitch)
+            },
+          },
+          {
+            label: "Send PDF",
+            onPress: () => {
+              setOfferMessage(false)
+              void attachQuotationPdf(doc, settings, doc.customer?.phone || "")
+            },
+          },
         ]}
       />
 

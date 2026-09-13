@@ -4,12 +4,13 @@ import { Linking, StyleSheet, Text, View } from "react-native"
 import { NOTIFICATION_SETTINGS } from "@/domain/notifications"
 import { feedback } from "@/lib/feedback"
 import { setNotificationPrefs, useNotificationStore } from "@/lib/notificationStore"
-import { dismissAll, ensurePushPermission, pushPermissionGranted } from "@/lib/push"
+import { dismissAll, ensurePushPermission, pushPermissionGranted, sendTestNotification } from "@/lib/push"
 import type { StackScreenProps } from "@/navigation/types"
+import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
-import { AppScreen, Panel, Section, SectionRow, Switch } from "@/ui"
+import { AppScreen, Panel, Section, SectionRow, Switch, useToast } from "@/ui"
 
 /**
  * What the phone is allowed to interrupt a rep about.
@@ -27,6 +28,8 @@ export default function NotificationSettingsScreen({
   navigation,
 }: StackScreenProps<"NotificationSettings">) {
   const t = useTheme()
+  const toast = useToast()
+  const { profile } = useAuth()
   const { prefs } = useNotificationStore()
   const [granted, setGranted] = React.useState<boolean | null>(null)
 
@@ -90,6 +93,20 @@ export default function NotificationSettingsScreen({
             chevron={false}
           />
         ))}
+        <SectionRow
+          title="Send a test notification"
+          subtitle="Check this phone can actually show one"
+          leadingIcon="send"
+          onPress={async () => {
+            feedback.tap()
+            const sent = await sendTestNotification(profile?.phone || "")
+            toast.show(
+              sent
+                ? { message: "Sent — pull down the notification shade", tone: "success" }
+                : { message: "Android is blocking notifications. Allow them in Settings", tone: "danger" },
+            )
+          }}
+        />
       </Section>
 
       <Panel padded>

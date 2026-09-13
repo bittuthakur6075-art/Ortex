@@ -8,7 +8,7 @@ import Share, { Social, type ShareSingleOptions } from "react-native-share"
 import { quotationHtml } from "@/documents/quotationHtml"
 import type { Quotation } from "@/domain/schema"
 import type { Settings } from "@/domain/settings"
-import { whatsappNumber } from "@/lib/contact"
+import { whatsapp, whatsappNumber } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
 
 // Printing and sharing the quotation PDF.
@@ -65,30 +65,33 @@ export async function shareQuotationPdf(doc: Quotation, settings: Settings): Pro
  * optional shape rather than a hard import.
  */
 const WhatsAppDoc = NativeModules.WhatsAppDoc as
-  | { send(filePath: string, mimeType: string, number: string, message: string): Promise<boolean> }
+  | {
+      send(filePath: string, mimeType: string, number: string, message: string): Promise<boolean>
+      firstPageAsImage(pdfPath: string): Promise<string>
+    }
   | undefined
 
 /**
- * Send the quotation PDF into ONE customer's WhatsApp chat.
+ * Put the quotation in front of ONE customer, in their own WhatsApp chat, with
+ * the covering message attached to it rather than trailing after it.
  *
- * THE CHAT OPENS AND THE FILE DOES NOT ARRIVE — that is what react-native-share
- * does on this hardware, and why there is a native module here. `shareSingle`
- * with `whatsAppNumber` fires TWO intents ~10ms apart (WhatsAppShare.java): the
- * first opens `com.whatsapp.Conversation` for the number and ignores the
- * attachment, the second carries the file. A Samsung that freezes or defers
- * background starts drops the second, so the salesperson lands in the right
- * chat with nothing in it and no error anywhere — the worst possible failure,
- * because it looks like it worked. Our module sends ONE intent carrying the
- * `jid` and EXTRA_STREAM together: both arrive, or the send visibly fails.
+ * WHY A PICTURE AND NOT THE PDF. WhatsApp keeps a caption on an IMAGE and
+ * throws it away on a DOCUMENT — that is its rule, not a bug in the intent, and
+ * it is why every earlier attempt landed the file with no message. So the first
+ * page is rasterised (natively, PdfRenderer at 150dpi) and sent as a picture
+ * WITH the message as its caption: one message, both things, nothing to paste.
+ * `attachQuotationPdf` then sends the real document as a second attachment, so
+ * the customer still gets something they can download and forward.
  *
- * WHAT STILL CANNOT BE DONE: WhatsApp honours EXTRA_TEXT as a caption for an
- * IMAGE and drops it for a DOCUMENT. The covering note therefore cannot travel
- * with the PDF by any route, so it goes on the clipboard and the caller says
- * so, ready to paste into WhatsApp's own caption box. The intent carries the
- * text anyway, which costs nothing and starts working if WhatsApp relents.
+ * Everything else here is the hard-won part: ONE intent carrying `jid` and
+ * EXTRA_STREAM together (react-native-share fires two ~10ms apart and a Samsung
+ * that throttles background starts drops the second, landing you in the right
+ * chat with nothing in it), and ClipData plus an explicit package grant, because
+ * FLAG_GRANT_READ_URI_PERMISSION never looks inside extras and WhatsApp cannot
+ * read a URI it was not granted — silently, with no error.
  *
- * Returns false when WhatsApp is absent or refuses the intent, so the caller
- * can fall back to the ordinary share sheet.
+ * Returns false when WhatsApp is absent or refuses, so the caller falls back to
+ * the ordinary share sheet.
  */
 export async function shareQuotationOnWhatsApp(
   doc: Quotation,
@@ -100,25 +103,24 @@ export async function shareQuotationOnWhatsApp(
   if (!number) return false
   try {
     const uri = await renderPdf(doc, settings)
-    // Before WhatsApp opens, not after: by the time the send screen is up the
-    // salesperson is already there to paste it.
+    // The clipboard stays useful whatever happens next: a caption can be
+    // retyped, and on the fallback paths there is no caption at all.
     await Clipboard.setStringAsync(message).catch(() => {})
 
     if (Platform.OS === "android" && WhatsAppDoc) {
-      await WhatsAppDoc.send(uri, "application/pdf", number, message)
+      const image = await WhatsAppDoc.firstPageAsImage(uri)
+      await WhatsAppDoc.send(image, "image/png", number, message)
       feedback.created()
       return true
     }
 
-    // iOS, and any Android build older than the native module: the library's
-    // two-intent path is still the only way to address one chat, and it does
-    // work where background starts are not being throttled.
+    // iOS, and any Android build older than the native module.
     await Share.shareSingle({
       social: Social.Whatsapp,
       whatsAppNumber: number,
       url: uri,
       type: "application/pdf",
-      filename: `Quotation-${(doc.number || "draft").replace(/[^\w-]/g, "")}`,
+      filename: `Quotation-${(doc.number || "draft").replace(/[^w-]/g, "")}`,
       message,
     } as ShareSingleOptions & { whatsAppNumber: string })
     feedback.created()
@@ -126,6 +128,45 @@ export async function shareQuotationOnWhatsApp(
   } catch {
     return false
   }
+}
+
+/**
+ * The document itself, into the same chat, as a second attachment. No caption —
+ * WhatsApp would drop it, and the message already went with the picture.
+ */
+export async function attachQuotationPdf(
+  doc: Quotation,
+  settings: Settings,
+  phone: string,
+): Promise<boolean> {
+  const number = whatsappNumber(phone)
+  if (!number) return false
+  try {
+    const uri = await renderPdf(doc, settings)
+    if (Platform.OS === "android" && WhatsAppDoc) {
+      await WhatsAppDoc.send(uri, "application/pdf", number, "")
+      feedback.created()
+      return true
+    }
+    await shareQuotationPdf(doc, settings)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Open the same customer's chat with the covering note already typed into the
+ * compose box, for them to send.
+ *
+ * This is the OTHER half of "send them the quotation": the PDF intent cannot
+ * carry the note (WhatsApp drops EXTRA_TEXT for a document), so the note has to
+ * travel as its own message. No app can press send on someone's behalf —
+ * WhatsApp always requires the human tap — so the most that can be automated is
+ * landing in the right chat with the right words already in the box.
+ */
+export function sendQuotationMessage(phone: string, message: string): Promise<boolean> {
+  return whatsapp(phone, message)
 }
 
 /** Hand the same document to the OS print dialog. */

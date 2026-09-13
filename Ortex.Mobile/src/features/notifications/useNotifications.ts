@@ -12,7 +12,7 @@ import { useNotificationStore } from "@/lib/notificationStore"
 import { useAuth } from "@/store/AuthContext"
 
 /**
- * The live feed, plus the read/archived split every caller needs.
+ * The live feed, plus the unread split every caller needs.
  *
  * One hook, two consumers: the bell in the app bar (which wants a count) and the
  * Notifications screen (which wants the rows). Both read the SAME shared
@@ -24,11 +24,10 @@ import { useAuth } from "@/store/AuthContext"
  * a record RLS would refuse.
  */
 export type NotificationFeed = {
-  /** Everything not archived, newest first. */
+  /** The whole feed, newest first. */
   active: AppNotification[]
   unread: AppNotification[]
-  archived: AppNotification[]
-  /** Everything, archived included — what the flag pruner needs. */
+  /** Same list, under the name the push engine reads it by. */
   all: AppNotification[]
   unreadCount: number
   loading: boolean
@@ -78,24 +77,15 @@ export function useNotifications(): NotificationFeed {
 
   const isRead = React.useCallback((id: string) => Boolean(flags[id]?.read), [flags])
 
-  const { active, unread, archived } = React.useMemo(() => {
-    const act: AppNotification[] = []
-    const arc: AppNotification[] = []
-    for (const n of all) {
-      if (flags[n.id]?.archived) arc.push(n)
-      else act.push(n)
-    }
-    return { active: act, archived: arc, unread: act.filter((n) => !flags[n.id]?.read) }
-  }, [all, flags])
+  const unread = React.useMemo(() => all.filter((n) => !flags[n.id]?.read), [all, flags])
 
   const reload = React.useCallback(async () => {
     await Promise.all([enquiries.reload(), quotations.reload()])
   }, [enquiries, quotations])
 
   return {
-    active,
+    active: all,
     unread,
-    archived,
     all,
     unreadCount: unread.length,
     loading: enquiries.loading || quotations.loading,

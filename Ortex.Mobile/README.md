@@ -168,7 +168,10 @@ shared row would mark a lead read for the whole team.
 **Push is local, not remote** (`lib/push.ts`, `expo-notifications`). The phone
 posts what it derives, so there are no FCM/APNs credentials and no server
 fan-out — at the honest cost that the app must be running for a signal to reach
-the shade. Waking a killed app needs FCM and is separate work. Every push
+the shade. Waking a killed app needs FCM and is separate work. **The action buttons exist only on the push**, never on the in-app row —
+their whole point is acting without opening the app, and once it is open the
+lead's own page is one tap away with the contact circles and advisories on it. An
+in-app row states who and what, and opens the record. Every push
 carries the detail (what they want, the number, the place, the value, the
 timing) and its actions: **Call** and **WhatsApp** open straight from the shade
 without bringing the app up, **Open** deep-links to the record through
