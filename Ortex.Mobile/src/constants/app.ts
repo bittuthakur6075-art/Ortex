@@ -1,17 +1,19 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pkg = require("../../package.json") as { version: string }
+
 /**
  * What the app calls itself.
  *
- * The version is written here rather than read from the installed package,
- * because reading the real `versionName` needs a native module (expo-constants
- * or react-native-device-info) and neither is installed — adding one costs a
- * native rebuild for a line of text.
+ * THE VERSION HAS ONE HOME: `version` in package.json. Metro inlines it here,
+ * and android/app/build.gradle reads the same field for versionName and derives
+ * versionCode from it (1.2.0 → 10200), so the number a rep reads on the Profile
+ * page is the number the APK carries. It used to be typed by hand in both
+ * places and had drifted (1.1 in the APK, 1.0 on screen). iOS still needs
+ * MARKETING_VERSION / CURRENT_PROJECT_VERSION in the Xcode project moved by hand.
  *
- * THE COST OF THAT: this string does not update itself. On a release it has to
- * move in step with `android/app/build.gradle` (versionName + versionCode) and
- * `ios/Ortex/Info.plist` (CFBundleShortVersionString). If the three ever
- * disagree, the phone screen is the one that is lying.
+ * Bump it with `npm version minor` (or patch/major) from Ortex.Mobile/.
  */
-export const APP_VERSION = "1.0"
+export const APP_VERSION = pkg.version
 
 /** Shown under the version on the Profile page. */
 export const APP_CREDIT = "Designed & developed by Ortex Industries"

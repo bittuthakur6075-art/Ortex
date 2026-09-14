@@ -25,6 +25,27 @@ def hasReleaseSigning = ["ORTEX_STORE_FILE", "ORTEX_STORE_PASSWORD", "ORTEX_KEY_
     .every { project.hasProperty(it) }
 
 /**
+ * THE VERSION HAS ONE HOME: `version` in Ortex.Mobile/package.json. The
+ * Profile screen reads the same field (src/constants/app.ts), so the number a
+ * rep reads on the phone is the number the APK carries. They were typed by hand
+ * in two places before, and had already drifted (1.1 here, 1.0 on screen).
+ *
+ * versionCode is derived as major*10000 + minor*100 + patch, so it rises with
+ * every release without a second number to remember: 1.2.0 → 10200. Android
+ * refuses an update whose versionCode is not higher than the installed one,
+ * which is why a patch or minor above 99 is rejected here rather than silently
+ * wrapping.
+ */
+def appVersion = new groovy.json.JsonSlurper().parse(file("../../package.json")).version as String
+def appVersionCode = {
+    def m = appVersion =~ /^(\d+)\.(\d+)\.(\d+)$/
+    if (!m.matches()) throw new GradleException("package.json version must be MAJOR.MINOR.PATCH, got '${appVersion}'")
+    def (major, minor, patch) = [m.group(1), m.group(2), m.group(3)].collect { it as int }
+    if (minor > 99 || patch > 99) throw new GradleException("MINOR and PATCH must be 0-99 for versionCode, got '${appVersion}'")
+    return major * 10000 + minor * 100 + patch
+}()
+
+/**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
  */
@@ -131,8 +152,8 @@ android {
         applicationId "com.ortexmobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.1"
+        versionCode appVersionCode
+        versionName appVersion
     }
     signingConfigs {
         debug {

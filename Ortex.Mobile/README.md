@@ -203,6 +203,28 @@ already reading, and thirty notifications at once is a phone that gets silenced.
 * Env comes from `react-native-dotenv` (Babel-only, no native module):
   `SUPABASE_URL`, `SUPABASE_ANON_KEY`.
 
+## Releasing an APK
+
+The version lives in ONE place, `package.json` `version`. `src/constants/app.ts`
+`require`s it for the Profile page, and `android/app/build.gradle` reads it for
+`versionName` and derives `versionCode` (major×10000 + minor×100 + patch, so
+1.2.0 → 10200). Bump, build, hand out:
+
+```bash
+npm version minor            # or patch / major; commits the bump
+cd android && ./gradlew app:assembleRelease
+# → android/app/build/outputs/apk/release/app-release.apk (all ABIs, R8 + resource shrinking, Hermes)
+```
+
+Signing reads `android/app/ortex-release.keystore` (gitignored) with the four
+`ORTEX_STORE_FILE` / `ORTEX_STORE_PASSWORD` / `ORTEX_KEY_ALIAS` /
+`ORTEX_KEY_PASSWORD` properties from `~/.gradle/gradle.properties`. Without all
+four the release type falls back to the debug key, which installs but cannot be
+updated by a properly signed build later. **Back the keystore up**: Android ties
+the app to its signature, and a lost key means every phone must uninstall before
+the next build goes on. iOS `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in
+the Xcode project are still moved by hand.
+
 ## Style
 
 Double quotes, no semicolons, 2-space indent, LF, the repo's `.editorconfig`
