@@ -285,3 +285,19 @@ export function buildQuotationState(call) {
     message: context,
   }
 }
+
+// ---- folding raw rows --------------------------------------------------------
+
+// Every `enquiries` row Anu wrote, parsed and folded into calls (newest first),
+// with flags and a display name. The one derivation the Voice calls page and
+// the staff assistant (lib/anu.js) both read, so they cannot disagree.
+export function voiceCallsFrom(items) {
+  const rows = (items || [])
+    .filter((e) => e.source === VOICE_SOURCE)
+    .map((e) => {
+      const parsed = { ...e, ...parseMessage(e.message) }
+      return { ...parsed, itemsList: itemsFor(parsed) }
+    })
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  return groupIntoCalls(rows).map((c) => ({ ...c, flags: flagsFor(c), ...displayName(c.customer.name) }))
+}

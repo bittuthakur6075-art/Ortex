@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Package, Plus, Search } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { useCollection, useCategories, useSorting } from "../hooks/useCollection"
@@ -19,10 +20,31 @@ export default function Products() {
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState("all")
   const [editing, setEditing] = useState(null) // product object or "new"
+  const [presetCategory, setPresetCategory] = useState(null) // category name for a new product
   const [viewing, setViewing] = useState(null) // product details viewing
   const [importing, setImporting] = useState(false)
   const [sort, onSort] = useSorting("name")
   const filtered = useMemo(() => filterAndSortProducts(items, query, category, sort), [items, query, category, sort])
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  // Arriving from a link that names a product to show (Anu's "open it for me"),
+  // or from a category page's "Add a product here" (newProductCategory).
+  useEffect(() => {
+    const preset = location.state?.newProductCategory
+    if (preset) {
+      setPresetCategory(preset)
+      setEditing("new")
+      navigate(location.pathname + location.search, { replace: true })
+      return
+    }
+    const id = location.state?.openId
+    if (!id || loading) return
+    const product = items.find((p) => p.id === id)
+    if (product) setViewing(product)
+    else toast.error("That product no longer exists.")
+    navigate(location.pathname + location.search, { replace: true })
+  }, [location.state, loading, items, navigate, location.pathname, location.search])
 
   const handleExport = () => {
     exportCsv(productsCsvFile(), PRODUCT_CSV_COLUMNS, filtered)
@@ -96,7 +118,11 @@ export default function Products() {
         open={editing !== null}
         product={editing === "new" ? null : editing}
         categories={categories}
-        onClose={() => setEditing(null)}
+        presetCategory={editing === "new" ? presetCategory : null}
+        onClose={() => {
+          setEditing(null)
+          setPresetCategory(null)
+        }}
       />
 
       <ProductImport open={importing} onClose={() => setImporting(false)} />

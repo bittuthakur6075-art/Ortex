@@ -10,7 +10,7 @@ import useContactForm from "./contact/useContactForm"
 export default function Contact() {
   useDocumentMetadata(
     "Contact Ortex Industries | Get a Custom Product Quote",
-    "Get a fast, factory-direct quote for custom MDF, acrylic, lanyards, badges, and corporate gifts. Call +91-9211947188, email sales@ortexindustries.in, or WhatsApp us. PAN India delivery and worldwide export.",
+    "Get a factory-direct quote for custom MDF, acrylic, lanyards, badges and corporate gifts. Call +91-9211947188, email sales@ortexindustries.in or WhatsApp us.",
     { path: "/contact" }
   )
 

@@ -18,12 +18,13 @@ import {
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { fadeUp, RevealWords } from "../components/ui/Section"
 import PageCTA from "../components/ui/PageCTA"
+import { STATS } from "../constants/business"
 import PageHero from "../components/ui/PageHero"
 
 export default function About() {
   useDocumentMetadata(
-    "About Ortex Industries - Manufacturing Excellence & Customization Expertise",
-    "Learn the Ortex Industries story: how we started, why brands across India trust us, the quality we deliver, and the in-house customization capabilities that make us your ideal manufacturing partner.",
+    "About Ortex Industries | Custom Manufacturer in Delhi",
+    "How Ortex Industries started, why brands across India trust us, and the in-house cutting, printing and engraving behind every order we manufacture.",
     { path: "/about" }
   )
 
@@ -54,12 +55,8 @@ export default function About() {
     },
   ]
 
-  const stats = [
-    { value: "10+", label: "Years crafting custom products" },
-    { value: "5L+", label: "Products delivered to date" },
-    { value: "1,200+", label: "Brands and businesses served" },
-    { value: "98%", label: "Orders dispatched on time" },
-  ]
+  // Shared with Anu, who quotes the same figures on a call.
+  const stats = STATS
 
   const trustPillars = [
     {

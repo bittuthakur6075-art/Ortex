@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from "react"
-import { GoogleGenAI, Modality } from "@google/genai"
+import { GoogleGenAI, Modality, StartSensitivity, ThinkingLevel } from "@google/genai"
 import { supabase, hasSupabase } from "../../../lib/supabaseClient"
 import { INPUT_RATE, OUTPUT_RATE, floatTo16BitPCM, int16ToBase64, base64ToInt16 } from "./audio"
 import { VOICE_SYSTEM_INSTRUCTION, buildOpener } from "./prompt"
 import { LIVE_TOOLS } from "./tools"
 import { SPOKEN_FIELD, parseQuantity, validateLead, saveVoiceLead } from "./leads"
-import { MEMORY_KEY, MAX_MEMORY_LINES, loadMemory } from "./memory"
+import { MAX_MEMORY_LINES, loadMemory, saveMemory } from "./memory"
 import { newCallId, recordingPath, startCallRecording, uploadCallRecording } from "./recording"
-import { catalogueBlock, classifyItem, loadCatalogue, lookupProduct } from "./catalogue"
+import { catalogueBlock, classifyItem, findPastWork, loadCatalogue, lookupProduct, watchCatalogue } from "./catalogue"
+import { TERMS } from "../../../constants/business"
 
 /* ============================================================
    useLiveSession: the whole lifecycle of one voice call.
@@ -36,7 +37,15 @@ const MAX_CAPTION_CHUNKS = 80
 // When the playback queue has run dry (a new reply, or network jitter), start
 // the next chunk this far ahead so the ones behind it arrive in time instead of
 // leaving an audible hole. Measured: one 37 ms hole per ~14 s without it.
-const PLAYBACK_LEAD = 0.08
+// 80 ms was still too thin on a mobile or congested connection: chunks arrived
+// a little late, the queue ran dry mid-sentence and her voice broke up. The
+// lead now GROWS each time the queue runs dry in the middle of a reply (an
+// underrun), up to PLAYBACK_LEAD_MAX, and stays grown for the rest of the call,
+// because a jittery connection stays jittery. A few hundred ms of extra latency
+// is inaudible; a voice that stutters every few words is not.
+const PLAYBACK_LEAD = 0.12
+const PLAYBACK_LEAD_STEP = 0.06
+const PLAYBACK_LEAD_MAX = 0.36
 // De-click ramp on every discontinuity in Anu's audio: the start of a chunk
 // that follows silence, and the end of one that is cut short by an
 // interruption. 12 ms is inaudible as a fade and long enough to kill the step.
@@ -47,8 +56,24 @@ const FADE = 0.012
 // 1024 samples is 64 ms, still comfortably above the main thread's jitter.
 const MIC_BUFFER = 1024
 // How long the customer has to be silent before the model treats the turn as
-// finished. The default waits noticeably longer than a person would.
-const END_OF_SPEECH_SILENCE_MS = 450
+// finished. The default waits noticeably longer than a person would, but 450 ms
+// was too eager: a customer pausing mid-sentence ("my number is 98765... 43210",
+// "we need... around 500") was cut off, Anu started answering, the customer
+// carried on, and that barge-in stopped her mid-word and made the model start
+// its reply over, which is both the broken voice and the long gap. Tested
+// against the live model (2026-09-14, noise / mid-sentence pause / quiet room):
+// those cut-offs came from the HIGH start sensitivity, not from this value, so
+// with LOW start sensitivity 500 ms cut nobody off and answered 150-540 ms
+// sooner than 650 ms. Every millisecond here is dead air on EVERY turn.
+const END_OF_SPEECH_SILENCE_MS = 500
+// How much sustained speech it takes to count as the customer starting to talk
+// (and so to interrupt Anu). Gemini Live defaults to HIGH start sensitivity,
+// where a cough, a fan, a "haan" or the residue of her own voice from the
+// laptop speakers stops her. LOW sensitivity plus a short prefix keeps real
+// barge-ins working and ignores the rest.
+const START_OF_SPEECH_PREFIX_MS = 200
+// Served from public/ (see the file header there for why it is not a blob URL).
+const MIC_WORKLET_URL = `${import.meta.env.BASE_URL}anu-mic-worklet.js`
 // Gemini's voice peaks at about -0.3 dBFS; 0.9x leaves headroom so cheap
 // speakers do not distort on loud syllables.
 const OUTPUT_GAIN = 0.9
@@ -80,7 +105,7 @@ function nextStep(check, confirmed) {
   if (!confirmed) {
     return `${checks}All five details are captured. Read back the complete summary now: name, WhatsApp number in two groups of five digits, every product with its quantity, timeline and delivery city. Ask the customer to confirm. When they confirm, call capture_lead again with the same details and confirmed=true.`
   }
-  return "Confirmed and saved. Tell the customer the team will send the free mockup and quotation on WhatsApp, usually within one working day. Then ASK whether they need anything else and WAIT for their answer. If they raise anything, handle it and ask again. Only when they have nothing further, say a short warm goodbye and call end_call with reason completed."
+  return `Confirmed and saved. Tell the customer the team will send the free mockup and quotation on WhatsApp, usually within ${TERMS.quoteTurnaround}. Then ASK whether they need anything else and WAIT for their answer. If they raise anything, handle it and ask again. Only when they have nothing further, say a short warm goodbye and call end_call with reason completed.`
 }
 
 // Why end_call should be refused, or null when the call may end.
@@ -141,6 +166,15 @@ export function useLiveSession() {
   const levelBufRef = useRef(null)
   const sourcesRef = useRef([])
   const nextTimeRef = useRef(0)
+  // Current playback lead (seconds), grown on underruns; see PLAYBACK_LEAD.
+  const playLeadRef = useRef(PLAYBACK_LEAD)
+  // True from Anu's first audio chunk of a reply until turnComplete/interrupted,
+  // so an empty queue in between is known to be an underrun, not the end.
+  const replyingRef = useRef(false)
+  // Dev latency probe: when the customer was last heard, and whether a tool
+  // call sat between that and her reply.
+  const heardAtRef = useRef(0)
+  const toolSinceHeardRef = useRef(false)
   const timerRef = useRef(0)
   const secondsRef = useRef(0)
   const endWantedRef = useRef(false)
@@ -149,6 +183,7 @@ export function useLiveSession() {
   const turnDoneRef = useRef(true)
   const callIdRef = useRef(null)
   const catalogueRef = useRef(null)
+  const unwatchCatalogueRef = useRef(null)
   const recorderRef = useRef(null)
   const recPathRef = useRef(null)
 
@@ -162,8 +197,8 @@ export function useLiveSession() {
     try {
       const lines = convoRef.current.slice(-MAX_MEMORY_LINES)
       if (!lines.length && !leadRef.current) return
-      localStorage.setItem(MEMORY_KEY, JSON.stringify({ v: 1, savedAt: Date.now(), lead: leadRef.current, lines }))
-    } catch { /* localStorage full or blocked; memory is best-effort */ }
+      saveMemory({ v: 1, savedAt: Date.now(), lead: leadRef.current, lines })
+    } catch { /* memory is best-effort */ }
   }, [])
 
   // Close out a turn: fold the buffered user + Anu transcripts into the rolling
@@ -194,12 +229,18 @@ export function useLiveSession() {
 
   const stop = useCallback(() => {
     clearInterval(timerRef.current)
+    unwatchCatalogueRef.current?.()
+    unwatchCatalogueRef.current = null
     // A recorder still running here belongs to a call being abandoned (closed
     // while connecting, or torn down on unmount): discard it. finish() and the
     // error path take theirs out first, through closeRecording.
     try { recorderRef.current?.stop() } catch { /* noop */ }
     recorderRef.current = null
-    try { procRef.current?.disconnect() } catch { /* noop */ }
+    try {
+      if (procRef.current?.port) procRef.current.port.onmessage = null
+      else if (procRef.current) procRef.current.onaudioprocess = null
+      procRef.current?.disconnect()
+    } catch { /* noop */ }
     try { streamRef.current?.getTracks().forEach((t) => t.stop()) } catch { /* noop */ }
     // Null the session BEFORE closing it: onclose checks it to tell our own
     // hang-up apart from the server dropping the call.
@@ -213,6 +254,8 @@ export function useLiveSession() {
     procRef.current = streamRef.current = null
     inCtxRef.current = outCtxRef.current = inAnalyserRef.current = outAnalyserRef.current = null
     nextTimeRef.current = 0
+    playLeadRef.current = PLAYBACK_LEAD
+    replyingRef.current = false
     secondsRef.current = 0
     endWantedRef.current = false
     setAudioBlocked(false)
@@ -266,7 +309,17 @@ export function useLiveSession() {
     // Contiguous with the chunk before it: the waveform continues, so no fade.
     // Otherwise this is the first chunk after silence and it needs a ramp in.
     const contiguous = nextTimeRef.current > now
-    const start = contiguous ? nextTimeRef.current : now + PLAYBACK_LEAD
+    // The queue ran dry while a reply was still streaming: the network was
+    // late. Buffer more from here on so it does not happen again.
+    if (!contiguous && replyingRef.current && playLeadRef.current < PLAYBACK_LEAD_MAX) {
+      playLeadRef.current = Math.min(PLAYBACK_LEAD_MAX, playLeadRef.current + PLAYBACK_LEAD_STEP)
+      if (import.meta.env.DEV) {
+        if (window.__anu) window.__anu.underruns += 1
+        console.info(`[Anu] playback underrun, lead now ${Math.round(playLeadRef.current * 1000)} ms`)
+      }
+    }
+    replyingRef.current = true
+    const start = contiguous ? nextTimeRef.current : now + playLeadRef.current
     if (contiguous) {
       gain.gain.setValueAtTime(1, start)
     } else {
@@ -306,6 +359,7 @@ export function useLiveSession() {
     })
     sourcesRef.current = []
     nextTimeRef.current = 0
+    replyingRef.current = false
     setSpeaking(false)
   }, [])
 
@@ -408,15 +462,20 @@ export function useLiveSession() {
   const handleMessage = useCallback((message) => {
     const calls = message?.toolCall?.functionCalls
     if (calls?.length) {
+      // The reply pauses for the tool round trip; the audio after it is a new
+      // stretch, not a late chunk.
+      replyingRef.current = false
+      toolSinceHeardRef.current = true
       for (const fc of calls) {
         let response = { ok: true }
         if (fc.name === "lookup_product") {
           const query = String(fc.args?.query || "")
           response = lookupProduct(catalogueRef.current, query)
           if (import.meta.env.DEV) {
-            console.info("[Anu] lookup_product:", query, "->", response.matches?.length ? response.matches.map((m) => m.name).join(" | ") : "not in catalogue (custom run)")
+            console.info("[Anu] lookup_product:", query, "->", response.matches?.length ? response.matches.map((m) => m.name).join(" | ") : response.standard_range ? "standard range, not listed yet" : "not in catalogue (custom run)")
           }
         }
+        if (fc.name === "find_past_work") response = findPastWork(catalogueRef.current, String(fc.args?.query || ""))
         if (fc.name === "capture_lead") response = captureLead(fc.args || {})
         if (fc.name === "end_call") {
           const blocker = endBlocker(String(fc.args?.reason || "completed"), callLeadRef.current)
@@ -443,16 +502,30 @@ export function useLiveSession() {
     // for the live caption and the running memory persisted across reopens.
     const heard = sc.inputTranscription?.text
     const said = sc.outputTranscription?.text
-    if (heard) { inBufRef.current += heard; pushCaption("you", heard) }
+    if (heard) {
+      inBufRef.current += heard
+      pushCaption("you", heard)
+      heardAtRef.current = performance.now()
+      toolSinceHeardRef.current = false
+    }
     if (said) { outBufRef.current += said; pushCaption("anu", said) }
-    if (sc.turnComplete) { flushTranscript(); turnDoneRef.current = true }
     for (const part of sc.modelTurn?.parts || []) {
       const inline = part?.inlineData
       if (inline?.data && String(inline.mimeType || "").startsWith("audio/pcm")) {
-        if (import.meta.env.DEV && window.__anu) window.__anu.chunks += 1
+        if (import.meta.env.DEV) {
+          if (window.__anu) window.__anu.chunks += 1
+          // First audio of a reply: how long after the customer was last heard.
+          // Transcription trails the audio a little, so this slightly
+          // UNDER-states the gap; a large number is a real one.
+          if (heardAtRef.current && !replyingRef.current && !sourcesRef.current.length) {
+            console.info(`[Anu] reply started ${Math.round(performance.now() - heardAtRef.current)} ms after the customer's last words${toolSinceHeardRef.current ? " (a tool call in between)" : ""}`)
+            heardAtRef.current = 0
+          }
+        }
         playChunk(base64ToInt16(inline.data))
       }
     }
+    if (sc.turnComplete) { flushTranscript(); turnDoneRef.current = true; replyingRef.current = false }
   }, [captureLead, clearPlayback, playChunk, finish, flushTranscript, pushCaption])
 
   // Loudness of whoever is talking (Anu while her audio plays, else the mic),
@@ -517,7 +590,7 @@ export function useLiveSession() {
       // arriving (chunks) and whether the output is running (state). Chunks
       // climbing with state "running" but silence means the device, not the page.
       if (import.meta.env.DEV) {
-        window.__anu = { get state() { return out.state }, sampleRate: out.sampleRate, chunks: 0, interrupts: 0 }
+        window.__anu = { get state() { return out.state }, sampleRate: out.sampleRate, chunks: 0, interrupts: 0, underruns: 0 }
       }
       unlockAudio()
       // resume() stays pending rather than rejecting while blocked, so look again after a beat.
@@ -544,6 +617,9 @@ export function useLiveSession() {
         loadCatalogue(),
       ])
       catalogueRef.current = catalogue
+      // Follow console edits for the rest of the call (knowledge base, 0028).
+      unwatchCatalogueRef.current?.()
+      unwatchCatalogueRef.current = catalogue ? watchCatalogue() : null
       if (import.meta.env.DEV) {
         console.info("[Anu] catalogue:", catalogue ? `${catalogue.products.length} products, ${catalogue.categories.length} categories` : "unavailable, using the prompt's general range")
       }
@@ -552,7 +628,13 @@ export function useLiveSession() {
       if (error) throw error
       if (data?.error || !data?.token) throw new Error(data?.error || "No token")
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // Ask for the voice-call processing explicitly. Anu plays through the
+      // speakers on most laptops and phones, and without echo cancellation her
+      // own voice reaches the mic, the model hears it as the customer talking
+      // and cuts her off mid-sentence. Mono, since the model takes one channel.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
+      })
       if (outCtxRef.current !== out) { stream.getTracks().forEach((t) => t.stop()); return }
       streamRef.current = stream
 
@@ -570,11 +652,17 @@ export function useLiveSession() {
           responseModalities: [Modality.AUDIO],
           systemInstruction: VOICE_SYSTEM_INSTRUCTION + catalogueBlock(catalogue),
           speechConfig: { languageCode: "hi-IN", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } },
-          // Let the model decide a turn has ended sooner than its default, so
-          // she does not leave a long pause after the customer stops speaking.
+          // Turn-taking: see END_OF_SPEECH_SILENCE_MS and START_OF_SPEECH_PREFIX_MS.
           realtimeInputConfig: {
-            automaticActivityDetection: { silenceDurationMs: END_OF_SPEECH_SILENCE_MS },
+            automaticActivityDetection: {
+              silenceDurationMs: END_OF_SPEECH_SILENCE_MS,
+              startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_LOW,
+              prefixPaddingMs: START_OF_SPEECH_PREFIX_MS,
+            },
           },
+          // A sales call needs a quick answer, not deliberation: every level
+          // of thinking above minimal is dead air before her first word.
+          thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
           // Text of both sides: the live caption, and a rolling memory across reopens.
           inputAudioTranscription: {},
           outputAudioTranscription: {},
@@ -619,26 +707,49 @@ export function useLiveSession() {
       micSrc.connect(inAnalyser)
       inAnalyserRef.current = inAnalyser
 
-      const proc = inCtxRef.current.createScriptProcessor(MIC_BUFFER, 1, 1)
-      proc.onaudioprocess = (e) => {
+      const inCtx = inCtxRef.current
+      const sendMic = (float32) => {
         if (!sessionRef.current) return
         try {
           sessionRef.current.sendRealtimeInput({
-            audio: { data: int16ToBase64(floatTo16BitPCM(e.inputBuffer.getChannelData(0))), mimeType: `audio/pcm;rate=${INPUT_RATE}` },
+            audio: { data: int16ToBase64(floatTo16BitPCM(float32)), mimeType: `audio/pcm;rate=${INPUT_RATE}` },
           })
         } catch { /* closing */ }
       }
+      // Capture on the audio thread (public/anu-mic-worklet.js). The
+      // ScriptProcessorNode ran on the main thread, where caption renders and
+      // animation delayed and dropped mic blocks; it stays only as a fallback
+      // for a browser without AudioWorklet.
+      let proc = null
+      if (inCtx.audioWorklet && window.AudioWorkletNode) {
+        try {
+          await inCtx.audioWorklet.addModule(MIC_WORKLET_URL)
+          if (inCtxRef.current !== inCtx) return
+          proc = new AudioWorkletNode(inCtx, "anu-mic", {
+            numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1],
+            processorOptions: { blockSize: MIC_BUFFER },
+          })
+          proc.port.onmessage = (e) => sendMic(e.data)
+        } catch (err) {
+          if (import.meta.env.DEV) console.warn("[Anu] mic worklet unavailable, using ScriptProcessor:", err)
+          proc = null
+        }
+      }
+      if (!proc) {
+        proc = inCtx.createScriptProcessor(MIC_BUFFER, 1, 1)
+        proc.onaudioprocess = (e) => sendMic(e.inputBuffer.getChannelData(0))
+      }
       micSrc.connect(proc)
-      // A ScriptProcessorNode only runs while it is connected to a destination,
+      // A processor node only runs while it is connected to a destination,
       // but its own output must never reach the speakers: wiring the mic
       // processor straight to the destination puts the microphone on the
       // speakers, which feeds back as a beep or whine on a laptop. Route it
       // through a silent gain node instead, which keeps it pumping while
       // emitting nothing.
-      const sink = inCtxRef.current.createGain()
+      const sink = inCtx.createGain()
       sink.gain.value = 0
       proc.connect(sink)
-      sink.connect(inCtxRef.current.destination)
+      sink.connect(inCtx.destination)
       procRef.current = proc
     } catch (err) {
       console.error("Live Orty failed:", err)

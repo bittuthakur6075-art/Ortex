@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react"
 import { supabase, hasSupabase } from "../lib/supabaseClient"
 import { workPhotos } from "../constants/home"
+import { getPreloaded } from "../lib/preloaded"
 
 /** Merge live items ahead of the static archive, deduped by image URL. */
 function merge(liveItems) {
@@ -15,8 +16,22 @@ function merge(liveItems) {
   return [...liveItems, ...rest]
 }
 
+/** Shape raw `work` rows into the gallery list, live items first. */
+export function workFromRows(rows) {
+  const live = (rows || [])
+    .map((r) => ({ id: r.id, ...(r.doc || {}) }))
+    .filter((d) => d.active !== false && d.image)
+    .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
+    .map((d) => ({ image: d.image, title: d.title || "", alt: d.alt || d.title || "", category: d.category || "" }))
+  return live.length ? merge(live) : workPhotos
+}
+
 export function useWork() {
-  const [photos, setPhotos] = useState(hasSupabase ? null : workPhotos)
+  // Rows the prerender rendered this page with (lib/preloaded.js), if any.
+  const [photos, setPhotos] = useState(() => {
+    const pre = getPreloaded("work")
+    return pre ? workFromRows(pre) : hasSupabase ? null : workPhotos
+  })
 
   useEffect(() => {
     if (!hasSupabase) return
@@ -26,14 +41,8 @@ export function useWork() {
       try {
         const { data, error } = await supabase.from("work").select("id, doc")
         if (error) throw error
-        const live = (data || [])
-          .map((r) => ({ id: r.id, ...(r.doc || {}) }))
-          .filter((d) => d.active !== false && d.image)
-          .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
-          .map((d) => ({ image: d.image, title: d.title || "", alt: d.alt || d.title || "", category: d.category || "" }))
-
         if (cancelled) return
-        setPhotos(live.length ? merge(live) : workPhotos)
+        setPhotos(workFromRows(data))
       } catch (err) {
         console.error("Work load failed, using static fallback:", err)
         if (!cancelled) setPhotos(workPhotos)

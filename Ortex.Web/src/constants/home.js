@@ -8,7 +8,7 @@ import {
 } from "iconsax-react"
 import { photosData } from "./photos"
 
-export const HOME_OG = "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/whatsapp-image-2026-06-25-at-6.53.24-am-2-AChL5.jpeg"
+export const HOME_OG = "https://bizgift.ortexindustries.in/img/og-ortex.jpg"
 
 export const stats = [
   { icon: Building3, value: "100%", label: "In-house production" },
@@ -109,14 +109,14 @@ export const testimonials = [
  */
 export const workPhotos = [
   ...photosData.map((p) => ({ image: p.url, title: p.name, alt: p.name, category: p.category })),
-  { image: "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/1c8810a9aab598f2852aa43694b1e810.jpg", title: "Custom printed lanyards", alt: "Yellow polyester lanyard with custom full-colour printing and metal hardware", category: "Badges & Lanyards" },
-  { image: "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/df12dcba362d2a4018c92cdfe42fe5ea.jpg", title: "Magnetic metal badges", alt: "Set of circular magnetic metal badges in yellow and blue", category: "Badges & Lanyards" },
-  { image: "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/348f14b4519831287f42e8843fa4ccf1.png", title: "Acrylic name badges", alt: "Acrylic name badge with healthcare branding and magnetic backing", category: "Badges & Lanyards" },
-  { image: "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/bfcd631b36b72777ed9b93146eab51d1.jpg", title: "MDF wall art & signage", alt: "MDF wall-mounted clocks with printed tourism design", category: "Wall Clock" },
-  { image: "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/361faf75782d94ec7db0ed3a259f5d50.jpg", title: "Souvenir fridge magnets", alt: "Decorative souvenir magnet with I Love Haflong design featuring scenic landscape imagery", category: "Fridge Magnet" },
-  { image: "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/458febc687a80adf5b027abd1ebdf24b.jpg", title: "Promotional spinner toys", alt: "Vibrant multicolor spinner fidget toys with customizable center area for branding", category: "Custom Promotional" },
-  { image: "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/56315942c1152cce539bfd626e71bd74.jpg", title: "Flower-shaped sticky notes", alt: "Decorative flower-shaped sticky notes with colorful petals", category: "Custom Promotional" },
-  { image: "https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/01c646b1bb21e4fbef8b388744992828.jpg", title: "Novelty highlighters", alt: "Syringe-shaped highlighters with medical-themed design in bright colors", category: "Custom Promotional" },
+  { image: "/img/work/custom-printed-lanyards.jpg", title: "Custom printed lanyards", alt: "Yellow polyester lanyard with custom full-colour printing and metal hardware", category: "Badges & Lanyards" },
+  { image: "/img/work/magnetic-metal-badges.jpg", title: "Magnetic metal badges", alt: "Set of circular magnetic metal badges in yellow and blue", category: "Badges & Lanyards" },
+  { image: "/img/work/acrylic-name-badges.jpg", title: "Acrylic name badges", alt: "Acrylic name badge with healthcare branding and magnetic backing", category: "Badges & Lanyards" },
+  { image: "/img/work/mdf-wall-art-and-signage.jpg", title: "MDF wall art & signage", alt: "MDF wall-mounted clocks with printed tourism design", category: "Wall Clock" },
+  { image: "/img/work/souvenir-fridge-magnets.jpg", title: "Souvenir fridge magnets", alt: "Decorative souvenir magnet with I Love Haflong design featuring scenic landscape imagery", category: "Fridge Magnet" },
+  { image: "/img/work/promotional-spinner-toys.jpg", title: "Promotional spinner toys", alt: "Vibrant multicolor spinner fidget toys with customizable center area for branding", category: "Custom Promotional" },
+  { image: "/img/work/flower-shaped-sticky-notes.jpg", title: "Flower-shaped sticky notes", alt: "Decorative flower-shaped sticky notes with colorful petals", category: "Custom Promotional" },
+  { image: "/img/work/novelty-highlighters.jpg", title: "Novelty highlighters", alt: "Syringe-shaped highlighters with medical-themed design in bright colors", category: "Custom Promotional" },
 ]
 
 /**

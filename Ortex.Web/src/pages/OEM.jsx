@@ -90,8 +90,8 @@ const suitedFor = [
 
 export default function OEM() {
   useDocumentMetadata(
-    "OEM & White Label Manufacturing - Ortex Industries",
-    "Contract OEM and white-label manufacturing for MDF, acrylic, lanyards, badges, and corporate merchandise. Produced in-house under your brand, with factory-direct pricing and GST invoicing.",
+    "OEM & White Label Manufacturing | Ortex Industries",
+    "Contract OEM and white-label manufacturing of MDF, acrylic, lanyards, badges and merchandise, made in-house under your brand with factory-direct pricing.",
     { path: "/oem" }
   )
 

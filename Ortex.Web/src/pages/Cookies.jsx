@@ -1,10 +1,9 @@
-import { motion } from "framer-motion"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
 export default function Cookies() {
   useDocumentMetadata(
-    "Cookie Policy - Ortex Industries",
-    "Cookie Policy for Ortex Industries. Learn how we use cookies and tracking technologies to improve our platform.",
+    "Cookie Policy | Ortex Industries",
+    "How the Ortex Industries website uses cookies and browser storage, what each one does, and how to accept, decline or clear them at any time.",
     { path: "/cookies" }
   )
 
@@ -15,7 +14,7 @@ export default function Cookies() {
     },
     {
       title: "2. Browser Storage We Use",
-      content: "(a) localStorage: a randomly generated visitor identifier (e.g. 'usr_k3f9a2b1x'), your theme preference, your analytics consent choice, and — only if a submission fails to reach our servers — a temporary copy of your own enquiry so it can be re-sent rather than lost. (b) sessionStorage: a random session identifier that is discarded when you close the tab. Neither contains your name, email, or password, and neither is transmitted to any advertiser."
+      content: "(a) localStorage: a randomly generated visitor identifier (e.g. 'usr_k3f9a2b1x'), your theme preference, your analytics consent choice, and — only if a submission fails to reach our servers — a temporary copy of your own enquiry so it can be re-sent rather than lost. (b) sessionStorage: a random session identifier, and, only if you speak with our voice assistant Anu, a short note of that conversation (the details you gave, such as your name and WhatsApp number, and its last few lines) so she can continue where you left off if you reopen her. Both are discarded when you close the tab, and the conversation note is also cleared after two hours. The localStorage items never contain your name, email, or password, and nothing in either is transmitted to any advertiser."
     },
     {
       title: "3. Optional Analytics and IP-Based Location",
@@ -29,15 +28,10 @@ export default function Cookies() {
 
   return (
     <div className="py-20 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-left">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="space-y-8"
-      >
+      <div className="hero-in space-y-8">
         <div>
           <h1 className="text-4xl font-bold tracking-tight text-foreground">Cookie Policy</h1>
-          <p className="mt-2 text-muted-foreground">Last updated: July 4, 2026</p>
+          <p className="mt-2 text-muted-foreground">Last updated: September 14, 2026</p>
         </div>
 
         <p className="text-foreground leading-relaxed text-base">
@@ -68,7 +62,7 @@ export default function Cookies() {
             <p className="text-muted-foreground mt-1">Email: <a href="mailto:sales@ortexindustries.in" className="text-primary hover:underline font-medium">sales@ortexindustries.in</a></p>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

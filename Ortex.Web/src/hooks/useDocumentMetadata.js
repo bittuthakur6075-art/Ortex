@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 
-const SITE_URL = "https://www.ortexindustries.in"
+import { SITE_URL } from "../constants/site"
 
 /**
  * Per-route document metadata: title, description, canonical URL, and the

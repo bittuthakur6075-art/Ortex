@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
-import { Tags, Plus, Pencil, Trash2, Sparkles } from "../components/ui/Icons"
+import { Tags, Plus, Trash2, Sparkles, ArrowRight } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { useCollection, useSorting } from "../hooks/useCollection"
@@ -8,11 +8,14 @@ import { triggerSiteRebuild } from "../lib/revalidate"
 import { supabase, hasSupabase } from "../data/store/supabaseClient"
 import ImageField from "../components/editors/ImageField"
 import { Button, Card, CardHeader, Input, Select, Textarea, Field, EmptyState, Drawer, PageLoader, SortTh } from "../components/ui/Ui"
+import CategoryDetail from "./catalog/CategoryDetail"
 
 export default function Categories() {
   const { items, loading } = useCollection("categories")
   const { items: products } = useCollection("products")
   const [editing, setEditing] = useState(null) // category | "new" | null
+  const [viewingId, setViewingId] = useState(null) // category read view, by id so a save refreshes it
+  const viewing = viewingId ? items.find((c) => c.id === viewingId) || null : null
   const [sort, onSort] = useSorting("name")
   const countFor = (name) => products.filter((p) => p.category === name).length
 
@@ -81,7 +84,7 @@ export default function Categories() {
               </thead>
               <tbody className="mt-body">
                 {sortedItems.map((c) => (
-                  <tr key={c.id} className="cursor-pointer" onClick={() => setEditing(c)}>
+                  <tr key={c.id} className="cursor-pointer" onClick={() => setViewingId(c.id)}>
                     <td className="px-4 py-3">
                       <div className="font-medium text-foreground">{c.name}</div>
                       {c.description && <div className="max-w-md truncate text-xs text-muted-foreground">{c.description}</div>}
@@ -90,7 +93,7 @@ export default function Categories() {
                     <td className="px-4 py-3 text-right tabular text-muted-foreground">{c.gstRate}%</td>
                     <td className="px-4 py-3 text-right tabular text-muted-foreground">{countFor(c.name)}</td>
                     <td className="px-4 py-3 text-right">
-                      <Pencil className="ml-auto h-4 w-4 text-muted-foreground" />
+                      <ArrowRight variant="Linear" className="ml-auto h-4 w-4 text-muted-foreground" />
                     </td>
                   </tr>
                 ))}
@@ -99,6 +102,17 @@ export default function Categories() {
           </div>
         </Card>
       )}
+
+      <CategoryDetail
+        open={viewing !== null}
+        category={viewing}
+        products={products}
+        onClose={() => setViewingId(null)}
+        onEdit={(c) => {
+          setEditing(c)
+          setViewingId(null)
+        }}
+      />
 
       <CategoryForm
         open={editing !== null}

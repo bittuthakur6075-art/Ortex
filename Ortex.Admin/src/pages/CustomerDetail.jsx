@@ -16,6 +16,7 @@ import {
   Package,
   Inbox,
   Trash2,
+  AlertTriangle,
 } from "../components/ui/Icons"
 import { repo } from "../data/store/repository"
 import { useCollection } from "../hooks/useCollection"
@@ -24,8 +25,9 @@ import { newCustomer, INVOICE_STATUS, QUOTATION_STATUS, ENQUIRY_STATUS } from ".
 import { customerStats, purchasedItems, receivedAgainst, whatsappNumber, CUSTOMER_STATUS, DORMANT_AFTER_DAYS } from "../lib/customerStats"
 import { formatCurrency, formatDate, formatNumber, relativeTime } from "../lib/format"
 import { stateLabel } from "../lib/gstStates"
+import { findDuplicate, normaliseCustomer, validateCustomer } from "../lib/validateCustomer"
 import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../components/editors/DocumentEditorShell"
-import { Button, Input, Field, StatusBadge, EmptyState, Money, PageLoader } from "../components/ui/Ui"
+import { Banner, Button, Input, Field, StatusBadge, EmptyState, Money, PageLoader } from "../components/ui/Ui"
 import { RecordActivity } from "../components/ui/RecordActivity"
 
 const byNewest = (a, b) => new Date(b.issueDate || b.createdAt || 0) - new Date(a.issueDate || a.createdAt || 0)
@@ -82,8 +84,24 @@ export default function CustomerDetail() {
   const form = draft && draft.id === record.id ? draft : { ...newCustomer(), ...record }
   const title = form.company || form.name || "Customer"
   const wa = whatsappNumber(form.phone)
-  const saveField = () => repo.update("customers", record.id, form)
+  // Every blur is a save, so every blur is checked with lib/validateCustomer.js
+  // (the phone's rules). Only a problem this edit INTRODUCED blocks the save: a
+  // legacy row that already had one (no phone, a stale duplicate) must still be
+  // editable, and its standing problems are shown without trapping the address.
+  const errors = validateCustomer(form, customers, record.id)
+  const standing = validateCustomer({ ...newCustomer(), ...record }, customers, record.id)
+  const blocking = Object.keys(errors).filter((k) => errors[k] && errors[k] !== standing[k])
+  const saveField = () => {
+    if (blocking.length) {
+      toast.error(`Not saved. ${errors[blocking[0]]}`)
+      return
+    }
+    const next = normaliseCustomer(form)
+    setDraft(next)
+    return repo.update("customers", record.id, next)
+  }
   const set = (k, v) => setDraft({ ...form, [k]: v })
+  const clash = errors.form ? findDuplicate(form, customers, record.id) : null
 
   // Hand Quotations a clean master snapshot, none of the derived figures.
   const startQuotation = () => {
@@ -154,23 +172,39 @@ export default function CustomerDetail() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="min-w-0 space-y-4">
           <Section title="Contact & GST" description="Saved as you leave each field. These details fill new quotations and invoices.">
+            {errors.form && (
+              <Banner tone={blocking.includes("form") ? "danger" : "warning"} className="mb-4">
+                <AlertTriangle className="h-4 w-4 flex-none" />
+                <span className="min-w-0">
+                  {errors.form}.{blocking.includes("form") ? " Not saved." : ""}
+                  {clash && (
+                    <>
+                      {" "}
+                      <Link to={`/customers/${clash.id}`} className="font-semibold underline underline-offset-2">
+                        Open {clash.company || clash.name || "that customer"}
+                      </Link>
+                    </>
+                  )}
+                </span>
+              </Banner>
+            )}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Company">
                 <Input value={form.company} onChange={(e) => set("company", e.target.value)} onBlur={saveField} />
               </Field>
-              <Field label="Contact Name">
+              <Field label="Contact Name" error={errors.name}>
                 <Input value={form.name} onChange={(e) => set("name", e.target.value)} onBlur={saveField} />
               </Field>
-              <Field label="Email">
+              <Field label="Email" error={errors.email}>
                 <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} onBlur={saveField} />
               </Field>
-              <Field label="Phone">
+              <Field label="Phone" error={errors.phone}>
                 <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} onBlur={saveField} />
               </Field>
-              <Field label="GSTIN">
+              <Field label="GSTIN" error={errors.gstin}>
                 <Input value={form.gstin} onChange={(e) => set("gstin", e.target.value)} onBlur={saveField} placeholder="Enter GSTIN" />
               </Field>
-              <Field label="State Code" hint={stateLabel(form.stateCode) || "Sets IGST vs CGST + SGST"}>
+              <Field label="State Code" error={errors.stateCode} hint={stateLabel(form.stateCode) || "Sets IGST vs CGST + SGST"}>
                 <Input value={form.stateCode} onChange={(e) => set("stateCode", e.target.value)} onBlur={saveField} placeholder="Enter state code" />
               </Field>
               <Field label="Address" className="sm:col-span-2">

@@ -1,20 +1,11 @@
 import { useMemo } from "react"
-import { DAY_MS, RANGES, VOICE_SOURCE, displayName, flagsFor, groupIntoCalls, itemsFor, parseMessage } from "./helpers"
+import { DAY_MS, RANGES, voiceCallsFrom } from "./helpers"
 
 // Turns raw `enquiries` rows into folded calls, headline stats and the filtered
 // list the page renders. Pure derivation over the collection plus the filter
 // state, so it re-runs only when one of those changes.
 export function useVoiceCalls(items, { query, range, view }) {
-  const calls = useMemo(() => {
-    const rows = (items || [])
-      .filter((e) => e.source === VOICE_SOURCE)
-      .map((e) => {
-        const parsed = { ...e, ...parseMessage(e.message) }
-        return { ...parsed, itemsList: itemsFor(parsed) }
-      })
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    return groupIntoCalls(rows).map((c) => ({ ...c, flags: flagsFor(c), ...displayName(c.customer.name) }))
-  }, [items])
+  const calls = useMemo(() => voiceCallsFrom(items), [items])
 
   const stats = useMemo(() => {
     const now = Date.now()

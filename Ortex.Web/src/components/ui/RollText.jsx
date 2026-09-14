@@ -10,9 +10,11 @@ export default function RollText({ text }) {
       <span className="roll-sr">{text}</span>
       <span className="roll-text" aria-hidden="true">
         {Array.from(text).map((ch, i) => (
-          <span className="roll-char" key={i} style={{ "--i": i }}>
-            {ch === " " ? "\u00A0" : ch}
-          </span>
+          // The glyph is drawn by CSS (::before reads data-ch), not written as
+          // text: a crawler reads a link's text from the DOM, and spelling the
+          // label out again here made every footer link's anchor text read
+          // "Our workOur work".
+          <span className="roll-char" key={i} style={{ "--i": i }} data-ch={ch === " " ? "\u00A0" : ch} />
         ))}
       </span>
     </>

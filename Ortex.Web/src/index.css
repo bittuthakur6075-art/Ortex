@@ -199,6 +199,9 @@ body {
   transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   transition-delay: calc(var(--i, 0) * 0.025s);
 }
+.roll-char::before {
+  content: attr(data-ch);
+}
 a:hover > .roll-text .roll-char {
   transform: translateY(-1.25em);
 }
@@ -291,6 +294,36 @@ a:hover > .roll-text .roll-char {
 
 .btn-ghost:active {
   background-color: rgba(0, 132, 209, 0.14);
+}
+
+/* Above-the-fold entrance for prerendered heroes.
+ * A Framer Motion `initial` state is written into the static HTML as inline
+ * opacity:0, so a hero animated that way stays invisible until the JS bundle
+ * has downloaded and hydrated: the page's largest text waits seconds to paint.
+ * This runs from the first paint instead. Opacity starts at 0.01 because Chrome
+ * does not count a fully transparent element as painted. Below-the-fold
+ * sections keep fadeUp, which is invisible to Largest Contentful Paint anyway. */
+@keyframes hero-in {
+  from {
+    opacity: 0.01;
+    transform: translateY(28px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+.hero-in {
+  animation: hero-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-in {
+    animation: none;
+  }
 }
 
 /* Infinite Marquee Animation */

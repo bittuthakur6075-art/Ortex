@@ -29,14 +29,14 @@ export type LegalDoc = {
 
 export const PRIVACY: LegalDoc = {
   title: "Privacy Policy",
-  updated: "Last updated: July 4, 2026",
+  updated: "Last updated: September 14, 2026",
   intro:
     "At Ortex Industries, we prioritize the protection and confidentiality of our clients' data. This Privacy Policy outlines how we collect, store, share, and protect your personal information and custom product assets when you interact with our website, use our quote tools, or procure custom manufacturing services from us.",
   sections: [
     {
       title: "1. Information We Collect",
       content:
-        "We collect information you provide directly to us when requesting custom quotes, placing orders, or contacting our support team. This includes personal identification information (such as your name, email address, corporate domain, phone number, and shipping address), business details (such as company name, tax registration/GST numbers), and custom manufacturing assets (such as logos, vector designs, and product specifications).",
+        "We collect information you provide directly to us when requesting custom quotes, placing orders, or contacting our support team. This includes personal identification information (such as your name, email address, corporate domain, phone number, and shipping address), business details (such as company name, tax registration/GST numbers), and custom manufacturing assets (such as logos, vector designs, and product specifications). If you speak with Anu, the AI voice assistant on our website, your voice and the conversation are processed in real time by Google's Gemini service to produce her spoken replies, the call is recorded as an audio file, and the details you give (such as your name, WhatsApp number, the products and quantities you ask about, your timeline and delivery city) are saved as an enquiry. Call recordings are kept in private storage that only our sales staff can open, and are used to follow up your enquiry accurately and to check the assistant's quality.",
     },
     {
       title: "2. How We Use Your Information",
@@ -46,7 +46,7 @@ export const PRIVACY: LegalDoc = {
     {
       title: "3. Data Sharing and Third-Party Disclosures",
       content:
-        "Ortex Industries does not sell, lease, or trade your personal data. We share information only with the providers necessary to run this website and complete your order. Named processors: Supabase (cloud database and file storage for enquiries and uploaded artwork) and, where you have consented to analytics, ipapi.co with api.ipify.org as fallback (IP-address geolocation lookup). We additionally share order data with logistics partners for PAN India and global shipping. We do not use Google Analytics, advertising pixels, or retargeting networks of any kind.",
+        "Ortex Industries does not sell, lease, or trade your personal data. We share information only with the providers necessary to run this website and complete your order. Named processors: Supabase (cloud database and file storage for enquiries, uploaded artwork and voice-assistant call recordings), Google (the Gemini service that processes voice-assistant conversations in real time) and, where you have consented to analytics, ipapi.co with api.ipify.org as fallback (IP-address geolocation lookup). We additionally share order data with logistics partners for PAN India and global shipping. We do not use Google Analytics, advertising pixels, or retargeting networks of any kind.",
     },
     {
       title: "4. Analytics, IP Address, and Consent",

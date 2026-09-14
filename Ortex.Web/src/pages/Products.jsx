@@ -111,8 +111,8 @@ const brandingServices = [
 
 export default function Products() {
   useDocumentMetadata(
-    "Products & Services - Ortex Industries | MDF, Acrylic, Lanyards, Badges & More",
-    "Explore Ortex Industries' comprehensive range of customized products including MDF items, acrylic products, lanyards, badges, examination boards, corporate gifts, and branding services.",
+    "Custom MDF, Acrylic, Lanyard & Badge Products | Ortex",
+    "Browse Ortex Industries' custom products: MDF and acrylic items, lanyards, badges, exam boards and corporate gifts, all branded in-house with GST quotations.",
     { path: "/products" }
   )
 
@@ -160,14 +160,14 @@ export default function Products() {
       {/* Page Header */}
       <section className="section-y-hero bg-background">
         <div className="lp-wrap text-center">
-          <motion.div {...fadeUp} className="max-w-3xl mx-auto">
+          <div className="hero-in max-w-3xl mx-auto">
             <h1 className="text-[36px] sm:text-[48px] md:text-[82px] font-medium leading-[1.05] mb-8 tracking-tight text-foreground text-balance">
               Products & Services
             </h1>
             <p className="text-[20px] font-normal text-foreground leading-relaxed max-w-2xl mx-auto">
               Comprehensive range of premium customized products manufactured in-house with complete branding and customization support.
             </p>
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -194,7 +194,7 @@ export default function Products() {
                     to={`/products/${item.slug}`}
                     className="group flex flex-col h-full rounded-[24px] [corner-shape:squircle] bg-card transition-colors duration-300 overflow-hidden"
                   >
-                    <div className="aspect-[4/3] overflow-hidden bg-muted">
+                    <div className="aspect-square overflow-hidden bg-muted">
                       <img
                         src={item.image}
                         alt={item.title}

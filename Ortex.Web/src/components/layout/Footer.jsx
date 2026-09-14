@@ -1,7 +1,8 @@
 import { Link, useLocation } from "react-router-dom"
 import RollText from "../ui/RollText"
 import WhatsAppIcon from "../ui/WhatsAppIcon"
-import { CONTACT, whatsappLink } from "../../constants/site"
+import { CONTACT, ADDRESS_LINE, whatsappLink } from "../../constants/site"
+import { useCatalog } from "../../lib/catalog"
 import "./Footer.css"
 
 export default function Footer() {
@@ -9,6 +10,9 @@ export default function Footer() {
   const { pathname } = useLocation()
   const onHome = pathname === "/"
   const sec = (id) => (onHome ? `#${id}` : `/#${id}`)
+  // Every page links to every category from here, so a crawler reaches each
+  // category page (and through it each product page) in one hop from anywhere.
+  const { categories } = useCatalog()
 
   const TRUST_BADGES = [
     { label: "Quality assured" },
@@ -44,6 +48,7 @@ export default function Footer() {
                 <span aria-hidden="true">·</span>
                 <a href={`tel:${CONTACT.phoneSecondary.replace(/[^\d+]/g, "")}`}>{CONTACT.phoneSecondary}</a>
               </span>
+              <address className="lp-footer-address not-italic">{ADDRESS_LINE}</address>
             </div>
 
             <div className="lp-footer-cgroup lp-footer-cgroup--row">
@@ -61,6 +66,16 @@ export default function Footer() {
           </div>
 
           <div className="lp-footer-cols">
+
+            {/* Column 0: Products, one link per live category */}
+            <div className="lp-footer-col">
+              <h4>Products</h4>
+              <ul>
+                {categories.map((c) => (
+                  <li key={c.slug}><Link to={`/products/${c.slug}`}><RollText text={c.name} /></Link></li>
+                ))}
+              </ul>
+            </div>
 
             {/* Column 1: What we make */}
             <div className="lp-footer-col">

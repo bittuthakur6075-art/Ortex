@@ -21,8 +21,8 @@ import FinalCTA from "../components/home/FinalCTA"
  */
 export default function Home() {
   useDocumentMetadata(
-    "Ortex Industries - Premium Customized Products for Businesses Worldwide",
-    "Ortex Industries specializes in manufacturing premium customized products including MDF products, acrylic items, lanyards, badges, and corporate gifts. Serving businesses across India and worldwide.",
+    "Ortex Industries | Custom Lanyards, Badges & Corporate Gifts",
+    "Delhi manufacturer of custom MDF and acrylic products, lanyards, badges, exam boards and corporate gifts. OEM and white label, PAN India delivery and export.",
     { path: "/", image: HOME_OG }
   )
 

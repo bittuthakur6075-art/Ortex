@@ -21,9 +21,15 @@ import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
 import { useProfile } from "../../hooks/useProfile"
 import { NotificationsDrawer } from "./NotificationsDrawer"
 import { CommandPalette } from "./CommandPalette"
+import { AnuProvider, useAnuController } from "../anu/AnuContext"
+import AnuPanel from "../anu/AnuPanel"
+import { AnuHeaderButton, AnuMiniCall } from "../anu/AnuLauncher"
 import { canAccess } from "../../data/domain/modules"
 import { syncLocalToSupabase } from "../../data/store/sync"
 import { cn } from "../../lib/cn"
+// The one version number: bump package.json and the sidebar follows. A named
+// import lets Vite inline just this field rather than the whole manifest.
+import { version as APP_VERSION } from "../../../package.json"
 
 // Metronic 9 Demo 1 shell: fixed 260px white sidebar with a right hairline
 // (70px logo row, 32px menu items, uppercase section headings), a 70px white
@@ -223,6 +229,8 @@ export default function AdminLayout() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const groups = useAllowedNav()
   const ready = useAuthReady()
+  // Anu lives in the shell, so a conversation survives every route change.
+  const anu = useAnuController()
 
   const pages = useMemo(
     () => groups.flatMap((g) => g.items.map((it) => ({ to: it.to, label: it.label, icon: it.icon, section: g.section || "General" }))),
@@ -270,7 +278,16 @@ export default function AdminLayout() {
     </div>
   )
 
+  // Pinned under the scrolling nav, so it stays at the bottom however long the
+  // menu grows.
+  const sidebarFoot = (
+    <div className="flex h-12 flex-none items-center border-t border-border px-6 text-xs text-muted-foreground">
+      Version <span className="ml-1 font-medium text-foreground tabular">{APP_VERSION}</span>
+    </div>
+  )
+
   return (
+    <AnuProvider value={anu}>
     <div className="flex min-h-screen bg-background text-foreground">
       {/* Desktop sidebar */}
       <aside className={cn("no-print fixed inset-y-0 left-0 z-20 hidden shrink-0 flex-col items-stretch bg-card lg:flex", SIDEBAR_W)}>
@@ -278,6 +295,7 @@ export default function AdminLayout() {
           <Brand />
         </div>
         {sidebarBody()}
+        {sidebarFoot}
       </aside>
 
       {/* Mobile drawer */}
@@ -292,12 +310,14 @@ export default function AdminLayout() {
               </button>
             </div>
             {sidebarBody(() => setMobileOpen(false))}
+            {sidebarFoot}
           </aside>
         </div>
       )}
 
       {/* Main column */}
-      <div className={cn("flex min-h-screen w-full flex-col", SIDEBAR_PAD)}>
+      {/* On a wide screen the page makes room for Anu instead of hiding under her. */}
+      <div className={cn("flex min-h-screen w-full flex-col transition-[padding] duration-200", SIDEBAR_PAD, anu.open && "xl:pr-[400px]")}>
         <header className="no-print sticky top-0 z-10 flex h-[70px] flex-none items-center gap-3 border-l border-border bg-card px-6">
           <button
             onClick={() => setMobileOpen(true)}
@@ -312,6 +332,7 @@ export default function AdminLayout() {
           <Breadcrumb groups={groups} />
 
           <div className="ml-auto flex items-center gap-1.5">
+            <AnuHeaderButton />
             <button
               type="button"
               onClick={() => setPaletteOpen(true)}
@@ -339,12 +360,15 @@ export default function AdminLayout() {
           <div className="flex items-center gap-4">
             <Link to="/settings" className="hover:text-primary">Settings</Link>
             <Link to="/users" className="hover:text-primary">Users</Link>
-            <a href="https://ortexindustries.in" target="_blank" rel="noreferrer" className="hover:text-primary">Website</a>
+            <a href="https://bizgift.ortexindustries.in" target="_blank" rel="noreferrer" className="hover:text-primary">Website</a>
           </div>
         </footer>
       </div>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} pages={pages} />
+      <AnuPanel />
+      <AnuMiniCall />
     </div>
+    </AnuProvider>
   )
 }

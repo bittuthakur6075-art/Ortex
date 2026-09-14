@@ -18,7 +18,7 @@ import { MAX_PHOTO_MB, removeProductImage, uploadProductImage } from "@/lib/prod
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { border, gutter, radius, size as sizes, spacing } from "@/theme/tokens"
-import { font } from "@/theme/typography"
+import { font, textVariants } from "@/theme/typography"
 import { Button, Dialog, Icon, IconButton, OptionSheet, Panel, ScreenLoader, Spinner, Switch, TextField, useToast } from "@/ui"
 import KeyboardAwareScrollView from "@/ui/KeyboardAwareScrollView"
 
@@ -42,8 +42,6 @@ import KeyboardAwareScrollView from "@/ui/KeyboardAwareScrollView"
 type Draft = ReturnType<typeof newProduct>
 
 /** Digits in, number out — an empty field is 0, not NaN. */
-/** Roughly the sticky save footer: a 50dp button on 8dp of padding and a rule. */
-const FOOTER_RESERVE = 74
 
 const toNumber = (v: string) => {
   const n = Number(String(v).replace(/[^0-9.]/g, ""))
@@ -257,6 +255,23 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
     })
   }
 
+  /**
+   * The MAIN photo is simply the first in `images`: the list row, the product
+   * page, the console's table and the website (via products_public) all lead
+   * with images[0]. So choosing it is a move to the front, the same as the
+   * console's "Make primary", and nothing else about the product changes.
+   */
+  const makeMainPhoto = (url: string) => {
+    feedback.tap()
+    setDraft((d) => {
+      const rest = (d.images || []).filter((u) => u !== url)
+      return { ...d, images: [url, ...rest] }
+    })
+    // Dirty, so leaving without saving asks first rather than dropping the choice.
+    setDirty(true)
+    toast.show({ message: "Main photo set. Save to keep it", tone: "success" })
+  }
+
   const removePhoto = (url: string) => {
     setDraft((d) => ({ ...d, images: (d.images || []).filter((u) => u !== url) }))
     setDirty(true)
@@ -351,16 +366,40 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
           `KeyboardAvoidingView` that did nothing here — on Android it was handed
           `behavior={undefined}`, which is a no-op. `bottomOffset` is the sticky
           save footer, which the keyboard height alone does not account for. */}
-      <KeyboardAwareScrollView contentContainerStyle={styles.content} bottomOffset={FOOTER_RESERVE}>
+      <KeyboardAwareScrollView contentContainerStyle={styles.content} bottomOffset={spacing.lg}>
         <Panel title="Photos">
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.photoRail}
           >
-            {images.map((uri) => (
-              <View key={uri} style={styles.photo}>
+            {images.map((uri, index) => (
+              <View
+                key={uri}
+                style={[styles.photo, index === 0 && images.length > 1 ? { borderWidth: 2, borderColor: t.primary } : null]}
+              >
                 <Image source={{ uri }} style={styles.photoImage} contentFit="cover" transition={120} />
+                {images.length > 1 ? (
+                  index === 0 ? (
+                    <View
+                      style={[styles.photoMain, { backgroundColor: t.primary }]}
+                      accessibilityLabel="Main photo"
+                    >
+                      <Icon name="star" size={12} color={t.textOnPrimary} variant="Bold" />
+                      <Text style={[styles.photoMainText, { color: t.textOnPrimary }]}>Main</Text>
+                    </View>
+                  ) : (
+                    <Pressable
+                      onPress={() => makeMainPhoto(uri)}
+                      hitSlop={6}
+                      accessibilityRole="button"
+                      accessibilityLabel="Make this the main photo"
+                      style={[styles.photoMakeMain, { backgroundColor: t.surface }]}
+                    >
+                      <Icon name="star" size={16} color={t.textSecondary} variant="Linear" />
+                    </Pressable>
+                  )
+                ) : null}
                 {isUploadedPhoto(uri) ? (
                   <Pressable
                     onPress={() => {
@@ -407,9 +446,9 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
               )}
             </Pressable>
           </ScrollView>
-          <Text style={[styles.hint, { color: t.textTertiary }]}>
-            The first photo is the one the list and the product page lead with. Tap Enhance on a photo for an AI
-            studio shot.
+          <Text style={[styles.hint, styles.photoHint, { color: t.textTertiary }]}>
+            The Main photo leads the list, the product page and the website. Tap the star on any photo to make it
+            the main one, or Enhance for an AI studio shot.
           </Text>
         </Panel>
 
@@ -439,6 +478,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
               </View>
             </Pressable>
             <TextField
+              fieldStyle={styles.flush}
               label="Product Name"
               error={touched.name ? problems.name : undefined}
               required
@@ -466,6 +506,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
             <View style={styles.row}>
               <View style={styles.half}>
                 <TextField
+                  fieldStyle={styles.flush}
                   label="SKU"
                   value={draft.sku}
                   onChangeText={(v) => set({ sku: v })}
@@ -475,6 +516,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
               </View>
               <View style={styles.half}>
                 <TextField
+                  fieldStyle={styles.flush}
                   label="HSN"
                   value={draft.hsn}
                   onChangeText={(v) => set({ hsn: v })}
@@ -485,12 +527,14 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
               </View>
             </View>
             <TextField
+              fieldStyle={styles.flush}
               label="Material"
               value={draft.material}
               onChangeText={(v) => set({ material: v })}
               placeholder="Enter material"
             />
             <TextField
+              fieldStyle={styles.flush}
               label="Description"
               value={draft.description}
               onChangeText={(v) => set({ description: v })}
@@ -519,6 +563,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
             <View style={styles.row}>
               <View style={styles.half}>
                 <TextField
+                  fieldStyle={styles.flush}
                   label="Selling Price"
                   value={draft.basePrice ? String(draft.basePrice) : ""}
                   onChangeText={(v) => set({ basePrice: toNumber(v) })}
@@ -528,6 +573,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
               </View>
               <View style={styles.half}>
                 <TextField
+                  fieldStyle={styles.flush}
                   label="Cost Price"
                   value={draft.costPrice ? String(draft.costPrice) : ""}
                   onChangeText={(v) => set({ costPrice: toNumber(v) })}
@@ -548,6 +594,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
             <View style={styles.row}>
               <View style={styles.half}>
                 <TextField
+                  fieldStyle={styles.flush}
                   label="Minimum Order"
                   value={draft.moq ? String(draft.moq) : ""}
                   onChangeText={(v) => set({ moq: toNumber(v) })}
@@ -558,6 +605,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
               </View>
               <View style={styles.half}>
                 <TextField
+                  fieldStyle={styles.flush}
                   label="Lead Time (Days)"
                   value={draft.leadTimeDays ? String(draft.leadTimeDays) : ""}
                   onChangeText={(v) => set({ leadTimeDays: toNumber(v) })}
@@ -701,7 +749,8 @@ function PickerRow({ label, value, onPress }: { label: string; value: string; on
   const t = useTheme()
   return (
     <View>
-      <Text style={[styles.fieldLabel, { color: t.textSecondary }]}>{label}</Text>
+      {/* TextField's own label style, so a picker and the field beside it read as one form. */}
+      <Text style={[textVariants.label, styles.fieldLabel, { color: t.textStrong }]}>{label}</Text>
       <Pressable
         onPress={() => {
           feedback.tap()
@@ -739,13 +788,20 @@ const styles = StyleSheet.create({
   // band (ui/Panel.tsx). Loose content carries the gutter.
   content: { paddingBottom: spacing.xxl },
   pageBlock: { paddingHorizontal: gutter },
-  form: { gap: spacing.md },
-  row: { flexDirection: "row", gap: spacing.sm },
+  // ONE source of vertical rhythm: the form's gap. TextField carries its own
+  // bottom margin for loose use, which stacked on this gap gave text fields twice
+  // the spacing of the pickers beside them, so every field here is `flush`.
+  form: { gap: spacing.lg },
+  flush: { marginBottom: 0 },
+  // Top-aligned, so a field with a hint or an error under it grows downwards
+  // without pulling its neighbour's box out of line.
+  row: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
   half: { flex: 1 },
   hint: { fontSize: 12.5, lineHeight: 18, fontFamily: font.regular },
-  fieldLabel: { fontSize: 13, marginBottom: 6, fontFamily: font.medium },
+  fieldLabel: { marginBottom: spacing.xs },
+  photoHint: { paddingHorizontal: gutter, paddingBottom: gutter },
 
-  photoRail: { paddingHorizontal: gutter, paddingBottom: gutter, gap: spacing.sm },
+  photoRail: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.sm },
   photo: { width: 96, height: 96, borderRadius: radius.card, overflow: "hidden" },
   photoImage: { width: "100%", height: "100%" },
   photoRemove: {
@@ -770,6 +826,28 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   photoEnhanceText: { fontSize: 11, fontFamily: font.semibold },
+  photoMain: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    height: 22,
+    paddingHorizontal: 6,
+    borderRadius: radius.pill,
+  },
+  photoMainText: { fontSize: 11, fontFamily: font.semibold },
+  photoMakeMain: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   aiBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -795,10 +873,11 @@ const styles = StyleSheet.create({
   pickerRow: {
     flexDirection: "row",
     alignItems: "center",
-    height: 48,
+    height: sizes.field,
     paddingHorizontal: 14,
     borderRadius: radius.sm,
-    borderWidth: StyleSheet.hairlineWidth,
+    // 1, as TextField draws its permanent border, not a hairline.
+    borderWidth: 1,
   },
   pickerValue: { flex: 1, fontSize: 15, fontFamily: font.medium },
 

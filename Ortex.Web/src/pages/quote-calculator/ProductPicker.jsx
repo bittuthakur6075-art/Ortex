@@ -67,7 +67,7 @@ export default function ProductPicker({
             return (
               <div key={p.id} className="group flex flex-col">
                 {/* Image — flat tile with hover zoom (Work design language) */}
-                <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted rounded-[24px] [corner-shape:squircle]">
+                <div className="relative aspect-square w-full overflow-hidden bg-muted rounded-[24px] [corner-shape:squircle]">
                   <img
                     src={productImage(p)}
                     alt={p.name}

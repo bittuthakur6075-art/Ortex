@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react"
-import { Link } from "react-router-dom"
-import { Package, Pencil, ArrowUpRight } from "../../components/ui/Icons"
-import { PRODUCT_STATUS } from "../../data/domain/schema"
+import { Link, useNavigate } from "react-router-dom"
+import { Package, Pencil, ArrowUpRight, FileText } from "../../components/ui/Icons"
+import { PRODUCT_STATUS, newLine } from "../../data/domain/schema"
+import { canAccess } from "../../data/domain/modules"
+import { useProfile } from "../../hooks/useProfile"
 import { formatCurrency, formatNumber, formatDate, relativeTime } from "../../lib/format"
 import { cn } from "../../lib/cn"
 import { Button, StatusBadge, Drawer, Money } from "../../components/ui/Ui"
 import { RecordActivity } from "../../components/ui/RecordActivity"
+import { ImageViewer } from "../../components/ui/ImageViewer"
 import { productAnalytics } from "./helpers"
 
 // The product record as a sales brief rather than a form read-only. The master
@@ -15,6 +18,9 @@ import { productAnalytics } from "./helpers"
 // that leads the page and the reference fields sit underneath.
 export default function ProductDetail({ open, product, quotations = [], invoices = [], onClose, onEdit }) {
   const [activeImg, setActiveImg] = useState(0)
+  const [viewerOpen, setViewerOpen] = useState(false)
+  const profile = useProfile()
+  const navigate = useNavigate()
 
   useEffect(() => setActiveImg(0), [product])
 
@@ -23,6 +29,24 @@ export default function ProductDetail({ open, product, quotations = [], invoices
   const a = productAnalytics(product, quotations, invoices)
   const images = product.images || []
   const hasSold = a.units > 0
+  const canQuote = canAccess(profile, "quotations")
+
+  // Quotations already takes a { fromLead: { lines } } handoff (a voice lead
+  // seeds its first line the same way), so a product arrives as a new draft
+  // with the line filled exactly as the editor's own product picker fills it.
+  const addToQuote = () => {
+    const line = newLine({
+      productId: product.id,
+      description: product.name,
+      hsn: product.hsn || "",
+      unit: product.unit || "pcs",
+      rate: Number(product.basePrice) || 0,
+      gstRate: product.gstRate ?? 18,
+      quantity: Math.max(1, Number(product.moq) || 1),
+    })
+    onClose()
+    navigate("/quotations", { state: { fromLead: { lines: [line] } } })
+  }
 
   return (
     <Drawer
@@ -34,9 +58,16 @@ export default function ProductDetail({ open, product, quotations = [], invoices
       footer={
         <div className="flex items-center justify-between">
           <Button variant="outline" onClick={onClose}>Close</Button>
-          <Button onClick={() => onEdit(product)}>
-            <Pencil className="h-4 w-4" /> Edit product
-          </Button>
+          <div className="flex gap-2">
+            {canQuote && product.status !== "archived" && (
+              <Button variant="outline" onClick={addToQuote}>
+                <FileText className="h-4 w-4" /> Add to quote
+              </Button>
+            )}
+            <Button onClick={() => onEdit(product)}>
+              <Pencil className="h-4 w-4" /> Edit product
+            </Button>
+          </div>
         </div>
       }
     >
@@ -46,9 +77,14 @@ export default function ProductDetail({ open, product, quotations = [], invoices
           <div className="w-[38%] flex-none space-y-2">
             {images.length ? (
               <>
-                <div className="squircle relative aspect-square w-full overflow-hidden rounded-[16px] bg-muted">
+                <button
+                  type="button"
+                  onClick={() => setViewerOpen(true)}
+                  aria-label={`View photo ${activeImg + 1} full screen`}
+                  className="squircle relative block aspect-square w-full cursor-zoom-in overflow-hidden rounded-[16px] bg-muted"
+                >
                   <img src={images[activeImg]} alt={product.name} className="h-full w-full object-cover" />
-                </div>
+                </button>
                 {images.length > 1 && (
                   <div className="scroll-thin flex gap-1.5 overflow-x-auto pb-1">
                     {images.map((img, i) => (
@@ -191,6 +227,14 @@ export default function ProductDetail({ open, product, quotations = [], invoices
           <RecordActivity collection="products" record={product} bare title="" />
         </Section>
       </div>
+      <ImageViewer
+        open={viewerOpen}
+        images={images}
+        index={activeImg}
+        alt={product.name}
+        onIndexChange={setActiveImg}
+        onClose={() => setViewerOpen(false)}
+      />
     </Drawer>
   )
 }

@@ -1,6 +1,6 @@
 import { motion } from "framer-motion"
-import { Call, Sms, Clock } from "iconsax-react"
-import { CONTACT, whatsappLink } from "../../constants/site"
+import { Call, Sms, Clock, Location } from "iconsax-react"
+import { CONTACT, ADDRESS_LINE, whatsappLink } from "../../constants/site"
 import { fadeUp, RevealWords } from "../../components/ui/Section"
 import WhatsAppIcon from "../../components/ui/WhatsAppIcon"
 import MapEmbed from "./MapEmbed"
@@ -12,6 +12,8 @@ import { telHref } from "./helpers"
 function WhatsAppMark() {
   return <WhatsAppIcon className="w-6 h-6 fill-current" />
 }
+
+const MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Ortex Industries, ${ADDRESS_LINE}`)}`
 
 const channels = [
   {
@@ -32,6 +34,11 @@ const channels = [
     title: "WhatsApp",
     details: [{ label: CONTACT.phonePrimary, href: whatsappLink() }],
     cta: { label: "Chat on WhatsApp", href: whatsappLink() },
+  },
+  {
+    icon: Location,
+    title: "Factory",
+    details: [{ label: ADDRESS_LINE, href: MAPS_URL }],
   },
   {
     icon: Clock,

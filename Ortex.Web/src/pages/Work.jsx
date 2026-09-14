@@ -37,8 +37,8 @@ const CATEGORY_ICONS = {
  */
 export default function Work() {
   useDocumentMetadata(
-    "Our Work - Ortex Industries | Custom Manufacturing Photo Gallery",
-    "Browse and search the full Ortex Industries production archive: custom keychains, wall clocks, exam boards, badges, lanyards, fridge magnets, flags, and promotional merchandise we manufactured. No stock imagery.",
+    "Our Work: Custom Products We Made | Ortex Industries",
+    "Real production photos from Ortex Industries: custom keychains, wall clocks, exam boards, badges, lanyards, fridge magnets and promotional merchandise.",
     { path: "/work" }
   )
 

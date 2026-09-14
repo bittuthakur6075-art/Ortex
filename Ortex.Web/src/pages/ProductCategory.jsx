@@ -6,6 +6,8 @@ import {
   DiscountShape, ReceiptText, Building3, CloseCircle, ArrowLeft2, ArrowRight2,
 } from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
+import useJsonLd from "../hooks/useJsonLd"
+import { productsInCategory } from "../lib/catalogCore"
 import {
   categoryStats, categoryFaqs, photosForCategory, buildCategorySchema,
 } from "../constants/categories"
@@ -30,6 +32,7 @@ export default function ProductCategory() {
   const stats = useMemo(() => (entry ? categoryStats(entry, products) : null), [entry, products])
   const faqs = useMemo(() => (entry ? categoryFaqs(entry, products) : []), [entry, products])
   const photos = useMemo(() => (entry ? photosForCategory(entry, 8) : []), [entry])
+  const items = useMemo(() => (entry ? productsInCategory(entry, products) : []), [entry, products])
   const materials = useMemo(
     () => (stats ? [...new Set(stats.skus.map((s) => s.material))] : []),
     [stats]
@@ -67,15 +70,7 @@ export default function ProductCategory() {
     image: photos[0]?.url,
   })
 
-  useEffect(() => {
-    if (!entry) return
-    const script = document.createElement("script")
-    script.type = "application/ld+json"
-    script.id = "category-schema"
-    script.innerHTML = JSON.stringify(buildCategorySchema(entry, products))
-    document.head.appendChild(script)
-    return () => document.getElementById("category-schema")?.remove()
-  }, [entry, products])
+  useJsonLd("page-schema", entry ? buildCategorySchema(entry, products) : null)
 
   // Shared cursor-following arrow over the photo grid, same as the Products hub.
   const areaRef = useRef(null)
@@ -128,21 +123,17 @@ export default function ProductCategory() {
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <section className="pt-[120px] pb-[90px]">
         <div className="lp-wrap">
-          <motion.nav
-            {...fadeUp}
-            aria-label="Breadcrumb"
-            className="text-[13px] text-muted-foreground mb-8"
-          >
+          <nav aria-label="Breadcrumb" className="hero-in text-[13px] text-muted-foreground mb-8">
             <Link to="/" className="hover:text-primary">Home</Link>
             <span className="mx-2" aria-hidden="true">/</span>
             <Link to="/products" className="hover:text-primary">Products</Link>
             <span className="mx-2" aria-hidden="true">/</span>
             <span className="text-foreground font-medium">{entry.name}</span>
-          </motion.nav>
+          </nav>
 
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Copy */}
-            <motion.div {...fadeUp}>
+            <div className="hero-in">
               <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-4">
                 Custom manufacturing
               </span>
@@ -169,16 +160,12 @@ export default function ProductCategory() {
                   Chat on WhatsApp
                 </a>
               </div>
-            </motion.div>
+            </div>
 
             {/* Product image */}
             {heroImage && (
-              <motion.div
-                {...fadeUp}
-                transition={{ ...fadeUp.transition, delay: 0.1 }}
-                className="relative"
-              >
-                <div className="aspect-[4/3] overflow-hidden rounded-[6px] bg-muted">
+              <div className="hero-in relative" style={{ animationDelay: "0.1s" }}>
+                <div className="aspect-square overflow-hidden rounded-[6px] bg-muted">
                   <img
                     src={heroImage}
                     alt={photos[0]?.name || entry.name}
@@ -189,16 +176,12 @@ export default function ProductCategory() {
                 <span className="absolute left-4 top-4 bg-background/85 backdrop-blur-md text-foreground text-[12px] font-semibold px-3 py-1.5 rounded-full border border-border/50">
                   {stats.count} {stats.count === 1 ? "product" : "products"} in this range
                 </span>
-              </motion.div>
+              </div>
             )}
           </div>
 
           {/* Spec strip */}
-          <motion.dl
-            {...fadeUp}
-            transition={{ ...fadeUp.transition, delay: 0.15 }}
-            className="mt-12 grid grid-cols-2 lg:grid-cols-4 gap-[10px]"
-          >
+          <dl className="hero-in mt-12 grid grid-cols-2 lg:grid-cols-4 gap-[10px]" style={{ animationDelay: "0.15s" }}>
             {specs.map((s) => (
               <div key={s.label} className="bg-secondary rounded-[6px] p-5">
                 <s.icon size={26} color="currentColor" variant="Bulk" className="text-primary mb-3" aria-hidden="true" />
@@ -206,7 +189,7 @@ export default function ProductCategory() {
                 <dd className="text-[18px] font-semibold text-foreground mt-0.5">{s.value}</dd>
               </div>
             ))}
-          </motion.dl>
+          </dl>
         </div>
       </section>
 
@@ -305,7 +288,7 @@ export default function ProductCategory() {
             </p>
           </motion.div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-[10px]">
-            {stats.skus.map((p, idx) => (
+            {items.map((p, idx) => (
               <motion.div
                 key={p.id}
                 {...fadeUp}
@@ -313,7 +296,7 @@ export default function ProductCategory() {
                 className="bg-card rounded-[6px] p-[30px] flex flex-col border border-transparent hover:border-primary/30 transition-colors duration-300 overflow-hidden"
               >
                 {p.images?.[0] && (
-                  <div className="-m-[30px] mb-6 aspect-[4/3] overflow-hidden bg-muted">
+                  <Link to={p.path} tabIndex={-1} aria-hidden="true" className="-m-[30px] mb-6 block aspect-square overflow-hidden bg-muted">
                     <img
                       src={p.images[0]}
                       alt={p.name}
@@ -321,9 +304,11 @@ export default function ProductCategory() {
                       decoding="async"
                       className="w-full h-full object-cover"
                     />
-                  </div>
+                  </Link>
                 )}
-                <h3 className="text-[20px] font-semibold text-foreground leading-snug">{p.name}</h3>
+                <h3 className="text-[20px] font-semibold text-foreground leading-snug">
+                  <Link to={p.path} className="hover:text-primary transition-colors">{p.name}</Link>
+                </h3>
                 <p className="text-[13px] font-medium text-primary mt-2">{p.material}</p>
                 <p className="text-[15px] text-muted-foreground leading-relaxed mt-3 flex-1">{p.description}</p>
                 <div className="mt-6 pt-5 border-t border-border/70 flex flex-wrap items-center gap-2 text-[12px] font-semibold text-muted-foreground">
@@ -413,9 +398,9 @@ export default function ProductCategory() {
                       ? <Minus size={22} color="currentColor" variant="Bulk" className="text-primary flex-shrink-0" aria-hidden="true" />
                       : <Add size={22} color="currentColor" variant="Bulk" className="text-muted-foreground flex-shrink-0" aria-hidden="true" />}
                   </button>
-                  {isOpen && (
-                    <p className="pb-5 -mt-1 text-[16px] text-muted-foreground leading-relaxed max-w-2xl">{f.answer}</p>
-                  )}
+                  {/* Closed answers stay in the DOM (hidden) so the prerendered page carries
+                      the text its FAQPage schema quotes. */}
+                  <p hidden={!isOpen} className="pb-5 -mt-1 text-[16px] text-muted-foreground leading-relaxed max-w-2xl">{f.answer}</p>
                 </div>
               )
             })}

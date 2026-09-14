@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
-import { LayoutGrid, Plus, Pencil, Trash2, Sparkles } from "../components/ui/Icons"
+import { LayoutGrid, Plus, Eye, Trash2, Sparkles } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { useCollection, useCategories } from "../hooks/useCollection"
@@ -10,6 +10,7 @@ import { WORK_SEED } from "../data/seed/workSeed"
 import PageHeader, { ActionBar } from "../components/layout/PageHeader"
 import ImageField from "../components/editors/ImageField"
 import { Button, Card, Input, Select, Textarea, Field, EmptyState, Drawer, PageLoader } from "../components/ui/Ui"
+import WorkDetail from "./catalog/WorkDetail"
 
 // Sentinel option in the category dropdown that reveals a free-text input.
 const OTHER = "__other"
@@ -34,12 +35,17 @@ export default function Work({ embedded = false }) {
   const Header = embedded ? ActionBar : PageHeader
   const { items, loading } = useCollection("work")
   const [editing, setEditing] = useState(null) // work | "new" | null
+  const [viewingId, setViewingId] = useState(null) // read view, by id so a save refreshes it
 
   const sortedItems = useMemo(
     () =>
       [...items].sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0) || String(a.title).localeCompare(String(b.title))),
     [items],
   )
+  const viewing = viewingId ? items.find((w) => w.id === viewingId) || null : null
+  // Where the photo lands in the public gallery: hidden photos take no slot.
+  const liveItems = sortedItems.filter((w) => w.active !== false)
+  const position = viewing ? liveItems.findIndex((w) => w.id === viewing.id) + 1 : 0
 
   // One-click seed of the curated photos that used to be hardcoded on the site.
   const seedDefaults = async () => {
@@ -85,7 +91,7 @@ export default function Work({ embedded = false }) {
             <Card
               key={w.id}
               className="group cursor-pointer overflow-hidden transition-colors hover:border-primary/50"
-              onClick={() => setEditing(w)}
+              onClick={() => setViewingId(w.id)}
             >
               <div className="relative aspect-square bg-muted">
                 {w.image ? (
@@ -101,7 +107,7 @@ export default function Work({ embedded = false }) {
                   </span>
                 )}
                 <span className="absolute right-2 top-2 rounded-full bg-background/90 p-1 opacity-0 transition-opacity group-hover:opacity-100">
-                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Eye className="h-3.5 w-3.5 text-muted-foreground" />
                 </span>
               </div>
               <div className="p-3">
@@ -112,6 +118,18 @@ export default function Work({ embedded = false }) {
           ))}
         </div>
       )}
+
+      <WorkDetail
+        open={viewing !== null}
+        work={viewing}
+        position={position}
+        total={liveItems.length}
+        onClose={() => setViewingId(null)}
+        onEdit={(w) => {
+          setEditing(w)
+          setViewingId(null)
+        }}
+      />
 
       <WorkForm open={editing !== null} work={editing === "new" ? null : editing} onClose={() => setEditing(null)} />
     </div>

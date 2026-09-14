@@ -169,8 +169,13 @@ export function activityForPath(path) {
   const clean = path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path
   const hit = PAGE_ACTIVITY[clean]
   if (hit) return { activityType: hit[0], page: hit[1] }
-  // /products/<slug> is a category page, the only dynamic route we serve.
-  if (clean.startsWith("/products/")) return { activityType: "Catalog view", page: "Category: " + clean.slice(10) }
+  // /products/<slug> is a category page and /products/<slug>/<product> a
+  // product page, the only dynamic routes we serve.
+  if (clean.startsWith("/products/")) {
+    const [category, product] = clean.slice(10).split("/")
+    if (product) return { activityType: "Product page visit", page: "Product: " + product }
+    return { activityType: "Catalog view", page: "Category: " + category }
+  }
   return { activityType: "Not found page visit", page: "Not found" }
 }
 

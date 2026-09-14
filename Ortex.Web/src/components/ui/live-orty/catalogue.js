@@ -1,12 +1,17 @@
 import { supabase, hasSupabase } from "../../../lib/supabaseClient"
+import { PRODUCT_RANGE } from "../../../constants/business"
 
 // ---- The live catalogue, as Anu sees it ------------------------------------
 //
 // Anu's prompt carries the general range Ortex makes, but the real list lives
-// in the console. This reads the PUBLIC views (migration 0020: `products_public`
-// / `categories_public`, which expose an allow-list of fields and never price,
-// cost, HSN or GST), so a product added or edited in the console reaches the
-// next call with no code change.
+// in the console. This reads ANU'S KNOWLEDGE BASE (Admin migration 0028,
+// `anu_knowledge`): one allow-listed row per visible product, category and work
+// photo, written by database triggers the moment anyone saves one, never price,
+// cost, HSN or GST. During a call `watchCatalogue` follows it over realtime, so
+// a product added, edited or unlisted in the console reaches a call already in
+// progress within about a second, and lookup_product tells Anu what changed.
+// On a project without 0028 it falls back to the public views of migration
+// 0020 (`products_public` / `categories_public`) and the `work` table.
 //
 // Three levels, so the prompt stays small as the catalogue grows: a compact
 // index of everything goes into the system instruction, `lookup_product`
@@ -27,6 +32,12 @@ const FRESH_MS = 60 * 1000
 // Guardrails for the system instruction: a few hundred products must not turn
 // into a prompt Anu has to wade through before she can speak.
 const MAX_INDEX_PRODUCTS = 120
+// PostgREST hands out at most 1,000 rows a request; the read pages past that up
+// to this ceiling, so lookup_product searches the whole catalogue even when the
+// index in the prompt can only name the first MAX_INDEX_PRODUCTS.
+const PAGE_ROWS = 1000
+const MAX_PRODUCTS = 5000
+const MAX_WORK = 300
 // While the catalogue is small, every product carries a one-line hook in the
 // index too, so Anu can brief a caller properly without a lookup round trip.
 // Past this count the index falls back to names and facts only.
@@ -65,6 +76,21 @@ const clip = (v, max) => {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s
 }
 const norm = (v) => String(v ?? "").toLowerCase()
+
+// Products point at a category by NAME, so a stray space or a change of case
+// ("MDF Products" against "MDF products") used to split one shelf in two.
+const catKey = (v) => norm(v).replace(/\s+/g, " ").trim()
+
+/**
+ * The minimum order a product really has, or null when none was set.
+ * The console creates every product with `moq: 1` and the public view turns a
+ * missing value into 1 as well, so 1 means "nobody entered one", never "you may
+ * order a single piece" of a made-to-order item. Anu used to read that 1 aloud.
+ */
+export function moqOf(p) {
+  const n = Number(p?.moq)
+  return Number.isFinite(n) && n > 1 ? n : null
+}
 
 // ---- What Ortex can do to a material ---------------------------------------
 // The decoration methods are the factory's own, listed in prompt.js (laser
@@ -228,27 +254,12 @@ const AFFINITY = {
 }
 
 // ---- The standard range, for what the console has not listed yet ------------
-// Mirrors the "WHAT ORTEX MAKES" block in prompt.js. These are everyday Ortex
-// products with known minimums: when the console does not list one (the
+// The same table prompt.js lists as "WHAT ORTEX MAKES", read from
+// constants/business.js, so the two can no longer disagree. These are everyday
+// Ortex products with known minimums: when the console does not list one (the
 // catalogue is still being filled), the answer is a confident made-to-order
-// quote, NOT "this is an exotic custom job and the team will confirm a
-// minimum". Keep this table and prompt.js in step.
-const STANDARD_RANGE = [
-  { kind: "keychain", name: "Custom keychains", moq: "50 to 200 depending on the material", materials: "acrylic, leather, metal, wooden, silicone, soft PVC and satin", note: "any custom shape with the logo" },
-  { kind: "lanyard", name: "Lanyards and ID card holders", moq: "100", materials: "full-colour sublimation polyester and satin, with acrylic or PVC ID card holders", note: "hooks, clips and safety breakaways to choice" },
-  { kind: "badge", name: "Badges", moq: "50 to 200", materials: "metal name badges with magnet, plastic pin badges, button badges and LED badges", note: "" },
-  { kind: "trophy", name: "Trophies and awards", moq: "50 to 100 in MDF, 25 to 50 in acrylic", materials: "MDF and acrylic", note: "custom shapes and engraved titles" },
-  { kind: "standee", name: "Acrylic desk standees and name holders", moq: "25 to 50", materials: "acrylic", note: "also paperweights and dashboard idols" },
-  { kind: "board", name: "Examination boards and clipboards", moq: "25 to 50", materials: "MDF and acrylic", note: "for schools and institutions" },
-  { kind: "magnet", name: "Fridge magnets", moq: "100 to 200", materials: "MDF, acrylic, PVC and wood", note: "custom shapes" },
-  { kind: "clock", name: "Promotional wall clocks", moq: "10 to 25", materials: "round, square, designer, wooden and acrylic", note: "" },
-  { kind: "stationery", name: "Diary and pen sets", moq: "25", materials: "paper and board with metal pens", note: "often paired into a gift set" },
-  { kind: "drinkware", name: "Insulated steel bottles, mugs and tumblers", moq: "25", materials: "stainless steel", note: "" },
-  { kind: "giftset", name: "Corporate gift sets", moq: "25", materials: "bottles, diaries, pens and keychains combined", note: "one quotation, one dispatch" },
-  { kind: "frame", name: "Photo frames", moq: "25 to 50", materials: "acrylic and MDF", note: "" },
-  { kind: "apparel", name: "Promotional merchandise", moq: "confirmed by the team for apparel", materials: "caps, T-shirts, wristbands, popsockets and epoxy dome stickers", note: "" },
-  { kind: "signage", name: "Flags and banners", moq: "confirmed by the team", materials: "fabric and vinyl", note: "" },
-]
+// quote, NOT "this is an exotic custom job and the team will confirm a minimum".
+const STANDARD_RANGE = PRODUCT_RANGE
 
 // Filler a caller wraps a request in, in English and spoken Hindi. Left in, a
 // word like "for" or "custom" matches half the catalogue.
@@ -281,22 +292,96 @@ const overlap = (terms, text) => {
 let cache = null
 let inFlight = null
 
+/** Every row of a public view, a page at a time, up to `max`. */
+async function readAll(view, max) {
+  const out = []
+  for (let from = 0; from < max; from += PAGE_ROWS) {
+    const { data, error } = await supabase.from(view).select("doc").range(from, Math.min(from + PAGE_ROWS, max) - 1)
+    if (error) throw error
+    out.push(...(data || []))
+    if (!data || data.length < PAGE_ROWS) break
+  }
+  return out
+}
+
+/**
+ * The work gallery: real jobs Ortex has made, as the /work page shows them.
+ * Read from the `work` table under its anon policy (active items only, 0012),
+ * and only the caption and filter bucket are kept, which is all the page
+ * itself publishes. A failure here never costs Anu the catalogue.
+ */
+async function readWork() {
+  try {
+    const { data, error } = await supabase.from("work").select("doc").limit(MAX_WORK)
+    if (error) throw error
+    return (data || [])
+      .map((r) => r.doc)
+      .filter((w) => w?.title && w.active !== false)
+      .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
+      .map((w) => ({ title: clip(w.title, 120), category: clip(w.category, 60) }))
+  } catch (err) {
+    console.warn("Work gallery unavailable for Anu:", err?.message || err)
+    return []
+  }
+}
+
+/**
+ * The knowledge base (Admin migration 0028, `anu_knowledge`): one allow-listed
+ * row per visible product, category and work photo, kept current by database
+ * triggers. Returns null when the table does not exist yet, so a project
+ * without 0028 keeps working from the public views below.
+ */
+async function readKnowledge() {
+  const rows = []
+  for (let from = 0; from < MAX_PRODUCTS + 1000; from += PAGE_ROWS) {
+    const { data, error } = await supabase.from("anu_knowledge").select("kind, doc").range(from, from + PAGE_ROWS - 1)
+    if (error) {
+      // 42P01 / PGRST205: the relation is not there. Anything else is a real failure.
+      if (error.code === "42P01" || error.code === "PGRST205" || /does not exist|could not find the table/i.test(error.message || "")) return null
+      throw error
+    }
+    rows.push(...(data || []))
+    if (!data || data.length < PAGE_ROWS) break
+  }
+  const of = (kind) => rows.filter((r) => r.kind === kind).map((r) => ({ doc: r.doc }))
+  return {
+    categories: of("category"),
+    products: of("product"),
+    work: of("work")
+      .map((r) => r.doc)
+      .filter((w) => w?.title)
+      .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
+      .slice(0, MAX_WORK)
+      .map((w) => ({ title: clip(w.title, 120), category: clip(w.category, 60) })),
+  }
+}
+
+let knowledgeMissing = false
+
 async function read() {
-  const [cats, prods] = await Promise.all([
-    supabase.from("categories_public").select("doc"),
-    supabase.from("products_public").select("doc").limit(500),
-  ])
-  if (cats.error) throw cats.error
-  if (prods.error) throw prods.error
-  const categories = (cats.data || []).map((r) => r.doc).filter((c) => c?.name && c.active !== false)
+  const kb = knowledgeMissing ? null : await readKnowledge()
+  if (!kb) knowledgeMissing = true
+  const [catRows, prodRows, work] = kb
+    ? [kb.categories, kb.products, kb.work]
+    : await Promise.all([
+        readAll("categories_public", 500),
+        readAll("products_public", MAX_PRODUCTS),
+        readWork(),
+      ])
+  // In the console's own order, and spoken by the name the website shows.
+  const categories = catRows
+    .map((r) => r.doc)
+    .filter((c) => c?.name && c.active !== false)
+    .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
+    .map((c) => ({ ...c, spoken: clip(c.displayName || c.name, 80) }))
   // Absent status means active, matching the console and the phone. Names are
   // cleaned here, once, so every consumer sees the speakable name.
-  const products = (prods.data || [])
+  const products = prodRows
     .map((r) => r.doc)
     .filter((p) => p?.name && (!p.status || p.status === "active"))
     .map((p) => ({ ...p, name: cleanName(p.name) }))
     .filter((p) => p.name)
-  return { categories, products }
+  return { categories, products, work, source: kb ? "knowledge" : "views" }
 }
 
 /** Read the public catalogue. Returns null when it cannot be read. */
@@ -334,36 +419,125 @@ function revalidate() {
     .finally(() => { inFlight = null })
 }
 
+// ---- Keeping a live call current ----------------------------------------------
+// With the knowledge base in place, a call does not wait for Anu to look
+// something up before it notices a change: the table is in the realtime
+// publication, so an insert, edit or removal in the console reaches the call in
+// about a second and the catalogue is re-read in place. The version counter is
+// polled as a backstop in case the realtime socket drops (a corporate proxy, a
+// laptop waking from sleep). Without 0028 this does nothing and the per-lookup
+// revalidation above still applies.
+
+const VERSION_POLL_MS = 30 * 1000
+const APPLY_DEBOUNCE_MS = 600
+const MAX_CHANGE_NAMES = 12
+
+async function refreshNow() {
+  if (!cache) return
+  const before = new Map(cache.products.map((p) => [catKey(p.name), p]))
+  const fresh = await read()
+  if (!fresh.products.length) return
+  const after = new Map(fresh.products.map((p) => [catKey(p.name), p]))
+  const changes = cache.changes || { added: [], updated: [], removed: [] }
+  const note = (list, name) => {
+    if (!list.includes(name)) list.push(name)
+    if (list.length > MAX_CHANGE_NAMES) list.shift()
+  }
+  for (const [k, p] of after) {
+    const old = before.get(k)
+    if (!old) note(changes.added, p.name)
+    else if (JSON.stringify(old) !== JSON.stringify(p)) note(changes.updated, p.name)
+  }
+  for (const [k, p] of before) if (!after.has(k)) note(changes.removed, p.name)
+  // In place: the session holds this object for the whole call.
+  Object.assign(cache, fresh, { at: Date.now(), changes })
+}
+
+/**
+ * Watch the knowledge base for the length of a call. Returns a stop function.
+ * Changes are collected on the cache as `changes` so lookup_product can tell
+ * Anu what is new since the call began (her system instruction was written
+ * before it, and cannot be rewritten mid-call).
+ */
+export function watchCatalogue() {
+  if (!hasSupabase || !cache || knowledgeMissing) return () => {}
+  cache.changes = { added: [], updated: [], removed: [] }
+  let timer = 0
+  let version = null
+  let live = false
+  const schedule = () => {
+    clearTimeout(timer)
+    timer = setTimeout(() => { refreshNow().catch(() => { /* keep the copy we have */ }) }, APPLY_DEBOUNCE_MS)
+  }
+  const channel = supabase
+    .channel(`anu-knowledge-${Math.random().toString(36).slice(2)}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "anu_knowledge" }, schedule)
+    .subscribe((status) => { live = status === "SUBSCRIBED" })
+  const poll = setInterval(async () => {
+    if (live) return
+    try {
+      const { data } = await supabase.from("anu_knowledge_version").select("version").eq("id", 1).maybeSingle()
+      if (data && version !== null && data.version !== version) schedule()
+      if (data) version = data.version
+    } catch { /* offline: try again next tick */ }
+  }, VERSION_POLL_MS)
+  return () => {
+    clearTimeout(timer)
+    clearInterval(poll)
+    try { supabase.removeChannel(channel) } catch { /* already gone */ }
+  }
+}
+
+/** What changed in the catalogue since this call began, for Anu, or undefined. */
+function changesForAnu(data) {
+  const c = data?.changes
+  if (!c || (!c.added.length && !c.updated.length && !c.removed.length)) return undefined
+  return {
+    added: c.added.length ? c.added : undefined,
+    updated: c.updated.length ? c.updated : undefined,
+    no_longer_listed: c.removed.length ? c.removed : undefined,
+    note: "The Ortex team changed the catalogue during this call, so these override anything in your instructions' catalogue index. Look a product up before describing it, and never offer one that is no longer listed.",
+  }
+}
+
 /** The index appended to Anu's system instruction. "" when there is nothing. */
 export function catalogueBlock(data) {
   if (!data?.products?.length) return ""
-  const byCategory = new Map()
-  for (const p of data.products) {
-    const key = p.category || "Other"
-    if (!byCategory.has(key)) byCategory.set(key, [])
-    byCategory.get(key).push(p)
+  // Grouped on a normalised category name, in the console's own category
+  // order, headed by the name the website shows. A product whose category is
+  // not a console category still gets its own group, after the known ones.
+  const cats = [...(data.categories || [])].sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
+  const groups = new Map()
+  for (const c of cats) groups.set(catKey(c.name), { label: c.spoken || c.name, intro: c.intro, list: [] })
+  for (const prod of data.products) {
+    const key = catKey(prod.category) || "other"
+    if (!groups.has(key)) groups.set(key, { label: clip(prod.category, 80) || "Other", intro: "", list: [] })
+    groups.get(key).list.push(prod)
   }
+  const filled = [...groups.values()].filter((g) => g.list.length)
   const withHooks = data.products.length <= MAX_INDEX_WITH_HOOKS
   const lines = [
     "",
     "# THE LIVE CATALOGUE (read from the Ortex console at the start of this call)",
-    `This is what Ortex has listed in its console right now: ${data.products.length} products in ${byCategory.size} categories. For any product named here it is the truth about the name, material, minimum quantity and dispatch time, and it overrides the general range above wherever the two disagree. Call lookup_product before you describe, recommend or take an order for any item: it returns the full briefing, the customisation options for that material, and the add-ons worth offering.`,
+    `This is what Ortex has listed in its console right now: ${data.products.length} products in ${filled.length} categories. For any product named here it is the truth about the name, material, minimum quantity and dispatch time, and it overrides the general range above wherever the two disagree. Call lookup_product before you describe, recommend or take an order for any item: it returns the full briefing, the customisation options for that material, and the add-ons worth offering.`,
     "IMPORTANT: this list is what has been ENTERED so far, not the limit of what Ortex makes. The console is still being filled, so an everyday Ortex product such as lanyards, trophies, clipboards or fridge magnets can be missing from it while the factory makes it every week. lookup_product tells you which case you are in: a listed product, a standard made-to-order product with a known minimum, or a genuinely new custom run. Never tell a customer that Ortex does not make something.",
+    "A product listed with \"no minimum set\" has no minimum entered in the console: never tell the customer they can order one piece. Say the team confirms the minimum in the quotation.",
   ]
   let shown = 0
-  for (const [category, list] of byCategory) {
-    const intro = data.categories.find((c) => c.name === category)?.intro
-    lines.push(`## ${category}${intro ? ` (${clip(intro, INTRO_CHARS)})` : ""}`)
-    for (const p of list) {
+  for (const g of filled) {
+    if (shown >= MAX_INDEX_PRODUCTS) break
+    lines.push(`## ${g.label}${g.intro ? ` (${clip(g.intro, INTRO_CHARS)})` : ""}`)
+    for (const prod of g.list) {
       if (shown >= MAX_INDEX_PRODUCTS) break
-      const mat = materialOf(p)
+      const mat = materialOf(prod)
+      const moq = moqOf(prod)
       const facts = [
-        p.moq ? `min ${p.moq} ${p.unit || "pcs"}` : "",
+        moq ? `min ${moq} ${prod.unit || "pcs"}` : "no minimum set",
         mat.text ? (mat.confirmed ? mat.text : `likely ${mat.text}, confirm`) : "material not recorded",
-        p.leadTimeDays ? `${p.leadTimeDays} day dispatch` : "",
+        prod.leadTimeDays ? `${prod.leadTimeDays} day dispatch` : "",
       ].filter(Boolean).join(", ")
-      lines.push(`- ${clip(p.name, NAME_CHARS)}${facts ? ` (${facts})` : ""}`)
-      if (withHooks && p.description) lines.push(`  ${clip(p.description, HOOK_CHARS)}`)
+      lines.push(`- ${clip(prod.name, NAME_CHARS)}${facts ? ` (${facts})` : ""}`)
+      if (withHooks && prod.description) lines.push(`  ${clip(prod.description, HOOK_CHARS)}`)
       shown += 1
     }
   }
@@ -373,9 +547,17 @@ export function catalogueBlock(data) {
   // Categories with nothing in them are a console housekeeping artefact (a test
   // category, or one whose products are all archived). Anu must not offer them
   // as though they were a range she can sell from.
-  const empty = data.categories.filter((c) => !byCategory.has(c.name)).map((c) => c.name)
+  const empty = [...groups.values()].filter((g) => !g.list.length).map((g) => g.label)
   if (empty.length) {
     lines.push("", `Categories that exist in the console but have NO products listed yet: ${empty.join(", ")}. Do not offer these as a range of their own; if a customer asks for something in one of them, look it up and treat it as made to order.`)
+  }
+  if (data.work?.length) {
+    const kinds = [...new Set(data.work.map((w) => w.category).filter(Boolean))]
+    lines.push(
+      "",
+      "# PAST WORK (the Ortex work gallery, real jobs the factory has made)",
+      `The website's work gallery holds ${data.work.length} photographed jobs${kinds.length ? ` in: ${kinds.slice(0, 12).join(", ")}` : ""}. When a customer wants proof that Ortex has done something like their order, call find_past_work and mention one or two real examples by their caption. Say only what the caption says: never invent a client name, a quantity or a date, and never describe a photo you have not been given. Point them to the Work page on the website to see the photos.`,
+    )
   }
   lines.push(
     "",
@@ -384,6 +566,17 @@ export function catalogueBlock(data) {
     "Every lookup_product reply carries the customisation options for that product's own material. Use them to answer how the logo will be applied, what shapes are possible and whether brand colours can be matched, and to offer a better finish. Never invent a method that is not in this list, and never state a size, weight, thickness or certification: the team confirms those in the quotation.",
   )
   return lines.join("\n")
+}
+
+// What to say about a listed product's minimum. With none entered, the usual
+// minimum for that kind of product is offered as context, never as this item's.
+function minimumFor(p) {
+  const moq = moqOf(p)
+  if (moq) return moq
+  const usual = STANDARD_RANGE.find((r) => r.kind === kindOf(p))
+  return usual
+    ? `not set for this listing, so the team will confirm it. Ortex's usual minimum for ${usual.name.toLowerCase()} is ${usual.moq}`
+    : "not set, so the team will confirm it. Never say one piece"
 }
 
 function detail(p) {
@@ -401,7 +594,7 @@ function detail(p) {
         ? `The material was NOT recorded for this product, and "${mat.text}" is only inferred from its description. Do not state it as fact: say the team will confirm the exact material in the quotation.`
         : "The material was not recorded for this product. Do NOT guess one. Describe what it is and what it is used for, and say the team will confirm the exact material and finish in the quotation.",
     customisation_options: mat.family?.customisation || "laser engraving, UV printing and custom shaping, with the exact options confirmed by the team for this material",
-    minimum_order: p.moq || "not set, so the team will confirm it",
+    minimum_order: minimumFor(p),
     unit: p.unit || "pcs",
     dispatch_days: p.leadTimeDays || "",
     description: clip(p.description, DESCRIPTION_CHARS),
@@ -533,6 +726,7 @@ export function lookupProduct(data, query) {
       const lead = standard[0]
       return {
         catalogue_available: true,
+        catalogue_changed_during_call: changesForAnu(data),
         matches: [],
         is_custom: false,
         made_to_order: true,
@@ -543,6 +737,7 @@ export function lookupProduct(data, query) {
     }
     return {
       catalogue_available: true,
+        catalogue_changed_during_call: changesForAnu(data),
       matches: [],
       is_custom: true,
       made_to_order: true,
@@ -560,6 +755,7 @@ export function lookupProduct(data, query) {
   const mat = materialOf(best)
   return {
     catalogue_available: true,
+        catalogue_changed_during_call: changesForAnu(data),
     matches: scored.map((s) => detail(s.p)),
     same_product_other_options: bestKind
       ? data.products.filter((p) => p.name !== best.name && kindOf(p) === bestKind).slice(0, 3).map((p) => clip(p.name, NAME_CHARS))
@@ -584,4 +780,31 @@ export function classifyItem(data, product) {
   if (r.matches?.length) return "listed"
   if (r.standard_range?.length) return "standard"
   return "custom"
+}
+
+/**
+ * Real jobs from the work gallery that match what the customer is ordering.
+ * Captions only, because that is all the gallery publishes: Anu may cite one as
+ * "we have made these before", never embellish it.
+ */
+export function findPastWork(data, query) {
+  const work = data?.work || []
+  if (!work.length) {
+    return { found: 0, examples: [], next: "The work gallery could not be read or is empty. Do not describe past jobs; offer the free mockup instead." }
+  }
+  revalidate()
+  const terms = words(query)
+  const scored = work
+    .map((w) => ({ w, strong: overlap(terms, `${w.title} ${w.category}`) + (KINDS.some((k) => matchesKind(k.key, query) && matchesKind(k.key, `${w.title} ${w.category}`)) ? 2 : 0) }))
+    .filter((x) => !terms.length || x.strong > 0)
+    .sort((a, b) => b.strong - a.strong)
+    .slice(0, 3)
+    .map((x) => ({ caption: x.w.title, category: x.w.category || "" }))
+  return {
+    found: scored.length,
+    examples: scored,
+    next: scored.length
+      ? "Mention one example in a single sentence, using only its caption, as proof Ortex has made something like this. Never add a client name, quantity or date the caption does not state. Offer the Work page on the website for photos."
+      : "Nothing in the gallery matches this closely. Do not stretch an unrelated example to fit: say Ortex makes to the customer's own design, and offer the free mockup.",
+  }
 }

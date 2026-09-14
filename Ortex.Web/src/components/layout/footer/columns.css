@@ -18,6 +18,13 @@
   }
 }
 
+/* Four columns (Products, What we make, Company, Legal) once there is room. */
+@media (min-width: 1200px) {
+  .lp-footer-cols {
+    grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  }
+}
+
 /* Contact/Office groups (label + stacked values) */
 .lp-footer-cgroup {
   display: flex;
@@ -98,6 +105,13 @@
 
 .lp-footer-phones > span {
   color: rgba(255, 255, 255, 0.3);
+}
+
+.lp-footer-address {
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 32ch;
 }
 
 .lp-footer h4 {

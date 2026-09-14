@@ -7,8 +7,20 @@ import { useEffect, useState } from "react"
 import { supabase, hasSupabase } from "./supabaseClient"
 import { PRODUCTS } from "../constants/products"
 import { mergeCategories, mapProduct, staticCategories, slugify } from "./catalogCore"
+import { getPreloaded } from "./preloaded"
 
 export { slugify }
+
+/** Shape raw products_public / categories_public rows into the hook's state. */
+export function fromRows(productRows, categoryRows) {
+  const products = (productRows || []).map(mapProduct).filter((p) => p.status === "active")
+  const liveCats = (categoryRows || []).map((r) => ({ id: r.id, ...(r.doc || {}) }))
+  return {
+    products: products.length ? products : PRODUCTS,
+    categories: mergeCategories(liveCats),
+    loading: false,
+  }
+}
 
 /**
  * React hook: { products, categories, loading }. Falls back to the static
@@ -16,10 +28,16 @@ export { slugify }
  * render (categories are never null — static until live data arrives).
  */
 export function useCatalog() {
-  const [state, setState] = useState({
-    products: hasSupabase ? null : PRODUCTS,
-    categories: hasSupabase ? null : staticCategories(),
-    loading: hasSupabase,
+  const [state, setState] = useState(() => {
+    // Rows the prerender fetched and rendered this page with (lib/preloaded.js):
+    // starting from them keeps hydration identical to the static HTML.
+    const pre = getPreloaded("catalog")
+    if (pre) return fromRows(pre.products, pre.categories)
+    return {
+      products: hasSupabase ? null : PRODUCTS,
+      categories: hasSupabase ? null : staticCategories(),
+      loading: hasSupabase,
+    }
   })
 
   useEffect(() => {
@@ -38,15 +56,8 @@ export function useCatalog() {
         if (prodRes.error) throw prodRes.error
         if (catRes.error) throw catRes.error
 
-        const products = (prodRes.data || []).map(mapProduct).filter((p) => p.status === "active")
-        const liveCats = (catRes.data || []).map((r) => ({ id: r.id, ...(r.doc || {}) }))
-
         if (cancelled) return
-        setState({
-          products: products.length ? products : PRODUCTS,
-          categories: mergeCategories(liveCats),
-          loading: false,
-        })
+        setState(fromRows(prodRes.data, catRes.data))
       } catch (err) {
         console.error("Catalog load failed, using static fallback:", err)
         if (!cancelled) setState({ products: PRODUCTS, categories: staticCategories(), loading: false })

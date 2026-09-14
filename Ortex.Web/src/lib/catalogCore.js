@@ -14,6 +14,33 @@ export function slugify(s) {
     .replace(/^-+|-+$/g, "")
 }
 
+/**
+ * Every product's URL slug, keyed by product id: its name, slugified, with a
+ * numeric suffix only when two products in the same category share a name.
+ * Computed over the whole list (not per product) so the suffix is stable for
+ * a given catalogue and the prerender and the browser agree on each URL.
+ */
+export function productSlugs(products) {
+  const seen = new Map()
+  const out = new Map()
+  for (const p of products) {
+    const base = slugify(p.name) || slugify(p.sku) || String(p.id)
+    const key = `${p.category}/${base}`
+    const n = (seen.get(key) || 0) + 1
+    seen.set(key, n)
+    out.set(p.id, n === 1 ? base : `${base}-${n}`)
+  }
+  return out
+}
+
+/** Products in a category, each carrying its `slug` and `path` (/products/<category>/<product>). */
+export function productsInCategory(entry, products) {
+  const slugs = productSlugs(products)
+  return products
+    .filter((p) => p.category === entry.category)
+    .map((p) => ({ ...p, slug: slugs.get(p.id), path: `/products/${entry.slug}/${slugs.get(p.id)}` }))
+}
+
 /** Static categories normalised to the merged shape used everywhere. */
 export function staticCategories() {
   return PRODUCT_CATEGORIES.map((entry, i) => ({ ...entry, image: "", _live: null, _order: i }))

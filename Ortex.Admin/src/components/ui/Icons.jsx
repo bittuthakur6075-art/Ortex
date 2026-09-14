@@ -81,6 +81,9 @@ import {
   More,
   UserTick,
   UserRemove,
+  MicrophoneSlash1,
+  Minus as MinusIcon,
+  ArrowUp as ArrowUpIcon,
 } from "iconsax-react"
 
 function wrap(Cmp) {
@@ -164,6 +167,9 @@ export const Camera = wrap(CameraIcon)
 export const MoreHorizontal = wrap(More)
 export const UserCheck = wrap(UserTick)
 export const UserX = wrap(UserRemove)
+export const MicOff = wrap(MicrophoneSlash1)
+export const Minus = wrap(MinusIcon)
+export const ArrowUp = wrap(ArrowUpIcon)
 
 // A spinner (lucide's Loader2 replacement), a CSS ring, so it spins cleanly.
 export function Loader2({ className = "" }) {

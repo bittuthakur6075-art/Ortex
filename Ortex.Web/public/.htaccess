@@ -3,28 +3,58 @@
 # CONTENTS of dist/ into public_html.
 
 # ----------------------------------------------------------------------
-# SPA routing: serve real files/prerendered folders as-is; send everything
-# else to index.html so the React Router app can handle the route.
+# Routing for a PRERENDERED site (scripts/prerender.mjs writes one
+# <route>/index.html per page, plus 404.html). Every public URL is a real file,
+# so there is no catch-all to index.html: an unknown URL answers a genuine 404
+# instead of "200 OK" with an empty app, which Google reads as a soft 404 and
+# which kept an old "Ortex Medical" page of this domain indexed.
+#
+# One canonical form per page: https://bizgift.ortexindustries.in/<path>, no
+# trailing slash, no index.html. Everything else 301s to it in one hop.
 # ----------------------------------------------------------------------
+Options -MultiViews -Indexes
+DirectoryIndex index.html
+# Without this Apache 301s /about to /about/ before any rule below runs, which
+# contradicts the canonical tag on every page.
+DirectorySlash Off
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
-  # If the request maps to a real file or directory, serve it directly.
-  RewriteCond %{REQUEST_FILENAME} -f [OR]
-  RewriteCond %{REQUEST_FILENAME} -d
-  RewriteRule ^ - [L]
+  # www.bizgift... moves to the one canonical host. HTTPS itself is forced by
+  # hPanel's "Force HTTPS" toggle, which avoids a redirect loop behind
+  # Hostinger's CDN.
+  RewriteCond %{HTTP_HOST} ^www\.bizgift\.ortexindustries\.in$ [NC]
+  RewriteRule ^ https://bizgift.ortexindustries.in%{REQUEST_URI} [R=301,L]
 
-  # Otherwise hand off to the SPA entry point.
-  RewriteRule ^ index.html [L]
+  # Paths from earlier versions of the site.
+  RewriteRule ^(portfolio|photos|gallery)/?$ /work [R=301,L]
+  # A dental product page from a previous owner of the domain, still in
+  # Google's index: 410 Gone tells Google to drop it faster than a 404.
+  RewriteRule ^beautifil-injectable-22g/?$ - [G,L]
+
+  # /index.html and /about/index.html are the same pages as / and /about.
+  RewriteCond %{THE_REQUEST} \s/index\.html[\s?]
+  RewriteRule ^ / [R=301,L]
+  RewriteCond %{THE_REQUEST} \s/(.+)/index\.html[\s?]
+  RewriteRule ^ /%1 [R=301,L]
+
+  # /about/ becomes /about (only for folders that exist, so a stray slash on
+  # an unknown URL still 404s).
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^(.+)/$ /$1 [R=301,L]
+
+  # Serve /about from about/index.html without changing the URL.
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteCond %{REQUEST_FILENAME}/index.html -f
+  RewriteRule ^(.+)$ $1/index.html [L]
 </IfModule>
 
-# HTTPS is best forced with hPanel's "Force HTTPS" toggle (avoids proxy redirect
-# loops). If you prefer .htaccess, uncomment:
-# <IfModule mod_rewrite.c>
-#   RewriteCond %{HTTP:X-Forwarded-Proto} !https
-#   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-# </IfModule>
+# The prerendered not-found page. It still boots the app, so a product added in
+# the console after the last build renders for a visitor while telling crawlers
+# it is not a page yet (rebuild and upload to index it).
+ErrorDocument 404 /404.html
 
 # ----------------------------------------------------------------------
 # Compression
@@ -45,6 +75,7 @@
   ExpiresByType image/png "access plus 1 year"
   ExpiresByType image/jpeg "access plus 1 year"
   ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/avif "access plus 1 year"
   ExpiresByType image/svg+xml "access plus 1 year"
   ExpiresByType font/woff2 "access plus 1 year"
   ExpiresByType text/html "access plus 0 seconds"
@@ -52,7 +83,7 @@
 
 <IfModule mod_headers.c>
   # Long-lived, immutable hashed assets (Vite emits /assets/*.[hash].*)
-  <FilesMatch "\.(css|js|woff2|png|jpe?g|webp|svg|gif)$">
+  <FilesMatch "\.(css|js|woff2|png|jpe?g|webp|avif|svg|gif)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
   # Always revalidate HTML so new deploys are picked up
@@ -69,6 +100,7 @@
 <IfModule mod_mime.c>
   AddType application/json .json
   AddType image/svg+xml .svg
+  AddType image/avif .avif
+  AddType application/manifest+json .webmanifest
 </IfModule>
 
-ErrorDocument 404 /index.html

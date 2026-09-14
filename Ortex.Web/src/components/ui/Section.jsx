@@ -31,7 +31,11 @@ export function RevealWords({ text, className = "" }) {
   if (typeof text !== "string") return <span className={className}>{text}</span>
   const words = text.split(" ")
   return (
-    <span className={className} aria-label={text}>
+    <span className={className}>
+      {/* The words stay readable text (each carries its own trailing space), so
+          screen readers and crawlers get the sentence once. aria-label on a
+          plain span is invalid ARIA, and a visually hidden copy would repeat
+          every heading in the page text. */}
       {words.map((word, i) => (
         <span key={i} className="inline-block overflow-hidden align-bottom pb-[0.12em] -mb-[0.12em]">
           <motion.span
@@ -40,7 +44,6 @@ export function RevealWords({ text, className = "" }) {
             whileInView={{ y: "0%" }}
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.7, ease: EASE, delay: i * 0.06 }}
-            aria-hidden="true"
           >
             {word}
             {i < words.length - 1 ? " " : ""}

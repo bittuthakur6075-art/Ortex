@@ -31,7 +31,7 @@ Ortex Industries is a manufacturer of customized products, based in New Delhi, I
 - Phone: +91-9211947188 (primary), +91-8448663297 (secondary).
 - Email: sales@ortexindustries.in
 - Hours: Mon to Sat, 9:00 AM to 6:00 PM (Sunday closed).
-- Website: https://www.ortexindustries.in
+- Website: https://bizgift.ortexindustries.in
 
 # WHY ORTEX
 - All in-house: one team owns each order end to end, so quality and timelines are never left to an outside vendor.

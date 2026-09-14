@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The notification ring is referenced only by NAME from JS (src/lib/push.ts),
+     so resource shrinking in a release build cannot see it is used. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@raw/ortex_ring" />

@@ -21,6 +21,22 @@ import {
   type ProductRow,
   type QuotationRow,
 } from "@/domain/anu"
+import {
+  activityLabel,
+  appendTurn,
+  briefingStats,
+  cancelledLine,
+  cardsFrom,
+  confirmedLine,
+  openingLine,
+  pendingActionFor,
+  summaryStats,
+  type PendingAction,
+  type Stat,
+  type SurfacedCard,
+  type Turn,
+  type TurnInput,
+} from "@/domain/anuConversation"
 import { canAccess, type Profile } from "@/domain/modules"
 import { ENQUIRY_STATUS, newCustomer } from "@/domain/schema"
 import { voiceCallsFrom } from "@/domain/voice"
@@ -39,11 +55,23 @@ import type { RootStackParamList } from "@/navigation/types"
  * ACCESS IS CHECKED TWICE, deliberately: `canAccess` here turns a question
  * about a module the person lacks into a plain "not in your access" for Anu to
  * say, and RLS underneath means a check forgotten here still returns nothing.
+ *
+ * TYPED AND SPOKEN, ONE CONVERSATION (the console's useAnuSession.js, ported):
+ * `sendText` puts a typed turn into the same live audio session, so a rep in a
+ * showroom can type the question and still hear the answer. Typing while idle
+ * starts the session with that question as its opening line. Spoken and typed
+ * lines, Anu's replies and her lookups land in one `turns` transcript
+ * (domain/anuConversation.ts, which also drops a spoken echo of a typed line).
+ *
+ * WRITES WAIT ON A TAP OR A YES. When Anu proposes set_enquiry_status or
+ * start_quotation without `confirmed: true`, the tool still refuses (as
+ * before) AND the screen shows Confirm / Cancel. A tap runs the write here with
+ * `confirmed: true` and reports the result back to her as text; a spoken yes
+ * that makes her call again confirmed clears the card.
  */
 
 export type AnuStatus = "idle" | "connecting" | "live" | "ended" | "error"
-export type Caption = { id: number; role: "user" | "anu"; text: string }
-export type SurfacedCard = { key: string; kind: string; id: string; title: string; subtitle: string }
+export type { PendingAction, SurfacedCard, Turn }
 /** What the screen's WebView ref exposes; the library forwards it at runtime but does not type it. */
 export type WebViewHandle = { injectJavaScript: (script: string) => void }
 type Pending = { name: keyof RootStackParamList; params?: object } | null
@@ -87,21 +115,9 @@ async function mintToken(): Promise<string> {
   throw new Error("token")
 }
 
-const cardFor = (r: Record<string, unknown>): SurfacedCard | null => {
-  const kind = String(r.kind || "")
-  const id = String(r.id || "")
-  if (!kind || !id) return null
-  const title = String(r.number || r.customer || r.caller || r.name || "Record")
-  const subtitle =
-    kind === "quotation"
-      ? [r.customer, r.status, r.value].filter(Boolean).join(" · ")
-      : kind === "customer"
-        ? [r.company !== "none" ? r.company : "", r.phone].filter(Boolean).join(" · ")
-        : kind === "product"
-          ? [r.price_ex_gst, r.minimum_order].filter(Boolean).join(" · ")
-          : [r.wants, r.status || r.received].filter(Boolean).join(" · ")
-  return { key: `${kind}:${id}`, kind, id, title: kind === "quotation" ? `Quotation ${title}` : title, subtitle: String(subtitle) }
-}
+type ToolOutcome = { response: Record<string, unknown>; cards?: SurfacedCard[]; stats?: Stat[] }
+
+const firstNameOf = (profile: Profile | null) => (profile?.name || "").trim().split(/\s+/)[0] || "The team member"
 
 export function useAnuSession(profile: Profile | null) {
   const webRef = React.useRef<WebViewHandle>(null)
@@ -111,17 +127,19 @@ export function useAnuSession(profile: Profile | null) {
   const [speaking, setSpeaking] = React.useState(false)
   const [muted, setMuted] = React.useState(false)
   const [seconds, setSeconds] = React.useState(0)
-  const [captions, setCaptions] = React.useState<Caption[]>([])
-  const [partial, setPartial] = React.useState<{ role: "user" | "anu"; text: string } | null>(null)
-  const [cards, setCards] = React.useState<SurfacedCard[]>([])
+  const [turns, setTurns] = React.useState<Turn[]>([])
+  const [partial, setPartialState] = React.useState<{ role: "user" | "anu"; text: string } | null>(null)
   const [thinking, setThinking] = React.useState(false)
   const [pending, setPending] = React.useState<Pending>(null)
+  const [pendingAction, setPendingAction] = React.useState<PendingAction | null>(null)
 
   // Levels drive animation directly, never a re-render.
   const micLevel = React.useRef(new Animated.Value(0)).current
   const outLevel = React.useRef(new Animated.Value(0)).current
 
-  const captionId = React.useRef(0)
+  const partialRef = React.useRef<{ role: "user" | "anu"; text: string } | null>(null)
+  /** Every record surfaced this conversation, by card key, so a Confirm card can name it. */
+  const known = React.useRef(new Map<string, SurfacedCard>())
   const statusRef = React.useRef<AnuStatus>("idle")
   const speakingRef = React.useRef(false)
   const endWanted = React.useRef(false)
@@ -146,6 +164,11 @@ export function useAnuSession(profile: Profile | null) {
     statusRef.current = s
     setStatus(s)
   }
+  const setPartial = (p: { role: "user" | "anu"; text: string } | null) => {
+    partialRef.current = p
+    setPartialState(p)
+  }
+  const push = React.useCallback((turn: TurnInput) => setTurns((prev) => appendTurn(prev, turn, Date.now())), [])
 
   // The call clock.
   React.useEffect(() => {
@@ -168,14 +191,10 @@ export function useAnuSession(profile: Profile | null) {
     return () => web?.injectJavaScript(`window.anu && window.anu.cmd({"type":"hangup"}); true;`)
   }, [])
 
-  const surface = (results: unknown) => {
-    const list = (Array.isArray(results) ? results : [results]).filter(Boolean) as Record<string, unknown>[]
-    const next = list.map(cardFor).filter(Boolean) as SurfacedCard[]
-    if (!next.length) return
-    setCards((prev) => {
-      const keys = new Set(next.map((c) => c.key))
-      return [...next, ...prev.filter((c) => !keys.has(c.key))].slice(0, 12)
-    })
+  const surface = (results: unknown): SurfacedCard[] => {
+    const cards = cardsFrom(results)
+    for (const c of cards) known.current.set(c.key, c)
+    return cards
   }
 
   const denied = (what: string) => ({
@@ -183,60 +202,60 @@ export function useAnuSession(profile: Profile | null) {
     error: `${what} is not in this person's access. Tell them an admin can grant it in the Ortex console.`,
   })
 
-  const runTool = async (name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> => {
+  const runTool = async (name: string, args: Record<string, unknown>): Promise<ToolOutcome> => {
     const now = Date.now()
     switch (name) {
       case "get_briefing": {
-        if (!access.enquiries && !access.voice && !access.quotations) return denied("Leads and quotations")
+        if (!access.enquiries && !access.voice && !access.quotations) return { response: denied("Leads and quotations") }
         const [enquiries, quotations] = await Promise.all([
           access.enquiries || access.voice ? rows<EnquiryRow>("enquiries") : Promise.resolve([]),
           access.quotations ? rows<QuotationRow>("quotations") : Promise.resolve([]),
         ])
         const b = briefing({ enquiries, quotations }, access, now)
         const lists = b as Record<string, { latest?: unknown[] } & Record<string, unknown[]>>
-        surface([...(lists.new_enquiries?.latest || []), ...(lists.anu_calls_to_return?.latest || [])])
-        return { ok: true, ...b }
+        const cards = surface([
+          ...(lists.anu_calls_to_return?.latest || []),
+          ...(lists.new_enquiries?.latest || []),
+          ...(lists.quotations?.expiring_within_3_days || []),
+          ...(lists.quotations?.already_expired_but_still_sent || []),
+        ])
+        return { response: { ok: true, ...b }, cards, stats: briefingStats(b) }
       }
       case "find_customers": {
-        if (!access.customers) return denied("Customers")
+        if (!access.customers) return { response: denied("Customers") }
         const [customers, quotations] = await Promise.all([
           rows<CustomerRow>("customers"),
           access.quotations ? rows<QuotationRow>("quotations") : Promise.resolve([]),
         ])
         const results = findCustomers(customers, quotations, String(args.query || ""))
-        surface(results)
-        return { ok: true, count: results.length, results }
+        return { response: { ok: true, count: results.length, results }, cards: surface(results) }
       }
       case "find_enquiries": {
-        if (!access.enquiries && !access.voice) return denied("Enquiries")
+        if (!access.enquiries && !access.voice) return { response: denied("Enquiries") }
         const out = findEnquiries(
           await rows<EnquiryRow>("enquiries"),
           { query: args.query as string, status: args.status as string, days: Number(args.days) || undefined },
           access,
           now,
         )
-        surface(out.results)
-        return { ok: true, ...out }
+        return { response: { ok: true, ...out }, cards: surface(out.results) }
       }
       case "find_quotations": {
-        if (!access.quotations) return denied("Quotations")
+        if (!access.quotations) return { response: denied("Quotations") }
         const out = findQuotations(await rows<QuotationRow>("quotations"), { query: args.query as string, status: args.status as string })
-        surface(out.results)
-        return { ok: true, ...out }
+        return { response: { ok: true, ...out }, cards: surface(out.results) }
       }
       case "get_quotation": {
-        if (!access.quotations) return denied("Quotations")
+        if (!access.quotations) return { response: denied("Quotations") }
         const q = (await rows<QuotationRow>("quotations")).find((x) => x.id === args.id)
-        if (!q) return { ok: false, error: "No quotation with that id. Search again with find_quotations." }
+        if (!q) return { response: { ok: false, error: "No quotation with that id. Search again with find_quotations." } }
         const detail = quotationDetail(q)
-        surface(detail)
-        return { ok: true, ...detail }
+        return { response: { ok: true, ...detail }, cards: surface(detail) }
       }
       case "find_products": {
-        if (!access.products) return denied("The product catalogue")
+        if (!access.products) return { response: denied("The product catalogue") }
         const results = findProducts(await rows<ProductRow>("products"), String(args.query || ""))
-        surface(results)
-        return { ok: true, count: results.length, results }
+        return { response: { ok: true, count: results.length, results }, cards: surface(results) }
       }
       case "sales_summary": {
         const days = Math.min(365, Math.max(1, Number(args.days) || 30))
@@ -244,17 +263,26 @@ export function useAnuSession(profile: Profile | null) {
           access.enquiries || access.voice ? rows<EnquiryRow>("enquiries") : Promise.resolve([]),
           access.quotations ? rows<QuotationRow>("quotations") : Promise.resolve([]),
         ])
-        return { ok: true, ...salesSummary({ enquiries, quotations }, days, access, now) }
+        const summary = salesSummary({ enquiries, quotations }, days, access, now)
+        return { response: { ok: true, ...summary }, stats: summaryStats(summary) }
       }
       case "set_enquiry_status": {
         const kind = String(args.kind)
-        if (kind === "voice_call" ? !access.voice : !access.enquiries) return denied(kind === "voice_call" ? "Voice calls" : "Enquiries")
+        if (kind === "voice_call" ? !access.voice : !access.enquiries) return { response: denied(kind === "voice_call" ? "Voice calls" : "Enquiries") }
         const statusId = String(args.status)
         const label = ENQUIRY_STATUS.find((s) => s.id === statusId)?.label
-        if (!label) return { ok: false, error: "Unknown status." }
+        if (!label) return { response: { ok: false, error: "Unknown status." } }
         if (args.confirmed !== true) {
-          return { ok: false, needs_confirmation: true, next: `Read the change back and ask for a yes, then call again with confirmed true.` }
+          setPendingAction(pendingActionFor(name, args, known.current))
+          return {
+            response: {
+              ok: false,
+              needs_confirmation: true,
+              next: "Read the change back and ask for a yes, then call again with confirmed true. The screen is also showing Confirm and Cancel.",
+            },
+          }
         }
+        setPendingAction(null)
         const enquiries = await rows<EnquiryRow>("enquiries")
         const ids =
           kind === "voice_call"
@@ -262,21 +290,30 @@ export function useAnuSession(profile: Profile | null) {
             : enquiries.some((e) => e.id === args.id)
               ? [String(args.id)]
               : []
-        if (!ids.length) return { ok: false, error: "That record was not found. Search again first." }
+        if (!ids.length) return { response: { ok: false, error: "That record was not found. Search again first." } }
         try {
           // A folded Anu call is several rows; its status is all of them, as on its page.
           await Promise.all(ids.map((rowId) => repo.update("enquiries", rowId, { status: statusId })))
           void loadCollection("enquiries")
-          return { ok: true, saved: `Status is now ${label}.` }
+          const record = known.current.get(`${kind}:${args.id}`)
+          return { response: { ok: true, saved: `Status is now ${label}.` }, cards: record ? [{ ...record, subtitle: label }] : [] }
         } catch (e) {
-          return { ok: false, error: `The change was not saved: ${(e as Error)?.message || "unknown error"}. Tell them it did not go through.` }
+          return { response: { ok: false, error: `The change was not saved: ${(e as Error)?.message || "unknown error"}. Tell them it did not go through.` } }
         }
       }
       case "start_quotation": {
-        if (!access.quotations) return denied("Quotations")
+        if (!access.quotations) return { response: denied("Quotations") }
         if (args.confirmed !== true) {
-          return { ok: false, needs_confirmation: true, next: "Read back the customer and each item with its quantity, get a yes, then call again with confirmed true." }
+          setPendingAction(pendingActionFor(name, args, known.current))
+          return {
+            response: {
+              ok: false,
+              needs_confirmation: true,
+              next: "Read back the customer and each item with its quantity, get a yes, then call again with confirmed true. The screen is also showing Confirm and Cancel.",
+            },
+          }
         }
+        setPendingAction(null)
         const [customers, products] = await Promise.all([
           access.customers ? rows<CustomerRow>("customers") : Promise.resolve([] as CustomerRow[]),
           access.products ? rows<ProductRow>("products") : Promise.resolve([] as ProductRow[]),
@@ -298,12 +335,14 @@ export function useAnuSession(profile: Profile | null) {
         const { lines, unmatched } = draftLines(products, (args.items as { product: string; quantity?: string }[]) || [])
         setPending({ name: "QuotationEditor", params: { prefill: { customer, lines, notes: "" } } })
         return {
+          response: {
           ok: true,
           opening: "a draft quotation",
           customer: picked ? "matched to the saved customer" : "not a saved customer, entered by name",
           lines: lines.length,
           unpriced_items: unmatched.length ? unmatched : undefined,
           next: `Tell them the draft is opening for them to check${unmatched.length ? `, and that ${unmatched.join(", ")} had no catalogue price so they must add the rate` : ""}. Then call end_call.`,
+          },
         }
       }
       case "open_record": {
@@ -317,20 +356,20 @@ export function useAnuSession(profile: Profile | null) {
           product: ["ProductDetail", access.products],
         }
         const target = route[kind]
-        if (!target || !id) return { ok: false, error: "Unknown record." }
-        if (!target[1]) return denied("That record")
+        if (!target || !id) return { response: { ok: false, error: "Unknown record." } }
+        if (!target[1]) return { response: denied("That record") }
         setPending({ name: target[0], params: { id } })
-        return { ok: true, next: "Say you are opening it, then call end_call." }
+        return { response: { ok: true, next: "Say you are opening it, then call end_call." } }
       }
       case "end_call": {
         endWanted.current = true
         // Let the goodbye finish playing; close regardless after a grace period.
         if (endTimer.current) clearTimeout(endTimer.current)
         endTimer.current = setTimeout(() => endWanted.current && hangUp(), GOODBYE_GRACE_MS)
-        return { ok: true }
+        return { response: { ok: true } }
       }
       default:
-        return { ok: false, error: `Unknown tool ${name}.` }
+        return { response: { ok: false, error: `Unknown tool ${name}.` } }
     }
   }
 
@@ -355,7 +394,11 @@ export function useAnuSession(profile: Profile | null) {
           setSpeaking(false)
           speakingRef.current = false
           setThinking(false)
+          // Whatever was mid-sentence when the line closed still belongs in the transcript.
+          const last = partialRef.current
+          if (last) push({ role: last.role, text: last.text })
           setPartial(null)
+          setPendingAction(null)
           micLevel.setValue(0)
           outLevel.setValue(0)
           if (endTimer.current) clearTimeout(endTimer.current)
@@ -383,8 +426,8 @@ export function useAnuSession(profile: Profile | null) {
         const text = String(m.text || "")
         if (m.final) {
           setPartial(null)
-          if (text) setCaptions((prev) => [...prev, { id: ++captionId.current, role, text }].slice(-30))
-          if (role === "user") setThinking(true)
+          push({ role, text })
+          if (role === "user" && text) setThinking(true)
         } else {
           setPartial({ role, text })
         }
@@ -393,23 +436,69 @@ export function useAnuSession(profile: Profile | null) {
       case "tool": {
         const id = String(m.id)
         const name = String(m.name)
+        const args = (m.args as Record<string, unknown>) || {}
         setThinking(true)
-        void runTool(name, (m.args as Record<string, unknown>) || {})
-          .catch((e) => ({ ok: false, error: `Lookup failed: ${(e as Error)?.message || "unknown error"}` }))
-          .then((response) => cmd({ type: "toolResult", id, name, response }))
+        void runTool(name, args)
+          .catch((e): ToolOutcome => ({ response: { ok: false, error: `Lookup failed: ${(e as Error)?.message || "unknown error"}` } }))
+          .then(({ response, cards, stats }) => {
+            const label = activityLabel(name, args)
+            if (label) {
+              const count = (response.total ?? response.count) as number | undefined
+              push({
+                role: "tool",
+                text: label,
+                tool: name,
+                failed: response.ok === false && !response.needs_confirmation,
+                count: typeof count === "number" ? count : undefined,
+                cards,
+                stats,
+              })
+            }
+            cmd({ type: "toolResult", id, name, response })
+          })
         return
       }
     }
   }
 
+  /**
+   * A typed turn into the live session. Returns false when there is no live
+   * line to send it on, so the composer keeps the text. `echo: false` is for
+   * the notes the screen sends Anu itself (a Confirm tap), which are not the
+   * person's words and are not shown.
+   */
+  const sendText = React.useCallback(
+    (text: string, { echo = true }: { echo?: boolean } = {}) => {
+      const words = String(text || "").trim()
+      if (!words || statusRef.current !== "live") return false
+      // Commit what was half-heard first, so the typed line follows it. The
+      // engine drops its own copy of that partial when the text arrives.
+      const half = partialRef.current
+      if (half) push({ role: half.role, text: half.text })
+      setPartial(null)
+      if (echo) push({ role: "user", text: words, typed: true })
+      setThinking(true)
+      cmd({ type: "text", text: words })
+      return true
+    },
+    [cmd, push],
+  )
+
   const start = React.useCallback(
     async (question?: string) => {
-      if (statusRef.current === "connecting" || statusRef.current === "live") return
+      if (statusRef.current === "connecting") return
+      if (statusRef.current === "live") {
+        if (question) sendText(question)
+        return
+      }
+      const asked = String(question || "").trim()
       setError("")
-      setCaptions([])
+      setTurns(asked ? appendTurn([], { role: "user", text: asked, typed: true }) : [])
       setPartial(null)
-      setCards([])
       setPending(null)
+      setPendingAction(null)
+      setThinking(false)
+      known.current = new Map()
       setSeconds(0)
       setMuted(false)
       endWanted.current = false
@@ -422,13 +511,12 @@ export function useAnuSession(profile: Profile | null) {
           return
         }
         const token = await mintToken()
-        const first = (profile?.name || "").trim().split(/\s+/)[0] || "the team member"
+        // A question typed or tapped while idle IS the opening line: one path.
+        if (asked) setThinking(true)
         cmd({
           type: "start",
           url: LIVE_URL + token,
-          opening: question
-            ? `[${first} opened Anu and asks (reply in Hinglish):] ${question}`
-            : `[${first} just opened Anu. Greet them in one short Hinglish line.]`,
+          opening: openingLine(firstNameOf(profile), asked),
           setup: {
             model: LIVE_MODEL,
             generationConfig: {
@@ -448,7 +536,7 @@ export function useAnuSession(profile: Profile | null) {
         setStat("error")
       }
     },
-    [cmd, profile],
+    [cmd, profile, sendText],
   )
 
   const toggleMute = React.useCallback(() => {
@@ -458,8 +546,49 @@ export function useAnuSession(profile: Profile | null) {
     })
   }, [cmd])
 
+  /** A Confirm tap is the yes: run the write here, then tell Anu how it went. */
+  const confirmAction = async () => {
+    const action = pendingAction
+    if (!action) return
+    setPendingAction(null)
+    setThinking(true)
+    let outcome: ToolOutcome
+    try {
+      outcome = await runTool(action.name, { ...action.args, confirmed: true })
+    } catch (e) {
+      outcome = { response: { ok: false, error: (e as Error)?.message || "unknown error" } }
+    }
+    push({
+      role: "tool",
+      text: action.name === "start_quotation" ? "Started a draft quotation" : "Updated a lead's status",
+      tool: action.name,
+      failed: outcome.response.ok === false,
+      cards: outcome.cards,
+    })
+    sendText(confirmedLine(firstNameOf(profile), outcome.response), { echo: false })
+  }
+
+  const cancelAction = () => {
+    if (!pendingAction) return
+    setPendingAction(null)
+    push({ role: "tool", text: "Change cancelled", tool: "cancel" })
+    sendText(cancelledLine(firstNameOf(profile)), { echo: false })
+  }
+
+  /** Back to the welcome page after a conversation has ended or failed. */
+  const reset = React.useCallback(() => {
+    if (statusRef.current === "connecting" || statusRef.current === "live") return
+    setStat("idle")
+    setTurns([])
+    setPartial(null)
+    setPendingAction(null)
+    setSeconds(0)
+    setError("")
+  }, [])
+
   return {
     webRef,
+    access,
     ready,
     onMessage,
     status,
@@ -468,13 +597,17 @@ export function useAnuSession(profile: Profile | null) {
     thinking,
     muted,
     seconds,
-    captions,
+    turns,
     partial,
-    cards,
     pending,
+    pendingAction,
     micLevel,
     outLevel,
     start,
+    sendText,
+    confirmAction,
+    cancelAction,
+    reset,
     hangUp,
     toggleMute,
   }

@@ -1,10 +1,14 @@
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
-import { FileText, Plus, Eye, FileCheck2, Trash2, AlertTriangle, Send, CalendarClock } from "../components/ui/Icons"
+import { FileText, Plus, Eye, FileCheck2, Trash2, AlertTriangle, Send, CalendarClock, Search, MessageCircle, Phone } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
 import { useProfile } from "../hooks/useProfile"
+import useQuotationDefaults from "../hooks/useQuotationDefaults"
+import { withDefaults } from "../lib/quotationDefaults"
+import { clearDraft, draftHasContent, draftKey, isDirty, readDraft, saveBlocker, writeDraft } from "../lib/quotationDraft"
+import { currentUserId } from "../lib/auth"
 import { createQuotation, updateQuotation, convertQuotationToInvoice, markEnquiryQuoted, markLeadQuoted, isInterState } from "../data/domain/domain"
 import { notifyMessage, notifyQuotationSent } from "../services/notify"
 import { QUOTATION_STATUS, LOST_REASONS, newCustomer, newLine } from "../data/domain/schema"
@@ -17,19 +21,22 @@ import { cn } from "../lib/cn"
 import ShipToFields from "../components/editors/ShipToFields"
 import LineItemsEditor from "../components/editors/LineItemsEditor"
 import DocumentView from "../components/documents/DocumentView"
+import { abandonWhatsAppShare, beginWhatsAppShare, shareQuotationOnWhatsApp } from "../components/documents/documentPdf"
+import { hasPhone, quotationShareMessage, telLink, whatsappLink } from "../lib/quotationShare"
 import { RecordActivity } from "../components/ui/RecordActivity"
+import ListTextarea from "../components/ui/ListTextarea"
 import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../components/editors/DocumentEditorShell"
 import {
   Button, ExportButton,
   Card, CardHeader,
   Input, SearchInput,
-  Textarea,
   Field,
   StatusBadge,
   EmptyState,
   Money,
   Chip, ChipGroup,
   Modal,
+  Banner,
   PageLoader,
   SortTh,
 } from "../components/ui/Ui"
@@ -82,11 +89,55 @@ async function sendQuotation(q, settings) {
   return true
 }
 
+// Share the PDF with the customer on WhatsApp, and mark a draft "sent" the way
+// the email send does. `ctx` comes from beginWhatsAppShare, which the click
+// handler must call before its first await (popup and clipboard rules).
+// documentPdf.jsx explains why the PDF cannot be put into the chat itself.
+// Returns true when something went out (share sheet completed or chat opened).
+async function shareOnWhatsApp(q, settings, ctx) {
+  let res
+  try {
+    res = await shareQuotationOnWhatsApp(ctx, { doc: q, settings, waUrl: whatsappLink(q.customer?.phone, ctx.message) })
+  } catch (err) {
+    console.error(err)
+    toast.error("Could not generate the PDF.")
+    return false
+  }
+  if (res.outcome === "cancelled") return false
+  const copied = res.copied ? "The message is copied too, paste it as the caption." : undefined
+  if (res.outcome === "shared") {
+    toast.success("Quotation shared", { description: copied })
+  } else if (!res.url) {
+    toast.message(`${res.fileName} downloaded`, { description: "No phone number on this quotation, so no chat was opened." })
+    return false
+  } else if (res.opened) {
+    toast.success("PDF downloaded, attach it in the chat", { description: res.copied ? "The message is typed in and also copied." : undefined })
+  } else {
+    toast.message("PDF downloaded, attach it in the chat", {
+      description: "The browser blocked the new tab.",
+      action: { label: "Open WhatsApp", onClick: () => window.open(res.url, "_blank") },
+    })
+  }
+  if (["draft", "expired"].includes(q.status)) await repo.update("quotations", q.id, { status: "sent" })
+  return true
+}
+
+function startWhatsAppShare(q, settings) {
+  const ctx = beginWhatsAppShare(quotationShareMessage(q, settings), { openChat: hasPhone(q.customer?.phone) })
+  return shareOnWhatsApp(q, settings, ctx)
+}
+
 export default function Quotations() {
   const { items, loading } = useCollection("quotations")
   const { items: products } = useCollection("products")
   const { items: customers } = useCollection("customers")
   const settings = useSettings()
+  const profile = useProfile()
+  // The signed-in person's own payment terms / T&C / notes (Profile > Quotation
+  // defaults), laid over the company's for a NEW quotation only. An existing
+  // quotation always keeps the text it was saved with.
+  const { defaults: quoteDefaults } = useQuotationDefaults(profile)
+  const newDraft = (patch = {}) => ({ ...withDefaults(emptyDraft(settings), quoteDefaults), ...patch })
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -102,24 +153,26 @@ export default function Quotations() {
   //  - fromCustomer: start a blank quotation for a customer-master record.
   //  - openId: open an existing quotation (links from Customers / Products).
   useEffect(() => {
-    if (!settings) return
+    // Wait for the profile too: it carries the quotation defaults to seed with.
+    if (!settings || !profile) return
     const { fromEnquiry, fromLead, fromCustomer, openId } = location.state || {}
     if (fromEnquiry || fromLead) {
       const src = fromEnquiry || fromLead
+      const base = newDraft()
       setEditing({
-        ...emptyDraft(settings),
+        ...base,
         customer: { ...newCustomer(), ...src.customer },
         // A voice lead arrives with the product and quantity Anu captured, so it
         // can seed the first line and leave only the rate to fill in. Sources
         // without line detail keep the empty draft's blank row.
-        lines: src.lines?.length ? src.lines : emptyDraft(settings).lines,
+        lines: src.lines?.length ? src.lines : base.lines,
         enquiryId: fromEnquiry?.id || null,
         leadId: fromLead?.id || null,
-        notes: src.message ? `Ref: ${src.message}` : "",
+        notes: [src.message ? `Ref: ${src.message}` : "", base.notes].filter(Boolean).join("\n"),
       })
       navigate(location.pathname, { replace: true })
     } else if (fromCustomer) {
-      setEditing({ ...emptyDraft(settings), customer: { ...newCustomer(), ...fromCustomer } })
+      setEditing(newDraft({ customer: { ...newCustomer(), ...fromCustomer } }))
       navigate(location.pathname, { replace: true })
     } else if (openId) {
       if (loading) return // wait for the collection, the effect re-runs when it lands
@@ -128,7 +181,9 @@ export default function Quotations() {
       else toast.error("That quotation no longer exists")
       navigate(location.pathname, { replace: true })
     }
-  }, [location, settings, navigate, items, loading])
+    // newDraft is rebuilt every render; quoteDefaults is the input that matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location, settings, profile, quoteDefaults, navigate, items, loading])
 
   const filtered = useMemo(() => {
     let rows = items
@@ -179,7 +234,7 @@ export default function Quotations() {
     )
   }
 
-  if (!settings) return <PageLoader />
+  if (!settings || !profile) return <PageLoader />
 
   if (editing) {
     return (
@@ -189,9 +244,11 @@ export default function Quotations() {
           products={products}
           customers={customers}
           settings={settings}
+          profile={profile}
           onClose={() => setEditing(null)}
           onPreview={(q) => setPreview(q)}
           onSend={(q) => sendQuotation(q, settings)}
+          onShareWhatsApp={(q, ctx) => shareOnWhatsApp(q, settings, ctx)}
         />
         <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settings} type="quotation" />
       </div>
@@ -225,7 +282,7 @@ export default function Quotations() {
           title="No quotations yet"
           description="Create a quotation from scratch or convert an enquiry into one."
           action={
-            <Button onClick={() => setEditing(emptyDraft(settings))}>
+            <Button onClick={() => setEditing(newDraft())}>
               <Plus className="h-4 w-4" /> New quotation
             </Button>
           }
@@ -236,7 +293,7 @@ export default function Quotations() {
         <Card className="overflow-hidden">
           <CardHeader
             title="Quotations"
-            action={<Button onClick={() => setEditing(emptyDraft(settings))}>New quotation</Button>}
+            action={<Button onClick={() => setEditing(newDraft())}>New quotation</Button>}
           />
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -305,20 +362,105 @@ export default function Quotations() {
           </div>
         </Card>
       )}
-      <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settings} type="quotation" />
+      <DocumentView
+        open={!!preview}
+        onClose={() => setPreview(null)}
+        doc={preview}
+        settings={settings}
+        type="quotation"
+        onShareWhatsApp={(q) => startWhatsAppShare(q, settings)}
+      />
     </div>
   )
 }
 
-function QuotationEditor({ draft, products, customers, settings, onClose, onPreview, onSend }) {
+function savedAtLabel(ts) {
+  if (!ts) return "earlier"
+  return new Date(ts).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })
+}
+
+function resumeParty(stored) {
+  const c = stored?.draft?.customer
+  const name = c?.company || c?.name
+  return name ? ` for ${name}` : ""
+}
+
+function QuotationEditor({ draft, products, customers, settings, profile, onClose, onPreview, onSend, onShareWhatsApp }) {
   const isEdit = !!draft.id
   // Deleting a quotation is admin-only IN THE DATABASE as of migration 0022
   // (`admin_quotations_delete`). Without this check a Sales Executive still sees
   // the button and gets an RLS error for pressing it, which reads as a bug
   // rather than as a permission.
-  const profile = useProfile()
   const isAdmin = profile?.role === "admin"
   const [form, setForm] = useState(draft)
+  // What the form was opened with, moved forward whenever the screen persists
+  // it (send, a status change), so "unsaved changes" means exactly that.
+  const [baseline, setBaseline] = useState(draft)
+  const dirty = isDirty(form, baseline)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState("")
+  const [confirmLeave, setConfirmLeave] = useState(false)
+
+  // ---- Local draft (lib/quotationDraft.js) --------------------------------
+  // Per user + per quotation. Offered back once on open: for an existing
+  // quotation when the stored copy differs from the record, for a new one only
+  // when this is a blank start (a conversion or a customer handoff arrives with
+  // its own content and is not interrupted).
+  const storageKey = draftKey(currentUserId(), draft.id)
+  const [resume, setResume] = useState(() => {
+    const stored = readDraft(storageKey)
+    if (!stored) return null
+    if (isEdit) return isDirty(stored.draft, draft) ? stored : null
+    const blankStart = !draftHasContent(draft) && !draft.enquiryId && !draft.leadId
+    return blankStart && draftHasContent(stored.draft) ? stored : null
+  })
+  // Set once the draft has been saved or thrown away, so the unmount flush
+  // below cannot write it back.
+  const finished = useRef(false)
+  const latest = useRef({ form, dirty, resume })
+  latest.current = { form, dirty, resume }
+
+  useEffect(() => {
+    if (resume) return // the offer is pending: never overwrite what it offers
+    if (!dirty) {
+      // An existing quotation back at its saved state has nothing to resume. A
+      // new one is left alone, so opening a blank editor never wipes a draft.
+      if (isEdit) clearDraft(storageKey)
+      return
+    }
+    const handle = setTimeout(() => writeDraft(storageKey, form), 400)
+    return () => clearTimeout(handle)
+  }, [form, dirty, resume, isEdit, storageKey])
+
+  // Leaving by any route (sidebar, closed tab) flushes the debounce, and a tab
+  // close asks first while there is something unsaved.
+  useEffect(() => {
+    const flush = () => {
+      const l = latest.current
+      if (!finished.current && l.dirty && !l.resume) writeDraft(storageKey, l.form)
+    }
+    const onUnload = (e) => {
+      if (!latest.current.dirty || finished.current) return
+      flush()
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", onUnload)
+    return () => {
+      window.removeEventListener("beforeunload", onUnload)
+      flush()
+    }
+  }, [storageKey])
+
+  const discardDraft = () => {
+    finished.current = true
+    clearDraft(storageKey)
+  }
+
+  const requestClose = () => {
+    if (dirty && !saving) setConfirmLeave(true)
+    else onClose()
+  }
   // WHOSE NAME goes on the sheet. A new quotation takes the signed-in user's; an
   // existing one keeps the name it was raised under, because re-stamping it on
   // edit would quietly reassign a document that has already been sent.
@@ -339,20 +481,44 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
   }, [form, interState])
   const validDays = liveDoc.validUntil ? daysUntil(liveDoc.validUntil) : null
 
+  // Said beside the save button while it applies, not only as a toast after.
+  const blocker = saveBlocker(form)
+
   const save = async () => {
-    if (!form.customer.name.trim() && !form.customer.company?.trim()) return toast.error("Choose or add a customer")
-    if (!form.lines.length) return toast.error("Add at least one line item")
-    if (isEdit) {
-      await updateQuotation(form.id, form)
-      toast.success("Quotation updated")
-      onClose()
-    } else {
-      const created = await createQuotation({ ...form, sellerName })
-      if (form.enquiryId) await markEnquiryQuoted(form.enquiryId)
-      if (form.leadId) await markLeadQuoted(form.leadId, created.id)
-      toast.success(`Quotation ${created.number} created`)
-      onClose()
+    if (saving) return
+    if (blocker) return toast.error(blocker)
+    setSaving(true)
+    setSaveError("")
+    let created = null
+    try {
+      if (isEdit) await updateQuotation(form.id, form)
+      else created = await createQuotation({ ...form, sellerName })
+    } catch (e) {
+      // Nothing was saved. The form and its local draft stay exactly as they
+      // are, so nothing typed is lost and Save can simply be pressed again.
+      const message = e?.message || "Could not save the quotation"
+      setSaveError(message)
+      toast.error(message)
+      setSaving(false)
+      return
     }
+    // The quotation EXISTS from here on, so nothing below may read as a failed
+    // save: that makes someone press Save again and mint a second number.
+    discardDraft()
+    if (isEdit) {
+      toast.success("Quotation updated")
+    } else {
+      let followUp = ""
+      try {
+        if (form.enquiryId) await markEnquiryQuoted(form.enquiryId)
+        if (form.leadId) await markLeadQuoted(form.leadId, created.id)
+      } catch {
+        followUp = " The enquiry could not be marked as quoted."
+      }
+      toast[followUp ? "message" : "success"](`Quotation ${created.number} created.${followUp}`)
+    }
+    setSaving(false)
+    onClose()
   }
 
   const changeStatus = async (next) => {
@@ -361,13 +527,19 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
       return
     }
     set({ status: next })
-    if (isEdit) await repo.update("quotations", form.id, { status: next })
+    if (isEdit) {
+      await repo.update("quotations", form.id, { status: next })
+      setBaseline((b) => ({ ...b, status: next }))
+    }
   }
 
   const confirmReject = async (reason) => {
     set({ status: "rejected", lostReason: reason })
     setShowLost(false)
-    if (isEdit) await repo.update("quotations", form.id, { status: "rejected", lostReason: reason })
+    if (isEdit) {
+      await repo.update("quotations", form.id, { status: "rejected", lostReason: reason })
+      setBaseline((b) => ({ ...b, status: "rejected", lostReason: reason }))
+    }
   }
 
   // Persist any pending edits so the email carries what's on screen, then send.
@@ -375,9 +547,47 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
     if (!isEdit) return toast.error("Save the quotation first")
     if (!form.customer.name.trim()) return toast.error("Customer name is required")
     const saved = await updateQuotation(form.id, form)
+    // Everything on screen is persisted now, so it is no longer an unsaved draft.
+    const next = { ...form }
+    setBaseline(next)
     const ok = await onSend(saved || form)
-    if (ok && ["draft", "expired", "sent"].includes(form.status)) set({ status: "sent" })
+    if (ok && ["draft", "expired", "sent"].includes(form.status)) {
+      set({ status: "sent" })
+      setBaseline({ ...next, status: "sent" })
+    }
   }
+
+  // Same shape as send: persist what is on screen, then share it. The share
+  // context is taken BEFORE the save's await, because the WhatsApp tab and the
+  // clipboard write both need the click still in hand.
+  const [sharing, setSharing] = useState(false)
+  const shareWhatsApp = async () => {
+    if (!isEdit) return toast.error("Save the quotation first")
+    if (blocker) return toast.error(blocker)
+    if (sharing) return
+    const ctx = beginWhatsAppShare(quotationShareMessage(liveDoc, settings), { openChat: canReach })
+    setSharing(true)
+    try {
+      let saved
+      try {
+        saved = await updateQuotation(form.id, form)
+      } catch (e) {
+        abandonWhatsAppShare(ctx)
+        return toast.error(e?.message || "Could not save the quotation")
+      }
+      const next = { ...form }
+      setBaseline(next)
+      const ok = await onShareWhatsApp(saved || liveDoc, ctx)
+      if (ok && ["draft", "expired"].includes(form.status)) {
+        set({ status: "sent" })
+        setBaseline({ ...next, status: "sent" })
+      }
+    } finally {
+      setSharing(false)
+    }
+  }
+  const customerPhone = form.customer?.phone
+  const canReach = hasPhone(customerPhone)
 
   const convert = async () => {
     if (!isEdit) return toast.error("Save the quotation first")
@@ -392,6 +602,7 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
   const remove = async () => {
     if (!window.confirm("Delete this quotation?")) return
     await repo.remove("quotations", form.id)
+    discardDraft()
     toast.success("Quotation deleted")
     onClose()
   }
@@ -404,7 +615,7 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
   return (
     <div>
       <EditorHeader
-        onBack={onClose}
+        onBack={requestClose}
         backLabel="Back to quotations"
         title={isEdit ? `Quotation ${draft.number}` : "New quotation"}
         trail={["Sales", "Quotations", isEdit ? "Details" : "New"]}
@@ -420,12 +631,17 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
                 <Send className="h-4 w-4" /> {form.status === "sent" ? "Resend" : "Send"}
               </Button>
             )}
+            {isEdit && (
+              <Button variant="outline" size="md" onClick={shareWhatsApp} disabled={sharing} title="Download the PDF and open the customer's WhatsApp chat">
+                <MessageCircle className="h-4 w-4" /> {sharing ? "Preparing…" : "Share on WhatsApp"}
+              </Button>
+            )}
             {isEdit && form.status !== "invoiced" && (
               <Button variant="success" size="md" onClick={convert}>
                 <FileCheck2 className="h-4 w-4" /> Convert to invoice
               </Button>
             )}
-            <Button size="md" onClick={save}>
+            <Button size="md" onClick={save} disabled={saving}>
               {isEdit ? "Save changes" : "Create quotation"}
             </Button>
           </>
@@ -452,6 +668,22 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
           {/* 1. Who */}
           <Section title="Customer" description="Who this quotation is for">
             <CustomerPicker value={form.customer} onChange={(customer) => set({ customer })} customers={customers} />
+            {partyLabel && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button variant="outline" size="sm" disabled={!canReach} onClick={() => { window.location.href = telLink(customerPhone) }}>
+                  <Phone className="h-4 w-4" /> Call
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!canReach}
+                  onClick={() => window.open(whatsappLink(customerPhone, quotationShareMessage(liveDoc, settings)), "_blank", "noopener")}
+                >
+                  <MessageCircle className="h-4 w-4" /> WhatsApp message
+                </Button>
+                {!canReach && <span className="text-xs text-muted-foreground">No phone number on this customer. Add one to call or message.</span>}
+              </div>
+            )}
             {hasState && (
               <p className={cn("mt-3 text-xs font-medium", interState ? "text-primary" : "text-success-text")}>
                 {interState ? "Inter-state supply - IGST will be applied." : "Intra-state supply - CGST + SGST will be applied."}
@@ -515,7 +747,7 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
 
           {/* 4. Terms - always present, rarely edited */}
           <Section title="Terms & conditions" description="Printed at the foot of the quotation">
-            <Textarea
+            <ListTextarea
               ai={{
                 purpose: "Terms and conditions printed at the foot of a sales quotation from Ortex Industries: validity, payment, artwork approval, production and delivery, one term per line",
                 context: () => ({
@@ -529,6 +761,7 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
               }}
               value={form.terms}
               onChange={(e) => set({ terms: e.target.value })}
+              placeholder="Enter terms and conditions"
               className="min-h-[110px]"
             />
           </Section>
@@ -549,8 +782,9 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
               <div className="space-y-5 border-t border-border px-5 py-5">
                 <ShipToFields value={form.shipTo} onChange={(shipTo) => set({ shipTo })} customers={customers} />
                 <Field label="Notes" hint="Printed under the totals">
-                  <Textarea
+                  <ListTextarea
                     ai={{
+                      format: "paragraph",
                       purpose: "Short note printed under the totals of a sales quotation, for example what is included, a free mockup offer or a thank you",
                       context: () => ({
                         validUntil: form.validUntil,
@@ -588,16 +822,94 @@ function QuotationEditor({ draft, products, customers, settings, onClose, onPrev
         }
         right={
           <>
-            <span className="mr-2 hidden text-[13px] text-muted-foreground sm:inline">{summary}</span>
-            <Button variant="outline" size="sm" onClick={onClose}>
+            {saveError ? (
+              <span className="mr-2 text-[13px] font-medium text-destructive-text" role="alert">
+                Not saved: {saveError}
+              </span>
+            ) : blocker ? (
+              <span className="mr-2 flex items-center gap-1.5 text-[13px] font-medium text-warning-text">
+                <AlertTriangle className="h-4 w-4" /> {blocker}
+              </span>
+            ) : (
+              <span className="mr-2 hidden text-[13px] text-muted-foreground sm:inline">
+                {summary}
+                {dirty ? " · unsaved changes" : ""}
+              </span>
+            )}
+            <Button variant="outline" size="sm" onClick={requestClose}>
               Cancel
             </Button>
-            <Button size="sm" onClick={save}>
-              {isEdit ? "Save changes" : "Create quotation"}
+            <Button size="sm" onClick={save} disabled={saving}>
+              {saving ? "Saving…" : isEdit ? "Save changes" : "Create quotation"}
             </Button>
           </>
         }
       />
+
+      <Modal
+        open={!!resume}
+        onClose={() => setResume(null)}
+        title="Continue where you left off?"
+        width="max-w-md"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                clearDraft(storageKey)
+                setResume(null)
+              }}
+            >
+              {isEdit ? "Discard those changes" : "Start fresh"}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (resume) setForm({ ...draft, ...resume.draft })
+                setResume(null)
+              }}
+            >
+              Continue
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          {isEdit
+            ? `You have unsaved changes to this quotation in this browser, from ${savedAtLabel(resume?.savedAt)}.`
+            : `You have an unfinished quotation${resumeParty(resume)} in this browser, from ${savedAtLabel(resume?.savedAt)}.`}
+        </p>
+        {isEdit && resume?.draft?.updatedAt && draft.updatedAt && resume.draft.updatedAt !== draft.updatedAt && (
+          <Banner tone="warning" className="mt-3">
+            This quotation has been saved again since then. Continuing puts your older changes back over it.
+          </Banner>
+        )}
+      </Modal>
+
+      <Modal
+        open={confirmLeave}
+        onClose={() => setConfirmLeave(false)}
+        title="Leave without saving?"
+        width="max-w-md"
+        footer={
+          <>
+            <Button variant="dangerGhost" size="sm" onClick={() => { discardDraft(); setConfirmLeave(false); onClose() }}>
+              Discard changes
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { setConfirmLeave(false); onClose() }}>
+              Keep draft and leave
+            </Button>
+            <Button size="sm" onClick={() => setConfirmLeave(false)}>
+              Keep editing
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          {isEdit ? "Your changes to this quotation have not been saved." : "This quotation has not been created yet."} If you keep the draft, it stays in this browser and is offered back when you open {isEdit ? "this quotation" : "a new quotation"} again.
+        </p>
+      </Modal>
 
       <Modal open={showLost} onClose={() => setShowLost(false)} title="Reason for losing this quote" width="max-w-sm">
         <div className="flex flex-wrap gap-2">

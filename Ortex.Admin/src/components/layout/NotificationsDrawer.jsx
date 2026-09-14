@@ -3,13 +3,15 @@ import { useNavigate } from "react-router-dom"
 import { Bell, CheckCircle2, Settings, Inbox } from "../ui/Icons"
 import { Avatar, Button, Drawer, Badge } from "../ui/Ui"
 import { useCollections } from "../../hooks/useCollection"
-import { OPEN_LEAD_STAGES, LEAD_STAGES } from "../../data/domain/schema"
-import { daysUntil, relativeTime, formatCurrency, formatDate } from "../../lib/format"
+import { useProfile } from "../../hooks/useProfile"
+import { relativeTime, formatCurrency } from "../../lib/format"
+import { accessFor, buildFeed } from "../../lib/notifications"
 import { cn } from "../../lib/cn"
 
-// Read / archived flags live in localStorage keyed by notification id, so the
-// drawer stays useful without a server-side inbox. Ids are deterministic
-// (built from the record id + signal kind) so the flags survive reloads.
+// The feed itself is built by lib/notifications.js (pure, tested). Read /
+// archived flags live in localStorage keyed by notification id, so the drawer
+// stays useful without a server-side inbox. Ids are deterministic (built from
+// the record id + signal kind) so the flags survive reloads.
 const STORE_KEY = "ortex.admin.notifications"
 
 function loadFlags() {
@@ -26,134 +28,6 @@ function saveFlags(flags) {
   } catch {
     /* private mode / quota, flags are a convenience only */
   }
-}
-
-const stageLabel = (stage) => LEAD_STAGES.find((s) => s.id === stage)?.label || stage
-const partyName = (c) => c?.name || c?.company || "Unknown contact"
-const partyCompany = (c) => (c?.company && c.company !== c.name ? c.company : "")
-const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`
-
-// Build the notification feed from live business signals. Each item is a
-// small view-model: who (avatar + actor), what (rich title), meta (when +
-// module), an optional detail block (quote / amount card / tags) and actions.
-function buildFeed(data) {
-  const out = []
-
-  for (const e of data.enquiries || []) {
-    if (e.status !== "new") continue
-    const name = partyName(e.customer)
-    const company = partyCompany(e.customer)
-    out.push({
-      id: `enq-new-${e.id}`,
-      module: "Enquiries",
-      avatar: name,
-      when: e.createdAt,
-      title: (
-        <>
-          <b>{name}</b>
-          {company && <> from <b>{company}</b></>} sent a new enquiry
-          {e.productInterest && <> for <b>{e.productInterest}</b></>}
-        </>
-      ),
-      quote: e.message,
-      tags: e.source ? [e.source] : [],
-      primary: { label: "Open enquiry", to: "/crm?tab=enquiries" },
-    })
-  }
-
-  for (const l of data.leads || []) {
-    if (!OPEN_LEAD_STAGES.includes(l.stage) || !l.nextFollowUp) continue
-    const days = daysUntil(l.nextFollowUp)
-    if (days > 0) continue
-    const name = partyName(l.customer)
-    const company = partyCompany(l.customer)
-    const overdue = days < 0
-    out.push({
-      id: `lead-fu-${l.id}-${l.nextFollowUp}`,
-      module: "Leads",
-      avatar: name,
-      when: l.nextFollowUp,
-      urgent: overdue,
-      title: (
-        <>
-          Follow-up with <b>{name}</b>
-          {company && <> ({company})</>}{" "}
-          {overdue ? <>is <b>overdue by {plural(-days, "day")}</b></> : <>is <b>due today</b></>}
-        </>
-      ),
-      tags: [stageLabel(l.stage), l.quantityEstimate, l.estimatedValue ? formatCurrency(l.estimatedValue) : null].filter(Boolean),
-      primary: { label: "Open enquiry", to: "/crm?tab=enquiries" },
-    })
-  }
-
-  for (const q of data.quotations || []) {
-    if (q.status !== "sent" || !q.validUntil) continue
-    const days = daysUntil(q.validUntil)
-    if (days > 3) continue
-    const name = partyName(q.customer)
-    out.push({
-      id: `qtn-exp-${q.id}-${q.validUntil}`,
-      module: "Quotations",
-      avatar: name,
-      when: q.validUntil,
-      urgent: days < 0,
-      title: (
-        <>
-          Quotation <b>{q.number}</b> for <b>{name}</b>{" "}
-          {days < 0 ? <>expired <b>{plural(-days, "day")} ago</b></> : days === 0 ? <>expires <b>today</b></> : <>expires in <b>{plural(days, "day")}</b></>}
-        </>
-      ),
-      amount: { label: "Quote value", value: q.totals?.grandTotal, sub: `Valid till ${formatDate(q.validUntil)}` },
-      primary: { label: "View quotation", to: "/quotations" },
-    })
-  }
-
-  for (const inv of data.invoices || []) {
-    if (!inv.dueDate || ["paid", "cancelled", "draft"].includes(inv.status)) continue
-    const days = daysUntil(inv.dueDate)
-    const overdue = inv.status === "overdue" || days < 0
-    if (!overdue && days > 3) continue
-    const name = partyName(inv.customer)
-    const due = Math.max(0, (inv.totals?.grandTotal || 0) - (inv.amountPaid || 0))
-    out.push({
-      id: `inv-due-${inv.id}-${inv.dueDate}`,
-      module: "Invoices",
-      avatar: name,
-      when: inv.dueDate,
-      urgent: overdue,
-      title: (
-        <>
-          Invoice <b>{inv.number}</b> for <b>{name}</b>{" "}
-          {overdue ? <>is <b>overdue by {plural(Math.max(1, -days), "day")}</b></> : days === 0 ? <>is <b>due today</b></> : <>is due in <b>{plural(days, "day")}</b></>}
-        </>
-      ),
-      amount: { label: "Balance due", value: due, sub: inv.status === "partial" ? "Partially paid" : "Unpaid" },
-      primary: { label: "View invoice", to: "/billing?tab=invoices" },
-    })
-  }
-
-  const weekAgo = Date.now() - 7 * 86400000
-  for (const p of data.payments || []) {
-    if (p.type !== "inflow" || !p.date || new Date(p.date).getTime() < weekAgo) continue
-    const name = p.party || partyName(p.customer)
-    out.push({
-      id: `pay-in-${p.id}`,
-      module: "Payments",
-      avatar: name,
-      when: p.date,
-      title: (
-        <>
-          <b>{name}</b> paid <b>{formatCurrency(p.amount)}</b>
-          {p.method && <> via {p.method}</>}
-          {p.invoiceNumber && <> against <b>{p.invoiceNumber}</b></>}
-        </>
-      ),
-      tags: [p.reference, p.note].filter(Boolean),
-      primary: { label: "View payment", to: "/billing?tab=payments" },
-    })
-  }
-
-  return out.sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0))
 }
 
 // ---- Row pieces -------------------------------------------------------------
@@ -189,7 +63,9 @@ function NotificationRow({ item, read, archived, onOpen, onToggleRead, onArchive
     <li className={cn("relative flex gap-3 px-5 py-4 transition-colors hover:bg-subtle/60", !read && !archived && "bg-primary/[0.03]")}>
       <Avatar name={item.avatar} className="mt-0.5 h-10 w-10" />
       <div className="min-w-0 flex-1 pr-4">
-        <p className="text-sm leading-relaxed text-foreground [&_b]:font-semibold">{item.title}</p>
+        <p className="text-sm leading-relaxed text-foreground [&_b]:font-semibold">
+          {item.title.map((part, i) => (typeof part === "string" ? <span key={i}>{part}</span> : <b key={i}>{part.b}</b>))}
+        </p>
         <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
           <span>{relativeTime(item.when)}</span>
           <span aria-hidden="true">·</span>
@@ -202,6 +78,9 @@ function NotificationRow({ item, read, archived, onOpen, onToggleRead, onArchive
           )}
         </p>
 
+        {item.detail && (
+          <p className={cn("mt-2 text-sm leading-relaxed", item.tone === "rose" ? "text-destructive-text" : "text-muted-foreground")}>{item.detail}</p>
+        )}
         {item.quote && (
           <blockquote className="mt-2.5 line-clamp-3 rounded-xl squircle bg-subtle px-3.5 py-3 text-sm leading-relaxed text-foreground/80">
             {item.quote}
@@ -210,9 +89,10 @@ function NotificationRow({ item, read, archived, onOpen, onToggleRead, onArchive
         {item.amount && <AmountCard amount={item.amount} />}
         {item.tags?.length > 0 && (
           <div className="mt-2.5 flex flex-wrap gap-1.5">
-            {item.tags.map((t) => (
-              <Badge key={t} tone="slate">{t}</Badge>
-            ))}
+            {item.tags.map((t) => {
+              const tag = typeof t === "string" ? { label: t, tone: "slate" } : t
+              return <Badge key={tag.label} tone={tag.tone}>{tag.label}</Badge>
+            })}
           </div>
         )}
 
@@ -267,10 +147,12 @@ function LineTab({ active, label, count, onClick }) {
 // ---- Bell + drawer ----------------------------------------------------------
 
 // Top-nav notifications: a bell that opens a right-side drawer (Minimal-style
-// inbox) driven by real signals, new enquiries, due/overdue follow-ups,
-// expiring quotations, overdue invoices and recent payments.
+// inbox) driven by real signals, new and cold enquiries, Anu calls and
+// complaints, due/overdue follow-ups, expiring quotations, overdue invoices and
+// recent payments.
 export function NotificationsDrawer() {
   const { data } = useCollections(["enquiries", "leads", "quotations", "invoices", "payments"])
+  const profile = useProfile()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState("all")
@@ -278,7 +160,7 @@ export function NotificationsDrawer() {
 
   useEffect(() => saveFlags(flags), [flags])
 
-  const feed = useMemo(() => buildFeed(data), [data])
+  const feed = useMemo(() => buildFeed(data, { access: accessFor(profile) }), [data, profile])
   const isRead = (id) => Boolean(flags[id]?.read)
   const isArchived = (id) => Boolean(flags[id]?.archived)
 
@@ -300,13 +182,13 @@ export function NotificationsDrawer() {
       return next
     })
   }
-  const go = (to) => {
+  const go = (to, state) => {
     setOpen(false)
-    navigate(to)
+    navigate(to, state ? { state } : undefined)
   }
   const openItem = (item) => {
     update(item.id, { read: true })
-    go(item.primary.to)
+    go(item.primary.to, item.primary.state)
   }
 
   const count = unread.length
@@ -390,7 +272,7 @@ export function NotificationsDrawer() {
               <p className="mt-1 text-xs text-muted-foreground">
                 {tab === "archived"
                   ? "Archived notifications will show up here."
-                  : "New enquiries, follow-ups, expiring quotes and invoice reminders land here."}
+                  : "New enquiries, Anu calls, follow-ups, expiring quotes and invoice reminders land here."}
               </p>
             </div>
           ) : (

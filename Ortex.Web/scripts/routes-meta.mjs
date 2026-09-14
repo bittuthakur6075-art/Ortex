@@ -7,22 +7,24 @@
 // metadata to crawlers.
 
 export const STATIC_ROUTES = [
-  { path: "/about", title: "About Ortex Industries - Manufacturing Excellence & Customization Expertise", description: "Learn the Ortex Industries story: how we started, why brands across India trust us, the quality we deliver, and the in-house customization capabilities that make us your ideal manufacturing partner." },
-  { path: "/products", title: "Products & Services - Ortex Industries | MDF, Acrylic, Lanyards, Badges & More", description: "Explore Ortex Industries' comprehensive range of customized products including MDF items, acrylic products, lanyards, badges, examination boards, corporate gifts, and branding services." },
-  { path: "/industries", title: "Industries We Serve - Ortex Industries | Corporate, Education, Healthcare & More", description: "Ortex Industries serves diverse sectors including corporate organizations, educational institutions, government departments, hospitals, event management, and more with customized products." },
-  { path: "/oem", title: "OEM & White Label Manufacturing - Ortex Industries", description: "Contract OEM and white-label manufacturing for MDF, acrylic, lanyards, badges, and corporate merchandise. Produced in-house under your brand, with factory-direct pricing and GST invoicing." },
-  { path: "/work", title: "Our Work - Ortex Industries | Custom Manufacturing Photo Gallery", description: "Browse and search the full Ortex Industries production archive: custom keychains, wall clocks, exam boards, badges, lanyards, fridge magnets, flags, and promotional merchandise we manufactured. No stock imagery." },
-  { path: "/contact", title: "Contact Ortex Industries | Get a Custom Product Quote", description: "Get a fast, factory-direct quote for custom MDF, acrylic, lanyards, badges, and corporate gifts. Call +91-9211947188, email sales@ortexindustries.in, or WhatsApp us. PAN India delivery and worldwide export." },
-  { path: "/quote", title: "Get a Quote: Custom Manufacturing RFQ | Ortex Industries", description: "Build a custom request from Ortex Industries' real product catalogue, including MDF, acrylic, lanyards, badges, exam boards, and corporate gifts. Add products, set quantities, and our sales desk sends a formal GST quotation." },
-  { path: "/faq", title: "Frequently Asked Questions - Ortex Industries", description: "Got questions about custom manufacturing, MOQ, sampling policies, or design files? Find answers to frequently asked questions about Ortex Industries." },
-  { path: "/privacy", title: "Privacy Policy - Ortex Industries", description: "Privacy Policy for Ortex Industries. Learn how we handle customer data, custom manufacturing records, and form inquiries." },
-  { path: "/terms", title: "Terms of Service - Ortex Industries", description: "Terms of Service for Ortex Industries. Read our customer agreements and custom manufacturing terms." },
-  { path: "/cookies", title: "Cookie Policy - Ortex Industries", description: "Cookie Policy for Ortex Industries. Learn how we use cookies and tracking technologies to improve our platform." },
-  { path: "/acceptable-use", title: "Acceptable Use Policy - Ortex Industries", description: "Acceptable Use Policy for Ortex Industries. Read our rules regarding custom artwork uploads and platform use." },
+  { path: "/", title: "Ortex Industries | Custom Lanyards, Badges & Corporate Gifts", description: "Delhi manufacturer of custom MDF and acrylic products, lanyards, badges, exam boards and corporate gifts. OEM and white label, PAN India delivery and export." },
+  { path: "/about", title: "About Ortex Industries | Custom Manufacturer in Delhi", description: "How Ortex Industries started, why brands across India trust us, and the in-house cutting, printing and engraving behind every order we manufacture." },
+  { path: "/products", title: "Custom MDF, Acrylic, Lanyard & Badge Products | Ortex", description: "Browse Ortex Industries' custom products: MDF and acrylic items, lanyards, badges, exam boards and corporate gifts, all branded in-house with GST quotations." },
+  { path: "/industries", title: "Industries We Serve | Ortex Industries", description: "Custom products for corporates, schools, universities, government departments, hospitals and event companies, manufactured in-house by Ortex Industries." },
+  { path: "/oem", title: "OEM & White Label Manufacturing | Ortex Industries", description: "Contract OEM and white-label manufacturing of MDF, acrylic, lanyards, badges and merchandise, made in-house under your brand with factory-direct pricing." },
+  { path: "/work", title: "Our Work: Custom Products We Made | Ortex Industries", description: "Real production photos from Ortex Industries: custom keychains, wall clocks, exam boards, badges, lanyards, fridge magnets and promotional merchandise." },
+  { path: "/contact", title: "Contact Ortex Industries | Get a Custom Product Quote", description: "Get a factory-direct quote for custom MDF, acrylic, lanyards, badges and corporate gifts. Call +91-9211947188, email sales@ortexindustries.in or WhatsApp us." },
+  { path: "/quote", title: "Get a Quote for Custom Products | Ortex Industries", description: "Build a request from the Ortex Industries catalogue: pick MDF, acrylic, lanyard, badge or gift products, set quantities, and receive a formal GST quotation." },
+  { path: "/faq", title: "Custom Manufacturing FAQs: MOQ, Artwork | Ortex Industries", description: "Answers on minimum order quantities, samples, artwork files, materials, delivery times, OEM production and payment for custom orders at Ortex Industries." },
+  { path: "/privacy", title: "Privacy Policy | Ortex Industries", description: "How Ortex Industries collects, uses and protects the information you share through our website, quote requests, enquiry forms and custom manufacturing orders." },
+  { path: "/terms", title: "Terms of Service | Ortex Industries", description: "The terms that govern use of the Ortex Industries website, quote requests and custom manufacturing orders, including artwork approval, payment and delivery." },
+  { path: "/cookies", title: "Cookie Policy | Ortex Industries", description: "How the Ortex Industries website uses cookies and browser storage, what each one does, and how to accept, decline or clear them at any time." },
+  { path: "/acceptable-use", title: "Acceptable Use Policy | Ortex Industries", description: "Rules for using the Ortex Industries website and uploading artwork: prohibited content, trademarks and the rights you confirm when you send us a design." },
 ]
 
 /** Maps a route path to its page source file, for the metadata drift check. */
 export const ROUTE_SOURCE = {
+  "/": "src/pages/Home.jsx",
   "/about": "src/pages/About.jsx",
   "/products": "src/pages/Products.jsx",
   "/industries": "src/pages/Industries.jsx",

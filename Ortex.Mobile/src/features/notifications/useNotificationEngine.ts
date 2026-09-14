@@ -43,7 +43,7 @@ import { navigateWhenReady } from "@/navigation/navigationRef"
  * pushed" is a durable fact rather than a guess about timing.
  */
 export function useNotificationEngine() {
-  const { all, unreadCount } = useNotifications()
+  const { all, unreadCount, loading, refreshing } = useNotifications()
 
   // A ref, not state: the responder callbacks are registered once and must see
   // the current feed without re-registering on every refetch.
@@ -73,7 +73,23 @@ export function useNotificationEngine() {
   // ---- posting ------------------------------------------------------------
 
   React.useEffect(() => {
-    if (!ready || !all.length) return
+    if (!ready) return
+
+    // THE BASELINE IS ONE PASS, TAKEN ONCE THE FEED HAS SETTLED, WHATEVER IT
+    // HOLDS. It used to be taken on the first pass that had something unpushed,
+    // which on a start where every lead was already announced meant it never
+    // happened, and the next genuinely NEW lead was the one silently swallowed
+    // as "backlog". That was "I saw it in the list but my phone never rang"
+    // (reproduced on a real handset 2026-09-14). Waiting for loading AND
+    // refreshing to finish also keeps a cached snapshot from being the baseline,
+    // so the network copy that follows it cannot ring for old leads.
+    if (!baselined.current) {
+      if (loading || refreshing) return
+      baselined.current = true
+      markPushed(all.filter((n) => !wasPushed(n.id)).map((n) => n.id))
+      return
+    }
+    if (!all.length) return
     let cancelled = false
 
     void (async () => {
@@ -83,12 +99,6 @@ export function useNotificationEngine() {
 
       const fresh = all.filter((n) => !wasPushed(n.id))
       if (!fresh.length) return
-
-      if (!baselined.current) {
-        baselined.current = true
-        markPushed(fresh.map((n) => n.id))
-        return
-      }
 
       if (!(await pushPermissionGranted())) {
         // Permission was refused or revoked. Mark them anyway: the in-app list
@@ -109,7 +119,7 @@ export function useNotificationEngine() {
     return () => {
       cancelled = true
     }
-  }, [all, ready])
+  }, [all, ready, loading, refreshing])
 
   // The app-icon badge follows the unread count, not the shade — clearing a
   // notification without reading the lead should not clear the badge.

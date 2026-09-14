@@ -12,7 +12,7 @@ import ImageField from "../../components/editors/ImageField"
 import { MAX_IMAGES } from "./helpers"
 import { aiProductCopy, isStoredPhoto } from "../../services/ai"
 
-export default function ProductForm({ open, product, categories = [], onClose }) {
+export default function ProductForm({ open, product, categories = [], presetCategory = null, onClose }) {
   const isEdit = !!product
   const [form, setForm] = useState(newProduct())
   const [errors, setErrors] = useState({})
@@ -66,7 +66,9 @@ export default function ProductForm({ open, product, categories = [], onClose })
       if (product) {
         setForm({ ...newProduct(), ...product })
       } else {
-        const defaultProd = newProduct()
+        // "Add a product here" on a category page presets the shelf, and with it
+        // the HSN and GST every product on that shelf inherits.
+        const defaultProd = newProduct(presetCategory ? { category: presetCategory } : {})
         const defaultCat = categoriesRef.current.find((c) => c.name === defaultProd.category)
         setForm({
           ...defaultProd,
@@ -75,9 +77,11 @@ export default function ProductForm({ open, product, categories = [], onClose })
         })
       }
       setErrors({})
-      setHasManuallyChangedCategory(false)
+      // A preset category was chosen by a person, so typing a name must not
+      // auto-detect it away.
+      setHasManuallyChangedCategory(!product && !!presetCategory)
     }
-  }, [open, product])
+  }, [open, product, presetCategory])
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }))
 

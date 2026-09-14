@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react"
+import { lazy, Suspense, useEffect, useState } from "react"
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom"
 import { Toaster } from "sonner"
 import Navbar from "./components/layout/Navbar"
@@ -18,6 +18,7 @@ const Home = lazy(() => import("./pages/Home"))
 const About = lazy(() => import("./pages/About"))
 const Products = lazy(() => import("./pages/Products"))
 const ProductCategory = lazy(() => import("./pages/ProductCategory"))
+const ProductDetail = lazy(() => import("./pages/ProductDetail"))
 const Industries = lazy(() => import("./pages/Industries"))
 const Work = lazy(() => import("./pages/Work"))
 const OEM = lazy(() => import("./pages/OEM"))
@@ -30,8 +31,33 @@ const QuoteCalculator = lazy(() => import("./pages/QuoteCalculator"))
 const FAQ = lazy(() => import("./pages/FAQ"))
 const NotFound = lazy(() => import("./pages/NotFound"))
 
-function AppLayout() {
+export function AppLayout() {
   const location = useLocation()
+
+  // The floating widgets (Anu, cookie banner) are browser-only: they read
+  // sessionStorage, open the mic and time themselves from page load. They mount
+  // after hydration so the prerendered HTML and the first client render agree,
+  // and a crawler never reads a call panel as page content. They also wait for
+  // the page to finish loading and the browser to go idle: Anu's chunk is
+  // ~450 KB, and fetching it alongside the page pushed back first paint and
+  // interactivity on a phone.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    let idleId = null
+    let timer = null
+    const mount = () => setMounted(true)
+    const start = () => {
+      if ("requestIdleCallback" in window) idleId = window.requestIdleCallback(mount, { timeout: 2500 })
+      else timer = window.setTimeout(mount, 1200)
+    }
+    if (document.readyState === "complete") start()
+    else window.addEventListener("load", start, { once: true })
+    return () => {
+      window.removeEventListener("load", start)
+      if (idleId !== null) window.cancelIdleCallback(idleId)
+      if (timer !== null) window.clearTimeout(timer)
+    }
+  }, [])
 
   // Lenis momentum scrolling for the whole app.
   useSmoothScroll()
@@ -77,6 +103,7 @@ function AppLayout() {
               <Route path="/about" element={<About />} />
               <Route path="/products" element={<Products />} />
               <Route path="/products/:slug" element={<ProductCategory />} />
+              <Route path="/products/:slug/:productSlug" element={<ProductDetail />} />
               <Route path="/industries" element={<Industries />} />
               <Route path="/oem" element={<OEM />} />
               <Route path="/work" element={<Work />} />
@@ -104,12 +131,14 @@ function AppLayout() {
         <Footer />
 
         {/* Deferred, non-critical floating UI */}
-        <Suspense fallback={null}>
-          {/* Live voice assistant (Gemini Live API) */}
-          <LiveOrty />
-          {/* Consent gate for IP-geolocation analytics */}
-          <CookieConsent />
-        </Suspense>
+        {mounted && (
+          <Suspense fallback={null}>
+            {/* Live voice assistant (Gemini Live API) */}
+            <LiveOrty />
+            {/* Consent gate for IP-geolocation analytics */}
+            <CookieConsent />
+          </Suspense>
+        )}
 
         {/* Sonner Toaster for Notifications */}
         <Toaster position="top-right" richColors />

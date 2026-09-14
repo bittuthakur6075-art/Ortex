@@ -11,6 +11,9 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   build: {
+    // scripts/prerender.mjs reads .vite/manifest.json to link each prerendered
+    // page's own CSS and JS chunk in its <head>, then deletes it.
+    manifest: true,
     rollupOptions: {
       output: {
         // Split heavy vendor libs into separate, independently-cacheable chunks

@@ -241,3 +241,38 @@ export function DonutChart({ labels, series, colors, height = 240, valueFormatte
     />
   )
 }
+
+/**
+ * Pacing sparkline: this window's running total against the previous window's
+ * on the same day index, so "are we ahead of last period at this point" reads
+ * at a glance. The previous window is a quiet dashed line with no fill; it is a
+ * reference, not a second series competing for attention.
+ */
+export function PaceChart({ labels, current, previous, height = 96, valueFormatter }) {
+  const t = useTheme()
+  const fmt = valueFormatter || ((v) => v)
+  return (
+    <ApexChart
+      type="area"
+      height={height}
+      series={[
+        { name: "This period", data: current },
+        { name: "Previous period", data: previous },
+      ]}
+      options={{
+        chart: { sparkline: { enabled: true }, animations: { enabled: true, speed: 450 } },
+        colors: [t.primary, t.foreColor],
+        stroke: { curve: "smooth", width: [2.25, 1.5], dashArray: [0, 4], lineCap: "round" },
+        fill: {
+          type: ["gradient", "solid"],
+          opacity: [1, 0],
+          gradient: { shadeIntensity: 1, opacityFrom: 0.22, opacityTo: 0, stops: [0, 100] },
+        },
+        markers: { size: 0, hover: { size: 4 } },
+        xaxis: { categories: labels, crosshairs: { show: true, width: 1, stroke: { color: t.border, dashArray: 0 } } },
+        tooltip: { shared: true, x: { show: true }, y: { formatter: (v) => fmt(v) }, marker: { show: true } },
+        legend: { show: false },
+      }}
+    />
+  )
+}

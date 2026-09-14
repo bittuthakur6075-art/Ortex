@@ -4,18 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-    <!-- Primary Meta Tags -->
-    <title>Ortex Industries — Custom Manufacturing, Corporate Gifting & Branding</title>
+    <!-- Primary Meta Tags. scripts/prerender.mjs rewrites the title, description,
+         canonical, robots and social tags per route by matching these exact
+         tag shapes, so keep one tag per line in this form. -->
+    <title>Ortex Industries | Custom Lanyards, Badges & Corporate Gifts</title>
     <meta
       name="description"
-      content="Ortex Industries manufactures premium customized products — MDF & acrylic items, lanyards, ID badges, examination boards, and corporate gifts. In-house production, OEM & white-label, PAN India delivery and worldwide export."
+      content="Delhi manufacturer of custom MDF and acrylic products, lanyards, badges, exam boards and corporate gifts. OEM and white label, PAN India delivery and export."
     />
     <meta name="author" content="Ortex Industries" />
-    <meta name="robots" content="index, follow" />
-    <link rel="canonical" href="https://www.ortexindustries.in/" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <link rel="canonical" href="https://bizgift.ortexindustries.in/" />
 
-    <!-- Fonts: preconnect + single non-render-blocking stylesheet (Manrope +
-         Instrument Serif only; Inter was imported but never used). -->
+    <!-- Fonts: preconnect + one stylesheet (Manrope + Instrument Serif only). -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -23,9 +24,12 @@
       href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@200..800&display=swap"
     />
 
-    <!-- Icons & Theme -->
+    <!-- Icons & Theme. Google Search shows a square icon of at least 48px, so the
+         192px PNG is listed next to the SVG; iOS needs its own 180px PNG. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
@@ -33,90 +37,96 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Ortex Industries" />
-    <meta property="og:title" content="Ortex Industries — Custom Manufacturing & Corporate Gifting" />
+    <meta property="og:title" content="Ortex Industries | Custom Lanyards, Badges & Corporate Gifts" />
     <meta
       property="og:description"
-      content="Premium customized products manufactured in-house — MDF & acrylic items, lanyards, badges, and corporate gifts. Serving businesses across India and worldwide."
+      content="Delhi manufacturer of custom MDF and acrylic products, lanyards, badges, exam boards and corporate gifts. OEM and white label, PAN India delivery and export."
     />
-    <meta property="og:url" content="https://www.ortexindustries.in/" />
-    <meta
-      property="og:image"
-      content="https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/whatsapp-image-2026-06-25-at-6.53.24-am-2-AChL5.jpeg"
-    />
-    <meta property="og:image:alt" content="Premium customized products manufactured by Ortex Industries" />
+    <meta property="og:url" content="https://bizgift.ortexindustries.in/" />
+    <meta property="og:image" content="https://bizgift.ortexindustries.in/img/og-ortex.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Ortex Industries: custom products manufactured for your brand" />
     <meta property="og:locale" content="en_IN" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Ortex Industries — Custom Manufacturing & Corporate Gifting" />
+    <meta name="twitter:title" content="Ortex Industries | Custom Lanyards, Badges & Corporate Gifts" />
     <meta
       name="twitter:description"
-      content="Premium customized products manufactured in-house — MDF & acrylic items, lanyards, badges, and corporate gifts. Serving businesses across India and worldwide."
+      content="Delhi manufacturer of custom MDF and acrylic products, lanyards, badges, exam boards and corporate gifts. OEM and white label, PAN India delivery and export."
     />
-    <meta
-      name="twitter:image"
-      content="https://horizons-cdn.hostinger.com/2ecad364-abc5-4474-8ebf-bf6b7ac0bd4e/whatsapp-image-2026-06-25-at-6.53.24-am-2-AChL5.jpeg"
-    />
+    <meta name="twitter:image" content="https://bizgift.ortexindustries.in/img/og-ortex.jpg" />
 
-    <!-- Organization structured data -->
+    <!-- Site-wide structured data: the WebSite (gives Google the site name
+         "Ortex Industries" instead of the bare domain) and one business entity.
+         Page JSON-LD refers back to these @ids. The address must match
+         ADDRESS in src/constants/site.js and the Google Business Profile. -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "Organization",
-        "name": "Ortex Industries",
-        "legalName": "Ortex Industries Private Limited",
-        "url": "https://www.ortexindustries.in/",
-        "logo": "https://www.ortexindustries.in/img/logo.png",
-        "description": "Manufacturer of premium customized products including MDF and acrylic items, lanyards, ID badges, examination boards, and corporate gifts. OEM and white-label production with PAN India delivery and worldwide export.",
-        "email": "sales@ortexindustries.in",
-        "telephone": "+91-9211947188",
-        "address": {
-          "@type": "PostalAddress",
-          "addressLocality": "New Delhi",
-          "addressCountry": "IN"
-        },
-        "contactPoint": {
-          "@type": "ContactPoint",
-          "telephone": "+91-9211947188",
-          "contactType": "sales",
-          "email": "sales@ortexindustries.in",
-          "areaServed": ["IN", "Worldwide"],
-          "availableLanguage": ["en", "hi"]
-        },
-        "areaServed": ["IN", "Worldwide"],
-        "sameAs": [
-          "https://www.linkedin.com/company/ortex-industries",
-          "https://www.facebook.com/ortexindustries",
-          "https://www.indiamart.com/ortex-industries-delhi/"
-        ]
-      }
-    </script>
-
-    <!-- LocalBusiness structured data (manufacturer, New Delhi) -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "LocalBusiness",
-        "@id": "https://www.ortexindustries.in/#localbusiness",
-        "name": "Ortex Industries",
-        "image": "https://www.ortexindustries.in/img/logo.png",
-        "url": "https://www.ortexindustries.in/",
-        "email": "sales@ortexindustries.in",
-        "telephone": "+91-9211947188",
-        "priceRange": "$$",
-        "address": {
-          "@type": "PostalAddress",
-          "addressLocality": "New Delhi",
-          "addressRegion": "Delhi",
-          "addressCountry": "IN"
-        },
-        "areaServed": ["IN", "Worldwide"],
-        "openingHoursSpecification": [
+        "@graph": [
           {
-            "@type": "OpeningHoursSpecification",
-            "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-            "opens": "09:00",
-            "closes": "18:00"
+            "@type": "WebSite",
+            "@id": "https://bizgift.ortexindustries.in/#website",
+            "url": "https://bizgift.ortexindustries.in/",
+            "name": "Ortex Industries",
+            "alternateName": ["Ortex", "Ortex Industries Private Limited"],
+            "inLanguage": "en-IN",
+            "publisher": { "@id": "https://bizgift.ortexindustries.in/#organization" }
+          },
+          {
+            "@type": ["Organization", "LocalBusiness"],
+            "@id": "https://bizgift.ortexindustries.in/#organization",
+            "name": "Ortex Industries",
+            "legalName": "Ortex Industries Private Limited",
+            "url": "https://bizgift.ortexindustries.in/",
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://bizgift.ortexindustries.in/img/logo.png"
+            },
+            "image": "https://bizgift.ortexindustries.in/img/og-ortex.jpg",
+            "description": "Delhi manufacturer of customized products: MDF and acrylic items, lanyards, ID badges, examination boards and corporate gifts. OEM and white-label production with PAN India delivery and worldwide export.",
+            "email": "sales@ortexindustries.in",
+            "telephone": "+91-9211947188",
+            "priceRange": "₹₹",
+            "foundingDate": "2022-02-01",
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": "RZ-4 Mahindra Park, Uttam Nagar",
+              "addressLocality": "New Delhi",
+              "addressRegion": "Delhi",
+              "postalCode": "110059",
+              "addressCountry": "IN"
+            },
+            "hasMap": "https://www.google.com/maps/search/?api=1&query=Ortex%20Industries%2C%20RZ-4%20Mahindra%20Park%2C%20Uttam%20Nagar%2C%20New%20Delhi%20110059",
+            "openingHoursSpecification": [
+              {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+                "opens": "09:00",
+                "closes": "18:00"
+              }
+            ],
+            "contactPoint": [
+              {
+                "@type": "ContactPoint",
+                "telephone": "+91-9211947188",
+                "contactType": "sales",
+                "email": "sales@ortexindustries.in",
+                "areaServed": "IN",
+                "availableLanguage": ["en", "hi"]
+              }
+            ],
+            "areaServed": [
+              { "@type": "Country", "name": "India" }
+            ],
+            "knowsAbout": ["Custom lanyards", "ID badges", "Acrylic products", "MDF products", "Examination boards", "Corporate gifts", "OEM manufacturing", "White label manufacturing"],
+            "sameAs": [
+              "https://www.linkedin.com/company/ortex-industries",
+              "https://www.facebook.com/ortexindustries",
+              "https://www.indiamart.com/ortex-industries-delhi/"
+            ]
           }
         ]
       }

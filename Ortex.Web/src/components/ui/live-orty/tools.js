@@ -54,6 +54,17 @@ export const LIVE_TOOLS = [{
       },
     },
     {
+      name: "find_past_work",
+      description: "Find real jobs from Ortex's work gallery that are like what the customer wants, when they ask whether Ortex has made something similar before, or when an example would reassure them. Returns captions only. Call it silently and follow its `next` instruction.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          query: { type: "STRING", description: "The product or kind of job, for example 'acrylic trophies' or 'corporate lanyards'" },
+        },
+        required: ["query"],
+      },
+    },
+    {
       name: "end_call",
       description: "End the call after a warm goodbye. With reason 'completed' the reply may refuse and say which details to capture or confirm first: follow it, then try again.",
       parameters: {

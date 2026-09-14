@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react"
-import { useNavigate } from "react-router-dom"
-import { Users, Plus } from "../components/ui/Icons"
+import { Link, useNavigate } from "react-router-dom"
+import { Users, Plus, AlertTriangle } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { useCollection, useSorting } from "../hooks/useCollection"
@@ -10,7 +10,9 @@ import { customerStats, CUSTOMER_STATUS } from "../lib/customerStats"
 import { formatCurrency, formatDate } from "../lib/format"
 import { stateName } from "../lib/gstStates"
 import { exportCsv } from "../lib/csv"
+import { findDuplicate, normaliseCustomer, validateCustomer } from "../lib/validateCustomer"
 import {
+  Banner,
   Button,
   Card,
   CardHeader,
@@ -216,27 +218,42 @@ export default function Customers({ embedded = false }) {
         </Card>
       )}
 
-      <NewCustomerModal open={creating} onClose={() => setCreating(false)} />
+      <NewCustomerModal open={creating} onClose={() => setCreating(false)} customers={items} />
     </div>
   )
 }
 
 // Adding a customer by hand is a four-field job; everything else is edited on
-// the customer's own page.
-function NewCustomerModal({ open, onClose }) {
+// the customer's own page. The rules are lib/validateCustomer.js, the same ones
+// the phone's contact editor enforces, so a duplicate is refused before the
+// insert rather than discovered as two rows answering one quotation.
+function NewCustomerModal({ open, onClose, customers }) {
   const [form, setForm] = useState(newCustomer())
+  const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
   const navigate = useNavigate()
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const set = (k, v) => {
+    setForm((f) => ({ ...f, [k]: v }))
+    // A corrected field stops shouting; the form-wide line is re-judged on save.
+    setErrors((e) => (e[k] || e.form ? { ...e, [k]: undefined, form: undefined } : e))
+  }
+  const duplicate = errors.form ? findDuplicate(form, customers) : null
+
+  const close = () => {
+    setErrors({})
+    onClose()
+  }
 
   const save = async () => {
-    if (!form.name.trim() && !form.company.trim()) return toast.error("Enter a name or company")
+    const found = validateCustomer(form, customers)
+    setErrors(found)
+    if (Object.keys(found).length) return
     setSaving(true)
     try {
-      const created = await repo.create("customers", form)
+      const created = await repo.create("customers", normaliseCustomer(form))
       toast.success("Customer added")
       setForm(newCustomer())
-      onClose()
+      close()
       if (created?.id) navigate(`/customers/${created.id}`)
     } finally {
       setSaving(false)
@@ -248,11 +265,11 @@ function NewCustomerModal({ open, onClose }) {
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={close}
       title="New customer"
       footer={
         <>
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <Button variant="outline" size="sm" onClick={close}>
             Cancel
           </Button>
           <Button size="sm" onClick={save} disabled={saving}>
@@ -261,17 +278,33 @@ function NewCustomerModal({ open, onClose }) {
         </>
       }
     >
+      {errors.form && (
+        <Banner tone="danger" className="mb-4">
+          <AlertTriangle className="h-4 w-4 flex-none" />
+          <span className="min-w-0">
+            {errors.form}
+            {duplicate && (
+              <>
+                {". "}
+                <Link to={`/customers/${duplicate.id}`} onClick={close} className="font-semibold underline underline-offset-2">
+                  Open {duplicate.company || duplicate.name || "that customer"}
+                </Link>
+              </>
+            )}
+          </span>
+        </Banner>
+      )}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Company">
           <Input value={form.company} onChange={(e) => set("company", e.target.value)} placeholder="Enter company name" />
         </Field>
-        <Field label="Contact Name">
+        <Field label="Contact Name" error={errors.name}>
           <Input value={form.name} onChange={(e) => set("name", e.target.value)} />
         </Field>
-        <Field label="Email">
-          <Input value={form.email} onChange={(e) => set("email", e.target.value)} />
+        <Field label="Email" error={errors.email}>
+          <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
         </Field>
-        <Field label="Phone">
+        <Field label="Phone" error={errors.phone} hint="Stored without +91">
           <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} />
         </Field>
       </div>

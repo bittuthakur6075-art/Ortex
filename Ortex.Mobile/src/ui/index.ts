@@ -19,6 +19,7 @@ export { Chip, ChipGroup, type ChipOption } from "@/ui/Chips"
 
 export { default as Button, type ButtonVariant, type ButtonSize } from "@/ui/Button"
 export { default as TextField } from "@/ui/TextField"
+export { default as OtpField } from "@/ui/OtpField"
 export { default as Card } from "@/ui/Card"
 export { default as ListItem } from "@/ui/ListItem"
 export { default as Switch } from "@/ui/Switch"

@@ -452,11 +452,6 @@ input[type="search"]::-webkit-search-decoration {
 .lgn-stat-foot-ok { color: #0E9F6E; }
 .lgn-acts { display: flex; flex-direction: column; gap: 14px; align-items: stretch; flex: 0 0 auto; width: min(440px, 100%); }
 .lgn-acts > * { flex: 1 1 auto; }
-.lgn-act { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: rgba(255, 255, 255, .42); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, .7); border-radius: 26px; }
-.lgn-act-ic { flex: none; display: grid; place-items: center; width: clamp(38px, 3vw, 44px); height: clamp(38px, 3vw, 44px); border-radius: 50%; font-size: 15px; font-weight: 700; }
-.lgn-act-t { display: flex; flex-direction: column; min-width: 0; }
-.lgn-act-t strong { font-size: clamp(14px, 1.1vw, 15px); color: #0b1220; }
-.lgn-act-t span { font-size: clamp(12px, 1vw, 13px); color: #5b6577; }
 .lgn-trust { align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 16px 18px; background: rgba(255, 255, 255, .42); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, .7); border-radius: 26px; }
 .lgn-trust-head { display: flex; align-items: center; gap: 14px; font-size: clamp(14px, 1.1vw, 15px); font-weight: 700; color: #0b1220; margin-bottom: 14px; }
 .lgn-trust-ic { flex: none; display: grid; place-items: center; width: clamp(38px, 3vw, 44px); height: clamp(38px, 3vw, 44px); border-radius: 50%; color: hsl(var(--primary)); background: color-mix(in srgb, hsl(var(--primary)) 16%, #fff); }
@@ -465,7 +460,7 @@ input[type="search"]::-webkit-search-decoration {
 .lgn-trust-list li svg { color: hsl(var(--primary)); flex: none; }
 .lgn-caption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 50px; text-align: left; color: #fff; text-shadow: 0 2px 18px rgba(0, 0, 0, .55); background: linear-gradient(to top, rgba(0, 0, 0, .62) 0%, rgba(0, 0, 0, 0) 100%); }
 .lgn-caption h2 { margin: 0; max-width: none; white-space: nowrap; font-size: 28px; font-weight: 400; letter-spacing: -.01em; line-height: 1.2; color: #fff; }
-.lgn-caption p { margin: 10px 0 0; max-width: 42ch; font-size: 16px; font-weight: 400; line-height: 1.5; color: rgba(255, 255, 255, .88); }
+.lgn-caption p { margin: 10px 0 0; max-width: none;font-size: 16px; font-weight: 400; line-height: 1.5; color: rgba(255, 255, 255, .88); }
 
 /* Desktop, short viewports: dynamically scale down elements on shorter laptop screens 
    to prevent vertical clipping, and hide lower-priority items as height decreases. */
@@ -498,14 +493,6 @@ input[type="search"]::-webkit-search-decoration {
   }
   .lgn-acts {
     gap: 10px;
-  }
-  .lgn-act {
-    padding: 10px 14px;
-    gap: 10px;
-  }
-  .lgn-act-ic {
-    width: 36px;
-    height: 36px;
   }
   .lgn-caption h2 {
     font-size: clamp(18px, 2vw, 26px);

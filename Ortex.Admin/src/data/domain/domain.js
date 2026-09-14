@@ -9,6 +9,7 @@ import { documentNumber, uid } from "../../lib/id"
 import { round2, daysUntil } from "../../lib/format"
 import { stageProbability } from "./schema"
 import { notifyInvoiceCreated } from "../../services/notify"
+import { nationalDigits } from "../../lib/validateCustomer"
 
 // Intra-state (CGST+SGST) vs inter-state (IGST) is decided by comparing the
 // customer's state code to the company's registered state code.
@@ -196,12 +197,14 @@ export async function markEnquiryQuoted(enquiryId) {
 // ---- customers master ------------------------------------------------------
 
 // True when two customer records (a master row and/or a document snapshot)
-// refer to the same party: matched on email first, then on phone digits.
+// refer to the same party: matched on email first, then on national phone
+// digits, so "+91 98765 43210" and "9876543210" are one party. Mirrored in
+// Ortex.Mobile/src/domain/quotations.ts.
 export function sameCustomer(a, b) {
   const email = (a?.email || "").trim().toLowerCase()
-  const phone = (a?.phone || "").replace(/\D/g, "")
+  const phone = nationalDigits(a?.phone)
   if (email && (b?.email || "").trim().toLowerCase() === email) return true
-  if (phone && (b?.phone || "").replace(/\D/g, "") === phone) return true
+  if (phone && nationalDigits(b?.phone) === phone) return true
   return false
 }
 
@@ -221,7 +224,8 @@ export async function upsertCustomer(customer) {
     if (Object.keys(patch).length) return repo.update("customers", match.id, patch)
     return match
   }
-  return repo.create("customers", { ...customer })
+  // Stored as national digits, the shape the Customers page and the phone save.
+  return repo.create("customers", { ...customer, phone: nationalDigits(customer.phone) })
 }
 
 // ---- leads (CRM pipeline) --------------------------------------------------

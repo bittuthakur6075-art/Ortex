@@ -1,10 +1,9 @@
-import { motion } from "framer-motion"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
 export default function AcceptableUse() {
   useDocumentMetadata(
-    "Acceptable Use Policy - Ortex Industries",
-    "Acceptable Use Policy for Ortex Industries. Read our rules regarding custom artwork uploads and platform use.",
+    "Acceptable Use Policy | Ortex Industries",
+    "Rules for using the Ortex Industries website and uploading artwork: prohibited content, trademarks and the rights you confirm when you send us a design.",
     { path: "/acceptable-use" }
   )
 
@@ -29,12 +28,7 @@ export default function AcceptableUse() {
 
   return (
     <div className="py-20 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-left">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="space-y-8"
-      >
+      <div className="hero-in space-y-8">
         <div>
           <h1 className="text-4xl font-bold tracking-tight text-foreground">Acceptable Use Policy</h1>
           <p className="mt-2 text-muted-foreground">Last updated: July 4, 2026</p>
@@ -66,7 +60,7 @@ export default function AcceptableUse() {
             <p className="text-muted-foreground mt-1">Email: <a href="mailto:sales@ortexindustries.in" className="text-primary hover:underline font-medium">sales@ortexindustries.in</a></p>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

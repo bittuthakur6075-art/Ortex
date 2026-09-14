@@ -110,7 +110,17 @@ function isMissingRelation(error: { code?: string; message?: string } | null): b
 export type Table = Collection | "audit_log"
 const REALTIME_TABLES: Table[] = ["products", "categories", "customers", "enquiries", "quotations", "work", "audit_log"]
 
-let channel: ReturnType<typeof supabase.channel> | null = null
+// ONE CHANNEL PER TABLE, NOT ONE FOR ALL SEVEN. Realtime validates every
+// postgres_changes binding on a channel together, and a single table that is
+// not in the `supabase_realtime` publication fails the WHOLE join ("Unable to
+// subscribe to changes with given parameters"), while the channel still reports
+// SUBSCRIBED. `audit_log` and `work` were not in the publication, so on
+// 2026-09-14 the phone was found to have never heard a single live change to
+// enquiries or quotations: lists only caught up on pull-to-refresh or a return
+// to the foreground, and a new lead never rang. Separate topics share the one
+// socket, so this costs a join message per table, and a missing table now
+// silences only itself.
+const channels = new Map<Table, ReturnType<typeof supabase.channel>>()
 const listeners = new Map<Table | "*", Set<() => void>>()
 
 function emit(table: Table) {
@@ -119,18 +129,28 @@ function emit(table: Table) {
 }
 
 function ensureChannel() {
-  // A channel that errored or timed out (the phone slept, the socket died) never
-  // rejoins on its own; drop it and let the next call build a fresh one.
-  if (channel && (channel.state === "errored" || channel.state === "closed")) {
-    supabase.removeChannel(channel)
-    channel = null
-  }
-  if (channel) return
-  let next = supabase.channel("ortex-mobile-db")
   for (const table of REALTIME_TABLES) {
-    next = next.on("postgres_changes", { event: "*", schema: "public", table }, () => emit(table))
+    const existing = channels.get(table)
+    // A channel that errored or timed out (the phone slept, the socket died)
+    // never rejoins on its own; drop it and build a fresh one.
+    if (existing && (existing.state === "errored" || existing.state === "closed")) {
+      supabase.removeChannel(existing)
+      channels.delete(table)
+    }
+    if (channels.has(table)) continue
+    channels.set(
+      table,
+      supabase
+        .channel(`ortex-mobile-db-${table}`)
+        .on("postgres_changes", { event: "*", schema: "public", table }, () => emit(table))
+        .subscribe(),
+    )
   }
-  channel = next.subscribe()
+}
+
+function removeChannels() {
+  channels.forEach((ch) => supabase.removeChannel(ch))
+  channels.clear()
 }
 
 function listenerCount() {
@@ -165,10 +185,7 @@ export const repo = {
     ensureChannel()
     return () => {
       set?.delete(callback)
-      if (listenerCount() === 0 && channel) {
-        supabase.removeChannel(channel)
-        channel = null
-      }
+      if (listenerCount() === 0) removeChannels()
     }
   },
 

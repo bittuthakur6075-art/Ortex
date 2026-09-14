@@ -1,5 +1,3 @@
-import { motion } from "framer-motion"
-import { fadeUp } from "./Section"
 
 /**
  * Shared page hero, matching the Products page: 150px vertical padding on a
@@ -12,7 +10,7 @@ export default function PageHero({ title, children, actions, nowrap = false }) {
   return (
     <section className="section-y-hero bg-background">
       <div className="lp-wrap text-center">
-        <motion.div {...fadeUp} className={`mx-auto ${nowrap ? "max-w-3xl lg:max-w-none" : "max-w-3xl"}`}>
+        <div className={`hero-in mx-auto ${nowrap ? "max-w-3xl lg:max-w-none" : "max-w-3xl"}`}>
           <h1 className={`text-[36px] sm:text-[48px] md:text-[82px] font-medium leading-[1.05] mb-8 tracking-tight text-foreground ${nowrap ? "text-balance lg:whitespace-nowrap" : "text-balance"}`}>
             {title}
           </h1>
@@ -24,7 +22,7 @@ export default function PageHero({ title, children, actions, nowrap = false }) {
           {actions && (
             <div className="mt-10 flex flex-wrap justify-center gap-2">{actions}</div>
           )}
-        </motion.div>
+        </div>
       </div>
     </section>
   )

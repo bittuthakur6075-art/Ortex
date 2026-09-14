@@ -1,16 +1,22 @@
 import { useState, useEffect, useMemo, useRef } from "react"
 import { createPortal } from "react-dom"
 import { useNavigate } from "react-router-dom"
-import { Search, ArrowRight, Users, FileText, ReceiptIndianRupee } from "../ui/Icons"
+import { Search, ArrowRight, Users, FileText, ReceiptIndianRupee, Inbox, Headset, Package } from "../ui/Icons"
 import { Kbd } from "../ui/Ui"
 import { useCollections } from "../../hooks/useCollection"
+import { useProfile } from "../../hooks/useProfile"
+import { canAccess } from "../../data/domain/modules"
+import { buildSearchIndex, searchIndex, MAX_PER_GROUP } from "../../lib/globalSearch"
 import { cn } from "../../lib/cn"
 
-// Global search (Ctrl/⌘ K): jumps to a module, or straight to a customer,
-// quotation or invoice by name / number. Results are grouped and keyboard
-// navigable, in the style of Linear / Attio quick-open.
+// Global search (Ctrl/⌘ K): jumps to a module, or straight to a record,
+// a customer, web enquiry, Anu call, quotation, invoice or product, opened on
+// the record itself rather than its list. Matching lives in lib/globalSearch.js
+// (the console's port of the phone's GlobalSearchScreen). Results are grouped
+// and keyboard navigable, in the style of Linear / Attio quick-open.
 
-const MAX_PER_GROUP = 5
+const COLLECTIONS = ["customers", "enquiries", "quotations", "invoices", "products"]
+const KIND_ICON = { customer: Users, enquiry: Inbox, voice: Headset, quotation: FileText, invoice: ReceiptIndianRupee, product: Package }
 
 function score(hay, needle) {
   const h = (hay || "").toLowerCase()
@@ -23,7 +29,11 @@ function score(hay, needle) {
 
 export function CommandPalette({ open, onClose, pages }) {
   const navigate = useNavigate()
-  const { data } = useCollections(open ? ["customers", "quotations", "invoices"] : [])
+  const profile = useProfile()
+  const { data } = useCollections(open ? COLLECTIONS : [])
+  // The haystacks are rebuilt only when the data or the profile changes, never
+  // per keystroke; each group is dropped here if the profile cannot open it.
+  const searchable = useMemo(() => buildSearchIndex(data, (key) => canAccess(profile, key)), [data, profile])
   const [q, setQ] = useState("")
   const [cursor, setCursor] = useState(0)
   const inputRef = useRef(null)
@@ -48,28 +58,11 @@ export function CommandPalette({ open, onClose, pages }) {
       .slice(0, needle ? MAX_PER_GROUP : 8)
     if (pageHits.length) out.push({ label: "Go to", items: pageHits.map((p) => ({ id: `page-${p.to}`, icon: p.icon, title: p.label, meta: p.section, to: p.to })) })
 
-    if (needle.length >= 2) {
-      const cust = (data.customers || [])
-        .map((c) => ({ c, s: Math.max(score(c.name, needle), score(c.company, needle), score(c.email, needle), score(c.phone, needle)) }))
-        .filter((x) => x.s > 0)
-        .sort((a, b) => b.s - a.s)
-        .slice(0, MAX_PER_GROUP)
-      if (cust.length) out.push({ label: "Customers", items: cust.map(({ c }) => ({ id: `cust-${c.id}`, icon: Users, title: c.name || c.company, meta: c.company && c.company !== c.name ? c.company : c.email, to: "/customers" })) })
-
-      const docs = (list, kind, to, Icon) =>
-        (list || [])
-          .map((d) => ({ d, s: Math.max(score(d.number, needle), score(d.customer?.name, needle), score(d.customer?.company, needle)) }))
-          .filter((x) => x.s > 0)
-          .sort((a, b) => b.s - a.s)
-          .slice(0, MAX_PER_GROUP)
-          .map(({ d }) => ({ id: `${kind}-${d.id}`, icon: Icon, title: d.number, meta: `${d.customer?.company || d.customer?.name || ""} · ${d.status}`, to }))
-      const qh = docs(data.quotations, "qtn", "/quotations", FileText)
-      const ih = docs(data.invoices, "inv", "/billing?tab=invoices", ReceiptIndianRupee)
-      if (qh.length) out.push({ label: "Quotations", items: qh })
-      if (ih.length) out.push({ label: "Invoices", items: ih })
+    for (const g of searchIndex(searchable, q)) {
+      out.push({ label: g.label, items: g.items.map((it) => ({ ...it, icon: KIND_ICON[it.kind] })) })
     }
     return out
-  }, [q, pages, data])
+  }, [q, pages, searchable])
 
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups])
 
@@ -84,7 +77,7 @@ export function CommandPalette({ open, onClose, pages }) {
 
   const go = (item) => {
     onClose()
-    navigate(item.to)
+    navigate(item.to, item.state ? { state: item.state } : undefined)
   }
 
   const onKey = (e) => {
@@ -115,7 +108,7 @@ export function CommandPalette({ open, onClose, pages }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKey}
-            placeholder="Search pages, customers, quotations, invoices…"
+            placeholder="Search customers, leads, quotes, invoices, products…"
             className="h-12 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-subtle-foreground"
           />
           <Kbd>Esc</Kbd>

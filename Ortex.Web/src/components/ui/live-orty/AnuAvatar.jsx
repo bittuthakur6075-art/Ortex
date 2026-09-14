@@ -16,12 +16,12 @@ import Orb from "./Orb"
    ============================================================ */
 
 // Drop a square headshot here to give Anu a face. Anything roughly 512px works;
-// it is drawn at most 196px wide. The photo in the repo is from Unsplash
-// (unsplash.com/photos/HVbaH3p9B8k, by IMANA), free to use commercially under
-// the Unsplash License. That licence covers the PHOTOGRAPH, not the person in
-// it: Unsplash does not supply model releases, so presenting an identifiable
-// stranger as an Ortex representative is the owner's call to make, and swapping
-// in a real colleague's photo (with their consent) is one file change.
+// it is drawn at most 196px wide. The photo is the same portrait the owner chose
+// for the field-sales app (Ortex.Mobile/assets/anu.jpg, 2026-09-13), copied here
+// and to Ortex.Admin/public/img/ so Anu has one face everywhere: replace all
+// three together. A stock licence covers the PHOTOGRAPH, not the person in it,
+// so presenting an identifiable stranger as an Ortex representative is the
+// owner's call, and a real colleague's photo (with consent) is a file change.
 export const ANU_PHOTO = "/img/anu.jpg"
 
 // [core, accent] per mood, matching Orb's palette so the two read as one thing.

@@ -15,6 +15,7 @@
  *
  *   RN -> page  window.anu.cmd({ type: "start", url, setup, opening? })
  *               window.anu.cmd({ type: "toolResult", id, name, response })
+ *               window.anu.cmd({ type: "text", text })    a typed turn (see below)
  *               window.anu.cmd({ type: "mute", muted })
  *               window.anu.cmd({ type: "hangup" })
  *   page -> RN  { type: "status", status: "connecting"|"live"|"ended"|"error", message? }
@@ -27,6 +28,13 @@
  * page needs no script from a CDN: setup -> setupComplete, realtimeInput audio,
  * serverContent (audio, transcriptions, interrupted, turnComplete), toolCall ->
  * toolResponse.
+ *
+ * TYPING. A "text" command sends the words as clientContent with turnComplete
+ * into the SAME audio session, exactly as the opening line is sent, so Anu
+ * answers a typed question out loud and her outputTranscription still arrives
+ * as captions. Any half-heard spoken line is DROPPED here, not posted: React
+ * Native has already committed its partial to the transcript before it sends
+ * the typed turn, so posting it again would land after the typed question.
  *
  * The mic is captured at the device's own rate and DOWNSAMPLED to 16 kHz here,
  * because WebKit refuses to connect a mic into an AudioContext created at a
@@ -102,6 +110,8 @@ export const ENGINE_HTML = String.raw`<!doctype html>
   function onServer(msg) {
     if (msg.setupComplete) { post({ type: "status", status: "live" }); return; }
     if (msg.toolCall && msg.toolCall.functionCalls) {
+      // Settle what was said so far, so the transcript reads: words, then the lookup.
+      flush("user"); flush("anu");
       msg.toolCall.functionCalls.forEach(function (fc) { post({ type: "tool", id: fc.id, name: fc.name, args: fc.args || {} }); });
     }
     var sc = msg.serverContent;
@@ -214,6 +224,12 @@ export const ENGINE_HTML = String.raw`<!doctype html>
       if (!c) return;
       if (c.type === "start") start(c);
       else if (c.type === "toolResult") send({ toolResponse: { functionResponses: [{ id: c.id, name: c.name, response: c.response }] } });
+      else if (c.type === "text") {
+        if (!ws || ws.readyState !== 1 || !c.text) return;
+        // A new question supersedes whatever she was still saying.
+        userText = ""; anuText = ""; clearPlayback();
+        send({ clientContent: { turns: [{ role: "user", parts: [{ text: String(c.text) }] }], turnComplete: true } });
+      }
       else if (c.type === "mute") { muted = !!c.muted; }
       else if (c.type === "hangup") {
         closedByUs = true;

@@ -1,4 +1,5 @@
 import { Input, Field, Select } from "../ui/Ui"
+import { gstinProblem } from "../../lib/validateCustomer"
 
 // Reusable customer detail grid used by the quotation and invoice editors.
 // `value` is a customer object; `onChange` receives the full updated object.
@@ -6,6 +7,9 @@ import { Input, Field, Select } from "../ui/Ui"
 // from an existing customer.
 export default function CustomerFields({ value, onChange, customers }) {
   const set = (key, v) => onChange({ ...value, [key]: v })
+  // Advisory only: a GSTIN whose state digits disagree with the state code is a
+  // wrong CGST/IGST split, but the editors decide whether to save, not this grid.
+  const gst = gstinProblem(value.gstin, value.stateCode)
 
   const pick = (id) => {
     const c = customers?.find((x) => x.id === id)
@@ -52,10 +56,10 @@ export default function CustomerFields({ value, onChange, customers }) {
         <Field label="Phone">
           <Input value={value.phone} onChange={(e) => set("phone", e.target.value)} placeholder="Enter phone number" />
         </Field>
-        <Field label="GSTIN" hint="Buyer's GST number (for input credit)">
+        <Field label="GSTIN" hint="Buyer's GST number (for input credit)" error={gst?.field === "gstin" ? gst.message : undefined}>
           <Input value={value.gstin} onChange={(e) => set("gstin", e.target.value)} placeholder="Enter GSTIN" />
         </Field>
-        <Field label="State Code" hint="Decides CGST/SGST vs IGST">
+        <Field label="State Code" hint="Decides CGST/SGST vs IGST" error={gst?.field === "stateCode" ? gst.message : undefined}>
           <Input value={value.stateCode} onChange={(e) => set("stateCode", e.target.value)} placeholder="Enter state code" />
         </Field>
         <Field label="Billing Address" className="sm:col-span-2">

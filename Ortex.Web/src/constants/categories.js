@@ -14,8 +14,10 @@
 // accept extensionless) and by Node in scripts/prerender.mjs (which would not).
 import { PRODUCTS } from "./products.js"
 import { photosData } from "./photos.js"
+import { productsInCategory } from "../lib/catalogCore.js"
 
-export const SITE_URL = "https://www.ortexindustries.in"
+import { SITE_URL } from "./site.js"
+export { SITE_URL }
 
 // Established site claims, referenced by several FAQ answers.
 const ARTWORK_FORMATS = ".AI, .CDR, .DXF, .EPS, .PDF or .SVG (high-res .PNG/.JPG also accepted)"
@@ -74,9 +76,9 @@ export const PRODUCT_CATEGORIES = [
     slug: "keychains",
     category: "Keychains",
     name: "Custom Keychains",
-    seoTitle: "Custom Keychain Manufacturer India - Acrylic, Leather, PVC & Silicone | Ortex Industries",
+    seoTitle: "Custom Keychain Manufacturer in India | Ortex Industries",
     seoDescription:
-      "Bulk custom keychains manufactured in-house: UV-printed acrylic, debossed leather, moulded silicone and soft-PVC, and sublimation satin. Factory-direct pricing with volume discounts.",
+      "Bulk custom keychains made in-house: UV-printed acrylic, debossed leather, moulded silicone and PVC, and satin. Factory-direct pricing with volume discounts.",
     intro:
       "Keychains are our highest-volume product line. Every variant is produced in-house — acrylic cut to custom shapes and UV-printed on both sides, leather hot-stamped or debossed, silicone and soft PVC moulded with 2D/3D raised detail, and satin ribbon printed by sublimation.",
     photoCategory: "Keychain",
@@ -90,9 +92,9 @@ export const PRODUCT_CATEGORIES = [
     slug: "acrylic-products",
     category: "Acrylic products",
     name: "Custom Acrylic Products",
-    seoTitle: "Custom Acrylic Products Manufacturer - Standees, Name Plates & Desk Items | Ortex Industries",
+    seoTitle: "Custom Acrylic Products Manufacturer | Ortex Industries",
     seoDescription:
-      "Custom acrylic desk standees, name display holders, card holders, paperweights and dashboard idols. Cast acrylic, UV-printed and laser-cut in-house with polished edges.",
+      "Custom acrylic desk standees, name display holders, card holders, paperweights and dashboard idols. Cast acrylic, UV-printed and laser-cut in-house.",
     intro:
       "We cut, polish, and UV-print cast acrylic in-house — desk standees and dashboard idols in custom shapes, clear name displays and card holders with polished edges, and solid acrylic paperweights with embedded branding.",
     photoCategory: null,
@@ -107,9 +109,9 @@ export const PRODUCT_CATEGORIES = [
     slug: "mdf-products",
     category: "MDF products",
     name: "Custom MDF Products",
-    seoTitle: "Custom MDF Products Manufacturer - Trophies, Exam Pads & Magnets | Ortex Industries",
+    seoTitle: "Custom MDF Products Manufacturer | Ortex Industries",
     seoDescription:
-      "Custom MDF award trophies, examination pads and custom-shape fridge magnets. CNC-routed and UV-printed in-house from 3–9 mm MDF sheet.",
+      "Custom MDF award trophies, examination pads, key holders and custom-shape fridge magnets, CNC-routed, laser-engraved and UV-printed in-house in Delhi.",
     intro:
       "MDF is routed, engraved, and printed on our own floor: laser-engraved award trophies with acrylic front plates, UV-printed examination pads, and fridge magnets cut to any shape from 3 mm sheet.",
     photoCategory: null,
@@ -124,9 +126,9 @@ export const PRODUCT_CATEGORIES = [
     slug: "lanyards",
     category: "Lanyards & ID card accessories",
     name: "Custom Lanyards & ID Accessories",
-    seoTitle: "Custom Lanyard Manufacturer India - Sublimation & Satin Printed | Ortex Industries",
+    seoTitle: "Custom Lanyard Manufacturer in India | Ortex Industries",
     seoDescription:
-      "Full-colour sublimation and satin-printed lanyards manufactured in bulk — 16 mm and 20 mm widths, metal trigger hooks, safety breakaway options. 12% GST, factory-direct.",
+      "Full-colour sublimation and satin-printed lanyards made in bulk: 16 mm and 20 mm widths, metal hooks and safety breakaway clasps. Factory-direct pricing.",
     intro:
       "Lanyards are printed edge-to-edge by heat sublimation — 16 mm polyester with metal trigger hooks, and 20 mm premium satin with safety breakaway clasps for schools, hospitals, and events.",
     photoCategory: null,
@@ -141,9 +143,9 @@ export const PRODUCT_CATEGORIES = [
     slug: "badges",
     category: "Badge manufacturing",
     name: "Custom Badges",
-    seoTitle: "Custom Badge Manufacturer - Metal, Button, Magnetic & LED Badges | Ortex Industries",
+    seoTitle: "Custom Badge Manufacturer: Metal & Button | Ortex Industries",
     seoDescription:
-      "Custom badge manufacturing in bulk: engraved brass name badges with magnet backing, printed tinplate button badges, moulded plastic pin badges and LED light-up badges.",
+      "Custom badges in bulk: engraved brass name badges with magnet backing, enamel lapel pins, printed button badges, moulded pin badges and LED badges.",
     intro:
       "We manufacture badges across four constructions: engraved brass name badges on strong magnet backings, custom-printed tinplate button badges, moulded plastic badges with safety pins for events and campaigns, and LED light-up badges.",
     photoCategory: "Badges",
@@ -158,9 +160,9 @@ export const PRODUCT_CATEGORIES = [
     slug: "examination-boards",
     category: "Examination boards",
     name: "Examination Boards",
-    seoTitle: "Examination Board & Clipboard Manufacturer for Institutions | Ortex Industries",
+    seoTitle: "Examination Board Manufacturer | Ortex Industries",
     seoDescription:
-      "Bulk examination boards for schools and institutions: PVC A4 clipboards, foldable exam boards with storage compartments, and 6 mm MDF clipboards with custom branding.",
+      "Bulk examination boards for schools and institutions: PVC A4 clipboards, foldable exam boards with storage, and 6 mm MDF clipboards with custom branding.",
     intro:
       "Built for institutional procurement: A4 PVC examination clipboards with branded printing, foldable PP boards with built-in stationery storage, and 6 mm MDF clipboards printed on both sides.",
     photoCategory: "Exam Board",
@@ -175,9 +177,9 @@ export const PRODUCT_CATEGORIES = [
     slug: "wall-clocks",
     category: "Wall clocks",
     name: "Promotional Wall Clocks",
-    seoTitle: "Promotional Wall Clock Manufacturer - Custom Dial Printing | Ortex Industries",
+    seoTitle: "Promotional Wall Clock Manufacturer | Ortex Industries",
     seoDescription:
-      "Custom-branded wall clocks in bulk: 8-inch and 7.5-inch promotional clocks, 15-inch designer clocks, CNC-routed wooden clocks and UV-printed acrylic clocks with quartz movements.",
+      "Custom-branded wall clocks in bulk: 8-inch and 7.5-inch promotional clocks, 15-inch designer clocks, wooden and acrylic clocks with quartz movements.",
     intro:
       "Wall clocks with your dial, not a sticker on someone else's: plastic-frame 8-inch rounds and 7.5-inch squares for volume gifting, 15-inch designer and CNC-routed wooden clocks for premium corporate gifts, and laser-cut acrylic clocks — all on quartz movements.",
     photoCategory: "Wall Clock",
@@ -191,9 +193,9 @@ export const PRODUCT_CATEGORIES = [
     slug: "fridge-magnets",
     category: "Fridge magnets",
     name: "Custom Fridge Magnets",
-    seoTitle: "Custom Fridge Magnet Manufacturer - MDF, Acrylic, PVC & Wood | Ortex Industries",
+    seoTitle: "Custom Fridge Magnet Manufacturer | Ortex Industries",
     seoDescription:
-      "Custom fridge magnets manufactured in bulk: UV-printed MDF in any shape, transparent acrylic, soft PVC with 2D/3D embossing, and laser-engraved wooden magnets.",
+      "Custom fridge magnets made in bulk: UV-printed MDF in any shape, transparent acrylic, soft PVC with 2D/3D embossing, and laser-engraved wooden magnets.",
     intro:
       "Fridge magnets in four materials, all with rubber magnet backing: MDF cut to any shape with full-colour UV print, transparent acrylic, soft PVC moulded with raised 2D/3D detail, and natural wood with laser engraving.",
     photoCategory: "Fridge Magnet",
@@ -208,9 +210,9 @@ export const PRODUCT_CATEGORIES = [
     slug: "corporate-gifts",
     category: "Corporate gifting & merchandise",
     name: "Corporate Gifts",
-    seoTitle: "Corporate Gifting Manufacturer India - Bottles, Diary Sets & More | Ortex Industries",
+    seoTitle: "Corporate Gifts Manufacturer in India | Ortex Industries",
     seoDescription:
-      "Corporate gifts branded in-house: double-wall insulated steel bottles with laser-engraved logos and executive A5 diary and metal pen gift sets. Factory-direct with GST invoicing.",
+      "Corporate gifts branded in-house: insulated steel bottles and flasks, lunch box sets, diary and pen gift sets. Factory-direct pricing with GST invoicing.",
     intro:
       "Executive gifting with your branding applied in-house: 750 ml double-wall insulated steel bottles laser-engraved with your logo, and A5 executive diary sets with metal pens, boxed and ready to present.",
     photoCategory: null,
@@ -225,9 +227,9 @@ export const PRODUCT_CATEGORIES = [
     slug: "flags-banners",
     category: "Flags & banners",
     name: "Custom Flags & Banners",
-    seoTitle: "Custom Flag Manufacturer - Printed Polyester Flags in Bulk | Ortex Industries",
+    seoTitle: "Custom Flag Manufacturer in India | Ortex Industries",
     seoDescription:
-      "Custom printed polyester flags manufactured in bulk: 3×5 ft flags with double-side printing and 2×3 ft party or election flags on wooden sticks. 12% GST.",
+      "Custom printed polyester flags made in bulk: 3×5 ft flags with double-side printing and 2×3 ft party or election flags on wooden sticks.",
     intro:
       "Knitted polyester flags printed to your artwork: full-size 3×5 ft flags with a double-side printing option, and 2×3 ft party and election flags mounted on wooden sticks for rallies and events.",
     photoCategory: "Flag",
@@ -241,9 +243,9 @@ export const PRODUCT_CATEGORIES = [
     slug: "clipboards",
     category: "Clipboards & writing pads",
     name: "Custom Clipboards & Writing Pads",
-    seoTitle: "Custom Clipboard Manufacturer - Branded A4 MDF Clipboards | Ortex Industries",
+    seoTitle: "Custom Clipboard Manufacturer | Ortex Industries",
     seoDescription:
-      "Custom A4 MDF clipboards with spring clips, branded front and back. Manufactured in-house for institutions, events, and corporate stationery programmes.",
+      "Custom A4 MDF clipboards with spring clips, branded front and back, manufactured in-house for institutions, events and corporate stationery programmes.",
     intro:
       "A4 clipboards cut from 3 mm MDF with spring clips, custom-branded on both faces — built for institutions, field teams, and event registration desks.",
     photoCategory: null,
@@ -258,9 +260,9 @@ export const PRODUCT_CATEGORIES = [
     slug: "promotional-merchandise",
     category: "Promotional merchandise",
     name: "Promotional Merchandise",
-    seoTitle: "Promotional Merchandise Manufacturer - Caps, Popsockets & Giveaways | Ortex Industries",
+    seoTitle: "Promotional Merchandise Manufacturer | Ortex Industries",
     seoDescription:
-      "Bulk promotional merchandise: cotton twill caps with embroidery or printing and sublimation-printed mobile popsockets. Factory-direct pricing with volume discounts.",
+      "Bulk promotional merchandise: cotton twill caps with embroidery or printing and sublimation-printed mobile popsockets, at factory-direct pricing.",
     intro:
       "Event and campaign giveaways produced at volume: cotton twill caps finished with embroidery or printing, and mobile popsockets with full-colour sublimation tops.",
     photoCategory: "Custom Promotional",
@@ -303,57 +305,96 @@ export function photosForCategory(entry, limit = 8) {
   return out
 }
 
-/** JSON-LD for a category page. Shared by the page (runtime) and prerender (build). */
+// Every JSON-LD block names the business by the @id index.html declares, so a
+// category or product page adds to the one Ortex entity instead of describing a
+// second, anonymous company.
+const ORG_ID = `${SITE_URL}/#organization`
+
+const crumbs = (items) => ({
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: items.map(([name, path], i) => ({
+    "@type": "ListItem",
+    position: i + 1,
+    name,
+    item: `${SITE_URL}${path}`,
+  })),
+})
+
+/**
+ * JSON-LD for a category page. Shared by the page (runtime) and prerender (build).
+ *
+ * The list points at each product's own page rather than inlining a Product:
+ * Google validates an inline Product for rich results and rejects one with no
+ * price, review or rating, and prices are deliberately never public
+ * (products_public, migration 0020). The product page carries the detail.
+ */
 export function buildCategorySchema(entry, products = PRODUCTS) {
-  const s = statsFor(entry.category, products)
   const url = `${SITE_URL}/products/${entry.slug}`
-  const photos = photosForCategory(entry, s.count)
+  const items = productsInCategory(entry, products)
 
   const itemList = {
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: entry.name,
     url,
-    numberOfItems: s.count,
-    itemListElement: s.skus.map((p, i) => ({
+    numberOfItems: items.length,
+    itemListElement: items.map((p, i) => ({
       "@type": "ListItem",
       position: i + 1,
-      item: {
-        "@type": "Product",
-        name: p.name,
-        sku: p.sku,
-        description: p.description,
-        material: p.material,
-        ...((p.images?.[0] || photos[i]?.url) ? { image: p.images?.[0] || photos[i].url } : {}),
-        brand: { "@type": "Brand", name: "Ortex Industries" },
-        offers: {
-          "@type": "Offer",
-          availability: "https://schema.org/InStock",
-          eligibleQuantity: { "@type": "QuantitativeValue", minValue: p.moq, unitText: p.unit },
-        },
-      },
+      name: p.name,
+      url: `${SITE_URL}${p.path}`,
     })),
   }
 
   const faqPage = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    mainEntity: categoryFaqs(entry).map((f) => ({
+    mainEntity: categoryFaqs(entry, products).map((f) => ({
       "@type": "Question",
       name: f.question,
       acceptedAnswer: { "@type": "Answer", text: f.answer },
     })),
   }
 
-  const breadcrumbs = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
-      { "@type": "ListItem", position: 2, name: "Products", item: `${SITE_URL}/products` },
-      { "@type": "ListItem", position: 3, name: entry.name, item: url },
-    ],
-  }
+  return [itemList, faqPage, crumbs([["Home", "/"], ["Products", "/products"], [entry.name, `/products/${entry.slug}`]])]
+}
 
-  return [itemList, faqPage, breadcrumbs]
+/** Title and description for a product page, within what a results page shows. */
+export function productSeo(entry, product) {
+  const suffix = " | Ortex Industries"
+  const title = product.name.length + suffix.length <= 65 ? product.name + suffix : product.name
+  const lead = product.description?.trim() || `Custom ${product.name} manufactured in-house by Ortex Industries.`
+  const facts = `MOQ ${product.moq} ${product.unit}${product.leadTimeDays ? `, dispatch in ${product.leadTimeDays} working days` : ""}. GST quotation, PAN India delivery.`
+  const full = `${lead.replace(/\s+/g, " ")} ${facts}`
+  return { title, description: full.length <= 158 ? full : full.slice(0, 155).replace(/\s+\S*$/, "") + "…" }
+}
+
+/**
+ * JSON-LD for a product page. With no public price, review or rating, a Product
+ * block would be reported invalid in Search Console, so the item is described
+ * as the page's subject (`about`, with its images and the Ortex publisher),
+ * which search engines and AI answers still read, with no validation error.
+ */
+export function buildProductSchema(entry, product) {
+  const url = `${SITE_URL}${product.path}`
+  const { description } = productSeo(entry, product)
+  const page = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "@id": `${url}#webpage`,
+    url,
+    name: product.name,
+    description,
+    isPartOf: { "@id": `${SITE_URL}/#website` },
+    ...(product.images?.[0] ? { primaryImageOfPage: { "@type": "ImageObject", url: product.images[0] } } : {}),
+    about: {
+      "@type": "Thing",
+      name: product.name,
+      description: product.description || undefined,
+      ...(product.images?.length ? { image: product.images } : {}),
+    },
+    publisher: { "@id": ORG_ID },
+  }
+  return [page, crumbs([["Home", "/"], ["Products", "/products"], [entry.name, `/products/${entry.slug}`], [product.name, product.path]])]
 }

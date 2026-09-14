@@ -1,20 +1,23 @@
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { toast } from "sonner"
-import { Printer, X, Download } from "../ui/Icons"
+import { Printer, X, Download, MessageCircle } from "../ui/Icons"
 import DocumentSheet from "./DocumentSheet"
+import { buildSheetPdf } from "./documentPdf"
 
 // Full-screen, printable A4 document overlay for a quotation or tax invoice.
 // Overlay chrome ported from the Keystone invoice document: a dark fixed
 // toolbar (Print / Download PDF / close) over the sheet, portaled to <body>
 // so printing can drop the whole app shell. The sheet itself is DocumentSheet.
 //
-// PDF: html2pdf.js (html2canvas + jsPDF) captures the sheet at exactly 794px
-// (A4 at 96dpi) at scale 2, as Keystone does, so the page is always a true A4.
-// `type` is "quotation" | "invoice".
-export default function DocumentView({ open, onClose, doc, settings, type }) {
+// PDF: buildSheetPdf (documentPdf.jsx), html2pdf.js at a true A4.
+// `type` is "quotation" | "invoice". `onShareWhatsApp(doc)` is optional: when
+// given (a saved quotation), the toolbar offers "Share on WhatsApp" and the
+// caller runs the share, since it also owns the status change.
+export default function DocumentView({ open, onClose, doc, settings, type, onShareWhatsApp }) {
   const sheetRef = useRef(null)
   const [busy, setBusy] = useState(false)
+  const [sharing, setSharing] = useState(false)
 
   // Mark <body> while open so the print stylesheet can hide the app shell.
   useEffect(() => {
@@ -41,55 +44,24 @@ export default function DocumentView({ open, onClose, doc, settings, type }) {
     if (!el) return
     setBusy(true)
     try {
-      const html2pdf = (await import("html2pdf.js")).default
-      const prev = { width: el.style.width, minHeight: el.style.minHeight, margin: el.style.margin, boxShadow: el.style.boxShadow }
-      el.style.width = "794px"
-      el.style.minHeight = "1123px"
-      el.style.margin = "0"
-      el.style.boxShadow = "none"
-      try {
-        // Build the PDF, then drop any trailing page the content does not reach.
-        // The sheet is exactly one A4 tall, so a fraction of a point of rounding
-        // would otherwise spill a blank second page (Keystone: > 1pt tolerance).
-        const worker = html2pdf()
-          .set({
-            margin: 0,
-            filename: `${fileStem}.pdf`,
-            image: { type: "jpeg", quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", letterRendering: false },
-            jsPDF: { unit: "pt", format: "a4", orientation: "portrait" },
-            pagebreak: { mode: ["css", "legacy"] },
-          })
-          .from(el)
-          .toPdf()
-        const pdf = await worker.get("pdf")
-        const canvas = await worker.get("canvas")
-        const pageW = pdf.internal.pageSize.getWidth()
-        const pageH = pdf.internal.pageSize.getHeight()
-        const imgH = (canvas.height * pageW) / canvas.width
-        const ratio = imgH / pageH
-        if (ratio > 1 && ratio <= 1.35) {
-          // Slightly taller than one A4 (long terms, a few extra lines): scale
-          // the whole sheet to fit a single page rather than spilling a footer
-          // onto a second one. Beyond ~35% over, let it paginate normally.
-          const w = pageW / ratio
-          pdf.addPage()
-          while (pdf.internal.getNumberOfPages() > 1) pdf.deletePage(1)
-          pdf.addImage(canvas.toDataURL("image/jpeg", 0.98), "JPEG", (pageW - w) / 2, 0, w, pageH)
-        } else {
-          const needed = Math.max(1, Math.ceil((imgH - 1) / pageH))
-          while (pdf.internal.getNumberOfPages() > needed) pdf.deletePage(pdf.internal.getNumberOfPages())
-        }
-        pdf.save(`${fileStem}.pdf`)
-        toast.success(`Downloaded ${fileStem}.pdf`)
-      } finally {
-        Object.assign(el.style, prev)
-      }
+      const pdf = await buildSheetPdf(el, fileStem)
+      pdf.save(`${fileStem}.pdf`)
+      toast.success(`Downloaded ${fileStem}.pdf`)
     } catch (err) {
       console.error(err)
       toast.error("Could not generate the PDF.")
     } finally {
       setBusy(false)
+    }
+  }
+
+  const share = async () => {
+    if (!onShareWhatsApp) return
+    setSharing(true)
+    try {
+      await onShareWhatsApp(doc)
+    } finally {
+      setSharing(false)
     }
   }
 
@@ -103,6 +75,11 @@ export default function DocumentView({ open, onClose, doc, settings, type }) {
         <button type="button" className="doc-tb-btn ghost" onClick={print}>
           <Printer className="h-4 w-4" /> Print
         </button>
+        {onShareWhatsApp && doc.id && (
+          <button type="button" className="doc-tb-btn ghost" onClick={share} disabled={sharing}>
+            <MessageCircle className="h-4 w-4" /> {sharing ? "Preparing…" : "Share on WhatsApp"}
+          </button>
+        )}
         <button type="button" className="doc-tb-btn primary" onClick={download} disabled={busy}>
           <Download className="h-4 w-4" /> {busy ? "Preparing…" : "Download PDF"}
         </button>

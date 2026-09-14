@@ -215,8 +215,12 @@ function Caption({ caption, live }) {
             className={`absolute inset-x-0 bottom-0 text-center text-[15px] leading-[1.55] ${caption.who === "anu" ? "text-white/90" : "text-sky-200/70"}`}
           >
             {caption.who === "you" && <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-wider text-sky-300/60">You</span>}
+            {/* Opacity only. This used to animate `filter: blur()` on every
+                streamed chunk, up to 80 spans repainting at once on the main
+                thread, which is also where Anu's audio is scheduled and her
+                messages decoded: the captions were making her voice stutter. */}
             {caption.chunks.map((chunk, i) => (
-              <motion.span key={i} initial={{ opacity: 0, filter: "blur(6px)" }} animate={{ opacity: 1, filter: "blur(0px)" }} transition={{ duration: 0.4 }}>
+              <motion.span key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
                 {chunk}
               </motion.span>
             ))}

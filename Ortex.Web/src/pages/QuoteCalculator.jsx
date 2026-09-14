@@ -16,8 +16,8 @@ import SuccessScreen from "./quote-calculator/SuccessScreen"
 
 export default function QuoteCalculator() {
   useDocumentMetadata(
-    "Get a Quote: Custom Manufacturing RFQ | Ortex Industries",
-    "Build a custom request from Ortex Industries' real product catalogue, including MDF, acrylic, lanyards, badges, exam boards, and corporate gifts. Add products, set quantities, and our sales desk sends a formal GST quotation.",
+    "Get a Quote for Custom Products | Ortex Industries",
+    "Build a request from the Ortex Industries catalogue: pick MDF, acrylic, lanyard, badge or gift products, set quantities, and receive a formal GST quotation.",
     { path: "/quote" }
   )
 

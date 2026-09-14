@@ -1,5 +1,4 @@
 import { Image } from "expo-image"
-import { LinearGradient } from "expo-linear-gradient"
 import React from "react"
 import {
   AccessibilityInfo,
@@ -15,12 +14,20 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { emailProblem } from "@/features/contacts/validateContact"
-import { sendEmailOtp, verifyEmailOtp, verifyPassword } from "@/lib/auth"
+import {
+  finishPasswordReset,
+  sendEmailOtp,
+  sendResetCode,
+  verifyEmailOtp,
+  verifyPassword,
+  verifyResetCode,
+  type PasswordReset,
+} from "@/lib/auth"
 import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { Button, TextField, useToast } from "@/ui"
+import { Button, OtpField, TextField, useToast } from "@/ui"
 
 /**
  * Sign in.
@@ -28,8 +35,8 @@ import { Button, TextField, useToast } from "@/ui"
  * PORTED FROM C:\code\lumex\Lumex.Mobile.Surveyor\src\screens\public\LoginScreen.js:
  *
  *   TOP     a three-column photo collage bleeding off the top edge, each column
- *           drifting endlessly (the middle one against the other two), fading
- *           into the page colour so the form reads on a plain surface.
+ *           drifting endlessly (the middle one against the other two), above
+ *           the form on its plain surface.
  *   CENTRE  "Welcome to Ortex" — one bold line, the brand word in the primary.
  *   BOTTOM  labelled fields with leading icons, "Forgot password?" under the
  *           password, and a full-width button.
@@ -39,18 +46,17 @@ import { Button, TextField, useToast } from "@/ui"
  * (a transform loop, so it stays off the JS thread); the tiles are expo-image
  * with a plain radius instead of SVG-clipped squircles, because nine SVG image
  * clips animating at once is the costliest possible way to draw a login page;
- * and the fade is a real gradient in the THEME's page colour, so dark mode fades
- * to black rather than white.
+ * and there is no gradient over the photos (removed on the owner's instruction
+ * 2026-09-14), so the collage meets the form on a plain edge.
  *
  * THE PHOTOS are free Pexels stock (assets/login, no attribution required),
  * chosen for what Ortex makes: lanyards and ID cards, laser cutting and
- * engraving, trophies, keychains, gift boxes, screen printing. Replace them with
+ * engraving, trophies, wooden keychains, gift boxes, the workshop. Replace them with
  * Ortex's own factory photography when it exists.
  *
  * THE FLOW IS UNCHANGED: password, then a code emailed to the same address.
- * Ortex is invite-only, so there is no sign-up, and "Forgot password?" says who
- * can reset it (an admin, from Team) rather than pretending to a self-service
- * reset the backend does not offer.
+ * Ortex is invite-only, so there is no sign-up. "Forgot password?" is a real
+ * self-service reset by emailed code (see the FORGOT PASSWORD note in lib/auth.ts).
  */
 
 const OTP_LENGTH = 6
@@ -62,7 +68,7 @@ const COLLAGE: { top: number; images: ImageSourcePropType[] }[] = [
     images: [
       require("../../../assets/login/lanyard-badges.jpg"),
       require("../../../assets/login/cnc-laser.jpg"),
-      require("../../../assets/login/gift-box.jpg"),
+      require("../../../assets/login/gift-boxes.jpg"),
     ],
   },
   {
@@ -70,14 +76,14 @@ const COLLAGE: { top: number; images: ImageSourcePropType[] }[] = [
     images: [
       require("../../../assets/login/engraving-machine.jpg"),
       require("../../../assets/login/trophies.jpg"),
-      require("../../../assets/login/keychain.jpg"),
+      require("../../../assets/login/wooden-keychains.jpg"),
     ],
   },
   {
     top: 18,
     images: [
       require("../../../assets/login/lanyard-person.jpg"),
-      require("../../../assets/login/screen-printing.jpg"),
+      require("../../../assets/login/wood-workshop.jpg"),
       require("../../../assets/login/laser-cutting.jpg"),
     ],
   },
@@ -90,7 +96,14 @@ const MARQUEE_SPEED = 14
 /** How many times the set is repeated, so the loop never shows an empty tail. */
 const REPEATS = 4
 
-type Step = "password" | "code"
+/**
+ * Sign-in is password → code. Forgot password is its own three steps on the same
+ * page: the email, the code mailed to it, then the new password.
+ */
+type Step = "password" | "code" | "reset-email" | "reset-code" | "reset-password"
+
+/** Supabase's own floor, as on ChangePasswordScreen. */
+const MIN_PASSWORD_LENGTH = 6
 
 /**
  * One endlessly scrolling column: the set rendered REPEATS times and translated
@@ -163,8 +176,26 @@ export default function LoginScreen() {
   const [error, setError] = React.useState("")
   // Per-field messages. `error` stays for what the SERVER says ("wrong password"),
   // which belongs to the attempt rather than to one input.
-  const [fieldErrors, setFieldErrors] = React.useState<{ email?: string; password?: string; code?: string }>({})
+  const [fieldErrors, setFieldErrors] = React.useState<{
+    email?: string
+    password?: string
+    code?: string
+    next?: string
+    confirm?: string
+  }>({})
   const [busy, setBusy] = React.useState(false)
+  // Forgot password: the new password pair, and the verified recovery client
+  // between the code step and the password step.
+  const [nextPassword, setNextPassword] = React.useState("")
+  const [confirmPassword, setConfirmPassword] = React.useState("")
+  const resetRef = React.useRef<PasswordReset | null>(null)
+
+  const goTo = (next: Step) => {
+    setStep(next)
+    setCode("")
+    setError("")
+    setFieldErrors({})
+  }
 
   // KEYBOARD: slide the whole page up exactly far enough that the form ends just
   // above the keyboard — the Lumex approach. A scroll view would let the collage
@@ -220,8 +251,10 @@ export default function LoginScreen() {
     setStep("code")
   }
 
-  const submitCode = async () => {
-    const digits = code.replace(/[^0-9]/g, "")
+  // Takes the code explicitly when OtpField completes it: `code` in this closure
+  // is still the render before the last digit landed.
+  const submitCode = async (typed?: string) => {
+    const digits = (typed ?? code).replace(/[^0-9]/g, "")
     const problem = !digits
       ? "Enter the code from your email"
       : digits.length !== OTP_LENGTH
@@ -234,7 +267,7 @@ export default function LoginScreen() {
     }
     setBusy(true)
     setError("")
-    const result = await verifyEmailOtp(email, code)
+    const result = await verifyEmailOtp(email, digits)
     setBusy(false)
     if ("error" in result) {
       setError(result.error)
@@ -248,7 +281,7 @@ export default function LoginScreen() {
 
   const resend = async () => {
     setBusy(true)
-    const sent = await sendEmailOtp(email)
+    const sent = step === "reset-code" ? await sendResetCode(email) : await sendEmailOtp(email)
     setBusy(false)
     setError("error" in sent ? sent.error : "")
     if (!("error" in sent)) {
@@ -257,87 +290,207 @@ export default function LoginScreen() {
     }
   }
 
-  const onCode = step === "code"
+  // ── Forgot password ──────────────────────────────────────────────────────────
+
+  const backToSignIn = () => {
+    resetRef.current = null
+    setNextPassword("")
+    setConfirmPassword("")
+    goTo("password")
+  }
+
+  const submitResetEmail = async () => {
+    const problem = !email.trim() ? "Enter your email address" : (emailProblem(email) ?? undefined)
+    setFieldErrors({ email: problem })
+    if (problem) {
+      feedback.error()
+      return
+    }
+    Keyboard.dismiss()
+    setBusy(true)
+    setError("")
+    const sent = await sendResetCode(email)
+    setBusy(false)
+    if ("error" in sent) {
+      setError(sent.error)
+      feedback.error()
+      return
+    }
+    feedback.tap()
+    goTo("reset-code")
+  }
+
+  const submitResetCode = async (typed?: string) => {
+    const digits = (typed ?? code).replace(/[^0-9]/g, "")
+    const problem = !digits
+      ? "Enter the code from your email"
+      : digits.length !== OTP_LENGTH
+        ? `The code is ${OTP_LENGTH} digits`
+        : undefined
+    setFieldErrors({ code: problem })
+    if (problem) {
+      feedback.error()
+      return
+    }
+    setBusy(true)
+    setError("")
+    const result = await verifyResetCode(email, digits)
+    setBusy(false)
+    if ("error" in result) {
+      setError(result.error)
+      feedback.error()
+      return
+    }
+    resetRef.current = result
+    setNextPassword("")
+    setConfirmPassword("")
+    feedback.tap()
+    goTo("reset-password")
+  }
+
+  const submitNewPassword = async () => {
+    const found: { next?: string; confirm?: string } = {}
+    if (nextPassword.length < MIN_PASSWORD_LENGTH) found.next = `Use at least ${MIN_PASSWORD_LENGTH} characters`
+    if (!found.next && confirmPassword !== nextPassword) found.confirm = "The two passwords do not match"
+    setFieldErrors(found)
+    if (found.next || found.confirm) {
+      feedback.error()
+      return
+    }
+    const reset = resetRef.current
+    if (!reset) {
+      // Only reachable if the screen lost its state; start the reset again.
+      goTo("reset-email")
+      setError("Your code has expired. Ask for a new one.")
+      return
+    }
+    Keyboard.dismiss()
+    setBusy(true)
+    setError("")
+    const result = await finishPasswordReset(reset, nextPassword)
+    setBusy(false)
+    if ("error" in result) {
+      feedback.error()
+      if (result.passwordChanged) {
+        backToSignIn()
+        setPassword("")
+      }
+      setError(result.error)
+      return
+    }
+    // No navigation: the app now holds a session and RootNavigator swaps this
+    // screen for the tabs.
+    feedback.unlocked()
+    toast.show({ message: "Password changed", tone: "success" })
+  }
+
+  const copy: Record<Step, { title: React.ReactNode; subtitle: string; action: string; onSubmit: () => void }> = {
+    password: {
+      title: (
+        <>
+          Welcome to <Text style={{ color: c.primary, fontFamily: font.bold }}>Ortex</Text>
+        </>
+      ),
+      subtitle: "Sign in with your Ortex console account.",
+      action: "Login",
+      onSubmit: submitPassword,
+    },
+    code: {
+      title: "Check your email",
+      subtitle: `We sent a ${OTP_LENGTH}-digit code to ${email.trim()}. It expires in a few minutes.`,
+      action: "Sign in",
+      onSubmit: () => void submitCode(),
+    },
+    "reset-email": {
+      title: "Reset your password",
+      subtitle: `Enter the email you sign in with. We will send a ${OTP_LENGTH}-digit code to it.`,
+      action: "Send code",
+      onSubmit: submitResetEmail,
+    },
+    "reset-code": {
+      title: "Check your email",
+      subtitle: `If ${email.trim()} has an Ortex account, a ${OTP_LENGTH}-digit code is on its way. It expires in a few minutes.`,
+      action: "Verify code",
+      onSubmit: () => void submitResetCode(),
+    },
+    "reset-password": {
+      title: "Choose a new password",
+      subtitle: `For ${email.trim()}. Use at least ${MIN_PASSWORD_LENGTH} characters.`,
+      action: "Save and sign in",
+      onSubmit: submitNewPassword,
+    },
+  }
+  const screen = copy[step]
+
+  const emailField = (
+    <TextField
+      label="Email"
+      value={email}
+      onChangeText={(v) => {
+        setEmail(v)
+        setFieldErrors((e) => ({ ...e, email: undefined }))
+      }}
+      error={fieldErrors.email}
+      placeholder="Enter your email"
+      autoCapitalize="none"
+      autoCorrect={false}
+      autoComplete="email"
+      keyboardType="email-address"
+      editable={!busy}
+      leadingIcon="mail"
+      returnKeyType={step === "reset-email" ? "go" : "next"}
+      onSubmitEditing={step === "reset-email" ? submitResetEmail : undefined}
+      fieldStyle={styles.noMargin}
+    />
+  )
+
+  const codeField = (onComplete: (digits: string) => void) => (
+    <OtpField
+      label="One-Time Code"
+      value={code}
+      length={OTP_LENGTH}
+      onChangeText={(v) => {
+        setCode(v)
+        setFieldErrors((e) => ({ ...e, code: undefined }))
+        setError("")
+      }}
+      // The last digit submits, so a pasted or autofilled code needs no extra tap.
+      onComplete={onComplete}
+      error={fieldErrors.code}
+      disabled={busy}
+      autoFocus
+    />
+  )
+
+  const link = (label: string, onPress: () => void, primary = true) => (
+    <Pressable onPress={onPress} disabled={busy} hitSlop={10} accessibilityRole="button">
+      <Text style={[styles.linkText, { color: primary ? c.primary : c.textSecondary }]}>{label}</Text>
+    </Pressable>
+  )
 
   return (
     <View style={[styles.root, { backgroundColor: c.background }]}>
       <Animated.View style={[styles.root, { transform: [{ translateY: shift }] }]}>
-        {/* THE COLLAGE — bleeds off the top edge, fades into the page. */}
+        {/* THE COLLAGE — bleeds off the top edge. */}
         <View style={styles.collage} pointerEvents="none">
           <View style={styles.collageRow}>
             {COLLAGE.map((col, i) => (
               <MarqueeColumn key={i} images={col.images} top={col.top} reverse={i === 1} />
             ))}
           </View>
-          <LinearGradient
-            colors={[`${c.background}00`, `${c.background}CC`, c.background]}
-            locations={[0, 0.55, 1]}
-            style={styles.fade}
-          />
-          {/* A light veil under the status bar so the clock stays readable over a photo. */}
-          <LinearGradient
-            colors={[`${c.background}B3`, `${c.background}00`]}
-            style={[styles.topVeil, { height: insets.top + 24 }]}
-          />
         </View>
 
         {/* THE FORM */}
         <View style={[styles.content, { backgroundColor: c.background, paddingBottom: insets.bottom + spacing.xl }]}>
-          <Text style={[styles.title, { color: c.text }]}>
-            {onCode ? (
-              "Check your email"
-            ) : (
-              <>
-                Welcome to <Text style={{ color: c.primary, fontFamily: font.bold }}>Ortex</Text>
-              </>
-            )}
-          </Text>
+          <Text style={[styles.title, { color: c.text }]}>{screen.title}</Text>
           <Text style={[textVariants.screenSubtitle, styles.subtitle, { color: c.textSecondary }]}>
-            {onCode
-              ? `We sent a ${OTP_LENGTH}-digit code to ${email.trim()}. It expires in a few minutes.`
-              : "Sign in with your Ortex console account."}
+            {screen.subtitle}
           </Text>
 
           <View ref={formRef} collapsable={false} style={styles.fields}>
-            {onCode ? (
-              <TextField
-                label="One-Time Code"
-                value={code}
-                onChangeText={(v) => {
-                  setCode(v.replace(/[^0-9]/g, ""))
-                  setFieldErrors((e) => ({ ...e, code: undefined }))
-                }}
-                error={fieldErrors.code}
-                maxLength={OTP_LENGTH}
-                placeholder="Enter the 6-digit code"
-                keyboardType="number-pad"
-                autoComplete="one-time-code"
-                editable={!busy}
-                leadingIcon="lock"
-                onSubmitEditing={submitCode}
-                returnKeyType="go"
-                fieldStyle={styles.noMargin}
-              />
-            ) : (
+            {step === "password" && (
               <>
-                <TextField
-                  label="Email"
-                  value={email}
-                  onChangeText={(v) => {
-                    setEmail(v)
-                    setFieldErrors((e) => ({ ...e, email: undefined }))
-                  }}
-                  error={fieldErrors.email}
-                  placeholder="Enter your email"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="email"
-                  keyboardType="email-address"
-                  editable={!busy}
-                  leadingIcon="mail"
-                  returnKeyType="next"
-                  fieldStyle={styles.noMargin}
-                />
+                {emailField}
                 <View>
                   <TextField
                     label="Password"
@@ -357,12 +510,8 @@ export default function LoginScreen() {
                     fieldStyle={styles.noMargin}
                   />
                   <Pressable
-                    onPress={() =>
-                      toast.show({
-                        message: "Ask an Ortex admin to reset it from Team → your name → Reset password.",
-                        tone: "neutral",
-                      })
-                    }
+                    onPress={() => goTo("reset-email")}
+                    disabled={busy}
                     hitSlop={10}
                     style={styles.link}
                     accessibilityRole="button"
@@ -373,35 +522,69 @@ export default function LoginScreen() {
               </>
             )}
 
+            {step === "code" && codeField((v) => void submitCode(v))}
+
+            {step === "reset-email" && emailField}
+
+            {step === "reset-code" && codeField((v) => void submitResetCode(v))}
+
+            {step === "reset-password" && (
+              <>
+                <TextField
+                  label="New password"
+                  value={nextPassword}
+                  onChangeText={(v) => {
+                    setNextPassword(v)
+                    setFieldErrors((e) => ({ ...e, next: undefined }))
+                  }}
+                  error={fieldErrors.next}
+                  placeholder="Enter a new password"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoComplete="new-password"
+                  editable={!busy}
+                  leadingIcon="lock"
+                  returnKeyType="next"
+                  autoFocus
+                  fieldStyle={styles.noMargin}
+                />
+                <TextField
+                  label="Confirm new password"
+                  value={confirmPassword}
+                  onChangeText={(v) => {
+                    setConfirmPassword(v)
+                    setFieldErrors((e) => ({ ...e, confirm: undefined }))
+                  }}
+                  error={fieldErrors.confirm}
+                  placeholder="Enter it again"
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoComplete="new-password"
+                  editable={!busy}
+                  leadingIcon="lock"
+                  onSubmitEditing={submitNewPassword}
+                  returnKeyType="go"
+                  fieldStyle={styles.noMargin}
+                />
+              </>
+            )}
+
             {!!error && <Text style={[textVariants.small, { color: c.dangerText }]}>{error}</Text>}
           </View>
 
-          <Button
-            label={onCode ? "Sign in" : "Login"}
-            onPress={onCode ? submitCode : submitPassword}
-            loading={busy}
-            fullWidth
-            style={styles.submit}
-          />
+          <Button label={screen.action} onPress={screen.onSubmit} loading={busy} fullWidth style={styles.submit} />
 
-          {onCode && (
+          {step !== "password" && (
             <View style={styles.secondary}>
-              <Pressable onPress={resend} disabled={busy} hitSlop={10} accessibilityRole="button">
-                <Text style={[styles.linkText, { color: c.primary }]}>Send another code</Text>
-              </Pressable>
-              <Text style={{ color: c.textTertiary }}>·</Text>
-              <Pressable
-                onPress={() => {
-                  setStep("password")
-                  setCode("")
-                  setError("")
-                }}
-                disabled={busy}
-                hitSlop={10}
-                accessibilityRole="button"
-              >
-                <Text style={[styles.linkText, { color: c.textSecondary }]}>Use a different email</Text>
-              </Pressable>
+              {(step === "code" || step === "reset-code") && (
+                <>
+                  {link("Send another code", resend)}
+                  <Text style={{ color: c.textTertiary }}>·</Text>
+                </>
+              )}
+              {step === "code"
+                ? link("Use a different email", () => goTo("password"), false)
+                : link("Back to sign in", backToSignIn, false)}
             </View>
           )}
         </View>
@@ -417,10 +600,7 @@ const styles = StyleSheet.create({
   collage: { flex: 1, minHeight: 280, overflow: "hidden", marginTop: -30 },
   collageRow: { flexDirection: "row", gap: COLLAGE_GAP, paddingHorizontal: COLLAGE_GAP },
   column: { flex: 1 },
-  fade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 160 },
-  topVeil: { position: "absolute", left: 0, right: 0, top: 30 },
-  // Overlaps the fade by a little so there is no hard seam between the two.
-  content: { paddingHorizontal: gutter, marginTop: -24 },
+  content: { paddingHorizontal: gutter, paddingTop: 30, marginTop: -24 },
   title: { fontSize: 28, lineHeight: 36, fontFamily: font.semibold },
   subtitle: { marginTop: spacing.xs },
   // Rhythm: title block to fields 28, fields 20 apart, fields to button 32.

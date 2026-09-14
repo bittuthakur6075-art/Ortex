@@ -1,10 +1,9 @@
-import { motion } from "framer-motion"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
 export default function Terms() {
   useDocumentMetadata(
-    "Terms of Service - Ortex Industries",
-    "Terms of Service for Ortex Industries. Read our customer agreements and custom manufacturing terms.",
+    "Terms of Service | Ortex Industries",
+    "The terms that govern use of the Ortex Industries website, quote requests and custom manufacturing orders, including artwork approval, payment and delivery.",
     { path: "/terms" }
   )
 
@@ -37,12 +36,7 @@ export default function Terms() {
 
   return (
     <div className="py-20 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-left">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="space-y-8"
-      >
+      <div className="hero-in space-y-8">
         <div>
           <h1 className="text-4xl font-bold tracking-tight text-foreground">Terms of Service</h1>
           <p className="mt-2 text-muted-foreground">Last updated: July 4, 2026</p>
@@ -75,7 +69,7 @@ export default function Terms() {
             <p className="text-muted-foreground mt-1">Email: <a href="mailto:sales@ortexindustries.in" className="text-primary hover:underline font-medium">sales@ortexindustries.in</a></p>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

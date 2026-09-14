@@ -1,17 +1,16 @@
-import { motion } from "framer-motion"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 
 export default function Privacy() {
   useDocumentMetadata(
-    "Privacy Policy - Ortex Industries",
-    "Privacy Policy for Ortex Industries. Learn how we handle customer data, custom manufacturing records, and form inquiries.",
+    "Privacy Policy | Ortex Industries",
+    "How Ortex Industries collects, uses and protects the information you share through our website, quote requests, enquiry forms and custom manufacturing orders.",
     { path: "/privacy" }
   )
 
   const sections = [
     {
       title: "1. Information We Collect",
-      content: "We collect information you provide directly to us when requesting custom quotes, placing orders, or contacting our support team. This includes personal identification information (such as your name, email address, corporate domain, phone number, and shipping address), business details (such as company name, tax registration/GST numbers), and custom manufacturing assets (such as logos, vector designs, and product specifications)."
+      content: "We collect information you provide directly to us when requesting custom quotes, placing orders, or contacting our support team. This includes personal identification information (such as your name, email address, corporate domain, phone number, and shipping address), business details (such as company name, tax registration/GST numbers), and custom manufacturing assets (such as logos, vector designs, and product specifications). If you speak with Anu, the AI voice assistant on our website, your voice and the conversation are processed in real time by Google's Gemini service to produce her spoken replies, the call is recorded as an audio file, and the details you give (such as your name, WhatsApp number, the products and quantities you ask about, your timeline and delivery city) are saved as an enquiry. Call recordings are kept in private storage that only our sales staff can open, and are used to follow up your enquiry accurately and to check the assistant's quality."
     },
     {
       title: "2. How We Use Your Information",
@@ -19,7 +18,7 @@ export default function Privacy() {
     },
     {
       title: "3. Data Sharing and Third-Party Disclosures",
-      content: "Ortex Industries does not sell, lease, or trade your personal data. We share information only with the providers necessary to run this website and complete your order. Named processors: Supabase (cloud database and file storage for enquiries and uploaded artwork) and, where you have consented to analytics, ipapi.co with api.ipify.org as fallback (IP-address geolocation lookup). We additionally share order data with logistics partners for PAN India and global shipping. We do not use Google Analytics, advertising pixels, or retargeting networks of any kind."
+      content: "Ortex Industries does not sell, lease, or trade your personal data. We share information only with the providers necessary to run this website and complete your order. Named processors: Supabase (cloud database and file storage for enquiries, uploaded artwork and voice-assistant call recordings), Google (the Gemini service that processes voice-assistant conversations in real time) and, where you have consented to analytics, ipapi.co with api.ipify.org as fallback (IP-address geolocation lookup). We additionally share order data with logistics partners for PAN India and global shipping. We do not use Google Analytics, advertising pixels, or retargeting networks of any kind."
     },
     {
       title: "4. Analytics, IP Address, and Consent",
@@ -41,15 +40,10 @@ export default function Privacy() {
 
   return (
     <div className="py-20 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-left">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="space-y-8"
-      >
+      <div className="hero-in space-y-8">
         <div>
           <h1 className="text-4xl font-bold tracking-tight text-foreground">Privacy Policy</h1>
-          <p className="mt-2 text-muted-foreground">Last updated: July 4, 2026</p>
+          <p className="mt-2 text-muted-foreground">Last updated: September 14, 2026</p>
         </div>
 
         <p className="text-foreground leading-relaxed text-base">
@@ -81,7 +75,7 @@ export default function Privacy() {
             <p className="text-muted-foreground">Address: Custom Manufacturing Division, New Delhi, India</p>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

@@ -24,8 +24,8 @@ function rowPhotos(idx) {
  */
 export default function Industries() {
   useDocumentMetadata(
-    "Industries We Serve - Ortex Industries | Corporate, Education, Healthcare & More",
-    "Ortex Industries serves diverse sectors including corporate organizations, educational institutions, government departments, hospitals, event management, and more with customized products.",
+    "Industries We Serve | Ortex Industries",
+    "Custom products for corporates, schools, universities, government departments, hospitals and event companies, manufactured in-house by Ortex Industries.",
     { path: "/industries" }
   )
 

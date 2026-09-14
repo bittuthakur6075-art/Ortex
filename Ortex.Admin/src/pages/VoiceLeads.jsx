@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useEffect, useMemo, useState } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { Mic } from "../components/ui/Icons"
 import { repo } from "../data/store/repository"
@@ -30,6 +30,17 @@ export default function VoiceLeads() {
   const [saving, setSaving] = useState(false)
 
   const { calls, stats, visible } = useVoiceCalls(items, { query, range, view })
+  const location = useLocation()
+
+  // Arriving from a link that names a call to open (the Dashboard's "Needs you
+  // today" list). A call id is its newest capture row, as groupIntoCalls sets it.
+  useEffect(() => {
+    const id = location.state?.openId
+    if (!id || loading) return
+    if (calls.some((c) => c.id === id)) setOpen(id)
+    else toast.error("That call is no longer in the list.")
+    navigate(location.pathname + location.search, { replace: true })
+  }, [location.state, loading, calls, navigate, location.pathname, location.search])
 
   const active = open ? visible.find((c) => c.id === open) || calls.find((c) => c.id === open) || null : null
 

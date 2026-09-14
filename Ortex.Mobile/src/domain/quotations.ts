@@ -55,15 +55,28 @@ async function generateNumber(series: string, settings: Settings): Promise<strin
 }
 
 /**
+ * Bare national digits: +91 or a trunk 0 taken off, so "+91 98765 43210" and
+ * "9876543210" compare equal. Same rule as `nationalDigits` in
+ * features/contacts/validateContact.ts and Admin's lib/validateCustomer.js; kept
+ * local so the domain layer does not import a feature folder.
+ */
+function nationalDigits(value?: string): string {
+  const d = String(value || "").replace(/\D/g, "")
+  if (d.length === 12 && d.startsWith("91")) return d.slice(2)
+  if (d.length === 11 && d.startsWith("0")) return d.slice(1)
+  return d
+}
+
+/**
  * Are these two customer records the same party? Matched on email first, then on
  * phone digits — never on name, because two people at the same company share a
  * company name and one person spells their own name three ways.
  */
 export function sameCustomer(a?: Partial<Customer> | null, b?: Partial<Customer> | null): boolean {
   const email = (a?.email || "").trim().toLowerCase()
-  const phone = (a?.phone || "").replace(/\D/g, "")
+  const phone = nationalDigits(a?.phone)
   if (email && (b?.email || "").trim().toLowerCase() === email) return true
-  if (phone && (b?.phone || "").replace(/\D/g, "") === phone) return true
+  if (phone && nationalDigits(b?.phone) === phone) return true
   return false
 }
 
@@ -84,7 +97,8 @@ export async function upsertCustomer(customer: Customer): Promise<void> {
     if (Object.keys(patch).length) await repo.update("customers", match.id, patch)
     return
   }
-  await repo.create("customers", { ...customer })
+  // Stored as national digits, the shape the contact editor saves.
+  await repo.create("customers", { ...customer, phone: nationalDigits(customer.phone) })
 }
 
 export type QuotationDraft = {

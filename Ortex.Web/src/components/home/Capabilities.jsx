@@ -31,7 +31,7 @@ const initials = featured.author
 
 function Stars() {
   return (
-    <div className="flex gap-1 text-[#f5b301]" aria-label="5 out of 5 stars">
+    <div className="flex gap-1 text-[#f5b301]" role="img" aria-label="5 out of 5 stars">
       {Array.from({ length: 5 }).map((_, i) => (
         <svg key={i} width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 7.1-1.01z" />

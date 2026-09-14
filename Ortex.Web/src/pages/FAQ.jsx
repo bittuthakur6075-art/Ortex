@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Link } from "react-router-dom"
 import {
@@ -6,9 +6,11 @@ import {
   Building3, ReceiptText, ShieldTick, ArrowRight,
 } from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
+import useJsonLd from "../hooks/useJsonLd"
 import { fadeUp, EASE } from "../components/ui/Section"
 import PageHero from "../components/ui/PageHero"
 import { whatsappLink, CONTACT } from "../constants/site"
+import { TERMS, dispatchSentence, gstSentence, moqSentence } from "../constants/business"
 
 /**
  * Full FAQ, grouped by topic. Every answer is grounded in real business data
@@ -24,11 +26,11 @@ const FAQ_GROUPS = [
     items: [
       {
         q: "How do I get pricing or a quote?",
-        a: "We prepare a formal GST quotation for every enquiry rather than list fixed prices, because the rate depends on your product, material, quantity, and finish. Build your list in the quote builder, or send your requirement over WhatsApp or email, and our sales desk returns a written, volume-tiered quotation, usually within one working day.",
+        a: `We prepare a formal GST quotation for every enquiry rather than list fixed prices, because the rate depends on your product, material, quantity, and finish. Build your list in the quote builder, or send your requirement over WhatsApp or email, and our sales desk returns a written, volume-tiered quotation, usually within ${TERMS.quoteTurnaround}.`,
       },
       {
         q: "What is your Minimum Order Quantity (MOQ)?",
-        a: "Because we manufacture in-house, MOQs are flexible and vary by product. Wall clocks start at 10 units; acrylic paperweights, examination boards and corporate gifts start at 25; keychains, badges, clipboards and MDF products start at 50; lanyards and fridge magnets start at 100; and moulded silicone, PVC and satin items start at 200. Every product card shows its exact MOQ, and smaller promotional sample runs can be negotiated.",
+        a: `Because we manufacture in-house, MOQs are flexible and vary by product. ${moqSentence().replace(/^./, (c) => c.toUpperCase())}. Every product card shows its exact MOQ, and smaller promotional sample runs can be negotiated.`,
       },
       {
         q: "Can I order a product that is not in your catalogue?",
@@ -101,7 +103,7 @@ const FAQ_GROUPS = [
     items: [
       {
         q: "What are your standard lead times?",
-        a: "Most orders dispatch in about 4 to 12 working days, depending on the product, quantity, and finish. Simpler items like button badges and satin keychains move fastest, while wooden clocks and moulded or assembled items take longer. Your quotation confirms the dispatch window for your specific order.",
+        a: `${dispatchSentence()} Simpler items like button badges and satin keychains move fastest, while wooden clocks and moulded or assembled items take longer. Your quotation confirms the dispatch window for your specific order.`,
       },
       {
         q: "Do you deliver across India?",
@@ -159,7 +161,7 @@ const FAQ_GROUPS = [
       },
       {
         q: "What GST rate applies?",
-        a: "Most products are billed at 18% GST, while lanyards, flags, and caps are billed at 12%. Your quotation and invoice show the exact rate for each item.",
+        a: `${gstSentence()} Your quotation and invoice show the exact rate for each item.`,
       },
       {
         q: "Can I cancel or change an order after confirming?",
@@ -194,6 +196,17 @@ const FAQ_GROUPS = [
 
 const ALL_ITEMS = FAQ_GROUPS.flatMap((g) => g.items)
 
+// Exported for scripts/prerender.mjs, which bakes it into /faq's static HTML.
+export const FAQ_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: ALL_ITEMS.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+}
+
 const WhatsAppIcon = ({ className }) => (
   <svg className={className} viewBox="0 0 510 513" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <path fillRule="evenodd" clipRule="evenodd" d="M435.689 74.468C387.754 26.471 324 0.025 256.071 0C116.098 0 2.18 113.906 2.131 253.916C2.107 298.674 13.808 342.361 36.029 380.862L0 512.459L134.617 477.148C171.704 497.386 213.467 508.039 255.962 508.051H256.071C396.02 508.051 509.951 394.134 509.999 254.123C510.023 186.268 483.638 122.478 435.689 74.48V74.468ZM256.071 465.168H255.986C218.118 465.157 180.97 454.976 148.558 435.751L140.851 431.174L60.965 452.127L82.285 374.238L77.268 366.251C56.143 332.646 44.978 293.804 45.002 253.929C45.051 137.563 139.731 42.883 256.157 42.883C312.53 42.908 365.521 64.886 405.371 104.786C445.224 144.674 467.152 197.713 467.128 254.099C467.078 370.476 372.4 465.157 256.071 465.157V465.168ZM371.839 307.101C365.495 303.923 334.302 288.581 328.481 286.462C322.661 284.343 318.437 283.285 314.211 289.64C309.986 295.997 297.823 310.291 294.121 314.515C290.419 318.753 286.718 319.277 280.374 316.098C274.031 312.92 253.587 306.224 229.345 284.611C210.485 267.784 197.748 247.013 194.048 240.656C190.346 234.301 193.658 230.867 196.823 227.713C199.672 224.865 203.167 220.299 206.345 216.597C209.523 212.895 210.57 210.242 212.688 206.016C214.808 201.778 213.748 198.079 212.166 194.899C210.582 191.722 197.895 160.49 192.598 147.791C187.447 135.421 182.213 137.101 178.329 136.894C174.626 136.711 170.402 136.675 166.165 136.675C161.928 136.675 155.06 138.257 149.24 144.614C143.42 150.968 127.031 166.323 127.031 197.541C127.031 228.761 149.764 258.946 152.942 263.183C156.119 267.42 197.687 331.501 261.331 358.995C276.466 365.533 288.288 369.441 297.506 372.363C312.702 377.197 326.533 376.516 337.466 374.883C349.656 373.058 375.006 359.53 380.29 344.711C385.573 329.893 385.573 317.182 383.991 314.539C382.409 311.898 378.172 310.302 371.828 307.125L371.839 307.101Z" fill="currentColor" />
@@ -202,28 +215,12 @@ const WhatsAppIcon = ({ className }) => (
 
 export default function FAQ() {
   useDocumentMetadata(
-    "Frequently Asked Questions - Ortex Industries",
-    "Got questions about custom manufacturing, MOQ, sampling policies, or design files? Find answers to frequently asked questions about Ortex Industries.",
+    "Custom Manufacturing FAQs: MOQ, Artwork | Ortex Industries",
+    "Answers on minimum order quantities, samples, artwork files, materials, delivery times, OEM production and payment for custom orders at Ortex Industries.",
     { path: "/faq" }
   )
 
-  useEffect(() => {
-    const schema = {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": ALL_ITEMS.map((item) => ({
-        "@type": "Question",
-        "name": item.q,
-        "acceptedAnswer": { "@type": "Answer", "text": item.a },
-      })),
-    }
-    const script = document.createElement("script")
-    script.type = "application/ld+json"
-    script.id = "faq-schema"
-    script.innerHTML = JSON.stringify(schema)
-    document.head.appendChild(script)
-    return () => document.getElementById("faq-schema")?.remove()
-  }, [])
+  useJsonLd("faq-schema", FAQ_SCHEMA)
 
   // One open answer at a time, keyed "groupId-index".
   const [openId, setOpenId] = useState(null)
@@ -316,6 +313,14 @@ export default function FAQ() {
                               </motion.div>
                             )}
                           </AnimatePresence>
+                          {/* A closed answer stays in the DOM, hidden: the page is prerendered,
+                              and an answer that exists only after a click is invisible to a
+                              crawler and contradicts the FAQPage schema that quotes it. */}
+                          {!isOpen && (
+                            <p id={`${id}-panel`} hidden>
+                              {item.a}
+                            </p>
+                          )}
                         </motion.div>
                       )
                     })}

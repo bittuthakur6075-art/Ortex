@@ -113,6 +113,50 @@ export async function verifyEmailOtp(email, token) {
   return error ? { error: error.message } : { ok: true }
 }
 
+// ---- Forgot password, by emailed code ----
+//
+// Mirrors Ortex.Mobile/src/lib/auth.ts. The whole reset runs on ONE ephemeral
+// client held by the login page: the code is verified there and the password is
+// changed there, then that client is signed out. The shared client never holds
+// the recovery session, so the route guard cannot let anyone into the console
+// before a new password exists. Only then does the console sign in, with the new
+// password and no second code: the person proved they own the inbox a minute ago.
+
+const NOT_CONFIGURED = { error: "Password reset requires Supabase to be configured." }
+
+// Reset step 1. An address with no account gets the same answer as one that
+// has, so this page cannot be used to find out who has a console login.
+export async function sendResetCode(email) {
+  if (!hasSupabase) return NOT_CONFIGURED
+  const { error } = await supabase.auth.signInWithOtp({
+    email: email.trim(),
+    options: { shouldCreateUser: false },
+  })
+  if (error && /signups? not allowed|user not found/i.test(error.message)) return { ok: true }
+  return error ? { error: error.message } : { ok: true }
+}
+
+// Reset step 2. Returns { ok, reset } where `reset` is handed back to step 3.
+export async function verifyResetCode(email, token) {
+  if (!hasSupabase) return NOT_CONFIGURED
+  const client = createEphemeralClient()
+  const { data, error } = await client.auth.verifyOtp({ email: email.trim(), token: token.trim(), type: "email" })
+  if (error || !data.session) return { error: error?.message || "That code was not accepted." }
+  return { ok: true, reset: { client, email: email.trim() } }
+}
+
+// Reset step 3. `passwordChanged` tells the page whether to send the person to
+// the normal sign-in (the password is new, only the automatic sign-in failed).
+export async function finishPasswordReset(reset, next) {
+  const { error } = await reset.client.auth.updateUser({ password: next })
+  if (error) return { error: error.message, passwordChanged: false }
+  await reset.client.auth.signOut({ scope: "local" }).catch(() => {})
+  const { error: signInError } = await supabase.auth.signInWithPassword({ email: reset.email, password: next })
+  return signInError
+    ? { error: "Password changed. Sign in with your new password.", passwordChanged: true }
+    : { ok: true }
+}
+
 // There is deliberately no signUp() here. The console is invite-only: accounts
 // are created by an admin through the `admin-create-user` Edge Function, which
 // verifies the caller is an admin before using the service-role key. Public
