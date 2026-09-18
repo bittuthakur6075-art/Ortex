@@ -1,8 +1,9 @@
 import React from "react"
-import { Pressable, StyleSheet, type ViewStyle } from "react-native"
+import { Animated, Pressable, StyleSheet, type ViewStyle } from "react-native"
 
 import { useTheme } from "@/store/ThemeContext"
 import Icon, { type IconName, type IconVariant } from "@/ui/Icon"
+import { usePressMotion } from "@/ui/motion"
 
 type Props = {
   name: IconName
@@ -26,17 +27,23 @@ export default function IconButton({
   accessibilityLabel,
 }: Props) {
   const t = useTheme()
+  const press = usePressMotion({ scale: 0.86, dim: 0.6 })
   return (
     <Pressable
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       onPress={onPress}
       disabled={disabled}
       hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       android_ripple={{ color: t.accentTint, borderless: true, radius: 22 }}
-      style={({ pressed }) => [styles.button, style, { opacity: disabled ? 0.35 : pressed ? 0.6 : 1 }]}
+      style={[styles.button, style, { opacity: disabled ? 0.35 : 1 }]}
     >
-      <Icon name={name} size={size} color={color ?? t.text} variant={variant} />
+      {/* The glyph sinks inside a still touch box, so the ripple keeps its circle. */}
+      <Animated.View style={press.style}>
+        <Icon name={name} size={size} color={color ?? t.text} variant={variant} />
+      </Animated.View>
     </Pressable>
   )
 }

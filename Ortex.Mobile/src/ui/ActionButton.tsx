@@ -1,10 +1,11 @@
 import React from "react"
-import { Pressable, StyleSheet, Text, View } from "react-native"
+import { Animated, Pressable, StyleSheet, Text } from "react-native"
 
 import { useTheme } from "@/store/ThemeContext"
 import type { StatusTone } from "@/theme/theme"
 import { font } from "@/theme/typography"
 import Icon, { type IconName } from "@/ui/Icon"
+import { usePressMotion } from "@/ui/motion"
 
 /**
  * The round-ended action under a record's name: Call, WhatsApp, Email, Quote,
@@ -42,6 +43,7 @@ export default function ActionButton({
     rose: t.danger,
     slate: t.muted,
   }
+  const press = usePressMotion({ scale: 0.9, dim: 0.8 })
   return (
     <Pressable
       onPress={onPress}
@@ -49,11 +51,13 @@ export default function ActionButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled }}
-      style={({ pressed }) => [styles.root, { opacity: disabled ? 0.35 : pressed ? 0.65 : 1 }]}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      style={[styles.root, { opacity: disabled ? 0.35 : 1 }]}
     >
-      <View style={[styles.pill, { backgroundColor: fill[tone] }]}>
+      <Animated.View style={[styles.pill, { backgroundColor: fill[tone] }, press.style]}>
         <Icon name={icon} size={22} color={t.textOnPrimary} variant="Bold" />
-      </View>
+      </Animated.View>
       <Text numberOfLines={1} style={[styles.label, { color: t.text }]}>
         {label}
       </Text>

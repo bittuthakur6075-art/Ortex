@@ -1,4 +1,7 @@
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
+import {
+  createBottomTabNavigator,
+  type BottomTabNavigationOptions,
+} from "@react-navigation/bottom-tabs"
 import { BlurTargetView } from "expo-blur"
 import React from "react"
 
@@ -14,8 +17,36 @@ import type { TabParamList } from "@/navigation/types"
 import { StyleSheet } from "react-native"
 
 import { useAuth } from "@/store/AuthContext"
+import { EASE, isReducedMotion } from "@/ui/motion"
 
 const Tab = createBottomTabNavigator<TabParamList>()
+
+/**
+ * One UI's FADE-THROUGH between tabs. The leaving tab is gone by the halfway
+ * mark and only then does the arriving one fade in, drifting 20dp in from the
+ * side it came from. The library's "shift" cross-faded the two, so mid-switch
+ * both pages sat at half opacity on top of each other, which reads as mud.
+ * Under reduced motion it is a plain fade with no drift.
+ */
+const forFadeThrough: NonNullable<BottomTabNavigationOptions["sceneStyleInterpolator"]> = ({ current }) => {
+  const drift = isReducedMotion() ? 0 : 20
+  return {
+    sceneStyle: {
+      opacity: current.progress.interpolate({
+        inputRange: [-1, -0.5, 0, 0.5, 1],
+        outputRange: [0, 0, 1, 0, 0],
+      }),
+      transform: [
+        {
+          translateX: current.progress.interpolate({
+            inputRange: [-1, 0, 1],
+            outputRange: [-drift, 0, drift],
+          }),
+        },
+      ],
+    },
+  }
+}
 
 // Which tab needs which module lives in navigation/tabAccess.ts, shared with
 // RootNavigator, which refuses to mount this navigator with no tabs at all.
@@ -32,11 +63,11 @@ export default function Tabs() {
         tabBar={(props) => <OneUiTabBar {...props} />}
         screenOptions={{
           headerShown: false,
-          // Cross-fade with a slight shift between tabs, the way One UI moves.
-          animation: "shift",
+          // One UI's fade-through (see forFadeThrough), on the app's one curve.
+          sceneStyleInterpolator: forFadeThrough,
           transitionSpec: {
-            animation: "spring",
-            config: { damping: 22, stiffness: 220, mass: 0.9 },
+            animation: "timing",
+            config: { duration: 320, easing: EASE },
           },
         }}
       >

@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 
 import { fontAssets } from "@/theme/typography"
+import UpdateGate from "@/features/update/UpdateGate"
 import RootNavigator from "@/navigation/RootNavigator"
 import { AuthProvider } from "@/store/AuthContext"
 import { ThemeProvider, useIsDark, useTheme } from "@/store/ThemeContext"
@@ -35,7 +36,11 @@ function Root() {
         backgroundColor={t.appBar}
         translucent={false}
       />
-      <RootNavigator fontsReady={fontsReady} />
+      {/* Outermost, so a build the office no longer supports cannot reach even
+          the sign-in screen (features/update/UpdateGate.tsx). */}
+      <UpdateGate>
+        <RootNavigator fontsReady={fontsReady} />
+      </UpdateGate>
     </>
   )
 }

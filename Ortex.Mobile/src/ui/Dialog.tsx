@@ -4,6 +4,7 @@ import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "reac
 import { useTheme } from "@/store/ThemeContext"
 import { spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
+import { EASE } from "@/ui/motion"
 
 export type DialogAction = {
   label: string
@@ -35,8 +36,9 @@ export default function Dialog({ visible, onClose, title, message, children, act
       setMounted(true)
       Animated.timing(progress, {
         toValue: 1,
-        duration: 200,
-        easing: Easing.out(Easing.cubic),
+        // One UI's landing: a longer arrival on the app's deceleration curve.
+        duration: 320,
+        easing: EASE,
         useNativeDriver: true,
       }).start()
       return
@@ -54,7 +56,7 @@ export default function Dialog({ visible, onClose, title, message, children, act
 
   if (!mounted) return null
 
-  const scale = progress.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] })
+  const scale = progress.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] })
 
   return (
     <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>

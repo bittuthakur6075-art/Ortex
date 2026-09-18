@@ -45,6 +45,8 @@ const LAKH_RE = /(\d+(?:\.\d+)?)\s*(lakh|lac|lakhs)/i
 // A name is only useful if someone can open a call with it. Anu falls back to
 // filler when the customer never gives one, and the website's own validation
 // only checks for two letters, so these come through as real names.
+// COPIED into Admin migration 0029 (upsert_customer_from), so a filler name is
+// never saved onto a customer: keep the two lists in step.
 const PLACEHOLDER_NAMES = new Set([
   "customer",
   "grahak",

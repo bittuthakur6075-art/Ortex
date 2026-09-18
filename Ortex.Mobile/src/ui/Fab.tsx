@@ -1,11 +1,12 @@
 import React from "react"
-import { Pressable, StyleSheet } from "react-native"
+import { StyleSheet } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useTheme } from "@/store/ThemeContext"
 import { feedback } from "@/lib/feedback"
 import { size, spacing } from "@/theme/tokens"
 import Icon, { type IconName } from "@/ui/Icon"
+import { AnimatedPressable, usePressMotion } from "@/ui/motion"
 
 /** The floating tab capsule's height, so the FAB can clear it. */
 export const TAB_BAR_HEIGHT = size.tabBar
@@ -29,9 +30,12 @@ export default function Fab({
 }) {
   const t = useTheme()
   const insets = useSafeAreaInsets()
+  const press = usePressMotion({ scale: 0.92, dim: 0.9 })
 
   return (
-    <Pressable
+    <AnimatedPressable
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       onPress={() => {
         feedback.tap()
         onPress()
@@ -47,18 +51,17 @@ export default function Fab({
       delayLongPress={280}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [
+      style={[
         styles.fab,
         {
           backgroundColor: t.primary,
           bottom: insets.bottom + TAB_BAR_HEIGHT + spacing.xl,
-          opacity: pressed ? 0.85 : 1,
-          transform: [{ scale: pressed ? 0.96 : 1 }],
         },
+        press.style,
       ]}
     >
       <Icon name={icon} size={26} color={t.textOnPrimary} variant="Linear" />
-    </Pressable>
+    </AnimatedPressable>
   )
 }
 

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- OVERRIDES react-native-screens' resource of the same name (app resources win
+     the merge). The library plays Android's generic 200ms accelerate-decelerate;
+     One UI pushes a page over ~400ms on a long deceleration and eases it out on
+     close, with the page behind moving a quarter of the way. Every file in this
+     family must share its transition's duration, or one half ends early. --><translate xmlns:android="http://schemas.android.com/apk/res/android"
+    android:duration="360"
+    android:interpolator="@interpolator/ortex_oneui_standard"
+    android:fromXDelta="0%"
+    android:toXDelta="100%" />

@@ -17,6 +17,7 @@ import SettingsPage from "./pages/Settings"
 import Users from "./pages/Users"
 import UserDetail from "./pages/users/UserDetail"
 import Profile from "./pages/Profile"
+import WhatsNew from "./pages/WhatsNew"
 import { useProfile } from "./hooks/useProfile"
 import { canAccess } from "./data/domain/modules"
 
@@ -55,6 +56,7 @@ export default function App() {
         <Route path="/" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="whats-new" element={<WhatsNew />} />
           <Route path="crm" element={<HubGuard keys={CRM_MODULE_KEYS}><Crm /></HubGuard>} />
           <Route path="leads" element={<Redirect to="/crm?tab=enquiries" />} />
           <Route path="voice-leads" element={<Redirect to="/crm?tab=voice" />} />

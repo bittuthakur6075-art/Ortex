@@ -1,7 +1,6 @@
 import React from "react"
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -12,9 +11,10 @@ import {
 import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
 import type { Colors } from "@/theme/theme"
-import { radius, size as sizes, spacing, state } from "@/theme/tokens"
+import { radius, size as sizes, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
 import Icon, { type IconName } from "@/ui/Icon"
+import { AnimatedPressable, usePressMotion } from "@/ui/motion"
 import { SquircleBackground } from "@/ui/Squircle"
 
 /**
@@ -105,13 +105,18 @@ export default function Button({
     size === "lg" ? textVariants.button : size === "md" ? textVariants.buttonSm : textVariants.buttonXs
   const iconSize = size === "lg" ? 20 : 16
   const cornerRadius = size === "md" ? radius.buttonMd : size === "sm" ? radius.buttonSm : radius.buttonLg
+  // One UI's press: the button sinks under the thumb and springs back. A small
+  // button gives a little more, so the movement reads at every size.
+  const press = usePressMotion({ scale: size === "sm" ? 0.94 : 0.97, dim: 0.88 })
 
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       accessibilityLabel={accessibilityLabel ?? label}
       disabled={isDisabled}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       onPress={
         onPress
           ? () => {
@@ -120,7 +125,7 @@ export default function Button({
             }
           : undefined
       }
-      style={({ pressed }) => [
+      style={[
         styles.button,
         {
           height,
@@ -133,9 +138,9 @@ export default function Button({
           // measured itself.
           borderRadius: cornerRadius,
           alignSelf: fullWidth ? "stretch" : "flex-start",
-          // Press feedback is a quick dim, not a ripple ring.
-          opacity: pressed && !isDisabled ? state.pressedOpacity : 1,
         },
+        // Press feedback is a sink and a dim, never a ripple ring.
+        press.style,
         style,
       ]}
     >
@@ -165,7 +170,7 @@ export default function Button({
           ) : null}
         </>
       )}
-    </Pressable>
+    </AnimatedPressable>
   )
 }
 

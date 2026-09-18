@@ -1,8 +1,9 @@
 import React from "react"
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native"
+import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native"
 
 import { useTheme } from "@/store/ThemeContext"
-import { radius, spacing, state } from "@/theme/tokens"
+import { radius, spacing } from "@/theme/tokens"
+import { AnimatedPressable, usePressMotion } from "@/ui/motion"
 import { SquircleBackground, type SquircleCorners } from "@/ui/Squircle"
 
 /**
@@ -53,6 +54,7 @@ export default function Card({
   const c = useTheme()
   const fill = inset ? c.surfaceInset : c.surface
   const corner = squircleRadius ?? radius.lg
+  const press = usePressMotion({ scale: 0.975, dim: 0.9 })
 
   const body = squircle ? (
     <>
@@ -79,13 +81,15 @@ export default function Card({
   if (!onPress) return <View style={boxStyle}>{body}</View>
 
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [boxStyle, { opacity: pressed ? state.pressedOpacity : 1 }]}
+      style={[boxStyle, press.style]}
     >
       {body}
-    </Pressable>
+    </AnimatedPressable>
   )
 }

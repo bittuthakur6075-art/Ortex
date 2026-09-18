@@ -306,6 +306,18 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
           />
         </Section>
 
+        <Section title="About">
+          <SectionRow
+            leadingIcon="assistant"
+            title="What's new"
+            subtitle={`Version ${APP_VERSION}: what changed, and why it matters`}
+            onPress={() => {
+              feedback.tap()
+              navigation.navigate("WhatsNew")
+            }}
+          />
+        </Section>
+
         {/* The published terms, carried locally (features/profile/legal.ts) so
             they open on a warehouse floor with no signal. */}
         <Section title="Legal">

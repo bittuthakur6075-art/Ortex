@@ -81,19 +81,33 @@ export function sameCustomer(a?: Partial<Customer> | null, b?: Partial<Customer>
 }
 
 /**
+ * The fallback for a customer with NO email and NO phone, which sameCustomer can
+ * never match: the same name and company, ignoring case. Without it every
+ * quotation for a walk-in with only a name added another copy to Contacts. A
+ * record that has a phone or email is never matched this way.
+ */
+function sameNameOnly(a: Partial<Customer>, b: Partial<Customer>): boolean {
+  if ((a.email || "").trim() || nationalDigits(a.phone)) return false
+  const key = (c: Partial<Customer>) => `${(c.name || "").trim().toLowerCase()}|${(c.company || "").trim().toLowerCase()}`
+  return key(a) !== "|" && key(a) === key(b)
+}
+
+/**
  * Insert or update a customer in the master, so a customer captured while making
  * a quote appears in Contacts without manual re-entry.
  */
 export async function upsertCustomer(customer: Customer): Promise<void> {
   if (!customer || (!customer.name && !customer.company)) return
   const all = await repo.list<Customer & { id: string }>("customers")
-  const match = all.find((c) => sameCustomer(customer, c))
+  const match = all.find((c) => sameCustomer(customer, c)) ?? all.find((c) => sameNameOnly(customer, c))
   if (match) {
     // Fill only blanks — never clobber curated master data with a sparse doc.
+    // The same fields migration 0029 fills when a lead matches a customer.
     const patch: Record<string, unknown> = {}
-    for (const k of ["company", "gstin", "stateCode", "address"] as const) {
+    for (const k of ["name", "company", "email", "gstin", "stateCode", "address"] as const) {
       if (!match[k] && customer[k]) patch[k] = customer[k]
     }
+    if (!match.phone && nationalDigits(customer.phone)) patch.phone = nationalDigits(customer.phone)
     if (Object.keys(patch).length) await repo.update("customers", match.id, patch)
     return
   }

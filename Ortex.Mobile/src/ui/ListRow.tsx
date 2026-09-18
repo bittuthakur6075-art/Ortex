@@ -1,11 +1,12 @@
 import React from "react"
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native"
+import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native"
 
 import { useTheme } from "@/store/ThemeContext"
 import type { StatusTone } from "@/theme/theme"
 import { gutter, radius, size as sizes, spacing, state } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
 import Icon, { type IconName } from "@/ui/Icon"
+import { AnimatedPressable, usePressMotion } from "@/ui/motion"
 
 /**
  * The full-bleed data row.
@@ -22,7 +23,8 @@ import Icon, { type IconName } from "@/ui/Icon"
  * makes each row read as its own object. Use `RowSeparator` before the first row,
  * between every pair, and after the last.
  *
- * Press feedback is a content opacity fade, never a background ripple.
+ * Press feedback is a content dim with a slight sink on a spring (One UI), never
+ * a background ripple.
  */
 
 export const ROW_PADDING = gutter
@@ -73,6 +75,7 @@ export default function ListRow({
 }: Props) {
   const c = useTheme()
   const showChevron = chevron ?? Boolean(onPress)
+  const press = usePressMotion({ scale: 0.985, dim: state.pressedOpacity })
 
   const wellBg = leadingTone === "primary" ? c.iconWell : c.tones[leadingTone].bg
   const wellFg = leadingTone === "primary" ? c.primary : c.tones[leadingTone].fg
@@ -121,15 +124,17 @@ export default function ListRow({
   if (!onPress && !onLongPress) return <View style={[styles.row, style]}>{body}</View>
 
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
       onLongPress={onLongPress}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       accessibilityRole="button"
       accessibilityLabel={title}
-      style={({ pressed }) => [styles.row, { opacity: pressed ? state.pressedOpacity : 1 }, style]}
+      style={[styles.row, press.style, style]}
     >
       {body}
-    </Pressable>
+    </AnimatedPressable>
   )
 }
 

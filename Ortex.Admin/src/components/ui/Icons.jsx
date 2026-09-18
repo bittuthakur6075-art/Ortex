@@ -78,6 +78,10 @@ import {
   Microphone2,
   Play,
   Camera as CameraIcon,
+  Mobile,
+  Monitor as MonitorIcon,
+  Global,
+  Copy as CopyIcon,
   More,
   UserTick,
   UserRemove,
@@ -170,6 +174,10 @@ export const UserX = wrap(UserRemove)
 export const MicOff = wrap(MicrophoneSlash1)
 export const Minus = wrap(MinusIcon)
 export const ArrowUp = wrap(ArrowUpIcon)
+export const Smartphone = wrap(Mobile)
+export const Monitor = wrap(MonitorIcon)
+export const Globe = wrap(Global)
+export const Copy = wrap(CopyIcon)
 
 // A spinner (lucide's Loader2 replacement), a CSS ring, so it spins cleanly.
 export function Loader2({ className = "" }) {

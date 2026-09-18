@@ -8,6 +8,7 @@
     "ios": "react-native run-ios",
     "lint": "oxlint",
     "typecheck": "tsc --noEmit",
+    "release:android": "node scripts/release-android.mjs",
     "test": "node --test --no-warnings \"test/*.test.mjs\"",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"*.{js,json}\"",
     "icons": "node scripts/icons.mjs"
@@ -29,6 +30,7 @@
     "expo-haptics": "~56.0.3",
     "expo-image": "~56.0.12",
     "expo-image-picker": "~56.0.25",
+    "expo-intent-launcher": "~56.0.0",
     "expo-linear-gradient": "~56.0.4",
     "expo-local-authentication": "~56.0.5",
     "expo-notifications": "~56.0.25",

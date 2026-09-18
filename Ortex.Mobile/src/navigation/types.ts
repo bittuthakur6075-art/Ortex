@@ -56,6 +56,7 @@ export type RootStackParamList = {
   // The rep's own payment terms, T&C and notes for new quotations.
   QuotationDefaults: undefined
   Legal: { doc: LegalDocKey }
+  WhatsNew: undefined
 }
 
 export type TabScreenProps<T extends keyof TabParamList> = CompositeScreenProps<

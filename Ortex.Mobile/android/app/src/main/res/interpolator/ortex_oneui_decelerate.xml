@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One UI's page curve: quick off the mark, a long gentle landing. The same
+     shape as ui/motion.ts EASE (0.16, 1, 0.3, 1), so a page sliding in and the
+     content settling inside it move on one curve. -->
+<pathInterpolator xmlns:android="http://schemas.android.com/apk/res/android"
+    android:controlX1="0.16"
+    android:controlY1="1"
+    android:controlX2="0.3"
+    android:controlY2="1" />

@@ -27,6 +27,7 @@ import ProfileScreen from "@/features/profile/ProfileScreen"
 import QuotationDefaultsScreen from "@/features/profile/QuotationDefaultsScreen"
 import TeamScreen from "@/features/profile/TeamScreen"
 import UserDetailScreen from "@/features/profile/UserDetailScreen"
+import WhatsNewScreen from "@/features/profile/WhatsNewScreen"
 import NotificationSettingsScreen from "@/features/notifications/NotificationSettingsScreen"
 import NotificationsScreen from "@/features/notifications/NotificationsScreen"
 import { NotificationEngine } from "@/features/notifications/useNotificationEngine"
@@ -105,10 +106,13 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          // One UI pushes with a parallax slide: the outgoing screen drifts and
-          // dims while the incoming one slides over it.
+          // One UI pushes with a parallax slide: the incoming page slides over
+          // while the outgoing one drifts a quarter of the way behind it. On
+          // Android the curve and timing live in res/anim/rns_ios_from_right_*
+          // (420ms open on a long deceleration, 360ms close), which override the
+          // library's 200ms defaults; this duration is iOS's, kept to match.
           animation: "ios_from_right",
-          animationDuration: 320,
+          animationDuration: 420,
           gestureEnabled: true,
           contentStyle: { backgroundColor: t.background },
         }}
@@ -155,6 +159,8 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
             the whole screen. */}
         <Stack.Screen name="QuotationDefaults" component={QuotationDefaultsScreen} />
         <Stack.Screen name="Legal" component={LegalScreen} options={SHEET} />
+        {/* A page you read down, several releases long: a push, not a sheet. */}
+        <Stack.Screen name="WhatsNew" component={WhatsNewScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   )

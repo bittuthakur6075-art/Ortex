@@ -1,5 +1,5 @@
 import React from "react"
-import { AccessibilityInfo, Animated, Easing } from "react-native"
+import { Animated } from "react-native"
 import { Gesture } from "react-native-gesture-handler"
 
 import { feedback } from "@/lib/feedback"
@@ -45,47 +45,10 @@ import { feedback } from "@/lib/feedback"
 
 // ---- the vocabulary -------------------------------------------------------------------
 
-/** Expo-out: fast off the mark, long gentle landing. theme/tokens `motion.easeOut`. */
-export const EASE = Easing.bezier(0.16, 1, 0.3, 1)
-
-export const SPRING = {
-  /** Data settling to a new value: a bar morphing, a chart re-drawing. */
-  soft: { stiffness: 170, damping: 26, mass: 1 },
-  /** Something tracking a finger between data points: quick, no overshoot. */
-  follow: { stiffness: 520, damping: 44, mass: 0.7 },
-  /** Under a thumb. */
-  press: { stiffness: 420, damping: 30, mass: 0.6 },
-  /** A bubble appearing. */
-  pop: { stiffness: 360, damping: 26, mass: 0.7 },
-} as const
-
-export const DURATION = { enter: 680, fade: 220, stagger: 32 } as const
-
-// ---- reduced motion ----------------------------------------------------------------
-
-let reduceMotion = false
-const reduceListeners = new Set<(v: boolean) => void>()
-AccessibilityInfo.isReduceMotionEnabled()
-  .then((v) => {
-    reduceMotion = v
-    reduceListeners.forEach((cb) => cb(v))
-  })
-  .catch(() => {})
-AccessibilityInfo.addEventListener("reduceMotionChanged", (v) => {
-  reduceMotion = v
-  reduceListeners.forEach((cb) => cb(v))
-})
-
-export function useReducedMotion(): boolean {
-  const [v, setV] = React.useState(reduceMotion)
-  React.useEffect(() => {
-    reduceListeners.add(setV)
-    return () => {
-      reduceListeners.delete(setV)
-    }
-  }, [])
-  return v
-}
+// Promoted to ui/motion.ts so every primitive in the app moves the same way;
+// re-exported here so the dashboard's imports are unchanged.
+import { DURATION, EASE, SPRING, useReducedMotion } from "@/ui/motion"
+export { DURATION, EASE, SPRING, useReducedMotion }
 
 // ---- entrance ------------------------------------------------------------------------
 

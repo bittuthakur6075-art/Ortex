@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native"
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useIsDark, useTheme } from "@/store/ThemeContext"
@@ -7,6 +7,7 @@ import { palette } from "@/theme/theme"
 import { font } from "@/theme/typography"
 import { feedback } from "@/lib/feedback"
 import Icon, { type IconName } from "@/ui/Icon"
+import { EASE } from "@/ui/motion"
 
 export type ToastTone = "neutral" | "success" | "danger"
 
@@ -67,8 +68,9 @@ function ToastBar({ toast, onDismiss }: { toast: ToastOptions; onDismiss: () => 
     slide.setValue(0)
     Animated.timing(slide, {
       toValue: 1,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
+      // One UI's landing, on the app's deceleration curve.
+      duration: 320,
+      easing: EASE,
       useNativeDriver: true,
     }).start()
   }, [slide, toast])

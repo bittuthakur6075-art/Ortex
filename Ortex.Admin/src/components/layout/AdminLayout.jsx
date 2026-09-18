@@ -16,6 +16,7 @@ import {
   Instagram,
   PhoneOutgoing,
   Search,
+  Sparkles,
 } from "../ui/Icons"
 import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
 import { useProfile } from "../../hooks/useProfile"
@@ -190,6 +191,9 @@ function AccountMenu({ onSignOut }) {
               <Settings variant="Linear" className="h-4 w-4 text-muted-foreground" /> Settings
             </NavLink>
           )}
+          <NavLink to="/whats-new" onClick={() => setOpen(false)} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-secondary-foreground hover:bg-accent">
+            <Sparkles variant="Linear" className="h-4 w-4 text-muted-foreground" /> What's new
+          </NavLink>
           <div className="my-1.5 h-px bg-border" />
           <button onClick={() => { setOpen(false); onSignOut() }} className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-secondary-foreground hover:bg-accent">
             <LogOut variant="Linear" className="h-4 w-4 text-muted-foreground" /> Log out
@@ -283,6 +287,9 @@ export default function AdminLayout() {
   const sidebarFoot = (
     <div className="flex h-12 flex-none items-center border-t border-border px-6 text-xs text-muted-foreground">
       Version <span className="ml-1 font-medium text-foreground tabular">{APP_VERSION}</span>
+      <Link to="/whats-new" onClick={() => setMobileOpen(false)} className="ml-auto font-medium text-primary hover:underline">
+        What's new
+      </Link>
     </div>
   )
 

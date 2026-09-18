@@ -208,19 +208,32 @@ export function sameCustomer(a, b) {
   return false
 }
 
+// The fallback for a customer with NO email and NO phone, which sameCustomer can
+// never match: the same name and company, ignoring case. Without it every
+// quotation for a walk-in with only a name added another copy to Customers. A
+// record with a phone or email is never matched this way. Mirrored in
+// Ortex.Mobile/src/domain/quotations.ts.
+function sameNameOnly(a, b) {
+  if ((a?.email || "").trim() || nationalDigits(a?.phone)) return false
+  const key = (c) => `${(c?.name || "").trim().toLowerCase()}|${(c?.company || "").trim().toLowerCase()}`
+  return key(a) !== "|" && key(a) === key(b)
+}
+
 // Insert or update a customer in the master, matched on email then phone, so a
 // customer captured while making a quote/invoice appears in the Customers list
 // without manual re-entry. Returns the master record.
 export async function upsertCustomer(customer) {
   if (!customer || (!customer.name && !customer.company)) return null
   const all = await repo.list("customers")
-  const match = all.find((c) => sameCustomer(customer, c))
+  const match = all.find((c) => sameCustomer(customer, c)) ?? all.find((c) => sameNameOnly(customer, c))
   if (match) {
     // Fill only blanks. Never clobber curated master data with a sparse doc.
+    // The same fields migration 0029 fills when a lead matches a customer.
     const patch = {}
-    for (const k of ["company", "gstin", "stateCode", "address"]) {
+    for (const k of ["name", "company", "email", "gstin", "stateCode", "address"]) {
       if (!match[k] && customer[k]) patch[k] = customer[k]
     }
+    if (!match.phone && nationalDigits(customer.phone)) patch.phone = nationalDigits(customer.phone)
     if (Object.keys(patch).length) return repo.update("customers", match.id, patch)
     return match
   }

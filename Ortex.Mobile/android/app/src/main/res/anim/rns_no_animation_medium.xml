@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- OVERRIDES react-native-screens' resource of the same name. A full-screen
+     modal (Anu) rises on One UI's deceleration instead of the linear default.
+     rns_slide_in_from_bottom, rns_slide_out_to_bottom and rns_no_animation_medium
+     are one transition: keep their durations equal. --><alpha xmlns:android="http://schemas.android.com/apk/res/android"
+    android:duration="400"
+    android:fromAlpha="1.0"
+    android:toAlpha="1.0" />

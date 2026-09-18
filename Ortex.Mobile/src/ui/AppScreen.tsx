@@ -19,6 +19,7 @@ import { border, gutter, size as sizes, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
 import Icon from "@/ui/Icon"
 import { TAB_BAR_HEIGHT } from "@/ui/Fab"
+import { arrivalStyle, useArrival } from "@/ui/motion"
 
 /**
  * The page shell, and the One UI signature.
@@ -151,6 +152,21 @@ export default function AppScreen({
   const insets = useSafeAreaInsets()
   const scrollY = React.useRef(new Animated.Value(0)).current
   const keyboardAware = useKeyboardAwareScroll<ScrollView>()
+
+  // THE ARRIVAL. The native stack slides the page in; One UI then lets its
+  // content SETTLE: the large title and each section below it fade up a few dp,
+  // one step after another, so the page lands top to bottom as one wave. A list
+  // settles as one piece instead (its rows are virtualised, and staggering them
+  // would replay on every recycle). Once per mount, native, and skipped under
+  // reduced motion. The styles are built once: a form re-renders on every
+  // keystroke, and a fresh interpolation each time would re-attach the nodes.
+  const arrival = useArrival()
+  const isList = Boolean(list || sections)
+  const arrivalStyles = React.useMemo(
+    () => Array.from({ length: 8 }, (_, i) => arrivalStyle(arrival, i)),
+    [arrival],
+  )
+  const arrivalAt = (i: number) => arrivalStyles[Math.min(i, arrivalStyles.length - 1)]
 
   // The shell holds the list itself, because it owns the scroll and so owns
   // putting it back (`stickyKey`); a screen's `listRef` is a proxy onto it.
@@ -313,8 +329,17 @@ export default function AppScreen({
         paddingHorizontal: gutter,
         paddingTop: spacing.xs,
         paddingBottom: subtitle ? spacing.sm : spacing.md,
-        opacity: largeTitleOpacity,
-        transform: [{ translateY: largeTitleShift }],
+        // The scroll collapse and the arrival compose: one is the page moving
+        // under the bar, the other the page landing. A list arrives as a whole,
+        // so its title rides that instead of arriving twice.
+        opacity: isList ? largeTitleOpacity : Animated.multiply(largeTitleOpacity, arrivalAt(0).opacity),
+        transform: [
+          {
+            translateY: isList
+              ? largeTitleShift
+              : Animated.add(largeTitleShift, arrivalAt(0).transform[0].translateY),
+          },
+        ],
       }}
     >
       <Text accessibilityRole="header" style={[textVariants.largeTitle, { color: c.text }]}>
@@ -349,6 +374,7 @@ export default function AppScreen({
         <Animated.SectionList
           ref={innerListRef as never}
           {...sections}
+          style={[sections.style, arrivalAt(1)]}
           onScroll={onScroll}
           scrollEventThrottle={16}
           ListHeaderComponent={
@@ -368,6 +394,7 @@ export default function AppScreen({
         <Animated.FlatList
           ref={innerListRef as never}
           {...list}
+          style={[list.style, arrivalAt(1)]}
           onScroll={onScroll}
           scrollEventThrottle={16}
           ListHeaderComponent={
@@ -413,7 +440,13 @@ export default function AppScreen({
           {largeTitle}
           {/* Fields inside report their focus, so moving between them corrects
               the scroll — the keyboard only announces itself once. */}
-          <KeyboardAwareFocusProvider value={keyboardAware.reportFocus}>{children}</KeyboardAwareFocusProvider>
+          <KeyboardAwareFocusProvider value={keyboardAware.reportFocus}>
+            {React.Children.toArray(children).map((child, i) => (
+              <Animated.View key={React.isValidElement(child) && child.key != null ? child.key : i} style={arrivalAt(i + 1)}>
+                {child}
+              </Animated.View>
+            ))}
+          </KeyboardAwareFocusProvider>
         </Animated.ScrollView>
       )}
       {/* An OVERLAY, not a layout row: inserting real height mid-scroll would

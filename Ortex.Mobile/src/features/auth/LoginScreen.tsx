@@ -28,6 +28,7 @@ import { useTheme } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
 import { Button, OtpField, TextField, useToast } from "@/ui"
+import { arrivalStyle, useArrival } from "@/ui/motion"
 
 /**
  * Sign in.
@@ -201,6 +202,11 @@ export default function LoginScreen() {
   // above the keyboard — the Lumex approach. A scroll view would let the collage
   // and the form scroll apart; this keeps the page one piece.
   const formRef = React.useRef<View>(null)
+  // The form lands the way a One UI page does (title, fields, button, links, one
+  // step apart) on opening and again on each step of the flow, since a step
+  // swaps the whole form in place and should read as a new page.
+  const arrival = useArrival(step)
+  const arrive = React.useMemo(() => [0, 1, 2, 3].map((i) => arrivalStyle(arrival, i)), [arrival])
   const shift = React.useRef(new Animated.Value(0)).current
   React.useEffect(() => {
     const move = (to: number) =>
@@ -482,12 +488,14 @@ export default function LoginScreen() {
 
         {/* THE FORM */}
         <View style={[styles.content, { backgroundColor: c.background, paddingBottom: insets.bottom + spacing.xl }]}>
-          <Text style={[styles.title, { color: c.text }]}>{screen.title}</Text>
-          <Text style={[textVariants.screenSubtitle, styles.subtitle, { color: c.textSecondary }]}>
-            {screen.subtitle}
-          </Text>
+          <Animated.View style={arrive[0]}>
+            <Text style={[styles.title, { color: c.text }]}>{screen.title}</Text>
+            <Text style={[textVariants.screenSubtitle, styles.subtitle, { color: c.textSecondary }]}>
+              {screen.subtitle}
+            </Text>
+          </Animated.View>
 
-          <View ref={formRef} collapsable={false} style={styles.fields}>
+          <Animated.View ref={formRef} collapsable={false} style={[styles.fields, arrive[1]]}>
             {step === "password" && (
               <>
                 {emailField}
@@ -570,12 +578,14 @@ export default function LoginScreen() {
             )}
 
             {!!error && <Text style={[textVariants.small, { color: c.dangerText }]}>{error}</Text>}
-          </View>
+          </Animated.View>
 
-          <Button label={screen.action} onPress={screen.onSubmit} loading={busy} fullWidth style={styles.submit} />
+          <Animated.View style={arrive[2]}>
+            <Button label={screen.action} onPress={screen.onSubmit} loading={busy} fullWidth style={styles.submit} />
+          </Animated.View>
 
           {step !== "password" && (
-            <View style={styles.secondary}>
+            <Animated.View style={[styles.secondary, arrive[3]]}>
               {(step === "code" || step === "reset-code") && (
                 <>
                   {link("Send another code", resend)}
@@ -585,7 +595,7 @@ export default function LoginScreen() {
               {step === "code"
                 ? link("Use a different email", () => goTo("password"), false)
                 : link("Back to sign in", backToSignIn, false)}
-            </View>
+            </Animated.View>
           )}
         </View>
       </Animated.View>
