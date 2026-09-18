@@ -4,4 +4,6 @@
 declare module "@env" {
   export const SUPABASE_URL: string | undefined
   export const SUPABASE_ANON_KEY: string | undefined
+  /** Test builds only: where to read app updates from instead of Supabase storage. */
+  export const UPDATE_BASE_URL: string | undefined
 }

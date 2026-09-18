@@ -1,7 +1,11 @@
 import React from "react"
-import { Linking, StyleSheet, Text, View } from "react-native"
+import { Linking, Platform, StyleSheet, Text, View } from "react-native"
 
-import { NOTIFICATION_SETTINGS } from "@/domain/notifications"
+import { canAccess } from "@/domain/modules"
+import { DAILY_SETTINGS, NOTIFICATION_SETTINGS } from "@/domain/notifications"
+import type { Enquiry, Quotation } from "@/domain/schema"
+import { useCollection } from "@/hooks/useCollection"
+import { previewDaily } from "@/lib/dailyPush"
 import { feedback } from "@/lib/feedback"
 import { setNotificationPrefs, useNotificationStore } from "@/lib/notificationStore"
 import { dismissAll, ensurePushPermission, pushPermissionGranted, sendTestNotification } from "@/lib/push"
@@ -32,6 +36,8 @@ export default function NotificationSettingsScreen({
   const { profile } = useAuth()
   const { prefs } = useNotificationStore()
   const [granted, setGranted] = React.useState<boolean | null>(null)
+  const enquiries = useCollection<Enquiry>("enquiries")
+  const quotations = useCollection<Quotation>("quotations")
 
   React.useEffect(() => {
     void pushPermissionGranted().then(setGranted)
@@ -74,6 +80,50 @@ export default function NotificationSettingsScreen({
         )}
       </Section>
 
+      <Section title="Daily">
+        {DAILY_SETTINGS.map((s) => (
+          <SectionRow
+            key={s.key}
+            title={s.label}
+            subtitle={s.hint}
+            trailing={
+              <Switch
+                value={prefs[s.key]}
+                disabled={!prefs.enabled}
+                onValueChange={(on) => {
+                  feedback.toggle(on)
+                  setNotificationPrefs({ [s.key]: on })
+                }}
+              />
+            }
+            chevron={false}
+          />
+        ))}
+        <SectionRow
+          title="Preview the daily updates"
+          subtitle="See this morning's line and tomorrow's summary now"
+          leadingIcon="preview"
+          onPress={async () => {
+            feedback.tap()
+            if (!(await ensurePushPermission())) {
+              toast.show({ message: "Android is blocking notifications. Allow them in Settings", tone: "danger" })
+              return
+            }
+            await previewDaily({
+              firstName: (profile?.name || "").trim().split(/\s+/)[0] || "",
+              enquiries: enquiries.items,
+              quotations: quotations.items,
+              access: {
+                enquiries: canAccess(profile, "enquiries"),
+                voice: canAccess(profile, "voice-leads"),
+                quotations: canAccess(profile, "quotations"),
+              },
+            }).catch(() => {})
+            toast.show({ message: "Sent. Pull down the notification shade", tone: "success" })
+          }}
+        />
+      </Section>
+
       <Section title="What to announce">
         {NOTIFICATION_SETTINGS.map((s) => (
           <SectionRow
@@ -109,11 +159,30 @@ export default function NotificationSettingsScreen({
         />
       </Section>
 
+      {Platform.OS === "android" && (
+        <Section title="Reliability">
+          <SectionRow
+            title="Keep alerts working in the background"
+            subtitle="Set Ortex to Unrestricted battery use, or Samsung puts it to sleep and leads stop ringing"
+            leadingIcon="settings"
+            onPress={() => {
+              feedback.tap()
+              // The list of apps and their battery rule; the app's own page is
+              // the fallback on a phone that hides it.
+              Linking.sendIntent("android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS").catch(() =>
+                Linking.openSettings(),
+              )
+            }}
+          />
+        </Section>
+      )}
+
       <Panel padded>
         <Text style={[textVariants.small, { color: t.textTertiary }]}>
-          Notifications are worked out on this phone from the leads it has already loaded, so they
-          arrive while the app is running. Invoices, payments and the sales pipeline stay in the
-          console and are not announced here.
+          Lead alerts are worked out on this phone from the leads it has already loaded, so they
+          arrive while the app is running. The daily updates are scheduled on the phone and arrive
+          even when it is closed; their figures are the ones the app saw when it last ran.
+          Invoices, payments and the sales pipeline stay in the console and are not announced here.
         </Text>
       </Panel>
 

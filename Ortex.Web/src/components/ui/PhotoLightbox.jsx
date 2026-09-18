@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { CloseCircle, ArrowLeft, ArrowRight, Sms, Ruler, Layer, Colorfilter, Printer, Flash } from "iconsax-react"
 import { Link } from "react-router-dom"
@@ -20,16 +20,50 @@ const slide = {
  */
 
 // Applies to every product on the site — shown as scannable chips so the panel
-// communicates real value instead of one generic paragraph.
+// communicates real value instead of one generic paragraph. Each chip opens to
+// say what that actually means on the floor; the wording is the site's own
+// (Products.jsx's customization and branding sections), so a visitor is never
+// told two different things about the same process. Nothing here states a
+// price, a lead time or a minimum: those belong in the quotation.
 const CUSTOMIZABLE = [
-  { label: "Size & shape", icon: Ruler },
-  { label: "Material", icon: Layer },
-  { label: "Colour", icon: Colorfilter },
-  { label: "UV printing", icon: Printer },
-  { label: "Laser engraving", icon: Flash },
+  {
+    label: "Size & shape",
+    icon: Ruler,
+    detail:
+      "Custom cut shapes and dimensions, from a keychain silhouette to a full display board. Send the outline and we cut to it, rather than fitting your idea to a stock template.",
+  },
+  {
+    label: "Material",
+    icon: Layer,
+    detail:
+      "Pick the sheet thickness, material and surface finish, from matte acrylic to polished MDF, to suit the product and the budget for the run.",
+  },
+  {
+    label: "Colour",
+    icon: Colorfilter,
+    detail:
+      "Exact Pantone matching across every run, so the finish holds to your brand guidelines batch after batch, not just on the first order.",
+  },
+  {
+    label: "UV printing",
+    icon: Printer,
+    detail:
+      "Flatbed UV printing lays sharp, full-colour artwork straight onto acrylic, MDF and plastic, and it stays vivid without fading, cracking or peeling in use.",
+  },
+  {
+    label: "Laser engraving",
+    icon: Flash,
+    detail:
+      "A focused laser cuts your logo permanently into metal, acrylic and wood for a crisp, tactile mark that never rubs off or wears away with handling.",
+  },
 ]
 
 export default function PhotoLightbox({ item, description, index, total, onClose, onPrev, onNext }) {
+  // Which customization chip is open. It deliberately survives paging to the
+  // next photo: the answer is about the factory, not about one product, so
+  // closing it under someone who just opened it would be the wrong move.
+  const [openDetail, setOpenDetail] = useState(null)
+
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") onClose()
@@ -53,6 +87,10 @@ export default function PhotoLightbox({ item, description, index, total, onClose
 
   const enquireHref = `/contact?product=${encodeURIComponent(item.title)}&category=${encodeURIComponent(item.category || "")}`
   const hasCounter = typeof index === "number" && typeof total === "number" && total > 0
+  // With one photo in the set both arrows wrap back to the photo already on
+  // screen, so they are two controls that visibly do nothing. Drop them.
+  const canStep = typeof total !== "number" || total > 1
+  const detail = CUSTOMIZABLE.find((c) => c.label === openDetail) || null
 
   return (
     <motion.div
@@ -75,14 +113,16 @@ export default function PhotoLightbox({ item, description, index, total, onClose
         <CloseCircle size={30} color="currentColor" variant="Linear" />
       </button>
 
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onPrev() }}
-        className="absolute left-4 md:left-8 z-10 grid place-items-center h-12 w-12 rounded-full bg-white/20 text-white hover:bg-white hover:text-primary transition-colors duration-200 cursor-pointer"
-        aria-label="Previous image"
-      >
-        <ArrowLeft size={22} color="currentColor" />
-      </button>
+      {canStep && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onPrev() }}
+          className="absolute left-4 md:left-8 z-10 grid place-items-center h-12 w-12 rounded-full bg-white/20 text-white hover:bg-white hover:text-primary transition-colors duration-200 cursor-pointer"
+          aria-label="Previous image"
+        >
+          <ArrowLeft size={22} color="currentColor" />
+        </button>
+      )}
 
       <motion.div
         initial={{ scale: 0.96, y: 10 }}
@@ -138,21 +178,51 @@ export default function PhotoLightbox({ item, description, index, total, onClose
               "Custom manufacturing is fully supported for this product. Request changes to size, shape, material thickness, colour scheme, and branding method."}
           </p>
 
-          {/* What can be customized — scannable chips */}
+          {/* What can be customized — chips that open to say what each one
+              means. The panel has room below them, and a chip that only names
+              a process leaves the reader to guess at it. */}
           <div className="mt-7">
             <p className="text-[14px] font-medium uppercase tracking-[0.04em] text-[#4B5675] mb-3">
               Fully customizable
             </p>
             <div className="flex flex-wrap gap-2">
-              {CUSTOMIZABLE.map((c) => (
-                <span
-                  key={c.label}
-                  className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-primary bg-primary/10 rounded-full px-3 py-[6px] whitespace-nowrap"
-                >
-                  <c.icon size={16} color="currentColor" variant="Bulk" aria-hidden="true" />
-                  {c.label}
-                </span>
-              ))}
+              {CUSTOMIZABLE.map((c) => {
+                const open = openDetail === c.label
+                return (
+                  <button
+                    key={c.label}
+                    type="button"
+                    onClick={() => setOpenDetail(open ? null : c.label)}
+                    aria-expanded={open}
+                    aria-controls="lightbox-customizable-detail"
+                    className={`inline-flex items-center gap-1.5 text-[14px] font-semibold rounded-full px-3 py-[6px] whitespace-nowrap transition-colors duration-200 cursor-pointer ${
+                      open
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-primary/10 text-primary hover:bg-primary/20"
+                    }`}
+                  >
+                    <c.icon size={16} color="currentColor" variant="Bulk" aria-hidden="true" />
+                    {c.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div id="lightbox-customizable-detail" aria-live="polite">
+              <AnimatePresence initial={false} mode="wait">
+                {detail && (
+                  <motion.p
+                    key={detail.label}
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.22, ease: "easeOut" }}
+                    className="overflow-hidden text-[16px] font-normal text-[#4B5675] leading-relaxed"
+                  >
+                    <span className="block pt-4">{detail.detail}</span>
+                  </motion.p>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
@@ -177,14 +247,16 @@ export default function PhotoLightbox({ item, description, index, total, onClose
         </div>
       </motion.div>
 
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onNext() }}
-        className="absolute right-4 md:right-8 z-10 grid place-items-center h-12 w-12 rounded-full bg-white/20 text-white hover:bg-white hover:text-primary transition-colors duration-200 cursor-pointer"
-        aria-label="Next image"
-      >
-        <ArrowRight size={22} color="currentColor" />
-      </button>
+      {canStep && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onNext() }}
+          className="absolute right-4 md:right-8 z-10 grid place-items-center h-12 w-12 rounded-full bg-white/20 text-white hover:bg-white hover:text-primary transition-colors duration-200 cursor-pointer"
+          aria-label="Next image"
+        >
+          <ArrowRight size={22} color="currentColor" />
+        </button>
+      )}
     </motion.div>
   )
 }

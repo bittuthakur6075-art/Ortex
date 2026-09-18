@@ -13,6 +13,9 @@ buildscript {
     }
     dependencies {
         classpath("com.android.tools.build:gradle")
+        // Firebase config for remote push; applied by app/build.gradle only when
+        // app/google-services.json exists (see lib/remotePush.ts).
+        classpath("com.google.gms:google-services:4.4.2")
         classpath("com.facebook.react:react-native-gradle-plugin")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
     }

@@ -23,6 +23,16 @@ supabase secrets set GEMINI_API_KEY=your-google-ai-studio-key
 In hPanel, add your domain and let DNS propagate. Enable **Force HTTPS**
 (hPanel → Websites → your site → Security), and issue the free SSL certificate.
 
+### 3. Google Search Console
+The URL-prefix property `https://bizgift.ortexindustries.in/` is verified by
+**HTML file**: `public/googled41e542536c1f8f5.html` (copied into `dist/` by every
+build). Never delete it: Google re-checks and un-verifies the property if it
+disappears. After verifying, **Sitemaps** → submit `sitemap.xml`.
+
+Alternative (not in use): the **HTML tag** method. Put the tag or its code in
+`.env.production` as `GOOGLE_SITE_VERIFICATION=…`; `scripts/prerender.mjs`
+writes it into every page and fails the build on a malformed value.
+
 ## Every deploy (build + upload)
 
 1. **Build locally** with your Supabase env set (so the live catalogue is baked

@@ -78,3 +78,7 @@ yarn-error.log
 .expo
 dist/
 web-build/
+
+# Firebase config for remote push (per project, not in the repo)
+android/app/google-services.json
+ios/GoogleService-Info.plist

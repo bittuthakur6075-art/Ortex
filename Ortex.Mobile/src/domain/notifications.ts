@@ -92,6 +92,10 @@ export type NotificationPrefs = {
   voice: boolean
   stale: boolean
   quotations: boolean
+  /** A morning line of motivation (lib/dailyPush.ts). */
+  motivation: boolean
+  /** A morning summary of yesterday and today's to-dos. */
+  insights: boolean
 }
 
 export const DEFAULT_PREFS: NotificationPrefs = {
@@ -100,11 +104,13 @@ export const DEFAULT_PREFS: NotificationPrefs = {
   voice: true,
   stale: true,
   quotations: true,
+  motivation: true,
+  insights: true,
 }
 
 /** Every switchable signal, for the settings screen. */
 export const NOTIFICATION_SETTINGS: {
-  key: keyof Omit<NotificationPrefs, "enabled">
+  key: keyof Omit<NotificationPrefs, "enabled" | "motivation" | "insights">
   label: string
   hint: string
 }[] = [
@@ -112,6 +118,16 @@ export const NOTIFICATION_SETTINGS: {
   { key: "voice", label: "Voice calls", hint: "Leads Anu captures on a call" },
   { key: "stale", label: "Enquiries going cold", hint: "Still new after two days" },
   { key: "quotations", label: "Quotation validity", hint: "Sent quotes about to expire" },
+]
+
+/** The scheduled morning notifications, for the settings screen's Daily section. */
+export const DAILY_SETTINGS: {
+  key: "motivation" | "insights"
+  label: string
+  hint: string
+}[] = [
+  { key: "motivation", label: "Daily motivation", hint: "A short line to start the day, at 9:00 AM" },
+  { key: "insights", label: "Daily insights", hint: "Yesterday's leads and quotes, and today's to-dos, at 9:30 AM" },
 ]
 
 const DAY_MS = 86400000

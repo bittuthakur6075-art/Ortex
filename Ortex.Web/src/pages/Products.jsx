@@ -503,7 +503,9 @@ export default function Products() {
                     to={p.path}
                     className="group flex flex-col h-full rounded-[24px] [corner-shape:squircle] bg-card transition-colors duration-300 overflow-hidden"
                   >
-                    <div className="aspect-square overflow-hidden bg-muted">
+                    {/* The photo carries the card's radius on all four corners,
+                        not just the two the card's own clip would give it. */}
+                    <div className="aspect-square overflow-hidden rounded-[24px] [corner-shape:squircle] bg-muted">
                       <img
                         src={p.images?.[0] || categoryImages.get(p.categorySlug) || FALLBACK_IMAGE}
                         alt={p.name}
@@ -513,15 +515,15 @@ export default function Products() {
                       />
                     </div>
                     <div className="flex flex-col flex-1 pt-5">
-                      <span className="block text-[12px] font-semibold text-primary tracking-[0.16em] uppercase mb-2">
+                      <span className="block text-[12px] font-semibold text-[#4b5675] uppercase mb-2">
                         {p.categoryName}
                       </span>
                       <h3 className="text-[20px] font-semibold mb-2 text-foreground group-hover:text-primary transition-colors line-clamp-2">
                         {p.name}
                       </h3>
-                      {p.material && (
-                        <p className="text-[14px] font-medium text-muted-foreground mb-2">{p.material}</p>
-                      )}
+                      {/* Material is a detail-page fact, not a listing one: it
+                          is still SEARCHED on here, just not printed on a card.
+                          See ProductDetail.jsx. */}
                       {/* The clamp and the flex grow must not share an element:
                           `flex-1` stretches the -webkit-box past its two lines,
                           so a third line shows through the hidden overflow with

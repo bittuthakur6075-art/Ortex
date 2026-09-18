@@ -30,7 +30,7 @@ import { STATIC_ROUTES, ROUTE_SOURCE } from "./routes-meta.mjs"
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const dist = join(root, "dist")
 const ssrDir = join(root, "dist-ssr")
-const template = readFileSync(join(dist, "index.html"), "utf8")
+const template = withSiteVerification(readFileSync(join(dist, "index.html"), "utf8"))
 
 // index.html and robots.txt cannot import SITE_URL, so check they spell the
 // same origin: a canonical or sitemap pointing at another host tells Google to
@@ -88,6 +88,30 @@ function envFromFiles(mode) {
     }
   }
   return out
+}
+
+// Google Search Console ownership (URL-prefix property). The code comes from
+// GOOGLE_SITE_VERIFICATION in .env.production; it is not a VITE_ variable
+// because the client bundle never needs it. Either the bare code or the whole
+// <meta> tag Search Console hands out may be pasted. Written into every page,
+// though Google only reads the home page. The tag must stay for as long as the
+// property should remain verified: Google re-checks it periodically.
+function withSiteVerification(html) {
+  const fileEnv = envFromFiles(process.env.NODE_ENV === "staging" ? "staging" : "production")
+  const raw = (process.env.GOOGLE_SITE_VERIFICATION || fileEnv.GOOGLE_SITE_VERIFICATION || "").trim()
+  if (!raw) {
+    console.warn("prerender: GOOGLE_SITE_VERIFICATION not set, no Search Console verification tag")
+    return html
+  }
+  const code = raw.match(/content="([^"]+)"/)?.[1] ?? raw
+  if (!/^[A-Za-z0-9_-]{20,100}$/.test(code)) {
+    throw new Error(`prerender: GOOGLE_SITE_VERIFICATION does not look like a Search Console code: ${raw}`)
+  }
+  const tag = `<meta name="google-site-verification" content="${code}" />`
+  const next = html.replace(/(<meta name="author"[^>]*>)/, (m) => `${m}\n    ${tag}`)
+  if (next === html) throw new Error("prerender: could not place the Search Console tag (index.html head changed?)")
+  console.log("[search console] verification tag written")
+  return next
 }
 
 // Raw rows for the catalogue and the work gallery. They are handed to the

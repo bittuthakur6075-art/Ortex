@@ -1,9 +1,14 @@
 import React from "react"
 import { AppState } from "react-native"
 
+import { canAccess } from "@/domain/modules"
 import type { AppNotification } from "@/domain/notifications"
+import type { Enquiry, Quotation } from "@/domain/schema"
 import { useNotifications } from "@/features/notifications/useNotifications"
+import { useCollection } from "@/hooks/useCollection"
 import { callNumber, whatsapp } from "@/lib/contact"
+import { cancelDaily, planInsight, planMotivation } from "@/lib/dailyPush"
+import { registerPushDevice } from "@/lib/remotePush"
 import {
   hydrateNotifications,
   markPushed,
@@ -15,6 +20,7 @@ import {
   actionFromResponse,
   configurePush,
   ensurePushPermission,
+  isRemoteLead,
   Notifications,
   payloadFromResponse,
   presentNotification,
@@ -23,6 +29,7 @@ import {
   TEST_NOTIFICATION_ID,
 } from "@/lib/push"
 import { navigateWhenReady } from "@/navigation/navigationRef"
+import { useAuth } from "@/store/AuthContext"
 
 /**
  * Turns the derived feed into notifications in the shade, and the taps on those
@@ -43,7 +50,11 @@ import { navigateWhenReady } from "@/navigation/navigationRef"
  * pushed" is a durable fact rather than a guess about timing.
  */
 export function useNotificationEngine() {
-  const { all, unreadCount, loading, refreshing } = useNotifications()
+  const { all, unreadCount, loading, refreshing, prefs } = useNotifications()
+  const { profile } = useAuth()
+  // The same shared in-memory collections the feed reads: no second fetch.
+  const enquiries = useCollection<Enquiry>("enquiries")
+  const quotations = useCollection<Quotation>("quotations")
 
   // A ref, not state: the responder callbacks are registered once and must see
   // the current feed without re-registering on every refetch.
@@ -64,6 +75,9 @@ export function useNotificationEngine() {
       // the OS for good; neither case is worth a second prompt.
       await ensurePushPermission()
       if (!cancelled) setReady(true)
+      // Remote push, so leads reach this phone with the app closed. Soft: a
+      // build without Firebase keeps the local alerts only.
+      void registerPushDevice()
     })()
     return () => {
       cancelled = true
@@ -121,11 +135,72 @@ export function useNotificationEngine() {
     }
   }, [all, ready, loading, refreshing])
 
+  // ---- the daily pair (lib/dailyPush.ts) --------------------------------------
+  //
+  // Scheduled, not posted: they fire at 9:00 and 9:30 with the app closed. The
+  // motivation plan is refreshed once per session; the insight is replanned
+  // (debounced) whenever the rows change, so tomorrow's note carries the latest
+  // figures this phone has seen.
+
+  const firstName = (profile?.name || "").trim().split(/\s+/)[0] || ""
+  const motivationOn = prefs.enabled && prefs.motivation
+  const insightsOn = prefs.enabled && prefs.insights
+
+  React.useEffect(() => {
+    if (!ready) return
+    if (!motivationOn) {
+      void cancelDaily("motivation")
+      return
+    }
+    void planMotivation(firstName)
+  }, [ready, motivationOn, firstName])
+
+  const access = React.useMemo(
+    () => ({
+      enquiries: canAccess(profile, "enquiries"),
+      voice: canAccess(profile, "voice-leads"),
+      quotations: canAccess(profile, "quotations"),
+    }),
+    [profile],
+  )
+
+  React.useEffect(() => {
+    if (!ready || loading) return
+    if (!insightsOn) {
+      void cancelDaily("insight")
+      return
+    }
+    const timer = setTimeout(() => {
+      void planInsight({ enquiries: enquiries.items, quotations: quotations.items, access })
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [ready, loading, insightsOn, enquiries.items, quotations.items, access])
+
+  // Signing out unmounts the engine (it lives in the authenticated branch): a
+  // signed-out phone must not tell the next person about this rep's sales.
+  React.useEffect(
+    () => () => {
+      void cancelDaily()
+    },
+    [],
+  )
+
   // The app-icon badge follows the unread count, not the shade — clearing a
   // notification without reading the lead should not clear the badge.
   React.useEffect(() => {
     void setBadge(unreadCount)
   }, [unreadCount])
+
+  // A server-sent lead arriving while the app is open is hidden by the handler
+  // in lib/push.ts; fetch the rows now so the engine posts its own copy even if
+  // realtime missed the insert.
+  const reloadEnquiries = enquiries.reload
+  React.useEffect(() => {
+    const sub = Notifications.addNotificationReceivedListener((n) => {
+      if (isRemoteLead(n)) void reloadEnquiries()
+    })
+    return () => sub.remove()
+  }, [reloadEnquiries])
 
   // ---- responding ---------------------------------------------------------
 

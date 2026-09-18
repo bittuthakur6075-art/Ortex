@@ -68,14 +68,30 @@ export const TEST_NOTIFICATION_ID = "ortex.test"
 let configured = false
 
 // A tapped or actioned notification should open the app, not just dismiss.
+//
+// A REMOTE lead (lib/remotePush.ts, sent by the push-notify function) that lands
+// while the app is in the foreground is not shown: the engine posts its own copy
+// of the same lead, with the Call / WhatsApp buttons the server's cannot carry,
+// and reloads the collection on arrival so it does so even if realtime missed
+// the row. In the background Android draws the server's copy itself and this
+// handler is never asked.
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
+  handleNotification: async (notification) => {
+    const remote = isRemoteLead(notification)
+    return {
+      shouldShowBanner: !remote,
+      shouldShowList: !remote,
+      shouldPlaySound: !remote,
+      shouldSetBadge: true,
+    }
+  },
 })
+
+/** A lead sent by the server (push-notify) rather than posted by this phone. */
+export function isRemoteLead(notification: Notifications.Notification): boolean {
+  const data = notification.request.content.data as Record<string, unknown> | undefined
+  return data?.remote === "1"
+}
 
 /**
  * Channels and categories, once per process. Android needs the channel to exist
@@ -278,8 +294,20 @@ export function actionFromResponse(response: Notifications.NotificationResponse)
 export function payloadFromResponse(
   response: Notifications.NotificationResponse,
 ): PushPayload | null {
-  const data = response.notification.request.content.data as unknown as PushPayload | undefined
-  return data?.target ? data : null
+  const data = response.notification.request.content.data as Record<string, unknown> | undefined
+  if (!data) return null
+  if (data.target) return data as unknown as PushPayload
+  // A server-sent lead: FCM data is a flat map of strings, so the target
+  // arrives as two fields (see Ortex.Admin supabase/functions/push-notify).
+  if (typeof data.targetScreen === "string" && typeof data.targetId === "string") {
+    return {
+      id: String(data.id || ""),
+      target: { screen: data.targetScreen, id: data.targetId } as PushPayload["target"],
+      phone: String(data.phone || ""),
+      title: String(data.title || ""),
+    }
+  }
+  return null
 }
 
 export { Notifications }

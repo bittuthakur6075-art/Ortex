@@ -208,3 +208,11 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+// REMOTE PUSH (Firebase Cloud Messaging). google-services.json is downloaded
+// from the Firebase console for package com.ortexmobile and kept beside this
+// file (gitignored, like the keystore). Without it the build still succeeds and
+// the app keeps its local, app-running alerts only: lib/remotePush.ts fails soft.
+if (file("google-services.json").exists()) {
+    apply plugin: "com.google.gms.google-services"
+}

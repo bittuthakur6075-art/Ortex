@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
-import { motion } from "framer-motion"
-import { useParams, Link, Navigate } from "react-router-dom"
+import { motion, AnimatePresence } from "framer-motion"
+import { useParams, Link, Navigate, useNavigate } from "react-router-dom"
 import { Add, Minus, Clock, Box, ArrowRight, Truck, ShieldTick, Gallery, DiscountShape, ReceiptText, Building3 } from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import useJsonLd from "../hooks/useJsonLd"
@@ -10,6 +10,7 @@ import { productsInCategory } from "../lib/catalogCore"
 import { whatsappLink } from "../constants/site"
 import { fadeUp } from "../components/ui/Section"
 import PageCTA from "../components/ui/PageCTA"
+import PhotoLightbox from "../components/ui/PhotoLightbox"
 
 /**
  * One page per catalogue product: /products/:slug/:productSlug.
@@ -28,8 +29,22 @@ export default function ProductDetail() {
   const items = useMemo(() => (entry ? productsInCategory(entry, products) : []), [entry, products])
   const product = items.find((p) => p.slug === productSlug) || null
   const faqs = useMemo(() => (entry ? categoryFaqs(entry, products) : []), [entry, products])
+  const navigate = useNavigate()
   const [activeImage, setActiveImage] = useState(0)
   const [openFaq, setOpenFaq] = useState(null)
+
+  // Full-screen preview, opened from the main photo. It pages across EVERY
+  // photo in the category, not just this product's: most products carry a
+  // single image, so arrows bounded by one product were a permanent "1 / 1"
+  // with two controls either side that did nothing. Walking the category turns
+  // the preview into the thing a buyer actually wants at that moment, which is
+  // to see the rest of the range at full size without going back to the grid.
+  // Null when closed; an index into `gallery` when open.
+  const [previewIndex, setPreviewIndex] = useState(null)
+  const gallery = useMemo(
+    () => items.flatMap((p) => (p.images || []).map((src, photo) => ({ src, photo, product: p }))),
+    [items]
+  )
 
   const seo = entry && product ? productSeo(entry, product) : null
   useDocumentMetadata(seo?.title, seo?.description, {
@@ -44,6 +59,29 @@ export default function ProductDetail() {
   }
 
   const images = product.images || []
+  const preview = previewIndex === null ? null : gallery[previewIndex]
+
+  const openPreview = () => {
+    const at = gallery.findIndex((g) => g.product.id === product.id && g.photo === activeImage)
+    setPreviewIndex(at === -1 ? 0 : at)
+  }
+
+  // Stepping stays inside this product's own thumbnails in step with the page
+  // behind, so closing on one of its photos leaves that photo selected.
+  const stepPreview = (delta) => {
+    if (previewIndex === null || !gallery.length) return
+    const next = (previewIndex + delta + gallery.length) % gallery.length
+    setPreviewIndex(next)
+    if (gallery[next].product.id === product.id) setActiveImage(gallery[next].photo)
+  }
+
+  // Close on somebody ELSE's product and that is the product you were looking
+  // at, so the page follows you to it rather than snapping back to this one.
+  const closePreview = () => {
+    const landed = preview
+    setPreviewIndex(null)
+    if (landed && landed.product.id !== product.id) navigate(landed.product.path)
+  }
   const related = items.filter((p) => p.id !== product.id).slice(0, 6)
   const specs = [
     { icon: Box, label: "Minimum order", value: `${product.moq} ${product.unit}` },
@@ -79,12 +117,19 @@ export default function ProductDetail() {
             <div>
               <div className="aspect-square overflow-hidden rounded-[6px] bg-muted">
                 {images[activeImage] ? (
-                  <img
-                    src={images[activeImage]}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                    fetchPriority="high"
-                  />
+                  <button
+                    type="button"
+                    onClick={openPreview}
+                    aria-label={`Open a larger view of ${product.name}`}
+                    className="group block w-full h-full cursor-zoom-in"
+                  >
+                    <img
+                      src={images[activeImage]}
+                      alt={product.name}
+                      className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+                      fetchPriority="high"
+                    />
+                  </button>
                 ) : (
                   <div className="w-full h-full grid place-items-center text-muted-foreground">
                     <Gallery size={48} color="currentColor" variant="Bulk" aria-hidden="true" />
@@ -251,6 +296,27 @@ export default function ProductDetail() {
       >
         Tell us the quantity and your artwork, and our sales desk sends a formal GST quotation with a free digital mockup.
       </PageCTA>
+
+      {/* Rendered only while open, inside AnimatePresence, so the close
+          animation runs instead of the panel vanishing. */}
+      <AnimatePresence>
+        {preview && (
+          <PhotoLightbox
+            item={{
+              src: preview.src,
+              title: preview.product.name,
+              category: entry.name,
+              alt: `${preview.product.name}, photo ${preview.photo + 1}`,
+            }}
+            description={preview.product.description}
+            index={previewIndex}
+            total={gallery.length}
+            onClose={closePreview}
+            onPrev={() => stepPreview(-1)}
+            onNext={() => stepPreview(1)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

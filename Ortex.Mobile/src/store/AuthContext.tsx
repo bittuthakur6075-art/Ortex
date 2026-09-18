@@ -9,6 +9,7 @@ import type { Profile } from "@/domain/modules"
 import { signOut as authSignOut } from "@/lib/auth"
 import { resetNotificationState } from "@/lib/notificationStore"
 import { dismissAll } from "@/lib/push"
+import { unregisterPushDevice } from "@/lib/remotePush"
 
 // Session + profile for the whole app.
 //
@@ -131,6 +132,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signOut = React.useCallback(async () => {
+    // First, while the session still exists: RLS scopes the delete to the
+    // caller, and a phone that stays registered keeps ringing with the last
+    // rep's leads after they have signed out.
+    await unregisterPushDevice().catch(() => {})
     await authSignOut()
     await clearCache()
     resetCollections()

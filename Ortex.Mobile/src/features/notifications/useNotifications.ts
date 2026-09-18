@@ -35,6 +35,8 @@ export type NotificationFeed = {
   error: string | null
   reload: () => Promise<void>
   isRead: (id: string) => boolean
+  /** The rep's switches, narrowed to the modules this profile can open. */
+  prefs: NotificationPrefs
 }
 
 /** Prefs narrowed to what this profile is actually allowed to see. */
@@ -49,6 +51,10 @@ function allowedPrefs(
     stale: prefs.stale && enquiries,
     voice: prefs.voice && canAccess(profile, "voice-leads"),
     quotations: prefs.quotations && canAccess(profile, "quotations"),
+    motivation: prefs.motivation,
+    // An insight about modules the profile cannot open would be a number it
+    // cannot check, so it follows the same access as the Home tab.
+    insights: prefs.insights && (enquiries || canAccess(profile, "voice-leads") || canAccess(profile, "quotations")),
   }
 }
 
@@ -93,6 +99,7 @@ export function useNotifications(): NotificationFeed {
     error: enquiries.error || quotations.error,
     reload,
     isRead,
+    prefs: effective,
   }
 }
 

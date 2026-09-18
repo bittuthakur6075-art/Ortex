@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"
-import { SUPABASE_URL } from "@env"
+import { SUPABASE_URL, UPDATE_BASE_URL } from "@env"
 import * as FileSystem from "expo-file-system/legacy"
 import * as IntentLauncher from "expo-intent-launcher"
 
@@ -19,7 +19,9 @@ import { readManifest, type ReleaseManifest } from "@/domain/appVersion"
  * directory the APK is downloaded into.
  */
 
-const BUCKET_URL = `${SUPABASE_URL}/storage/v1/object/public/app-releases`
+// UPDATE_BASE_URL is for an end-to-end test against a local server; a real
+// release leaves it unset and reads the public `app-releases` bucket.
+const BUCKET_URL = UPDATE_BASE_URL || `${SUPABASE_URL}/storage/v1/object/public/app-releases`
 export const MANIFEST_PATH = "android/latest.json"
 const CACHE_KEY = "@ortex/release-manifest"
 const APK_MIME = "application/vnd.android.package-archive"
@@ -32,7 +34,7 @@ export const APPLICATION_ID = "com.ortexmobile"
  * in flight mode. A phone that has never read one simply carries on.
  */
 export async function loadManifest(): Promise<ReleaseManifest | null> {
-  if (!SUPABASE_URL) return null
+  if (!UPDATE_BASE_URL && !SUPABASE_URL) return null
   try {
     // The query string defeats the storage CDN's cache, so a release is seen
     // within seconds rather than when the edge copy expires.
