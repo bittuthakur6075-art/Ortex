@@ -18,6 +18,7 @@ import Users from "./pages/Users"
 import UserDetail from "./pages/users/UserDetail"
 import Profile from "./pages/Profile"
 import WhatsNew from "./pages/WhatsNew"
+import Attendance from "./pages/Attendance"
 import { useProfile } from "./hooks/useProfile"
 import { canAccess } from "./data/domain/modules"
 
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="billing" element={<HubGuard keys={BILLING_MODULE_KEYS}><Billing /></HubGuard>} />
           <Route path="invoices" element={<Redirect to="/billing?tab=invoices" />} />
           <Route path="payments" element={<Redirect to="/billing?tab=payments" />} />
+          <Route path="attendance" element={guard("attendance", <Attendance />)} />
           <Route path="users" element={guard("users", <Users />)} />
           <Route path="users/:id" element={guard("users", <UserDetail />)} />
           <Route path="settings" element={guard("settings", <SettingsPage />)} />

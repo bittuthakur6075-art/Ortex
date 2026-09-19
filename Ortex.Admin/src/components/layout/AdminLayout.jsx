@@ -17,6 +17,7 @@ import {
   PhoneOutgoing,
   Search,
   Sparkles,
+  CalendarClock,
 } from "../ui/Icons"
 import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
 import { useProfile } from "../../hooks/useProfile"
@@ -62,6 +63,10 @@ const NAV = [
       { to: "/telecaller", key: "telecaller", label: "Call agent", icon: PhoneOutgoing },
       { to: "/insights", keys: ["growth", "automation"], label: "Insights", icon: TrendingUp },
     ],
+  },
+  {
+    section: "People",
+    items: [{ to: "/attendance", key: "attendance", label: "Attendance", icon: CalendarClock }],
   },
   {
     section: "Admin",

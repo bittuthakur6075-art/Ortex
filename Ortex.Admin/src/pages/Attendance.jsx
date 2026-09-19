@@ -1,0 +1,47 @@
+import { useMemo } from "react"
+import { useSearchParams } from "react-router-dom"
+import { CalendarClock, Settings, UserCheck } from "../components/ui/Icons"
+import PageHeader, { HeaderBand } from "../components/layout/PageHeader"
+import { Tabs } from "../components/ui/Ui"
+import { useProfile } from "../hooks/useProfile"
+import { canAccess } from "../data/domain/modules"
+import { isAdmin, isSuperAdmin } from "../lib/roles"
+import Today from "./attendance/Today"
+import Mine from "./attendance/Mine"
+import AttendanceSettings from "./attendance/Settings"
+
+// Attendance hub (docs/pm/ATTENDANCE_LEAVE_PLAN.md). The console VIEWS and
+// manages attendance; it never marks it. Clocking in and out happens only in
+// the phone app, and the database has no way in for anything else.
+//
+//   Today          admins, and anyone granted "attendance-team" (Accounts)
+//   My attendance  everyone
+//   Settings       the Super Admin only
+const TABS = [
+  { value: "today", label: "Today", icon: UserCheck, Page: Today, allow: (p) => isAdmin(p) || canAccess(p, "attendance-team") },
+  { value: "mine", label: "My attendance", icon: CalendarClock, Page: Mine, allow: () => true },
+  { value: "settings", label: "Settings", icon: Settings, Page: AttendanceSettings, allow: (p) => isSuperAdmin(p) },
+]
+
+export default function Attendance() {
+  const profile = useProfile()
+  const [params, setParams] = useSearchParams()
+  const allowed = useMemo(() => (profile ? TABS.filter((t) => t.allow(profile)) : []), [profile])
+  const current = allowed.find((t) => t.value === params.get("tab")) || allowed[0]
+  if (!current) return null
+  const Page = current.Page
+
+  return (
+    <div>
+      <HeaderBand>
+        <PageHeader title="Attendance" subtitle="Marked in the phone app with a selfie and the office location. Viewed and managed here." />
+        <Tabs
+          items={allowed.map((t) => ({ value: t.value, icon: t.icon, label: t.label }))}
+          value={current.value}
+          onChange={(v) => setParams({ tab: v }, { replace: true })}
+        />
+      </HeaderBand>
+      <Page key={current.value} />
+    </div>
+  )
+}

@@ -16,6 +16,7 @@ import { formatCurrency, formatNumber } from "@/domain/format"
 import { QUOTATION_STATUS, statusMeta } from "@/domain/schema"
 import AnuButton from "@/features/anu/AnuButton"
 import AnuHomeCard from "@/features/anu/AnuHomeCard"
+import AttendanceHomeCard from "@/features/attendance/AttendanceHomeCard"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { callNumber } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
@@ -164,6 +165,9 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
       >
         <DataNotice error={error} fromCache={fromCache} cachedAt={cachedAt} onRetry={() => void reload()} />
 
+        {/* ---- 0. attendance: every role's first action of the day ---- */}
+        <AttendanceHomeCard />
+
         {/* ---- 1. shortcuts ---- */}
         {!nothingGranted && (
           <View style={styles.quickRow}>
@@ -185,7 +189,7 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
           <EmptyState
             icon="info"
             title="Nothing to show here yet"
-            hint="Your account has no access to leads or quotations. An admin can grant them from the console's Users page."
+            hint="Your account is set up for attendance. Leads and quotations appear here if an admin grants them."
           />
         ) : loading ? (
           <>

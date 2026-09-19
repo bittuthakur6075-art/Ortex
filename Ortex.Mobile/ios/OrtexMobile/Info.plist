@@ -34,9 +34,7 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<!-- Profile and product photos (expo-image-picker). Library only — the app
-	     never opens the camera, so NSCameraUsageDescription is deliberately
-	     absent. -->
+	<!-- Profile and product photos (expo-image-picker), library only. -->
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose a picture for your Ortex profile photo or a product photo.</string>
 	<!-- Anu, the voice assistant (features/anu): the WebView engine's microphone. -->
@@ -53,8 +51,12 @@
 		<string>mailto</string>
 		<string>whatsapp</string>
 	</array>
+	<!-- Attendance: the clock-in selfie and one location reading at clock-in.
+	     Never background location, by design. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Take a selfie when you clock in or out, so your attendance is marked by you.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>Check you are at the office when you clock in or out. Your location is read only at that moment, never tracked.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

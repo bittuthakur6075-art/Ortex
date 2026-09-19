@@ -690,3 +690,23 @@ input[type="search"]::-webkit-search-decoration {
   .doc-sheet { width: 210mm; min-height: 297mm; margin: 0; padding: 30pt; box-shadow: none; }
 }
 
+
+/* ---- Office location map (components/ui/OfficeMap.jsx) ------------------------------------
+   Leaflet draws its own layers; these give the pin and the geofence the brand's
+   colours from the same tokens, so they follow light and dark mode. No shadow:
+   the pin reads by its white ring against any tile. */
+.ortex-pin {
+  display: block;
+  width: 28px;
+  height: 28px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: hsl(var(--primary));
+  border: 3px solid #fff;
+}
+.ortex-pin-other { background: hsl(var(--muted-foreground)); }
+.ortex-pin-off { background: hsl(var(--muted-foreground) / 0.5); }
+.leaflet-interactive.ortex-fence { stroke: hsl(var(--primary)); fill: hsl(var(--primary)); fill-opacity: 0.16; }
+.leaflet-interactive.ortex-fence-other { stroke: hsl(var(--muted-foreground)); fill: hsl(var(--muted-foreground)); fill-opacity: 0.1; }
+.leaflet-interactive.ortex-fence-off { stroke: hsl(var(--muted-foreground) / 0.5); fill: transparent; stroke-dasharray: 4 4; }
+.leaflet-container { font-family: inherit; }

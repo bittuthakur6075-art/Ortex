@@ -1,0 +1,82 @@
+// Attendance, the pure half: src/domain/attendance.ts and its mirror
+// Ortex.Admin/src/lib/attendance.js. Every assertion runs against BOTH, so a
+// change to one without the other fails here rather than showing a rep one
+// number on the phone and the accountant another on the console.
+
+import assert from "node:assert/strict"
+import { dirname, resolve } from "node:path"
+import test from "node:test"
+import { fileURLToPath } from "node:url"
+
+import { loadModule, loadTs } from "./loadTs.mjs"
+
+const here = dirname(fileURLToPath(import.meta.url))
+const admin = await loadModule(resolve(here, "../../Ortex.Admin/src/lib/attendance.js"))
+const mobile = await loadTs("domain/attendance.ts")
+const both = [
+  ["mobile", mobile],
+  ["admin", admin],
+]
+
+// 19 Sep 2026 in IST. 09:42 IST = 04:12 UTC.
+const ist = (hh, mm, d = 19) => new Date(Date.UTC(2026, 8, d, hh - 5, mm - 30)).toISOString()
+const punch = (over) => ({ id: "p", user_id: "u", kind: "in", at: ist(9, 42), day: "2026-09-19", mode: "office", review: "ok", ...over })
+
+for (const [side, a] of both) {
+  test(`${side}: IST day and clock regardless of the device zone`, () => {
+    assert.equal(a.dayKey(ist(0, 10)), "2026-09-19") // 18:40 UTC the day before
+    assert.equal(a.dayKey(ist(23, 50)), "2026-09-19")
+    assert.equal(a.clockIST(ist(9, 42)), "9:42 AM")
+    assert.equal(a.clockIST(ist(18, 5)), "6:05 PM")
+    assert.equal(a.clockIST(ist(0, 7)), "12:07 AM")
+  })
+
+  test(`${side}: a day's hours, with a lunch break out and back in`, () => {
+    const s = a.summarizeDay("2026-09-19", [
+      punch({ id: "4", kind: "out", at: ist(18, 30) }),
+      punch({ id: "1", kind: "in", at: ist(9, 30) }),
+      punch({ id: "2", kind: "out", at: ist(13, 0) }),
+      punch({ id: "3", kind: "in", at: ist(13, 45) }),
+    ])
+    assert.equal(s.workedMin, 3.5 * 60 + 4.75 * 60)
+    assert.equal(s.firstIn, ist(9, 30))
+    assert.equal(s.lastOut, ist(18, 30))
+    assert.equal(s.open, false)
+    assert.equal(a.durationWords(s.workedMin), "8h 15m")
+  })
+
+  test(`${side}: an open day counts up to now, and a rejected punch never counts`, () => {
+    const s = a.summarizeDay(
+      "2026-09-19",
+      [punch({ at: ist(9, 0) }), punch({ id: "x", kind: "out", at: ist(10, 0), review: "rejected" })],
+      new Date(ist(11, 0)).getTime(),
+    )
+    assert.equal(s.open, true)
+    assert.equal(s.workedMin, 120)
+  })
+
+  test(`${side}: on duty since the latest counted in, closed after 20 hours`, () => {
+    const list = [punch({ at: ist(9, 0) })]
+    assert.equal(a.onDutySince(list, new Date(ist(12, 0)).getTime()), ist(9, 0))
+    assert.equal(a.onDutySince(list, new Date(ist(9, 0, 20)).getTime()), null)
+    assert.equal(a.onDutySince([...list, punch({ id: "o", kind: "out", at: ist(18, 0) })], new Date(ist(19, 0)).getTime()), null)
+  })
+
+  test(`${side}: result sentences state what happened in words`, () => {
+    assert.equal(
+      a.resultSentence({ status: "ok", kind: "in", at: ist(9, 42), mode: "office", site: "Factory", distanceM: 40 }),
+      "Clocked in at 9:42 AM · Factory · 40 m",
+    )
+    assert.equal(
+      a.resultSentence({ status: "flagged", kind: "out", at: ist(18, 5), mode: "field", flags: ["offline"] }),
+      "Clocked out at 6:05 PM · Field visit. Sent for review: saved offline",
+    )
+    assert.equal(a.resultSentence({ status: "outside", message: "You are 190 m from Factory." }), "You are 190 m from Factory.")
+  })
+
+  test(`${side}: selfie path is the owner's folder, year and month in IST`, () => {
+    assert.equal(a.selfiePath("uid", "pid", new Date(ist(0, 30, 1))), "uid/2026/09/pid.jpg")
+    assert.equal(a.metresOutside({ distanceM: 340, radiusM: 150 }), 190)
+    assert.equal(a.metresOutside({ distanceM: 90, radiusM: 150 }), 0)
+  })
+}

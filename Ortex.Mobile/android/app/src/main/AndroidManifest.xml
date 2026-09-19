@@ -32,6 +32,16 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- Attendance (features/attendance, docs/pm/ATTENDANCE_LEAVE_PLAN.md): the
+         clock-in selfie (expo-camera, front camera) and ONE location reading at
+         the moment of clocking in (expo-location). Never background location:
+         there is no ACCESS_BACKGROUND_LOCATION, by design, because attendance
+         must not become tracking. expo-camera and expo-location merge these from
+         their own manifests too; they are stated here so the reason is. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <!-- Android 11+ package visibility. Without these the Contacts screen's
          Call / WhatsApp / Email buttons cannot even SEE the target apps, so
          Linking.canOpenURL reports false and the button silently does nothing. -->

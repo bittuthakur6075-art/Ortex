@@ -33,6 +33,11 @@ import NotificationsScreen from "@/features/notifications/NotificationsScreen"
 import { NotificationEngine } from "@/features/notifications/useNotificationEngine"
 import GlobalSearchScreen from "@/features/search/GlobalSearchScreen"
 import AnuScreen from "@/features/anu/AnuScreen"
+import AttendanceClockScreen from "@/features/attendance/AttendanceClockScreen"
+import AttendanceDayScreen from "@/features/attendance/AttendanceDayScreen"
+import AttendanceHistoryScreen from "@/features/attendance/AttendanceHistoryScreen"
+import AttendanceNoticeScreen from "@/features/attendance/AttendanceNoticeScreen"
+import AttendanceScreen from "@/features/attendance/AttendanceScreen"
 import InsightsScreen from "@/features/home/InsightsScreen"
 import QuotationDetailScreen from "@/features/quotations/QuotationDetailScreen"
 import QuotationEditorScreen from "@/features/quotations/QuotationEditorScreen"
@@ -161,6 +166,21 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="Legal" component={LegalScreen} options={SHEET} />
         {/* A page you read down, several releases long: a push, not a sheet. */}
         <Stack.Screen name="WhatsNew" component={WhatsNewScreen} />
+        {/* Attendance. Clocking in rises from the bottom and takes the whole
+            screen (camera, then result), like Anu; the rest are pushes. */}
+        <Stack.Screen name="Attendance" component={AttendanceScreen} />
+        <Stack.Screen name="AttendanceHistory" component={AttendanceHistoryScreen} />
+        <Stack.Screen name="AttendanceDay" component={AttendanceDayScreen} />
+        <Stack.Screen
+          name="AttendanceNotice"
+          component={AttendanceNoticeScreen}
+          options={{ presentation: "fullScreenModal", animation: "slide_from_bottom" }}
+        />
+        <Stack.Screen
+          name="AttendanceClock"
+          component={AttendanceClockScreen}
+          options={{ presentation: "fullScreenModal", animation: "slide_from_bottom", gestureEnabled: false }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   )

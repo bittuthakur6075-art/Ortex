@@ -57,6 +57,12 @@ export type RootStackParamList = {
   QuotationDefaults: undefined
   Legal: { doc: LegalDocKey }
   WhatsNew: undefined
+  // Attendance (docs/pm/ATTENDANCE_LEAVE_PLAN.md): marked only here, on the phone.
+  Attendance: undefined
+  AttendanceNotice: { kind: "in" | "out" }
+  AttendanceClock: { kind: "in" | "out" }
+  AttendanceHistory: undefined
+  AttendanceDay: { day: string }
 }
 
 export type TabScreenProps<T extends keyof TabParamList> = CompositeScreenProps<

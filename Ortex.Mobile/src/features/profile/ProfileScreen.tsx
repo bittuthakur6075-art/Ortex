@@ -218,6 +218,15 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
               navigation.navigate("AccountDetails")
             }}
           />
+          <SectionRow
+            leadingIcon="calendar"
+            title="My attendance"
+            subtitle="Clock in and out, and your days"
+            onPress={() => {
+              feedback.tap()
+              navigation.navigate("Attendance")
+            }}
+          />
           {/* Always shown. The gate is `profiles_self_read` (migration 0002) —
               `id = auth.uid() or is_admin()` — so a Sales Executive opening this
               gets their own row and nobody else's, which the screen says out
