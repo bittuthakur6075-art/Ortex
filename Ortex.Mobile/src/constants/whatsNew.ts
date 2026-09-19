@@ -29,6 +29,21 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.3.2",
+    version: "1.3.2",
+    date: "2026-09-19",
+    title: "One check-in and one check-out a day",
+    summary:
+      "Attendance is now one check-in and one check-out a day. If this update will not install, uninstall Ortex Sales and install it again from the link your admin sent.",
+    items: [
+      {
+        kind: "improved",
+        title: "Done for today",
+        detail: "After you check out, Attendance shows Done for today with both times. A wrong time is fixed with a correction request, not a second check-in.",
+      },
+    ],
+  },
+  {
     id: "1.3.1",
     version: "1.3.1",
     date: "2026-09-19",
