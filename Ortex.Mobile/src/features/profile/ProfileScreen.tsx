@@ -236,6 +236,15 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
               navigation.navigate("Leave")
             }}
           />
+          <SectionRow
+            leadingIcon="money"
+            title="My pay"
+            subtitle="Payslips, salary and claims"
+            onPress={() => {
+              feedback.tap()
+              navigation.navigate("Pay")
+            }}
+          />
           {/* Always shown. The gate is `profiles_self_read` (migration 0002) —
               `id = auth.uid() or is_admin()` — so a Sales Executive opening this
               gets their own row and nobody else's, which the screen says out

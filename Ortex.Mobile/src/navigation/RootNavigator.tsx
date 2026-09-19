@@ -49,6 +49,12 @@ import LeaveApplyScreen from "@/features/leave/LeaveApplyScreen"
 import LeaveLedgerScreen from "@/features/leave/LeaveLedgerScreen"
 import LeaveRequestScreen from "@/features/leave/LeaveRequestScreen"
 import LeaveScreen from "@/features/leave/LeaveScreen"
+import PayClaimNewScreen from "@/features/pay/PayClaimNewScreen"
+import PayClaimsScreen from "@/features/pay/PayClaimsScreen"
+import PayScreen from "@/features/pay/PayScreen"
+import PaySalaryScreen from "@/features/pay/PaySalaryScreen"
+import PayslipAlerts from "@/features/pay/PayslipAlerts"
+import PayslipScreen from "@/features/pay/PayslipScreen"
 import InsightsScreen from "@/features/home/InsightsScreen"
 import QuotationDetailScreen from "@/features/quotations/QuotationDetailScreen"
 import QuotationEditorScreen from "@/features/quotations/QuotationEditorScreen"
@@ -124,6 +130,7 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
       <AttendanceQueueSync />
       <AttendanceReminderPlanner />
       <AttendanceApprovalAlerts />
+      <PayslipAlerts />
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -194,6 +201,12 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="LeaveApply" component={LeaveApplyScreen} />
         <Stack.Screen name="LeaveRequest" component={LeaveRequestScreen} />
         <Stack.Screen name="LeaveLedger" component={LeaveLedgerScreen} />
+        {/* My pay: payslips, salary, claims. */}
+        <Stack.Screen name="Pay" component={PayScreen} />
+        <Stack.Screen name="Payslip" component={PayslipScreen} />
+        <Stack.Screen name="PaySalary" component={PaySalaryScreen} />
+        <Stack.Screen name="PayClaims" component={PayClaimsScreen} />
+        <Stack.Screen name="PayClaimNew" component={PayClaimNewScreen} />
         <Stack.Screen
           name="AttendanceNotice"
           component={AttendanceNoticeScreen}

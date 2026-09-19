@@ -74,6 +74,12 @@ export type RootStackParamList = {
   LeaveRequest: { id: string }
   /** One leave type's balance history; `name` is the title, when known. */
   LeaveLedger: { code: string; name?: string }
+  // My pay (migration 0040): payslips, salary and reimbursement claims.
+  Pay: undefined
+  Payslip: { id: string }
+  PaySalary: undefined
+  PayClaims: undefined
+  PayClaimNew: undefined
 }
 
 export type TabScreenProps<T extends keyof TabParamList> = CompositeScreenProps<

@@ -19,6 +19,10 @@ import UserDetail from "./pages/users/UserDetail"
 import Profile from "./pages/Profile"
 import WhatsNew from "./pages/WhatsNew"
 import Attendance from "./pages/Attendance"
+import Payroll from "./pages/Payroll"
+import PayRun from "./pages/payroll/PayRun"
+import EmployeeProfile from "./pages/payroll/EmployeeProfile"
+import MyPayslips from "./pages/MyPayslips"
 import { useProfile } from "./hooks/useProfile"
 import { canAccess } from "./data/domain/modules"
 
@@ -76,6 +80,10 @@ export default function App() {
           <Route path="invoices" element={<Redirect to="/billing?tab=invoices" />} />
           <Route path="payments" element={<Redirect to="/billing?tab=payments" />} />
           <Route path="attendance" element={guard("attendance", <Attendance />)} />
+          <Route path="payroll" element={guard("payroll", <Payroll />)} />
+          <Route path="payroll/runs/:id" element={guard("payroll", <PayRun />)} />
+          <Route path="payroll/employees/:id" element={guard("payroll", <EmployeeProfile />)} />
+          <Route path="payslips" element={guard("payslips", <MyPayslips />)} />
           <Route path="users" element={guard("users", <Users />)} />
           <Route path="users/:id" element={guard("users", <UserDetail />)} />
           <Route path="settings" element={guard("settings", <SettingsPage />)} />

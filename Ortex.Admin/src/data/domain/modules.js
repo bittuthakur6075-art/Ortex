@@ -6,6 +6,8 @@
 //  - always:         every signed-in user can reach it (Dashboard, Attendance)
 //  - superAdminOnly: only the Super Admin (company settings)
 //  - adminOnly:      the Super Admin and Admins; never grantable
+//  - payrollOnly:    the Super Admin, and whoever holds the payroll grant
+//                    (is_payroll(), migration 0040); NOT every Admin
 //  - otherwise:      granted to a ROLE by the Super Admin (role_permissions,
 //                    migration 0032), plus any extras ticked on one person
 
@@ -27,6 +29,9 @@ export const MODULES = [
   { key: "attendance", path: "/attendance", label: "Attendance", section: "People", always: true },
   { key: "attendance-team", path: "/attendance?tab=register", label: "Attendance · Everyone's records", section: "People" },
   { key: "attendance-register", path: "/attendance?tab=register", label: "Attendance · Register & payroll", section: "People" },
+  // Payroll (docs/pm/PAYROLL_PLAN.md, modelled on Zoho Payroll).
+  { key: "payroll", path: "/payroll", label: "Payroll", section: "People", payrollOnly: true },
+  { key: "payslips", path: "/payslips", label: "My payslips", section: "People", always: true },
   { key: "users", path: "/users", label: "Users", section: "System", adminOnly: true },
   { key: "settings", path: "/settings", label: "Settings", section: "System", superAdminOnly: true },
   { key: "social", path: "/social", label: "Social", section: "Automation" },
@@ -48,7 +53,7 @@ export const ALL_MODULE_KEYS = ASSIGNABLE_MODULES.map((m) => m.key)
  */
 export const DEFAULT_ROLE_MODULES = {
   sales: ["voice-leads", "enquiries", "customers", "quotations"],
-  accounts: ["invoices", "payments", "attendance-team", "attendance-register"],
+  accounts: ["invoices", "payments", "attendance-team", "attendance-register", "payroll"],
   staff: [],
 }
 
@@ -71,6 +76,8 @@ export function canAccess(profile, key) {
   if (!m) return false
   if (m.always) return true
   if (m.superAdminOnly) return isSuperAdmin(profile)
+  // Payroll before the admin shortcut: the same rule as is_payroll() (0040).
+  if (m.payrollOnly) return isSuperAdmin(profile) || grantedModules(profile).includes(key)
   if (isAdmin(profile)) return true
   if (m.adminOnly) return false
   return grantedModules(profile).includes(key)

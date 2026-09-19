@@ -40,6 +40,8 @@ export type ModuleKey =
   | "attendance"
   | "attendance-team"
   | "attendance-register"
+  | "payroll"
+  | "payslips"
   | "voice-leads"
   | "enquiries"
   | "customers"
@@ -61,6 +63,8 @@ export type ModuleDef = {
   adminOnly?: boolean
   /** The Super Admin only; never grantable, not even to an Admin. */
   superAdminOnly?: boolean
+  /** The Super Admin, and whoever holds the `payroll` grant (is_payroll(), 0040). Not every Admin. */
+  payrollOnly?: boolean
 }
 
 export const MODULES: ModuleDef[] = [
@@ -71,6 +75,8 @@ export const MODULES: ModuleDef[] = [
   { key: "attendance", label: "Attendance", always: true },
   { key: "attendance-team", label: "Attendance · Everyone's records" },
   { key: "attendance-register", label: "Attendance · Register & payroll" },
+  { key: "payroll", label: "Payroll", payrollOnly: true },
+  { key: "payslips", label: "My payslips", always: true },
   { key: "voice-leads", label: "Voice calls" },
   { key: "enquiries", label: "Enquiries" },
   { key: "customers", label: "Customers" },
@@ -91,7 +97,7 @@ export const MODULES: ModuleDef[] = [
  */
 export const DEFAULT_ROLE_MODULES: Record<"accounts" | "sales" | "staff", string[]> = {
   sales: ["voice-leads", "enquiries", "customers", "quotations"],
-  accounts: ["invoices", "payments", "attendance-team", "attendance-register"],
+  accounts: ["invoices", "payments", "attendance-team", "attendance-register", "payroll"],
   staff: [],
 }
 
@@ -120,6 +126,9 @@ export function canAccess(profile: Profile | null | undefined, key: ModuleKey): 
   const m = MODULES.find((x) => x.key === key)
   if (m?.always) return true
   if (m?.superAdminOnly) return isSuperAdmin(profile)
+  // Payroll is checked before the admin shortcut: salaries are not everything
+  // an Admin sees, only the Super Admin's and whoever is granted it.
+  if (m?.payrollOnly) return isSuperAdmin(profile) || (profile.modules || []).includes(key) || roleModulesOf(profile).includes(key)
   if (isAdmin(profile)) return true
   if (m?.adminOnly) return false
   return (profile.modules || []).includes(key) || roleModulesOf(profile).includes(key)

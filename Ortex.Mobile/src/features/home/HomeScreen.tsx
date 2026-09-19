@@ -17,6 +17,7 @@ import { QUOTATION_STATUS, statusMeta } from "@/domain/schema"
 import AnuButton from "@/features/anu/AnuButton"
 import AnuHomeCard from "@/features/anu/AnuHomeCard"
 import AttendanceHomeCard from "@/features/attendance/AttendanceHomeCard"
+import PayHomeLine from "@/features/pay/PayHomeLine"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { callNumber } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
@@ -167,6 +168,9 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
 
         {/* ---- 0. attendance: every role's first action of the day ---- */}
         <AttendanceHomeCard />
+
+        {/* ---- the latest payslip, only once one has been released ---- */}
+        <PayHomeLine />
 
         {/* ---- 1. shortcuts ---- */}
         {!nothingGranted && (

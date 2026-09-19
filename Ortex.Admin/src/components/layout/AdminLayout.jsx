@@ -18,6 +18,7 @@ import {
   Search,
   Sparkles,
   CalendarClock,
+  IndianRupee,
 } from "../ui/Icons"
 import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
 import { useProfile } from "../../hooks/useProfile"
@@ -66,7 +67,11 @@ const NAV = [
   },
   {
     section: "People",
-    items: [{ to: "/attendance", key: "attendance", label: "Attendance", icon: CalendarClock }],
+    items: [
+      { to: "/attendance", key: "attendance", label: "Attendance", icon: CalendarClock },
+      { to: "/payroll", key: "payroll", label: "Payroll", icon: IndianRupee },
+      { to: "/payslips", key: "payslips", label: "My payslips", icon: ReceiptIndianRupee },
+    ],
   },
   {
     section: "Admin",
