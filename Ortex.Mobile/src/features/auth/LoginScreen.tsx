@@ -23,6 +23,7 @@ import {
   verifyResetCode,
   type PasswordReset,
 } from "@/lib/auth"
+import { keyboardTopInWindow } from "@/hooks/useKeyboardAwareScroll"
 import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
@@ -213,7 +214,7 @@ export default function LoginScreen() {
       Animated.timing(shift, { toValue: to, duration: 220, easing: Easing.out(Easing.quad), useNativeDriver: true }).start()
     const show = Keyboard.addListener("keyboardDidShow", (e) => {
       formRef.current?.measureInWindow((_x, y, _w, h) => {
-        const overlap = y + h + spacing.md - e.endCoordinates.screenY
+        const overlap = y + h + spacing.md - keyboardTopInWindow(e)
         if (overlap > 0) move(-overlap)
       })
     })

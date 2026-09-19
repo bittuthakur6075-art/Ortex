@@ -1,6 +1,6 @@
-import { Instagram, Facebook } from "../../components/ui/Icons"
+import { Instagram, Facebook, LinkedIn } from "../../components/ui/Icons"
 
-export const PLATFORM_ICON = { instagram: Instagram, facebook: Facebook }
+export const PLATFORM_ICON = { instagram: Instagram, facebook: Facebook, linkedin: LinkedIn }
 
 /** ISO string → the `YYYY-MM-DDTHH:mm` a datetime-local input expects, in local time. */
 export function toLocalInput(iso) {

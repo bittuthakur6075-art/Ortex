@@ -142,10 +142,10 @@ export default function ProductsScreen({ navigation }: TabScreenProps<"Products"
           loading
             ? "Loading…"
             : tab === "categories"
-              ? `${orderedCategories.length} categories`
+              ? `${orderedCategories.length} ${orderedCategories.length === 1 ? "category" : "categories"}`
               : tab === "work"
-                ? `${orderedWork.length} photos`
-                : `${visibleProducts.length} products`
+                ? `${orderedWork.length} ${orderedWork.length === 1 ? "photo" : "photos"}`
+                : `${visibleProducts.length} ${visibleProducts.length === 1 ? "product" : "products"}`
         }
         headerLeft={<ProfileAvatarButton />}
         headerRight={

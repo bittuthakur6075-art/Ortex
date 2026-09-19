@@ -13,7 +13,7 @@ import { supabase } from "@/data/supabase"
 
 const SETTINGS_ROW_ID = true // single-row settings table (id boolean primary key)
 
-export type Collection = "products" | "categories" | "customers" | "enquiries" | "quotations" | "work"
+export type Collection = "products" | "categories" | "customers" | "enquiries" | "quotations" | "work" | "social"
 
 type Row = {
   id: string
@@ -108,7 +108,7 @@ function isMissingRelation(error: { code?: string; message?: string } | null): b
 // of this (data/collectionStore.ts) fetches each table once however many
 // screens are reading it.
 export type Table = Collection | "audit_log"
-const REALTIME_TABLES: Table[] = ["products", "categories", "customers", "enquiries", "quotations", "work", "audit_log"]
+const REALTIME_TABLES: Table[] = ["products", "categories", "customers", "enquiries", "quotations", "work", "social", "audit_log"]
 
 // ONE CHANNEL PER TABLE, NOT ONE FOR ALL SEVEN. Realtime validates every
 // postgres_changes binding on a channel together, and a single table that is

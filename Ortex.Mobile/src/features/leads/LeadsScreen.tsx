@@ -91,7 +91,11 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
           ) : null
         }
         subtitle={
-          loading ? "Loading…" : showingVoice ? `${calls.length} calls` : `${enquiries.length} enquiries`
+          loading
+            ? "Loading…"
+            : showingVoice
+              ? `${calls.length} ${calls.length === 1 ? "call" : "calls"}`
+              : `${enquiries.length} ${enquiries.length === 1 ? "enquiry" : "enquiries"}`
         }
         headerLeft={<ProfileAvatarButton />}
         headerRight={

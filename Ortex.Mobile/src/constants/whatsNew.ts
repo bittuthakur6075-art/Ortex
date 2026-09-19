@@ -29,6 +29,38 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.3.0",
+    version: "1.3.0",
+    date: "2026-09-19",
+    title: "Updates arrive inside the app",
+    summary: "From now on, new versions arrive inside the app. Tap Update, then Install, and you stay signed in.",
+    items: [
+      {
+        kind: "new",
+        title: "Updates inside the app",
+        detail:
+          "When a new version is ready the app tells you, downloads it and opens the installer. Tap Install and carry on, still signed in. No more APK files over WhatsApp.",
+      },
+      {
+        kind: "new",
+        title: "Required updates",
+        detail:
+          "When the office needs everyone on the new version, the app asks you to update before it opens. It remembers this even without signal.",
+      },
+      {
+        kind: "improved",
+        title: "Smaller download",
+        detail: "The app is now about half the size to download.",
+      },
+      {
+        kind: "new",
+        title: "One-time setting",
+        detail:
+          "The first time, Android asks you to allow installs from Ortex. Switch it on once. If Play Protect offers to scan the app, tap Scan app.",
+      },
+    ],
+  },
+  {
     id: "1.2.0",
     version: "1.2.0",
     date: "2026-09-14",

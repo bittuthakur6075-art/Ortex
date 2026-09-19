@@ -177,8 +177,16 @@ export default function RecordActivityPanel({
   // "Not recorded" is the honest reading of a null: everything written before
   // the audit trail was switched on has one, and it cannot be reconstructed.
   const creator = actorOf(record.createdBy, directory, "Not recorded")
-  const editor = actorOf(record.updatedBy, directory, "Not recorded")
-  const edited = Boolean(record.updatedAt && record.updatedAt !== record.createdAt)
+  // The newest logged edit also counts. A folded Anu call hands over a view of
+  // its newest capture without the row's timestamps, so the columns alone said
+  // "Never edited since it was created" directly above an edit in the log
+  // (seen on the phone in the 2026-09-19 end-to-end test).
+  const lastLogged = entries.find((e) => e.action === "update")
+  const rowEdited = Boolean(record.updatedAt && record.updatedAt !== record.createdAt)
+  const useLog = !!lastLogged && (!rowEdited || lastLogged.at > (record.updatedAt ?? ""))
+  const edited = rowEdited || !!lastLogged
+  const editedAt = useLog ? lastLogged!.at : record.updatedAt
+  const editor = actorOf(useLog ? lastLogged!.actor : record.updatedBy, directory, useLog ? "Automation" : "Not recorded")
   const visible = expanded ? entries : entries.slice(0, INITIAL_VISIBLE)
 
   const body = (
@@ -197,7 +205,7 @@ export default function RecordActivityPanel({
             <>
               <Person name={editor.name} avatarUrl={editor.avatarUrl} known={editor.known} />
               <Text style={[styles.factWhen, { color: t.textTertiary }]}>
-                {formatDateTime(record.updatedAt)} · {relativeTime(record.updatedAt)}
+                {formatDateTime(editedAt)} · {relativeTime(editedAt)}
               </Text>
             </>
           ) : (

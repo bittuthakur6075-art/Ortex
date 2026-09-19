@@ -59,13 +59,15 @@ export default function InsightsScreen({ navigation, route }: StackScreenProps<"
   const target = route.params?.section
 
   const anchor = (key: InsightSection) => (e: LayoutChangeEvent) => {
-    offsets.current[key] = e.nativeEvent.layout.y
+    // Read NOW: React Native recycles the event once this handler returns, so
+    // `e.nativeEvent` is null inside the frame callback below. Reading it there
+    // crashed the app every time an Insights row on Home was tapped.
+    const y = e.nativeEvent.layout.y
+    offsets.current[key] = y
     if (!jumped.current && key === target && !loading) {
       jumped.current = true
       // Leave the pinned period bar's height clear above the section head.
-      requestAnimationFrame(() =>
-        listRef.current?.scrollToOffset?.({ offset: Math.max(0, e.nativeEvent.layout.y - 56), animated: true }),
-      )
+      requestAnimationFrame(() => listRef.current?.scrollToOffset?.({ offset: Math.max(0, y - 56), animated: true }))
     }
   }
 

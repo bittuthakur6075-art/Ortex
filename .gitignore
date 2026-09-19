@@ -26,14 +26,6 @@ pnpm-debug.log*
 Ortex.Tally.Connector/config.json
 Ortex.Tally.Connector/out
 
-# WhatsApp bot runtime files. auth/ IS the linked WhatsApp session: whoever has
-# it can read and send as that account, so it never leaves the PC.
-Ortex.WhatsApp.Bot/config.json
-Ortex.WhatsApp.Bot/auth/
-Ortex.WhatsApp.Bot/state.json
-Ortex.WhatsApp.Bot/state.json.tmp
-Ortex.WhatsApp.Bot/link-qr.html
-
 # Build archives / screenshots must never be committed
 *.zip
 # Built app binaries — distributed to the sales team, never committed.

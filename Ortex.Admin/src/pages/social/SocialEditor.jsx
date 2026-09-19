@@ -14,6 +14,7 @@ import ApprovalCard from "./ApprovalCard"
 import PhotoPicker from "./PhotoPicker"
 import { isAdmin as isAdminRole } from "../../lib/roles"
 import { uploadSocialImage, IG_MAX_CAPTION, IG_MAX_HASHTAGS } from "../../lib/socialImage"
+import { platformReady } from "../../hooks/useSocialAccounts"
 
 // Statuses only an admin may set or edit. The database refuses anyone else
 // (migrations 0013, 0014, 0035); the editor matches it so a rep never types into
@@ -21,10 +22,15 @@ import { uploadSocialImage, IG_MAX_CAPTION, IG_MAX_HASHTAGS } from "../../lib/so
 const ADMIN_ONLY = ["approved", "scheduled", "publishing", "published", "failed"]
 
 /** What would stop this post going out, as a sentence, or "". */
-function problemWith(post) {
+function problemWith(post, accounts) {
   if (!post.image) return "Add a photo or create an image first."
   if (!String(post.caption || "").trim()) return "Write a caption first."
   if (!(post.platforms || []).length) return "Choose at least one platform."
+  const offline = (post.platforms || []).filter((p) => !platformReady(accounts, p))
+  if (offline.length) {
+    const names = offline.map((p) => ({ instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn" })[p] || p).join(" and ")
+    return `${names} ${offline.length > 1 ? "are" : "is"} not connected yet. Untick ${offline.length > 1 ? "them" : "it"} or connect first.`
+  }
   if ((post.platforms || []).includes("instagram")) {
     const posted = socialCaptionText(post)
     if (posted.length > IG_MAX_CAPTION) return `Caption and hashtags are ${posted.length} characters; Instagram allows ${IG_MAX_CAPTION}.`
@@ -33,7 +39,7 @@ function problemWith(post) {
   return ""
 }
 
-export default function SocialEditor({ post, onClose }) {
+export default function SocialEditor({ post, accounts = null, onClose }) {
   const profile = useProfile()
   const isAdmin = isAdminRole(profile)
 
@@ -42,7 +48,14 @@ export default function SocialEditor({ post, onClose }) {
   // create a fresh duplicate row. `post` is the prop; `postId` is the live id.
   const [postId, setPostId] = useState(post?.id || null)
   const isEdit = !!postId
-  const [form, setForm] = useState(() => (post ? { ...newSocialPost(), ...post } : newSocialPost()))
+  const [form, setForm] = useState(() => {
+    if (post) return { ...newSocialPost(), ...post }
+    // A new post starts on the platforms that can actually be posted to; the
+    // Instagram + Facebook default only when nothing is known or connected yet.
+    const fresh = newSocialPost()
+    const ready = ["instagram", "facebook", "linkedin"].filter((p) => accounts && platformReady(accounts, p))
+    return ready.length ? { ...fresh, platforms: ready } : fresh
+  })
   const [busy, setBusy] = useState("") // "" | upload | pick | generate | restyle | save
   const [publishing, setPublishing] = useState(false)
   const [picking, setPicking] = useState(false)
@@ -166,7 +179,7 @@ export default function SocialEditor({ post, onClose }) {
   const submitForReview = () =>
     attempt("Send for approval", async () => {
       if (!form.topic.trim()) return toast.error("A topic is required")
-      const problem = problemWith(form)
+      const problem = problemWith(form, accounts)
       if (problem) return toast.error(problem)
       await persist({ status: "review" })
       setForm((f) => ({ ...f, status: "review" }))
@@ -176,7 +189,7 @@ export default function SocialEditor({ post, onClose }) {
 
   const approve = () =>
     attempt("Approve", async () => {
-      const problem = problemWith(form)
+      const problem = problemWith(form, accounts)
       if (problem) return toast.error(problem)
       // A schedule time already in the past is not a schedule; approve it for
       // publishing by hand instead of letting the next sweep fire it at once.
@@ -194,7 +207,7 @@ export default function SocialEditor({ post, onClose }) {
     })
 
   const publish = async () => {
-    const problem = problemWith(form)
+    const problem = problemWith(form, accounts)
     if (problem) return toast.error(problem)
     if (!window.confirm("Publish this post to the live company profile now? This cannot be undone from here.")) return
     setPublishing(true)
@@ -280,7 +293,7 @@ export default function SocialEditor({ post, onClose }) {
 
         {/* Settings */}
         <div className="space-y-6">
-          <PublishingCard form={form} set={set} togglePlatform={togglePlatform} locked={readOnly} />
+          <PublishingCard form={form} set={set} togglePlatform={togglePlatform} locked={readOnly} accounts={accounts} />
           <ApprovalCard
             form={form}
             isAdmin={isAdmin}

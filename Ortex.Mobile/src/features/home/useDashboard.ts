@@ -22,6 +22,7 @@ export function useDashboard(range: RangeKey, { withWeb = false }: { withWeb?: b
   const { profile } = useAuth()
   const access = {
     quotes: canAccess(profile, "quotations"),
+    social: canAccess(profile, "social"),
     enquiries: canAccess(profile, "enquiries"),
     voice: canAccess(profile, "voice-leads"),
     customers: canAccess(profile, "customers"),

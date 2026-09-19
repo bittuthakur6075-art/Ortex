@@ -1,8 +1,9 @@
 import { SOCIAL_PLATFORMS } from "../../data/domain/schema"
 import { Card, Input, Field } from "../../components/ui/Ui"
+import { platformReady } from "../../hooks/useSocialAccounts"
 import { PLATFORM_ICON, toLocalInput } from "./helpers"
 
-export default function PublishingCard({ form, set, togglePlatform, locked }) {
+export default function PublishingCard({ form, set, togglePlatform, locked, accounts }) {
   return (
     <Card className="p-5">
       <h3 className="mb-4 border-b border-border pb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -13,16 +14,20 @@ export default function PublishingCard({ form, set, togglePlatform, locked }) {
           <div className="space-y-2">
             {SOCIAL_PLATFORMS.map((p) => {
               const Icon = PLATFORM_ICON[p.id]
+              const checked = form.platforms.includes(p.id)
+              const ready = platformReady(accounts, p.id)
               return (
-                <label key={p.id} className="flex items-center gap-2 text-sm">
+                <label key={p.id} className={`flex items-center gap-2 text-sm ${ready ? "" : "text-muted-foreground"}`}>
                   <input
                     type="checkbox"
-                    checked={form.platforms.includes(p.id)}
+                    checked={checked}
                     onChange={() => togglePlatform(p.id)}
-                    disabled={locked}
+                    // An unconnected platform can be unticked, never ticked.
+                    disabled={locked || (!ready && !checked)}
                   />
                   <Icon className="h-4 w-4 text-muted-foreground" />
                   {p.label}
+                  {!ready && <span className="text-xs text-subtle-foreground">Not connected</span>}
                 </label>
               )
             })}

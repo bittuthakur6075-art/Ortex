@@ -183,6 +183,9 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
             )}
             {access.leads && <QuickAction icon="leads" label="Leads" onPress={() => navigation.navigate("Leads")} />}
             <QuickAction icon="insights" label="Insights" onPress={() => openInsights()} />
+            {access.social && (
+              <QuickAction icon="share" label="Social" onPress={() => navigation.navigate("Social")} />
+            )}
           </View>
         )}
 

@@ -9,6 +9,7 @@ import { formatBytes, updateStatus, type ReleaseManifest, type UpdateStatus } fr
 import {
   clearDownloadedApks,
   downloadAndInstall,
+  loadCachedManifest,
   loadManifest,
   openInstallPermission,
 } from "@/lib/appUpdate"
@@ -55,6 +56,15 @@ export default function UpdateGate({ children }: { children: React.ReactNode }) 
   const [screenOpen, setScreenOpen] = React.useState(false)
   const lastCheck = React.useRef(0)
 
+  // What the phone last heard applies at once; the fresh read then replaces it.
+  const applyCached = React.useCallback(async () => {
+    const cached = await loadCachedManifest()
+    if (updateStatus(INSTALLED_VERSION, cached) === "required") {
+      setManifest(cached)
+      setStatus("required")
+    }
+  }, [])
+
   const check = React.useCallback(async () => {
     lastCheck.current = Date.now()
     const m = await loadManifest()
@@ -72,12 +82,12 @@ export default function UpdateGate({ children }: { children: React.ReactNode }) 
 
   React.useEffect(() => {
     if (Platform.OS !== "android") return
-    void check()
+    void applyCached().then(check)
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active" && Date.now() - lastCheck.current > RECHECK_MS) void check()
     })
     return () => sub.remove()
-  }, [check])
+  }, [applyCached, check])
 
   const snooze = () => {
     setOffered(false)

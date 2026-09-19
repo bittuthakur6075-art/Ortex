@@ -77,6 +77,7 @@ export const SOCIAL_STATUS = [
 export const SOCIAL_PLATFORMS = [
   { id: "instagram", label: "Instagram" },
   { id: "facebook", label: "Facebook Page" },
+  { id: "linkedin", label: "LinkedIn Page" },
 ]
 
 // ---- AI telecaller ---------------------------------------------------------

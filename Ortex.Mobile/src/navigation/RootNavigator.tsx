@@ -19,6 +19,8 @@ import CategoryDetailScreen from "@/features/products/CategoryDetailScreen"
 import CategoryEditorScreen from "@/features/products/CategoryEditorScreen"
 import WorkDetailScreen from "@/features/work/WorkDetailScreen"
 import WorkEditorScreen from "@/features/work/WorkEditorScreen"
+import SocialScreen from "@/features/social/SocialScreen"
+import SocialPostScreen from "@/features/social/SocialPostScreen"
 import ProductEditorScreen from "@/features/products/ProductEditorScreen"
 import AccountDetailsScreen from "@/features/profile/AccountDetailsScreen"
 import ChangePasswordScreen from "@/features/profile/ChangePasswordScreen"
@@ -158,6 +160,8 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="CategoryEditor" component={CategoryEditorScreen} />
         <Stack.Screen name="WorkDetail" component={WorkDetailScreen} />
         <Stack.Screen name="WorkEditor" component={WorkEditorScreen} />
+        <Stack.Screen name="Social" component={SocialScreen} />
+        <Stack.Screen name="SocialPost" component={SocialPostScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={SHEET} />
         <Stack.Screen name="Search" component={GlobalSearchScreen} />

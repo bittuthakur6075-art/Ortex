@@ -41,6 +41,9 @@ export type RootStackParamList = {
   CategoryEditor: { id?: string; pickFor?: "ProductEditor" } | undefined
   WorkDetail: { id: string }
   WorkEditor: { id?: string } | undefined
+  // Social posts (the console's Social page on the phone): write, approve, schedule.
+  Social: undefined
+  SocialPost: { id?: string } | undefined
   Notifications: undefined
   NotificationSettings: undefined
   Search: undefined

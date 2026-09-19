@@ -26,6 +26,7 @@ export const MANIFEST_PATH = "android/latest.json"
 const CACHE_KEY = "@ortex/release-manifest"
 const APK_MIME = "application/vnd.android.package-archive"
 const FLAG_GRANT_READ_URI_PERMISSION = 1
+const FETCH_TIMEOUT_MS = 10_000
 export const APPLICATION_ID = "com.ortexmobile"
 
 /**
@@ -35,12 +36,25 @@ export const APPLICATION_ID = "com.ortexmobile"
  */
 export async function loadManifest(): Promise<ReleaseManifest | null> {
   if (!UPDATE_BASE_URL && !SUPABASE_URL) return null
+  // A dropped connection does not fail, it HANGS, for minutes, and the app ran
+  // unblocked the whole time (seen in the end-to-end test with the server
+  // gone). Give up after 10s and fall back to the saved copy.
+  const abort = new AbortController()
+  const timer = setTimeout(() => abort.abort(), FETCH_TIMEOUT_MS)
   try {
     // The query string defeats the storage CDN's cache, so a release is seen
     // within seconds rather than when the edge copy expires.
-    const res = await fetch(`${BUCKET_URL}/${MANIFEST_PATH}?t=${Date.now()}`, {
-      headers: { "Cache-Control": "no-cache" },
-    })
+    // Raced against a timer as well as aborted: on the test phone the abort
+    // alone never settled a connect that the network had silently dropped.
+    const res = await Promise.race([
+      fetch(`${BUCKET_URL}/${MANIFEST_PATH}?t=${Date.now()}`, {
+        headers: { "Cache-Control": "no-cache" },
+        signal: abort.signal,
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timed out")), FETCH_TIMEOUT_MS + 500),
+      ),
+    ])
     if (res.status === 404 || res.status === 400) {
       // Nothing published yet: forget any old instruction.
       await AsyncStorage.removeItem(CACHE_KEY).catch(() => {})
@@ -51,12 +65,23 @@ export async function loadManifest(): Promise<ReleaseManifest | null> {
     if (manifest) await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(manifest)).catch(() => {})
     return manifest
   } catch {
-    try {
-      const cached = await AsyncStorage.getItem(CACHE_KEY)
-      return cached ? readManifest(JSON.parse(cached)) : null
-    } catch {
-      return null
-    }
+    return loadCachedManifest()
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * The last manifest this phone read, instantly and with no network. The gate
+ * applies it before asking the server, so a required update blocks from the
+ * first frame even when the connection is slow, dead or hanging.
+ */
+export async function loadCachedManifest(): Promise<ReleaseManifest | null> {
+  try {
+    const cached = await AsyncStorage.getItem(CACHE_KEY)
+    return cached ? readManifest(JSON.parse(cached)) : null
+  } catch {
+    return null
   }
 }
 

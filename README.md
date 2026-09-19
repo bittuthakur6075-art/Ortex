@@ -9,17 +9,13 @@ products, lanyards, badges, corporate gifts, OEM/white-label manufacturing).
 | Admin console | [`Ortex.Admin/`](Ortex.Admin/README.md) | React 19 · Vite 8 · Tailwind v4 · Supabase | Quote-to-cash back office: enquiries → quotations → GST invoices → payments, plus growth, social and automation modules |
 | Mobile app | [`Ortex.Mobile/`](Ortex.Mobile/README.md) | React Native 0.85 (bare) · Expo SDK 56 modules · TypeScript | Field-sales companion: quick quotations, enquiries and voice leads, catalogue, a call/WhatsApp contact directory, and notifications (in-app and in the phone's shade) |
 | Tally connector | [`Ortex.Tally.Connector/`](Ortex.Tally.Connector/README.md) | Node CLI | Pushes Admin records into TallyPrime through its local XML gateway |
-| WhatsApp bot | [`Ortex.WhatsApp.Bot/`](Ortex.WhatsApp.Bot/README.md) | Node CLI · Baileys · Gemini | Posts the console's daily/weekly insights and instant alerts to the owners' WhatsApp group and answers questions there; a linked device on an existing account, no Business API |
 
-The five apps are **independent npm projects** (no root workspace). The mobile app is a
+The four apps are **independent npm projects** (no root workspace). The mobile app is a
 second client of the Admin's Supabase project, same anon key, same `profiles` roles and
 RLS, and mirrors the Admin's pure logic under `Ortex.Mobile/src/domain/`, which must be
 kept in step (its `npm test` asserts the two GST engines agree). The connector must run on
 the Windows PC where TallyPrime is open and shares nothing with the Admin except the
-`doc.tally` field written back onto each Supabase record. The WhatsApp bot is read-only: it
-reads Supabase with the service_role key and imports the console's own analytics modules
-(`Ortex.Admin/src/lib/analytics/today.js`, `pages/automation/visitors.js`), so its figures
-are the Dashboard's.
+`doc.tally` field written back onto each Supabase record.
 
 ## Quick start
 
@@ -35,15 +31,12 @@ cd Ortex.Mobile && npm install && cp .env.example .env && npm run android
 
 # Tally connector (Windows + TallyPrime running)
 cd Ortex.Tally.Connector && npm install && cp config.example.json config.json && npm run dry-run
-
-# WhatsApp bot (an always-on PC; links to WhatsApp by QR on first start)
-cd Ortex.WhatsApp.Bot && npm install && npm run preview -- --sample
 ```
 
 Both front-ends expose `dev`, `build`, `preview` and `lint` (Admin also has `test`); the
 mobile app has `start`, `android`, `ios`, `lint`, `typecheck` and `test`; the connector has
-`start`, `once`, `dry-run` and `fixture`; the WhatsApp bot has `start`, `groups`, `digest`, `preview` and `test`. CI (`.github/workflows/ci.yml`) runs lint + build for both
-front-ends the XML fixture for the connector and the WhatsApp bot's tests on every push to `Development` / `main`.
+`start`, `once`, `dry-run` and `fixture`. CI (`.github/workflows/ci.yml`) runs lint + build for both
+front-ends and the XML fixture for the connector on every push to `Development` / `main`.
 
 ## Repository layout
 
@@ -84,7 +77,6 @@ Ortex/
 │       ├── documents/ lib/    # printable A4 quotation; pdf, contact, auth, haptics
 │       └── features/          # quotations, leads, products, contacts, auth, profile
 ├── Ortex.Tally.Connector/     # Node CLI (src/, test/)
-├── Ortex.WhatsApp.Bot/        # Node CLI (src/, test/): WhatsApp digests, alerts, answers
 ├── docs/                      # cross-cutting: architecture, backlog, guides
 ├── .github/workflows/ci.yml
 └── CLAUDE.md                  # working notes for AI coding assistants

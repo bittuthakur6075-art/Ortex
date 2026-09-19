@@ -48,6 +48,7 @@ export type ModuleKey =
   | "products"
   | "categories"
   | "work"
+  | "social"
   | "quotations"
   | "invoices"
   | "payments"
@@ -83,6 +84,8 @@ export const MODULES: ModuleDef[] = [
   { key: "products", label: "Products" },
   { key: "categories", label: "Categories" },
   { key: "work", label: "Work gallery" },
+  // Social posts: research, design, approve and schedule (console + phone).
+  { key: "social", label: "Social" },
   { key: "quotations", label: "Quotations" },
   { key: "invoices", label: "Invoices" },
   { key: "payments", label: "Payments" },

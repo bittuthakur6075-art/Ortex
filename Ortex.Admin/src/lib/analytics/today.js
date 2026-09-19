@@ -2,9 +2,6 @@
 // is going against the one before it. Pure functions over the raw collections,
 // every one taking `now` so a test is not a race with the clock.
 //
-// Also imported by Ortex.WhatsApp.Bot (plain Node, through its src/loader.js),
-// so keep it free of browser-only imports; the bot's npm test fails if not.
-//
 // Vocabulary is kept identical to computeAnalytics (Insights → Sales) and to the
 // phone's domain/dashboard.ts, so a word means the same thing on every screen:
 //   · won      = quotation accepted or invoiced

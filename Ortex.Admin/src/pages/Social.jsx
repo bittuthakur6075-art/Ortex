@@ -7,6 +7,10 @@ import { Button, SearchInput, EmptyState, PageLoader, Chip, ChipGroup } from "..
 import PostCard from "./social/PostCard"
 import ResearchModal from "./social/ResearchModal"
 import SocialEditor from "./social/SocialEditor"
+import AccountsCard from "./social/AccountsCard"
+import { useSocialAccounts } from "../hooks/useSocialAccounts"
+import { useProfile } from "../hooks/useProfile"
+import { isAdmin as isAdminRole } from "../lib/roles"
 
 export default function Social() {
   const { items, loading } = useCollection("social")
@@ -14,6 +18,8 @@ export default function Social() {
   const [researching, setResearching] = useState(false)
   const [filter, setFilter] = useState("all")
   const [query, setQuery] = useState("")
+  const accounts = useSocialAccounts()
+  const isAdmin = isAdminRole(useProfile())
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -35,12 +41,12 @@ export default function Social() {
   }, [items])
 
   if (editing) {
-    return <SocialEditor post={editing === "new" ? null : editing} onClose={() => setEditing(null)} />
+    return <SocialEditor post={editing === "new" ? null : editing} accounts={accounts.status} onClose={() => setEditing(null)} />
   }
 
   return (
     <div>
-      <PageHeader title="Social" subtitle="Research, design, and publish Instagram and Facebook posts - nothing goes live without approval">
+      <PageHeader title="Social" subtitle="Research, design, and publish to Instagram, Facebook and LinkedIn. Nothing goes live without approval">
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setResearching(true)}>
             <Sparkles className="h-4 w-4" /> Research ideas
@@ -50,6 +56,8 @@ export default function Social() {
           </Button>
         </div>
       </PageHeader>
+
+      <AccountsCard accounts={accounts} isAdmin={isAdmin} />
 
       {items.length > 0 && (
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">

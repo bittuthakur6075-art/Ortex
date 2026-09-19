@@ -24,6 +24,7 @@ import { ENGINE_HTML } from "@/features/anu/engineHtml"
 import { useAnuSession, type SurfacedCard, type WebViewHandle } from "@/features/anu/useAnuSession"
 import { useReducedMotion } from "@/features/home/motion"
 import { useCollection } from "@/hooks/useCollection"
+import { keyboardTopInWindow } from "@/hooks/useKeyboardAwareScroll"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
@@ -153,7 +154,7 @@ function useKeyboardLift(reduced: boolean) {
       })
     }
     const show = Keyboard.addListener(showEvent, (e: KeyboardEvent) => {
-      keyboardTop.current = e.endCoordinates?.screenY ?? 0
+      keyboardTop.current = keyboardTopInWindow(e)
       animate(e)
       requestAnimationFrame(measure)
     })

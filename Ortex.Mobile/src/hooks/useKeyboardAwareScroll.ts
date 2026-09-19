@@ -2,6 +2,7 @@ import React from "react"
 import {
   Keyboard,
   Platform,
+  StatusBar,
   TextInput,
   type KeyboardEvent,
   type LayoutChangeEvent,
@@ -50,6 +51,25 @@ import {
 
 /** Breathing room between the focused field and the top of the keyboard. */
 const MARGIN = 24
+
+/**
+ * The keyboard's top edge in the SAME coordinates `measureInWindow` returns.
+ *
+ * On Android the two disagree by the status bar: React Native reports
+ * `screenY` as the visible frame's bottom in raw screen pixels, but
+ * `measureInWindow` subtracts the visible frame's top (RootViewUtil.kt,
+ * "subtract visibleWindowCoords"). Every overlap came out short by the status
+ * bar's height, about 35dp, which is exactly how much of a focused field was
+ * left under the keyboard. Older Android hid the fault because adjustResize
+ * shrank the window and there was no overlap to compute; Android 16 draws the
+ * app edge to edge and no longer resizes it, so the sum finally mattered. Found
+ * on a Samsung S24 FE in the 2026-09-19 end-to-end test. iOS agrees already.
+ */
+export function keyboardTopInWindow(e: KeyboardEvent): number {
+  const top = e.endCoordinates?.screenY ?? 0
+  if (!top || Platform.OS !== "android") return top
+  return top - (StatusBar.currentHeight ?? 0)
+}
 
 type Scrollable = { scrollTo: (opts: { y: number; animated?: boolean }) => void }
 
@@ -110,7 +130,7 @@ export function useKeyboardAwareScroll<T extends Scrollable>() {
       // than deriving it from the window height keeps this correct with a
       // floating or split keyboard, and on Android where the window has already
       // been resized by the time this fires.
-      keyboardTop.current = e.endCoordinates?.screenY ?? 0
+      keyboardTop.current = keyboardTopInWindow(e)
       setKeyboard(height)
       // One frame's grace, so the resized viewport and the new bottom padding
       // are both in place before anything is measured against them.

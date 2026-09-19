@@ -1,7 +1,8 @@
 // Edge Function: social-publish
 //
-// Step 3 of the social pipeline, and the ONLY thing that talks to Meta. It holds
-// the Page access token, which is why publishing cannot live in the browser.
+// Step 3 of the social pipeline, and the ONLY thing that posts to Meta and
+// LinkedIn (_shared/linkedin.ts). It holds the platform tokens, which is why
+// publishing cannot live in the browser.
 //
 // Two ways in:
 //   a) An ADMIN (or the Super Admin) pressing Publish. Sales staff can research,
@@ -33,6 +34,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
 import { requireStaff, type Db } from "../_shared/auth.ts"
+import {
+  LI_MAX_COMMENTARY, liConfigured, linkedInCommentary, loadConnection, publishLinkedIn, usableConnection,
+} from "../_shared/linkedin.ts"
+import { loadIgConnection, publishInstagramDirect, usableIgConnection } from "../_shared/instagram.ts"
 
 // v21.0 expires on 21 January 2027 (Meta's version schedule); v25.0 runs to July 2028.
 const GRAPH = Deno.env.get("META_GRAPH_VERSION") || "v25.0"
@@ -127,17 +132,41 @@ async function publishFacebook(pageId: string, imageUrl: string, caption: string
   return { id, permalink: res?.post_id ? `https://www.facebook.com/${res.post_id}` : "" }
 }
 
+const hashtagsOf = (doc: Post) => (Array.isArray(doc.hashtags) ? doc.hashtags : []).map(String).filter(Boolean)
+
 /**
- * Everything that would make Meta refuse the post, found BEFORE claiming it.
- * Returns the sentence to show, or "" when the post can go.
+ * Everything that would make a platform refuse the post, found BEFORE claiming
+ * it. Returns the sentence to show, or "" when the post can go.
  */
-async function problemWith(doc: Post): Promise<string> {
+async function problemWith(db: Db, doc: Post): Promise<string> {
   const platforms = Array.isArray(doc.platforms) ? doc.platforms as string[] : []
   const image = String(doc.image || "")
   const caption = captionText(doc)
   if (!image) return "This post has no creative yet."
   if (!caption) return "This post has no caption yet."
   if (!platforms.length) return "No platform selected for this post."
+
+  const meta = Boolean(Deno.env.get("META_ACCESS_TOKEN"))
+  if (platforms.includes("facebook") && !meta) {
+    return "Facebook is not connected yet (no Facebook Page token). Untick Facebook, or see docs/guides/META_SETUP.md."
+  }
+  if (platforms.includes("instagram")) {
+    const direct = await loadIgConnection(db).catch(() => null)
+    if (!direct && !(meta && Deno.env.get("META_IG_USER_ID"))) {
+      return "Instagram is not connected. An admin needs to paste the token under Connect Instagram on the Social page, or untick Instagram."
+    }
+  }
+
+  if (platforms.includes("linkedin")) {
+    if (!liConfigured()) return "LinkedIn is not set up yet. See docs/guides/LINKEDIN_SETUP.md, or untick LinkedIn."
+    if (!(await loadConnection(db).catch(() => null))) {
+      return "LinkedIn is not connected. An admin needs to click Connect LinkedIn on the Social page, or untick LinkedIn."
+    }
+    const text = linkedInCommentary(String(doc.caption || ""), hashtagsOf(doc))
+    if (text.length > LI_MAX_COMMENTARY) {
+      return `The caption and hashtags come to ${text.length} characters on LinkedIn; it allows ${LI_MAX_COMMENTARY}.`
+    }
+  }
 
   if (platforms.includes("instagram")) {
     if (caption.length > IG_MAX_CAPTION) {
@@ -197,11 +226,22 @@ async function publishClaimed(db: Db, id: string, claimed: Post) {
     if (results[p]?.id) continue
     try {
       if (p === "instagram") {
-        if (!igUserId) throw new Error("Instagram is not configured (missing META_IG_USER_ID).")
-        results[p] = await publishInstagram(igUserId, image, caption)
+        // Instagram on its own (no Facebook Page) when connected that way,
+        // otherwise through the Facebook Page.
+        const direct = await loadIgConnection(db).catch(() => null)
+        if (direct) {
+          results[p] = await publishInstagramDirect(await usableIgConnection(db), image, caption)
+        } else {
+          if (!igUserId) throw new Error("Instagram is not connected. Paste the token under Connect Instagram on the Social page.")
+          results[p] = await publishInstagram(igUserId, image, caption)
+        }
       } else if (p === "facebook") {
         if (!pageId) throw new Error("Facebook is not configured (missing META_PAGE_ID).")
         results[p] = await publishFacebook(pageId, image, caption)
+      } else if (p === "linkedin") {
+        const conn = await usableConnection(db)
+        const text = linkedInCommentary(String(claimed.caption || ""), hashtagsOf(claimed))
+        results[p] = await publishLinkedIn(conn, image, text, String(claimed.topic || "Ortex Industries"))
       } else {
         throw new Error(`Publishing to ${p} is not supported yet.`)
       }
@@ -250,6 +290,23 @@ async function sweep(db: Db) {
   const started = Date.now()
   const out: { id: string; ok: boolean; error?: string }[] = []
 
+  // 0) Keep the LinkedIn token alive: renewed once it has under 10 days left,
+  //    so a connection lasts the full year of its refresh token even in a quiet
+  //    month with nothing to post.
+  if (liConfigured()) {
+    try {
+      if (await loadConnection(db)) await usableConnection(db)
+    } catch (e) {
+      console.error("linkedin renewal failed", e)
+    }
+  }
+  //    ...and the Instagram token, renewed weekly (each renewal is 60 more days).
+  try {
+    if (await loadIgConnection(db)) await usableIgConnection(db)
+  } catch (e) {
+    console.error("instagram renewal failed", e)
+  }
+
   // 1) A claim that outlived any possible run: the run was killed. Say so and
   //    stop; Instagram may already have the post, so a person decides.
   const staleBefore = new Date(Date.now() - STALE_CLAIM_MS).toISOString()
@@ -289,7 +346,7 @@ async function sweep(db: Db) {
       out.push({ id: row.id, ok: false, error: "approver no longer an active admin" })
       continue
     }
-    const problem = await problemWith(row.doc)
+    const problem = await problemWith(db, row.doc)
     if (problem) {
       await writeDoc(db, row.id, { ...row.doc, status: "failed", error: problem })
       out.push({ id: row.id, ok: false, error: problem })
@@ -315,9 +372,8 @@ Deno.serve(async (req) => {
     const url = Deno.env.get("SUPABASE_URL")!
     const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
     if (!service) return json({ error: "Publishing is not configured (missing service role)." }, 500)
-    if (!Deno.env.get("META_ACCESS_TOKEN")) {
-      return json({ error: "Publishing is not configured yet (missing META_ACCESS_TOKEN). See docs/guides/META_SETUP.md." }, 500)
-    }
+    // Each platform is checked on its own (problemWith), so LinkedIn works
+    // before Meta is connected and the other way round.
 
     const db = createClient(url, service)
     const authHeader = req.headers.get("Authorization") ?? ""
@@ -354,7 +410,7 @@ Deno.serve(async (req) => {
       return json({ error: "This post has not been approved yet." }, 400)
     }
 
-    const problem = await problemWith(row.doc as Post)
+    const problem = await problemWith(db, row.doc as Post)
     if (problem) return json({ error: problem }, 400)
 
     const claimed = await claim(db, row as Row, status)
