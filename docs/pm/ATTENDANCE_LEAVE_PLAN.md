@@ -15,7 +15,15 @@ Status (2026-09-19): **phases 0, 1 and 2 are built and live**.
   - pg_cron: EL accrual on the 1st, the year close and CL/SL grant on 1 January;
   - an opening grant pro-rated from September 2026;
   - both clients.
-- **Next:** Phase 4 (hardening): face-present check, offline queue, reminders, Insights → Attendance, remote push for approvals, comp-off expiry.
+- **Phase 4 (hardening):**
+  - migration 0038: comp-off expiry, and approval notifications through push-notify;
+  - an ML Kit face check on the selfie;
+  - the offline clock-in queue;
+  - clock-in and clock-out reminders;
+  - approval alerts while the app is open;
+  - Insights → Attendance.
+
+All four phases of the plan are built.
 
 Decisions are in §10.
 
