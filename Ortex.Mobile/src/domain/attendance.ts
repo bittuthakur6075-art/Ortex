@@ -42,6 +42,7 @@ export type PunchResult = {
     | "no_selfie"
     | "already_in"
     | "not_in"
+    | "day_done"
     | "no_site"
     | "weak_gps"
     | "outside"

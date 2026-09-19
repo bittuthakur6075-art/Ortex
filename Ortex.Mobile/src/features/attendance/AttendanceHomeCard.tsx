@@ -4,7 +4,7 @@ import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { clockIST, dayKey } from "@/domain/attendance"
-import { ActionAdvisory, InfoChip, QueueAdvisory } from "@/features/attendance/attendanceUi"
+import { ActionAdvisory, InfoChip, QueueAdvisory, DayDone } from "@/features/attendance/attendanceUi"
 import { dayLabel } from "@/features/attendance/format"
 import { DayTimelineBar, LiveTimer } from "@/features/attendance/LiveProgress"
 import { dayTimeline, progressWords, shiftEnded, shiftMinutes, workedMs } from "@/features/attendance/progress"
@@ -114,13 +114,24 @@ export default function AttendanceHomeCard() {
         </Text>
 
         {summary.firstIn ? <DayTimelineBar timeline={timeline} compact /> : null}
-        <SlideToConfirm
-          label={onDutySince ? "Slide to check out" : "Slide to check in"}
-          tone={onDutySince ? "danger" : "primary"}
-          disabled={loading}
-          hint={onDutySince ? "Takes a selfie and your location, then checks you out" : "Takes a selfie and your location, then checks you in"}
-          onConfirm={() => void startClock(navigation, onDutySince ? "out" : "in")}
-        />
+        {!onDutySince && summary.lastOut ? (
+          <DayDone
+            inAt={summary.firstIn ? clockIST(summary.firstIn) : null}
+            outAt={clockIST(summary.lastOut)}
+            onCorrect={() => {
+              feedback.tap()
+              navigation.navigate("AttendanceCorrection", { day: today, inAt: summary.firstIn, outAt: summary.lastOut })
+            }}
+          />
+        ) : (
+          <SlideToConfirm
+            label={onDutySince ? "Slide to check out" : "Slide to check in"}
+            tone={onDutySince ? "danger" : "primary"}
+            disabled={loading}
+            hint={onDutySince ? "Takes a selfie and your location, then checks you out" : "Takes a selfie and your location, then checks you in"}
+            onConfirm={() => void startClock(navigation, onDutySince ? "out" : "in")}
+          />
+        )}
         <View style={styles.footer}>
           <Text style={[textVariants.caption, { color: t.textTertiary, flex: 1 }]} numberOfLines={1}>
             {notices.nextHoliday

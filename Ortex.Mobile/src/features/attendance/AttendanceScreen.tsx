@@ -3,7 +3,7 @@ import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
 import { clockIST, dayKey, effectiveStatus, type DayStatus } from "@/domain/attendance"
-import { ActionAdvisory, InfoChip, QueueAdvisory } from "@/features/attendance/attendanceUi"
+import { ActionAdvisory, InfoChip, QueueAdvisory, DayDone } from "@/features/attendance/attendanceUi"
 import { DialHeroSkeleton, WeekSkeleton } from "@/features/attendance/AttendanceSkeletons"
 import CheckButton from "@/features/attendance/CheckButton"
 import { daysFromPunches, weekCells } from "@/features/attendance/days"
@@ -103,6 +103,8 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
   const where = summary.field ? "Field visit" : summary.site || ""
   const workedMin = worked.ms / 60000
   const kind = onDutySince ? "out" : "in"
+  // One check-in and one check-out a day: after the check-out the day is done.
+  const dayDone = !onDutySince && !!summary.lastOut
 
   // The line under the button: Zoho says when you checked in, or out.
   const stamp = onDutySince
@@ -184,7 +186,15 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
                 <Text style={[textVariants.small, { color: t.textTertiary }]}>{progress}</Text>
               </View>
 
-              <CheckButton kind={kind} disabled={loading} onPress={() => void startClock(navigation, kind)} />
+              {dayDone ? (
+                <DayDone
+                  inAt={summary.firstIn ? clockIST(summary.firstIn) : null}
+                  outAt={clockIST(summary.lastOut!)}
+                  onCorrect={() => navigation.navigate("AttendanceCorrection", { day: today, inAt: summary.firstIn, outAt: summary.lastOut })}
+                />
+              ) : (
+                <CheckButton kind={kind} disabled={loading} onPress={() => void startClock(navigation, kind)} />
+              )}
 
               <View style={styles.stampRow}>
                 <Text style={[textVariants.smallStrong, { color: t.textSecondary, flexShrink: 1 }]} numberOfLines={1}>

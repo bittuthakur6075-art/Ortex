@@ -178,6 +178,38 @@ export function ActionAdvisory({
 }
 
 /**
+ * The day after its check-out: one check-in and one check-out a day (migration
+ * 0042 refuses a second), so the button gives way to this. A wrong time is
+ * fixed through a correction request, which an admin approves.
+ */
+export function DayDone({ inAt, outAt, onCorrect }: { inAt: string | null; outAt: string; onCorrect: () => void }) {
+  const t = useTheme()
+  const press = usePressMotion({ scale: 0.985, dim: 0.85 })
+  return (
+    <View style={[styles.dayDone, { backgroundColor: t.successBg }]}>
+      <View style={styles.dayDoneHead}>
+        <Icon name="tick" size={20} color={t.success} variant="Bulk" />
+        <Text style={[textVariants.bodyStrong, { color: t.successText }]}>Done for today</Text>
+      </View>
+      <Text style={[textVariants.small, { color: t.successText }]}>
+        {inAt ? `Checked in ${inAt}, checked out ${outAt}.` : `Checked out ${outAt}.`} Attendance is one check-in and one check-out a day.
+      </Text>
+      <AnimatedPressable
+        onPress={onCorrect}
+        onPressIn={press.onPressIn}
+        onPressOut={press.onPressOut}
+        accessibilityRole="button"
+        hitSlop={8}
+        style={[styles.dayDoneLink, press.style]}
+      >
+        <Text style={[textVariants.smallStrong, { color: t.primary }]}>Wrong time? Request a correction</Text>
+        <Icon name="forward" size={14} color={t.primary} />
+      </AnimatedPressable>
+    </View>
+  )
+}
+
+/**
  * Clock-ins saved on the phone with no signal (lib/attendanceQueue.ts): how
  * many are waiting, a tap to send them now, and why one could not be sent.
  */
@@ -249,4 +281,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   advisoryText: { flex: 1 },
+  dayDone: { borderRadius: radius.lg, padding: spacing.md, gap: spacing.xs },
+  dayDoneHead: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  dayDoneLink: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", marginTop: spacing.xs },
 })
