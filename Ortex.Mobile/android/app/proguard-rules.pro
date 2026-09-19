@@ -32,3 +32,9 @@
 # Hermes' ICU shim, resolved by name from C++. React Native's consumer rules
 # keep `com.facebook.jni.**` for Hermes but not this package.
 -keep class com.facebook.hermes.unicode.** { *; }
+
+# Barcode scanning is excluded in app/build.gradle (APK size); expo-camera still
+# references its classes on a path this app never takes.
+-dontwarn com.google.mlkit.vision.barcode.**
+-dontwarn com.google.mlkit.vision.codescanner.**
+-dontwarn androidx.camera.mlkit.vision.**

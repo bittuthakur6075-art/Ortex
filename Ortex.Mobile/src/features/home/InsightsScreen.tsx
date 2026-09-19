@@ -125,7 +125,7 @@ export default function InsightsScreen({ navigation, route }: StackScreenProps<"
 
             {access.leads && (
               <View onLayout={anchor("sources")}>
-                <Panel title="Where leads come from" meta={`Share of ${formatNumber(d.leads.total)} leads`} padded>
+                <Panel title="Where leads come from" meta={`Share of ${formatNumber(d.leads.total)} ${d.leads.total === 1 ? "lead" : "leads"}`} padded>
                   {d.sources.length ? (
                     // Volume AND conversion in one mark: the whole bar is the leads a
                     // source sent, the dark part inside it the ones that were won.

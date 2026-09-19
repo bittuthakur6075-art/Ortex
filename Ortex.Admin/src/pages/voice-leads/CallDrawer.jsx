@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { Building2, CalendarClock, CheckCircle2, FileText, Mail, MapPin } from "../../components/ui/Icons"
+import { Building2, CalendarClock, CheckCircle2, FileText, Mail, MapPin, Trash2 } from "../../components/ui/Icons"
 import { Button, Drawer, Select } from "../../components/ui/Ui"
 import { Advisories } from "../../components/ui/Advisories"
 import { voiceCallAdvisories } from "../../lib/advisories"
@@ -12,7 +12,11 @@ import ContactRow from "./ContactRow"
 import Detail from "./Detail"
 import ItemsList from "./ItemsList"
 
-export default function CallDrawer({ active, related = [], saving, onClose, onStatus, onQuotation }) {
+// `onDelete` is passed only for an admin (VoiceLeads.jsx), so a staff account
+// simply never sees the control. The database is the other half of that rule:
+// 0007's `staff_enquiries` is still `for all`, so this gate is the console's,
+// not the row's, in the way 0022 made quotation deletes admin-only in BOTH.
+export default function CallDrawer({ active, related = [], saving, onClose, onStatus, onQuotation, onDelete }) {
   const advisories = useMemo(() => voiceCallAdvisories(active, { related }), [active, related])
   // The website stamps every capture with `call` (Ortex.Web live-orty); the
   // newest row says whether the customer confirmed Anu's read-back. Rows saved
@@ -43,6 +47,18 @@ export default function CallDrawer({ active, related = [], saving, onClose, onSt
             <Button onClick={() => onQuotation(active)}>
               <FileText className="h-4 w-4" /> Create quotation
             </Button>
+            {onDelete && (
+              <Button
+                variant="dangerGhost"
+                icon
+                aria-label="Delete this call"
+                title="Delete this call"
+                disabled={saving}
+                onClick={() => onDelete(active)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         )
       }

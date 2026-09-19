@@ -14,7 +14,7 @@ import {
   type Loan,
   type Payslip,
 } from "@/features/pay/payFormat"
-import { NetPayBars, PayDonut, PayHero } from "@/features/pay/payUi"
+import { NetPayBars, PayDonut, PayHero, PayHeroSkeleton, PayListSkeleton, StatStrip } from "@/features/pay/payUi"
 import { usePayColors } from "@/features/pay/usePayColors"
 import { feedback } from "@/lib/feedback"
 import { myLoans, myPayslips } from "@/lib/pay"
@@ -34,14 +34,14 @@ import {
   RowSeparator,
   Section,
   SectionRow,
-  SkeletonPanel,
 } from "@/ui"
 
 /**
- * My pay (Zoho Payroll's employee app): the last net pay first, as one figure;
- * then the financial year so far as a donut of where the gross went (take-home,
- * deductions, income tax), the last six months' net pay, every payslip by
- * financial year, and the doors to salary, claims and any loan being recovered.
+ * My pay, laid out like Zoho Payroll's employee home: the latest payslip is the
+ * hero (the month, NET PAY as the one large figure, the pay date, paid and LOP
+ * days, and "View payslip"); then every payslip by month, newest first, with
+ * its net pay and the day it was paid; then the year so far; then the doors to
+ * the salary structure, reimbursement claims and income tax.
  */
 export default function PayScreen({ navigation }: StackScreenProps<"Pay">) {
   const t = useTheme()
@@ -79,6 +79,7 @@ export default function PayScreen({ navigation }: StackScreenProps<"Pay">) {
   const trend = React.useMemo(() => netPayTrend(slips || [], 6), [slips])
   const groups = React.useMemo(() => groupByFy(slips || []), [slips])
   const openLoans = loans.filter((l) => l.status !== "closed")
+  const regime = latest?.data.tds?.regime
 
   return (
     <AppScreen
@@ -105,34 +106,62 @@ export default function PayScreen({ navigation }: StackScreenProps<"Pay">) {
       <DataNotice error={error} onRetry={() => void load()} />
       {slips === null ? (
         <>
-          <SkeletonPanel lines={2} block={90} />
-          <SkeletonPanel lines={3} block={140} />
-          <SkeletonPanel lines={4} />
+          <PayHeroSkeleton />
+          <PayListSkeleton count={4} />
         </>
       ) : (
         <>
           {latest ? (
-            <Panel title="Latest payslip">
-              <PayHero
-                label={`Net pay · ${monthLabel(latest.data.month)}`}
-                amount={latest.data.netPay ?? latest.net_pay}
-                caption={`${daysText(latest.data.paidDays)} paid${
-                  latest.data.lopDays > 0 ? `, ${daysText(latest.data.lopDays)} loss of pay` : ""
-                } · Released ${formatDate(latest.released_at)}`}
-              />
-              <View style={styles.cta}>
-                <Button label="View payslip" icon="invoice" variant="secondary" fullWidth onPress={() => open(latest.id)} />
+            <Panel>
+              <View style={styles.heroTop}>
+                <PayHero
+                  eyebrow={`${monthLabel(latest.data.month)} payslip`}
+                  label="Net pay"
+                  amount={latest.data.netPay ?? latest.net_pay}
+                  caption={`Paid on ${formatDate(latest.released_at)}`}
+                >
+                  <StatStrip
+                    stats={[
+                      { key: "paid", label: "Paid days", value: `${latest.data.paidDays}` },
+                      {
+                        key: "lop",
+                        label: "LOP days",
+                        value: `${latest.data.lopDays || 0}`,
+                        tone: latest.data.lopDays > 0 ? "warning" : undefined,
+                      },
+                      { key: "gross", label: "Gross", value: money(latest.data.gross ?? latest.gross) },
+                    ]}
+                  />
+                  <Button label="View payslip" icon="preview" fullWidth onPress={() => open(latest.id)} />
+                </PayHero>
               </View>
             </Panel>
           ) : (
             <Panel>
-              <EmptyState
-                icon="money"
-                title="No payslips yet"
-                hint="They appear here once payroll records a payment."
-              />
+              <EmptyState icon="money" title="No payslips yet" hint="They appear here once payroll records a payment." />
             </Panel>
           )}
+
+          {groups.map((g) => (
+            <Panel key={g.fy} title={`Payslips FY ${g.fy}`} meta={`${g.slips.length}`}>
+              {g.slips.map((s, i) => (
+                <React.Fragment key={s.id}>
+                  {i > 0 && <RowSeparator />}
+                  <ListRow
+                    leadingIcon="invoice"
+                    leadingTone={s.id === latest?.id ? "primary" : "slate"}
+                    title={monthLabel(s.data.month)}
+                    subtitle={`Paid on ${formatDate(s.released_at)}${
+                      s.data.lopDays > 0 ? ` · ${daysText(s.data.lopDays)} LOP` : ""
+                    }`}
+                    value={money(s.data.netPay ?? s.net_pay)}
+                    valueSub={<Text style={[textVariants.caption, { color: t.textTertiary }]}>Net pay</Text>}
+                    onPress={() => open(s.id)}
+                  />
+                </React.Fragment>
+              ))}
+            </Panel>
+          ))}
 
           {latest && ytd.count > 0 ? (
             <Panel title="This financial year" meta={`${fyWords(latest.data.month)} · ${ytd.count} ${ytd.count === 1 ? "payslip" : "payslips"}`}>
@@ -150,32 +179,14 @@ export default function PayScreen({ navigation }: StackScreenProps<"Pay">) {
                   {`Plus ${money(ytd.reimbursements)} of claims paid with salary.`}
                 </Text>
               ) : null}
+              {trend.length > 1 ? (
+                <>
+                  <Text style={[textVariants.tileLabel, styles.subhead, { color: t.textTertiary }]}>NET PAY BY MONTH</Text>
+                  <NetPayBars data={trend} onPress={open} />
+                </>
+              ) : null}
             </Panel>
           ) : null}
-
-          {trend.length > 1 ? (
-            <Panel title="Net pay by month">
-              <NetPayBars data={trend} onPress={open} />
-            </Panel>
-          ) : null}
-
-          {groups.map((g) => (
-            <Panel key={g.fy} title={`Payslips FY ${g.fy}`} meta={`${g.slips.length}`}>
-              {g.slips.map((s, i) => (
-                <React.Fragment key={s.id}>
-                  {i > 0 && <RowSeparator />}
-                  <ListRow
-                    leadingIcon="invoice"
-                    leadingTone="primary"
-                    title={monthLabel(s.data.month)}
-                    subtitle={`Gross ${money(s.data.gross ?? s.gross)} · ${daysText(s.data.paidDays)} paid`}
-                    value={money(s.data.netPay ?? s.net_pay)}
-                    onPress={() => open(s.id)}
-                  />
-                </React.Fragment>
-              ))}
-            </Panel>
-          ))}
 
           {openLoans.length > 0 ? (
             <Panel title="Loans and advances" meta={`${openLoans.length}`}>
@@ -199,10 +210,10 @@ export default function PayScreen({ navigation }: StackScreenProps<"Pay">) {
             </Panel>
           ) : null}
 
-          <Section title="More">
+          <Section title="Salary and benefits">
             <SectionRow
               leadingIcon="money"
-              title="My salary"
+              title="Salary structure"
               subtitle="Annual CTC and the monthly breakup"
               onPress={() => {
                 feedback.tap()
@@ -218,6 +229,16 @@ export default function PayScreen({ navigation }: StackScreenProps<"Pay">) {
                 navigation.navigate("PayClaims")
               }}
             />
+            {ytd.tds > 0 && latest ? (
+              <SectionRow
+                leadingIcon="percent"
+                title="Income tax deducted"
+                subtitle={`${fyWords(latest.data.month)}${regime ? ` · ${regime === "old" ? "Old" : "New"} regime` : ""}`}
+                value={money(ytd.tds)}
+                onPress={() => open(latest.id)}
+                accessibilityLabel={`Income tax deducted this year: ${money(ytd.tds)}. Opens the latest payslip.`}
+              />
+            ) : null}
           </Section>
         </>
       )}
@@ -226,8 +247,9 @@ export default function PayScreen({ navigation }: StackScreenProps<"Pay">) {
 }
 
 const styles = StyleSheet.create({
-  cta: { paddingHorizontal: gutter, paddingBottom: spacing.md },
+  heroTop: { paddingTop: gutter },
   note: { paddingHorizontal: gutter, paddingBottom: spacing.md },
+  subhead: { paddingHorizontal: gutter, paddingTop: spacing.sm, paddingBottom: spacing.md },
   loan: { paddingHorizontal: gutter, paddingVertical: spacing.md, gap: spacing.sm },
   loanHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
 })

@@ -14,6 +14,8 @@ import {
 } from "@/domain/attendance"
 import { dayLabel } from "@/features/attendance/format"
 import { addDays, todayIST, useLeaveRules } from "@/features/leave/leaveFormat"
+import { daysFigure, dayUnit } from "@/features/leave/leaveLook"
+import { TypeWell } from "@/features/leave/leaveUi"
 import { feedback } from "@/lib/feedback"
 import {
   apply,
@@ -32,8 +34,11 @@ import {
   AppScreen,
   Button,
   DataNotice,
+  Icon,
   IconButton,
   Panel,
+  RowSeparator,
+  Dialog,
   SegmentedControl,
   Sheet,
   SkeletonPanel,
@@ -47,11 +52,13 @@ const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "
 type SingleHalf = "full" | "morning" | "afternoon"
 
 /**
- * Apply for leave (Remote "Requesting a time off", Gusto's question headings).
- * The day count and "balance after" are worked out here with the server's own
- * counting rule so the answer is on screen before Submit; the server counts
- * again and its count is the one saved. Its refusals are written for people,
- * so they are shown as they come.
+ * Apply for leave (Zoho People's "Apply leave" form): the leave type as a list
+ * with the balance beside each option, From and To above the calendar, the
+ * session (half day) choice, a live summary sentence ("2 days of casual leave.
+ * 4 days left after this."), then the reason. The day count and "balance after"
+ * are worked out here with the server's own counting rule so the answer is on
+ * screen before Submit; the server counts again and its count is the one saved.
+ * Its refusals are written for people, so they are shown as they come.
  */
 export default function LeaveApplyScreen({ navigation, route }: StackScreenProps<"LeaveApply">) {
   const t = useTheme()
@@ -75,6 +82,10 @@ export default function LeaveApplyScreen({ navigation, route }: StackScreenProps
   const [picking, setPicking] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [done, setDone] = React.useState<number | null>(null)
+  const [confirmLeave, setConfirmLeave] = React.useState(false)
+  // Set just before a deliberate exit (sent, or "Discard"), so the guard below
+  // lets it through: state set in the same tick is not visible to the listener.
+  const leaving = React.useRef(false)
   const [ym, setYm] = React.useState(() => ({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) }))
 
   React.useEffect(() => {
@@ -233,49 +244,104 @@ export default function LeaveApplyScreen({ navigation, route }: StackScreenProps
 
   const inRange = (d: string) => !!from && !!last && d >= from && d <= last
 
+  // The live summary, as one sentence: what this request costs and what is left.
+  const typeWords = type ? type.name.toLowerCase() : "leave"
+  const summary = !from
+    ? ""
+    : days <= 0
+      ? "No leave days in that range."
+      : after === null
+        ? `${daysWords(days)} of ${typeWords}. Unpaid, so no balance is used.`
+        : overBalance
+          ? `${daysWords(days)} of ${typeWords}. That is ${daysWords(-after)} more than the ${daysWords(balance!.available)} you have left.`
+          : `${daysWords(days)} of ${typeWords}. ${daysWords(after)} left after this.`
+
+  // Leaving a half-filled request asks first (Zoho People does the same); it
+  // used to vanish on the back gesture. Found in the 2026-09-19 device test.
+  const dirty = done === null && !busy && (!!from || !!reason.trim() || !!attachment)
+  React.useEffect(
+    () =>
+      navigation.addListener("beforeRemove", (e) => {
+        if (!dirty || leaving.current) return
+        e.preventDefault()
+        setConfirmLeave(true)
+      }),
+    [navigation, dirty],
+  )
+
   return (
-    <AppScreen title="Apply for leave" back onBack={() => navigation.goBack()} inTabs={false}>
+    <AppScreen title="Apply leave" back onBack={() => navigation.goBack()} inTabs={false}>
       <DataNotice error={error} />
       {types === null ? (
         <>
           <SkeletonPanel lines={3} />
-          <SkeletonPanel lines={5} block={240} />
+          <SkeletonPanel lines={2} block={240} />
         </>
       ) : (
         <>
-          <Panel title="What kind of leave?">
-            <View style={styles.types}>
-              {types.map((ty) => {
-                const b = bal.find((x) => x.code === ty.code)
-                const active = ty.code === code
-                return (
+          <Panel title="Leave type" meta={type ? undefined : "Choose one"}>
+            {types.map((ty, i) => {
+              const b = bal.find((x) => x.code === ty.code)
+              const active = ty.code === code
+              const unpaid = ty.accrual === "none"
+              const rules = [
+                ty.half_day ? "Half day allowed" : "",
+                ty.notice_days > 0 ? `${ty.notice_days} days' notice` : "",
+                ty.max_run !== null ? `Up to ${daysWords(ty.max_run)} in a row` : "",
+              ].filter(Boolean)
+              return (
+                <React.Fragment key={ty.code}>
+                  {i > 0 && <RowSeparator />}
                   <Pressable
-                    key={ty.code}
                     onPress={() => {
                       feedback.select()
                       setCode(ty.code)
                     }}
                     accessibilityRole="radio"
                     accessibilityState={{ selected: active }}
-                    style={[
-                      styles.type,
-                      {
-                        backgroundColor: active ? t.primary10 : t.surfaceInset,
-                        borderColor: active ? t.primary : "transparent",
-                      },
-                    ]}
+                    accessibilityLabel={`${ty.name}, ${unpaid ? "unpaid" : b ? `${daysWords(b.available)} available` : "no balance yet"}`}
+                    style={[styles.typeRow, { backgroundColor: active ? t.accentTint : "transparent" }]}
                   >
-                    <Text style={[textVariants.bodyStrong, { color: active ? t.primary : t.text }]}>{ty.name}</Text>
-                    <Text style={[textVariants.caption, { color: t.textTertiary }]}>
-                      {ty.accrual === "none" ? "Unpaid" : b ? `${daysWords(b.available)} available` : "No balance yet"}
-                    </Text>
+                    <TypeWell code={ty.code} />
+                    <View style={styles.typeBody}>
+                      <Text numberOfLines={1} style={[textVariants.listTitle, { color: active ? t.primary : t.text }]}>
+                        {ty.name}
+                      </Text>
+                      {rules.length ? (
+                        <Text numberOfLines={1} style={[textVariants.listSubtitle, { color: t.textTertiary, marginTop: 2 }]}>
+                          {rules.join(" · ")}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.typeRight}>
+                      {unpaid ? (
+                        <Text style={[textVariants.smallStrong, { color: t.textSecondary }]}>Unpaid</Text>
+                      ) : b ? (
+                        <>
+                          <Text style={[textVariants.listAmount, { color: b.available > 0 ? t.text : t.textTertiary }]}>
+                            {daysFigure(b.available)}
+                          </Text>
+                          <Text style={[textVariants.microLabel, { color: t.textTertiary }]}>{`${dayUnit(b.available)} left`}</Text>
+                        </>
+                      ) : (
+                        <Text style={[textVariants.caption, { color: t.textTertiary }]}>No balance yet</Text>
+                      )}
+                    </View>
+                    <View style={[styles.radio, { borderColor: active ? t.primary : t.borderStrong }]}>
+                      {active ? <View style={[styles.radioDot, { backgroundColor: t.primary }]} /> : null}
+                    </View>
                   </Pressable>
-                )
-              })}
-            </View>
+                </React.Fragment>
+              )
+            })}
           </Panel>
 
-          <Panel title="When will you be away?" meta={from ? undefined : "Tap the first day, then the last"}>
+          <Panel title="Dates" meta={from ? undefined : "Tap the first day, then the last"}>
+            <View style={styles.fromTo}>
+              <DateField label="From" value={from ? dayLabel(from) : null} active={!from || (!!from && !!to)} />
+              <Icon name="forward" size={18} color={t.textTertiary} />
+              <DateField label="To" value={last ? dayLabel(last) : null} active={!!from && !to} />
+            </View>
             <View style={styles.switcher}>
               <IconButton
                 name="back"
@@ -348,11 +414,12 @@ export default function LeaveApplyScreen({ navigation, route }: StackScreenProps
                 <KeyItem dashed={t.tones.violet.fg} label="Already on leave" />
               </View>
             </View>
+          </Panel>
 
-            {from && type?.half_day ? (
-              isSingle ? (
+          {from && type?.half_day ? (
+            <Panel title="Session">
+              {isSingle ? (
                 <View style={styles.pad}>
-                  <Text style={[textVariants.small, { color: t.textSecondary, marginBottom: spacing.xs }]}>Half day?</Text>
                   <SegmentedControl<SingleHalf>
                     options={[
                       { key: "full", label: "Full day" },
@@ -368,36 +435,41 @@ export default function LeaveApplyScreen({ navigation, route }: StackScreenProps
                   <HalfRow label={`Starts after lunch on ${dayLabel(from)}`} value={startsAfterLunch} onChange={setStartsAfterLunch} />
                   <HalfRow label={`Ends at lunch on ${dayLabel(last!)}`} value={endsAtLunch} onChange={setEndsAtLunch} />
                 </View>
-              )
-            ) : null}
+              )}
+            </Panel>
+          ) : null}
 
-            {from ? (
-              <View style={[styles.count, { backgroundColor: overBalance ? t.dangerBg : t.iconWell }]}>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[textVariants.bodyStrong, { color: overBalance ? t.dangerText : t.primary }]}>
-                    {daysWords(days)}
-                    {excludedOff.length ? ` (${offWords(excludedOff, holidayName)} not counted)` : ""}
+          {from ? (
+            <Panel title="Summary">
+              <View style={[styles.summary, { backgroundColor: overBalance || days <= 0 ? t.dangerBg : t.iconWell }]}>
+                <Icon
+                  name={overBalance || days <= 0 ? "warning" : "tick"}
+                  size={22}
+                  color={overBalance || days <= 0 ? t.danger : t.primary}
+                  variant="Bulk"
+                />
+                <View style={styles.summaryBody}>
+                  <Text style={[textVariants.bodyStrong, { color: overBalance || days <= 0 ? t.dangerText : t.primary }]}>
+                    {summary}
                   </Text>
+                  {excludedOff.length ? (
+                    <Text style={[textVariants.caption, { color: t.textSecondary }]}>
+                      {`${offWords(excludedOff, holidayName)} not counted.`}
+                    </Text>
+                  ) : null}
                   {days > plainDays ? (
                     <Text style={[textVariants.caption, { color: t.textSecondary }]}>
                       Includes the weekly off or holiday between your leave days (the sandwich rule).
                     </Text>
                   ) : null}
-                  {after !== null ? (
-                    <Text style={[textVariants.caption, { color: overBalance ? t.dangerText : t.textSecondary }]}>
-                      {`Balance after this: ${daysWords(after)}`}
-                    </Text>
-                  ) : (
-                    <Text style={[textVariants.caption, { color: t.textSecondary }]}>Unpaid: this does not use a balance.</Text>
-                  )}
                 </View>
               </View>
-            ) : null}
-            {overRun ? <Warn text={`${type!.name} can be at most ${daysWords(type!.max_run!)} in a row.`} /> : null}
-            {noticeShort ? <Warn text={`${type!.name} needs ${type!.notice_days} days' notice.`} /> : null}
-          </Panel>
+              {overRun ? <Warn text={`${type!.name} can be at most ${daysWords(type!.max_run!)} in a row.`} /> : null}
+              {noticeShort ? <Warn text={`${type!.name} needs ${type!.notice_days} days' notice.`} /> : null}
+            </Panel>
+          ) : null}
 
-          <Panel title="Anything the approver should know?">
+          <Panel title="Reason">
             <View style={styles.pad}>
               <TextField
                 value={reason}
@@ -408,15 +480,15 @@ export default function LeaveApplyScreen({ navigation, route }: StackScreenProps
               />
             </View>
             <View style={styles.pad}>
-              <Text style={[textVariants.small, { color: docNeeded ? t.warningText : t.textSecondary, marginBottom: spacing.xs }]}>
+              <Text style={[textVariants.small, { color: docNeeded ? t.warningText : t.textSecondary, marginBottom: spacing.sm }]}>
                 {docNeeded
                   ? `A certificate is needed for ${type!.name.toLowerCase()} longer than ${daysWords(type!.doc_after_days!)}.`
                   : "Certificate or document (optional)"}
               </Text>
               {attachment ? (
-                <View style={styles.attachment}>
+                <View style={[styles.attachment, { backgroundColor: t.surfaceInset }]}>
                   <Image source={{ uri: attachment.uri }} style={styles.thumb} />
-                  <Text style={[textVariants.small, { color: t.textSecondary, flex: 1 }]}>Photo attached</Text>
+                  <Text style={[textVariants.smallStrong, { color: t.text, flex: 1 }]}>Photo attached</Text>
                   <Button label="Remove" variant="ghost" size="sm" onPress={() => setAttachment(null)} />
                 </View>
               ) : (
@@ -429,7 +501,7 @@ export default function LeaveApplyScreen({ navigation, route }: StackScreenProps
             {blocker ? (
               <Text style={[textVariants.small, { color: t.textTertiary, textAlign: "center" }]}>{blocker}</Text>
             ) : null}
-            <Button label="Send request" fullWidth loading={busy} disabled={!!blocker} onPress={() => void submit()} />
+            <Button label="Submit request" fullWidth loading={busy} disabled={!!blocker} onPress={() => void submit()} />
           </View>
         </>
       )}
@@ -444,6 +516,7 @@ export default function LeaveApplyScreen({ navigation, route }: StackScreenProps
       <Sheet
         visible={done !== null}
         onClose={() => {
+          leaving.current = true
           setDone(null)
           navigation.goBack()
         }}
@@ -457,12 +530,32 @@ export default function LeaveApplyScreen({ navigation, route }: StackScreenProps
             label="Done"
             fullWidth
             onPress={() => {
+              leaving.current = true
               setDone(null)
               navigation.goBack()
             }}
           />
         </View>
       </Sheet>
+
+      <Dialog
+        visible={confirmLeave}
+        onClose={() => setConfirmLeave(false)}
+        title="Discard this request?"
+        message="Your dates and reason have not been sent."
+        actions={[
+          { label: "Keep editing", onPress: () => setConfirmLeave(false) },
+          {
+            label: "Discard",
+            tone: "danger",
+            onPress: () => {
+              leaving.current = true
+              setConfirmLeave(false)
+              navigation.goBack()
+            },
+          },
+        ]}
+      />
     </AppScreen>
   )
 }
@@ -473,6 +566,23 @@ function offWords(days: string[], names: Map<string, string>): string {
   return days
     .map((d) => names.get(d) || WEEKDAY_NAMES[new Date(`${d}T00:00:00Z`).getUTCDay()])
     .join(" and ")
+}
+
+/** The From / To box above the calendar; `active` marks the one the next tap sets. */
+function DateField({ label, value, active }: { label: string; value: string | null; active: boolean }) {
+  const t = useTheme()
+  return (
+    <View
+      style={[styles.dateField, { backgroundColor: t.surfaceInset, borderColor: active ? t.primary : "transparent" }]}
+      accessible
+      accessibilityLabel={`${label}: ${value ?? "not chosen"}`}
+    >
+      <Text style={[textVariants.tileLabel, { color: t.textTertiary }]}>{label.toUpperCase()}</Text>
+      <Text numberOfLines={1} style={[textVariants.bodyStrong, { color: value ? t.text : t.textTertiary }]}>
+        {value ?? "Choose"}
+      </Text>
+    </View>
+  )
 }
 
 function HalfRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
@@ -495,7 +605,8 @@ function Warn({ text }: { text: string }) {
   const t = useTheme()
   return (
     <View style={[styles.warn, { backgroundColor: t.warningBg }]}>
-      <Text style={[textVariants.small, { color: t.warningText }]}>{text}</Text>
+      <Icon name="warning" size={18} color={t.warning} variant="Bulk" />
+      <Text style={[textVariants.small, { color: t.warningText, flex: 1 }]}>{text}</Text>
     </View>
   )
 }
@@ -519,15 +630,32 @@ function KeyItem({ swatch, dot, dashed, label }: { swatch?: string; dot?: string
 }
 
 const styles = StyleSheet.create({
-  types: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.sm },
-  type: { borderRadius: radius.card, padding: spacing.md, borderWidth: 1.5, gap: 2 },
+  typeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingHorizontal: gutter,
+    paddingVertical: spacing.md,
+  },
+  typeBody: { flex: 1, minWidth: 0 },
+  typeRight: { alignItems: "flex-end" },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: "center", justifyContent: "center" },
+  radioDot: { width: 10, height: 10, borderRadius: 5 },
+  fromTo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingHorizontal: gutter,
+    paddingBottom: spacing.sm,
+  },
+  dateField: { flex: 1, borderRadius: radius.card, borderWidth: 1.5, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 2 },
   switcher: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: gutter - 10,
   },
-  calendar: { paddingHorizontal: gutter, paddingBottom: spacing.sm, gap: 6 },
+  calendar: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: 6 },
   weekRow: { flexDirection: "row", gap: 6 },
   dow: { flex: 1, textAlign: "center", fontFamily: font.medium, fontSize: 11, lineHeight: 16 },
   cell: { flex: 1, aspectRatio: 1, borderRadius: radius.card, alignItems: "center", justifyContent: "center", gap: 2 },
@@ -538,17 +666,27 @@ const styles = StyleSheet.create({
   keySwatch: { width: 14, height: 14, borderRadius: 4, alignItems: "center", justifyContent: "center" },
   pad: { paddingHorizontal: gutter, paddingBottom: spacing.md },
   halfRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.xs },
-  count: {
+  summary: {
     marginHorizontal: gutter,
     marginBottom: spacing.md,
     padding: spacing.md,
     borderRadius: radius.card,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
+    gap: spacing.md,
   },
-  warn: { marginHorizontal: gutter, marginBottom: spacing.md, padding: spacing.md, borderRadius: radius.card },
-  attachment: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  thumb: { width: 56, height: 56, borderRadius: radius.card },
+  summaryBody: { flex: 1, gap: 4 },
+  warn: {
+    marginHorizontal: gutter,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.card,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  attachment: { flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.sm, borderRadius: radius.card },
+  thumb: { width: 56, height: 56, borderRadius: radius.sm },
   submit: { paddingHorizontal: gutter, paddingVertical: spacing.lg, gap: spacing.sm },
   sheet: { gap: spacing.md, paddingBottom: spacing.md },
 })

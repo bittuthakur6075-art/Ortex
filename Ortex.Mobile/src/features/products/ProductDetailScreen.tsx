@@ -211,7 +211,7 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
     { icon: "percent" as const, label: "GST", value: `${gstRate}%` },
     { icon: "product" as const, label: "Min order", value: `${product.moq || 1} ${unit}` },
     product.leadTimeDays
-      ? { icon: "clock" as const, label: "Lead time", value: `${product.leadTimeDays} days` }
+      ? { icon: "clock" as const, label: "Lead time", value: `${product.leadTimeDays} ${product.leadTimeDays === 1 ? "day" : "days"}` }
       : null,
     product.material ? { icon: "catalogue" as const, label: "Material", value: product.material } : null,
   ].filter(Boolean) as { icon: IconName; label: string; value: string; copyable?: boolean }[]

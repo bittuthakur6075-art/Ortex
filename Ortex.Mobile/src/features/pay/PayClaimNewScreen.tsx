@@ -3,6 +3,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native"
 
 import { dayLabel } from "@/features/attendance/format"
 import { todayIST } from "@/features/leave/leaveFormat"
+import { ClaimIconWell } from "@/features/pay/claimIcons"
 import {
   CLAIM_CATEGORIES,
   CLAIM_MAX_AGE_DAYS,
@@ -16,14 +17,17 @@ import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { AppScreen, Button, IconButton, Panel, Sheet, TextField, useToast } from "@/ui"
+import { AppScreen, Button, Icon, IconButton, Panel, Sheet, TextField, useToast } from "@/ui"
 
 /**
- * A new reimbursement claim (Zoho Payroll's "Submit claim"): what it was for,
- * how much, the day on the bill, a line of detail and a photo of the bill. The
- * bill date is a day stepper rather than a calendar: a claim is almost always
- * for today or the last few days, and the server takes nothing older than 90.
- * claim_submit checks everything again; its refusal is shown as it comes.
+ * A new reimbursement claim, laid out like Zoho Payroll's "Submit claim":
+ * the category (each with its glyph), the amount, the day on the bill, a line
+ * of description and a photo of the receipt, then a summary of what is about
+ * to be sent, with the one thing still missing said in words above the button.
+ * The bill date is a day stepper rather than a calendar: a claim is almost
+ * always for today or the last few days, and the server takes nothing older
+ * than 90. claim_submit checks everything again; its refusal is shown as it
+ * comes.
  */
 export default function PayClaimNewScreen({ navigation }: StackScreenProps<"PayClaimNew">) {
   const t = useTheme()
@@ -42,6 +46,7 @@ export default function PayClaimNewScreen({ navigation }: StackScreenProps<"PayC
 
   const blocker = claimBlocker({ category, amount, billDate, hasReceipt: !!receipt }, today)
   const value = Number(amount.replace(/,/g, ""))
+  const validAmount = value > 0 && Number.isFinite(value)
 
   const step = (delta: number) => {
     const next = shiftDay(billDate, delta)
@@ -82,8 +87,8 @@ export default function PayClaimNewScreen({ navigation }: StackScreenProps<"PayC
   const dayWords = billDate === today ? "Today" : billDate === shiftDay(today, -1) ? "Yesterday" : dayLabel(billDate)
 
   return (
-    <AppScreen title="New claim" back onBack={() => navigation.goBack()} inTabs={false}>
-      <Panel title="What was it for?">
+    <AppScreen title="New claim" subtitle="Reimbursement paid with your salary" back onBack={() => navigation.goBack()} inTabs={false}>
+      <Panel title="Category">
         <View style={styles.grid}>
           {CLAIM_CATEGORIES.map((c) => {
             const active = c === category
@@ -96,12 +101,16 @@ export default function PayClaimNewScreen({ navigation }: StackScreenProps<"PayC
                   }}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: active }}
+                  accessibilityLabel={c}
                   style={[
                     styles.category,
                     { backgroundColor: active ? t.primary10 : t.surfaceInset, borderColor: active ? t.primary : "transparent" },
                   ]}
                 >
-                  <Text style={[textVariants.bodyStrong, { color: active ? t.primary : t.text }]}>{c}</Text>
+                  <ClaimIconWell category={c} size={36} active={active} />
+                  <Text style={[textVariants.bodyStrong, { color: active ? t.primary : t.text, flex: 1 }]} numberOfLines={1}>
+                    {c}
+                  </Text>
                 </Pressable>
               </View>
             )
@@ -109,7 +118,7 @@ export default function PayClaimNewScreen({ navigation }: StackScreenProps<"PayC
         </View>
       </Panel>
 
-      <Panel title="How much?">
+      <Panel title="Amount">
         <View style={styles.pad}>
           <TextField
             value={amount}
@@ -120,13 +129,13 @@ export default function PayClaimNewScreen({ navigation }: StackScreenProps<"PayC
             maxLength={10}
             accessibilityLabel="Amount in rupees"
           />
-          {value > 0 && Number.isFinite(value) ? (
-            <Text style={[textVariants.caption, styles.caption, { color: t.textTertiary }]}>{money(value)}</Text>
-          ) : null}
+          <Text style={[textVariants.caption, styles.caption, { color: t.textTertiary }]}>
+            {validAmount ? money(value) : "Up to ₹2,00,000 for a single bill."}
+          </Text>
         </View>
       </Panel>
 
-      <Panel title="Date on the bill">
+      <Panel title="Bill date">
         <View style={styles.dateRow}>
           <IconButton name="back" onPress={() => step(-1)} disabled={billDate <= earliest} accessibilityLabel="A day earlier" />
           <View style={styles.dateMid}>
@@ -150,6 +159,7 @@ export default function PayClaimNewScreen({ navigation }: StackScreenProps<"PayC
                 }}
                 style={[styles.quickChip, { backgroundColor: active ? t.primary10 : t.surfaceInset }]}
                 accessibilityRole="button"
+                accessibilityState={{ selected: active }}
               >
                 <Text style={[textVariants.caption, { color: active ? t.primary : t.textSecondary, fontFamily: font.medium }]}>
                   {n === 0 ? "Today" : n === 1 ? "Yesterday" : `${n} days ago`}
@@ -163,7 +173,7 @@ export default function PayClaimNewScreen({ navigation }: StackScreenProps<"PayC
         </Text>
       </Panel>
 
-      <Panel title="Details and the bill">
+      <Panel title="Description and receipt">
         <View style={styles.pad}>
           <TextField
             value={description}
@@ -175,20 +185,57 @@ export default function PayClaimNewScreen({ navigation }: StackScreenProps<"PayC
         </View>
         <View style={styles.pad}>
           {receipt ? (
-            <View style={styles.attachment}>
+            <View style={[styles.attachment, { backgroundColor: t.surfaceInset }]}>
               <Image source={{ uri: receipt.uri }} style={styles.thumb} />
-              <Text style={[textVariants.small, { color: t.textSecondary, flex: 1 }]}>Bill attached</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[textVariants.bodyStrong, { color: t.text }]}>Receipt attached</Text>
+                <Text style={[textVariants.caption, { color: t.textTertiary }]}>Payroll sees this photo with the claim.</Text>
+              </View>
               <Button label="Remove" variant="ghost" size="sm" onPress={() => setReceipt(null)} />
             </View>
           ) : (
-            <Button label="Add a photo of the bill" icon="camera" variant="secondary" onPress={() => setPicking(true)} />
+            <Pressable
+              onPress={() => setPicking(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Add a photo of the bill"
+              style={({ pressed }) => [
+                styles.drop,
+                { borderColor: t.borderStrong, backgroundColor: t.surfaceInset, opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <View style={[styles.dropWell, { backgroundColor: t.iconWell }]}>
+                <Icon name="camera" size={22} color={t.primary} variant="Bulk" />
+              </View>
+              <Text style={[textVariants.bodyStrong, { color: t.text }]}>Add a photo of the bill</Text>
+              <Text style={[textVariants.caption, { color: t.textTertiary }]}>Take a photo or choose one from the gallery</Text>
+            </Pressable>
           )}
         </View>
       </Panel>
 
+      <Panel title="Summary">
+        <View style={styles.summary}>
+          <SummaryLine label="Category" value={category || "Not chosen"} missing={!category} />
+          <SummaryLine label="Bill date" value={dayLabel(billDate)} />
+          <SummaryLine label="Receipt" value={receipt ? "Photo attached" : "Not added"} missing={!receipt} />
+          <View style={[styles.summaryTotal, { borderTopColor: t.border }]}>
+            <Text style={[textVariants.bodyStrong, { color: t.text, flex: 1 }]}>Claim amount</Text>
+            <Text style={[textVariants.amount, { color: t.text }]}>{money(validAmount ? value : 0)}</Text>
+          </View>
+        </View>
+      </Panel>
+
       <View style={styles.submit}>
-        {blocker ? <Text style={[textVariants.small, { color: t.textTertiary, textAlign: "center" }]}>{blocker}</Text> : null}
-        <Button label="Send claim" fullWidth loading={busy} disabled={!!blocker} onPress={() => void submit()} />
+        {blocker ? (
+          <View style={[styles.blocker, { backgroundColor: t.warningBg }]}>
+            <Icon name="info" size={16} color={t.warning} variant="Bulk" />
+            <Text style={[textVariants.small, { color: t.warningText, flex: 1 }]}>{blocker}</Text>
+          </View>
+        ) : null}
+        <Button label="Submit claim" icon="send" fullWidth loading={busy} disabled={!!blocker} onPress={() => void submit()} />
+        <Text style={[textVariants.caption, { color: t.textTertiary, textAlign: "center" }]}>
+          Approved claims are paid with your next salary.
+        </Text>
       </View>
 
       <Sheet visible={picking} onClose={() => setPicking(false)} title="Photo of the bill">
@@ -198,10 +245,19 @@ export default function PayClaimNewScreen({ navigation }: StackScreenProps<"PayC
         </View>
       </Sheet>
 
-      <Sheet visible={sent} onClose={finish} title="Claim sent">
+      <Sheet visible={sent} onClose={finish} title="Claim submitted">
         <View style={styles.sheet}>
+          <View style={styles.sentHead}>
+            <View style={[styles.sentWell, { backgroundColor: t.successBg }]}>
+              <Icon name="tick" size={26} color={t.success} variant="Bulk" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[textVariants.amount, { color: t.text }]}>{money(validAmount ? value : 0)}</Text>
+              <Text style={[textVariants.small, { color: t.textSecondary }]}>{`${category} · Bill of ${dayLabel(billDate)}`}</Text>
+            </View>
+          </View>
           <Text style={[textVariants.body, { color: t.textSecondary }]}>
-            Claim sent. Approved claims are paid with your next salary.
+            It is waiting for payroll to approve. Approved claims are paid with your next salary.
           </Text>
           <Button label="Done" fullWidth onPress={finish} />
         </View>
@@ -210,10 +266,29 @@ export default function PayClaimNewScreen({ navigation }: StackScreenProps<"PayC
   )
 }
 
+/** One line of the pre-submit summary; a missing part reads in the warning's text step. */
+function SummaryLine({ label, value, missing }: { label: string; value: string; missing?: boolean }) {
+  const t = useTheme()
+  return (
+    <View style={styles.summaryLine}>
+      <Text style={[textVariants.small, { color: t.textTertiary, flex: 1 }]}>{label}</Text>
+      <Text style={[textVariants.smallStrong, { color: missing ? t.warningText : t.text }]}>{value}</Text>
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
-  grid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: gutter - spacing.xs, paddingBottom: spacing.sm },
+  grid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: gutter - spacing.xs, paddingBottom: spacing.md },
   cell: { width: "50%", padding: spacing.xs },
-  category: { borderRadius: radius.card, paddingVertical: spacing.md, paddingHorizontal: spacing.md, borderWidth: 1.5 },
+  category: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm + 2,
+    borderRadius: radius.card,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.sm + 2,
+    borderWidth: 1.5,
+  },
   pad: { paddingHorizontal: gutter, paddingBottom: spacing.md },
   caption: { marginTop: spacing.xs },
   dateRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: gutter - 10 },
@@ -222,8 +297,31 @@ const styles = StyleSheet.create({
   quick: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingHorizontal: gutter, paddingTop: spacing.sm },
   quickChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill },
   note: { paddingHorizontal: gutter, paddingVertical: spacing.md },
-  attachment: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  thumb: { width: 56, height: 56, borderRadius: radius.card },
-  submit: { paddingHorizontal: gutter, paddingVertical: spacing.lg, gap: spacing.sm },
+  attachment: { flexDirection: "row", alignItems: "center", gap: spacing.md, borderRadius: radius.card, padding: spacing.sm },
+  thumb: { width: 56, height: 56, borderRadius: radius.sm },
+  drop: {
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderRadius: radius.card,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+  },
+  dropWell: { width: 44, height: 44, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", marginBottom: 4 },
+  summary: { paddingHorizontal: gutter, paddingBottom: spacing.md },
+  summaryLine: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: 6 },
+  summaryTotal: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    borderTopWidth: 1.5,
+    marginTop: spacing.xs,
+    paddingTop: spacing.sm + 4,
+  },
+  submit: { paddingHorizontal: gutter, paddingVertical: spacing.lg, gap: spacing.md },
+  blocker: { flexDirection: "row", alignItems: "center", gap: spacing.sm, borderRadius: radius.card, padding: spacing.sm + 4 },
   sheet: { gap: spacing.md, paddingBottom: spacing.md },
+  sentHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  sentWell: { width: 52, height: 52, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
 })

@@ -41,7 +41,7 @@ import type { IconName } from "@/ui/Icon"
  * Asana's AI panel and Apollo's "Ask Apollo"): her face and a "Namaste" greeting,
  * a "For you" list built from the person's own leads and quotations (only rows
  * with something behind them, tap to ask), four "Ask Anu" tiles, and a composer
- * at the foot: "Type a question, or tap the mic" beside a primary Talk.
+ * at the foot: "Type a question" beside a primary Talk.
  *
  * Once started, the page is the TRANSCRIPT (ElevenLabs and Hume voice agents,
  * Fireflies AskFred): spoken and typed lines, her replies, each lookup as a step
@@ -698,7 +698,7 @@ function Composer({ anu, bottom }: { anu: Session; bottom: number }) {
     setText("")
   }
 
-  const placeholder = connecting ? "Connecting" : live ? "Type instead of speaking" : "Type a question, or tap the mic"
+  const placeholder = connecting ? "Connecting" : live ? "Type instead of speaking" : "Type a question"
 
   return (
     <View style={[styles.composer, { borderTopColor: t.divider, backgroundColor: t.background, paddingBottom: bottom }]}>

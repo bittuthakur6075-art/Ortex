@@ -4,6 +4,8 @@ import { toast } from "sonner"
 import { Mic } from "../components/ui/Icons"
 import { repo } from "../data/store/repository"
 import { useCollection } from "../hooks/useCollection"
+import { useProfile } from "../hooks/useProfile"
+import { isAdmin } from "../lib/roles"
 import { ENQUIRY_STATUS } from "../data/domain/schema"
 import { sameCustomer } from "../data/domain/domain"
 import { formatDateTime } from "../lib/format"
@@ -15,6 +17,7 @@ import VoiceStats from "./voice-leads/VoiceStats"
 import CallFilters from "./voice-leads/CallFilters"
 import CallCard from "./voice-leads/CallCard"
 import CallDrawer from "./voice-leads/CallDrawer"
+import DeleteCallDialog from "./voice-leads/DeleteCallDialog"
 
 // Leads captured by Anu, the website AI voice assistant, folded into calls.
 // Parsing, grouping and flagging live in ./voice-leads/helpers; this file only
@@ -28,6 +31,9 @@ export default function VoiceLeads() {
   const [view, setView] = useState("all") // all | attention | support
   const [open, setOpen] = useState(null) // phoneKey+endedAt of the expanded call
   const [saving, setSaving] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState(null) // the call awaiting confirmation
+  const profile = useProfile()
+  const canDelete = isAdmin(profile)
 
   const { calls, stats, visible } = useVoiceCalls(items, { query, range, view })
   const location = useLocation()
@@ -65,6 +71,33 @@ export default function VoiceLeads() {
       toast.success(`Marked ${ENQUIRY_STATUS.find((s) => s.id === status)?.label || status}`)
     } catch {
       toast.error("Could not update the status. Please try again.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Delete a whole folded call. Every capture goes, for the same reason a
+  // status change writes to every row: half a conversation left in the table
+  // simply reappears as an older call with the same phone number, and the
+  // pipeline counts it again. Rows are removed in parallel and the outcome is
+  // counted, so a partial failure is reported as a partial failure instead of
+  // a success that quietly left rows behind.
+  const deleteCall = async () => {
+    const call = pendingDelete
+    if (!call) return
+    setSaving(true)
+    try {
+      const results = await Promise.allSettled(call.rows.map((r) => repo.remove("enquiries", r.id)))
+      const failed = results.filter((r) => r.status === "rejected").length
+      if (failed) {
+        toast.error(`Deleted ${results.length - failed} of ${results.length} rows. Please try again.`)
+      } else {
+        toast.success(`Deleted the call from ${call.named ? call.customer.name : "an unnamed caller"}`)
+        setOpen(null)
+      }
+      setPendingDelete(null)
+    } catch {
+      toast.error("Could not delete the call. Please try again.")
     } finally {
       setSaving(false)
     }
@@ -151,6 +184,14 @@ export default function VoiceLeads() {
         onClose={() => setOpen(null)}
         onStatus={setStatus}
         onQuotation={toQuotation}
+        onDelete={canDelete ? setPendingDelete : undefined}
+      />
+
+      <DeleteCallDialog
+        call={pendingDelete}
+        busy={saving}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={deleteCall}
       />
     </div>
   )

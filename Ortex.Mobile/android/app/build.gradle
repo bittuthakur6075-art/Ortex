@@ -198,6 +198,26 @@ android {
     }
 }
 
+// APK size (2026-09-19): the attendance face check used ML Kit's BUNDLED face
+// model (com.google.mlkit:face-detection, ~14 MB of native code across two ABIs),
+// which pushed the APK to 75 MB, past Supabase's 50 MB upload cap for in-app
+// updates. The UNBUNDLED artifact exposes the same API and lets Google Play
+// services supply the model; AndroidManifest.xml asks for it at install time.
+// The face check is soft (src/lib/faceCheck.ts): if the model is not there yet,
+// a clock-in still goes through and records that the check did not run.
+configurations.all {
+    // expo-camera is consumed PREBUILT, so its own "barcode-scanner-enabled"
+    // switch (gradle.properties) is never read and its published dependencies
+    // still pull Google's bundled barcode model (libbarhopper + tflite, ~9 MB).
+    // Nothing here scans a barcode: the camera is the attendance selfie.
+    exclude group: "com.google.mlkit", module: "barcode-scanning"
+    exclude group: "com.google.android.gms", module: "play-services-code-scanner"
+    exclude group: "androidx.camera", module: "camera-mlkit-vision"
+    resolutionStrategy.dependencySubstitution {
+        substitute module("com.google.mlkit:face-detection") using module("com.google.android.gms:play-services-mlkit-face-detection:17.1.0")
+    }
+}
+
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")

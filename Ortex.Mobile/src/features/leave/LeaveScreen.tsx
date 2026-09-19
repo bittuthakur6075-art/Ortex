@@ -1,44 +1,66 @@
 import { useFocusEffect } from "@react-navigation/native"
 import React from "react"
-import { StyleSheet, Text, View } from "react-native"
+import { ScrollView, StyleSheet, Text, View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { daysWords, type LeaveBalance, type LeaveRequest } from "@/domain/attendance"
+import { type LeaveBalance, type LeaveRequest } from "@/domain/attendance"
 import { dayLabel } from "@/features/attendance/format"
-import { addDays, leaveDatesWords, todayIST } from "@/features/leave/leaveFormat"
-import { LeaveStatusPill } from "@/features/leave/leaveUi"
+import { addDays, todayIST } from "@/features/leave/leaveFormat"
+import {
+  BalanceTile,
+  BalanceTileSkeleton,
+  DateBadge,
+  LeaveRow,
+  LeaveRowSkeleton,
+} from "@/features/leave/leaveUi"
+import { TILE } from "@/features/leave/leaveLook"
 import { feedback } from "@/lib/feedback"
 import { holidays as loadHolidays, type Holiday } from "@/lib/attendance"
-import { balances as loadBalances, myRequests } from "@/lib/leave"
+import { balances as loadBalances, myRequests, whoIsOut, type NamedLeave } from "@/lib/leave"
 import type { StackScreenProps } from "@/navigation/types"
+import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
-import { font, textVariants } from "@/theme/typography"
+import { textVariants } from "@/theme/typography"
 import {
   AppScreen,
+  Avatar,
   Button,
-  Card,
   DataNotice,
   EmptyState,
   ListRefreshControl,
-  ListRow,
   Panel,
   RowSeparator,
-  SkeletonPanel,
+  SegmentedControl,
+  Skeleton,
 } from "@/ui"
 
+type Tab = "upcoming" | "history"
+
+/** Holidays shown before "Show all", so the requests are not pushed off the page. */
+const HOLIDAYS_SHOWN = 4
+
 /**
- * Leave, the page (Remote / Gusto references): what I have left, first, as
- * numbers; then the one action; then what is coming (approved leave), what I
- * asked for, and the holidays. A balance opens its history, because "why is
- * it 4.5?" deserves the ledger that makes it 4.5.
+ * Leave, the page (Zoho People's Leave Tracker): a rail of balance tiles, one
+ * per leave type, with what is AVAILABLE as the big figure and what is booked
+ * under it; who else is out this week; then my requests behind an Upcoming /
+ * History switch; then the holidays. "Apply leave" is pinned at the foot, the
+ * one action this page exists for. A tile opens that type's ledger, because
+ * "why is it 4.5?" deserves the history that makes it 4.5.
  */
 export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
   const t = useTheme()
+  const insets = useSafeAreaInsets()
+  const { session } = useAuth()
   const [bal, setBal] = React.useState<LeaveBalance[] | null>(null)
   const [requests, setRequests] = React.useState<LeaveRequest[] | null>(null)
   const [hols, setHols] = React.useState<Holiday[]>([])
+  const [team, setTeam] = React.useState<NamedLeave[]>([])
   const [error, setError] = React.useState<string | null>(null)
   const [refreshing, setRefreshing] = React.useState(false)
+  const [tab, setTab] = React.useState<Tab>("upcoming")
+  const [allHolidays, setAllHolidays] = React.useState(false)
+  const [footerH, setFooterH] = React.useState(0)
 
   const load = React.useCallback(async () => {
     const today = todayIST()
@@ -53,6 +75,9 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
       setRequests((r) => r ?? [])
     }
     setHols(await loadHolidays({ from: today, to: addDays(today, 365) }).catch(() => []))
+    // Who else is out: RLS shows a colleague's leave only to someone with team
+    // access, so for everyone else this is just their own and the panel hides.
+    setTeam(await whoIsOut(today, addDays(today, 6)).catch(() => []))
   }, [])
 
   useFocusEffect(
@@ -62,10 +87,30 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
   )
 
   const today = todayIST()
-  const upcoming = (requests || [])
-    .filter((r) => r.status === "approved" && r.to_day >= today)
-    .sort((a, b) => (a.from_day < b.from_day ? -1 : 1))
   const loading = bal === null || requests === null
+  const typeName = (code: string) => bal?.find((b) => b.code === code)?.name || code
+
+  const upcoming = (requests || [])
+    .filter((r) => (r.status === "pending" || r.status === "approved") && r.to_day >= today)
+    .sort((a, b) => (a.from_day < b.from_day ? -1 : 1))
+  const history = (requests || [])
+    .filter((r) => !upcoming.includes(r))
+    .sort((a, b) => (a.from_day < b.from_day ? 1 : -1))
+  const shown = tab === "upcoming" ? upcoming : history
+
+  // One face per colleague, whoever has two requests in the week.
+  const me = session?.user?.id
+  const out = React.useMemo(() => {
+    const seen = new Set<string>()
+    return team.filter((r) => {
+      if (r.user_id === me || seen.has(r.user_id)) return false
+      seen.add(r.user_id)
+      return true
+    })
+  }, [team, me])
+  const outToday = out.filter((r) => r.from_day <= today && r.to_day >= today).length
+
+  const visibleHols = allHolidays ? hols : hols.slice(0, HOLIDAYS_SHOWN)
 
   const apply = () => {
     feedback.tap()
@@ -82,6 +127,7 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
       list={{
         data: [],
         renderItem: () => null,
+        contentContainerStyle: { paddingBottom: footerH + spacing.lg },
         refreshControl: (
           <ListRefreshControl
             refreshing={refreshing}
@@ -93,95 +139,130 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
           />
         ),
       }}
+      overlay={
+        <View
+          onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}
+          style={[
+            styles.footer,
+            { backgroundColor: t.surface, borderTopColor: t.border, paddingBottom: insets.bottom + spacing.sm },
+          ]}
+        >
+          <Button label="Apply leave" icon="add" fullWidth onPress={apply} />
+        </View>
+      }
     >
       <DataNotice error={error} onRetry={() => void load()} />
       {loading ? (
         <>
-          <SkeletonPanel lines={2} block={150} />
-          <SkeletonPanel lines={3} />
+          <Panel title="Leave balance">
+            <View style={styles.railSkeleton}>
+              <BalanceTileSkeleton />
+              <BalanceTileSkeleton />
+              <BalanceTileSkeleton />
+            </View>
+          </Panel>
+          <Panel title="My leave">
+            <View style={styles.switchWrap}>
+              <Skeleton height={44} radius={22} />
+            </View>
+            {[0, 1, 2].map((i) => (
+              <React.Fragment key={i}>
+                {i > 0 && <RowSeparator />}
+                <LeaveRowSkeleton index={i} />
+              </React.Fragment>
+            ))}
+          </Panel>
         </>
       ) : (
         <>
-          <Panel title="Balances">
+          <Panel title="Leave balance" meta={bal!.length ? "This year" : undefined}>
             {bal!.length === 0 ? (
               <Text style={[textVariants.small, styles.pad, { color: t.textTertiary }]}>
                 No leave types are set up yet.
               </Text>
             ) : (
-              <View style={styles.grid}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                decelerationRate="fast"
+                snapToInterval={TILE.width + spacing.sm}
+                contentContainerStyle={styles.rail}
+              >
                 {bal!.map((b) => (
-                  <View key={b.code} style={styles.tileWrap}>
-                    <Card
-                      inset
-                      padding={spacing.md}
-                      accessibilityLabel={`${b.name}, ${b.accrual === "none" ? "unpaid" : `${b.available} days available`}`}
-                      onPress={
-                        b.accrual === "none"
-                          ? undefined
-                          : () => {
-                              feedback.tap()
-                              navigation.navigate("LeaveLedger", { code: b.code, name: b.name })
-                            }
-                      }
-                    >
-                      <Text style={[textVariants.caption, { color: t.textTertiary }]} numberOfLines={1}>
-                        {b.name}
-                      </Text>
-                      {b.accrual === "none" ? (
-                        <Text style={[styles.big, { color: t.textSecondary }]}>Unpaid</Text>
-                      ) : (
-                        <Text style={[styles.big, { color: b.available > 0 ? t.text : t.textTertiary }]}>
-                          {Number.isInteger(b.available) ? b.available : b.available.toFixed(1)}
-                        </Text>
-                      )}
-                      <Text style={[textVariants.caption, { color: t.textTertiary }]} numberOfLines={2}>
-                        {b.accrual === "none"
-                          ? "Loss of pay, no balance"
-                          : `${daysWords(b.taken_year)} taken this year${b.pending ? `, ${daysWords(b.pending)} pending` : ""}`}
-                      </Text>
-                    </Card>
-                  </View>
+                  <BalanceTile
+                    key={b.code}
+                    b={b}
+                    onPress={
+                      b.accrual === "none"
+                        ? undefined
+                        : () => {
+                            feedback.tap()
+                            navigation.navigate("LeaveLedger", { code: b.code, name: b.name })
+                          }
+                    }
+                  />
                 ))}
-              </View>
+              </ScrollView>
             )}
-            <View style={styles.applyWrap}>
-              <Button label="Apply for leave" icon="add" fullWidth onPress={apply} />
-            </View>
           </Panel>
 
-          {upcoming.length > 0 && (
-            <Panel title="Coming up" meta={`${upcoming.length}`}>
-              {upcoming.map((r, i) => (
-                <React.Fragment key={r.id}>
-                  {i > 0 && <RowSeparator />}
-                  <ListRow
-                    leadingIcon="calendar"
-                    leadingTone="emerald"
-                    title={leaveDatesWords(r)}
-                    subtitle={`${bal!.find((b) => b.code === r.type_code)?.name || r.type_code} · ${daysWords(r.days)}`}
-                    onPress={() => navigation.navigate("LeaveRequest", { id: r.id })}
-                  />
-                </React.Fragment>
-              ))}
+          {out.length > 0 && (
+            <Panel title="On leave this week" meta={outToday ? `${outToday} out today` : `${out.length}`}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.team}>
+                {out.map((r) => {
+                  const now = r.from_day <= today
+                  return (
+                    <View
+                      key={r.user_id}
+                      style={styles.person}
+                      accessible
+                      accessibilityLabel={`${r.person}, ${now ? `on leave until ${dayLabel(r.to_day)}` : `on leave from ${dayLabel(r.from_day)}`}`}
+                    >
+                      <Avatar name={r.person} uri={r.avatarUrl || undefined} size={48} />
+                      <Text numberOfLines={1} style={[textVariants.captionStrong, { color: t.text, marginTop: 6 }]}>
+                        {r.person.split(/\s+/)[0]}
+                      </Text>
+                      <Text numberOfLines={1} style={[textVariants.microLabel, { color: now ? t.warningText : t.textTertiary }]}>
+                        {now ? (r.to_day === today ? "Today" : `Till ${dayLabel(r.to_day)}`) : dayLabel(r.from_day)}
+                      </Text>
+                    </View>
+                  )
+                })}
+              </ScrollView>
             </Panel>
           )}
 
-          <Panel title="My requests" meta={requests!.length ? `${requests!.length}` : undefined}>
-            {requests!.length === 0 ? (
+          <Panel title="My leave" meta={requests!.length ? `${requests!.length}` : undefined}>
+            <View style={styles.switchWrap}>
+              <SegmentedControl<Tab>
+                options={[
+                  { key: "upcoming", label: upcoming.length ? `Upcoming (${upcoming.length})` : "Upcoming" },
+                  { key: "history", label: "History" },
+                ]}
+                value={tab}
+                onChange={(v) => {
+                  feedback.select()
+                  setTab(v)
+                }}
+              />
+            </View>
+            {shown.length === 0 ? (
               <EmptyState
                 icon="calendar"
-                title="No leave requests yet"
-                hint="Apply for leave here. An admin approves it, and your balance and attendance update on their own."
+                title={tab === "upcoming" ? "Nothing coming up" : "No past leave"}
+                hint={
+                  tab === "upcoming"
+                    ? "Leave you apply for shows here until it is over. An admin approves it, and your balance and attendance update on their own."
+                    : "Leave that is over, rejected or cancelled is kept here."
+                }
               />
             ) : (
-              requests!.map((r, i) => (
+              shown.map((r, i) => (
                 <React.Fragment key={r.id}>
                   {i > 0 && <RowSeparator />}
-                  <ListRow
-                    title={bal!.find((b) => b.code === r.type_code)?.name || r.type_code}
-                    subtitle={leaveDatesWords(r)}
-                    value={daysWords(r.days)}
-                    valueSub={<LeaveStatusPill status={r.status} />}
+                  <LeaveRow
+                    r={r}
+                    typeName={typeName(r.type_code)}
                     onPress={() => {
                       feedback.tap()
                       navigation.navigate("LeaveRequest", { id: r.id })
@@ -198,18 +279,37 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
                 No holidays in the next year yet. The Super Admin adds them.
               </Text>
             ) : (
-              hols.map((h, i) => (
-                <React.Fragment key={h.id}>
-                  {i > 0 && <RowSeparator />}
-                  <ListRow
-                    leadingIcon="calendar"
-                    leadingTone={h.kind === "national" ? "primary" : "violet"}
-                    title={h.name}
-                    subtitle={`${dayLabel(h.day)}${h.kind === "optional" ? " · Optional" : h.kind === "national" ? " · National" : ""}`}
-                    chevron={false}
-                  />
-                </React.Fragment>
-              ))
+              <>
+                {visibleHols.map((h, i) => (
+                  <React.Fragment key={h.id}>
+                    {i > 0 && <RowSeparator />}
+                    <View style={styles.holiday}>
+                      <DateBadge day={h.day} tone={h.kind === "optional" ? "slate" : "violet"} />
+                      <View style={styles.holidayBody}>
+                        <Text numberOfLines={2} style={[textVariants.listTitle, { color: t.text }]}>
+                          {h.name}
+                        </Text>
+                        <Text style={[textVariants.listSubtitle, { color: t.textTertiary, marginTop: 4 }]}>
+                          {h.kind === "optional" ? "Optional holiday" : h.kind === "national" ? "National holiday" : "Festival"}
+                        </Text>
+                      </View>
+                    </View>
+                  </React.Fragment>
+                ))}
+                {hols.length > HOLIDAYS_SHOWN ? (
+                  <View style={styles.more}>
+                    <Button
+                      label={allHolidays ? "Show fewer" : `Show all ${hols.length}`}
+                      variant="ghost"
+                      size="sm"
+                      onPress={() => {
+                        feedback.select()
+                        setAllHolidays((v) => !v)
+                      }}
+                    />
+                  </View>
+                ) : null}
+              </>
             )}
           </Panel>
         </>
@@ -220,8 +320,21 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
 
 const styles = StyleSheet.create({
   pad: { paddingHorizontal: gutter, paddingBottom: spacing.md },
-  grid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: gutter - spacing.xs, paddingBottom: spacing.sm },
-  tileWrap: { width: "50%", padding: spacing.xs },
-  big: { fontFamily: font.bold, fontSize: 28, lineHeight: 34, fontVariant: ["tabular-nums"], marginVertical: 2 },
-  applyWrap: { paddingHorizontal: gutter, paddingBottom: spacing.md, paddingTop: spacing.xs },
+  rail: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.sm },
+  railSkeleton: { flexDirection: "row", paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.sm, overflow: "hidden" },
+  team: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.md },
+  person: { width: 72, alignItems: "center" },
+  switchWrap: { paddingHorizontal: gutter, paddingBottom: spacing.sm },
+  holiday: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingHorizontal: gutter, paddingVertical: spacing.md },
+  holidayBody: { flex: 1, minWidth: 0 },
+  more: { paddingHorizontal: gutter, paddingBottom: spacing.sm, alignItems: "flex-start" },
+  footer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: gutter,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
 })

@@ -2,6 +2,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native"
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import React from "react"
 
+import { formatDate } from "@/domain/format"
 import { money, monthLabel, type Payslip } from "@/features/pay/payFormat"
 import { feedback } from "@/lib/feedback"
 import { latestPayslip } from "@/lib/pay"
@@ -38,7 +39,7 @@ export default function PayHomeLine() {
         leadingIcon="money"
         leadingTone="emerald"
         title="Latest payslip"
-        subtitle={monthLabel(slip.data.month)}
+        subtitle={`${monthLabel(slip.data.month)} · Paid on ${formatDate(slip.released_at)}`}
         value={money(slip.data.netPay ?? slip.net_pay)}
         onPress={() => {
           feedback.tap()

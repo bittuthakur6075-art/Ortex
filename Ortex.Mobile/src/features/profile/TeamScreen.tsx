@@ -316,7 +316,7 @@ function PersonRow({
       ? `Role + ${extras} extra ${extras === 1 ? "module" : "modules"}`
       : "Role access"
   const seen = lastAt
-    ? `Active ${relativeTime(lastAt)}`
+    ? `Last edit ${relativeTime(lastAt)}`
     : person.created_at
       ? `Joined ${formatDate(person.created_at)}`
       : "No recent activity"
