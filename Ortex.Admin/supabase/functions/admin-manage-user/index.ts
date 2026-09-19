@@ -45,6 +45,18 @@ Deno.serve(async (req) => {
       .from("profiles").select("id, email, name, role, active").eq("id", id).maybeSingle()
     if (!target) return json({ error: "That user no longer exists" }, 404)
 
+    // Migration 0032: the Super Admin is untouchable here (the database refuses
+    // too), and only the Super Admin acts on an Admin.
+    if (target.role === "super_admin" && id !== staff.userId) {
+      return json({ error: "The Super Admin account can only be changed by the Super Admin" }, 403)
+    }
+    if (target.role === "super_admin" && (action === "delete" || (action === "set-active" && !body?.active))) {
+      return json({ error: "The Super Admin cannot be disabled or deleted. Hand the role over first." }, 400)
+    }
+    if (target.role === "admin" && staff.role !== "super_admin") {
+      return json({ error: "Only the Super Admin can change an Admin's account" }, 403)
+    }
+
     // ---- enable / disable ---------------------------------------------------
     if (action === "set-active") {
       const active = Boolean(body?.active)

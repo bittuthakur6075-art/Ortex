@@ -11,10 +11,11 @@ import CreativeCard from "./CreativeCard"
 import CopyCard from "./CopyCard"
 import PublishingCard from "./PublishingCard"
 import ApprovalCard from "./ApprovalCard"
+import { isAdmin as isAdminRole } from "../../lib/roles"
 
 export default function SocialEditor({ post, onClose }) {
   const profile = useProfile()
-  const isAdmin = profile?.role === "admin"
+  const isAdmin = isAdminRole(profile)
 
   // Once a brand-new post is first persisted (by save, submit, approve, or
   // publish) we must reuse its id for every later write, or each action would

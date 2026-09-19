@@ -3,8 +3,10 @@ import { toast } from "sonner"
 import { ShieldCheck } from "../../components/ui/Icons"
 import { Button, Input, Select, Field, Modal } from "../../components/ui/Ui"
 import { updateProfile, createUser, setUserActive } from "../../services/users"
-import { ASSIGNABLE_MODULES, SALES_DEFAULT_MODULES } from "../../data/domain/modules"
-import { moduleLabel } from "../../lib/roles"
+import { ASSIGNABLE_MODULES } from "../../data/domain/modules"
+import { assignableRoles, isAdmin, isSuperAdmin, moduleLabel, ROLE_DESCRIPTION, roleLabel } from "../../lib/roles"
+import { useProfile } from "../../hooks/useProfile"
+import { useRolePermissions } from "../../hooks/useRolePermissions"
 import { randomPassword } from "./helpers"
 
 // The create/edit dialog for a console account. Lives beside the Users page
@@ -13,13 +15,22 @@ import { randomPassword } from "./helpers"
 // screens drift into two different ideas of what a role grants.
 
 export default function UserEditor({ user, selfId, onClose, onSaved }) {
+  const viewer = useProfile()
+  const { grants } = useRolePermissions()
   const isEdit = Boolean(user)
   const isSelf = isEdit && user.id === selfId
+  // The Super Admin's role only changes hands through the transfer; nobody
+  // edits it here, the Super Admin included.
+  const roleLocked = isSelf || isSuperAdmin(user)
+  const roleChoices = roleLocked ? [user.role] : assignableRoles(viewer)
   const [email, setEmail] = useState(user?.email || "")
   const [password, setPassword] = useState(isEdit ? "" : randomPassword())
   const [name, setName] = useState(user?.name || "")
   const [role, setRole] = useState(user?.role || "sales")
-  const [modules, setModules] = useState(user?.modules || SALES_DEFAULT_MODULES)
+  // This person's EXTRA sections, on top of what their role grants (0032).
+  const [modules, setModules] = useState(user?.modules || [])
+  const roleGrants = isAdmin(role) ? [] : grants[role] || []
+  const effective = [...new Set([...roleGrants, ...modules])]
   const [active, setActive] = useState(user?.active ?? true)
   const [notify, setNotify] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -47,7 +58,7 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
 
   const save = async () => {
     if (!isEdit && (!email.trim() || !password)) return toast.error("Email and password are required")
-    if (isSelf && role !== "admin") return toast.error("You can't remove your own admin role")
+    if (isSelf && role !== user.role) return toast.error("You can't change your own role")
     if (isSelf && !active) return toast.error("You can't disable your own account")
     setBusy(true)
     try {
@@ -77,7 +88,7 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
           notify,
           // Sent so the email can list access in the same words the console
           // uses, without the function needing to know the module registry.
-          moduleLabels: role === "admin" ? ["Every module"] : modules.map(moduleLabel),
+          moduleLabels: isAdmin(role) ? ["Every module"] : effective.map(moduleLabel),
         })
         if (res.error) {
           toast.error(res.error)
@@ -157,17 +168,24 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter full name" />
         </Field>
         <Field label="Role">
-          <Select value={role} onChange={(e) => setRole(e.target.value)} disabled={isSelf}>
-            <option value="sales">Sales Executive</option>
-            <option value="admin">Admin</option>
+          <Select value={role} onChange={(e) => setRole(e.target.value)} disabled={roleLocked}>
+            {roleChoices.map((r) => (
+              <option key={r} value={r}>{roleLabel(r)}</option>
+            ))}
           </Select>
+          <p className="mt-1.5 text-xs text-muted-foreground">{ROLE_DESCRIPTION[role]}</p>
         </Field>
 
         <div>
-          <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Module access</span>
-          {role === "admin" ? (
+          <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {isAdmin(role) ? "Module access" : "Module access (role + extras)"}
+          </span>
+          {isAdmin(role) ? (
             <p className="flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2.5 text-sm text-muted-foreground">
-              <ShieldCheck className="h-4 w-4 text-primary" /> Admins have access to every module.
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              {isSuperAdmin(role)
+                ? "The Super Admin has access to everything."
+                : "Admins have access to every module except the Super Admin's settings."}
             </p>
           ) : (
             <div className="space-y-3">
@@ -194,7 +212,9 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
                           <input
                             type="checkbox"
                             className="h-4 w-4 shrink-0 rounded border-border accent-primary"
-                            checked={modules.includes(m.key)}
+                            checked={effective.includes(m.key)}
+                            // Granted by the role: changed on Roles & permissions, for everyone in it.
+                            disabled={roleGrants.includes(m.key)}
                             onChange={() => toggleModule(m.key)}
                           />
                           {/* The registry labels carry their section ("CRM · Pipeline"),
@@ -208,9 +228,11 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
               })}
             </div>
           )}
-          {role !== "admin" && (
+          {!isAdmin(role) && (
             <p className="mt-1.5 text-xs text-muted-foreground">
-              Dashboard is always available. {modules.length ? modules.map(moduleLabel).join(", ") : "No modules selected."}
+              Dashboard and their own attendance are always available. Locked ticks come from the {roleLabel(role)} role
+              and are changed for everyone in it under Users → Roles &amp; permissions; the others are extras for this
+              person only. {effective.length ? `Can open: ${effective.map(moduleLabel).join(", ")}.` : "No other sections."}
             </p>
           )}
         </div>

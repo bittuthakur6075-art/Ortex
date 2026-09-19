@@ -1,16 +1,42 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 import { Plus, Users as UsersIcon } from "../components/ui/Icons"
-import { Avatar, Button, Card, CardHeader, Badge, PageLoader, EmptyState, SortTh } from "../components/ui/Ui"
+import { Avatar, Button, Card, CardHeader, Badge, PageLoader, EmptyState, SortTh, Tabs } from "../components/ui/Ui"
 import { listProfiles } from "../services/users"
 import { useSorting } from "../hooks/useCollection"
 import { currentUserId } from "../lib/auth"
-import { roleLabel } from "../lib/roles"
+import { canManageUser, isAdmin, isSuperAdmin, roleLabel, ROLE_TONE } from "../lib/roles"
+import { grantedModules } from "../data/domain/modules"
+import { useProfile } from "../hooks/useProfile"
+import { useRolePermissions } from "../hooks/useRolePermissions"
+import RolePermissions from "./users/RolePermissions"
 import RowActions from "./users/RowActions"
 import UserEditor from "./users/UserEditor"
 
+// Two tabs: the people, and (Super Admin) what each role may open.
 export default function Users() {
+  const [params, setParams] = useSearchParams()
+  const tab = params.get("tab") === "roles" ? "roles" : "people"
+  const viewer = useProfile()
+  return (
+    <div className="space-y-5">
+      <Tabs
+        items={[
+          { value: "people", label: "People" },
+          { value: "roles", label: "Roles & permissions" },
+        ]}
+        value={tab}
+        onChange={(v) => setParams(v === "people" ? {} : { tab: v }, { replace: true })}
+      />
+      {tab === "roles" ? <RolePermissions editable={isSuperAdmin(viewer)} /> : <People />}
+    </div>
+  )
+}
+
+function People() {
+  const viewer = useProfile()
+  const { grants } = useRolePermissions()
   const [rows, setRows] = useState(null)
   const [editing, setEditing] = useState(null) // profile object or "new"
   const navigate = useNavigate()
@@ -26,7 +52,7 @@ export default function Users() {
     // what the column actually says, with admins (who hold everything) on top.
     const valueOf = (row) => {
       if (key !== "modules") return row[key]
-      return row.role === "admin" ? Number.MAX_SAFE_INTEGER : (row.modules || []).length
+      return isAdmin(row) ? Number.MAX_SAFE_INTEGER : grantedModules({ ...row, roleModules: grants[row.role] }).length
     }
     const sorted = [...rows].sort((a, b) => {
       let valA = valueOf(a)
@@ -38,7 +64,7 @@ export default function Users() {
       return valA - valB
     })
     return desc ? sorted.reverse() : sorted
-  }, [rows, sort])
+  }, [rows, sort, grants])
 
   const load = useCallback(async () => {
     try {
@@ -63,7 +89,7 @@ export default function Users() {
         } />
       ) : (
         <Card className="overflow-hidden">
-          <CardHeader title="Users" action={<Button onClick={() => setEditing("new")}>Add user</Button>} />
+          <CardHeader title="Users" action={isAdmin(viewer) ? <Button onClick={() => setEditing("new")}>Add user</Button> : null} />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="mt-head">
@@ -93,16 +119,25 @@ export default function Users() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{p.email}</td>
                     <td className="px-4 py-3">
-                      <Badge tone={p.role === "admin" ? "violet" : "blue"}>{roleLabel(p.role)}</Badge>
+                      <Badge tone={ROLE_TONE[p.role] || "blue"}>{roleLabel(p.role)}</Badge>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {p.role === "admin" ? "All modules" : `${(p.modules || []).length} module${(p.modules || []).length === 1 ? "" : "s"}`}
+                      {(() => {
+                        if (isAdmin(p)) return isSuperAdmin(p) ? "Everything" : "All modules"
+                        const n = grantedModules({ ...p, roleModules: grants[p.role] }).length
+                        return `${n} module${n === 1 ? "" : "s"}`
+                      })()}
                     </td>
                     <td className="px-4 py-3">
                       <Badge tone={p.active ? "emerald" : "rose"}>{p.active ? "Active" : "Deactivated"}</Badge>
                     </td>
                     <td className="px-4 py-3">
-                      <RowActions user={p} selfId={selfId} onEdit={() => setEditing(p)} onChanged={load} />
+                      <RowActions
+                        user={p}
+                        selfId={selfId}
+                        onEdit={() => canManageUser(viewer, p) && setEditing(p)}
+                        onChanged={load}
+                      />
                     </td>
                   </tr>
                 ))}

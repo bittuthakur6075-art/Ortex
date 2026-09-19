@@ -23,6 +23,11 @@ export type Staff = {
   db: Db
 }
 
+/** Every role (migration 0032). Super Admin is an admin wherever "admin" is asked. */
+export const ALL_ROLES = ["super_admin", "admin", "accounts", "sales", "staff"]
+export const ADMIN_ROLES = ["super_admin", "admin"]
+export const isAdminRole = (role: unknown) => role === "admin" || role === "super_admin"
+
 /**
  * Resolve the caller to an active staff profile with one of `roles`.
  * Returns a ready-to-send 401/403 `Response` on failure, so callers can write
@@ -30,7 +35,7 @@ export type Staff = {
  */
 export async function requireStaff(
   req: Request,
-  roles: string[] = ["admin", "sales"],
+  roles: string[] = ALL_ROLES,
   forbiddenMessage = "Staff access required",
 ): Promise<Staff | Response> {
   const url = Deno.env.get("SUPABASE_URL")!
@@ -48,7 +53,9 @@ export async function requireStaff(
     : createClient(url, anon, { global: { headers: { Authorization: authHeader } } })
   const { data: prof } = await reader
     .from("profiles").select("role, active").eq("id", userData.user.id).maybeSingle()
-  if (!prof || prof.active === false || !roles.includes(prof.role)) {
+  // Asking for "admin" admits the Super Admin too: they are an admin with more.
+  const allowed = roles.includes("admin") ? [...roles, "super_admin"] : roles
+  if (!prof || prof.active === false || !allowed.includes(prof.role)) {
     return json({ error: forbiddenMessage }, 403)
   }
   return { userId: userData.user.id, email: userData.user.email, role: prof.role, db: reader }

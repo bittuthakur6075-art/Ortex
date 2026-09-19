@@ -94,11 +94,17 @@ describe("access", () => {
   }
 
   it("shows each signal only to a profile that can open it", () => {
-    const voiceOnly = accessFor({ role: "sales", modules: ["voice-leads"] })
+    // Staff: a role that grants nothing by default, so the one extra is all
+    // they can open (a Sales Executive now gets their role's grants as well).
+    const voiceOnly = accessFor({ role: "staff", modules: ["voice-leads"] })
     expect(build(data, voiceOnly).map((n) => n.kind)).toEqual(["voice-new"])
-    const enquiriesOnly = accessFor({ role: "sales", modules: ["enquiries"] })
+    const enquiriesOnly = accessFor({ role: "staff", modules: ["enquiries"] })
     expect(build(data, enquiriesOnly).map((n) => n.kind)).toEqual(["enquiry-new"])
     expect(build(data, accessFor({ role: "admin" })).map((n) => n.kind).sort()).toEqual(["enquiry-new", "quotation-expiring", "voice-new"])
+    expect(build(data, accessFor({ role: "super_admin" })).map((n) => n.kind).sort()).toEqual(["enquiry-new", "quotation-expiring", "voice-new"])
+    // The role's grants count as much as the person's own ticks.
+    const salesByRole = accessFor({ role: "sales", modules: [], roleModules: ["enquiries"] })
+    expect(build(data, salesByRole).map((n) => n.kind)).toEqual(["enquiry-new"])
   })
 
   it("shows nothing before the profile has loaded", () => {

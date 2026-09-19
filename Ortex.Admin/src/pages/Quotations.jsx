@@ -26,6 +26,7 @@ import { hasPhone, quotationShareMessage, telLink, whatsappLink } from "../lib/q
 import { RecordActivity } from "../components/ui/RecordActivity"
 import ListTextarea from "../components/ui/ListTextarea"
 import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../components/editors/DocumentEditorShell"
+import { isAdmin as isAdminRole } from "../lib/roles"
 import {
   Button, ExportButton,
   Card, CardHeader,
@@ -391,7 +392,7 @@ function QuotationEditor({ draft, products, customers, settings, profile, onClos
   // (`admin_quotations_delete`). Without this check a Sales Executive still sees
   // the button and gets an RLS error for pressing it, which reads as a bug
   // rather than as a permission.
-  const isAdmin = profile?.role === "admin"
+  const isAdmin = isAdminRole(profile)
   const [form, setForm] = useState(draft)
   // What the form was opened with, moved forward whenever the screen persists
   // it (send, a status change), so "unsaved changes" means exactly that.

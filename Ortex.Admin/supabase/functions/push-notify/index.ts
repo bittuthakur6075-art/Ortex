@@ -92,10 +92,22 @@ Deno.serve(async (req) => {
 
   // Who may see it.
   const module = voice ? "voice-leads" : "enquiries"
+  // has_module_access(), in TS: admins reach everything; everyone else gets
+  // their role's grants (migration 0032, role_permissions) plus their own extras.
   const { data: people } = await db.from("profiles").select("id, role, modules, active")
+  const { data: grants } = await db.from("role_permissions").select("role, modules")
+  const byRole = new Map<string, string[]>(
+    (grants || []).map((g: Doc) => [g.role as string, Array.isArray(g.modules) ? g.modules : []]),
+  )
   const allowed = (people || [])
     .filter((p: Doc) => p.active !== false)
-    .filter((p: Doc) => p.role === "admin" || (Array.isArray(p.modules) && p.modules.includes(module)))
+    .filter(
+      (p: Doc) =>
+        p.role === "admin" ||
+        p.role === "super_admin" ||
+        (Array.isArray(p.modules) && p.modules.includes(module)) ||
+        (byRole.get(p.role) || []).includes(module),
+    )
     .map((p: Doc) => p.id as string)
   if (!allowed.length) return json({ skipped: "nobody has access" })
 

@@ -16,6 +16,7 @@ import AgentTab from "./telecaller/AgentTab"
 import CallDrawer from "./telecaller/CallDrawer"
 import NewCallModal from "./telecaller/NewCallModal"
 import PracticeModal from "./telecaller/PracticeModal"
+import { isAdmin as isAdminRole } from "../lib/roles"
 
 const TABS = [
   { value: "queue", label: "Queue" },
@@ -52,7 +53,7 @@ export default function Telecaller() {
 
   const sweepNow = async () => {
     setSweeping(true)
-    const res = await runSweep({ mode: "sweep", force: profile?.role === "admin" })
+    const res = await runSweep({ mode: "sweep", force: isAdminRole(profile) })
     setSweeping(false)
     if (res.error) return toast.error(res.error)
     const queued = Object.values(res.enqueued || {}).reduce((a, b) => a + b, 0)
@@ -99,7 +100,7 @@ export default function Telecaller() {
 
           {tab === "queue" && <QueueTab jobs={openJobs} onOpenCall={(id) => { setOpenCallId(id); setTab("calls") }} onPractice={(job) => setPractice(job)} />}
           {tab === "calls" && <CallsTab calls={calls.items} onOpen={setOpenCallId} />}
-          {tab === "agent" && <AgentTab isAdmin={profile?.role === "admin"} onPractice={() => setPractice(true)} />}
+          {tab === "agent" && <AgentTab isAdmin={isAdminRole(profile)} onPractice={() => setPractice(true)} />}
 
           {!t?.enabled && tab !== "agent" && (
             <p className="mt-6 text-xs text-muted-foreground">

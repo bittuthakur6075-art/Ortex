@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     const { data: u } = await caller.auth.getUser()
     if (u?.user) {
       const { data: prof } = await caller.from("profiles").select("role, active").eq("id", u.user.id).maybeSingle()
-      authorized = prof?.role === "admin" && prof?.active
+      authorized = (prof?.role === "admin" || prof?.role === "super_admin") && prof?.active
     }
   }
   if (!authorized) return json({ error: "Admin access required" }, 403)

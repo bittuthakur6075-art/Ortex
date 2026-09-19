@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { HistoryEntry } from "@/data/repo"
 import { errorMessage } from "@/data/supabase"
 import { formatDate, formatDateTime, relativeTime } from "@/domain/format"
-import { MODULES, roleLabel, type Profile } from "@/domain/modules"
+import { MODULES, ROLE_TONE, isAdmin, isSuperAdmin, roleLabel, roleModulesOf, type Profile } from "@/domain/modules"
 import { QuickAction } from "@/features/leads/leadUi"
 import { useActorHistory } from "@/hooks/useActorHistory"
 import { invalidateDirectory } from "@/hooks/useRecordHistory"
@@ -160,12 +160,22 @@ export default function UserDetailScreen({ navigation, route }: StackScreenProps
   }
 
   const active = user.active !== false
-  const admin = user.role === "admin"
+  const admin = isAdmin(user)
+  const roleTone = t.tones[ROLE_TONE[user.role || ""] || "slate"]
+  // Migration 0032's rules, mirrored so the page never offers what the server
+  // refuses: the Super Admin is only ever changed by themselves and can never be
+  // disabled; only the Super Admin acts on an Admin.
+  const canManage = isSelf || isSuperAdmin(me) || !admin
+  const canToggle = canManage && !isSelf && user.role !== "super_admin"
   const name = user.name?.trim() || user.email || "Unnamed user"
   const hasPhone = String(user.phone || "").replace(/\D/g, "").length >= 10
-  const modules = MODULES.filter((m) => (user.modules || []).includes(m.key))
-  // The console grants modules this app has no screen for (invoices, payments…).
-  const otherGrants = (user.modules || []).filter((k) => !MODULES.some((m) => m.key === k))
+  // What they reach: their role's grants plus their own extras. This page does
+  // not load `role_permissions`, so for someone else the role's grants shown are
+  // the seed defaults; the caption below points to where the live ones are set.
+  const reach = new Set([...(user.modules || []), ...roleModulesOf(user)])
+  const modules = MODULES.filter((m) => !m.always && reach.has(m.key))
+  // The console grants modules this app has no screen for.
+  const otherGrants = [...reach].filter((k) => !MODULES.some((m) => m.key === k))
   const shown = entries.slice(0, visible)
 
   const barTitleOpacity = scrollY.interpolate({
@@ -191,7 +201,7 @@ export default function UserDetailScreen({ navigation, route }: StackScreenProps
   }
 
   const toggleActive = () => {
-    if (isSelf || busy) return
+    if (!canToggle || busy) return
     feedback.tap()
     // Deactivating cuts someone off mid-session, so it asks first. Re-enabling
     // is harmless and stays one tap.
@@ -224,7 +234,11 @@ export default function UserDetailScreen({ navigation, route }: StackScreenProps
         >
           {name}
         </Animated.Text>
-        <IconButton name="refresh" onPress={() => setResetting(true)} accessibilityLabel="Reset password" />
+        {canManage ? (
+          <IconButton name="refresh" onPress={() => setResetting(true)} accessibilityLabel="Reset password" />
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
       </View>
 
       <Animated.ScrollView
@@ -253,8 +267,8 @@ export default function UserDetailScreen({ navigation, route }: StackScreenProps
               <Pill
                 icon={admin ? "lock" : "customer"}
                 label={roleLabel(user.role) || "No role"}
-                fg={admin ? t.tones.violet.fg : t.tones.blue.fg}
-                bg={admin ? t.tones.violet.bg : t.tones.blue.bg}
+                fg={roleTone.fg}
+                bg={roleTone.bg}
               />
               <Pill
                 icon={active ? "tick" : "warning"}
@@ -295,7 +309,7 @@ export default function UserDetailScreen({ navigation, route }: StackScreenProps
               icon="lock"
               label={active ? "Disable" : "Enable"}
               tone={active ? "rose" : "emerald"}
-              disabled={isSelf || busy}
+              disabled={!canToggle || busy}
               onPress={toggleActive}
             />
           </View>
@@ -377,12 +391,13 @@ export default function UserDetailScreen({ navigation, route }: StackScreenProps
               </View>
             )}
             <Text style={[textVariants.caption, { color: t.textTertiary }]}>
-              Role and module access are edited in the Ortex console.
+              What a role opens is set by the Super Admin; extras per person are ticked in the Ortex console.
             </Text>
           </View>
         </Panel>
 
         {/* Account controls */}
+        {canManage ? (
         <Panel title="Account">
           <ActionRow
             icon={active ? "lock" : "tick"}
@@ -391,11 +406,13 @@ export default function UserDetailScreen({ navigation, route }: StackScreenProps
             subtitle={
               isSelf
                 ? "You can't disable your own account"
-                : active
-                  ? "Sign them out everywhere and block sign-in"
-                  : "Let them sign in again"
+                : user.role === "super_admin"
+                  ? "The Super Admin can't be disabled"
+                  : active
+                    ? "Sign them out everywhere and block sign-in"
+                    : "Let them sign in again"
             }
-            onPress={isSelf ? undefined : toggleActive}
+            onPress={canToggle ? toggleActive : undefined}
           />
           <ActionRow
             icon="refresh"
@@ -409,6 +426,7 @@ export default function UserDetailScreen({ navigation, route }: StackScreenProps
             last
           />
         </Panel>
+        ) : null}
 
         {/* Activity */}
         <Panel title="Activity">

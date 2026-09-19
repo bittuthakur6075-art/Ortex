@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native"
 import { repo } from "@/data/repo"
 import { supabase, errorMessage } from "@/data/supabase"
 import { formatDate, relativeTime } from "@/domain/format"
-import { roleLabel, type Profile } from "@/domain/modules"
+import { ROLE_ORDER, ROLE_TONE, isAdmin as isAdminRole, isSuperAdmin, roleLabel, type Profile, type Role } from "@/domain/modules"
 import InviteUserSheet from "@/features/profile/InviteUserSheet"
 import { callNumber } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
@@ -50,14 +50,14 @@ import {
  * back — themselves — and the page says so.
  */
 
-type Filter = "all" | "active" | "admin" | "sales" | "off"
+type Filter = "all" | "active" | "admin" | "accounts" | "sales" | "staff" | "off"
 type Activity = Record<string, { at: string; count: number }>
 
 export default function TeamScreen({ navigation }: StackScreenProps<"Team">) {
   const t = useTheme()
   const toast = useToast()
   const { profile } = useAuth()
-  const isAdmin = profile?.role === "admin"
+  const isAdmin = isAdminRole(profile)
 
   const [people, setPeople] = React.useState<Profile[]>([])
   const [activity, setActivity] = React.useState<Activity>({})
@@ -98,9 +98,11 @@ export default function TeamScreen({ navigation }: StackScreenProps<"Team">) {
   const roster = React.useMemo(
     () =>
       [...people].sort((a, b) => {
-        // Active before deactivated, admins first, then by name.
+        // Active before deactivated, then by role (Super Admin first), then by name.
         if ((a.active === false) !== (b.active === false)) return a.active === false ? 1 : -1
-        if ((a.role === "admin") !== (b.role === "admin")) return a.role === "admin" ? -1 : 1
+        const ra = ROLE_ORDER.indexOf(a.role as Role)
+        const rb = ROLE_ORDER.indexOf(b.role as Role)
+        if (ra !== rb) return (ra < 0 ? 99 : ra) - (rb < 0 ? 99 : rb)
         return (a.name || a.email || "").localeCompare(b.name || b.email || "")
       }),
     [people],
@@ -110,8 +112,10 @@ export default function TeamScreen({ navigation }: StackScreenProps<"Team">) {
     () => ({
       all: roster.length,
       active: roster.filter((p) => p.active !== false).length,
-      admin: roster.filter((p) => p.role === "admin").length,
-      sales: roster.filter((p) => p.role !== "admin").length,
+      admin: roster.filter((p) => isAdminRole(p)).length,
+      accounts: roster.filter((p) => p.role === "accounts").length,
+      sales: roster.filter((p) => p.role === "sales").length,
+      staff: roster.filter((p) => p.role === "staff").length,
       off: roster.filter((p) => p.active === false).length,
     }),
     [roster],
@@ -122,8 +126,8 @@ export default function TeamScreen({ navigation }: StackScreenProps<"Team">) {
   const shown = roster.filter((p) => {
     if (filter === "active" && p.active === false) return false
     if (filter === "off" && p.active !== false) return false
-    if (filter === "admin" && p.role !== "admin") return false
-    if (filter === "sales" && p.role === "admin") return false
+    if (filter === "admin" && !isAdminRole(p)) return false
+    if ((filter === "accounts" || filter === "sales" || filter === "staff") && p.role !== filter) return false
     if (!needle) return true
     return (
       (p.name || "").toLowerCase().includes(needle) ||
@@ -136,7 +140,11 @@ export default function TeamScreen({ navigation }: StackScreenProps<"Team">) {
     { key: "all", label: `All ${counts.all}` },
     { key: "active", label: `Active ${counts.active}` },
     { key: "admin", label: `Admins ${counts.admin}` },
-    { key: "sales", label: `Sales ${counts.sales}` },
+    // One chip per role that someone actually holds, so an all-sales team is not
+    // offered three empty filters.
+    ...(counts.accounts ? [{ key: "accounts" as const, label: `Accounts ${counts.accounts}` }] : []),
+    ...(counts.sales ? [{ key: "sales" as const, label: `Sales ${counts.sales}` }] : []),
+    ...(counts.staff ? [{ key: "staff" as const, label: `Staff ${counts.staff}` }] : []),
     ...(counts.off ? [{ key: "off" as const, label: `Deactivated ${counts.off}`, tint: t.danger }] : []),
   ]
 
@@ -198,7 +206,9 @@ export default function TeamScreen({ navigation }: StackScreenProps<"Team">) {
                 <RowSeparator />
                 <Text style={[textVariants.caption, styles.footer, { color: t.textTertiary }]}>
                   {isAdmin
-                    ? "Tap a person for their activity, to deactivate them or to reset their password. Roles and module access are edited in the Ortex console."
+                    ? isSuperAdmin(profile)
+                      ? "Tap a person for their activity, to deactivate them or to reset their password. Roles and module access are edited in the Ortex console."
+                      : "Tap a person for their activity, to deactivate them or to reset their password. Admin accounts are managed by the Super Admin. Roles and module access are edited in the Ortex console."
                     : "Roles and module access are managed by an administrator in the Ortex console."}
                 </Text>
               </View>
@@ -297,9 +307,14 @@ function PersonRow({
   const t = useTheme()
   const name = person.name?.trim() || person.email || "Unnamed"
   const off = person.active === false
-  const admin = person.role === "admin"
-  const granted = (person.modules || []).length
-  const reach = admin ? "All modules" : `${granted} ${granted === 1 ? "module" : "modules"}`
+  const admin = isAdminRole(person)
+  const tone = t.tones[ROLE_TONE[person.role || ""] || "slate"]
+  const extras = (person.modules || []).length
+  const reach = admin
+    ? "All modules"
+    : extras
+      ? `Role + ${extras} extra ${extras === 1 ? "module" : "modules"}`
+      : "Role access"
   const seen = lastAt
     ? `Active ${relativeTime(lastAt)}`
     : person.created_at
@@ -333,8 +348,8 @@ function PersonRow({
         <View style={styles.metaLine}>
           <Pill
             label={roleLabel(person.role) || "No role"}
-            fg={admin ? t.tones.violet.fg : t.tones.blue.fg}
-            bg={admin ? t.tones.violet.bg : t.tones.blue.bg}
+            fg={tone.fg}
+            bg={tone.bg}
           />
           {off ? (
             <Pill label="Deactivated" fg={t.dangerText} bg={t.dangerBg} />

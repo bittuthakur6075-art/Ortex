@@ -16,10 +16,12 @@ export const TAB_REQUIRES: Record<keyof TabParamList, ModuleKey[]> = {
   Contacts: ["customers"],
 }
 
-// Home is left out of the "is there anything here" check: it is always granted,
-// and on its own, with no module behind it, it is a page of nothing. A profile
-// that reaches no OTHER tab still gets AccountUnavailableView.
-const TAB_NAMES = (Object.keys(TAB_REQUIRES) as (keyof TabParamList)[]).filter((n) => n !== "Home")
+// Home COUNTS. It used to be left out on the grounds that Home alone is a page
+// of nothing, but since the Staff role (migration 0032) a factory or office
+// account legitimately has no sales module at all: its app is Home plus its own
+// attendance and leave. `canAccess` refuses everything for an inactive profile,
+// so a disabled account still lands on AccountUnavailableView.
+const TAB_NAMES = Object.keys(TAB_REQUIRES) as (keyof TabParamList)[]
 
 export function tabAllowed(profile: Profile | null, name: keyof TabParamList): boolean {
   return TAB_REQUIRES[name].some((k) => canAccess(profile, k))

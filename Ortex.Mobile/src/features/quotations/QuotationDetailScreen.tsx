@@ -27,6 +27,7 @@ import { font } from "@/theme/typography"
 import { Button, Dialog, Icon, IconButton, PopupMenu, RecordActivityPanel, ScreenLoader, Sheet, useToast } from "@/ui"
 import ActionButton from "@/ui/ActionButton"
 import type { IconName } from "@/ui/Icon"
+import { isAdmin } from "@/domain/modules"
 
 /**
  * One quotation, read the way a salesperson reads one.
@@ -77,7 +78,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
   // non-admin cannot use anyway, rather than being the only thing standing
   // between them and a hole in the quotation number series.
   const { profile } = useAuth()
-  const isAdmin = profile?.role === "admin"
+  const canDelete = isAdmin(profile)
   const [doc, setDoc] = React.useState<Quotation | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [statusOpen, setStatusOpen] = React.useState(false)
@@ -481,7 +482,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
           },
           // Last in the menu and destructive: the irreversible item never sits
           // where a thumb lands on the way to something else.
-          ...(isAdmin
+          ...(canDelete
             ? [
                 {
                   key: "delete",

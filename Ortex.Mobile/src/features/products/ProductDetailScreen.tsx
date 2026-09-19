@@ -37,6 +37,7 @@ import {
   useToast,
 } from "@/ui"
 import type { IconName } from "@/ui/Icon"
+import { isAdmin } from "@/domain/modules"
 
 /**
  * The product page: a catalogue page, not a form.
@@ -65,7 +66,7 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
   // so anyone who can see this tab could delete from the database. Quotations
   // got a database-side admin rule in 0022; products have not.
   const { profile } = useAuth()
-  const isAdmin = profile?.role === "admin"
+  const canDelete = isAdmin(profile)
   const [menuOpen, setMenuOpen] = React.useState(false)
   const [confirmDelete, setConfirmDelete] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
@@ -424,7 +425,7 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
           filled={barFill}
         />
         <GlassButton icon="share" label="Share product" onPress={() => void share()} filled={barFill} />
-        {isAdmin && (
+        {canDelete && (
           <GlassButton
             icon="more"
             label="More actions"
@@ -450,15 +451,28 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
           },
         ]}
       >
-        <View style={styles.priceBlock}>
-          <Text numberOfLines={1} style={[styles.price, { color: t.text }]}>
-            {formatCurrency(price)}
-            <Text style={[styles.priceUnit, { color: t.textTertiary }]}> /{unit}</Text>
-          </Text>
-          <Text numberOfLines={1} style={[styles.priceNote, { color: t.textTertiary }]}>
-            {formatCurrency(withTax)} incl. {gstRate}% GST
-          </Text>
-        </View>
+        {/* A product with no rate used to read "₹0.00 /pcs", as if it were
+            free. Most of the catalogue is priced per enquiry, so say so. */}
+        {price > 0 ? (
+          <View style={styles.priceBlock}>
+            <Text numberOfLines={1} style={[styles.price, { color: t.text }]}>
+              {formatCurrency(price)}
+              <Text style={[styles.priceUnit, { color: t.textTertiary }]}> /{unit}</Text>
+            </Text>
+            <Text numberOfLines={1} style={[styles.priceNote, { color: t.textTertiary }]}>
+              {formatCurrency(withTax)} incl. {gstRate}% GST
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.priceBlock}>
+            <Text numberOfLines={1} style={[styles.priceNote, { color: t.textSecondary }]}>
+              Price not set
+            </Text>
+            <Text numberOfLines={1} style={[styles.priceNote, { color: t.textTertiary }]}>
+              Rate it on the quotation
+            </Text>
+          </View>
+        )}
         <Button label="Add to quote" icon="quote" onPress={addToQuotation} />
       </View>
 

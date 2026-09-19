@@ -2,9 +2,10 @@ import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
 import { supabase, errorMessage } from "@/data/supabase"
-import { MODULES, ROLE_LABEL } from "@/domain/modules"
+import { DEFAULT_ROLE_MODULES, MODULES, ROLE_LABEL, isSuperAdmin } from "@/domain/modules"
 import { emailProblem } from "@/features/contacts/validateContact"
 import { feedback } from "@/lib/feedback"
+import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import { spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
@@ -17,15 +18,15 @@ import { Button, RadioGroup, Sheet, TextField, useToast } from "@/ui"
  * ADMIN-ONLY, ENFORCED ON THE SERVER. The function opens with
  * `requireStaff(req, ["admin"])` and only then touches the service-role key, so
  * a non-admin calling it directly is refused whatever this app renders. The
- * button is hidden for them as a courtesy, not as the control.
+ * button is hidden for them as a courtesy, not as the control. Only the Super
+ * Admin may create an Admin (the function refuses anyone else), so the Admin
+ * choice is offered to the Super Admin alone; nobody is ever created as Super
+ * Admin (migration 0032: there is exactly one, and it only changes hands).
  *
- * WHAT IT CREATES, AND WHAT IT DOES NOT. A login with a role and the sales
- * default grants — the four modules this app itself is built around
- * (`voice-leads, enquiries, customers, quotations`), matching the console's
- * SALES_DEFAULT_MODULES. Per-module tailoring, invoices, payments and the
- * catalogue stay in the console: those grants have no surface on the phone, and
- * a form that silently narrowed someone's console access would be worse than
- * one that does not offer it.
+ * WHAT IT CREATES, AND WHAT IT DOES NOT. A login with a ROLE and no per-person
+ * modules: what a role may open is the Super Admin's Roles & permissions screen
+ * (`role_permissions`), which applies to everyone holding it. Per-person extras
+ * stay in the console.
  *
  * THE PASSWORD IS SHOWN WHEN THE MAIL DOES NOT GO. The function emails the new
  * user their sign-in details and reports `emailed` honestly; an unconfigured
@@ -42,15 +43,15 @@ function temporaryPassword(length = 10) {
   return out
 }
 
-/** The console's SALES_DEFAULT_MODULES, which is every module this app has. */
 /** Supabase's own floor for a password. */
 const MIN_PASSWORD = 6
-const SALES_DEFAULT = ["voice-leads", "enquiries", "customers", "quotations"]
 
 const ROLES = [
-  { key: "sales", label: ROLE_LABEL.sales, description: "The four modules this app is built around" },
-  { key: "admin", label: ROLE_LABEL.admin, description: "Everything, in the console as well" },
+  { key: "sales", label: ROLE_LABEL.sales, description: "Leads, customers and quotations" },
+  { key: "accounts", label: ROLE_LABEL.accounts, description: "Billing and payroll" },
+  { key: "staff", label: ROLE_LABEL.staff, description: "Attendance and leave only" },
 ]
+const ADMIN_CHOICE = { key: "admin", label: ROLE_LABEL.admin, description: "Everything except the Super Admin's settings" }
 
 export default function InviteUserSheet({
   visible,
@@ -63,6 +64,8 @@ export default function InviteUserSheet({
 }) {
   const t = useTheme()
   const toast = useToast()
+  const { profile } = useAuth()
+  const roles = isSuperAdmin(profile) ? [...ROLES, ADMIN_CHOICE] : ROLES
 
   const [name, setName] = React.useState("")
   const [email, setEmail] = React.useState("")
@@ -102,16 +105,18 @@ export default function InviteUserSheet({
     }
     setBusy(true)
     try {
-      const modules = role === "admin" ? [] : SALES_DEFAULT
+      // The role carries the grants; the email lists what it opens by default.
+      const granted = DEFAULT_ROLE_MODULES[role as keyof typeof DEFAULT_ROLE_MODULES] || []
       const { data, error } = await supabase.functions.invoke("admin-create-user", {
         body: {
           email: address,
           password,
           name: name.trim(),
           role,
-          modules,
+          modules: [],
           notify: true,
-          moduleLabels: MODULES.filter((m) => modules.includes(m.key)).map((m) => m.label),
+          moduleLabels:
+            role === "admin" ? ["Every module"] : MODULES.filter((m) => granted.includes(m.key)).map((m) => m.label),
         },
       })
       // A function that refuses reports it in the BODY as well as the status, and
@@ -185,7 +190,7 @@ export default function InviteUserSheet({
           />
           <View>
             <Text style={[styles.label, { color: t.textSecondary }]}>Role</Text>
-            <RadioGroup options={ROLES} value={role} onChange={setRole} />
+            <RadioGroup options={roles} value={role} onChange={setRole} />
           </View>
           <TextField
             label="Temporary Password"

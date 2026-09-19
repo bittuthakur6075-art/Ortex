@@ -1,7 +1,7 @@
 import React from "react"
 
 import { attentionItems, computeDashboard, type RangeKey } from "@/domain/dashboard"
-import { canAccess } from "@/domain/modules"
+import { canAccess, isAdmin } from "@/domain/modules"
 import type { Enquiry, Quotation } from "@/domain/schema"
 import { VOICE_SOURCE } from "@/domain/voice"
 import { useCollection } from "@/hooks/useCollection"
@@ -25,7 +25,7 @@ export function useDashboard(range: RangeKey, { withWeb = false }: { withWeb?: b
     enquiries: canAccess(profile, "enquiries"),
     voice: canAccess(profile, "voice-leads"),
     customers: canAccess(profile, "customers"),
-    admin: profile?.role === "admin",
+    admin: isAdmin(profile),
   }
   const leadsAccess = access.enquiries || access.voice
 

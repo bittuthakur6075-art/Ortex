@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     const staff = await requireStaff(req)
     if (staff instanceof Response) return staff
     const body = await req.clone().json().catch(() => ({}))
-    force = body.force === true && staff.role === "admin"
+    force = body.force === true && (staff.role === "admin" || staff.role === "super_admin")
   }
 
   try {

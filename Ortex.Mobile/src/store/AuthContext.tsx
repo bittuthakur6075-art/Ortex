@@ -5,7 +5,7 @@ import React from "react"
 import { clearCache } from "@/data/cache"
 import { resetCollections } from "@/data/collectionStore"
 import { errorMessage, supabase } from "@/data/supabase"
-import type { Profile } from "@/domain/modules"
+import { isAdmin, type Profile } from "@/domain/modules"
 import { signOut as authSignOut } from "@/lib/auth"
 import { resetNotificationState } from "@/lib/notificationStore"
 import { dismissAll } from "@/lib/push"
@@ -30,6 +30,27 @@ async function readCachedProfile(userId: string): Promise<Profile | null> {
     return parsed?.id === userId ? parsed : null
   } catch {
     return null
+  }
+}
+
+/**
+ * The grants of this profile's role (`role_permissions`, migration 0032). Admins
+ * need none. Undefined when the row cannot be read (the migration is not pushed,
+ * or no signal), in which case domain/modules.ts falls back to the seed defaults.
+ */
+async function readRoleModules(profile: Profile): Promise<string[] | undefined> {
+  if (!profile.role || isAdmin(profile.role)) return undefined
+  try {
+    const { data, error } = await supabase
+      .from("role_permissions")
+      .select("modules")
+      .eq("role", profile.role)
+      .maybeSingle()
+    if (error || !data) return undefined
+    const modules = (data as { modules?: unknown }).modules
+    return Array.isArray(modules) ? modules.map(String) : undefined
+  } catch {
+    return undefined
   }
 }
 
@@ -116,7 +137,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // A signed-in user with no profile row is a provisioning slip, not a reason
     // to crash — fall back to the least-privileged shape so the app renders and
     // the empty tab list makes the problem obvious.
-    const next = (data as Profile) || { id: userId, role: "sales", modules: [] }
+    const base = (data as Profile) || { id: userId, role: "staff", modules: [] }
+    const next: Profile = { ...base, roleModules: await readRoleModules(base) }
     setProfile(next)
     setProfileError(null)
     AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(next)).catch(() => {})
@@ -125,6 +147,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     void loadProfile()
   }, [loadProfile])
+
+  // The Super Admin can change what a role may open (Roles & permissions in the
+  // console). Follow it live: a change to THIS role's row re-reads the profile
+  // and its grants, so a tab appears or goes without a restart. One channel for
+  // this one table, as repo.ts does for every other: Realtime fails a whole
+  // channel when any binding names a table outside the publication.
+  const role = profile?.role
+  React.useEffect(() => {
+    if (!userId || !role || isAdmin(role)) return
+    const channel = supabase
+      .channel(`ortex-role-permissions-${role}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "role_permissions", filter: `role=eq.${role}` },
+        () => void loadProfile(),
+      )
+      .subscribe()
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [userId, role, loadProfile])
 
   const setBiometricEnabled = React.useCallback((on: boolean) => {
     setBiometricState(on)

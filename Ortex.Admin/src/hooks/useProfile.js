@@ -5,12 +5,14 @@
 // treated as an admin with every module. The app stays fully usable without
 // Supabase.
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { reloadRolePermissions, useRolePermissions } from "./useRolePermissions"
 import { supabase, hasSupabase } from "../data/store/supabaseClient"
 import { useAuth, currentUserId } from "../lib/auth"
 import { ALL_MODULE_KEYS } from "../data/domain/modules"
+import { isAdmin } from "../lib/roles"
 
-const LOCAL_ADMIN = { role: "admin", modules: ALL_MODULE_KEYS, name: "Local", email: "" }
+const LOCAL_ADMIN = { role: "super_admin", modules: ALL_MODULE_KEYS, name: "Local", email: "" }
 
 // Every mounted useProfile() subscribes here, so one save re-reads the row for
 // the whole app (header avatar, popover, /profile) instead of just the caller.
@@ -50,5 +52,19 @@ export function useProfile() {
     }
   }, [authed, tick])
 
-  return profile
+  // The role's grants (role_permissions, migration 0032), attached so
+  // canAccess() can union them with this person's own extras. Read live, so a
+  // Super Admin's change on Roles & permissions opens or closes pages for
+  // everyone in that role without a reload. Until the table is readable,
+  // roleModules stays unset and canAccess() uses DEFAULT_ROLE_MODULES.
+  const { grants, ready } = useRolePermissions()
+  // A read made before sign-in was refused by RLS; read again as this person.
+  const profileId = profile?.id
+  useEffect(() => {
+    if (profileId) void reloadRolePermissions()
+  }, [profileId])
+  return useMemo(() => {
+    if (!profile || isAdmin(profile) || !ready) return profile
+    return { ...profile, roleModules: grants[profile.role] || [] }
+  }, [profile, grants, ready])
 }

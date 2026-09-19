@@ -4,6 +4,8 @@ import { MoreHorizontal, Pencil, KeyRound, UserCheck, UserX, Trash2, AlertTriang
 import { Button, Input, Field, Modal, Banner } from "../../components/ui/Ui"
 import { setUserActive, resetUserPassword, deleteUser } from "../../services/users"
 import { randomPassword } from "./helpers"
+import { useProfile } from "../../hooks/useProfile"
+import { canManageUser } from "../../lib/roles"
 
 // Per-row account actions on the Users page: edit, enable/disable, reset the
 // password, delete outright. Everything except "edit" goes through the
@@ -15,6 +17,11 @@ export default function RowActions({ user, selfId, onEdit, onChanged }) {
   const [busy, setBusy] = useState(false)
   const ref = useRef(null)
   const isSelf = user.id === selfId
+  // Admins manage Accounts, Sales and Staff; only the Super Admin manages an
+  // Admin, and the Super Admin's own account (migration 0032). The server
+  // refuses the rest anyway, so an action it would refuse is not offered.
+  const viewer = useProfile()
+  const canManage = canManageUser(viewer, user)
 
   useEffect(() => {
     if (!open) return
@@ -46,6 +53,8 @@ export default function RowActions({ user, selfId, onEdit, onChanged }) {
     if (user.active) return setDialog("deactivate")
     applyActive(true)
   }
+
+  if (!canManage) return <div className="h-8 w-8" aria-hidden="true" />
 
   const item = "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm text-secondary-foreground hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
 

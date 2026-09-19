@@ -12,6 +12,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
 import { requireStaff } from "../_shared/auth.ts"
+
+// What a new login can be given, and by whom (migration 0032). Nobody is ever
+// CREATED as Super Admin: there is exactly one, and it only changes hands.
+const CREATABLE = ["admin", "accounts", "sales", "staff"]
+const ROLE_LABEL: Record<string, string> = {
+  admin: "Admin",
+  accounts: "Accounts",
+  sales: "Sales Executive",
+  staff: "Staff",
+}
 import { consoleUrl, isMailerConfigured, sendMail } from "../_shared/mailer.ts"
 import { inviteEmail } from "../_shared/emails.ts"
 
@@ -30,7 +40,10 @@ Deno.serve(async (req) => {
     const { email, password, name, role, modules, notify = true, moduleLabels = [] } = await req.json()
     if (!email || !password) return json({ error: "Email and password are required" }, 400)
     if (String(password).length < 6) return json({ error: "Password must be at least 6 characters" }, 400)
-    if (!["admin", "sales"].includes(role)) return json({ error: "Role must be admin or sales" }, 400)
+    if (!CREATABLE.includes(role)) return json({ error: "Role must be Admin, Accounts, Sales Executive or Staff" }, 400)
+    if (role === "admin" && staff.role !== "super_admin") {
+      return json({ error: "Only the Super Admin can create an Admin" }, 403)
+    }
 
     // 3) Create the user with the service-role key. The signup trigger seeds a
     //    least-privileged profile (sales / no modules) — it deliberately ignores
@@ -89,7 +102,7 @@ Deno.serve(async (req) => {
               email,
               password,
               name,
-              roleLabel: role === "admin" ? "Admin" : "Sales Executive",
+              roleLabel: ROLE_LABEL[role] || role,
               modules: Array.isArray(moduleLabels) ? moduleLabels : [],
               url: consoleUrl(),
             }),

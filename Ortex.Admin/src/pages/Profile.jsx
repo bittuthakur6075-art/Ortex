@@ -10,7 +10,7 @@ import QuotationDefaultsCard from "./profile/QuotationDefaultsCard"
 import { updateMyProfile } from "../services/users"
 import { currentEmail, currentUserId } from "../lib/auth"
 import { hasSupabase } from "../data/store/supabaseClient"
-import { roleLabel, moduleLabel } from "../lib/roles"
+import { roleLabel, moduleLabel, isAdmin as isAdminRole, ROLE_TONE } from "../lib/roles"
 
 export default function Profile() {
   const profile = useProfile()
@@ -35,7 +35,6 @@ export default function Profile() {
 function ProfileHeader({ profile }) {
   const email = profile.email || currentEmail() || "-"
   const name = profile.name || email
-  const isAdmin = profile.role === "admin"
   return (
     <Card className="overflow-hidden p-0">
       <div className="h-28 bg-gradient-to-br from-primary via-primary to-accent" />
@@ -45,7 +44,7 @@ function ProfileHeader({ profile }) {
           <div className="truncate text-lg font-semibold text-foreground">{name || "-"}</div>
           <div className="truncate text-sm text-muted-foreground">{email}</div>
         </div>
-        <Badge tone={isAdmin ? "violet" : "blue"} className="sm:mb-2">
+        <Badge tone={ROLE_TONE[profile.role] || "blue"} className="sm:mb-2">
           {roleLabel(profile.role)}
         </Badge>
       </div>
@@ -65,7 +64,7 @@ function AccountCard({ profile }) {
   useEffect(() => setPhone(profile.phone || ""), [profile.phone])
 
   const email = profile.email || currentEmail() || "-"
-  const isAdmin = profile.role === "admin"
+  const isAdmin = isAdminRole(profile)
 
   const save = async () => {
     if (!hasSupabase) return toast.error("Editing your name needs the backend enabled")
