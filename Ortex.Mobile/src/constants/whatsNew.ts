@@ -29,6 +29,31 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.3.1",
+    version: "1.3.1",
+    date: "2026-09-19",
+    title: "My pay, and attendance made clearer",
+    summary:
+      "One-time reinstall: uninstall Ortex Sales, then install it again from the link your admin sends. After that, updates arrive inside the app as before.",
+    items: [
+      {
+        kind: "new",
+        title: "My pay",
+        detail: "Profile, My pay: your payslips with a PDF to download or share, your salary breakup, loans, and reimbursement claims with a bill photo.",
+      },
+      {
+        kind: "improved",
+        title: "Attendance, laid out like Zoho People",
+        detail: "A big Check-in and Check-out button, your hours as a running timer, the week at a glance, and the month as a list or a calendar with a summary.",
+      },
+      {
+        kind: "fixed",
+        title: "Updates signed with the Ortex key",
+        detail: "1.3.0 was signed with the wrong key, so later updates could not install over it. This version fixes that, which is why it needs one reinstall.",
+      },
+    ],
+  },
+  {
     id: "1.3.0",
     version: "1.3.0",
     date: "2026-09-19",

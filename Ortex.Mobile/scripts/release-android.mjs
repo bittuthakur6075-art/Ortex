@@ -127,7 +127,9 @@ const sdkDir =
   ""
 if (!flag("skip-build")) {
   console.log(`\n▶ Building Ortex Sales ${version} (release, ARM only)…\n`)
-  const gradlew = process.platform === "win32" ? "gradlew.bat" : "./gradlew"
+  // A full path: under `shell: true` on Windows, cmd did not find a bare
+  // "gradlew.bat" in the working directory ("not recognized", 2026-09-19).
+  const gradlew = join(root, "android", process.platform === "win32" ? "gradlew.bat" : "gradlew")
   // Gradle treats the JavaScript bundle as up to date when only package.json or
   // .env changed, and ships the PREVIOUS bundle inside the new APK (seen in the
   // end-to-end test: a "1.2.2" APK whose JS still said 1.2.1). Removing its
@@ -165,6 +167,31 @@ if (aapt2) {
 } else {
   console.warn("! Android build-tools not found; could not confirm the APK's version. Set ANDROID_HOME.")
 }
+
+// The APK must be signed with THE Ortex release key. 1.3.0 went out signed with
+// the debug key (2026-09-19): the build ran before Gradle had the release
+// properties, fell back to signingConfigs.debug without a word, and every phone
+// that took it then refused properly signed updates until it was reinstalled.
+// So read the certificate back from the finished file, never trust the config.
+const RELEASE_CERT_SHA256 = "a18174356eb29a698a936e45057d53adffa8b0dd7d6698141f5b3538fb7079ae"
+function findApksigner() {
+  const tools = sdkDir && join(sdkDir, "build-tools")
+  if (!tools || !existsSync(tools)) return null
+  const latest = readdirSync(tools).sort().reverse()[0]
+  const exe = join(tools, latest, process.platform === "win32" ? "apksigner.bat" : "apksigner")
+  return existsSync(exe) ? exe : null
+}
+const apksigner = findApksigner()
+if (!apksigner) fail("Android build-tools not found, so the APK's signature cannot be checked. Set ANDROID_HOME.")
+const certs = execFileSync(apksigner, ["verify", "--print-certs", apkPath], {
+  encoding: "utf8",
+  shell: process.platform === "win32",
+})
+const digest = /certificate SHA-256 digest: ([0-9a-f]+)/i.exec(certs)?.[1]?.toLowerCase()
+if (/CN=Android Debug/.test(certs)) fail("The APK is signed with the DEBUG key. Check ~/.gradle/gradle.properties, run with --no-daemon, and rebuild.")
+if (digest !== RELEASE_CERT_SHA256)
+  fail(`The APK is signed with an unknown key (${digest || "none found"}), not the Ortex release key. Phones would refuse it.`)
+console.log("✓ Signed with the Ortex release key")
 
 const size = statSync(apkPath).size
 const mb = (size / 1024 / 1024).toFixed(1)
