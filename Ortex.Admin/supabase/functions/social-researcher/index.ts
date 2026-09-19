@@ -87,15 +87,22 @@ Deno.serve(async (req) => {
     const angle = String(body.angle || "").slice(0, 500)
 
     // 2) Ground the model in the real catalogue rather than its own guesses.
-    const [{ data: products }, { data: categories }, { data: recent }] = await Promise.all([
-      reader.from("products").select("id, doc").limit(60),
-      reader.from("categories").select("doc").limit(30),
+    const [{ data: allProducts }, { data: categories }, { data: recent }] = await Promise.all([
+      reader.from("products").select("id, doc").order("created_at", { ascending: false }).limit(500),
+      reader.from("categories").select("doc").limit(60),
       reader.from("social").select("doc").limit(20).order("created_at", { ascending: false }),
     ])
 
-    const productLines = (products || [])
+    // Only what a customer can actually see and order: an active product
+    // (absent = active) that is not hidden from the website. A post must never
+    // advertise a draft, an archived line or something deliberately unlisted.
+    const products = (allProducts || []).filter((r: { doc: Record<string, unknown> }) => {
+      const d = r.doc || {}
+      return d.name && (d.status || "active") === "active" && d.showOnWebsite !== false
+    }).slice(0, 80)
+
+    const productLines = products
       .map((r: { doc: Record<string, unknown> }) => r.doc)
-      .filter((d) => d && d.status !== "archived" && d.name)
       .map((d) => `- ${d.name}${d.category ? ` (${d.category})` : ""}${d.material ? `, material: ${d.material}` : ""}${d.moq ? `, MOQ ${d.moq}` : ""}`)
       .join("\n")
 

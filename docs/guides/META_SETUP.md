@@ -101,7 +101,7 @@ long-lived one:
 2. Exchange the short-lived user token for a long-lived user token (about 60 days):
 
    ```
-   GET https://graph.facebook.com/v21.0/oauth/access_token
+   GET https://graph.facebook.com/v25.0/oauth/access_token
      ?grant_type=fb_exchange_token
      &client_id=<APP_ID>
      &client_secret=<APP_SECRET>
@@ -111,7 +111,7 @@ long-lived one:
 3. Use that long-lived **user** token to fetch the **Page** token:
 
    ```
-   GET https://graph.facebook.com/v21.0/me/accounts?access_token=<LONG_LIVED_USER_TOKEN>
+   GET https://graph.facebook.com/v25.0/me/accounts?access_token=<LONG_LIVED_USER_TOKEN>
    ```
 
    The `access_token` on the Ortex Page entry is what you want. A Page token
@@ -134,12 +134,16 @@ From `C:\Dev\Ortex\Ortex.Admin`:
 supabase secrets set META_ACCESS_TOKEN=<long-lived-page-token>
 supabase secrets set META_IG_USER_ID=<17841...>
 supabase secrets set META_PAGE_ID=<page-id>
-# optional, defaults to v21.0
-supabase secrets set META_GRAPH_VERSION=v21.0
+# optional, defaults to v25.0 (v21.0 stops working on 21 Jan 2027)
+supabase secrets set META_GRAPH_VERSION=v25.0
+# the scheduled sweep's own key (any long random string), see step 8
+supabase secrets set SOCIAL_CRON_SECRET=<random-string>
 
-# the research + creative half
+# the research half (captions and ideas)
 supabase secrets set GEMINI_API_KEY=<google-ai-studio-key>
-supabase secrets set GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
+# the creative half runs on Cloudflare Workers AI (FLUX.2 klein / FLUX.1 schnell),
+# the same two secrets the product photo studio uses:
+supabase secrets set CLOUDFLARE_ACCOUNT_ID=<account-id> CLOUDFLARE_API_TOKEN=<token>
 ```
 
 These live only in Supabase. The browser never sees them, which is why publishing
@@ -183,9 +187,11 @@ Secrets in step 6 take the same `--project-ref` flag.
 
 ## 8. Scheduling (optional)
 
-Scheduled posts need something to wake `social-publish` up. Same pattern as
-`indiamart-pull`: a `pg_cron` job passing the service-role key, which the
-function accepts as the scheduler identity.
+Scheduled posts need something to wake `social-publish` up: a `pg_cron` job.
+It proves itself with the `SOCIAL_CRON_SECRET` from step 6 in an
+`x-social-secret` header, with the public anon key as the bearer, so the
+service-role key never sits in `cron.job` (anyone who can read that table could
+lift it). An older job that passes the service-role key still works.
 
 In the Supabase SQL editor:
 
@@ -198,7 +204,8 @@ select cron.schedule(
     url     := 'https://<project-ref>.supabase.co/functions/v1/social-publish',
     headers := jsonb_build_object(
       'Content-Type',  'application/json',
-      'Authorization', 'Bearer <SERVICE_ROLE_KEY>'
+      'Authorization', 'Bearer <ANON_KEY>',
+      'x-social-secret', '<SOCIAL_CRON_SECRET>'
     ),
     body    := jsonb_build_object('mode', 'due')
   );
@@ -209,6 +216,14 @@ select cron.schedule(
 Every 15 minutes it publishes approved posts whose scheduled time has passed. A
 post only enters `scheduled` after an admin has approved it, so the cron cannot
 publish anything a human has not already signed off.
+
+A post can never go out twice (migration 0035): each one is claimed (status
+`publishing`) before Meta is called, every platform's result is saved the moment
+it lands, and a retry skips platforms that already have a post. If a run is
+killed mid-way, the next sweep marks that post `failed` with a note to check
+Instagram and Facebook before pressing Publish again; it is never re-sent on its
+own. A post whose approver is no longer an active admin is marked `failed` with
+that reason rather than skipped in silence.
 
 ---
 

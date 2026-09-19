@@ -13,7 +13,7 @@
 //      service-role key never has to sit in cron.job. The service-role key as the
 //      bearer is still accepted for an existing job.
 //
-// NEVER TWICE (migration 0034). A post is CLAIMED before Meta is called: a
+// NEVER TWICE (migration 0035). A post is CLAIMED before Meta is called: a
 // conditional update to `publishing` that only succeeds while the row is still in
 // the status it was read in, so a double-click, an overlapping sweep or a sweep
 // racing an admin all end with one winner. Each platform's result is written the

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { Instagram, Plus, Sparkles } from "../components/ui/Icons"
+import { Instagram, Plus, Search, Sparkles } from "../components/ui/Icons"
 import { useCollection } from "../hooks/useCollection"
 import { SOCIAL_STATUS } from "../data/domain/schema"
 import PageHeader from "../components/layout/PageHeader"

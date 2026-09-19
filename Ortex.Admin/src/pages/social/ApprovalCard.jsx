@@ -1,22 +1,22 @@
 import { Send, CheckCircle2, ArrowUpRight } from "../../components/ui/Icons"
 import { Button, Card } from "../../components/ui/Ui"
 
-export default function ApprovalCard({ form, isAdmin, submitForReview, approve, publish, publishing }) {
+export default function ApprovalCard({ form, isAdmin, busy, submitForReview, approve, publish, publishing }) {
   return (
     <Card className="p-5">
       <h3 className="mb-4 border-b border-border pb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Approval
       </h3>
       <div className="space-y-3">
-        {form.status === "draft" || form.status === "idea" ? (
-          <Button variant="outline" className="w-full" onClick={submitForReview}>
+        {(form.status === "draft" || form.status === "idea") && (
+          <Button variant="outline" className="w-full" onClick={submitForReview} disabled={busy}>
             <ArrowUpRight className="h-4 w-4" /> Send for approval
           </Button>
-        ) : null}
+        )}
 
         {form.status === "review" && (
           isAdmin ? (
-            <Button variant="success" className="w-full" onClick={approve}>
+            <Button variant="success" className="w-full" onClick={approve} disabled={busy}>
               <CheckCircle2 className="h-4 w-4" /> Approve
             </Button>
           ) : (
@@ -26,12 +26,18 @@ export default function ApprovalCard({ form, isAdmin, submitForReview, approve, 
 
         {["approved", "scheduled", "failed"].includes(form.status) && (
           isAdmin ? (
-            <Button className="w-full" onClick={publish} disabled={publishing}>
-              <Send className="h-4 w-4" /> {publishing ? "Publishing…" : "Publish now"}
+            <Button className="w-full" onClick={publish} disabled={publishing || busy}>
+              <Send className="h-4 w-4" /> {publishing ? "Publishing…" : form.status === "failed" ? "Try publishing again" : "Publish now"}
             </Button>
           ) : (
             <p className="text-xs text-muted-foreground">Only an admin can publish to the company profile.</p>
           )
+        )}
+
+        {form.status === "publishing" && (
+          <p className="text-xs text-muted-foreground">
+            Being sent to Instagram and Facebook right now. This can take a minute; reopen the post to see the result.
+          </p>
         )}
 
         {form.status === "scheduled" && (
@@ -41,7 +47,7 @@ export default function ApprovalCard({ form, isAdmin, submitForReview, approve, 
         )}
 
         {form.error && (
-          <p className="rounded-md bg-destructive/10 p-2 text-xs text-destructive">{form.error}</p>
+          <p className="rounded-md bg-destructive/10 p-2 text-xs text-destructive-text">{form.error}</p>
         )}
 
         {Object.entries(form.results || {}).map(([platform, r]) => (
@@ -56,7 +62,7 @@ export default function ApprovalCard({ form, isAdmin, submitForReview, approve, 
                 <span className="text-muted-foreground">Published</span>
               )
             ) : (
-              <span className="text-destructive">{r?.error || "Not published"}</span>
+              <span className="text-destructive-text">{r?.error || "Not published"}</span>
             )}
           </div>
         ))}

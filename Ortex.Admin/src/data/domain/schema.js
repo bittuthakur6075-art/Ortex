@@ -69,6 +69,7 @@ export const SOCIAL_STATUS = [
   { id: "review", label: "In review", tone: "amber" },
   { id: "approved", label: "Approved", tone: "violet" },
   { id: "scheduled", label: "Scheduled", tone: "cyan" },
+  { id: "publishing", label: "Publishing", tone: "blue" },
   { id: "published", label: "Published", tone: "emerald" },
   { id: "failed", label: "Failed", tone: "rose" },
 ]
@@ -366,6 +367,12 @@ export function newSocialPost(overrides = {}) {
     hashtags: [], // stored without the leading '#'
     imagePrompt: "", // what social-creative feeds Gemini
     image: "", // PUBLIC bucket URL - Meta fetches this itself
+    // Where the creative came from: "upload", "catalogue", "ai" (generated) or
+    // "restyle" (a real photo placed in a new scene). `sourceImage` is that real
+    // photo, kept so a restyle can be run again from the original.
+    imageSource: "",
+    sourceImage: "",
+    format: "square", // square | portrait | landscape (Instagram feed ratios)
     platforms: ["instagram", "facebook"],
     productId: null, // optional catalogue link the idea was grounded in
     scheduledFor: null, // ISO string; null means publish on approval
