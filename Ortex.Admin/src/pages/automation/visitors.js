@@ -8,6 +8,9 @@
 // enquiry the site saves is stamped with the same id (doc.tracking.userId in
 // Ortex.Web/src/lib/leads.js), which is what lets a visitor be tied to the
 // lead they became.
+//
+// Also imported by Ortex.WhatsApp.Bot (plain Node, through its src/loader.js),
+// so keep it free of browser-only imports; the bot's npm test fails if not.
 
 // A new visit starts after this much silence. sessionStorage ids are per TAB,
 // so three tabs opened in the same minute are three "sessions" but one visit.

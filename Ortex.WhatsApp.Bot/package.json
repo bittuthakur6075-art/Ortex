@@ -1,0 +1,25 @@
+{
+  "name": "ortex-whatsapp-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sends Ortex Admin insights (daily/weekly digest, instant alerts) to an admin WhatsApp group and answers questions there. Runs as a linked device on an existing WhatsApp account: no Business API, no new number.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node --import ./src/register.js src/index.js",
+    "link": "node --import ./src/register.js src/index.js --link",
+    "groups": "node --import ./src/register.js src/index.js --groups",
+    "digest": "node --import ./src/register.js src/index.js --digest-now",
+    "preview": "node --import ./src/register.js src/index.js --preview",
+    "test": "node --import ./src/register.js --test test/*.test.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
+    "baileys": "^7.0.0-rc14",
+    "pino": "^10.3.1",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0"
+  }
+}

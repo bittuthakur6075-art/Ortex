@@ -81,3 +81,21 @@ jobs:
           cache-dependency-path: Ortex.Tally.Connector/package-lock.json
       - run: npm ci
       - run: npm run fixture
+
+  whatsapp-bot:
+    name: Ortex.WhatsApp.Bot — reports, alerts, answers
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Ortex.WhatsApp.Bot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Ortex.WhatsApp.Bot/package-lock.json
+      - run: npm ci
+      # Also proves the bot can still load Ortex.Admin's analytics modules in
+      # plain Node: a browser-only import added to one of them fails here.
+      - run: npm test

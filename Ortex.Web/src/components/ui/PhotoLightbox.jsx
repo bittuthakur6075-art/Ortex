@@ -1,14 +1,37 @@
 import { useEffect, useRef, useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { CloseCircle, ArrowLeft, ArrowRight, Sms, Ruler, Layer, Colorfilter, Printer, Flash } from "iconsax-react"
 import { Link } from "react-router-dom"
 
-// Slide-in variants for the premium image transition. `dir` is +1 when moving
-// to the next photo, -1 to the previous.
+// One UI's motion, ported from Ortex.Mobile/src/ui/motion.ts (itself after One
+// UI 8) so the site and the phone move alike: quick off the mark, a long gentle
+// landing, and springs that settle without ever bouncing.
+//
+// `EASE_OUT` is theme/tokens `motion.easeOut`; `SPRING_PAGE` is that file's
+// `SPRING.page`, described there as "a page's content settling after the push".
+const EASE_OUT = [0.16, 1, 0.3, 1]
+const SPRING_PAGE = { type: "spring", stiffness: 210, damping: 28, mass: 0.9 }
+const FADE = 0.22
+
+// Slide variants. `dir` is +1 when moving to the next photo, -1 to the previous.
+//
+// The travel is SHORT (22%, not the 55% this had) and carries a touch of scale.
+// One UI does not throw a panel across the screen: the new content is already
+// almost in place when it appears and simply settles, which is what makes it
+// read as quick even though the landing is unhurried. A long slide has to move
+// fast to not feel slow, and then it reads as a flick rather than a transition.
+const OFFSET = 22
 const slide = {
-  enter: (dir) => ({ x: dir > 0 ? "55%" : "-55%", opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit: (dir) => ({ x: dir > 0 ? "-55%" : "55%", opacity: 0 }),
+  enter: (dir) => ({ x: `${dir > 0 ? OFFSET : -OFFSET}%`, opacity: 0, scale: 0.98 }),
+  center: { x: "0%", opacity: 1, scale: 1 },
+  exit: (dir) => ({ x: `${dir > 0 ? -OFFSET : OFFSET}%`, opacity: 0, scale: 0.98 }),
+}
+
+// Reduced motion: cross-fade in place, no travel and no scale.
+const still = {
+  enter: { x: "0%", opacity: 0, scale: 1 },
+  center: { x: "0%", opacity: 1, scale: 1 },
+  exit: { x: "0%", opacity: 0, scale: 1 },
 }
 
 /**
@@ -63,6 +86,7 @@ export default function PhotoLightbox({ item, description, index, total, onClose
   // next photo: the answer is about the factory, not about one product, so
   // closing it under someone who just opened it would be the wrong move.
   const [openDetail, setOpenDetail] = useState(null)
+  const reduce = useReducedMotion()
 
   useEffect(() => {
     const onKey = (e) => {
@@ -97,7 +121,7 @@ export default function PhotoLightbox({ item, description, index, total, onClose
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
+      transition={{ duration: FADE, ease: EASE_OUT }}
       role="dialog"
       aria-modal="true"
       aria-label={item.title}
@@ -125,10 +149,10 @@ export default function PhotoLightbox({ item, description, index, total, onClose
       )}
 
       <motion.div
-        initial={{ scale: 0.96, y: 10 }}
+        initial={reduce ? { scale: 1, y: 0 } : { scale: 0.96, y: 10 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.96, y: 10 }}
-        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        exit={reduce ? { scale: 1, y: 0 } : { scale: 0.96, y: 10 }}
+        transition={reduce ? { duration: FADE, ease: EASE_OUT } : SPRING_PAGE}
         className="w-[92vw] md:w-[80vw] md:h-[80vh] flex flex-col md:flex-row bg-background rounded-none overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
@@ -139,14 +163,19 @@ export default function PhotoLightbox({ item, description, index, total, onClose
               src={item.src}
               alt={item.alt || item.title}
               custom={direction}
-              variants={slide}
+              variants={reduce ? still : slide}
               initial="enter"
               animate="center"
               exit="exit"
-              transition={{
-                x: { type: "spring", stiffness: 260, damping: 30 },
-                opacity: { duration: 0.25, ease: "easeOut" },
-              }}
+              transition={
+                reduce
+                  ? { duration: FADE, ease: EASE_OUT }
+                  : {
+                      x: SPRING_PAGE,
+                      scale: SPRING_PAGE,
+                      opacity: { duration: FADE, ease: EASE_OUT },
+                    }
+              }
               className="absolute inset-0 w-full h-full object-contain p-5 md:p-8"
             />
           </AnimatePresence>
@@ -216,7 +245,7 @@ export default function PhotoLightbox({ item, description, index, total, onClose
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.22, ease: "easeOut" }}
+                    transition={{ duration: FADE, ease: EASE_OUT }}
                     className="overflow-hidden text-[16px] font-normal text-[#4B5675] leading-relaxed"
                   >
                     <span className="block pt-4">{detail.detail}</span>

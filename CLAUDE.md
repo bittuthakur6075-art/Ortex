@@ -4,12 +4,13 @@ This file provides guidance to AI coding assistants when working with code in th
 
 ## Repository Overview
 
-This repository contains the digital infrastructure for **Ortex Industries** (manufacturer of customized MDF/acrylic items, lanyards, corporate gifts, OEM/white-label production). It is split into four **independent npm projects** (no root workspace); the root `README.md` has the full directory tree and conventions.
+This repository contains the digital infrastructure for **Ortex Industries** (manufacturer of customized MDF/acrylic items, lanyards, corporate gifts, OEM/white-label production). It is split into five **independent npm projects** (no root workspace); the root `README.md` has the full directory tree and conventions.
 
 1. **`Ortex.Web`**: The marketing/lead-gen single-page app (React 19 + Vite 8 + Tailwind CSS v4). Brand showcase, product catalog, quote wizard, lead capture, Live Orty voice assistant.
 2. **`Ortex.Admin`**: The business admin dashboard (React 19 + Vite 8 + Tailwind CSS v4 + Supabase). Manages leads, quotations, invoices, payments, customers, catalogue, social, automation and the AI telecaller. Owns the Supabase schema (`supabase/migrations`) and Deno edge functions (`supabase/functions`).
 3. **`Ortex.Mobile`**: The field-sales mobile app (React Native 0.85 bare workflow + Expo SDK 56 modules + TypeScript). Quotations, enquiries, voice leads, products and a call/WhatsApp contact directory. It is a **second client of Ortex.Admin's Supabase project**, same anon key, same session, same `profiles` roles and RLS, and owns no edge function of its own. It has needed two schema changes, both columns on `profiles` (`0021_profile_phone.sql`, a `phone` for its Account details page, and `0027_profile_quotation_defaults.sql`, a rep's own quotation defaults); migrations still live in `Ortex.Admin/supabase/migrations` and are pushed from there. Its `src/domain/` is a line-for-line **mirror** of the Admin's pure logic (see below); `npm test` fails if the two GST engines drift apart.
 4. **`Ortex.Tally.Connector`**: A **standalone** Node CLI (outbound: Admin → Tally). It is not imported or launched by `Ortex.Admin`. It must run on the Windows PC where TallyPrime is open, because Tally's XML gateway only listens on `localhost:9000`. It reads Supabase with a `service_role` key, pushes customers/products/invoices/payments as Tally vouchers/masters, and writes `doc.tally` back onto each record. The two apps communicate only through that field.
+5.  **`Ortex.WhatsApp.Bot`**: A **standalone**, read-only Node CLI that posts the console's insights to the owners' WhatsApp group (daily digest, weekly report, instant alerts) and answers questions there. It is a **linked device** on an existing WhatsApp account (Baileys, the WhatsApp Web protocol), chosen on the owner's instruction (2026-09-19) over the Cloud API because it needs no Business API and no new number; that is against WhatsApp's terms, so it posts only to ONE configured group, a few times a day, never to customers. It reads Supabase with the `service_role` key like the Tally connector and **imports the console's own pure analytics** (`lib/analytics/today.js`, `data/domain/domain.js`, `pages/automation/visitors.js`) through `src/loader.js`, which adds Vite's missing `.js` and stubs the browser-only `data/store/repository` and `services/notify`. **So those Admin files must stay loadable in plain Node**; the bot's `npm test` (in CI) fails if one gains a browser-only import.
 
 ## Repo-wide conventions
 
@@ -156,6 +157,26 @@ npm run fixture   # XML builder self-test (also run in CI)
 
 ---
 
+## Ortex.WhatsApp.Bot
+
+```bash
+# From Ortex.WhatsApp.Bot/ (an always-on PC)
+cp config.example.json config.json   # service_role key, group name, optional Gemini key
+npm run preview -- --sample         # print the messages from sample data, nothing sent
+npm run preview                     # the same from live data
+npm start                           # QR link on first run, then digests, alerts, answers
+npm run groups                      # list the linked account's groups and ids
+npm run digest                      # send today's digest now
+npm test                            # node --test, with the Admin loader
+```
+
+* **Only the configured group** is read or posted to (`whatsapp.group`), so group membership is the access control: everyone in it sees the business figures. Every bot message starts with a mark (🤖 🔔 📞 🚨 🎉 💰 🌅 🔕, `BOT_MARK` in `whatsapp.js`), because the bot IS the linked account and its own posts come back as incoming messages; a new message type must start with one of them or the bot will answer itself.
+* **Alerts poll** the last two days (no realtime dependency); `state.json` keeps `since` (nothing older than the first start is announced), every alert key already sent, held alerts and the mute. Anu's captures are folded with the console's `voiceCalls` and announced once quiet for 3 min (`CALL_SETTLE_MS`). Quiet hours and `mute` hold alerts and deliver one "While you were away" message.
+* **Answers**: fixed commands (`parseCommand`, incl. a little Hinglish) never touch the AI; anything else is a Gemini function-calling loop over read-only tools (`TOOL_DECLARATIONS` / `runTool` in `ask.js`). Tool results carry customer names and phones to Google, and the free tier may train on them; the README says so.
+* Gitignored and never to be copied off the PC: `config.json` (service_role key), `auth/` (the logged-in WhatsApp session) and `state.json`.
+
+---
+
 ## Reference Docs
 * `README.md`: repo map, quick start, conventions.
 * `docs/architecture/ARCHITECTURE.md`: narratives, directories, data flows, design system.
@@ -164,3 +185,4 @@ npm run fixture   # XML builder self-test (also run in CI)
 * `Ortex.Admin/docs/`: PRD, environments, growth tracking, leads & receipts.
 * `Ortex.Web/docs/DEPLOY_HOSTINGER.md`: static deploy guide.
 * `Ortex.Mobile/README.md`: mobile setup, the ported-logic mirror, bare-workflow notes.
+* `Ortex.WhatsApp.Bot/README.md`: bot setup, the linked-device risks, configuration.

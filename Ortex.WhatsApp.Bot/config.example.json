@@ -1,0 +1,29 @@
+{
+  "supabase": {
+    "url": "https://pfoeztiakqtemakfgpgs.supabase.co",
+    "serviceKey": "PASTE-YOUR-SERVICE_ROLE-KEY-HERE"
+  },
+  "gemini": {
+    "apiKey": "",
+    "model": "gemini-3.6-flash"
+  },
+  "whatsapp": {
+    "group": "Ortex Bot",
+    "answerEverything": true,
+    "prefixes": ["/", "bot", "?"]
+  },
+  "timezone": "Asia/Kolkata",
+  "digest": {
+    "daily": "09:00",
+    "weekly": { "day": "Monday", "time": "09:00" }
+  },
+  "alerts": {
+    "enabled": true,
+    "checkEverySeconds": 60,
+    "newEnquiry": true,
+    "voiceCall": true,
+    "quoteWon": true,
+    "paymentReceived": true,
+    "quietHours": { "from": "21:00", "to": "08:00" }
+  }
+}

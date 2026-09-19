@@ -25,7 +25,7 @@
  */
 
 import { execFileSync } from "node:child_process"
-import { existsSync, readFileSync, statSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -119,20 +119,53 @@ if (!existsSync(storeFile)) {
 // ---- 2. build ---------------------------------------------------------------------------
 
 const apkPath = join(root, "android/app/build/outputs/apk/release/app-release.apk")
+// Gradle and aapt2 need the SDK, and a PC without local.properties has to be told.
+const sdkDir =
+  env.ANDROID_HOME ||
+  env.ANDROID_SDK_ROOT ||
+  [join(homedir(), "AppData", "Local", "Android", "Sdk"), "C:\\Android\\Sdk"].find((d) => existsSync(d)) ||
+  ""
 if (!flag("skip-build")) {
   console.log(`\n▶ Building Ortex Sales ${version} (release, ARM only)…\n`)
   const gradlew = process.platform === "win32" ? "gradlew.bat" : "./gradlew"
+  // Gradle treats the JavaScript bundle as up to date when only package.json or
+  // .env changed, and ships the PREVIOUS bundle inside the new APK (seen in the
+  // end-to-end test: a "1.2.2" APK whose JS still said 1.2.1). Removing its
+  // outputs forces a fresh bundle every release.
+  for (const dir of ["android/app/build/generated/assets/react", "android/app/build/generated/res/react"]) {
+    rmSync(join(root, dir), { recursive: true, force: true })
+  }
   try {
     execFileSync(gradlew, ["app:assembleRelease", "-PreactNativeArchitectures=armeabi-v7a,arm64-v8a"], {
       cwd: join(root, "android"),
       stdio: "inherit",
       shell: process.platform === "win32",
+      env: sdkDir ? { ...process.env, ANDROID_HOME: sdkDir, ANDROID_SDK_ROOT: sdkDir } : process.env,
     })
   } catch {
     fail("The Gradle build failed. The output above says why.")
   }
 }
 if (!existsSync(apkPath)) fail(`No APK at ${apkPath}. Build it first, or drop --skip-build.`)
+// The APK must say the version it is published as, or phones would be told to
+// update again straight after updating. Read it back with aapt2 when the SDK is
+// findable; skip the check (with a warning) when it is not.
+function findAapt2() {
+  const tools = sdkDir && join(sdkDir, "build-tools")
+  if (!tools || !existsSync(tools)) return null
+  const latest = readdirSync(tools).sort().reverse()[0]
+  const exe = join(tools, latest, process.platform === "win32" ? "aapt2.exe" : "aapt2")
+  return existsSync(exe) ? exe : null
+}
+const aapt2 = findAapt2()
+if (aapt2) {
+  const badging = execFileSync(aapt2, ["dump", "badging", apkPath], { encoding: "utf8" })
+  const built = /versionName='([^']*)'/.exec(badging)?.[1]
+  if (built !== version) fail(`The APK says version ${built}, but package.json says ${version}. Rebuild without --skip-build.`)
+} else {
+  console.warn("! Android build-tools not found; could not confirm the APK's version. Set ANDROID_HOME.")
+}
+
 const size = statSync(apkPath).size
 const mb = (size / 1024 / 1024).toFixed(1)
 if (size > FREE_PLAN_LIMIT) {

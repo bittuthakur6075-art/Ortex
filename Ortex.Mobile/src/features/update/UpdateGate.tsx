@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"
+import * as Application from "expo-application"
 import React from "react"
 import { AppState, Platform, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -35,6 +36,15 @@ import { Button, Dialog, Icon, ProgressBar } from "@/ui"
  */
 
 const RECHECK_MS = 2 * 60 * 1000
+
+/**
+ * The version Android says is INSTALLED (versionName, which build.gradle takes
+ * from package.json), not the one inlined into the JavaScript bundle. Gradle
+ * reuses the previous bundle when only package.json changes, so a fresh APK can
+ * carry an old APP_VERSION in its JS; comparing that would ask a phone that has
+ * just updated to update again, for ever. Found in the end-to-end test.
+ */
+const INSTALLED_VERSION = Application.nativeApplicationVersion || APP_VERSION
 const SNOOZE_KEY = "@ortex/update-snoozed"
 const SNOOZE_MS = 24 * 60 * 60 * 1000
 
@@ -48,7 +58,7 @@ export default function UpdateGate({ children }: { children: React.ReactNode }) 
   const check = React.useCallback(async () => {
     lastCheck.current = Date.now()
     const m = await loadManifest()
-    const next = updateStatus(APP_VERSION, m)
+    const next = updateStatus(INSTALLED_VERSION, m)
     setManifest(m)
     setStatus(next)
     if (next === "none") void clearDownloadedApks()
@@ -156,8 +166,8 @@ function UpdateScreen({
         </Text>
         <Text style={[textVariants.body, styles.center, { color: t.textSecondary }]}>
           {required
-            ? `This version (${APP_VERSION}) can no longer be used. Install version ${manifest.version} to carry on. You stay signed in and nothing is lost.`
-            : `Version ${manifest.version} is ready. You are on ${APP_VERSION}. You stay signed in and nothing is lost.`}
+            ? `This version (${INSTALLED_VERSION}) can no longer be used. Install version ${manifest.version} to carry on. You stay signed in and nothing is lost.`
+            : `Version ${manifest.version} is ready. You are on ${INSTALLED_VERSION}. You stay signed in and nothing is lost.`}
         </Text>
 
         {!!manifest.notes && (
