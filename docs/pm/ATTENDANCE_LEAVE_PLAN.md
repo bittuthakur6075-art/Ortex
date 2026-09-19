@@ -9,7 +9,13 @@ Status (2026-09-19): **phases 0, 1 and 2 are built and live**.
   - the `attendance-housekeeping` function;
   - two pg_cron jobs: the day-close at 00:05 IST, and the selfie purge at 00:20 IST, authorised by a Vault secret the database generates for itself;
   - the Zoho-style live progress (ring, timer, day bar, week strip) on the phone, and the Today card on the web.
-- **Next:** Phase 3 (leave), then Phase 4 (hardening).
+- **Phase 3 (leave):**
+  - migration 0036: `leave_types`, `leave_ledger`, `leave_requests`, `leave_apply` / `leave_decide` / `leave_cancel` / `leave_adjust`, `leave_balances`;
+  - approved leave marks days L/LOP;
+  - pg_cron: EL accrual on the 1st, the year close and CL/SL grant on 1 January;
+  - an opening grant pro-rated from September 2026;
+  - both clients.
+- **Next:** Phase 4 (hardening): face-present check, offline queue, reminders, Insights → Attendance, remote push for approvals, comp-off expiry.
 
 Decisions are in §10.
 
