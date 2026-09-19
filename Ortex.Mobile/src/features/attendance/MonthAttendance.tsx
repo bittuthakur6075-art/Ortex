@@ -179,7 +179,7 @@ export default function MonthAttendance({
     <>
       <Panel>
         <View style={styles.switcher}>
-          <IconButton name="back" onPress={() => shiftMonth(-1)} accessibilityLabel="Previous month" />
+          <IconButton name="backChevron" onPress={() => shiftMonth(-1)} accessibilityLabel="Previous month" />
           <View style={styles.monthWords}>
             <Text style={[textVariants.cardTitle, { color: t.text }]}>{bounds.label}</Text>
             {totals.workedMin ? (

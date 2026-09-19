@@ -92,7 +92,7 @@ export default function AttendanceHomeCard() {
       )}
       <View style={styles.body}>
         <View style={styles.chips}>
-          <View style={{ flexShrink: 1 }}>
+          <View>
             <InfoChip icon="clock" align="start">
               {shift}
             </InfoChip>
@@ -146,7 +146,7 @@ export default function AttendanceHomeCard() {
 
 const styles = StyleSheet.create({
   body: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.md },
-  chips: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  chips: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.sm },
   figureRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   figure: { flexDirection: "row", alignItems: "baseline", gap: 6 },
   timer: { fontFamily: font.semibold, fontSize: 32, lineHeight: 40, fontVariant: ["tabular-nums"] },

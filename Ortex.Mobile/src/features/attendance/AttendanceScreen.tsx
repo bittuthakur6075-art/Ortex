@@ -166,7 +166,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
           <Panel>
             <View style={styles.hero}>
               <View style={styles.chips}>
-                <View style={{ flexShrink: 1 }}>
+                <View>
                   <InfoChip icon="clock" align="start">
                     {shift ? `General shift · ${shift}` : "Shift not set"}
                   </InfoChip>
@@ -265,7 +265,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
 
 const styles = StyleSheet.create({
   hero: { paddingHorizontal: gutter, paddingTop: gutter, paddingBottom: gutter, gap: spacing.md },
-  chips: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  chips: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.sm },
   timerBlock: { alignItems: "center", gap: 2, paddingVertical: spacing.sm },
   timerRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
   timer: { fontFamily: font.semibold, fontSize: 44, lineHeight: 52, fontVariant: ["tabular-nums"] },
