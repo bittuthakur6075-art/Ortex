@@ -133,7 +133,7 @@ export default function MyPayslips() {
           )}
         </div>
       )}
-      <PayslipPreview item={open ? { slip: open.data, status: open.status } : null} org={org} onClose={() => setOpen(null)} />
+      <PayslipPreview item={open ? { slip: open.data, status: open.status, payDate: open.released_at } : null} org={org} onClose={() => setOpen(null)} />
     </div>
   )
 }

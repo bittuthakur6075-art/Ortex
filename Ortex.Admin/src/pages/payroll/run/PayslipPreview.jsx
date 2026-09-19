@@ -6,7 +6,7 @@ import PayslipSheet from "../../../components/documents/PayslipSheet"
 import { downloadPayslipPdf, payslipMonthLabel } from "../../../components/documents/payslipPdf"
 
 // The payslip at full A4 size with its PDF download, shared by a pay run's
-// row drawer and My payslips. `item` is { slip, status, title }.
+// row drawer and My payslips. `item` is { slip, status, title, payDate }.
 export default function PayslipPreview({ item, org, onClose }) {
   const [busy, setBusy] = useState(false)
   const download = async () => {
@@ -38,7 +38,7 @@ export default function PayslipPreview({ item, org, onClose }) {
     >
       {item && (
         <div className="overflow-x-auto rounded-lg border border-border">
-          <PayslipSheet slip={item.slip} status={item.status} title={item.title} org={org} className="!m-0 !shadow-none" />
+          <PayslipSheet slip={item.slip} status={item.status} title={item.title} payDate={item.payDate} org={org} className="!m-0 !shadow-none" />
         </div>
       )}
     </Modal>

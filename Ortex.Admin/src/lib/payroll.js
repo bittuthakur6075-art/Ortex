@@ -422,6 +422,25 @@ export function computePayslip({
  * regular gross that was actually paid. One line per month, so the payslip can
  * say where the figure came from.
  */
+/** How a payslip line is matched across months for its YTD figure. */
+export const lineKey = (x) => `${x.code || ""}|${x.name || ""}`
+
+/**
+ * Year-to-date per line, as Zoho prints it beside each amount: this payslip
+ * plus every paid payslip earlier in the same financial year (`prior` is their
+ * `data`). Keyed by lineKey so a component keeps its total across months.
+ */
+export function ytdLines(prior, slip) {
+  const sum = (side) => {
+    const out = {}
+    for (const d of [...(prior || []), slip]) {
+      for (const x of d?.[side] || []) out[lineKey(x)] = round2((out[lineKey(x)] || 0) + (Number(x.amount) || 0))
+    }
+    return out
+  }
+  return { earnings: sum("earnings"), deductions: sum("deductions") }
+}
+
 export function arrearsFor({ effectiveFrom, payoutMonth, newGross, paidSlips }) {
   const from = monthKey(effectiveFrom)
   const to = monthKey(payoutMonth)

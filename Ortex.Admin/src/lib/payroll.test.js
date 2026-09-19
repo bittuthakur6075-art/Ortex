@@ -12,6 +12,7 @@ import {
   esiFor,
   esicRows,
   fyOf,
+  ytdLines,
   lwfFor,
   monthlyTds,
   monthsLeftInFy,
@@ -292,5 +293,19 @@ describe("run totals, variance and files", () => {
   it("amounts in words", () => {
     expect(rupeesInWords(123456)).toBe("Rupees One Lakh Twenty Three Thousand Four Hundred Fifty Six Only")
     expect(rupeesInWords(0)).toBe("Rupees Zero Only")
+  })
+})
+
+describe("ytdLines", () => {
+  it("adds this payslip to the paid ones before it, line by line", () => {
+    const prior = [
+      { earnings: [{ code: "BASIC", name: "Basic", amount: 10000 }], deductions: [{ code: "EPF", name: "EPF (employee)", amount: 1200 }] },
+      { earnings: [{ code: "BASIC", name: "Basic", amount: 9500 }, { code: "BONUS", name: "Bonus", amount: 2000 }], deductions: [] },
+    ]
+    const slip = { earnings: [{ code: "BASIC", name: "Basic", amount: 10000 }], deductions: [{ code: "EPF", name: "EPF (employee)", amount: 1200 }] }
+    const y = ytdLines(prior, slip)
+    expect(y.earnings["BASIC|Basic"]).toBe(29500)
+    expect(y.earnings["BONUS|Bonus"]).toBe(2000)
+    expect(y.deductions["EPF|EPF (employee)"]).toBe(2400)
   })
 })

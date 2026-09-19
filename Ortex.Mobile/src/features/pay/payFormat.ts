@@ -53,6 +53,9 @@ export type PayslipData = {
   tds?: { monthly?: number; annualTax?: number; taxable?: number; annualGross?: number; regime?: "new" | "old" }
   employee?: PayslipEmployee
   revision?: { annual_ctc?: number; effective_from?: string }
+  /** The run pay date and each line year to date (code|name), printed as Zoho does. */
+  payDate?: string | null
+  ytdLines?: { earnings?: Record<string, number>; deductions?: Record<string, number> }
 }
 
 export type Payslip = {

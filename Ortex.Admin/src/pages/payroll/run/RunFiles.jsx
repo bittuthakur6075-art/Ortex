@@ -40,7 +40,7 @@ export default function RunFiles({ run, rows, settings, org, title }) {
       hint: `${included.length} payslips in one PDF, a page each`,
       run: () =>
         downloadPayslipsPdf(
-          included.map((r) => ({ slip: r.data, status: r.status, title })),
+          included.map((r) => ({ slip: r.data, status: r.status, title, payDate: run.pay_date })),
           org,
           `payslips-${String(run.month).slice(0, 7)}`,
         ),

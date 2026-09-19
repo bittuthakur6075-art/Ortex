@@ -46,6 +46,7 @@ async function withSheets(items, org, fn) {
               slip={it.slip}
               status={it.status}
               title={it.title}
+              payDate={it.payDate}
               org={org}
               className="!m-0 !shadow-none"
             />

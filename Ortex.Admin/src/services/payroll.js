@@ -15,6 +15,7 @@ import {
   paidDaysFor,
   runTotals,
   structureFromCtc,
+  ytdLines,
 } from "../lib/payroll"
 
 const MISSING = /does not exist|schema cache|relation .* does not exist|Could not find the (function|table)/i
@@ -369,6 +370,12 @@ export async function computeRun(run, { edits = {} } = {}) {
       status: edit.status ?? prev?.status ?? (offCycle && !oneTime.length ? "skipped" : "included"),
       data: {
         ...slip,
+        // Zoho prints the pay date, and each line's year to date beside it.
+        payDate: run.pay_date || null,
+        ytdLines: ytdLines(
+          mine.filter((s) => s.status === "included").map((s) => s.data),
+          slip,
+        ),
         oneTimeInput: edit.oneTime ?? prev?.data?.oneTimeInput ?? [],
         paidDaysOverride: edit.paidDays ?? prev?.data?.paidDaysOverride ?? null,
         attendance: att.rows.find((r) => r.user_id === person.user_id) || null,

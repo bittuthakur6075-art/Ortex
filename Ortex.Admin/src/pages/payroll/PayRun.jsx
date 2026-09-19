@@ -174,7 +174,7 @@ export default function PayRun() {
   const downloadOne = async (row) => {
     setPdfBusy(true)
     try {
-      await downloadPayslipPdf({ slip: row.data, status: row.status, title: run.kind === "regular" ? null : run.title }, org)
+      await downloadPayslipPdf({ slip: row.data, status: row.status, title: run.kind === "regular" ? null : run.title, payDate: run.pay_date }, org)
     } catch (e) {
       toast.error(e.message || "Could not make the PDF")
     } finally {
@@ -466,7 +466,7 @@ export default function PayRun() {
         onClose={() => setOpenRow(null)}
         downloading={pdfBusy}
         onDownload={() => downloadOne(openRow)}
-        onPreview={() => setPreview({ slip: openRow.data, status: openRow.status, title: run.kind === "regular" ? null : run.title })}
+        onPreview={() => setPreview({ slip: openRow.data, status: openRow.status, title: run.kind === "regular" ? null : run.title, payDate: run.pay_date })}
       />
       <PayslipPreview item={preview} org={org} onClose={() => setPreview(null)} />
       {oneTimeFor && (
