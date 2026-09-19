@@ -17,6 +17,8 @@ import {
 import { StatusChip, StatusPill } from "@/features/attendance/attendanceUi"
 import { dayLabel, statusColors } from "@/features/attendance/format"
 import { loadSettings, myDays, myPunches, NOT_SET_UP, type AttendanceSettings } from "@/lib/attendance"
+import { myRequests } from "@/lib/leave"
+import { addDays } from "@/features/leave/leaveFormat"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
@@ -74,6 +76,9 @@ export default function AttendanceHistoryScreen({ navigation }: StackScreenProps
   const [error, setError] = React.useState<string | null>(null)
   const [notice, setNotice] = React.useState<string | null>(null)
   const [refreshing, setRefreshing] = React.useState(false)
+  // Approved leave still to come: dotted "L" cells, so upcoming leave shows
+  // before attendance_days has a row for it (rows exist only once a day starts).
+  const [futureLeave, setFutureLeave] = React.useState<Set<string>>(new Set())
 
   const bounds = monthBounds(ym.y, ym.m)
   const isCurrent = today.slice(0, 7) === bounds.from.slice(0, 7)
@@ -81,6 +86,17 @@ export default function AttendanceHistoryScreen({ navigation }: StackScreenProps
   const load = React.useCallback(async () => {
     const b = monthBounds(ym.y, ym.m)
     setSettings(await loadSettings())
+    void myRequests()
+      .then((reqs) => {
+        const now = dayKey(Date.now())
+        const s = new Set<string>()
+        for (const r of reqs) {
+          if (r.status !== "approved" || r.to_day <= now) continue
+          for (let d = r.from_day > now ? r.from_day : addDays(now, 1); d <= r.to_day; d = addDays(d, 1)) s.add(d)
+        }
+        setFutureLeave(s)
+      })
+      .catch(() => setFutureLeave(new Set()))
     try {
       setDays(await myDays({ from: b.from, to: b.to }))
       setError(null)
@@ -192,6 +208,8 @@ export default function AttendanceHistoryScreen({ navigation }: StackScreenProps
                   {week.map((cell) => {
                     const status = cell.entry ? effectiveStatus(cell.entry) : null
                     const colors = status ? statusColors(t, status) : null
+                    const planned = !status && cell.inMonth && futureLeave.has(cell.day)
+                    const leaveTint = statusColors(t, "L")
                     const isToday = cell.day === today
                     const future = cell.day > today
                     return (
@@ -205,6 +223,7 @@ export default function AttendanceHistoryScreen({ navigation }: StackScreenProps
                           styles.cell,
                           { backgroundColor: colors ? colors.bg : cell.inMonth ? t.fieldBg : "transparent" },
                           isToday && { borderWidth: 2, borderColor: t.primary },
+                          planned && { borderWidth: 1.5, borderStyle: "dashed", borderColor: leaveTint.fg },
                           !cell.inMonth && { opacity: 0.35 },
                         ]}
                       >
@@ -212,6 +231,7 @@ export default function AttendanceHistoryScreen({ navigation }: StackScreenProps
                           {cell.date}
                         </Text>
                         {status && <Text style={[styles.code, { color: colors!.fg }]}>{status}</Text>}
+                        {planned && <Text style={[styles.code, { color: leaveTint.fg }]}>L</Text>}
                       </Pressable>
                     )
                   })}

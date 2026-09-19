@@ -185,6 +185,16 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
                 navigation.navigate("AttendanceHistory")
               }}
             />
+            <SectionRow
+              leadingIcon="calendar"
+              leadingTone="success"
+              title="Leave"
+              subtitle="Balances, apply, and your requests"
+              onPress={() => {
+                feedback.tap()
+                navigation.navigate("Leave")
+              }}
+            />
             {notices.admin && (
               <SectionRow
                 leadingIcon="tick"
@@ -192,7 +202,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
                 title="Approvals"
                 subtitle={
                   notices.pending
-                    ? `${notices.pending} waiting: corrections and punches to review`
+                    ? `${notices.pending} waiting: leave, corrections and punches to review`
                     : "Nothing waiting for a decision"
                 }
                 onPress={() => {

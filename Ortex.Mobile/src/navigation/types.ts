@@ -67,6 +67,13 @@ export type RootStackParamList = {
   AttendanceCorrection: { day: string; inAt?: string | null; outAt?: string | null }
   /** Admins: corrections and flagged punches waiting for a decision. */
   AttendanceApprovals: undefined
+  // Leave (phase 3, migration 0036).
+  Leave: undefined
+  /** Optionally pre-selects a leave type. */
+  LeaveApply: { type?: string } | undefined
+  LeaveRequest: { id: string }
+  /** One leave type's balance history; `name` is the title, when known. */
+  LeaveLedger: { code: string; name?: string }
 }
 
 export type TabScreenProps<T extends keyof TabParamList> = CompositeScreenProps<

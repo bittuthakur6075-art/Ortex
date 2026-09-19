@@ -23,6 +23,7 @@ import {
   type AttendanceSettings,
   type Holiday,
 } from "@/lib/attendance"
+import { pendingLeave } from "@/lib/leave"
 import type { RootStackParamList } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
 
@@ -94,16 +95,17 @@ export function useAttendanceNotices() {
     const yesterday = dayKey(Date.now() - DAY_MS)
     const today = dayKey(Date.now())
     const soon = dayKey(Date.now() + 120 * DAY_MS)
-    const [days, hols, corrections, flagged] = await Promise.all([
+    const [days, hols, corrections, flagged, leave] = await Promise.all([
       myDays({ from: yesterday, to: yesterday }).catch(() => [] as AttendanceDay[]),
       holidays({ from: today, to: soon }).catch(() => [] as Holiday[]),
       admin ? pendingCorrections().catch(() => []) : Promise.resolve([]),
       admin ? flaggedPunches().catch(() => []) : Promise.resolve([]),
+      admin ? pendingLeave().catch(() => []) : Promise.resolve([]),
     ])
     const y = days[0]
     setMissedYesterday(y && effectiveStatus(y) === "MP" ? y.day : null)
     setNextHoliday(hols[0] ?? null)
-    setPending(corrections.length + flagged.length)
+    setPending(corrections.length + flagged.length + leave.length)
   }, [admin])
 
   useFocusEffect(

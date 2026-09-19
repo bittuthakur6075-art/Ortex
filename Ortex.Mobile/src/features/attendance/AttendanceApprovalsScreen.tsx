@@ -2,9 +2,11 @@ import { useFocusEffect } from "@react-navigation/native"
 import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
-import { clockIST, flagWords } from "@/domain/attendance"
+import { clockIST, daysWords, flagWords, type LeaveBalance } from "@/domain/attendance"
 import { clock12, dayLabel, istHHMM } from "@/features/attendance/format"
 import PunchRow from "@/features/attendance/PunchRow"
+import { leaveDatesWords, todayIST } from "@/features/leave/leaveFormat"
+import { balances as leaveBalances, decideLeave, pendingLeave, whoIsOut, type NamedLeave } from "@/lib/leave"
 import { feedback } from "@/lib/feedback"
 import {
   decideCorrection,
@@ -34,7 +36,7 @@ import {
   useToast,
 } from "@/ui"
 
-type Decline = { kind: "correction"; id: string; who: string } | { kind: "punch"; id: string; who: string }
+type Decline = { kind: "correction" | "punch" | "leave"; id: string; who: string }
 
 /**
  * Admins: what waits for a decision. Corrections first (a person is waiting on
@@ -52,6 +54,10 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
   const me = session?.user?.id
   const [corrections, setCorrections] = React.useState<PendingCorrection[] | null>(null)
   const [punches, setPunches] = React.useState<FlaggedPunch[] | null>(null)
+  const [leave, setLeave] = React.useState<NamedLeave[]>([])
+  const [out, setOut] = React.useState<NamedLeave[]>([])
+  // Each requester's balance for the type they asked for: "4.5 days available".
+  const [leaveBal, setLeaveBal] = React.useState<Record<string, LeaveBalance[]>>({})
   const [error, setError] = React.useState<string | null>(null)
   const [refreshing, setRefreshing] = React.useState(false)
   const [busy, setBusy] = React.useState<string | null>(null)
@@ -61,10 +67,24 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
 
   const load = React.useCallback(async () => {
     try {
-      const [c, p] = await Promise.all([pendingCorrections(), flaggedPunches()])
+      const today = todayIST()
+      const [c, p, l, o] = await Promise.all([
+        pendingCorrections(),
+        flaggedPunches(),
+        // Leave arrives with migration 0036; until then these are simply empty.
+        pendingLeave().catch(() => [] as NamedLeave[]),
+        whoIsOut(today, today).catch(() => [] as NamedLeave[]),
+      ])
       setCorrections(c)
       setPunches(p)
+      setLeave(l)
+      setOut(o)
       setError(null)
+      const people = [...new Set(l.map((r) => r.user_id))]
+      const pairs = await Promise.all(
+        people.map(async (uid) => [uid, await leaveBalances(uid).catch(() => [] as LeaveBalance[])] as const),
+      )
+      setLeaveBal(Object.fromEntries(pairs))
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load what is waiting.")
       setCorrections((c) => c ?? [])
@@ -100,18 +120,20 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
     setNote("")
     if (d.kind === "correction") {
       await act(d.id, () => decideCorrection(d.id, false, reason), `Correction declined. ${d.who} can see why.`)
+    } else if (d.kind === "leave") {
+      await act(d.id, () => decideLeave(d.id, false, reason), `Leave declined. ${d.who} can see why.`)
     } else {
       await act(d.id, () => reviewPunch(d.id, "rejected", reason), "Punch not accepted.")
     }
   }
 
   const loading = corrections === null || punches === null
-  const empty = !loading && corrections!.length === 0 && punches!.length === 0
+  const empty = !loading && corrections!.length === 0 && punches!.length === 0 && leave.length === 0
 
   return (
     <AppScreen
       title="Approvals"
-      subtitle="Corrections and punches to review"
+      subtitle="Leave, corrections and punches to review"
       back
       onBack={() => navigation.goBack()}
       inTabs={false}
@@ -131,15 +153,86 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
       }}
     >
       <DataNotice error={error} onRetry={() => void load()} />
+      {out.length > 0 && (
+        <View style={[styles.outStrip, { backgroundColor: t.tones.violet.bg }]}>
+          <Text style={[textVariants.smallStrong, { color: t.tones.violet.fg }]}>{`Out today · ${out.length}`}</Text>
+          <Text style={[textVariants.small, { color: t.tones.violet.fg }]} numberOfLines={2}>
+            {out.map((r) => r.person).join(", ")}
+          </Text>
+        </View>
+      )}
       {loading ? (
         <>
           <SkeletonPanel lines={3} />
           <SkeletonPanel lines={3} />
         </>
       ) : empty ? (
-        <EmptyState icon="tick" title="Nothing waiting" hint="Corrections and flagged punches appear here for a decision." />
+        <EmptyState icon="tick" title="Nothing waiting" hint="Leave requests, corrections and flagged punches appear here for a decision." />
       ) : (
         <>
+          {leave.length > 0 && (
+            <Panel title="Leave requests" meta={`${leave.length}`}>
+              <View style={styles.cards}>
+                {leave.map((r) => {
+                  const mine = r.user_id === me
+                  const b = (leaveBal[r.user_id] || []).find((x) => x.code === r.type_code)
+                  const balanceLine = !b
+                    ? ""
+                    : b.accrual === "none"
+                      ? "Unpaid leave"
+                      : `${b.name}: ${daysWords(b.available + r.days)} available before this, ${daysWords(b.available)} after`
+                  return (
+                    <View key={r.id} style={[styles.card, { backgroundColor: t.surfaceInset }]}>
+                      <View style={styles.cardHead}>
+                        <Avatar name={r.person} uri={r.avatarUrl || undefined} size="sm" />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[textVariants.listTitle, { color: t.text }]}>{r.person}</Text>
+                          <Text style={[textVariants.caption, { color: t.textTertiary }]}>
+                            {`${leaveDatesWords(r)} · ${daysWords(r.days)} · ${b?.name || r.type_code}`}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={[textVariants.body, { color: t.textSecondary }]}>{r.reason}</Text>
+                      {balanceLine ? (
+                        <Text style={[textVariants.caption, { color: b && b.available < 0 ? t.dangerText : t.textTertiary }]}>
+                          {balanceLine}
+                        </Text>
+                      ) : null}
+                      {r.attachment_path ? (
+                        <Text style={[textVariants.caption, { color: t.textTertiary }]}>Has a document attached</Text>
+                      ) : null}
+                      {mine ? (
+                        <Text style={[textVariants.caption, { color: t.textTertiary }]}>
+                          Your own request. Another admin reviews this.
+                        </Text>
+                      ) : (
+                        <View style={styles.actions}>
+                          <Button
+                            label="Decline"
+                            variant="outline-danger"
+                            size="md"
+                            disabled={busy === r.id}
+                            onPress={() => setDecline({ kind: "leave", id: r.id, who: r.person })}
+                            style={styles.action}
+                          />
+                          <Button
+                            label="Approve"
+                            size="md"
+                            loading={busy === r.id}
+                            onPress={() =>
+                              void act(r.id, () => decideLeave(r.id, true), `Approved. ${r.person}'s balance and attendance are updated.`)
+                            }
+                            style={styles.action}
+                          />
+                        </View>
+                      )}
+                    </View>
+                  )
+                })}
+              </View>
+            </Panel>
+          )}
+
           {corrections!.length > 0 && (
             <Panel title="Corrections" meta={`${corrections!.length}`}>
               <View style={styles.cards}>
@@ -255,11 +348,13 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
           setDecline(null)
           setNote("")
         }}
-        title={decline?.kind === "punch" ? "Reject this punch" : "Decline this correction"}
+        title={
+          decline?.kind === "punch" ? "Reject this punch" : decline?.kind === "leave" ? "Decline this leave" : "Decline this correction"
+        }
       >
         <View style={styles.sheet}>
           <Text style={[textVariants.small, { color: t.textSecondary }]}>
-            {`Tell ${decline?.who || "them"} why. They see this note on their day.`}
+            {`Tell ${decline?.who || "them"} why. They see this note on their ${decline?.kind === "leave" ? "request" : "day"}.`}
           </Text>
           <TextField value={note} onChangeText={setNote} placeholder="For example: the gate register shows 7:10 PM" multiline />
           <Button
@@ -284,4 +379,5 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: spacing.sm },
   action: { flex: 1 },
   sheet: { gap: spacing.md, paddingBottom: spacing.md },
+  outStrip: { marginHorizontal: gutter, marginBottom: spacing.sm, padding: spacing.md, borderRadius: radius.card, gap: 2 },
 })

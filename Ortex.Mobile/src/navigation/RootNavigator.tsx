@@ -40,6 +40,10 @@ import AttendanceDayScreen from "@/features/attendance/AttendanceDayScreen"
 import AttendanceHistoryScreen from "@/features/attendance/AttendanceHistoryScreen"
 import AttendanceNoticeScreen from "@/features/attendance/AttendanceNoticeScreen"
 import AttendanceScreen from "@/features/attendance/AttendanceScreen"
+import LeaveApplyScreen from "@/features/leave/LeaveApplyScreen"
+import LeaveLedgerScreen from "@/features/leave/LeaveLedgerScreen"
+import LeaveRequestScreen from "@/features/leave/LeaveRequestScreen"
+import LeaveScreen from "@/features/leave/LeaveScreen"
 import InsightsScreen from "@/features/home/InsightsScreen"
 import QuotationDetailScreen from "@/features/quotations/QuotationDetailScreen"
 import QuotationEditorScreen from "@/features/quotations/QuotationEditorScreen"
@@ -175,6 +179,11 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="AttendanceDay" component={AttendanceDayScreen} />
         <Stack.Screen name="AttendanceCorrection" component={AttendanceCorrectionScreen} />
         <Stack.Screen name="AttendanceApprovals" component={AttendanceApprovalsScreen} />
+        {/* Leave: pages you work in, so pushes. */}
+        <Stack.Screen name="Leave" component={LeaveScreen} />
+        <Stack.Screen name="LeaveApply" component={LeaveApplyScreen} />
+        <Stack.Screen name="LeaveRequest" component={LeaveRequestScreen} />
+        <Stack.Screen name="LeaveLedger" component={LeaveLedgerScreen} />
         <Stack.Screen
           name="AttendanceNotice"
           component={AttendanceNoticeScreen}

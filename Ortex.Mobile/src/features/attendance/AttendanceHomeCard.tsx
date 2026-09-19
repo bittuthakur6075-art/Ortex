@@ -110,11 +110,24 @@ export default function AttendanceHomeCard() {
           hint={onDutySince ? "Takes a selfie and your location, then clocks you out" : "Takes a selfie and your location, then clocks you in"}
           onConfirm={() => void startClock(navigation, onDutySince ? "out" : "in")}
         />
-        {notices.nextHoliday && (
-          <Text style={[textVariants.caption, { color: t.textTertiary }]}>
-            {`Next holiday: ${notices.nextHoliday.name}, ${dayLabel(notices.nextHoliday.day)}`}
+        <View style={styles.footer}>
+          <Text style={[textVariants.caption, { color: t.textTertiary, flex: 1 }]} numberOfLines={1}>
+            {notices.nextHoliday
+              ? `Next holiday: ${notices.nextHoliday.name}, ${dayLabel(notices.nextHoliday.day)}`
+              : ""}
           </Text>
-        )}
+          <Pressable
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Leave: balances and apply"
+            onPress={() => {
+              feedback.tap()
+              navigation.navigate("Leave")
+            }}
+          >
+            <Text style={[textVariants.smallStrong, { color: t.primary }]}>Leave</Text>
+          </Pressable>
+        </View>
       </View>
     </Panel>
   )
@@ -123,4 +136,5 @@ export default function AttendanceHomeCard() {
 const styles = StyleSheet.create({
   body: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.md },
   state: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  footer: { flexDirection: "row", alignItems: "center", gap: spacing.md },
 })

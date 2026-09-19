@@ -185,6 +185,8 @@ export const FLAG_LABEL: Record<string, string> = {
   regularised: "Corrected on request",
   short_hours: "Too few hours",
   worked_off_day: "Worked on a day off",
+  half_leave: "Half day on leave",
+  worked_on_leave: "Worked while on leave",
 }
 
 export const flagWords = (flags?: string[] | null) => (flags || []).map((f) => FLAG_LABEL[f] || f)
@@ -342,3 +344,101 @@ export const REGULARISATION_LABEL: Record<string, string> = {
   rejected: "Not approved",
   cancelled: "Cancelled",
 }
+
+// ---- phase 3: leave (migration 0036) ---------------------------------------------------------
+
+export type LeaveStatus = "pending" | "approved" | "rejected" | "cancelled"
+export type FromHalf = "full" | "second"
+export type ToHalf = "full" | "first"
+
+export type LeaveBalance = {
+  code: string
+  name: string
+  balance: number
+  pending: number
+  available: number
+  taken_year: number
+  paid: boolean
+  half_day: boolean
+  accrual: "monthly" | "upfront" | "manual" | "none"
+  annual: number
+}
+
+export type LeaveRequest = {
+  id: string
+  user_id: string
+  type_code: string
+  from_day: string
+  to_day: string
+  from_half: FromHalf
+  to_half: ToHalf
+  days: number
+  sandwich?: boolean
+  reason: string
+  attachment_path?: string | null
+  status: LeaveStatus
+  decided_by?: string | null
+  decided_at?: string | null
+  decision_note?: string | null
+  created_at: string
+}
+
+export const LEAVE_STATUS_LABEL: Record<LeaveStatus, string> = {
+  pending: "Waiting for approval",
+  approved: "Approved",
+  rejected: "Not approved",
+  cancelled: "Cancelled",
+}
+
+export const LEAVE_STATUS_TONE: Record<LeaveStatus, "amber" | "emerald" | "rose" | "slate"> = {
+  pending: "amber",
+  approved: "emerald",
+  rejected: "rose",
+  cancelled: "slate",
+}
+
+export const LEDGER_REASON_LABEL: Record<string, string> = {
+  accrual: "Accrued",
+  grant: "Granted",
+  taken: "Taken",
+  reversal: "Given back",
+  lapse: "Lapsed",
+  adjust: "Adjusted",
+}
+
+const dayOfWeek = (iso: string) => new Date(`${iso}T00:00:00Z`).getUTCDay()
+const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10)
+
+/**
+ * Leave days between two dates, the way the server counts them
+ * (leave_days_between, migration 0036): weekly offs and holidays are not leave,
+ * unless the sandwich rule is on and they sit strictly inside the range; a
+ * half day takes 0.5 off the first and/or last day. For the Apply screen's
+ * live count; the server's count is the one that is saved.
+ */
+export function leaveDaysBetween(
+  from: string,
+  to: string,
+  fromHalf: FromHalf,
+  toHalf: ToHalf,
+  rules: { weeklyOff?: number[]; holidays?: string[]; sandwich?: boolean } = {},
+): number {
+  if (!from || !to || to < from) return 0
+  const off = new Set(rules.weeklyOff ?? [0])
+  const hol = new Set(rules.holidays ?? [])
+  let n = 0
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    const isOff = off.has(dayOfWeek(d)) || hol.has(d)
+    if (!isOff || (rules.sandwich && d > from && d < to)) {
+      n += 1 - (d === from && fromHalf === "second" ? 0.5 : 0) - (d === to && toHalf === "first" ? 0.5 : 0)
+    }
+  }
+  return Math.max(0, n)
+}
+
+/** "4.5 days" · "1 day" · "0.5 day" */
+export const daysWords = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(1)} ${n === 1 || n === 0.5 ? "day" : "days"}`
+
+/** What is left of a balance after a request, for "balance after this request". */
+export const balanceAfter = (b: Pick<LeaveBalance, "available" | "accrual">, days: number) =>
+  b.accrual === "none" ? null : Math.round((b.available - days) * 10) / 10

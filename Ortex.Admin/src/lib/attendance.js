@@ -93,6 +93,8 @@ export const FLAG_LABEL = {
   regularised: "Corrected on request",
   short_hours: "Too few hours",
   worked_off_day: "Worked on a day off",
+  half_leave: "Half day on leave",
+  worked_on_leave: "Worked while on leave",
 }
 export const flagWords = (flags) => (flags || []).map((f) => FLAG_LABEL[f] || f)
 export const REVIEW_LABEL = {
@@ -227,3 +229,49 @@ export const REGULARISATION_LABEL = {
   rejected: "Not approved",
   cancelled: "Cancelled",
 }
+export const LEAVE_STATUS_LABEL = {
+  pending: "Waiting for approval",
+  approved: "Approved",
+  rejected: "Not approved",
+  cancelled: "Cancelled",
+}
+export const LEAVE_STATUS_TONE = {
+  pending: "amber",
+  approved: "emerald",
+  rejected: "rose",
+  cancelled: "slate",
+}
+export const LEDGER_REASON_LABEL = {
+  accrual: "Accrued",
+  grant: "Granted",
+  taken: "Taken",
+  reversal: "Given back",
+  lapse: "Lapsed",
+  adjust: "Adjusted",
+}
+const dayOfWeek = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay()
+const addDays = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10)
+/**
+ * Leave days between two dates, the way the server counts them
+ * (leave_days_between, migration 0036): weekly offs and holidays are not leave,
+ * unless the sandwich rule is on and they sit strictly inside the range; a
+ * half day takes 0.5 off the first and/or last day. For the Apply screen's
+ * live count; the server's count is the one that is saved.
+ */
+export function leaveDaysBetween(from, to, fromHalf, toHalf, rules = {}) {
+  if (!from || !to || to < from) return 0
+  const off = new Set(rules.weeklyOff ?? [0])
+  const hol = new Set(rules.holidays ?? [])
+  let n = 0
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    const isOff = off.has(dayOfWeek(d)) || hol.has(d)
+    if (!isOff || (rules.sandwich && d > from && d < to)) {
+      n += 1 - (d === from && fromHalf === "second" ? 0.5 : 0) - (d === to && toHalf === "first" ? 0.5 : 0)
+    }
+  }
+  return Math.max(0, n)
+}
+/** "4.5 days" · "1 day" · "0.5 day" */
+export const daysWords = (n) => `${Number.isInteger(n) ? n : n.toFixed(1)} ${n === 1 || n === 0.5 ? "day" : "days"}`
+/** What is left of a balance after a request, for "balance after this request". */
+export const balanceAfter = (b, days) => (b.accrual === "none" ? null : Math.round((b.available - days) * 10) / 10)

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
-import { Calendar, CalendarClock, FileText, Settings, UserCheck } from "../components/ui/Icons"
+import { Calendar, CalendarClock, FileText, Settings, Sun, UserCheck } from "../components/ui/Icons"
 import PageHeader, { HeaderBand } from "../components/layout/PageHeader"
 import { Tabs } from "../components/ui/Ui"
 import { useProfile } from "../hooks/useProfile"
@@ -13,6 +13,7 @@ import { listCorrections } from "../services/attendance"
 import { repo } from "../data/store/repository"
 import Mine from "./attendance/Mine"
 import AttendanceSettings from "./attendance/Settings"
+import Leave from "./attendance/Leave"
 
 // Attendance hub (docs/pm/ATTENDANCE_LEAVE_PLAN.md). The console VIEWS and
 // manages attendance; it never marks it. Clocking in and out happens only in
@@ -22,6 +23,7 @@ import AttendanceSettings from "./attendance/Settings"
 //   Register       admins, "attendance-register" (lock + export) or "attendance-team"
 //   Corrections    admins (decide requests made on the phone)
 //   My attendance  everyone
+//   Leave          everyone (own leave); admins and attendance-team see all
 //   Settings       the Super Admin only
 const TABS = [
   { value: "today", label: "Today", icon: UserCheck, Page: Today, allow: (p) => isAdmin(p) || canAccess(p, "attendance-team") },
@@ -34,6 +36,7 @@ const TABS = [
   },
   { value: "corrections", label: "Corrections", icon: FileText, Page: Corrections, allow: (p) => isAdmin(p) },
   { value: "mine", label: "My attendance", icon: CalendarClock, Page: Mine, allow: () => true },
+  { value: "leave", label: "Leave", icon: Sun, Page: Leave, allow: () => true },
   { value: "settings", label: "Settings", icon: Settings, Page: AttendanceSettings, allow: (p) => isSuperAdmin(p) },
 ]
 

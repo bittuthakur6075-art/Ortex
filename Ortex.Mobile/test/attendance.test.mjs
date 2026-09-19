@@ -117,3 +117,28 @@ for (const [side, a] of both) {
     assert.deepEqual(a.monthBounds(2026, 2), { from: "2026-02-01", to: "2026-02-28", label: "February 2026" })
   })
 }
+
+for (const [side, a] of both) {
+  test(`${side}: leave days skip weekly offs and holidays; sandwich counts the ones inside`, () => {
+    // Fri 18 Sep to Mon 21 Sep 2026; Sunday 20 is the weekly off.
+    const rules = { weeklyOff: [0], holidays: [] }
+    assert.equal(a.leaveDaysBetween("2026-09-18", "2026-09-21", "full", "full", rules), 3)
+    assert.equal(a.leaveDaysBetween("2026-09-18", "2026-09-21", "full", "full", { ...rules, sandwich: true }), 4)
+    // A holiday inside the range: Fri 2 Oct 2026.
+    assert.equal(a.leaveDaysBetween("2026-10-01", "2026-10-03", "full", "full", { weeklyOff: [0], holidays: ["2026-10-02"] }), 2)
+    // Half days at either end.
+    assert.equal(a.leaveDaysBetween("2026-09-22", "2026-09-24", "second", "first", rules), 2)
+    assert.equal(a.leaveDaysBetween("2026-09-22", "2026-09-22", "second", "full", rules), 0.5)
+    // Only off days, or a reversed range: nothing.
+    assert.equal(a.leaveDaysBetween("2026-09-20", "2026-09-20", "full", "full", rules), 0)
+    assert.equal(a.leaveDaysBetween("2026-09-24", "2026-09-22", "full", "full", rules), 0)
+  })
+
+  test(`${side}: balance after a request, and days in words`, () => {
+    assert.equal(a.balanceAfter({ available: 5, accrual: "monthly" }, 1.5), 3.5)
+    assert.equal(a.balanceAfter({ available: 0, accrual: "none" }, 2), null)
+    assert.equal(a.daysWords(1), "1 day")
+    assert.equal(a.daysWords(0.5), "0.5 day")
+    assert.equal(a.daysWords(4.5), "4.5 days")
+  })
+}
