@@ -96,6 +96,8 @@ export type NotificationPrefs = {
   motivation: boolean
   /** A morning summary of yesterday and today's to-dos. */
   insights: boolean
+  /** "You have not clocked in" / "Clock out?" (lib/attendanceReminders.ts). */
+  attendance: boolean
 }
 
 export const DEFAULT_PREFS: NotificationPrefs = {
@@ -106,11 +108,12 @@ export const DEFAULT_PREFS: NotificationPrefs = {
   quotations: true,
   motivation: true,
   insights: true,
+  attendance: true,
 }
 
 /** Every switchable signal, for the settings screen. */
 export const NOTIFICATION_SETTINGS: {
-  key: keyof Omit<NotificationPrefs, "enabled" | "motivation" | "insights">
+  key: keyof Omit<NotificationPrefs, "enabled" | "motivation" | "insights" | "attendance">
   label: string
   hint: string
 }[] = [
@@ -122,12 +125,17 @@ export const NOTIFICATION_SETTINGS: {
 
 /** The scheduled morning notifications, for the settings screen's Daily section. */
 export const DAILY_SETTINGS: {
-  key: "motivation" | "insights"
+  key: "motivation" | "insights" | "attendance"
   label: string
   hint: string
 }[] = [
   { key: "motivation", label: "Daily motivation", hint: "A short line to start the day, at 9:00 AM" },
   { key: "insights", label: "Daily insights", hint: "Yesterday's leads and quotes, and today's to-dos, at 9:30 AM" },
+  {
+    key: "attendance",
+    label: "Attendance reminders",
+    hint: "If you have not clocked in after the grace period, and at the end of your shift",
+  },
 ]
 
 const DAY_MS = 86400000

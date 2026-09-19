@@ -104,7 +104,31 @@ export function newPunchId(): string {
  * gives: an RN Blob uploads a 0-byte object without an error.
  */
 export async function uploadSelfie(localUri: string, width: number, height: number, path: string): Promise<void> {
-  if (!hasSupabase) throw new Error("Not connected")
+  const prepared = await prepareSelfie(localUri, width, height)
+  await uploadSelfieBase64(prepared.base64, path)
+}
+
+/**
+ * The phone could not reach the server at all (no signal, airplane mode, a
+ * dropped request), as opposed to the server answering "no". Only this kind of
+ * failure is worth queueing a punch for (lib/attendanceQueue.ts).
+ */
+export class NetworkError extends Error {}
+
+const NETWORK_RE = /network request failed|failed to fetch|network ?error|no connection|timed? ?out|aborted|unable to resolve host/i
+
+export function isNetworkFailure(e: unknown): boolean {
+  if (e instanceof NetworkError) return true
+  const msg = (e as { message?: string } | null)?.message || String(e || "")
+  return NETWORK_RE.test(msg)
+}
+
+/** 640 px on the long edge, JPEG 0.6: a local file plus its bytes as base64. */
+export async function prepareSelfie(
+  localUri: string,
+  width: number,
+  height: number,
+): Promise<{ uri: string; base64: string }> {
   const resize = width >= height ? { width: Math.min(640, width || 640) } : { height: Math.min(640, height || 640) }
   const out = await ImageManipulator.manipulateAsync(localUri, [{ resize }], {
     compress: 0.6,
@@ -112,7 +136,13 @@ export async function uploadSelfie(localUri: string, width: number, height: numb
     base64: true,
   })
   if (!out.base64) throw new Error("The selfie could not be prepared. Take it again.")
-  const bytes = decodeBase64(out.base64)
+  return { uri: out.uri, base64: out.base64 }
+}
+
+/** Upload prepared selfie bytes into the caller's own folder. */
+export async function uploadSelfieBase64(base64: string, path: string): Promise<void> {
+  if (!hasSupabase) throw new Error("Not connected")
+  const bytes = decodeBase64(base64)
   const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
   const { error } = await supabase.storage.from(BUCKET).upload(path, body, {
     contentType: "image/jpeg",
@@ -120,6 +150,7 @@ export async function uploadSelfie(localUri: string, width: number, height: numb
   })
   // A retry of an attempt whose upload landed before the punch failed.
   if (error && !/already exists|duplicate/i.test(error.message || "")) {
+    if (isNetworkFailure(error)) throw new NetworkError("No connection.")
     if (/bucket not found/i.test(error.message || "")) {
       throw new Error("Attendance is not set up on this environment yet. Tell the office.")
     }
@@ -133,24 +164,46 @@ export type PunchArgs = {
   reading: Reading
   selfiePath: string
   note?: string
+  /** When the person actually punched; an offline replay sends the original. */
+  clientAt?: string
+  offline?: boolean
+  /** Extra device facts for the admin, e.g. { faceCheck: "unavailable" }. */
+  device?: Record<string, unknown>
 }
 
-/** Clock in or out (attendance_punch). The answer is the server's, verbatim. */
+/** The device facts every punch carries. */
+export const baseDevice = () => ({ platform: Platform.OS, appVersion: APP_VERSION })
+
+/**
+ * Clock in or out (attendance_punch). The answer is the server's, verbatim.
+ * Throws NetworkError when the server could not be reached, so the caller can
+ * queue the punch instead of losing it.
+ */
 export async function punch(a: PunchArgs): Promise<PunchResult> {
-  const { data, error } = await supabase.rpc("attendance_punch", {
-    p_id: a.id,
-    p_kind: a.kind,
-    p_lat: a.reading.lat,
-    p_lng: a.reading.lng,
-    p_accuracy: a.reading.accuracy,
-    p_mocked: a.reading.mocked,
-    p_client_at: new Date().toISOString(),
-    p_selfie_path: a.selfiePath,
-    p_note: a.note?.trim() || null,
-    p_offline: false,
-    p_device: { platform: Platform.OS, appVersion: APP_VERSION },
-  })
-  if (error) throw new Error(errorMessage(error, "Your clock-in was not saved. Try again."))
+  let res
+  try {
+    res = await supabase.rpc("attendance_punch", {
+      p_id: a.id,
+      p_kind: a.kind,
+      p_lat: a.reading.lat,
+      p_lng: a.reading.lng,
+      p_accuracy: a.reading.accuracy,
+      p_mocked: a.reading.mocked,
+      p_client_at: a.clientAt || new Date().toISOString(),
+      p_selfie_path: a.selfiePath,
+      p_note: a.note?.trim() || null,
+      p_offline: Boolean(a.offline),
+      p_device: { ...baseDevice(), ...(a.device || {}) },
+    })
+  } catch (e) {
+    if (isNetworkFailure(e)) throw new NetworkError("No connection.")
+    throw e
+  }
+  const { data, error } = res
+  if (error) {
+    if (isNetworkFailure(error) && !(error as { code?: string }).code) throw new NetworkError("No connection.")
+    throw new Error(errorMessage(error, "Your clock-in was not saved. Try again."))
+  }
   return data as PunchResult
 }
 

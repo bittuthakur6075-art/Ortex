@@ -16,12 +16,17 @@ import {
 import {
   check,
   getReading,
+  isNetworkFailure,
   LocationError,
   newPunchId,
+  prepareSelfie,
   punch,
-  uploadSelfie,
+  uploadSelfieBase64,
   type Reading,
 } from "@/lib/attendance"
+import { enqueue } from "@/lib/attendanceQueue"
+import { cancelTodayReminder } from "@/lib/attendanceReminders"
+import { checkFace, FACE_MESSAGE, type FaceCheck } from "@/lib/faceCheck"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
@@ -65,7 +70,12 @@ export default function AttendanceClockScreen({ navigation, route }: StackScreen
   const [photo, setPhoto] = React.useState<Photo | null>(null)
   const [result, setResult] = React.useState<PunchResult | null>(null)
   const [failure, setFailure] = React.useState<string | null>(null)
+  const [queued, setQueued] = React.useState(false)
+  const [face, setFace] = React.useState<FaceCheck | null>(null)
+  const [checkingFace, setCheckingFace] = React.useState(false)
   const punchId = React.useRef(newPunchId())
+  // When the person actually punched, kept for an offline replay.
+  const punchedAt = React.useRef<string | null>(null)
 
   const verb = kind === "in" ? "clock in" : "clock out"
 
@@ -89,26 +99,72 @@ export default function AttendanceClockScreen({ navigation, route }: StackScreen
     void locate()
   }, [locate])
 
+  const takePhoto = async (p: Photo) => {
+    setPhoto(p)
+    setFace(null)
+    setStep("preview")
+    setCheckingFace(true)
+    const fc = await checkFace(p.uri)
+    setFace(fc)
+    setCheckingFace(false)
+    if (fc.result === "no_face" || fc.result === "many_faces") feedback.warn()
+  }
+
   const submit = async () => {
     if (!reading || !photo || !uid) return
     setStep("saving")
     setFailure(null)
+    setQueued(false)
+    punchedAt.current = punchedAt.current || new Date().toISOString()
+    // The face check could not run (an APK without the native module): let the
+    // punch through, and tell the admin it was not checked.
+    const device = face?.result === "unavailable" ? { faceCheck: "unavailable" } : { faceCheck: face?.result ?? "skipped", faces: face?.faces }
+    let prepared: { uri: string; base64: string } | null = null
     try {
+      prepared = await prepareSelfie(photo.uri, photo.width, photo.height)
       const path = selfiePath(uid, punchId.current)
-      await uploadSelfie(photo.uri, photo.width, photo.height, path)
-      const res = await punch({ id: punchId.current, kind, reading, selfiePath: path, note })
+      await uploadSelfieBase64(prepared.base64, path)
+      const res = await punch({ id: punchId.current, kind, reading, selfiePath: path, note, clientAt: punchedAt.current, device })
       setResult(res)
       if (res.status === "ok") feedback.unlocked()
       else if (res.status === "flagged") feedback.warn()
       else feedback.error()
+      if (res.status === "ok" || res.status === "flagged") void cancelTodayReminder(kind)
       // A refusal recorded nothing that counts, so the next attempt is a new punch.
-      if (res.status === "refused") punchId.current = newPunchId()
+      if (res.status === "refused") {
+        punchId.current = newPunchId()
+        punchedAt.current = null
+      }
       setStep("result")
     } catch (e) {
+      // No signal: keep it on the phone and send it when the connection is back.
+      if (isNetworkFailure(e) && prepared) {
+        try {
+          await enqueue(
+            {
+              id: punchId.current,
+              kind,
+              reading,
+              clientAt: punchedAt.current || new Date().toISOString(),
+              note,
+              device,
+              userId: uid,
+            },
+            prepared.uri,
+          )
+          void cancelTodayReminder(kind)
+          feedback.warn()
+          setQueued(true)
+          setStep("result")
+          return
+        } catch {
+          /* could not even save it: fall through to the plain failure */
+        }
+      }
       feedback.error()
       const msg = e instanceof Error ? e.message : ""
       setFailure(
-        /no connection|network/i.test(msg)
+        isNetworkFailure(e)
           ? `No connection. Your ${kind === "in" ? "clock-in" : "clock-out"} was not saved. Try again.`
           : msg || "That did not go through. Try again.",
       )
@@ -123,12 +179,12 @@ export default function AttendanceClockScreen({ navigation, route }: StackScreen
     return (
       <SelfieStep
         photo={step === "preview" ? photo : null}
-        onTaken={(p) => {
-          setPhoto(p)
-          setStep("preview")
-        }}
+        checking={checkingFace}
+        faceIssue={face && (face.result === "no_face" || face.result === "many_faces") ? FACE_MESSAGE[face.result] : null}
+        onTaken={(p) => void takePhoto(p)}
         onRetake={() => {
           setPhoto(null)
+          setFace(null)
           setStep("camera")
         }}
         onUse={() => void submit()}
@@ -171,6 +227,7 @@ export default function AttendanceClockScreen({ navigation, route }: StackScreen
           kind={kind}
           result={result}
           failure={failure}
+          queued={queued}
           onDone={close}
           onRetry={() => {
             if (failure) void submit()
@@ -335,6 +392,8 @@ function FenceDiagram({ where }: { where: LocationCheck }) {
 
 function SelfieStep({
   photo,
+  checking,
+  faceIssue,
   onTaken,
   onRetake,
   onUse,
@@ -342,6 +401,8 @@ function SelfieStep({
   kind,
 }: {
   photo: Photo | null
+  checking: boolean
+  faceIssue: string | null
   onTaken: (p: Photo) => void
   onRetake: () => void
   onUse: () => void
@@ -414,16 +475,22 @@ function SelfieStep({
 
       <View style={[styles.selfieBottom, { paddingBottom: insets.bottom + spacing.lg }]}>
         <Text style={[textVariants.bodyStrong, styles.white, styles.center]}>
-          {photo ? "Is your face clear?" : "Keep your face inside the oval"}
+          {!photo
+            ? "Keep your face inside the oval"
+            : checking
+              ? "Checking the photo"
+              : faceIssue || "Is your face clear?"}
         </Text>
         {photo ? (
           <View style={styles.previewRow}>
             <View style={{ flex: 1 }}>
-              <Button label="Retake" variant="secondary" fullWidth onPress={onRetake} />
+              <Button label="Retake" variant={faceIssue ? "primary" : "secondary"} fullWidth onPress={onRetake} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Button label="Use photo" fullWidth onPress={onUse} />
-            </View>
+            {!faceIssue && (
+              <View style={{ flex: 1 }}>
+                <Button label="Use photo" fullWidth onPress={onUse} disabled={checking} loading={checking} />
+              </View>
+            )}
           </View>
         ) : (
           <Pressable
@@ -447,6 +514,7 @@ function ResultStep({
   kind,
   result,
   failure,
+  queued,
   onDone,
   onRetry,
   bottom,
@@ -454,24 +522,29 @@ function ResultStep({
   kind: "in" | "out"
   result: PunchResult | null
   failure: string | null
+  queued: boolean
   onDone: () => void
   onRetry: () => void
   bottom: number
 }) {
   const t = useTheme()
-  const ok = !failure && result?.status === "ok"
-  const flagged = !failure && result?.status === "flagged"
-  const good = ok || flagged
-  const ink = ok ? t.success : flagged ? t.warning : t.danger
-  const well = ok ? t.successBg : flagged ? t.warningBg : t.dangerBg
-  const title = ok
-    ? kind === "in"
-      ? "You're clocked in"
-      : "You're clocked out"
-    : flagged
-      ? "Saved, for review"
-      : "Not saved"
-  const sentence = failure || (result ? resultSentence(result) : "")
+  const ok = !failure && !queued && result?.status === "ok"
+  const flagged = !failure && !queued && result?.status === "flagged"
+  const good = ok || flagged || queued
+  const ink = ok ? t.success : flagged || queued ? t.warning : t.danger
+  const well = ok ? t.successBg : flagged || queued ? t.warningBg : t.dangerBg
+  const title = queued
+    ? "Saved on this phone"
+    : ok
+      ? kind === "in"
+        ? "You're clocked in"
+        : "You're clocked out"
+      : flagged
+        ? "Saved, for review"
+        : "Not saved"
+  const sentence = queued
+    ? `No connection right now. Your ${kind === "in" ? "clock-in" : "clock-out"} will be sent when you are back online. An admin may review it.`
+    : failure || (result ? resultSentence(result) : "")
 
   return (
     <View style={styles.flex}>

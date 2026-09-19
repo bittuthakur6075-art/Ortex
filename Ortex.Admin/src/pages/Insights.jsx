@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { useSearchParams } from "react-router-dom"
-import { TrendingUp, Flame, ReceiptIndianRupee } from "../components/ui/Icons"
+import { TrendingUp, Flame, ReceiptIndianRupee, CalendarClock } from "../components/ui/Icons"
 import { useProfile } from "../hooks/useProfile"
 import { canAccess } from "../data/domain/modules"
 import PageHeader, { HeaderBand } from "../components/layout/PageHeader"
@@ -8,6 +8,7 @@ import { Tabs } from "../components/ui/Ui"
 import Growth from "./Growth"
 import Automation from "./Automation"
 import SalesInsights from "./SalesInsights"
+import AttendanceInsights from "./AttendanceInsights"
 
 // One Growth workspace. Growth is the period-scoped funnel/attribution view,
 // Sales is the analysis that used to crowd the Dashboard, and Web events is the
@@ -21,6 +22,9 @@ const TABS = [
   // module (and no permission migration) was needed when it left the Dashboard.
   { value: "sales", moduleKey: "growth", label: "Sales", icon: ReceiptIndianRupee, Page: SalesInsights },
   { value: "events", moduleKey: "automation", label: "Web events", icon: Flame, Page: Automation },
+  // Everyone's attendance, so the same grant as reading it: admins, and
+  // Accounts by default (role_permissions, migration 0032).
+  { value: "attendance", moduleKey: "attendance-team", label: "Attendance", icon: CalendarClock, Page: AttendanceInsights },
 ]
 
 export const INSIGHTS_MODULE_KEYS = [...new Set(TABS.map((t) => t.moduleKey))]
@@ -40,7 +44,7 @@ export default function Insights() {
   return (
     <div>
       <HeaderBand>
-        <PageHeader title="Insights" subtitle="Visitor-to-cash funnel, sales analysis and the website event stream" />
+        <PageHeader title="Insights" subtitle="Visitor-to-cash funnel, sales, the website event stream and attendance" />
         <Tabs
           items={items}
           value={current.value}

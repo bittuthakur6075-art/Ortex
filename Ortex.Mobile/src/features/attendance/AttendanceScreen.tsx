@@ -3,7 +3,7 @@ import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
 import { clockIST, dayKey, summarizeDays } from "@/domain/attendance"
-import { ActionAdvisory } from "@/features/attendance/attendanceUi"
+import { ActionAdvisory, QueueAdvisory } from "@/features/attendance/attendanceUi"
 import { dayLabel } from "@/features/attendance/format"
 import { DayTimelineBar, ProgressRing, WeekStrip } from "@/features/attendance/LiveProgress"
 import {
@@ -37,7 +37,7 @@ const TODAY = new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric"
 export default function AttendanceScreen({ navigation }: StackScreenProps<"Attendance">) {
   const t = useTheme()
   const startClock = useStartClock()
-  const { settings, punches, summary, onDutySince, loading, error, reload, now } = useAttendanceToday()
+  const { settings, punches, summary, onDutySince, loading, error, reload, now, queue } = useAttendanceToday()
   const notices = useAttendanceNotices()
   const [photo, setPhoto] = React.useState<string | null>(null)
   const [refreshing, setRefreshing] = React.useState(false)
@@ -108,6 +108,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
       }}
     >
       <DataNotice error={error} onRetry={() => void reload()} />
+      <QueueAdvisory queue={queue} />
       {notices.missedYesterday && (
         <ActionAdvisory
           tone="warning"

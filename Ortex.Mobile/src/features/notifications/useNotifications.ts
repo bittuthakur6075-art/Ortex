@@ -52,6 +52,8 @@ function allowedPrefs(
     voice: prefs.voice && canAccess(profile, "voice-leads"),
     quotations: prefs.quotations && canAccess(profile, "quotations"),
     motivation: prefs.motivation,
+    // Everyone has their own attendance.
+    attendance: prefs.attendance,
     // An insight about modules the profile cannot open would be a number it
     // cannot check, so it follows the same access as the Home tab.
     insights: prefs.insights && (enquiries || canAccess(profile, "voice-leads") || canAccess(profile, "quotations")),

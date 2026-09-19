@@ -61,11 +61,17 @@ Deno.serve(async (req) => {
   if (!sa) return json({ skipped: "FIREBASE_SERVICE_ACCOUNT is not set" })
 
   const { table, id } = (await req.json().catch(() => ({}))) as { table?: string; id?: string }
-  if (table !== "enquiries" || !id) return json({ error: "expected { table: 'enquiries', id }" }, 400)
+  if (!id || !["enquiries", "leave_requests", "regularisations"].includes(table || "")) {
+    return json({ error: "expected { table: 'enquiries' | 'leave_requests' | 'regularisations', id }" }, 400)
+  }
 
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },
   })
+
+  if (table === "leave_requests" || table === "regularisations") {
+    return json(await attendanceApproval(db, sa, table, id))
+  }
 
   const { data: row } = await db.from("enquiries").select("id, doc, created_at").eq("id", id).maybeSingle()
   if (!row) return json({ skipped: "not found" })
@@ -155,3 +161,101 @@ Deno.serve(async (req) => {
     removed: gone.length,
   })
 })
+
+// ---- attendance approvals (migration 0038) ------------------------------------------------------
+//
+// A new leave request or correction goes to the admins (never to the person
+// who asked); a decision goes to the person who asked. The tag is the same id
+// the phone uses when it posts these itself from realtime, so the two copies
+// replace each other.
+
+const REMINDERS_CHANNEL = "reminders_v3" // Ortex.Mobile/src/lib/push.ts CHANNEL_REMINDERS
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+const dayWords = (iso: string) => {
+  const d = new Date(`${iso}T00:00:00Z`)
+  return `${DOW[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`
+}
+const clockIST = (ts: string) => {
+  const d = new Date(new Date(ts).getTime() + 330 * 60000)
+  const h = d.getUTCHours()
+  return `${h % 12 || 12}:${String(d.getUTCMinutes()).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`
+}
+
+// deno-lint-ignore no-explicit-any
+async function attendanceApproval(db: any, sa: any, table: string, id: string) {
+  const { data: row } = await db.from(table).select("*").eq("id", id).maybeSingle()
+  if (!row) return { skipped: "not found" }
+
+  const { data: people } = await db.from("profiles").select("id, name, email, role, active")
+  // deno-lint-ignore no-explicit-any
+  const person = (people || []).find((p: any) => p.id === row.user_id)
+  const who = clean(person?.name) || clean(person?.email).split("@")[0] || "Someone"
+
+  const isLeave = table === "leave_requests"
+  let recipients: string[]
+  let title: string
+  let body: string
+  let targetScreen: string
+  const targetId = String(row.id)
+
+  if (row.status === "pending") {
+    // To the admins, never the requester.
+    recipients = (people || [])
+      // deno-lint-ignore no-explicit-any
+      .filter((p: any) => p.active !== false && (p.role === "admin" || p.role === "super_admin") && p.id !== row.user_id)
+      // deno-lint-ignore no-explicit-any
+      .map((p: any) => p.id)
+    targetScreen = "AttendanceApprovals"
+    if (isLeave) {
+      const range = row.from_day === row.to_day ? dayWords(row.from_day) : `${dayWords(row.from_day)} to ${dayWords(row.to_day)}`
+      title = `Leave request · ${who}`
+      body = `${row.type_code} · ${Number(row.days)} ${Number(row.days) === 1 ? "day" : "days"} · ${range}. ${clean(row.reason)}`
+    } else {
+      const times = [row.in_at ? `in ${clockIST(row.in_at)}` : "", row.out_at ? `out ${clockIST(row.out_at)}` : ""].filter(Boolean).join(", ")
+      title = `Correction request · ${who}`
+      body = `${dayWords(row.day)}: ${times}. ${clean(row.reason)}`
+    }
+  } else if (["approved", "rejected", "cancelled"].includes(row.status) && row.decided_by && row.decided_by !== row.user_id) {
+    // To the person who asked, when someone else decided.
+    recipients = [row.user_id]
+    const verdict = row.status === "approved" ? "approved" : row.status === "rejected" ? "not approved" : "cancelled"
+    if (isLeave) {
+      const range = row.from_day === row.to_day ? dayWords(row.from_day) : `${dayWords(row.from_day)} to ${dayWords(row.to_day)}`
+      title = `Your leave was ${verdict}`
+      body = `${row.type_code} · ${range}${row.decision_note ? `. ${clean(row.decision_note)}` : ""}`
+      targetScreen = "LeaveRequest"
+    } else {
+      title = `Your correction was ${verdict}`
+      body = `${dayWords(row.day)}${row.decision_note ? `. ${clean(row.decision_note)}` : ""}`
+      targetScreen = "AttendanceDay"
+    }
+  } else {
+    return { skipped: "nothing to announce" }
+  }
+
+  if (!recipients.length) return { skipped: "nobody to tell" }
+  const { data: devices } = await db.from("push_devices").select("token").in("user_id", recipients)
+  const tokens = [...new Set((devices || []).map((d: { token: string }) => d.token))]
+  if (!tokens.length) return { skipped: "no registered phones" }
+
+  const tag = `${isLeave ? "leave" : "corr"}-${row.status}-${row.id}`
+  const results = await sendToTokens(sa, tokens as string[], {
+    title,
+    body,
+    tag,
+    channelId: REMINDERS_CHANNEL,
+    data: {
+      id: tag,
+      targetScreen,
+      // AttendanceDay is keyed by day, the others by id.
+      targetId: targetScreen === "AttendanceDay" ? String(row.day) : targetId,
+      phone: "",
+      title,
+      remote: "1",
+    },
+  })
+  const gone = results.filter((r) => r.unregistered).map((r) => r.token)
+  if (gone.length) await db.from("push_devices").delete().in("token", gone)
+  return { sent: results.filter((r) => r.ok).length, removed: gone.length }
+}

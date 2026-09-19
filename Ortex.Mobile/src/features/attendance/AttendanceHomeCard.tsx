@@ -4,7 +4,7 @@ import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { clockIST, dayKey } from "@/domain/attendance"
-import { ActionAdvisory } from "@/features/attendance/attendanceUi"
+import { ActionAdvisory, QueueAdvisory } from "@/features/attendance/attendanceUi"
 import { dayLabel } from "@/features/attendance/format"
 import { DayTimelineBar, ProgressRing } from "@/features/attendance/LiveProgress"
 import { dayTimeline, progressWords, shiftMinutes, workedMs } from "@/features/attendance/progress"
@@ -31,7 +31,7 @@ export default function AttendanceHomeCard() {
   const t = useTheme()
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const startClock = useStartClock()
-  const { settings, punches, summary, onDutySince, loading, now } = useAttendanceToday()
+  const { settings, punches, summary, onDutySince, loading, now, queue } = useAttendanceToday()
   const notices = useAttendanceNotices()
 
   const today = dayKey(now)
@@ -73,6 +73,7 @@ export default function AttendanceHomeCard() {
         </Pressable>
       }
     >
+      <QueueAdvisory queue={queue} />
       {notices.missedYesterday && (
         <ActionAdvisory
           tone="warning"

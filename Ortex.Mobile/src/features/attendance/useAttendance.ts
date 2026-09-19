@@ -23,6 +23,7 @@ import {
   type AttendanceSettings,
   type Holiday,
 } from "@/lib/attendance"
+import { queuedAsPunches, useAttendanceQueue } from "@/lib/attendanceQueue"
 import { pendingLeave } from "@/lib/leave"
 import type { RootStackParamList } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
@@ -36,8 +37,10 @@ const DAY_MS = 86400000
  * screen regains focus, which is how it learns about a punch just made.
  */
 export function useAttendanceToday() {
+  const { session } = useAuth()
+  const queue = useAttendanceQueue(session?.user?.id)
   const [settings, setSettings] = React.useState<AttendanceSettings>({})
-  const [punches, setPunches] = React.useState<Punch[]>([])
+  const [serverPunches, setPunches] = React.useState<Punch[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [now, setNow] = React.useState(() => Date.now())
@@ -57,16 +60,33 @@ export function useAttendanceToday() {
     }
   }, [])
 
+  // Coming to the screen is also a moment to send anything saved offline.
+  const sendNow = queue.sendNow
   useFocusEffect(
     React.useCallback(() => {
       void reload()
-    }, [reload]),
+      void sendNow()
+    }, [reload, sendNow]),
   )
 
   React.useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30000)
     return () => clearInterval(id)
   }, [])
+
+  // A queued clock-in counts locally (the ring runs, the slide offers clock
+  // out) until it reaches the server; when the queue shrinks, re-read the
+  // server's copy.
+  const queuedCount = queue.items.length
+  const prevQueued = React.useRef(queuedCount)
+  React.useEffect(() => {
+    if (queuedCount < prevQueued.current) void reload()
+    prevQueued.current = queuedCount
+  }, [queuedCount, reload])
+  const punches = React.useMemo(() => {
+    const ids = new Set(serverPunches.map((x) => x.id))
+    return [...serverPunches, ...queuedAsPunches(queue.items).filter((q) => !ids.has(q.id))]
+  }, [serverPunches, queue.items])
 
   const today = dayKey(now)
   const since = onDutySince(punches, now)
@@ -75,7 +95,7 @@ export function useAttendanceToday() {
     [punches, today, now],
   )
 
-  return { settings, punches, summary, onDutySince: since, loading, error, reload, now }
+  return { settings, punches, summary, onDutySince: since, loading, error, reload, now, queue }
 }
 
 /**

@@ -61,7 +61,7 @@ const NAV = [
     items: [
       { to: "/social", key: "social", label: "Social", icon: Instagram },
       { to: "/telecaller", key: "telecaller", label: "Call agent", icon: PhoneOutgoing },
-      { to: "/insights", keys: ["growth", "automation"], label: "Insights", icon: TrendingUp },
+      { to: "/insights", keys: ["growth", "automation", "attendance-team"], label: "Insights", icon: TrendingUp },
     ],
   },
   {

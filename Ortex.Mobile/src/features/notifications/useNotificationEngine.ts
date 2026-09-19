@@ -206,6 +206,12 @@ export function useNotificationEngine() {
 
   React.useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      // Scheduled notes (daily updates, attendance reminders) name a screen.
+      const data = response.notification.request.content.data as Record<string, unknown> | undefined
+      if (data?.daily) {
+        if (typeof data.screen === "string") navigateWhenReady(data.screen as never)
+        return
+      }
       const payload = payloadFromResponse(response)
       if (!payload) return
       const action = actionFromResponse(response)
@@ -229,7 +235,7 @@ export function useNotificationEngine() {
         return
       }
 
-      navigateWhenReady(payload.target.screen, { id: payload.target.id } as never)
+      navigateWhenReady(payload.target.screen, paramsFor(payload.target) as never)
     })
     return () => sub.remove()
   }, [])
@@ -242,6 +248,16 @@ export function useNotificationEngine() {
     })
     return () => sub.remove()
   }, [unreadCount])
+}
+
+/**
+ * Route params for a notification's target. Attendance approvals (server push,
+ * migration 0038) open a day by its date, or the approvals list with none.
+ */
+function paramsFor(target: { screen: string; id: string }): Record<string, string> | undefined {
+  if (target.screen === "AttendanceDay") return { day: target.id }
+  if (target.screen === "AttendanceApprovals") return undefined
+  return { id: target.id }
 }
 
 /**

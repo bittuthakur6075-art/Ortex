@@ -34,6 +34,11 @@ import { NotificationEngine } from "@/features/notifications/useNotificationEngi
 import GlobalSearchScreen from "@/features/search/GlobalSearchScreen"
 import AnuScreen from "@/features/anu/AnuScreen"
 import AttendanceApprovalsScreen from "@/features/attendance/AttendanceApprovalsScreen"
+import {
+  AttendanceApprovalAlerts,
+  AttendanceQueueSync,
+  AttendanceReminderPlanner,
+} from "@/features/attendance/AttendanceBackground"
 import AttendanceClockScreen from "@/features/attendance/AttendanceClockScreen"
 import AttendanceCorrectionScreen from "@/features/attendance/AttendanceCorrectionScreen"
 import AttendanceDayScreen from "@/features/attendance/AttendanceDayScreen"
@@ -114,6 +119,11 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
           what is new to the notification shade and turns a tap there back into a
           screen. Inside the container so it can navigate. */}
       <NotificationEngine />
+      {/* Attendance's background work: offline clock-ins, reminders, approval
+          alerts. Also render nothing, and live only while someone is signed in. */}
+      <AttendanceQueueSync />
+      <AttendanceReminderPlanner />
+      <AttendanceApprovalAlerts />
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
