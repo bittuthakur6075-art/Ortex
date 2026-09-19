@@ -2,6 +2,7 @@ import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
 import { dayKey } from "@/domain/attendance"
+import { DateBadge, InfoChip } from "@/features/attendance/attendanceUi"
 import { clock12, dayLabel, istHHMM, istISO, stepClock } from "@/features/attendance/format"
 import { feedback } from "@/lib/feedback"
 import { loadSettings, myCorrections, requestCorrection } from "@/lib/attendance"
@@ -100,6 +101,22 @@ export default function AttendanceCorrectionScreen({ navigation, route }: StackS
 
   return (
     <AppScreen title="Request correction" subtitle={dayLabel(day)} back onBack={() => navigation.goBack()} inTabs={false}>
+      <Panel>
+        <View style={styles.dayHead}>
+          <DateBadge day={day} today={isToday} />
+          <View style={{ flex: 1, gap: 6 }}>
+            <Text style={[textVariants.listTitle, { color: t.text }]}>Attendance correction</Text>
+            <Text style={[textVariants.small, { color: t.textSecondary }]}>
+              {`Recorded: in ${inAt ? clock12(istHHMM(inAt)) : "none"}, out ${outAt ? clock12(istHHMM(outAt)) : "none"}`}
+            </Text>
+            {remaining !== null && (
+              <InfoChip icon="edit" tone={remaining ? "neutral" : "warning"} align="start">
+                {`${remaining} of ${left!.cap} corrections left this month`}
+              </InfoChip>
+            )}
+          </View>
+        </View>
+      </Panel>
       <Panel title="Times" meta="India time">
         <View style={styles.body}>
           <TimeRow
@@ -137,11 +154,6 @@ export default function AttendanceCorrectionScreen({ navigation, route }: StackS
             multiline
             maxLength={500}
           />
-          {remaining !== null && (
-            <Text style={[textVariants.caption, { color: remaining ? t.textTertiary : t.warningText }]}>
-              {`You have ${remaining} of ${left!.cap} corrections left this month.`}
-            </Text>
-          )}
         </View>
       </Panel>
 
@@ -211,6 +223,7 @@ function TimeRow({
 
 const styles = StyleSheet.create({
   body: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.md },
+  dayHead: { flexDirection: "row", alignItems: "center", gap: spacing.md, padding: gutter },
   rule: { height: 1 },
   rowHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   stepper: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.xs },

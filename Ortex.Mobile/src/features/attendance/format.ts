@@ -2,14 +2,30 @@
 // date/time formatting the screens and the correction form need. Not in
 // domain/attendance.ts, which is mirrored to the console line for line.
 
-import { STATUS_TONE, type DayStatus } from "@/domain/attendance"
+import type { DayStatus } from "@/domain/attendance"
 import type { Colors, StatusTone } from "@/theme/theme"
 
-/** A status's tinted well and readable ink, from the theme's status tones. */
+/**
+ * Zoho People's status colours, onto the theme: Present (and field duty) green,
+ * Absent and loss of pay red, Weekend amber, Holiday blue, Leave in the brand
+ * violet, and a half day or missed punch in the warning hue. `tone` names the
+ * theme's status tone (its tinted well and readable ink).
+ */
+const ZOHO_TONE: Record<DayStatus, StatusTone> = {
+  P: "emerald",
+  OD: "emerald",
+  A: "rose",
+  LOP: "rose",
+  WO: "amber",
+  H: "blue",
+  L: "violet",
+  HD: "amber",
+  MP: "amber",
+}
+
+/** A status's tinted well and readable ink, in Zoho People's colours. */
 export function statusColors(t: Colors, s: DayStatus) {
-  const tone = STATUS_TONE[s]
-  const key: StatusTone = tone === "primary" ? "blue" : tone
-  return t.tones[key]
+  return t.tones[ZOHO_TONE[s]]
 }
 
 const DAY_LONG = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })
@@ -37,4 +53,42 @@ export function stepClock(hhmm: string, minutes: number): string {
 export function istHHMM(at: string | number): string {
   const d = new Date(new Date(at).getTime() + 330 * 60000)
   return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`
+}
+
+/**
+ * A status's SATURATED hue, for a dot, a bar or a rule (never for text), in
+ * Zoho People's scheme (see ZOHO_TONE).
+ */
+export function statusHue(t: Colors, s: DayStatus): string {
+  switch (ZOHO_TONE[s]) {
+    case "emerald":
+      return t.success
+    case "rose":
+      return t.danger
+    case "amber":
+      return t.warning
+    case "blue":
+      return t.info
+    case "violet":
+      return t.primary
+    default:
+      return t.borderStrong
+  }
+}
+
+const WEEKDAY_SHORT = new Intl.DateTimeFormat("en-IN", { weekday: "short", timeZone: "UTC" })
+
+/** "Fri" for an IST day key. */
+export const weekdayShort = (day: string) => WEEKDAY_SHORT.format(new Date(`${day}T00:00:00Z`))
+
+/** The date of the month for an IST day key: "2026-09-04" → 4. */
+export const dateOf = (day: string) => Number(day.slice(8, 10))
+
+/** 492 minutes → "8h 12m"; 0 → "0h". Short enough for a tile or a column. */
+export function hoursShort(minutes: number): string {
+  const m = Math.max(0, Math.round(minutes))
+  const h = Math.floor(m / 60)
+  const r = m % 60
+  if (!h) return `${r}m`
+  return r ? `${h}h ${r}m` : `${h}h`
 }

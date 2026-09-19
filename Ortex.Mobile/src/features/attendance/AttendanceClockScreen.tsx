@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import Svg, { Circle, Path } from "react-native-svg"
 
 import {
+  clockIST,
   flagWords,
   metresOutside,
   resultSentence,
@@ -24,6 +25,7 @@ import {
   uploadSelfieBase64,
   type Reading,
 } from "@/lib/attendance"
+import { InfoChip } from "@/features/attendance/attendanceUi"
 import { enqueue } from "@/lib/attendanceQueue"
 import { cancelTodayReminder } from "@/lib/attendanceReminders"
 import { checkFace, FACE_MESSAGE, type FaceCheck } from "@/lib/faceCheck"
@@ -554,6 +556,11 @@ function ResultStep({
         </View>
         <Text style={[textVariants.largeTitle, styles.center, { color: t.text }]}>{title}</Text>
         <Text style={[textVariants.body, styles.center, { color: t.textSecondary }]}>{sentence}</Text>
+        {(ok || flagged) && result?.at ? (
+          <InfoChip icon="clock" tone={ok ? "success" : "warning"}>
+            {`${kind === "in" ? "In" : "Out"} at ${clockIST(result.at)}${result.mode === "field" ? " · Field visit" : result.site ? ` · ${result.site}` : ""}`}
+          </InfoChip>
+        ) : null}
         {flagged && result?.flags?.length ? (
           <Text style={[textVariants.small, styles.center, { color: t.warningText }]}>
             An admin will check: {flagWords(result.flags).join(", ").toLowerCase()}.

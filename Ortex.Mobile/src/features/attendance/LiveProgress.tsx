@@ -28,7 +28,7 @@ import { useReducedMotion } from "@/ui/motion"
 const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 
 /** HH:MM:SS that ticks itself. `baseMs` is the time worked at `baseAt`. */
-function LiveTimer({ baseMs, baseAt, running, style }: { baseMs: number; baseAt: number; running: boolean; style: object }) {
+export function LiveTimer({ baseMs, baseAt, running, style }: { baseMs: number; baseAt: number; running: boolean; style: object }) {
   const focused = useIsFocused()
   const [now, setNow] = React.useState(() => Date.now())
   React.useEffect(() => {
@@ -159,7 +159,7 @@ export function DayTimelineBar({ timeline, compact = false }: { timeline: Timeli
             key={i}
             style={[
               styles.abs,
-              { left: pct(s.left), width: pct(s.width), backgroundColor: t.primary, borderRadius: h / 2, opacity: s.open ? 0.85 : 1 },
+              { left: pct(s.left), width: pct(s.width), backgroundColor: t.success, borderRadius: h / 2, opacity: s.open ? 0.85 : 1 },
             ]}
           />
         ))}

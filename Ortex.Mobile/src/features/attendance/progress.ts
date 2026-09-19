@@ -64,15 +64,27 @@ export function workedMs(day: string, punches: Punch[], now: number): { ms: numb
   return { ms, openSince: openAt }
 }
 
-/** "3h 20m to go" · "Shift complete" · "Overtime 25m" */
-export function progressWords(workedMin: number, shiftMin: number): string {
+/**
+ * Has today's shift ended? False when no end time is set, so the words fall
+ * back to plain "to go" rather than guessing.
+ */
+export function shiftEnded(s: ShiftSettings, day: string, now: number): boolean {
+  return hhmmOk(s.shift?.end) && now > istMs(day, s.shift!.end!)
+}
+
+/**
+ * "3h 20m to go" · "Shift complete" · "Overtime 25m", and "8h 47m short" once
+ * the shift is over and nobody is on duty: at 8:28 PM "8h 47m to go" read as
+ * if there were still time to make it up (seen on the phone, 2026-09-19).
+ */
+export function progressWords(workedMin: number, shiftMin: number, over = false): string {
   const left = Math.round(shiftMin - workedMin)
   const fmt = (m: number) => {
     const h = Math.floor(m / 60)
     const r = m % 60
     return h ? (r ? `${h}h ${r}m` : `${h}h`) : `${r}m`
   }
-  if (left > 0) return `${fmt(left)} to go`
+  if (left > 0) return over ? `${fmt(left)} short` : `${fmt(left)} to go`
   if (left > -1) return "Shift complete"
   return `Overtime ${fmt(-left)}`
 }

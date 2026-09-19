@@ -20,7 +20,8 @@ import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
-import { textVariants } from "@/theme/typography"
+import { font, textVariants } from "@/theme/typography"
+import Icon, { type IconName } from "@/ui/Icon"
 import {
   AppScreen,
   Avatar,
@@ -39,10 +40,12 @@ import {
 type Decline = { kind: "correction" | "punch" | "leave"; id: string; who: string }
 
 /**
- * Admins: what waits for a decision. Corrections first (a person is waiting on
- * their pay), then punches the server flagged. Each is a card with its decision
- * on it (Remote reference), so clearing the queue is a run of taps, not a run of
- * pages. Declining asks for a note, because "not approved" with no reason is a
+ * Admins: what waits for a decision, as Zoho People's approvals list: a count
+ * per kind at the top, then one request card each (face, name, what kind of
+ * request on a tinted chip, the dates, the reason in their words, and Reject /
+ * Approve on the card itself), so clearing the queue is a run of taps, not a
+ * run of pages. Leave first, then corrections (a person is waiting on their
+ * pay), then punches the server flagged. Declining asks for a note, because "not approved" with no reason is a
  * conversation someone then has to have anyway.
  *
  * Nobody decides their own: the server refuses it, and the card says who will.
@@ -127,8 +130,17 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
     }
   }
 
+
   const loading = corrections === null || punches === null
   const empty = !loading && corrections!.length === 0 && punches!.length === 0 && leave.length === 0
+
+  const counts: { label: string; value: number; tone: "violet" | "amber" | "rose" }[] = loading
+    ? []
+    : [
+        { label: "Leave", value: leave.length, tone: "violet" },
+        { label: "Corrections", value: corrections!.length, tone: "amber" },
+        { label: "Punches", value: punches!.length, tone: "rose" },
+      ]
 
   return (
     <AppScreen
@@ -155,188 +167,148 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
       <DataNotice error={error} onRetry={() => void load()} />
       {out.length > 0 && (
         <View style={[styles.outStrip, { backgroundColor: t.tones.violet.bg }]}>
-          <Text style={[textVariants.smallStrong, { color: t.tones.violet.fg }]}>{`Out today · ${out.length}`}</Text>
-          <Text style={[textVariants.small, { color: t.tones.violet.fg }]} numberOfLines={2}>
-            {out.map((r) => r.person).join(", ")}
-          </Text>
+          <View style={styles.faces}>
+            {out.slice(0, 4).map((r, i) => (
+              <View key={r.id} style={[styles.face, i > 0 && styles.faceOverlap, { borderColor: t.tones.violet.bg }]}>
+                <Avatar name={r.person} uri={r.avatarUrl || undefined} size="sm" />
+              </View>
+            ))}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[textVariants.smallStrong, { color: t.tones.violet.fg }]}>{`Out today · ${out.length}`}</Text>
+            <Text style={[textVariants.caption, { color: t.tones.violet.fg }]} numberOfLines={2}>
+              {out.map((r) => r.person).join(", ")}
+            </Text>
+          </View>
         </View>
       )}
       {loading ? (
         <>
-          <SkeletonPanel lines={3} />
-          <SkeletonPanel lines={3} />
+          <SkeletonPanel lines={1} head={false} />
+          <SkeletonPanel lines={3} block={40} />
+          <SkeletonPanel lines={3} block={40} />
         </>
       ) : empty ? (
         <EmptyState icon="tick" title="Nothing waiting" hint="Leave requests, corrections and flagged punches appear here for a decision." />
       ) : (
         <>
+          <Panel>
+            <View style={styles.counts}>
+              {counts.map((c) => (
+                <View
+                  key={c.label}
+                  accessibilityLabel={`${c.label}: ${c.value} waiting`}
+                  style={[styles.count, { backgroundColor: c.value ? t.tones[c.tone].bg : t.surfaceInset }]}
+                >
+                  <Text style={[styles.countValue, { color: c.value ? t.tones[c.tone].fg : t.textTertiary }]}>{c.value}</Text>
+                  <Text style={[textVariants.caption, { color: c.value ? t.tones[c.tone].fg : t.textTertiary }]}>{c.label}</Text>
+                </View>
+              ))}
+            </View>
+          </Panel>
+
           {leave.length > 0 && (
             <Panel title="Leave requests" meta={`${leave.length}`}>
-              <View style={styles.cards}>
-                {leave.map((r) => {
-                  const mine = r.user_id === me
-                  const b = (leaveBal[r.user_id] || []).find((x) => x.code === r.type_code)
-                  const balanceLine = !b
-                    ? ""
-                    : b.accrual === "none"
-                      ? "Unpaid leave"
-                      : `${b.name}: ${daysWords(b.available + r.days)} available before this, ${daysWords(b.available)} after`
-                  return (
-                    <View key={r.id} style={[styles.card, { backgroundColor: t.surfaceInset }]}>
-                      <View style={styles.cardHead}>
-                        <Avatar name={r.person} uri={r.avatarUrl || undefined} size="sm" />
-                        <View style={{ flex: 1 }}>
-                          <Text style={[textVariants.listTitle, { color: t.text }]}>{r.person}</Text>
-                          <Text style={[textVariants.caption, { color: t.textTertiary }]}>
-                            {`${leaveDatesWords(r)} · ${daysWords(r.days)} · ${b?.name || r.type_code}`}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={[textVariants.body, { color: t.textSecondary }]}>{r.reason}</Text>
-                      {balanceLine ? (
-                        <Text style={[textVariants.caption, { color: b && b.available < 0 ? t.dangerText : t.textTertiary }]}>
-                          {balanceLine}
-                        </Text>
-                      ) : null}
-                      {r.attachment_path ? (
-                        <Text style={[textVariants.caption, { color: t.textTertiary }]}>Has a document attached</Text>
-                      ) : null}
-                      {mine ? (
-                        <Text style={[textVariants.caption, { color: t.textTertiary }]}>
-                          Your own request. Another admin reviews this.
-                        </Text>
-                      ) : (
-                        <View style={styles.actions}>
-                          <Button
-                            label="Decline"
-                            variant="outline-danger"
-                            size="md"
-                            disabled={busy === r.id}
-                            onPress={() => setDecline({ kind: "leave", id: r.id, who: r.person })}
-                            style={styles.action}
-                          />
-                          <Button
-                            label="Approve"
-                            size="md"
-                            loading={busy === r.id}
-                            onPress={() =>
-                              void act(r.id, () => decideLeave(r.id, true), `Approved. ${r.person}'s balance and attendance are updated.`)
-                            }
-                            style={styles.action}
-                          />
-                        </View>
-                      )}
-                    </View>
-                  )
-                })}
-              </View>
+              {leave.map((r, i) => {
+                const mine = r.user_id === me
+                const b = (leaveBal[r.user_id] || []).find((x) => x.code === r.type_code)
+                const balanceLine = !b
+                  ? ""
+                  : b.accrual === "none"
+                    ? "Unpaid leave"
+                    : `${b.name}: ${daysWords(b.available + r.days)} available before this, ${daysWords(b.available)} after`
+                return (
+                  <RequestCard
+                    key={r.id}
+                    first={i === 0}
+                    person={r.person}
+                    avatarUrl={r.avatarUrl}
+                    kind={b?.name || r.type_code}
+                    kindIcon="calendar"
+                    tone="violet"
+                    when={`${leaveDatesWords(r)} · ${daysWords(r.days)}`}
+                    reason={r.reason}
+                    notes={[
+                      balanceLine ? { text: balanceLine, warn: !!b && b.available < 0 } : null,
+                      r.attachment_path ? { text: "Has a document attached", warn: false } : null,
+                    ]}
+                    mine={mine ? "Your own request. Another admin reviews this." : null}
+                    busy={busy === r.id}
+                    rejectLabel="Decline"
+                    approveLabel="Approve"
+                    onReject={() => setDecline({ kind: "leave", id: r.id, who: r.person })}
+                    onApprove={() =>
+                      void act(r.id, () => decideLeave(r.id, true), `Approved. ${r.person}'s balance and attendance are updated.`)
+                    }
+                  />
+                )
+              })}
             </Panel>
           )}
 
           {corrections!.length > 0 && (
             <Panel title="Corrections" meta={`${corrections!.length}`}>
-              <View style={styles.cards}>
-                {corrections!.map((c) => {
-                  const mine = c.user_id === me
-                  const times = [
-                    c.in_at ? `In ${clock12(istHHMM(c.in_at))}` : null,
-                    c.out_at ? `Out ${clock12(istHHMM(c.out_at))}` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(", ")
-                  return (
-                    <View key={c.id} style={[styles.card, { backgroundColor: t.surfaceInset }]}>
-                      <View style={styles.cardHead}>
-                        <Avatar name={c.person} uri={c.avatarUrl || undefined} size="sm" />
-                        <View style={{ flex: 1 }}>
-                          <Text style={[textVariants.listTitle, { color: t.text }]}>{c.person}</Text>
-                          <Text style={[textVariants.caption, { color: t.textTertiary }]}>
-                            {dayLabel(c.day)} · {times}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={[textVariants.body, { color: t.textSecondary }]}>{c.reason}</Text>
-                      {mine ? (
-                        <Text style={[textVariants.caption, { color: t.textTertiary }]}>
-                          Your own request. Another admin reviews this.
-                        </Text>
-                      ) : (
-                        <View style={styles.actions}>
-                          <Button
-                            label="Decline"
-                            variant="outline-danger"
-                            size="md"
-                            disabled={busy === c.id}
-                            onPress={() => setDecline({ kind: "correction", id: c.id, who: c.person })}
-                            style={styles.action}
-                          />
-                          <Button
-                            label="Approve"
-                            size="md"
-                            loading={busy === c.id}
-                            onPress={() =>
-                              void act(c.id, () => decideCorrection(c.id, true), `Approved. ${c.person}'s day is updated.`)
-                            }
-                            style={styles.action}
-                          />
-                        </View>
-                      )}
-                    </View>
-                  )
-                })}
-              </View>
+              {corrections!.map((c, i) => {
+                const mine = c.user_id === me
+                const times = [
+                  c.in_at ? `In ${clock12(istHHMM(c.in_at))}` : null,
+                  c.out_at ? `Out ${clock12(istHHMM(c.out_at))}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(", ")
+                return (
+                  <RequestCard
+                    key={c.id}
+                    first={i === 0}
+                    person={c.person}
+                    avatarUrl={c.avatarUrl}
+                    kind="Attendance correction"
+                    kindIcon="edit"
+                    tone="amber"
+                    when={`${dayLabel(c.day)} · ${times}`}
+                    reason={c.reason}
+                    mine={mine ? "Your own request. Another admin reviews this." : null}
+                    busy={busy === c.id}
+                    rejectLabel="Decline"
+                    approveLabel="Approve"
+                    onReject={() => setDecline({ kind: "correction", id: c.id, who: c.person })}
+                    onApprove={() =>
+                      void act(c.id, () => decideCorrection(c.id, true), `Approved. ${c.person}'s day is updated.`)
+                    }
+                  />
+                )
+              })}
             </Panel>
           )}
 
           {punches!.length > 0 && (
             <Panel title="Punches to review" meta={`${punches!.length}`}>
-              <View style={styles.cards}>
-                {punches!.map((p) => {
-                  const mine = p.user_id === me
-                  return (
-                    <View key={p.id} style={[styles.card, { backgroundColor: t.surfaceInset }]}>
-                      <View style={styles.cardHead}>
-                        <Avatar name={p.person} uri={p.avatarUrl || undefined} size="sm" />
-                        <View style={{ flex: 1 }}>
-                          <Text style={[textVariants.listTitle, { color: t.text }]}>{p.person}</Text>
-                          <Text style={[textVariants.caption, { color: t.textTertiary }]}>
-                            {dayLabel(p.day)} · {clockIST(p.at)}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={styles.punch}>
-                        <PunchRow punch={p} last onOpenPhoto={setPhoto} />
-                      </View>
-                      <Text style={[textVariants.small, { color: t.warningText }]}>
-                        {flagWords(p.flags).join(", ") || "Flagged by the server"}
-                      </Text>
-                      {mine ? (
-                        <Text style={[textVariants.caption, { color: t.textTertiary }]}>
-                          Your own punch. Another admin reviews this.
-                        </Text>
-                      ) : (
-                        <View style={styles.actions}>
-                          <Button
-                            label="Reject"
-                            variant="outline-danger"
-                            size="md"
-                            disabled={busy === p.id}
-                            onPress={() => setDecline({ kind: "punch", id: p.id, who: p.person })}
-                            style={styles.action}
-                          />
-                          <Button
-                            label="Accept"
-                            size="md"
-                            loading={busy === p.id}
-                            onPress={() => void act(p.id, () => reviewPunch(p.id, "accepted"), "Punch accepted.")}
-                            style={styles.action}
-                          />
-                        </View>
-                      )}
+              {punches!.map((p, i) => {
+                const mine = p.user_id === me
+                return (
+                  <RequestCard
+                    key={p.id}
+                    first={i === 0}
+                    person={p.person}
+                    avatarUrl={p.avatarUrl}
+                    kind={p.kind === "in" ? "Flagged clock-in" : "Flagged clock-out"}
+                    kindIcon="warning"
+                    tone="rose"
+                    when={`${dayLabel(p.day)} · ${clockIST(p.at)}`}
+                    notes={[{ text: flagWords(p.flags).join(", ") || "Flagged by the server", warn: true }]}
+                    mine={mine ? "Your own punch. Another admin reviews this." : null}
+                    busy={busy === p.id}
+                    rejectLabel="Reject"
+                    approveLabel="Accept"
+                    onReject={() => setDecline({ kind: "punch", id: p.id, who: p.person })}
+                    onApprove={() => void act(p.id, () => reviewPunch(p.id, "accepted"), "Punch accepted.")}
+                  >
+                    <View style={styles.punch}>
+                      <PunchRow punch={p} last onOpenPhoto={setPhoto} />
                     </View>
-                  )
-                })}
-              </View>
+                  </RequestCard>
+                )
+              })}
             </Panel>
           )}
         </>
@@ -371,13 +343,134 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
   )
 }
 
+/**
+ * One request, Zoho People style: the person, what kind of request on a tinted
+ * chip, the dates, their reason in a quiet well, anything the approver should
+ * know, and the decision on the card. Rows inside the panel split by a
+ * hairline: flat, not floating.
+ */
+function RequestCard({
+  first,
+  person,
+  avatarUrl,
+  kind,
+  kindIcon,
+  tone,
+  when,
+  reason,
+  notes = [],
+  mine,
+  busy,
+  rejectLabel,
+  approveLabel,
+  onReject,
+  onApprove,
+  children,
+}: {
+  first: boolean
+  person: string
+  avatarUrl?: string
+  kind: string
+  kindIcon: IconName
+  tone: "violet" | "amber" | "rose"
+  when: string
+  reason?: string
+  notes?: ({ text: string; warn: boolean } | null)[]
+  mine: string | null
+  busy: boolean
+  rejectLabel: string
+  approveLabel: string
+  onReject: () => void
+  onApprove: () => void
+  children?: React.ReactNode
+}) {
+  const t = useTheme()
+  const tint = t.tones[tone]
+  return (
+    <View style={[styles.card, !first && { borderTopWidth: 1, borderTopColor: t.divider }]}>
+      <View style={styles.cardHead}>
+        <Avatar name={person} uri={avatarUrl || undefined} size="md" />
+        <View style={{ flex: 1, gap: 4 }}>
+          <Text style={[textVariants.listTitle, { color: t.text }]} numberOfLines={1}>
+            {person}
+          </Text>
+          <View style={[styles.kind, { backgroundColor: tint.bg }]}>
+            <Icon name={kindIcon} size={12} color={tint.fg} variant="Bulk" />
+            <Text style={[textVariants.captionStrong, { color: tint.fg }]} numberOfLines={1}>
+              {kind}
+            </Text>
+          </View>
+        </View>
+      </View>
+      <View style={styles.when}>
+        <Icon name="calendar" size={14} color={t.textTertiary} variant="Bulk" />
+        <Text style={[textVariants.small, { color: t.textSecondary, flex: 1 }]}>{when}</Text>
+      </View>
+      {reason ? (
+        <View style={[styles.reason, { backgroundColor: t.surfaceInset }]}>
+          <Text style={[textVariants.small, { color: t.textSecondary }]}>{reason}</Text>
+        </View>
+      ) : null}
+      {children}
+      {notes.map((n) =>
+        n ? (
+          <Text key={n.text} style={[textVariants.caption, { color: n.warn ? t.warningText : t.textTertiary }]}>
+            {n.text}
+          </Text>
+        ) : null,
+      )}
+      {mine ? (
+        <Text style={[textVariants.caption, { color: t.textTertiary }]}>{mine}</Text>
+      ) : (
+        <View style={styles.actions}>
+          <Button
+            label={rejectLabel}
+            variant="outline-danger"
+            size="md"
+            icon="close"
+            disabled={busy}
+            onPress={onReject}
+            style={styles.action}
+          />
+          <Button label={approveLabel} size="md" icon="tick" loading={busy} onPress={onApprove} style={styles.action} />
+        </View>
+      )}
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
-  cards: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.sm },
-  card: { borderRadius: radius.card, padding: spacing.md, gap: spacing.sm },
-  cardHead: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  counts: { flexDirection: "row", gap: spacing.sm, padding: gutter },
+  count: { flex: 1, borderRadius: radius.card, paddingVertical: 12, paddingHorizontal: 12, gap: 2 },
+  countValue: { fontFamily: font.bold, fontSize: 22, lineHeight: 28, fontVariant: ["tabular-nums"] },
+  card: { paddingHorizontal: gutter, paddingVertical: spacing.md, gap: spacing.sm },
+  cardHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  kind: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    maxWidth: "100%",
+  },
+  when: { flexDirection: "row", alignItems: "center", gap: 6 },
+  reason: { borderRadius: radius.card, padding: 12 },
   punch: { marginHorizontal: -gutter },
-  actions: { flexDirection: "row", gap: spacing.sm },
+  actions: { flexDirection: "row", gap: spacing.sm, paddingTop: spacing.xs },
   action: { flex: 1 },
   sheet: { gap: spacing.md, paddingBottom: spacing.md },
-  outStrip: { marginHorizontal: gutter, marginBottom: spacing.sm, padding: spacing.md, borderRadius: radius.card, gap: 2 },
+  outStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginHorizontal: gutter,
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.card,
+  },
+  faces: { flexDirection: "row" },
+  face: { borderWidth: 2, borderRadius: 999 },
+  faceOverlap: { marginLeft: -10 },
 })

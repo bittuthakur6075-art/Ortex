@@ -40,6 +40,13 @@ test("progress words", () => {
   assert.equal(p.progressWords(340, 540), "3h 20m to go")
   assert.equal(p.progressWords(540, 540), "Shift complete")
   assert.equal(p.progressWords(565, 540), "Overtime 25m")
+  // Once the shift is over and nobody is on duty, the gap is a shortfall.
+  assert.equal(p.progressWords(13, 540, true), "8h 47m short")
+  assert.equal(p.progressWords(565, 540, true), "Overtime 25m")
+  const s = { shift: { start: "09:30", end: "18:30" } }
+  assert.equal(p.shiftEnded(s, "2026-09-19", p.istMs("2026-09-19", "20:28")), true)
+  assert.equal(p.shiftEnded(s, "2026-09-19", p.istMs("2026-09-19", "17:00")), false)
+  assert.equal(p.shiftEnded({}, "2026-09-19", p.istMs("2026-09-19", "23:00")), false)
 })
 
 test("timeline: segments, now, grace, a late start and a punch beyond the shift", () => {

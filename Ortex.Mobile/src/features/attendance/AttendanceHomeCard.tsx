@@ -4,17 +4,17 @@ import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { clockIST, dayKey } from "@/domain/attendance"
-import { ActionAdvisory, QueueAdvisory } from "@/features/attendance/attendanceUi"
+import { ActionAdvisory, InfoChip, QueueAdvisory } from "@/features/attendance/attendanceUi"
 import { dayLabel } from "@/features/attendance/format"
-import { DayTimelineBar, ProgressRing } from "@/features/attendance/LiveProgress"
-import { dayTimeline, progressWords, shiftMinutes, workedMs } from "@/features/attendance/progress"
+import { DayTimelineBar, LiveTimer } from "@/features/attendance/LiveProgress"
+import { dayTimeline, progressWords, shiftEnded, shiftMinutes, workedMs } from "@/features/attendance/progress"
 import { useAttendanceNotices, useAttendanceToday, useStartClock } from "@/features/attendance/useAttendance"
 import { feedback } from "@/lib/feedback"
 import { shiftClock } from "@/lib/attendance"
 import type { RootStackParamList } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
-import { textVariants } from "@/theme/typography"
+import { font, textVariants } from "@/theme/typography"
 import Icon from "@/ui/Icon"
 import Panel from "@/ui/Panel"
 import SlideToConfirm from "@/ui/SlideToConfirm"
@@ -22,9 +22,10 @@ import SlideToConfirm from "@/ui/SlideToConfirm"
 /**
  * Attendance on Home, the first thing under the title: clocking in is the most
  * frequent action in the app for every role, so it is one slide from launch
- * (plan §6). A small ring of the shift done with its live timer (Zoho People),
- * the day in words, a thin timeline, then the one control whose label is the
- * state (Jobber), pocket-safe (Waymo). A missed clock-out yesterday is one tap
+ * (plan §6). Laid out like Zoho People's check-in card: the shift as a chip
+ * and the state as a pill, the worked time as the large figure, the first
+ * clock-in and where under it, a thin timeline, then the one control whose
+ * label is the state (Jobber), pocket-safe (Waymo). A missed clock-out yesterday is one tap
  * from its correction.
  */
 export default function AttendanceHomeCard() {
@@ -39,22 +40,25 @@ export default function AttendanceHomeCard() {
   const worked = workedMs(today, punches, now)
   const timeline = dayTimeline(today, punches, settings, now)
 
+
   const shift =
     settings.shift?.start && settings.shift?.end
-      ? `Shift ${shiftClock(settings.shift.start)} to ${shiftClock(settings.shift.end)}`
-      : ""
+      ? `General shift · ${shiftClock(settings.shift.start)} to ${shiftClock(settings.shift.end)}`
+      : "Shift not set"
+  const where = summary.field ? "Field visit" : summary.site || ""
 
-  let headline: string
+  // The state as a pill, and one line that says the rest.
+  let state: { label: string; tone: "success" | "neutral" | "warning" }
   let detail: string
   if (onDutySince) {
-    headline = `On duty since ${clockIST(onDutySince)}`
-    detail = `${progressWords(worked.ms / 60000, shiftMin)}${summary.field ? " · Field" : summary.site ? ` · ${summary.site}` : ""}`
+    state = { label: "Checked in", tone: "success" }
+    detail = `Checked in at ${clockIST(summary.firstIn || onDutySince)}${where ? ` · ${where}` : ""} · ${progressWords(worked.ms / 60000, shiftMin)}`
   } else if (summary.lastOut) {
-    headline = `Clocked out at ${clockIST(summary.lastOut)}`
-    detail = progressWords(worked.ms / 60000, shiftMin)
+    state = { label: "Checked out", tone: "neutral" }
+    detail = `Last check-out ${clockIST(summary.lastOut)}, in at ${summary.firstIn ? clockIST(summary.firstIn) : "not recorded"} · ${progressWords(worked.ms / 60000, shiftMin, shiftEnded(settings, today, now))}`
   } else {
-    headline = loading ? "Checking today" : "Not clocked in yet"
-    detail = shift
+    state = { label: loading ? "Checking" : "Not checked in", tone: loading ? "neutral" : "warning" }
+    detail = loading ? "Checking today" : "You have not checked in today"
   }
 
   return (
@@ -87,28 +91,34 @@ export default function AttendanceHomeCard() {
         </ActionAdvisory>
       )}
       <View style={styles.body}>
-        <View style={styles.state}>
-          <ProgressRing
-            workedMs={worked.ms}
-            computedAt={now}
-            running={!!onDutySince}
-            shiftMin={shiftMin}
-            size={64}
-            stroke={6}
-            compact
-          />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={[textVariants.cardTitle, { color: t.text }]}>{headline}</Text>
-            {!!detail && <Text style={[textVariants.small, { color: t.textTertiary }]}>{detail}</Text>}
+        <View style={styles.chips}>
+          <View style={{ flexShrink: 1 }}>
+            <InfoChip icon="clock" align="start">
+              {shift}
+            </InfoChip>
+          </View>
+          <InfoChip icon={onDutySince ? "tick" : "clock"} tone={state.tone} align="start">
+            {state.label}
+          </InfoChip>
+        </View>
+
+        <View style={styles.figureRow}>
+          <View style={styles.figure}>
+            <LiveTimer baseMs={worked.ms} baseAt={now} running={!!onDutySince} style={[styles.timer, { color: t.text }]} />
+            <Text style={[styles.hrs, { color: t.textTertiary }]}>Hrs</Text>
           </View>
           {summary.flagged > 0 && <Icon name="warning" size={18} color={t.warning} />}
         </View>
+        <Text style={[textVariants.small, { color: t.textTertiary, marginTop: -spacing.sm }]} numberOfLines={2}>
+          {detail}
+        </Text>
+
         {summary.firstIn ? <DayTimelineBar timeline={timeline} compact /> : null}
         <SlideToConfirm
-          label={onDutySince ? "Slide to clock out" : "Slide to clock in"}
+          label={onDutySince ? "Slide to check out" : "Slide to check in"}
           tone={onDutySince ? "danger" : "primary"}
           disabled={loading}
-          hint={onDutySince ? "Takes a selfie and your location, then clocks you out" : "Takes a selfie and your location, then clocks you in"}
+          hint={onDutySince ? "Takes a selfie and your location, then checks you out" : "Takes a selfie and your location, then checks you in"}
           onConfirm={() => void startClock(navigation, onDutySince ? "out" : "in")}
         />
         <View style={styles.footer}>
@@ -136,6 +146,10 @@ export default function AttendanceHomeCard() {
 
 const styles = StyleSheet.create({
   body: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.md },
-  state: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  chips: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  figureRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  figure: { flexDirection: "row", alignItems: "baseline", gap: 6 },
+  timer: { fontFamily: font.semibold, fontSize: 32, lineHeight: 40, fontVariant: ["tabular-nums"] },
+  hrs: { fontFamily: font.medium, fontSize: 14, lineHeight: 20 },
   footer: { flexDirection: "row", alignItems: "center", gap: spacing.md },
 })
