@@ -1,6 +1,17 @@
 # Attendance & Leave: research and plan
 
-Status: **plan, not built** (2026-09-19). Owner decisions needed are listed in §10.
+Status (2026-09-19): **phases 0, 1 and 2 are built and live**.
+
+- **Phase 0 (roles):** migration 0032.
+- **Phase 1 (clock in/out):** migration 0033.
+- **Phase 2 (day rules, holidays, corrections, month lock, payroll export):**
+  - migration 0034 (`attendance_days`, `holidays`, `regularisations`, `attendance_months`, `attendance_recompute_day`, `attendance_month_summary`);
+  - the `attendance-housekeeping` function;
+  - two pg_cron jobs: the day-close at 00:05 IST, and the selfie purge at 00:20 IST, authorised by a Vault secret the database generates for itself;
+  - the Zoho-style live progress (ring, timer, day bar, week strip) on the phone, and the Today card on the web.
+- **Next:** Phase 3 (leave), then Phase 4 (hardening).
+
+Decisions are in §10.
 
 ## 1. What we are building
 

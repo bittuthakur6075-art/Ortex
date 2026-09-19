@@ -3,8 +3,26 @@ import { useFocusEffect } from "@react-navigation/native"
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import React from "react"
 
-import { dayKey, onDutySince, summarizeDay, type DaySummary, type Punch } from "@/domain/attendance"
-import { loadSettings, myPunches, type AttendanceSettings } from "@/lib/attendance"
+import {
+  dayKey,
+  effectiveStatus,
+  onDutySince,
+  summarizeDay,
+  type AttendanceDay,
+  type DaySummary,
+  type Punch,
+} from "@/domain/attendance"
+import { isAdmin } from "@/domain/modules"
+import {
+  flaggedPunches,
+  holidays,
+  loadSettings,
+  myDays,
+  myPunches,
+  pendingCorrections,
+  type AttendanceSettings,
+  type Holiday,
+} from "@/lib/attendance"
 import type { RootStackParamList } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
 
@@ -57,6 +75,44 @@ export function useAttendanceToday() {
   )
 
   return { settings, punches, summary, onDutySince: since, loading, error, reload, now }
+}
+
+/**
+ * What the Home card and the Attendance page say beyond today (phase 2):
+ * yesterday's missed clock-out (with a one-tap correction), the next holiday,
+ * and, for an admin, how many corrections and flagged punches wait. Every
+ * piece fails soft: before migration 0034 is applied these are simply absent.
+ */
+export function useAttendanceNotices() {
+  const { profile } = useAuth()
+  const admin = isAdmin(profile)
+  const [missedYesterday, setMissedYesterday] = React.useState<string | null>(null)
+  const [nextHoliday, setNextHoliday] = React.useState<Holiday | null>(null)
+  const [pending, setPending] = React.useState(0)
+
+  const reload = React.useCallback(async () => {
+    const yesterday = dayKey(Date.now() - DAY_MS)
+    const today = dayKey(Date.now())
+    const soon = dayKey(Date.now() + 120 * DAY_MS)
+    const [days, hols, corrections, flagged] = await Promise.all([
+      myDays({ from: yesterday, to: yesterday }).catch(() => [] as AttendanceDay[]),
+      holidays({ from: today, to: soon }).catch(() => [] as Holiday[]),
+      admin ? pendingCorrections().catch(() => []) : Promise.resolve([]),
+      admin ? flaggedPunches().catch(() => []) : Promise.resolve([]),
+    ])
+    const y = days[0]
+    setMissedYesterday(y && effectiveStatus(y) === "MP" ? y.day : null)
+    setNextHoliday(hols[0] ?? null)
+    setPending(corrections.length + flagged.length)
+  }, [admin])
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void reload()
+    }, [reload]),
+  )
+
+  return { missedYesterday, nextHoliday, pending, admin, reload }
 }
 
 const noticeKey = (uid: string) => `@ortex/attendance-notice/${uid}`

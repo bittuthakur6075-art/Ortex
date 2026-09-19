@@ -80,3 +80,40 @@ for (const [side, a] of both) {
     assert.equal(a.metresOutside({ distanceM: 90, radiusM: 150 }), 0)
   })
 }
+
+for (const [side, a] of both) {
+  test(`${side}: month totals and payable days, the database's formula`, () => {
+    const d = (day, status, over = {}) => ({ user_id: "u", day, status, worked_min: 480, ...over })
+    const days = [
+      d("2026-09-01", "P", { late: true }),
+      d("2026-09-02", "P", { late: true }),
+      d("2026-09-03", "P", { late: true }),
+      d("2026-09-04", "HD", { worked_min: 200 }),
+      d("2026-09-05", "OD"),
+      d("2026-09-06", "WO", { worked_min: 0 }),
+      d("2026-09-07", "MP", { worked_min: 0 }),
+      d("2026-09-08", "A", { worked_min: 0 }),
+      d("2026-09-09", "A", { override_status: "P", worked_min: 0 }),
+    ]
+    const t = a.monthTotals(days, { count: 3, deductDays: 0.5 })
+    // P 4 (one by override) + OD 1 + WO 1 + half of (HD 1 + MP 1) = 7, less 3 lates → 0.5
+    assert.equal(t.counts.P, 4)
+    assert.equal(t.counts.A, 1)
+    assert.equal(t.lates, 3)
+    assert.equal(t.latePenalty, 0.5)
+    assert.equal(t.payable, 6.5)
+    assert.equal(a.effectiveStatus({ status: "A", override_status: "P" }), "P")
+  })
+
+  test(`${side}: month grid is Monday-first weeks of seven`, () => {
+    const weeks = a.monthGrid(2026, 9, [{ user_id: "u", day: "2026-09-19", status: "P" }])
+    assert.ok(weeks.every((w) => w.length === 7))
+    // 1 Sep 2026 is a Tuesday: one leading day from August.
+    assert.equal(weeks[0][0].day, "2026-08-31")
+    assert.equal(weeks[0][0].inMonth, false)
+    assert.equal(weeks[0][1].day, "2026-09-01")
+    const cell = weeks.flat().find((c) => c.day === "2026-09-19")
+    assert.equal(cell.entry.status, "P")
+    assert.deepEqual(a.monthBounds(2026, 2), { from: "2026-02-01", to: "2026-02-28", label: "February 2026" })
+  })
+}

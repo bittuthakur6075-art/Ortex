@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { AlertTriangle, CalendarClock, MapPin, UserCheck, Users } from "../../components/ui/Icons"
+import { AlertTriangle, CalendarClock, Clock, MapPin, UserCheck, Users } from "../../components/ui/Icons"
 import { Avatar, Badge, Banner, Card, CardHeader, EmptyState, PageLoader, StatCard } from "../../components/ui/Ui"
 import { useProfile } from "../../hooks/useProfile"
 import { isAdmin, roleLabel, ROLE_TONE } from "../../lib/roles"
 import { currentUserId } from "../../lib/auth"
 import { repo } from "../../data/store/repository"
 import { clockIST, durationWords, flagWords, onDutySince, summarizeDay } from "../../lib/attendance"
-import { listFlagged, listPunches, todayIST } from "../../services/attendance"
+import { listDays, listFlagged, listPunches, todayIST } from "../../services/attendance"
 import { listProfiles } from "../../services/users"
 import { DayDrawer, FlagBadges, ReviewButtons, Selfie } from "./parts"
 import { dayLabel } from "./format"
@@ -28,13 +28,17 @@ export default function Today() {
 
   const load = useCallback(async () => {
     const today = todayIST()
-    const [punches, flagged, directory, profiles] = await Promise.all([
+    const yesterday = todayIST(Date.now() - 86400000)
+    const [punches, flagged, directory, profiles, days] = await Promise.all([
       listPunches({ from: today, to: today }),
       listFlagged(30),
       repo.staffDirectory ? repo.staffDirectory().catch(() => ({})) : {},
       // Only admins can list every profile (with `active`); for Accounts the
       // "not in yet" figure is left out rather than guessed.
       admin ? listProfiles().catch(() => null) : null,
+      // Day statuses (0034): late marks today, missed clock-outs yesterday.
+      // Absent before 0034 is pushed, and then the two tiles are left out.
+      listDays({ from: yesterday, to: today }),
     ])
     setState({
       loading: false,
@@ -44,6 +48,8 @@ export default function Today() {
       flagged: flagged.rows,
       directory: directory || {},
       profiles,
+      lateToday: days.missing ? null : days.rows.filter((d) => d.day === today && d.late).length,
+      missedYesterday: days.missing ? null : days.rows.filter((d) => d.day === yesterday && (d.override_status || d.status) === "MP").length,
     })
   }, [admin])
 
@@ -116,12 +122,18 @@ export default function Today() {
     <div className="space-y-5">
       {state.error && <Banner tone="danger">{state.error}</Banner>}
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-7">
         <StatCard icon={UserCheck} label="On duty now" value={people.filter((p) => p.onDuty).length} accent="bg-success/12 text-success-text" />
         <StatCard icon={CalendarClock} label="Clocked in today" value={people.filter((p) => p.summary.firstIn).length} />
         {notInYet && <StatCard icon={Users} label="Not in yet" value={notInYet.length} accent="bg-secondary text-secondary-foreground" />}
         <StatCard icon={MapPin} label="Field today" value={people.filter((p) => p.summary.field).length} accent="bg-info/10 text-info-text" />
         <StatCard icon={AlertTriangle} label="Needs review" value={state.flagged.length} accent="bg-warning/12 text-warning-text" />
+        {state.lateToday != null && (
+          <StatCard icon={Clock} label="Late today" value={state.lateToday} accent="bg-warning/12 text-warning-text" />
+        )}
+        {state.missedYesterday != null && (
+          <StatCard icon={CalendarClock} label="Missed clock-out yesterday" value={state.missedYesterday} accent="bg-destructive/10 text-destructive-text" />
+        )}
       </div>
 
       <Card className="overflow-hidden">

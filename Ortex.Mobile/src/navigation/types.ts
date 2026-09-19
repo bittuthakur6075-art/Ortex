@@ -63,6 +63,10 @@ export type RootStackParamList = {
   AttendanceClock: { kind: "in" | "out" }
   AttendanceHistory: undefined
   AttendanceDay: { day: string }
+  /** Ask for a correction of one day: the times, pre-filled from what is known. */
+  AttendanceCorrection: { day: string; inAt?: string | null; outAt?: string | null }
+  /** Admins: corrections and flagged punches waiting for a decision. */
+  AttendanceApprovals: undefined
 }
 
 export type TabScreenProps<T extends keyof TabParamList> = CompositeScreenProps<

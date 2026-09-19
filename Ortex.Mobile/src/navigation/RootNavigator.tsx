@@ -33,7 +33,9 @@ import NotificationsScreen from "@/features/notifications/NotificationsScreen"
 import { NotificationEngine } from "@/features/notifications/useNotificationEngine"
 import GlobalSearchScreen from "@/features/search/GlobalSearchScreen"
 import AnuScreen from "@/features/anu/AnuScreen"
+import AttendanceApprovalsScreen from "@/features/attendance/AttendanceApprovalsScreen"
 import AttendanceClockScreen from "@/features/attendance/AttendanceClockScreen"
+import AttendanceCorrectionScreen from "@/features/attendance/AttendanceCorrectionScreen"
 import AttendanceDayScreen from "@/features/attendance/AttendanceDayScreen"
 import AttendanceHistoryScreen from "@/features/attendance/AttendanceHistoryScreen"
 import AttendanceNoticeScreen from "@/features/attendance/AttendanceNoticeScreen"
@@ -171,6 +173,8 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="Attendance" component={AttendanceScreen} />
         <Stack.Screen name="AttendanceHistory" component={AttendanceHistoryScreen} />
         <Stack.Screen name="AttendanceDay" component={AttendanceDayScreen} />
+        <Stack.Screen name="AttendanceCorrection" component={AttendanceCorrectionScreen} />
+        <Stack.Screen name="AttendanceApprovals" component={AttendanceApprovalsScreen} />
         <Stack.Screen
           name="AttendanceNotice"
           component={AttendanceNoticeScreen}

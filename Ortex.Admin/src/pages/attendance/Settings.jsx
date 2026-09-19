@@ -33,6 +33,7 @@ import {
   saveSite,
 } from "../../services/attendance"
 import { listProfiles } from "../../services/users"
+import { Holidays, Maintenance } from "./SettingsExtra"
 
 // Attendance → Settings, the Super Admin's: office locations, the rules, and
 // how each person clocks in. Every input the module needs lives here, shipped
@@ -66,7 +67,9 @@ export default function AttendanceSettings() {
       <Banner tone="info">Only you, the Super Admin, can change these. Changes apply from now on.</Banner>
       <Sites />
       <Rules />
+      <Holidays />
       <People />
+      <Maintenance />
     </div>
   )
 }

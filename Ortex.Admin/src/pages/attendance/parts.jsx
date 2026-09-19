@@ -49,7 +49,7 @@ export function FlagBadges({ flags, field }) {
 }
 
 /** One person's day. `summary` is a DaySummary from lib/attendance. */
-export function DayDrawer({ open, onClose, person, summary, selfId, canReview, onReviewed }) {
+export function DayDrawer({ open, onClose, person, summary, selfId, canReview, onReviewed, extra }) {
   const punches = summary?.punches || []
   const urls = useSelfieUrls(punches.map((p) => p.selfie_path))
   const [viewer, setViewer] = useState(null)
@@ -87,6 +87,14 @@ export function DayDrawer({ open, onClose, person, summary, selfId, canReview, o
               <dd className="font-semibold text-foreground tabular">{durationWords(summary.workedMin)}</dd>
             </div>
           </dl>
+
+          {extra}
+
+          {punches.length === 0 && (
+            <p className="rounded-xl border border-dashed border-border p-4 text-center text-[13px] text-muted-foreground">
+              No clock-ins on this day.
+            </p>
+          )}
 
           <ol className="space-y-3">
             {punches.map((p) => {

@@ -1,11 +1,23 @@
+import { useFocusEffect } from "@react-navigation/native"
 import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
-import { clockIST, durationWords } from "@/domain/attendance"
+import { clockIST, dayKey, summarizeDays } from "@/domain/attendance"
+import { ActionAdvisory } from "@/features/attendance/attendanceUi"
+import { dayLabel } from "@/features/attendance/format"
+import { DayTimelineBar, ProgressRing, WeekStrip } from "@/features/attendance/LiveProgress"
+import {
+  dayTimeline,
+  progressWords,
+  shiftMinutes,
+  weekColumns,
+  weekStart,
+  workedMs,
+} from "@/features/attendance/progress"
 import PunchRow from "@/features/attendance/PunchRow"
-import { useAttendanceToday, useStartClock } from "@/features/attendance/useAttendance"
+import { useAttendanceNotices, useAttendanceToday, useStartClock } from "@/features/attendance/useAttendance"
 import { feedback } from "@/lib/feedback"
-import { shiftClock } from "@/lib/attendance"
+import { myDays, myPunches, shiftClock } from "@/lib/attendance"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
@@ -16,22 +28,62 @@ import SlideToConfirm from "@/ui/SlideToConfirm"
 const TODAY = new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Kolkata" })
 
 /**
- * Attendance, the page: today in full (the state in words, the one slide, every
- * punch with its selfie), then the way to past days. Marking attendance happens
- * only here and on the Home card, and only through the camera flow.
+ * Attendance, the page: today in full (a ring of the shift done with a live
+ * timer, the day as a timeline, the one slide, every punch with its selfie),
+ * this week in columns, then the way to past days, corrections and (admins)
+ * approvals. Marking attendance happens only here and on the Home card, and
+ * only through the camera flow.
  */
 export default function AttendanceScreen({ navigation }: StackScreenProps<"Attendance">) {
   const t = useTheme()
   const startClock = useStartClock()
-  const { settings, summary, onDutySince, loading, error, reload } = useAttendanceToday()
+  const { settings, punches, summary, onDutySince, loading, error, reload, now } = useAttendanceToday()
+  const notices = useAttendanceNotices()
   const [photo, setPhoto] = React.useState<string | null>(null)
   const [refreshing, setRefreshing] = React.useState(false)
+  const [weekDays, setWeekDays] = React.useState<{ day: string; worked_min: number }[]>([])
+
+  // This week's hours: the day rows (0034), or, until they exist, the punches.
+  const loadWeek = React.useCallback(async () => {
+    const from = weekStart(Date.now())
+    const to = dayKey(Date.now())
+    try {
+      const rows = await myDays({ from, to })
+      if (rows.length) {
+        setWeekDays(rows.map((r) => ({ day: r.day, worked_min: r.worked_min || 0 })))
+        return
+      }
+    } catch {
+      /* not set up yet: fall back below */
+    }
+    const p = await myPunches({ from, to }).catch(() => [])
+    setWeekDays(summarizeDays(p).map((d) => ({ day: d.day, worked_min: d.workedMin })))
+  }, [])
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void loadWeek()
+    }, [loadWeek]),
+  )
+
+  const today = dayKey(now)
+  const shiftMin = shiftMinutes(settings, today)
+  const worked = React.useMemo(() => workedMs(today, punches, now), [today, punches, now])
+  const timeline = React.useMemo(() => dayTimeline(today, punches, settings, now), [today, punches, settings, now])
+  const week = React.useMemo(
+    () => weekColumns(weekDays, Math.round(worked.ms / 60000), now),
+    [weekDays, worked.ms, now],
+  )
 
   const todays = [...summary.punches].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
   const shift =
     settings.shift?.start && settings.shift?.end
       ? `${shiftClock(settings.shift.start)} to ${shiftClock(settings.shift.end)}`
       : "Not set"
+  const where = summary.field ? "Field" : summary.site || ""
+  const stateLine = summary.firstIn
+    ? `Clocked in at ${clockIST(summary.firstIn)}${where ? ` · ${where}` : ""}`
+    : `Not clocked in yet · Shift ${shift}`
 
   return (
     <AppScreen
@@ -48,7 +100,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
             refreshing={refreshing}
             onRefresh={async () => {
               setRefreshing(true)
-              await reload()
+              await Promise.all([reload(), notices.reload(), loadWeek()])
               setRefreshing(false)
             }}
           />
@@ -56,31 +108,56 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
       }}
     >
       <DataNotice error={error} onRetry={() => void reload()} />
+      {notices.missedYesterday && (
+        <ActionAdvisory
+          tone="warning"
+          icon="warning"
+          onPress={() => {
+            feedback.tap()
+            navigation.navigate("AttendanceCorrection", { day: notices.missedYesterday! })
+          }}
+        >
+          You did not clock out yesterday. Request a correction
+        </ActionAdvisory>
+      )}
       {loading ? (
         <>
-          <SkeletonPanel lines={2} block={60} />
+          <SkeletonPanel lines={3} block={200} />
           <SkeletonPanel lines={3} />
         </>
       ) : (
         <>
           <Panel title="Today">
             <View style={styles.today}>
-              <Text style={[textVariants.title, { color: t.text }]}>
-                {onDutySince
-                  ? `On duty since ${clockIST(onDutySince)}`
-                  : summary.lastOut
-                    ? `Clocked out at ${clockIST(summary.lastOut)}`
-                    : "Not clocked in yet"}
-              </Text>
-              <Text style={[textVariants.body, { color: t.textSecondary }]}>
-                {summary.punches.length ? `${durationWords(summary.workedMin)} worked today` : `Shift ${shift}`}
-              </Text>
+              <View style={styles.ring}>
+                <ProgressRing
+                  workedMs={worked.ms}
+                  computedAt={now}
+                  running={!!onDutySince}
+                  shiftMin={shiftMin}
+                  size={208}
+                  stroke={14}
+                />
+              </View>
+              <View style={styles.words}>
+                <Text style={[textVariants.cardTitle, { color: t.text, textAlign: "center" }]}>
+                  {summary.firstIn ? progressWords(worked.ms / 60000, shiftMin) : "Your day has not started"}
+                </Text>
+                <Text style={[textVariants.small, { color: t.textTertiary, textAlign: "center" }]}>{stateLine}</Text>
+              </View>
+              <DayTimelineBar timeline={timeline} />
               <SlideToConfirm
                 label={onDutySince ? "Slide to clock out" : "Slide to clock in"}
                 tone={onDutySince ? "danger" : "primary"}
                 hint="Takes a selfie and your location"
                 onConfirm={() => void startClock(navigation, onDutySince ? "out" : "in")}
               />
+            </View>
+          </Panel>
+
+          <Panel title="This week" meta={`Target ${Math.round((shiftMin / 60) * 10) / 10}h a day`}>
+            <View style={styles.week}>
+              <WeekStrip columns={week} targetMin={shiftMin} />
             </View>
           </Panel>
 
@@ -102,13 +179,35 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
             <SectionRow
               leadingIcon="calendar"
               title="My attendance"
-              subtitle="Every day, with hours and selfies"
+              subtitle="Your month, day by day, with hours and selfies"
               onPress={() => {
                 feedback.tap()
                 navigation.navigate("AttendanceHistory")
               }}
             />
+            {notices.admin && (
+              <SectionRow
+                leadingIcon="tick"
+                leadingTone={notices.pending ? "warning" : "primary"}
+                title="Approvals"
+                subtitle={
+                  notices.pending
+                    ? `${notices.pending} waiting: corrections and punches to review`
+                    : "Nothing waiting for a decision"
+                }
+                onPress={() => {
+                  feedback.tap()
+                  navigation.navigate("AttendanceApprovals")
+                }}
+              />
+            )}
           </Section>
+
+          {notices.nextHoliday && (
+            <ActionAdvisory tone="info" icon="calendar">
+              {`Next holiday: ${notices.nextHoliday.name}, ${dayLabel(notices.nextHoliday.day)}`}
+            </ActionAdvisory>
+          )}
 
           <Panel padded>
             <Text style={[textVariants.small, { color: t.textTertiary }]}>
@@ -123,6 +222,9 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
 }
 
 const styles = StyleSheet.create({
-  today: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.sm },
+  today: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.md },
+  ring: { alignItems: "center", paddingTop: spacing.sm },
+  words: { gap: 2, alignItems: "center" },
+  week: { paddingHorizontal: gutter, paddingBottom: spacing.md },
   empty: { paddingHorizontal: gutter, paddingBottom: spacing.md },
 })

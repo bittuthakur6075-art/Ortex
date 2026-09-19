@@ -90,6 +90,9 @@ export const FLAG_LABEL = {
   outside: "Outside the office area",
   low_accuracy: "Weak location",
   mock_location: "Fake location detected",
+  regularised: "Corrected on request",
+  short_hours: "Too few hours",
+  worked_off_day: "Worked on a day off",
 }
 export const flagWords = (flags) => (flags || []).map((f) => FLAG_LABEL[f] || f)
 export const REVIEW_LABEL = {
@@ -125,4 +128,102 @@ export function selfiePath(userId, punchId, at = Date.now()) {
   const yyyy = d.getUTCFullYear()
   const mm = String(d.getUTCMonth() + 1).padStart(2, "0")
   return `${userId}/${yyyy}/${mm}/${punchId}.jpg`
+}
+/** The Super Admin's override wins over the computed status. */
+export const effectiveStatus = (d) => d.override_status || d.status
+export const STATUS_LABEL = {
+  P: "Present",
+  HD: "Half day",
+  A: "Absent",
+  OD: "On duty (field)",
+  WO: "Weekly off",
+  H: "Holiday",
+  MP: "Missed punch",
+  L: "Leave",
+  LOP: "Loss of pay",
+}
+/** The console's and the phone's status tone names (emerald/amber/rose/…). */
+export const STATUS_TONE = {
+  P: "emerald",
+  OD: "cyan",
+  HD: "amber",
+  MP: "amber",
+  A: "rose",
+  LOP: "rose",
+  L: "violet",
+  WO: "slate",
+  H: "slate",
+}
+/**
+ * A month of days → the figures payroll reads. The SAME formula as the
+ * database's attendance_month_summary(): P + OD + WO + H + L, plus half of each
+ * HD and MP, less every `lateRule.count` lates × `lateRule.deductDays`.
+ */
+export function monthTotals(days, lateRule = {}) {
+  const counts = { P: 0, HD: 0, A: 0, OD: 0, WO: 0, H: 0, MP: 0, L: 0, LOP: 0 }
+  let lates = 0
+  let workedMin = 0
+  for (const d of days) {
+    counts[effectiveStatus(d)] += 1
+    if (d.late) lates += 1
+    workedMin += d.worked_min || 0
+  }
+  const per = Math.max(1, lateRule.count ?? 3)
+  const latePenalty = Math.floor(lates / per) * (lateRule.deductDays ?? 0.5)
+  const payable = Math.max(
+    0,
+    counts.P + counts.OD + counts.WO + counts.H + counts.L + 0.5 * (counts.HD + counts.MP) - latePenalty
+  )
+  return { counts, lates, latePenalty, workedMin, payable }
+}
+/**
+ * The month as calendar weeks, Monday first, padded with the neighbouring
+ * months' dates (inMonth false) so every row has seven cells.
+ */
+export function monthGrid(year, month, days) {
+  const byDay = new Map(days.map((d) => [d.day, d]))
+  const first = new Date(Date.UTC(year, month - 1, 1))
+  const lead = (first.getUTCDay() + 6) % 7
+  const inMonthDays = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  const cells = []
+  const total = Math.ceil((lead + inMonthDays) / 7) * 7
+  for (let i = 0; i < total; i++) {
+    const d = new Date(Date.UTC(year, month - 1, 1 + i - lead))
+    const key = d.toISOString().slice(0, 10)
+    const inMonth = d.getUTCMonth() === month - 1
+    cells.push({ day: key, date: d.getUTCDate(), inMonth, entry: inMonth ? byDay.get(key) ?? null : null })
+  }
+  const weeks = []
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
+  return weeks
+}
+/** "September 2026" and its first/last day, for a month switcher. */
+export function monthBounds(year, month) {
+  const names = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ]
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  const mm = String(month).padStart(2, "0")
+  return {
+    from: `${year}-${mm}-01`,
+    to: `${year}-${mm}-${String(last).padStart(2, "0")}`,
+    label: `${names[month - 1]} ${year}`,
+  }
+}
+export const REGULARISATION_LABEL = {
+  pending: "Waiting for approval",
+  approved: "Approved",
+  rejected: "Not approved",
+  cancelled: "Cancelled",
 }

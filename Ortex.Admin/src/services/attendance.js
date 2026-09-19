@@ -163,3 +163,145 @@ export const defaultModeFor = (role) => (role === "sales" ? "field" : "office")
 export function todayIST(now = Date.now()) {
   return new Date(now + 330 * 60000).toISOString().slice(0, 10)
 }
+
+// ---- phase 2: days, corrections, holidays, the payroll lock (migration 0034) ----------------
+
+/** attendance_days between from and to (YYYY-MM-DD, inclusive), optionally one person. */
+export async function listDays({ from, to, userId } = {}) {
+  if (!hasSupabase) return { rows: [], missing: true }
+  const rows = []
+  for (let offset = 0; ; offset += PAGE) {
+    let q = supabase.from("attendance_days").select("*").order("day", { ascending: true }).range(offset, offset + PAGE - 1)
+    if (from) q = q.gte("day", from)
+    if (to) q = q.lte("day", to)
+    if (userId) q = q.eq("user_id", userId)
+    const { data, error } = await q
+    if (error) return { rows: [], ...fail(error) }
+    rows.push(...(data || []))
+    if (!data || data.length < PAGE) break
+  }
+  return { rows, missing: false }
+}
+
+/** One row per person for the month: attendance_month_summary(). `month` is YYYY-MM. */
+export async function monthSummary(month) {
+  if (!hasSupabase) return { rows: [], missing: true }
+  const { data, error } = await supabase.rpc("attendance_month_summary", { p_month: `${month}-01` })
+  if (error) return { rows: [], ...fail(error) }
+  return { rows: data || [], missing: false }
+}
+
+/** Locked months, newest first: [{ month: "YYYY-MM-01", locked_by, locked_at, note }]. */
+export async function lockedMonths() {
+  if (!hasSupabase) return { rows: [], missing: true }
+  const { data, error } = await supabase.from("attendance_months").select("*").order("month", { ascending: false })
+  if (error) return { rows: [], ...fail(error) }
+  return { rows: data || [], missing: false }
+}
+
+export async function lockMonth(month, note) {
+  const { error } = await supabase.rpc("attendance_lock_month", { p_month: `${month}-01`, p_note: note || null })
+  if (error) throw new Error(error.message)
+}
+
+export async function unlockMonth(month, reason) {
+  const { error } = await supabase.rpc("attendance_unlock_month", { p_month: `${month}-01`, p_reason: reason })
+  if (error) throw new Error(error.message)
+}
+
+/** Super Admin: set a day's status (with a reason), or clear the override with status null. */
+export async function overrideDay(userId, day, status, reason) {
+  const { error } = await supabase.rpc("attendance_override_day", {
+    p_user: userId,
+    p_day: day,
+    p_status: status || null,
+    p_reason: reason || null,
+  })
+  if (error) throw new Error(error.message)
+}
+
+/** Corrections, newest first. `status` "pending" | "decided" | undefined (all). */
+export async function listCorrections({ status, from, to } = {}) {
+  if (!hasSupabase) return { rows: [], missing: true }
+  let q = supabase.from("regularisations").select("*").order("created_at", { ascending: false }).limit(500)
+  if (status === "pending") q = q.eq("status", "pending")
+  else if (status === "decided") q = q.neq("status", "pending")
+  if (from) q = q.gte("day", from)
+  if (to) q = q.lte("day", to)
+  const { data, error } = await q
+  if (error) return { rows: [], ...fail(error) }
+  return { rows: data || [], missing: false }
+}
+
+export async function decideCorrection(id, approve, note) {
+  const { error } = await supabase.rpc("regularise_decide", { p_id: id, p_approve: approve, p_note: note || null })
+  if (error) throw new Error(error.message)
+}
+
+// ---- holidays (Super Admin) ----------------------------------------------------------------
+
+export async function listHolidays({ from, to } = {}) {
+  if (!hasSupabase) return { rows: [], missing: true }
+  let q = supabase.from("holidays").select("*").order("day", { ascending: true })
+  if (from) q = q.gte("day", from)
+  if (to) q = q.lte("day", to)
+  const { data, error } = await q
+  if (error) return { rows: [], ...fail(error) }
+  return { rows: data || [], missing: false }
+}
+
+export async function saveHoliday({ id, day, name, kind, active }) {
+  const row = { day, name: String(name || "").trim(), kind: kind || "festival", active: active !== false }
+  const q = id
+    ? supabase.from("holidays").update(row).eq("id", id).select("id")
+    : supabase.from("holidays").insert(row).select("id")
+  const { data, error } = await q
+  if (error) throw new Error(/duplicate|unique/i.test(error.message) ? "There is already a holiday on that date" : error.message)
+  if (!data?.length) throw new Error("Only the Super Admin can change holidays")
+}
+
+export async function toggleHoliday(id, active) {
+  const { data, error } = await supabase.from("holidays").update({ active }).eq("id", id).select("id")
+  if (error) throw new Error(error.message)
+  if (!data?.length) throw new Error("Only the Super Admin can change holidays")
+}
+
+export async function deleteHoliday(id) {
+  const { data, error } = await supabase.from("holidays").delete().eq("id", id).select("id")
+  if (error) throw new Error(error.message)
+  if (!data?.length) throw new Error("Only the Super Admin can remove a holiday")
+}
+
+// ---- maintenance ------------------------------------------------------------------------------
+
+/** Recompute every day from `from` to `to` for everyone (admins; at most two months). */
+export async function recalculate(from, to) {
+  const { data, error } = await supabase.rpc("attendance_recompute_range", { p_from: from, p_to: to })
+  if (error) throw new Error(error.message)
+  return data || 0
+}
+
+/** Delete selfies older than the retention setting now (Super Admin). */
+export async function purgeSelfies() {
+  const { data, error } = await supabase.functions.invoke("attendance-housekeeping", { body: { job: "purge-selfies" } })
+  if (error) {
+    let message = error.message
+    try {
+      const body = await error.context?.json?.()
+      if (body?.error) message = body.error
+    } catch {
+      /* keep the generic message */
+    }
+    if (/not found|404|Failed to send/i.test(message)) message = "The clean-up function is not deployed yet"
+    throw new Error(message)
+  }
+  return { removed: data?.removed || 0, failed: data?.failed || 0 }
+}
+
+/** "YYYY-MM" helpers shared by the month switchers. */
+export const monthOf = (day) => day.slice(0, 7)
+export function shiftMonth(ym, by) {
+  const [y, m] = ym.split("-").map(Number)
+  const d = new Date(Date.UTC(y, m - 1 + by, 1))
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`
+}

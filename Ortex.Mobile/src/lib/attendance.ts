@@ -4,7 +4,9 @@ import { Platform } from "react-native"
 
 import { APP_VERSION } from "@/constants/app"
 import { errorMessage, hasSupabase, supabase } from "@/data/supabase"
-import type { LocationCheck, Punch, PunchKind, PunchResult } from "@/domain/attendance"
+import type { AttendanceDay, LocationCheck, Punch, PunchKind, PunchResult } from "@/domain/attendance"
+import type { StaffDirectory } from "@/data/repo"
+import { loadDirectory } from "@/hooks/useRecordHistory"
 import { decodeBase64 } from "@/lib/avatarUpload"
 
 /**
@@ -176,6 +178,9 @@ export type AttendanceSettings = {
   notice?: string
   maxAccuracyM?: number
   mustBeInside?: boolean
+  lateRule?: { count?: number; deductDays?: number }
+  correctionsPerMonth?: number
+  saturday?: "full" | "half"
 }
 
 /** The Super Admin's attendance settings (readable by all staff). */
@@ -198,4 +203,188 @@ export function shiftClock(hhmm?: string): string {
   if (!hhmm || !/^\d{1,2}:\d{2}$/.test(hhmm)) return ""
   const [h, m] = hhmm.split(":").map(Number)
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`
+}
+
+// ---- phase 2: days, corrections, holidays, approvals (migration 0034) ------------------------
+
+export const NOT_SET_UP = "Attendance rules are not set up on the server yet."
+
+/**
+ * One message for every failure. A table or function that does not exist yet
+ * (0034 not applied to this project) is a set-up gap, not the person's fault,
+ * and says so instead of printing a Postgres error code.
+ */
+function fail(error: unknown, fallback: string): Error {
+  const e = error as { code?: string; message?: string } | null
+  const msg = e?.message || ""
+  if (
+    e?.code === "42P01" ||
+    e?.code === "42883" ||
+    e?.code === "PGRST202" ||
+    e?.code === "PGRST205" ||
+    /does not exist|could not find the (table|function)|schema cache/i.test(msg)
+  ) {
+    return new Error(NOT_SET_UP)
+  }
+  return new Error(errorMessage(error, fallback))
+}
+
+async function myId(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession()
+  return data.session?.user.id ?? null
+}
+
+/** What each of my days counts as, between two IST days (inclusive). */
+export async function myDays({ from, to }: { from: string; to: string }): Promise<AttendanceDay[]> {
+  const uid = await myId()
+  if (!uid) return []
+  const { data, error } = await supabase
+    .from("attendance_days")
+    .select("*")
+    .eq("user_id", uid)
+    .gte("day", from)
+    .lte("day", to)
+    .order("day", { ascending: false })
+  if (error) throw fail(error, "Could not load your attendance.")
+  return (data || []) as AttendanceDay[]
+}
+
+export type CorrectionStatus = "pending" | "approved" | "rejected" | "cancelled"
+
+export type Correction = {
+  id: string
+  user_id: string
+  day: string
+  in_at: string | null
+  out_at: string | null
+  reason: string
+  status: CorrectionStatus
+  decided_by: string | null
+  decided_at: string | null
+  decision_note: string | null
+  created_at: string
+}
+
+/** My correction requests whose day falls in a range. */
+export async function myCorrections({ from, to }: { from: string; to: string }): Promise<Correction[]> {
+  const uid = await myId()
+  if (!uid) return []
+  const { data, error } = await supabase
+    .from("regularisations")
+    .select("*")
+    .eq("user_id", uid)
+    .gte("day", from)
+    .lte("day", to)
+    .order("created_at", { ascending: false })
+  if (error) throw fail(error, "Could not load your corrections.")
+  return (data || []) as Correction[]
+}
+
+/** "I forgot to clock out at 6:30": the person's own request (regularise_request). */
+export async function requestCorrection(a: {
+  day: string
+  inAt: string | null
+  outAt: string | null
+  reason: string
+}): Promise<string> {
+  const { data, error } = await supabase.rpc("regularise_request", {
+    p_day: a.day,
+    p_in_at: a.inAt,
+    p_out_at: a.outAt,
+    p_reason: a.reason.trim(),
+  })
+  if (error) throw fail(error, "Your correction was not sent. Try again.")
+  return data as string
+}
+
+export async function cancelCorrection(id: string): Promise<void> {
+  const { error } = await supabase.rpc("regularise_cancel", { p_id: id })
+  if (error) throw fail(error, "Could not cancel the correction.")
+}
+
+export type Holiday = { id: string; day: string; name: string; kind: "national" | "festival" | "optional"; active: boolean }
+
+/** Active holidays between two days, soonest first. */
+export async function holidays({ from, to }: { from: string; to: string }): Promise<Holiday[]> {
+  const { data, error } = await supabase
+    .from("holidays")
+    .select("*")
+    .eq("active", true)
+    .gte("day", from)
+    .lte("day", to)
+    .order("day", { ascending: true })
+  if (error) throw fail(error, "Could not load the holidays.")
+  return (data || []) as Holiday[]
+}
+
+/** Is the month of this day locked for payroll? A missing table reads as "not locked". */
+export async function monthLocked(day: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("attendance_months")
+    .select("month")
+    .eq("month", `${day.slice(0, 7)}-01`)
+    .maybeSingle()
+  if (error) return false
+  return Boolean(data)
+}
+
+// ---- admins -----------------------------------------------------------------------------------
+
+export type PendingCorrection = Correction & { person: string; avatarUrl: string }
+
+const nameOf = (dir: StaffDirectory, id: string) => dir[id]?.name || "A colleague"
+
+/** Every correction waiting for an admin, oldest first, with the requester's name. */
+export async function pendingCorrections(): Promise<PendingCorrection[]> {
+  const [{ data, error }, dir] = await Promise.all([
+    supabase.from("regularisations").select("*").eq("status", "pending").order("created_at", { ascending: true }),
+    loadDirectory(),
+  ])
+  if (error) throw fail(error, "Could not load the corrections.")
+  return ((data || []) as Correction[]).map((c) => ({
+    ...c,
+    person: nameOf(dir, c.user_id),
+    avatarUrl: dir[c.user_id]?.avatarUrl || "",
+  }))
+}
+
+export async function decideCorrection(id: string, approve: boolean, note?: string): Promise<void> {
+  const { error } = await supabase.rpc("regularise_decide", {
+    p_id: id,
+    p_approve: approve,
+    p_note: note?.trim() || null,
+  })
+  if (error) throw fail(error, "The decision was not saved. Try again.")
+}
+
+export type FlaggedPunch = Punch & { person: string; avatarUrl: string }
+
+/** Punches waiting for review from the last 30 days, newest first. */
+export async function flaggedPunches(): Promise<FlaggedPunch[]> {
+  const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+  const [{ data, error }, dir] = await Promise.all([
+    supabase
+      .from("attendance_punches")
+      .select("*")
+      .eq("review", "flagged")
+      .gte("day", since)
+      .order("at", { ascending: false })
+      .limit(200),
+    loadDirectory(),
+  ])
+  if (error) throw fail(error, "Could not load the punches to review.")
+  return ((data || []) as Punch[]).map((p) => ({
+    ...p,
+    person: nameOf(dir, p.user_id),
+    avatarUrl: dir[p.user_id]?.avatarUrl || "",
+  }))
+}
+
+export async function reviewPunch(id: string, decision: "accepted" | "rejected", note?: string): Promise<void> {
+  const { error } = await supabase.rpc("attendance_review", {
+    p_id: id,
+    p_decision: decision,
+    p_note: note?.trim() || null,
+  })
+  if (error) throw fail(error, "The review was not saved. Try again.")
 }
