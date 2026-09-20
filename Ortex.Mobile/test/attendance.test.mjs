@@ -64,20 +64,33 @@ for (const [side, a] of both) {
 
   test(`${side}: result sentences state what happened in words`, () => {
     assert.equal(
-      a.resultSentence({ status: "ok", kind: "in", at: ist(9, 42), mode: "office", site: "Factory", distanceM: 40 }),
-      "Clocked in at 9:42 AM · Factory · 40 m",
+      a.resultSentence({ status: "ok", kind: "in", at: ist(9, 42), mode: "office", site: "Factory" }),
+      "Clocked in at 9:42 AM · Factory",
     )
     assert.equal(
       a.resultSentence({ status: "flagged", kind: "out", at: ist(18, 5), mode: "field", flags: ["offline"] }),
       "Clocked out at 6:05 PM · Field visit. Sent for review: saved offline",
     )
-    assert.equal(a.resultSentence({ status: "outside", message: "You are 190 m from Factory." }), "You are 190 m from Factory.")
+    assert.equal(
+      a.resultSentence({ status: "expired_code", message: "That code has expired." }),
+      "That code has expired.",
+    )
   })
 
-  test(`${side}: selfie path is the owner's folder, year and month in IST`, () => {
-    assert.equal(a.selfiePath("uid", "pid", new Date(ist(0, 30, 1))), "uid/2026/09/pid.jpg")
-    assert.equal(a.metresOutside({ distanceM: 340, radiusM: 150 }), 190)
-    assert.equal(a.metresOutside({ distanceM: 90, radiusM: 150 }), 0)
+  test(`${side}: only an Ortex code is worth sending to the server`, () => {
+    assert.equal(a.isAttendanceCode("ORTEX-ATT1:abc123"), true)
+    // The prefix alone is not a code.
+    assert.equal(a.isAttendanceCode("ORTEX-ATT1:"), false)
+    assert.equal(a.isAttendanceCode("https://example.com"), false)
+    assert.equal(a.isAttendanceCode(null), false)
+  })
+
+  test(`${side}: a dead code offers another scan, a closed day does not`, () => {
+    assert.equal(a.canRescan("expired_code"), true)
+    assert.equal(a.canRescan("used_code"), true)
+    assert.equal(a.canRescan("wrong_code"), true)
+    assert.equal(a.canRescan("already_in"), false)
+    assert.equal(a.canRescan("day_done"), false)
   })
 }
 

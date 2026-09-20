@@ -198,23 +198,30 @@ android {
     }
 }
 
-// APK size (2026-09-19): the attendance face check used ML Kit's BUNDLED face
-// model (com.google.mlkit:face-detection, ~14 MB of native code across two ABIs),
-// which pushed the APK to 75 MB, past Supabase's 50 MB upload cap for in-app
-// updates. The UNBUNDLED artifact exposes the same API and lets Google Play
-// services supply the model; AndroidManifest.xml asks for it at install time.
-// The face check is soft (src/lib/faceCheck.ts): if the model is not there yet,
-// a clock-in still goes through and records that the check did not run.
+// APK size. The rule learned on 2026-09-19 and still the rule: an ML Kit model
+// that ships INSIDE the APK costs ~9 to 14 MB of native code across two ABIs,
+// and the bundled face model alone once took this APK to 75 MB. The unbundled
+// artifact exposes the same API and lets Google Play services supply the model,
+// which AndroidManifest.xml requests at install time via
+// com.google.mlkit.vision.DEPENDENCIES.
+//
+// 2026-09-20: attendance stopped taking a selfie and started scanning the QR
+// code on the office screen (migration 0043), so the two swap over. Face
+// detection is gone entirely, and barcode scanning, which used to be excluded
+// because "nothing here scans a barcode", is now the thing that does, pulled in
+// UNBUNDLED rather than simply un-excluded.
+//
+// Check `unzip -l` on a release APK after touching any of this.
 configurations.all {
     // expo-camera is consumed PREBUILT, so its own "barcode-scanner-enabled"
-    // switch (gradle.properties) is never read and its published dependencies
-    // still pull Google's bundled barcode model (libbarhopper + tflite, ~9 MB).
-    // Nothing here scans a barcode: the camera is the attendance selfie.
-    exclude group: "com.google.mlkit", module: "barcode-scanning"
+    // switch (gradle.properties) is never read: it publishes Google's BUNDLED
+    // barcode model (libbarhopper + tflite, ~9 MB) whatever that flag says.
+    // Substituting rather than excluding is what keeps the scanner working
+    // while leaving the model on Play services.
     exclude group: "com.google.android.gms", module: "play-services-code-scanner"
     exclude group: "androidx.camera", module: "camera-mlkit-vision"
     resolutionStrategy.dependencySubstitution {
-        substitute module("com.google.mlkit:face-detection") using module("com.google.android.gms:play-services-mlkit-face-detection:17.1.0")
+        substitute module("com.google.mlkit:barcode-scanning") using module("com.google.android.gms:play-services-mlkit-barcode-scanning:18.3.1")
     }
 }
 

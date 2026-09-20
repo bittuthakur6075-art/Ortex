@@ -3,7 +3,7 @@ import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
 import { clockIST, dayKey, effectiveStatus, type DayStatus } from "@/domain/attendance"
-import { ActionAdvisory, InfoChip, QueueAdvisory, DayDone } from "@/features/attendance/attendanceUi"
+import { ActionAdvisory, InfoChip, DayDone } from "@/features/attendance/attendanceUi"
 import { DialHeroSkeleton, WeekSkeleton } from "@/features/attendance/AttendanceSkeletons"
 import CheckButton from "@/features/attendance/CheckButton"
 import { daysFromPunches, weekCells } from "@/features/attendance/days"
@@ -46,7 +46,7 @@ type WeekRow = { day: string; worked_min: number; status: DayStatus | null }
 export default function AttendanceScreen({ navigation }: StackScreenProps<"Attendance">) {
   const t = useTheme()
   const startClock = useStartClock()
-  const { settings, punches, summary, onDutySince, loading, error, reload, now, queue } = useAttendanceToday()
+  const { settings, punches, summary, onDutySince, loading, error, reload, now } = useAttendanceToday()
   const notices = useAttendanceNotices()
   const [monthKey, setMonthKey] = React.useState(0)
   const [refreshing, setRefreshing] = React.useState(false)
@@ -145,7 +145,6 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
       }}
     >
       <DataNotice error={error} onRetry={() => void reload()} />
-      <QueueAdvisory queue={queue} />
       {notices.missedYesterday && (
         <ActionAdvisory
           tone="warning"
@@ -210,7 +209,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
               {summary.firstIn ? <DayTimelineBar timeline={timeline} /> : null}
 
               <Text style={[textVariants.caption, styles.center, { color: t.textTertiary }]}>
-                Check-in takes a selfie and your location at that moment.
+                Check-in reads the code on the office screen.
               </Text>
             </View>
           </Panel>
@@ -264,7 +263,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
 
           <Panel padded>
             <Text style={[textVariants.small, { color: t.textTertiary }]}>
-              {`Shift ${shift || "not set"}${settings.graceMin ? `, ${settings.graceMin} min grace` : ""}. Attendance is marked only in this app, with a selfie and your location at that moment. Your location is never tracked at other times.`}
+              {`Shift ${shift || "not set"}${settings.graceMin ? `, ${settings.graceMin} min grace` : ""}. Attendance is marked only in this app, by scanning the code on the office screen. No selfie is taken and your location is not read.`}
             </Text>
           </Panel>
         </>

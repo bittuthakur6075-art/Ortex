@@ -51,12 +51,10 @@
 		<string>mailto</string>
 		<string>whatsapp</string>
 	</array>
-	<!-- Attendance: the clock-in selfie and one location reading at clock-in.
-	     Never background location, by design. -->
+	<!-- Attendance: the camera reads the QR code on the office screen. No
+	     photo is taken, and there is no location key at all, by design. -->
 	<key>NSCameraUsageDescription</key>
-	<string>Take a selfie when you clock in or out, so your attendance is marked by you.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Check you are at the office when you clock in or out. Your location is read only at that moment, never tracked.</string>
+	<string>Scan the code on the office screen when you clock in or out.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

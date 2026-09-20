@@ -19,7 +19,7 @@ export default function AttendanceHistoryScreen({ navigation }: StackScreenProps
   return (
     <AppScreen
       title="My attendance"
-      subtitle="Your days, hours and selfies"
+      subtitle="Your days and hours"
       back
       onBack={() => navigation.goBack()}
       inTabs={false}

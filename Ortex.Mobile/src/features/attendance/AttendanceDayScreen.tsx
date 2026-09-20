@@ -58,7 +58,7 @@ function sessionsOf(ordered: Punch[]): Session[] {
  * server's status, or the Super Admin's override and why), the hours worked
  * against the shift, the day as a timeline bar across the shift, check-in and
  * check-out, then the punches as in/out
- * sessions, each punch with its selfie, where it was and what the face check
+ * sessions, each punch with the station it was scanned at (and, for a punch made
  * said. The corrections asked for it, and "Request correction", on the day it
  * is about, until the month is locked for payroll.
  */

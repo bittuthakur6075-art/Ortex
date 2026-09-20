@@ -40,6 +40,7 @@ export type ModuleKey =
   | "attendance"
   | "attendance-team"
   | "attendance-register"
+  | "attendance-qr"
   | "payroll"
   | "payslips"
   | "voice-leads"
@@ -76,6 +77,9 @@ export const MODULES: ModuleDef[] = [
   { key: "attendance", label: "Attendance", always: true },
   { key: "attendance-team", label: "Attendance · Everyone's records" },
   { key: "attendance-register", label: "Attendance · Register & payroll" },
+  // Shown on the console only (the QR display is a web screen), but the key
+  // lives here too because this file mirrors the console registry.
+  { key: "attendance-qr", label: "Attendance · Show the QR code" },
   { key: "payroll", label: "Payroll", payrollOnly: true },
   { key: "payslips", label: "My payslips", always: true },
   { key: "voice-leads", label: "Voice calls" },

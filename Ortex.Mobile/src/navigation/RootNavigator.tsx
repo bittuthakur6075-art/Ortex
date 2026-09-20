@@ -38,7 +38,6 @@ import AnuScreen from "@/features/anu/AnuScreen"
 import AttendanceApprovalsScreen from "@/features/attendance/AttendanceApprovalsScreen"
 import {
   AttendanceApprovalAlerts,
-  AttendanceQueueSync,
   AttendanceReminderPlanner,
 } from "@/features/attendance/AttendanceBackground"
 import AttendanceClockScreen from "@/features/attendance/AttendanceClockScreen"
@@ -129,7 +128,6 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
       <NotificationEngine />
       {/* Attendance's background work: offline clock-ins, reminders, approval
           alerts. Also render nothing, and live only while someone is signed in. */}
-      <AttendanceQueueSync />
       <AttendanceReminderPlanner />
       <AttendanceApprovalAlerts />
       <PayslipAlerts />

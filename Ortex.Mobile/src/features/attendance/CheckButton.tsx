@@ -10,7 +10,7 @@ import { AnimatedPressable, usePressMotion } from "@/ui/motion"
 /**
  * Zoho People's one control on the attendance screen: a wide pill that says
  * what it will do, green "Check-in" or red "Check-out". It only starts the
- * existing camera flow (selfie, location, server punch); nothing is marked on
+ * existing camera flow (scan the office code, server punch); nothing is marked on
  * the tap itself, so a stray tap costs a screen, not a punch.
  */
 export default function CheckButton({
@@ -37,7 +37,7 @@ export default function CheckButton({
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
       accessibilityRole="button"
-      accessibilityLabel={`${label}. Takes a selfie and your location.`}
+      accessibilityLabel={`${label}. Opens the scanner for the office code.`}
       accessibilityState={{ disabled }}
       style={[styles.button, { backgroundColor: fill }, press.style]}
     >

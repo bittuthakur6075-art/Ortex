@@ -4,7 +4,7 @@ import { Linking, ScrollView, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { markNoticeSeen } from "@/features/attendance/useAttendance"
-import { loadSettings, requestLocationPermission } from "@/lib/attendance"
+import { loadSettings } from "@/lib/attendance"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
@@ -15,13 +15,17 @@ import Button from "@/ui/Button"
 import Icon, { type IconName } from "@/ui/Icon"
 
 const FALLBACK_NOTICE =
-  "When you clock in or out, Ortex records a selfie, your location at that moment, and the time from our server. We use it only to keep attendance for pay. Your location is never tracked at other times."
+  "You mark attendance by scanning the code on the office screen. Ortex records the time from our server, which code you scanned and which station it was shown at. No selfie is taken, and your location is not read or stored."
 
 /**
  * Before the first clock-in on this handset: what is recorded and why (the DPDP
- * notice, plan §2.5, written by the Super Admin in settings), then the two
- * permissions, each explained before Android asks (World App reference). Shown
+ * notice, plan §2.5, written by the Super Admin in settings), then the ONE
+ * permission left, explained before Android asks (World App reference). Shown
  * once per person per phone.
+ *
+ * Since migration 0043 there is no selfie and no location, so there is no
+ * location permission to ask for. The camera is asked for because it reads the
+ * QR code, not because it photographs anyone.
  */
 export default function AttendanceNoticeScreen({ navigation, route }: StackScreenProps<"AttendanceNotice">) {
   const t = useTheme()
@@ -41,12 +45,7 @@ export default function AttendanceNoticeScreen({ navigation, route }: StackScree
     try {
       const cam = await Camera.requestCameraPermissionsAsync()
       if (!cam.granted) {
-        setBlocked(cam.canAskAgain ? "Ortex needs the camera for your clock-in selfie." : "camera")
-        return
-      }
-      const loc = await requestLocationPermission()
-      if (!loc.granted) {
-        setBlocked(loc.canAskAgain ? "Ortex needs your location to check you are at the office." : "location")
+        setBlocked(cam.canAskAgain ? "Ortex needs the camera to read the code on the office screen." : "camera")
         return
       }
       await markNoticeSeen(session?.user?.id)
@@ -57,7 +56,7 @@ export default function AttendanceNoticeScreen({ navigation, route }: StackScree
     }
   }
 
-  const permanentlyBlocked = blocked === "camera" || blocked === "location"
+  const permanentlyBlocked = blocked === "camera"
 
   return (
     <View style={[styles.root, { backgroundColor: t.background, paddingTop: insets.top }]}>
@@ -69,15 +68,14 @@ export default function AttendanceNoticeScreen({ navigation, route }: StackScree
         <Text style={[textVariants.body, { color: t.textSecondary }]}>{notice || FALLBACK_NOTICE}</Text>
 
         <View style={styles.rows}>
-          <Explain icon="camera" title="Camera" body="For your clock-in selfie, so attendance is marked by you." />
-          <Explain icon="address" title="Location" body="Checked only at the moment you clock in or out. Never tracked." />
+          <Explain icon="camera" title="Camera" body="To read the code on the office screen. No photo is taken or stored." />
         </View>
 
         {!!blocked && (
           <View style={[styles.warn, { backgroundColor: t.warningBg }]}>
             <Text style={[textVariants.small, { color: t.warningText }]}>
               {permanentlyBlocked
-                ? `${blocked === "camera" ? "Camera" : "Location"} is turned off for Ortex. Turn it on in Settings to clock in.`
+                ? "Camera is turned off for Ortex. Turn it on in Settings to clock in."
                 : blocked}
             </Text>
           </View>

@@ -36,10 +36,10 @@ import { listProfiles } from "../../services/users"
 import { Holidays, Maintenance } from "./SettingsExtra"
 import LeavePolicy from "./LeavePolicy"
 
-// Attendance → Settings, the Super Admin's: office locations, the rules, and
-// how each person clocks in. Every input the module needs lives here, shipped
-// with defaults (migration 0033), and the database refuses these writes from
-// anyone but the Super Admin.
+// Attendance → Settings, the Super Admin's: stations, the rules, and how each
+// person clocks in. Every input the module needs lives here, shipped with
+// defaults (migrations 0033 and 0043), and the database refuses these writes
+// from anyone but the Super Admin.
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
@@ -76,7 +76,7 @@ export default function AttendanceSettings() {
   )
 }
 
-// ---- office locations -----------------------------------------------------------------
+// ---- stations (the screens that show the code) -----------------------------------------
 
 function Sites() {
   const [state, setState] = useState({ loading: true })
@@ -104,8 +104,8 @@ function Sites() {
   return (
     <Card className="overflow-hidden">
       <CardHeader
-        title="Office locations"
-        description="Where office staff can clock in. Field staff clock in anywhere."
+        title="Stations"
+        description="Each station is a screen that shows the attendance code, and the name a scan is recorded against. Since codes replaced the geofence, the coordinates and radius below are kept but no longer checked."
         action={<Button size="sm" onClick={() => setEditing("new")}><Plus className="h-4 w-4" /> Add location</Button>}
       />
       {state.error && <Banner tone="danger" className="mx-5 mb-4">{state.error}</Banner>}
@@ -118,8 +118,8 @@ function Sites() {
       {state.rows.length === 0 ? (
         <EmptyState
           icon={MapPin}
-          title="No office location yet"
-          description="Office staff cannot clock in until one is added. Add the factory first."
+          title="No station yet"
+          description="There is nowhere to show a code, so office staff cannot clock in. Add the factory first."
         />
       ) : (
         <div className="overflow-x-auto">
@@ -458,26 +458,36 @@ function Rules() {
         <Field label="Corrections allowed a month">
           <Input id="rule-corrections" type="number" min={0} max={31} value={num("correctionsPerMonth", 3)} onChange={(e) => set("correctionsPerMonth", Number(e.target.value))} />
         </Field>
-        <Field label="Weakest location accepted (metres)" hint="A reading less accurate than this asks the person to try again near a window.">
-          <Input id="rule-accuracy" type="number" min={10} max={500} value={num("maxAccuracyM", 100)} onChange={(e) => set("maxAccuracyM", Number(e.target.value))} />
+        <Field
+          label="Code changes every (seconds)"
+          hint="Shorter is safer: a photo of the screen is dead this fast. 30 s suits most gates; below about 20 s people start missing the scan."
+        >
+          <Input
+            id="rule-rotate"
+            type="number"
+            min={10}
+            max={300}
+            value={num("qrRotateSec", 30)}
+            onChange={(e) => set("qrRotateSec", Number(e.target.value))}
+          />
         </Field>
-        <Field label="Phone clock allowed off by (minutes)" hint="More than this flags the punch for review. The server's time is always the one recorded.">
-          <Input id="rule-skew" type="number" min={1} max={60} value={num("clockSkewMin", 5)} onChange={(e) => set("clockSkewMin", Number(e.target.value))} />
-        </Field>
-        <Field label="Keep selfies for (days)" hint="Older selfies are deleted automatically. Attendance records themselves are kept.">
+        <Field label="Keep selfies for (days)" hint="Selfies are no longer taken. This still purges the ones recorded before 20 September 2026.">
           <Input id="rule-retention" type="number" min={7} max={730} value={num("selfieRetentionDays", 90)} onChange={(e) => set("selfieRetentionDays", Number(e.target.value))} />
         </Field>
         <label className="flex items-start gap-2.5 self-center text-sm text-foreground">
           <input
-            id="rule-inside"
+            id="rule-require-code"
             type="checkbox"
             className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
-            checked={doc.mustBeInside !== false}
-            onChange={(e) => set("mustBeInside", e.target.checked)}
+            checked={doc.requireCode !== false}
+            onChange={(e) => set("requireCode", e.target.checked)}
           />
           <span>
-            <span className="font-medium">Office staff must be inside an office location to clock in</span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">Off: they can clock in from anywhere, and it is flagged for review.</span>
+            <span className="font-medium">Office staff must scan a code to clock in</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              Off: they can mark attendance without one, and it is flagged for review. Field staff (Sales) can always
+              mark without a code, because they are not at a screen.
+            </span>
           </span>
         </label>
         <Field label="Notice shown before the first clock-in" hint="What is recorded, why, for how long, and who sees it." className="md:col-span-2">
@@ -506,7 +516,7 @@ function People() {
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader title="People" description="How each person clocks in. Field staff have no fence; their location is still recorded." />
+      <CardHeader title="People" description="How each person clocks in. Office staff scan a station code; field staff (Sales) mark without one, and it is flagged for review." />
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-sm">
           <thead className="mt-head">

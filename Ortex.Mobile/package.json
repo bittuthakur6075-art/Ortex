@@ -39,7 +39,6 @@
     "expo-intent-launcher": "~56.0.0",
     "expo-linear-gradient": "~56.0.4",
     "expo-local-authentication": "~56.0.5",
-    "expo-location": "~56.0.26",
     "expo-network": "~56.0.5",
     "expo-notifications": "~56.0.25",
     "expo-print": "~56.0.4",

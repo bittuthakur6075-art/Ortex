@@ -1,4 +1,3 @@
-import * as Network from "expo-network"
 import * as Notifications from "expo-notifications"
 import React from "react"
 import { AppState, Platform } from "react-native"
@@ -7,7 +6,6 @@ import { supabase } from "@/data/supabase"
 import { isAdmin } from "@/domain/modules"
 import { loadDirectory } from "@/hooks/useRecordHistory"
 import { holidays, loadSettings } from "@/lib/attendance"
-import { resetQueueState, syncQueue } from "@/lib/attendanceQueue"
 import { cancelAttendanceReminders, planAttendanceReminders } from "@/lib/attendanceReminders"
 import { myRequests } from "@/lib/leave"
 import { useNotificationStore } from "@/lib/notificationStore"
@@ -21,57 +19,10 @@ import { istDay } from "./reminderPlan"
  * RootNavigator next to <NotificationEngine />, so a signed-out phone runs none
  * of it and signing out tears it down.
  *
- *   <AttendanceQueueSync />       sends clock-ins saved with no signal
  *   <AttendanceReminderPlanner /> keeps the clock in / clock out reminders planned
  *   <AttendanceApprovalAlerts />  leave and correction requests and decisions,
  *                                 while the app is open
  */
-
-// ---- offline queue ----------------------------------------------------------------------------
-
-const POLL_MS = 30000
-
-export function AttendanceQueueSync() {
-  const { session } = useAuth()
-  const uid = session?.user?.id
-
-  React.useEffect(() => {
-    if (!uid) return
-    let alive = true
-    const run = () => {
-      if (alive) void syncQueue(uid).catch(() => {})
-    }
-    run()
-
-    const app = AppState.addEventListener("change", (s) => {
-      if (s === "active") run()
-    })
-
-    // Back online: send at once. The listener exists in this SDK; the poll is a
-    // backstop for a device that never fires it.
-    let netSub: { remove: () => void } | null = null
-    try {
-      netSub = Network.addNetworkStateListener((e) => {
-        if (e.isConnected && e.isInternetReachable !== false) run()
-      })
-    } catch {
-      netSub = null
-    }
-    const poll = setInterval(() => {
-      if (AppState.currentState === "active") run()
-    }, POLL_MS)
-
-    return () => {
-      alive = false
-      app.remove()
-      netSub?.remove()
-      clearInterval(poll)
-      resetQueueState()
-    }
-  }, [uid])
-
-  return null
-}
 
 // ---- reminders --------------------------------------------------------------------------------
 

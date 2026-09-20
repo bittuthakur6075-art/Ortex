@@ -1,87 +1,25 @@
-import * as ImageManipulator from "expo-image-manipulator"
-import * as Location from "expo-location"
 import { Platform } from "react-native"
 
 import { APP_VERSION } from "@/constants/app"
 import { errorMessage, hasSupabase, supabase } from "@/data/supabase"
-import type { AttendanceDay, LocationCheck, Punch, PunchKind, PunchResult } from "@/domain/attendance"
+import type { AttendanceDay, Punch, PunchKind, PunchResult } from "@/domain/attendance"
 import type { StaffDirectory } from "@/data/repo"
 import { loadDirectory } from "@/hooks/useRecordHistory"
-import { decodeBase64 } from "@/lib/avatarUpload"
 
 /**
- * Attendance, the data half: the one location reading, the selfie upload, and
- * the two server functions of migration 0033. The phone reports; the server
- * decides (distance, time, whether it counts). Nothing here computes a fence.
+ * Attendance, the data half: the scanned code and the server functions of
+ * migration 0043. The phone reports what it scanned; the server decides
+ * whether that code is live, whose it is and whether the punch counts.
+ *
+ * Nothing here reads a location, and nothing here uploads a photo. Since
+ * 2026-09-20 attendance is proved by the rotating code on the office screen,
+ * which means this file cannot leak a coordinate or a face even by mistake:
+ * there is no code left that asks for either. `selfieUrl` survives only so the
+ * history screens can still show the photos taken before that date.
  */
 
 const BUCKET = "attendance-selfies"
 const TTL_SECONDS = 3600
-const READING_TIMEOUT_MS = 15000
-
-export type Reading = { lat: number; lng: number; accuracy: number; mocked: boolean }
-
-export type ReadingError = "permission" | "services_off" | "timeout" | "failed"
-
-export class LocationError extends Error {
-  constructor(public reason: ReadingError, message: string) {
-    super(message)
-  }
-}
-
-/** Ask for (foreground) location permission. True when granted. */
-export async function requestLocationPermission(): Promise<{ granted: boolean; canAskAgain: boolean }> {
-  const res = await Location.requestForegroundPermissionsAsync()
-  return { granted: res.granted, canAskAgain: res.canAskAgain }
-}
-
-/**
- * ONE reading, at the moment of clocking in. Never a watch, never background:
- * attendance must not become tracking (plan §2.2, DPDP).
- */
-export async function getReading(): Promise<Reading> {
-  const perm = await Location.requestForegroundPermissionsAsync()
-  if (!perm.granted) {
-    throw new LocationError("permission", "Location is off for Ortex. Allow it to clock in.")
-  }
-  if (!(await Location.hasServicesEnabledAsync().catch(() => true))) {
-    throw new LocationError("services_off", "Your phone's location is switched off. Turn it on to clock in.")
-  }
-  const read = Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.High,
-    mayShowUserSettingsDialog: true,
-  })
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(
-      () => reject(new LocationError("timeout", "Finding your location is taking too long. Move near a window and try again.")),
-      READING_TIMEOUT_MS,
-    ),
-  )
-  try {
-    const pos = await Promise.race([read, timeout])
-    return {
-      lat: pos.coords.latitude,
-      lng: pos.coords.longitude,
-      // Android always reports one; treat a missing value as poor, not perfect.
-      accuracy: pos.coords.accuracy ?? 999,
-      mocked: Boolean(pos.mocked),
-    }
-  } catch (e) {
-    if (e instanceof LocationError) throw e
-    throw new LocationError("failed", "Your location could not be read. Try again.")
-  }
-}
-
-/** "How far am I?" before any punch (attendance_check). */
-export async function check(r: Reading): Promise<LocationCheck> {
-  const { data, error } = await supabase.rpc("attendance_check", {
-    p_lat: r.lat,
-    p_lng: r.lng,
-    p_accuracy: r.accuracy,
-  })
-  if (error) throw new Error(errorMessage(error, "Could not check your location with the office."))
-  return data as LocationCheck
-}
 
 /** A v4 uuid for a punch: made once per attempt so a retry never punches twice. */
 export function newPunchId(): string {
@@ -99,19 +37,14 @@ export function newPunchId(): string {
 }
 
 /**
- * Resize to 640 px on the long edge, JPEG 0.6 (≈60 KB), and upload into the
- * caller's own folder. Bytes travel as base64 for the reason productImages.ts
- * gives: an RN Blob uploads a 0-byte object without an error.
- */
-export async function uploadSelfie(localUri: string, width: number, height: number, path: string): Promise<void> {
-  const prepared = await prepareSelfie(localUri, width, height)
-  await uploadSelfieBase64(prepared.base64, path)
-}
-
-/**
  * The phone could not reach the server at all (no signal, airplane mode, a
- * dropped request), as opposed to the server answering "no". Only this kind of
- * failure is worth queueing a punch for (lib/attendanceQueue.ts).
+ * dropped request), as opposed to the server answering "no".
+ *
+ * There is no offline queue any more, and there cannot be one: a code is good
+ * for thirty seconds and dies at its first scan, so a punch replayed an hour
+ * later would be refused for a reason the person could do nothing about. A
+ * scan with no signal fails at the gate, where it can be retried, rather than
+ * appearing to succeed and being thrown away later.
  */
 export class NetworkError extends Error {}
 
@@ -123,51 +56,16 @@ export function isNetworkFailure(e: unknown): boolean {
   return NETWORK_RE.test(msg)
 }
 
-/** 640 px on the long edge, JPEG 0.6: a local file plus its bytes as base64. */
-export async function prepareSelfie(
-  localUri: string,
-  width: number,
-  height: number,
-): Promise<{ uri: string; base64: string }> {
-  const resize = width >= height ? { width: Math.min(640, width || 640) } : { height: Math.min(640, height || 640) }
-  const out = await ImageManipulator.manipulateAsync(localUri, [{ resize }], {
-    compress: 0.6,
-    format: ImageManipulator.SaveFormat.JPEG,
-    base64: true,
-  })
-  if (!out.base64) throw new Error("The selfie could not be prepared. Take it again.")
-  return { uri: out.uri, base64: out.base64 }
-}
-
-/** Upload prepared selfie bytes into the caller's own folder. */
-export async function uploadSelfieBase64(base64: string, path: string): Promise<void> {
-  if (!hasSupabase) throw new Error("Not connected")
-  const bytes = decodeBase64(base64)
-  const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
-  const { error } = await supabase.storage.from(BUCKET).upload(path, body, {
-    contentType: "image/jpeg",
-    upsert: false,
-  })
-  // A retry of an attempt whose upload landed before the punch failed.
-  if (error && !/already exists|duplicate/i.test(error.message || "")) {
-    if (isNetworkFailure(error)) throw new NetworkError("No connection.")
-    if (/bucket not found/i.test(error.message || "")) {
-      throw new Error("Attendance is not set up on this environment yet. Tell the office.")
-    }
-    throw new Error(errorMessage(error, "The selfie did not upload. Try again."))
-  }
-}
-
 export type PunchArgs = {
   id: string
   kind: PunchKind
-  reading: Reading
-  selfiePath: string
+  /**
+   * What the camera read, verbatim. Null for a field punch, which has no
+   * screen to scan and is recorded flagged for an admin.
+   */
+  payload: string | null
   note?: string
-  /** When the person actually punched; an offline replay sends the original. */
-  clientAt?: string
-  offline?: boolean
-  /** Extra device facts for the admin, e.g. { faceCheck: "unavailable" }. */
+  /** Extra device facts for the admin. */
   device?: Record<string, unknown>
 }
 
@@ -176,8 +74,8 @@ export const baseDevice = () => ({ platform: Platform.OS, appVersion: APP_VERSIO
 
 /**
  * Clock in or out (attendance_punch). The answer is the server's, verbatim.
- * Throws NetworkError when the server could not be reached, so the caller can
- * queue the punch instead of losing it.
+ * The punch id is made once per attempt, so a Retry after a dropped connection
+ * returns the first answer again instead of burning a second code.
  */
 export async function punch(a: PunchArgs): Promise<PunchResult> {
   let res
@@ -185,14 +83,8 @@ export async function punch(a: PunchArgs): Promise<PunchResult> {
     res = await supabase.rpc("attendance_punch", {
       p_id: a.id,
       p_kind: a.kind,
-      p_lat: a.reading.lat,
-      p_lng: a.reading.lng,
-      p_accuracy: a.reading.accuracy,
-      p_mocked: a.reading.mocked,
-      p_client_at: a.clientAt || new Date().toISOString(),
-      p_selfie_path: a.selfiePath,
+      p_payload: a.payload,
       p_note: a.note?.trim() || null,
-      p_offline: Boolean(a.offline),
       p_device: { ...baseDevice(), ...(a.device || {}) },
     })
   } catch (e) {
@@ -229,8 +121,10 @@ export type AttendanceSettings = {
   shift?: { start?: string; end?: string }
   graceMin?: number
   notice?: string
-  maxAccuracyM?: number
-  mustBeInside?: boolean
+  /** Seconds a code on the office screen is good for (0043). */
+  qrRotateSec?: number
+  /** Whether an office punch must carry a scanned code. */
+  requireCode?: boolean
   lateRule?: { count?: number; deductDays?: number }
   correctionsPerMonth?: number
   saturday?: "full" | "half"

@@ -1,8 +1,8 @@
 // Attendance, the pure half (docs/pm/ATTENDANCE_LEAVE_PLAN.md). MIRRORED
 // line for line from Ortex.Mobile/src/domain/attendance.ts (generated with tsc): edit both.
 //
-// The server (migration 0033, attendance_punch) is the authority on distance,
-// time and whether a punch counts. These functions only turn its rows and its
+// The server (migration 0043, attendance_punch) is the authority on the code,
+// the time and whether a punch counts. These functions only turn its rows and its
 // answers into what a person reads: a day's first in and last out, the hours in
 // between, the flags in words, and a sentence for every refusal. Everything
 // takes `now` so a test is not a race with the clock.
@@ -90,6 +90,7 @@ export const FLAG_LABEL = {
   outside: "Outside the office area",
   low_accuracy: "Weak location",
   mock_location: "Fake location detected",
+  no_code: "Marked without scanning a code",
   regularised: "Corrected on request",
   short_hours: "Too few hours",
   worked_off_day: "Worked on a day off",
@@ -108,29 +109,29 @@ export function resultSentence(r) {
   if (r.status === "ok" || r.status === "flagged") {
     const verb = r.kind === "out" ? "Clocked out" : "Clocked in"
     const at = r.at ? ` at ${clockIST(r.at)}` : ""
-    const where =
-      r.mode === "field"
-        ? " · Field visit"
-        : r.site
-        ? ` · ${r.site}${r.distanceM != null ? ` · ${Math.round(r.distanceM)} m` : ""}`
-        : ""
+    const where = r.mode === "field" ? " · Field visit" : r.site ? ` · ${r.site}` : ""
     const flagged = r.status === "flagged" ? `. Sent for review: ${flagWords(r.flags).join(", ").toLowerCase()}` : ""
     return `${verb}${at}${where}${flagged}`
   }
   return r.message || "That did not go through. Try again."
 }
-/** How far outside the fence a check reading is, for the "you are outside" state. */
-export function metresOutside(c) {
-  if (c.distanceM == null || c.radiusM == null) return 0
-  return Math.max(0, Math.round(c.distanceM - c.radiusM))
-}
-/** Where a selfie goes in the private bucket: <uid>/<yyyy>/<mm>/<punch-id>.jpg */
-export function selfiePath(userId, punchId, at = Date.now()) {
-  const d = new Date(new Date(at).getTime() + IST_OFFSET_MIN * MINUTE)
-  const yyyy = d.getUTCFullYear()
-  const mm = String(d.getUTCMonth() + 1).padStart(2, "0")
-  return `${userId}/${yyyy}/${mm}/${punchId}.jpg`
-}
+/**
+ * The prefix every Ortex attendance code carries (attendance_qr_payload,
+ * migration 0043). The scanner checks it on the phone so a stray QR code on a
+ * parcel or a poster is ignored without a round trip to the server, which is
+ * also what keeps the camera from firing a request per frame.
+ */
+export const QR_PREFIX = "ORTEX-ATT1:"
+/** Is this scanned string one of ours? */
+export const isAttendanceCode = (payload) =>
+  typeof payload === "string" && payload.startsWith(QR_PREFIX) && payload.length > QR_PREFIX.length
+/**
+ * Whether a refusal is worth pointing the camera again for. A dead code means
+ * "look up, the screen has a new one"; being already clocked in does not, and
+ * offering Scan again there would just walk the person into the same wall.
+ */
+export const canRescan = (status) =>
+  status === "wrong_code" || status === "used_code" || status === "expired_code" || status === "no_code"
 /** The Super Admin's override wins over the computed status. */
 export const effectiveStatus = (d) => d.override_status || d.status
 export const STATUS_LABEL = {

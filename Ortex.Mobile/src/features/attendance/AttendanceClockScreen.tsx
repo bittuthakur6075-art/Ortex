@@ -1,37 +1,15 @@
 import { CameraView, useCameraPermissions } from "expo-camera"
-import { Image } from "expo-image"
 import React from "react"
 import { Linking, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import Svg, { Circle, Path } from "react-native-svg"
+import Svg, { Path, Rect } from "react-native-svg"
 
-import {
-  clockIST,
-  flagWords,
-  metresOutside,
-  resultSentence,
-  selfiePath,
-  type LocationCheck,
-  type PunchResult,
-} from "@/domain/attendance"
-import {
-  check,
-  getReading,
-  isNetworkFailure,
-  LocationError,
-  newPunchId,
-  prepareSelfie,
-  punch,
-  uploadSelfieBase64,
-  type Reading,
-} from "@/lib/attendance"
+import { canRescan, clockIST, flagWords, isAttendanceCode, resultSentence, type PunchResult } from "@/domain/attendance"
+import { isNetworkFailure, newPunchId, punch } from "@/lib/attendance"
 import { InfoChip } from "@/features/attendance/attendanceUi"
-import { enqueue } from "@/lib/attendanceQueue"
 import { cancelTodayReminder } from "@/lib/attendanceReminders"
-import { checkFace, FACE_MESSAGE, type FaceCheck } from "@/lib/faceCheck"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
-import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
@@ -42,158 +20,103 @@ import ScreenLoader from "@/ui/ScreenLoader"
 import TextField from "@/ui/TextField"
 
 /**
- * Clocking in or out, as one screen in five steps:
+ * Clocking in or out, by scanning the code on the office screen (migration
+ * 0043). Three steps: scanning, saving, result.
  *
- *   locating → where you are (a diagram of the fence and you, Lyft) → selfie
- *   (dark canvas, oval, one line of guidance, Wise / Veriff) → saving → result.
+ * The server decides everything that matters. The phone's only job is to read
+ * a QR code and hand the string over verbatim; it does not know whether a code
+ * is live, whose station it belongs to, or whether this person has already
+ * clocked in today. It does check the ORTEX-ATT1 prefix locally, but only so
+ * that pointing the camera at a parcel label does not fire a request per
+ * frame, never as a decision.
  *
- * The server decides everything that matters (attendance_punch, migration
- * 0033). The pre-check (attendance_check) only lets the screen say "you are
- * 190 m away" before anyone takes a photo. The punch id is made once for the
- * whole attempt, so a Retry after a dropped connection can never punch twice;
- * the server returns the first answer again.
+ * Two rules the camera has to honour:
+ *
+ *   * ONE submit per attempt. `sent` latches on the first accepted frame,
+ *     because the scanner keeps firing while the code is in view and each
+ *     extra call would burn another code off the screen behind the person in
+ *     the queue.
+ *   * A retry reuses the SAME punch id, so a dropped connection replays into
+ *     the server's own idempotence rather than punching twice. Only a refusal
+ *     that recorded nothing mints a new id.
+ *
+ * There is no offline path: a code is dead within thirty seconds, so a punch
+ * saved now and sent later would be refused for a reason the person could do
+ * nothing about. It fails at the gate, where it can be tried again.
  */
 
-type Photo = { uri: string; width: number; height: number }
-type Step = "locating" | "location" | "camera" | "preview" | "saving" | "result"
+type Step = "scanning" | "field" | "saving" | "result"
 
 export default function AttendanceClockScreen({ navigation, route }: StackScreenProps<"AttendanceClock">) {
   const kind = route.params.kind
   const t = useTheme()
   const insets = useSafeAreaInsets()
-  const { session } = useAuth()
-  const uid = session?.user?.id || ""
 
-  const [step, setStep] = React.useState<Step>("locating")
-  const [reading, setReading] = React.useState<Reading | null>(null)
-  const [where, setWhere] = React.useState<LocationCheck | null>(null)
-  const [locError, setLocError] = React.useState<{ message: string; permission: boolean } | null>(null)
+  const [step, setStep] = React.useState<Step>("scanning")
   const [note, setNote] = React.useState("")
-  const [photo, setPhoto] = React.useState<Photo | null>(null)
   const [result, setResult] = React.useState<PunchResult | null>(null)
   const [failure, setFailure] = React.useState<string | null>(null)
-  const [queued, setQueued] = React.useState(false)
-  const [face, setFace] = React.useState<FaceCheck | null>(null)
-  const [checkingFace, setCheckingFace] = React.useState(false)
   const punchId = React.useRef(newPunchId())
-  // When the person actually punched, kept for an offline replay.
-  const punchedAt = React.useRef<string | null>(null)
+  // Latches on the first accepted frame; see the header note.
+  const sent = React.useRef(false)
+  const lastPayload = React.useRef<string | null>(null)
 
-  const verb = kind === "in" ? "clock in" : "clock out"
-
-  const locate = React.useCallback(async () => {
-    setStep("locating")
-    setLocError(null)
-    setWhere(null)
-    try {
-      const r = await getReading()
-      setReading(r)
-      setWhere(await check(r))
-      setStep("location")
-    } catch (e) {
-      const permission = e instanceof LocationError && e.reason === "permission"
-      setLocError({ message: e instanceof Error ? e.message : "Your location could not be read.", permission })
-      setStep("location")
-    }
-  }, [])
-
-  React.useEffect(() => {
-    void locate()
-  }, [locate])
-
-  const takePhoto = async (p: Photo) => {
-    setPhoto(p)
-    setFace(null)
-    setStep("preview")
-    setCheckingFace(true)
-    const fc = await checkFace(p.uri)
-    setFace(fc)
-    setCheckingFace(false)
-    if (fc.result === "no_face" || fc.result === "many_faces") feedback.warn()
-  }
-
-  const submit = async () => {
-    if (!reading || !photo || !uid) return
-    setStep("saving")
-    setFailure(null)
-    setQueued(false)
-    punchedAt.current = punchedAt.current || new Date().toISOString()
-    // The face check could not run (an APK without the native module): let the
-    // punch through, and tell the admin it was not checked.
-    const device = face?.result === "unavailable" ? { faceCheck: "unavailable" } : { faceCheck: face?.result ?? "skipped", faces: face?.faces }
-    let prepared: { uri: string; base64: string } | null = null
-    try {
-      prepared = await prepareSelfie(photo.uri, photo.width, photo.height)
-      const path = selfiePath(uid, punchId.current)
-      await uploadSelfieBase64(prepared.base64, path)
-      const res = await punch({ id: punchId.current, kind, reading, selfiePath: path, note, clientAt: punchedAt.current, device })
-      setResult(res)
-      if (res.status === "ok") feedback.unlocked()
-      else if (res.status === "flagged") feedback.warn()
-      else feedback.error()
-      if (res.status === "ok" || res.status === "flagged") void cancelTodayReminder(kind)
-      // A refusal recorded nothing that counts, so the next attempt is a new punch.
-      if (res.status === "refused") {
-        punchId.current = newPunchId()
-        punchedAt.current = null
-      }
-      setStep("result")
-    } catch (e) {
-      // No signal: keep it on the phone and send it when the connection is back.
-      if (isNetworkFailure(e) && prepared) {
-        try {
-          await enqueue(
-            {
-              id: punchId.current,
-              kind,
-              reading,
-              clientAt: punchedAt.current || new Date().toISOString(),
-              note,
-              device,
-              userId: uid,
-            },
-            prepared.uri,
-          )
-          void cancelTodayReminder(kind)
-          feedback.warn()
-          setQueued(true)
-          setStep("result")
-          return
-        } catch {
-          /* could not even save it: fall through to the plain failure */
+  const submit = React.useCallback(
+    async (payload: string | null, withNote = "") => {
+      setStep("saving")
+      setFailure(null)
+      lastPayload.current = payload
+      try {
+        const res = await punch({ id: punchId.current, kind, payload, note: withNote })
+        setResult(res)
+        if (res.status === "ok") feedback.unlocked()
+        else if (res.status === "flagged") feedback.warn()
+        else feedback.error()
+        if (res.status === "ok" || res.status === "flagged") void cancelTodayReminder(kind)
+        // Nothing that counts was recorded, so the next attempt is a new punch.
+        if (res.status !== "ok" && res.status !== "flagged") {
+          punchId.current = newPunchId()
+          sent.current = false
         }
+        setStep("result")
+      } catch (e) {
+        feedback.error()
+        const msg = e instanceof Error ? e.message : ""
+        setFailure(
+          isNetworkFailure(e)
+            ? `No connection. Your ${kind === "in" ? "clock-in" : "clock-out"} was not saved. Move where there is signal and scan again.`
+            : msg || "That did not go through. Try again.",
+        )
+        sent.current = false
+        setStep("result")
       }
-      feedback.error()
-      const msg = e instanceof Error ? e.message : ""
-      setFailure(
-        isNetworkFailure(e)
-          ? `No connection. Your ${kind === "in" ? "clock-in" : "clock-out"} was not saved. Try again.`
-          : msg || "That did not go through. Try again.",
-      )
-      setStep("result")
-    }
-  }
+    },
+    [kind],
+  )
+
+  const onScanned = React.useCallback(
+    (payload: string) => {
+      if (sent.current) return
+      // Not ours: keep looking rather than asking the server about a parcel.
+      if (!isAttendanceCode(payload)) return
+      sent.current = true
+      feedback.tap()
+      void submit(payload)
+    },
+    [submit],
+  )
 
   const close = () => navigation.goBack()
 
-  // ---- camera ----------------------------------------------------------------------
-  if (step === "camera" || step === "preview") {
-    return (
-      <SelfieStep
-        photo={step === "preview" ? photo : null}
-        checking={checkingFace}
-        faceIssue={face && (face.result === "no_face" || face.result === "many_faces") ? FACE_MESSAGE[face.result] : null}
-        onTaken={(p) => void takePhoto(p)}
-        onRetake={() => {
-          setPhoto(null)
-          setFace(null)
-          setStep("camera")
-        }}
-        onUse={() => void submit()}
-        onClose={close}
-        kind={kind}
-      />
-    )
+  const rescan = () => {
+    setResult(null)
+    setFailure(null)
+    sent.current = false
+    setStep("scanning")
+  }
+
+  if (step === "scanning") {
+    return <ScanStep kind={kind} onScanned={onScanned} onClose={close} onNoCode={() => setStep("field")} />
   }
 
   return (
@@ -204,22 +127,15 @@ export default function AttendanceClockScreen({ navigation, route }: StackScreen
         <View style={{ width: 40 }} />
       </View>
 
-      {step === "locating" && <ScreenLoader label="Finding your location" />}
       {step === "saving" && <ScreenLoader label={kind === "in" ? "Clocking you in" : "Clocking you out"} />}
 
-      {step === "location" && (
-        <LocationStep
-          verb={verb}
-          where={where}
-          reading={reading}
-          error={locError}
+      {step === "field" && (
+        <FieldStep
+          kind={kind}
           note={note}
           onNote={setNote}
-          onRetry={() => void locate()}
-          onContinue={() => {
-            feedback.tap()
-            setStep("camera")
-          }}
+          onSubmit={() => void submit(null, note)}
+          onBack={() => setStep("scanning")}
           bottom={insets.bottom}
         />
       )}
@@ -229,16 +145,9 @@ export default function AttendanceClockScreen({ navigation, route }: StackScreen
           kind={kind}
           result={result}
           failure={failure}
-          queued={queued}
           onDone={close}
-          onRetry={() => {
-            if (failure) void submit()
-            else {
-              setPhoto(null)
-              setResult(null)
-              void locate()
-            }
-          }}
+          onScanAgain={rescan}
+          onRetry={() => void submit(lastPayload.current, note)}
           bottom={insets.bottom}
         />
       )}
@@ -246,201 +155,41 @@ export default function AttendanceClockScreen({ navigation, route }: StackScreen
   )
 }
 
-// ---- where you are ----------------------------------------------------------------------
+// ---- scanning ------------------------------------------------------------------------------
 
-function LocationStep({
-  verb,
-  where,
-  reading,
-  error,
-  note,
-  onNote,
-  onRetry,
-  onContinue,
-  bottom,
-}: {
-  verb: string
-  where: LocationCheck | null
-  reading: Reading | null
-  error: { message: string; permission: boolean } | null
-  note: string
-  onNote: (s: string) => void
-  onRetry: () => void
-  onContinue: () => void
-  bottom: number
-}) {
-  const t = useTheme()
-
-  let tone: "ok" | "warn" | "bad" = "ok"
-  let title = ""
-  let body = ""
-  let canContinue = false
-
-  if (error) {
-    tone = "bad"
-    title = "Location not available"
-    body = error.message
-  } else if (where) {
-    if (where.mode === "field") {
-      tone = where.accuracyOk ? "ok" : "warn"
-      title = "Field visit"
-      body = where.accuracyOk
-        ? `Your location is recorded with your ${verb}. No office check for field work.`
-        : `Location is only accurate to ${where.accuracyM ?? "?"} m. You can still continue; it will be marked for review.`
-      canContinue = true
-    } else if (!where.sitesConfigured) {
-      tone = "bad"
-      title = "No office set up yet"
-      body = "Your office location has not been set up yet. Ask the Super Admin to add it."
-    } else if (!where.accuracyOk) {
-      tone = "warn"
-      title = "Location is not precise enough"
-      body = `Location is only accurate to ${where.accuracyM ?? "?"} m. Move near a window or outside and try again.`
-    } else if (where.inside) {
-      tone = "ok"
-      title = `You're at ${where.site}`
-      body = `${where.distanceM ?? 0} m from the office, inside its ${where.radiusM} m area.`
-      canContinue = true
-    } else if (where.mustBeInside) {
-      tone = "bad"
-      title = `You are ${metresOutside(where)} m from ${where.site}`
-      body = `Clock in when you are within ${where.radiusM} m of the office.`
-    } else {
-      tone = "warn"
-      title = `You are ${metresOutside(where)} m from ${where.site}`
-      body = "You can continue, and it will be marked for review."
-      canContinue = true
-    }
-  }
-
-  const mocked = !!reading?.mocked
-  const ink = tone === "ok" ? t.successText : tone === "warn" ? t.warningText : t.dangerText
-  const well = tone === "ok" ? t.successBg : tone === "warn" ? t.warningBg : t.dangerBg
-
-  return (
-    <View style={styles.flex}>
-      <View style={styles.content}>
-        {where && !error && where.mode === "office" && where.sitesConfigured && (
-          <FenceDiagram where={where} />
-        )}
-        <View style={[styles.card, { backgroundColor: well }]}>
-          <Text style={[textVariants.cardTitle, { color: ink }]}>{title}</Text>
-          <Text style={[textVariants.small, { color: ink }]}>{body}</Text>
-        </View>
-        {mocked && (
-          <View style={[styles.card, { backgroundColor: t.dangerBg }]}>
-            <Text style={[textVariants.smallStrong, { color: t.dangerText }]}>
-              Your phone is reporting a fake location. It will not be accepted. Turn off any location-changing app.
-            </Text>
-          </View>
-        )}
-        {where?.mode === "field" && !error && (
-          <TextField
-            label="Where are you? (optional)"
-            placeholder="Customer or site name"
-            value={note}
-            onChangeText={onNote}
-            maxLength={120}
-          />
-        )}
-        {!!where && !error && (
-          <Text style={[textVariants.caption, { color: t.textTertiary }]}>
-            Location accurate to {where.accuracyM ?? "?"} m. Read once, now. Never tracked.
-          </Text>
-        )}
-      </View>
-      <View style={[styles.footer, { paddingBottom: bottom + spacing.md }]}>
-        {error?.permission ? (
-          <Button label="Open settings" fullWidth onPress={() => void Linking.openSettings()} />
-        ) : canContinue ? (
-          <Button label="Take selfie" icon="camera" fullWidth onPress={onContinue} />
-        ) : null}
-        <Button label="Try again" variant={canContinue ? "ghost" : "secondary"} fullWidth onPress={onRetry} />
-      </View>
-    </View>
-  )
-}
-
-/** The office's circle and you, to scale, without a map (Lyft's pickup radius). */
-function FenceDiagram({ where }: { where: LocationCheck }) {
-  const t = useTheme()
-  const W = 280
-  const H = 150
-  const cx = 110
-  const cy = H / 2
-  const fenceR = 48
-  const radiusM = Math.max(1, where.radiusM ?? 150)
-  const scale = fenceR / radiusM
-  const d = Math.min((where.distanceM ?? 0) * scale, W - cx - 16)
-  const acc = Math.min((where.accuracyM ?? 0) * scale, 60)
-  const you = where.inside ? t.success : t.danger
-  return (
-    <View style={styles.diagram} accessible accessibilityLabel={`Office area and your position, ${where.distanceM ?? 0} metres away`}>
-      <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
-        <Circle cx={cx} cy={cy} r={fenceR} fill={t.primary10} stroke={t.primary} strokeWidth={1.5} />
-        <Circle cx={cx} cy={cy} r={4} fill={t.primary} />
-        {acc > 3 && <Circle cx={cx + d} cy={cy} r={acc} fill={you} opacity={0.14} />}
-        <Circle cx={cx + d} cy={cy} r={7} fill={you} stroke={t.surface} strokeWidth={2.5} />
-      </Svg>
-      <View style={styles.legend}>
-        <Text style={[textVariants.caption, { color: t.textTertiary }]}>Office · {radiusM} m area</Text>
-        <Text style={[textVariants.caption, { color: t.textTertiary }]}>You · {where.distanceM ?? 0} m</Text>
-      </View>
-    </View>
-  )
-}
-
-// ---- selfie ----------------------------------------------------------------------------------
-
-function SelfieStep({
-  photo,
-  checking,
-  faceIssue,
-  onTaken,
-  onRetake,
-  onUse,
-  onClose,
+/**
+ * The camera, a cut-out window and one line of guidance. Dark, like every
+ * scanner people already know, so the bright QR on the wall is the only thing
+ * on screen with any light in it.
+ */
+function ScanStep({
   kind,
+  onScanned,
+  onClose,
+  onNoCode,
 }: {
-  photo: Photo | null
-  checking: boolean
-  faceIssue: string | null
-  onTaken: (p: Photo) => void
-  onRetake: () => void
-  onUse: () => void
-  onClose: () => void
   kind: "in" | "out"
+  onScanned: (payload: string) => void
+  onClose: () => void
+  onNoCode: () => void
 }) {
   const insets = useSafeAreaInsets()
   const { width, height } = useWindowDimensions()
   const [permission, requestPermission] = useCameraPermissions()
-  const camera = React.useRef<CameraView>(null)
-  const [ready, setReady] = React.useState(false)
-  const [busy, setBusy] = React.useState(false)
 
-  const ovalW = width * 0.62
-  const ovalH = ovalW * 1.3
-  const cx = width / 2
-  const cy = height * 0.42
-  const hole = `M0,0 H${width} V${height} H0 Z M${cx - ovalW / 2},${cy} a${ovalW / 2},${ovalH / 2} 0 1,0 ${ovalW},0 a${ovalW / 2},${ovalH / 2} 0 1,0 ${-ovalW},0 Z`
-
-  const shoot = async () => {
-    if (!camera.current || busy) return
-    setBusy(true)
-    feedback.tap()
-    try {
-      const pic = await camera.current.takePictureAsync({ quality: 0.7, skipProcessing: false })
-      if (pic?.uri) onTaken({ uri: pic.uri, width: pic.width, height: pic.height })
-    } finally {
-      setBusy(false)
-    }
-  }
+  const box = Math.min(width * 0.72, 300)
+  const x = (width - box) / 2
+  const y = height * 0.3
+  // A full-screen dim with the scanning window punched out of it (even-odd).
+  const hole = `M0,0 H${width} V${height} H0 Z M${x},${y} H${x + box} V${y + box} H${x} Z`
 
   if (permission && !permission.granted) {
     return (
       <View style={[styles.dark, { paddingTop: insets.top + spacing.xxl, paddingHorizontal: gutter }]}>
         <Text style={[textVariants.title, styles.white]}>Camera is off for Ortex</Text>
-        <Text style={[textVariants.body, styles.dim]}>A selfie is needed to {kind === "in" ? "clock in" : "clock out"}.</Text>
+        <Text style={[textVariants.body, styles.dim]}>
+          The camera reads the code on the office screen. That is how you {kind === "in" ? "clock in" : "clock out"}.
+        </Text>
         <View style={{ height: spacing.lg }} />
         {permission.canAskAgain ? (
           <Button label="Allow camera" fullWidth onPress={() => void requestPermission()} />
@@ -454,57 +203,81 @@ function SelfieStep({
 
   return (
     <View style={styles.dark}>
-      {photo ? (
-        <Image source={{ uri: photo.uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
-      ) : (
-        <CameraView ref={camera} style={StyleSheet.absoluteFill} facing="front" mirror onCameraReady={() => setReady(true)} />
-      )}
+      <CameraView
+        style={StyleSheet.absoluteFill}
+        facing="back"
+        barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+        onBarcodeScanned={(e) => onScanned(e.data)}
+      />
       <Svg width={width} height={height} style={StyleSheet.absoluteFill} pointerEvents="none">
         <Path d={hole} fill="#000000" opacity={0.62} fillRule="evenodd" />
-        <Path
-          d={`M${cx - ovalW / 2},${cy} a${ovalW / 2},${ovalH / 2} 0 1,0 ${ovalW},0 a${ovalW / 2},${ovalH / 2} 0 1,0 ${-ovalW},0 Z`}
-          fill="none"
-          stroke="#FFFFFF"
-          strokeWidth={3}
-        />
+        <Rect x={x} y={y} width={box} height={box} rx={20} fill="none" stroke="#FFFFFF" strokeWidth={3} />
       </Svg>
 
-      <View style={[styles.selfieTop, { paddingTop: insets.top + spacing.sm }]}>
+      <View style={[styles.scanTop, { paddingTop: insets.top + spacing.sm }]}>
         <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close" style={styles.round}>
           <Icon name="close" size={22} color="#FFFFFF" />
         </Pressable>
       </View>
 
-      <View style={[styles.selfieBottom, { paddingBottom: insets.bottom + spacing.lg }]}>
+      <View style={[styles.scanBottom, { paddingBottom: insets.bottom + spacing.lg }]}>
         <Text style={[textVariants.bodyStrong, styles.white, styles.center]}>
-          {!photo
-            ? "Keep your face inside the oval"
-            : checking
-              ? "Checking the photo"
-              : faceIssue || "Is your face clear?"}
+          Point at the code on the office screen
         </Text>
-        {photo ? (
-          <View style={styles.previewRow}>
-            <View style={{ flex: 1 }}>
-              <Button label="Retake" variant={faceIssue ? "primary" : "secondary"} fullWidth onPress={onRetake} />
-            </View>
-            {!faceIssue && (
-              <View style={{ flex: 1 }}>
-                <Button label="Use photo" fullWidth onPress={onUse} disabled={checking} loading={checking} />
-              </View>
-            )}
-          </View>
-        ) : (
-          <Pressable
-            onPress={() => void shoot()}
-            disabled={!ready || busy}
-            accessibilityRole="button"
-            accessibilityLabel="Take selfie"
-            style={({ pressed }) => [styles.shutter, { opacity: !ready || busy ? 0.5 : pressed ? 0.8 : 1 }]}
-          >
-            <View style={styles.shutterInner} />
-          </Pressable>
-        )}
+        <Text style={[textVariants.small, styles.dim, styles.center]}>
+          The code changes every few seconds. That is normal, just hold it in the box.
+        </Text>
+        <Button label="No code to scan?" variant="secondary" fullWidth onPress={onNoCode} />
+      </View>
+    </View>
+  )
+}
+
+// ---- no code (field visit) --------------------------------------------------------------------
+
+/**
+ * For a rep who starts the day at a customer's site. The server decides
+ * whether this person is allowed to mark attendance without a code; an office
+ * worker gets a plain refusal here, which is the honest answer and the reason
+ * this screen does not pretend to know the person's mode itself.
+ */
+function FieldStep({
+  kind,
+  note,
+  onNote,
+  onSubmit,
+  onBack,
+  bottom,
+}: {
+  kind: "in" | "out"
+  note: string
+  onNote: (s: string) => void
+  onSubmit: () => void
+  onBack: () => void
+  bottom: number
+}) {
+  const t = useTheme()
+  return (
+    <View style={styles.flex}>
+      <View style={styles.content}>
+        <View style={[styles.card, { backgroundColor: t.warningBg }]}>
+          <Text style={[textVariants.cardTitle, { color: t.warningText }]}>Marking without a code</Text>
+          <Text style={[textVariants.small, { color: t.warningText }]}>
+            This is for field work, when you are not at an office screen. It is recorded and an admin checks it. If you
+            are at the office, go back and scan the code instead.
+          </Text>
+        </View>
+        <TextField
+          label="Where are you? (optional)"
+          placeholder="Customer or site name"
+          value={note}
+          onChangeText={onNote}
+          maxLength={120}
+        />
+      </View>
+      <View style={[styles.footer, { paddingBottom: bottom + spacing.md }]}>
+        <Button label={kind === "in" ? "Clock in without a code" : "Clock out without a code"} fullWidth onPress={onSubmit} />
+        <Button label="Back to the scanner" variant="ghost" fullWidth onPress={onBack} />
       </View>
     </View>
   )
@@ -516,37 +289,36 @@ function ResultStep({
   kind,
   result,
   failure,
-  queued,
   onDone,
+  onScanAgain,
   onRetry,
   bottom,
 }: {
   kind: "in" | "out"
   result: PunchResult | null
   failure: string | null
-  queued: boolean
   onDone: () => void
+  onScanAgain: () => void
   onRetry: () => void
   bottom: number
 }) {
   const t = useTheme()
-  const ok = !failure && !queued && result?.status === "ok"
-  const flagged = !failure && !queued && result?.status === "flagged"
-  const good = ok || flagged || queued
-  const ink = ok ? t.success : flagged || queued ? t.warning : t.danger
-  const well = ok ? t.successBg : flagged || queued ? t.warningBg : t.dangerBg
-  const title = queued
-    ? "Saved on this phone"
-    : ok
-      ? kind === "in"
-        ? "You're clocked in"
-        : "You're clocked out"
-      : flagged
-        ? "Saved, for review"
-        : "Not saved"
-  const sentence = queued
-    ? `No connection right now. Your ${kind === "in" ? "clock-in" : "clock-out"} will be sent when you are back online. An admin may review it.`
-    : failure || (result ? resultSentence(result) : "")
+  const ok = !failure && result?.status === "ok"
+  const flagged = !failure && result?.status === "flagged"
+  const good = ok || flagged
+  const ink = ok ? t.success : flagged ? t.warning : t.danger
+  const well = ok ? t.successBg : flagged ? t.warningBg : t.dangerBg
+  const title = ok
+    ? kind === "in"
+      ? "You're clocked in"
+      : "You're clocked out"
+    : flagged
+      ? "Saved, for review"
+      : "Not saved"
+  const sentence = failure || (result ? resultSentence(result) : "")
+  // A dead code means "look up, the screen has a new one". Being already
+  // clocked in does not, so it gets Close rather than Scan again.
+  const again = !good && !failure && result ? canRescan(result.status) : false
 
   return (
     <View style={styles.flex}>
@@ -556,7 +328,7 @@ function ResultStep({
         </View>
         <Text style={[textVariants.largeTitle, styles.center, { color: t.text }]}>{title}</Text>
         <Text style={[textVariants.body, styles.center, { color: t.textSecondary }]}>{sentence}</Text>
-        {(ok || flagged) && result?.at ? (
+        {good && result?.at ? (
           <InfoChip icon="clock" tone={ok ? "success" : "warning"}>
             {`${kind === "in" ? "In" : "Out"} at ${clockIST(result.at)}${result.mode === "field" ? " · Field visit" : result.site ? ` · ${result.site}` : ""}`}
           </InfoChip>
@@ -572,7 +344,8 @@ function ResultStep({
           <Button label="Done" fullWidth onPress={onDone} />
         ) : (
           <>
-            <Button label="Try again" fullWidth onPress={onRetry} />
+            {failure ? <Button label="Try again" fullWidth onPress={onRetry} /> : null}
+            {again ? <Button label="Scan again" fullWidth={!failure} variant={failure ? "ghost" : "primary"} onPress={onScanAgain} /> : null}
             <Button label="Close" variant="ghost" fullWidth onPress={onDone} />
           </>
         )}
@@ -587,19 +360,14 @@ const styles = StyleSheet.create({
   bar: { height: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: gutter - 10 },
   content: { flex: 1, paddingHorizontal: gutter, paddingTop: spacing.lg, gap: spacing.md },
   card: { borderRadius: radius.card, padding: spacing.md, gap: spacing.xs },
-  diagram: { gap: spacing.xs },
-  legend: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: spacing.sm },
   footer: { paddingHorizontal: gutter, gap: spacing.xs, paddingTop: spacing.sm },
   dark: { flex: 1, backgroundColor: "#000000" },
   white: { color: "#FFFFFF" },
   dim: { color: "#C9CDD8", marginTop: spacing.sm },
   center: { textAlign: "center" },
-  selfieTop: { position: "absolute", top: 0, left: 0, right: 0, paddingHorizontal: gutter, flexDirection: "row" },
+  scanTop: { position: "absolute", top: 0, left: 0, right: 0, paddingHorizontal: gutter, flexDirection: "row" },
   round: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.35)" },
-  selfieBottom: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: gutter, gap: spacing.lg, alignItems: "center" },
-  previewRow: { flexDirection: "row", gap: spacing.sm, alignSelf: "stretch" },
-  shutter: { width: 76, height: 76, borderRadius: 38, borderWidth: 4, borderColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
-  shutterInner: { width: 60, height: 60, borderRadius: 30, backgroundColor: "#FFFFFF" },
+  scanBottom: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: gutter, gap: spacing.sm, alignItems: "center" },
   resultBox: { alignItems: "center", justifyContent: "center", paddingBottom: spacing.huge },
   resultIcon: { width: 88, height: 88, borderRadius: 44, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
 })

@@ -1,11 +1,16 @@
 // Attendance, the pure half (docs/pm/ATTENDANCE_LEAVE_PLAN.md). MIRRORED
 // line for line by Ortex.Admin/src/lib/attendance.js: edit both.
 //
-// The server (migration 0033, attendance_punch) is the authority on distance,
-// time and whether a punch counts. These functions only turn its rows and its
-// answers into what a person reads: a day's first in and last out, the hours in
-// between, the flags in words, and a sentence for every refusal. Everything
-// takes `now` so a test is not a race with the clock.
+// The server (migration 0043, attendance_punch) is the authority on the code,
+// the time and whether a punch counts. These functions only turn its rows and
+// its answers into what a person reads: a day's first in and last out, the
+// hours in between, the flags in words, and a sentence for every refusal.
+// Everything takes `now` so a test is not a race with the clock.
+//
+// Attendance is marked by SCANNING the rotating code on the office screen
+// (0043). The selfie and the geofence of 0033 are gone from the flow; the
+// fields they wrote are still on Punch, because every row made before
+// 2026-09-20 still carries them and the history screens still draw them.
 
 export type PunchKind = "in" | "out"
 export type PunchReview = "ok" | "flagged" | "accepted" | "rejected"
@@ -26,6 +31,9 @@ export type Punch = {
   inside?: boolean | null
   note?: string | null
   selfie_path?: string | null
+  /** The station whose code was scanned (0043). Null for a field punch. */
+  qr_site_id?: string | null
+  qr_at?: string | null
   offline?: boolean
   flags?: string[] | null
   review: PunchReview
@@ -38,42 +46,35 @@ export type PunchResult = {
     | "ok"
     | "flagged"
     | "refused"
-    | "no_location"
-    | "no_selfie"
     | "already_in"
     | "not_in"
     | "day_done"
-    | "no_site"
-    | "weak_gps"
-    | "outside"
+    // The three the code itself can fail on (0043).
+    | "no_code"
+    | "wrong_code"
+    | "used_code"
+    | "expired_code"
   message?: string
   id?: string
   kind?: PunchKind
   at?: string
   mode?: "office" | "field"
   site?: string | null
-  distanceM?: number | null
-  radiusM?: number | null
-  accuracyM?: number | null
   flags?: string[]
   repeat?: boolean
 }
 
-/** What attendance_check() answers, before any punch. */
-export type LocationCheck = {
-  mode: "office" | "field"
-  sitesConfigured: boolean
-  site: string | null
-  radiusM: number | null
-  distanceM: number | null
-  accuracyM: number | null
-  accuracyOk: boolean
-  maxAccuracyM: number
-  inside: boolean
-  mustBeInside: boolean
-  openSince: string | null
-  serverNow: string
-}
+/**
+ * The prefix every Ortex attendance code carries (attendance_qr_payload,
+ * migration 0043). The scanner checks it on the phone so a stray QR code on a
+ * parcel or a poster is ignored without a round trip to the server, which is
+ * also what keeps the camera from firing a request per frame.
+ */
+export const QR_PREFIX = "ORTEX-ATT1:"
+
+/** Is this scanned string one of ours? */
+export const isAttendanceCode = (payload?: string | null): boolean =>
+  typeof payload === "string" && payload.startsWith(QR_PREFIX) && payload.length > QR_PREFIX.length
 
 export const TIMEZONE = "Asia/Kolkata"
 const MINUTE = 60000
@@ -183,6 +184,7 @@ export const FLAG_LABEL: Record<string, string> = {
   outside: "Outside the office area",
   low_accuracy: "Weak location",
   mock_location: "Fake location detected",
+  no_code: "Marked without scanning a code",
   regularised: "Corrected on request",
   short_hours: "Too few hours",
   worked_off_day: "Worked on a day off",
@@ -204,27 +206,20 @@ export function resultSentence(r: PunchResult): string {
   if (r.status === "ok" || r.status === "flagged") {
     const verb = r.kind === "out" ? "Clocked out" : "Clocked in"
     const at = r.at ? ` at ${clockIST(r.at)}` : ""
-    const where =
-      r.mode === "field" ? " · Field visit" : r.site ? ` · ${r.site}${r.distanceM != null ? ` · ${Math.round(r.distanceM)} m` : ""}` : ""
+    const where = r.mode === "field" ? " · Field visit" : r.site ? ` · ${r.site}` : ""
     const flagged = r.status === "flagged" ? `. Sent for review: ${flagWords(r.flags).join(", ").toLowerCase()}` : ""
     return `${verb}${at}${where}${flagged}`
   }
   return r.message || "That did not go through. Try again."
 }
 
-/** How far outside the fence a check reading is, for the "you are outside" state. */
-export function metresOutside(c: Pick<LocationCheck, "distanceM" | "radiusM">): number {
-  if (c.distanceM == null || c.radiusM == null) return 0
-  return Math.max(0, Math.round(c.distanceM - c.radiusM))
-}
-
-/** Where a selfie goes in the private bucket: <uid>/<yyyy>/<mm>/<punch-id>.jpg */
-export function selfiePath(userId: string, punchId: string, at: number | Date = Date.now()): string {
-  const d = new Date(new Date(at).getTime() + IST_OFFSET_MIN * MINUTE)
-  const yyyy = d.getUTCFullYear()
-  const mm = String(d.getUTCMonth() + 1).padStart(2, "0")
-  return `${userId}/${yyyy}/${mm}/${punchId}.jpg`
-}
+/**
+ * Whether a refusal is worth pointing the camera again for. A dead code means
+ * "look up, the screen has a new one"; being already clocked in does not, and
+ * offering Scan again there would just walk the person into the same wall.
+ */
+export const canRescan = (status: PunchResult["status"]): boolean =>
+  status === "wrong_code" || status === "used_code" || status === "expired_code" || status === "no_code"
 
 // ---- phase 2: what a day counts as (attendance_days, migration 0034) -----------------------
 

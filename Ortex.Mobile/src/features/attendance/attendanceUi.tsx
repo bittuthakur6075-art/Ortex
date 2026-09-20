@@ -209,34 +209,6 @@ export function DayDone({ inAt, outAt, onCorrect }: { inAt: string | null; outAt
   )
 }
 
-/**
- * Clock-ins saved on the phone with no signal (lib/attendanceQueue.ts): how
- * many are waiting, a tap to send them now, and why one could not be sent.
- */
-export function QueueAdvisory({
-  queue,
-}: {
-  queue: { items: unknown[]; syncing: boolean; lastIssue: string | null; sendNow: () => Promise<void> }
-}) {
-  const n = queue.items.length
-  return (
-    <>
-      {n > 0 && (
-        <ActionAdvisory tone="warning" icon="refresh" onPress={queue.syncing ? undefined : () => void queue.sendNow()}>
-          {queue.syncing
-            ? "Sending your saved clock-in"
-            : `${n} ${n === 1 ? "clock-in" : "clock-ins"} waiting to send. Tap to send now.`}
-        </ActionAdvisory>
-      )}
-      {!!queue.lastIssue && n === 0 && (
-        <ActionAdvisory tone="warning" icon="warning">
-          {`A saved clock-in could not be sent: ${queue.lastIssue}`}
-        </ActionAdvisory>
-      )}
-    </>
-  )
-}
-
 const styles = StyleSheet.create({
   chip: { minWidth: 30, height: 22, paddingHorizontal: 6, borderRadius: 11, alignItems: "center", justifyContent: "center" },
   chipSm: { minWidth: 24, height: 16, paddingHorizontal: 4, borderRadius: 8 },

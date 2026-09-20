@@ -14,6 +14,8 @@ import {
   ArrowRight2,
   ArrowRight3,
   ArrowSwapVertical,
+  ScanBarcode,
+  Maximize3,
   Building3,
   CalendarTick,
   TickCircle,
@@ -104,6 +106,8 @@ export const ArrowRight = wrap(ArrowRight2)
 export const ArrowUpRight = wrap(ArrowRight3)
 export const ArrowUpDown = wrap(ArrowSwapVertical)
 export const Building2 = wrap(Building3)
+export const QrCode = wrap(ScanBarcode)
+export const Maximize = wrap(Maximize3)
 export const CalendarClock = wrap(CalendarTick)
 export const CheckCircle2 = wrap(TickCircle)
 export const Clock = wrap(ClockIcon)

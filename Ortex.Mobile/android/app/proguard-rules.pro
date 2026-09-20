@@ -33,8 +33,9 @@
 # keep `com.facebook.jni.**` for Hermes but not this package.
 -keep class com.facebook.hermes.unicode.** { *; }
 
-# Barcode scanning is excluded in app/build.gradle (APK size); expo-camera still
-# references its classes on a path this app never takes.
--dontwarn com.google.mlkit.vision.barcode.**
+# Barcode scanning is now UNBUNDLED (app/build.gradle): the classes are present
+# but the model lives in Play services. The code scanner and the CameraX bridge
+# stay excluded, and expo-camera still references them on a path this app never
+# takes.
 -dontwarn com.google.mlkit.vision.codescanner.**
 -dontwarn androidx.camera.mlkit.vision.**

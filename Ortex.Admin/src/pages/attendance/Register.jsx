@@ -273,7 +273,7 @@ export default function Register() {
       </Card>
 
       <Card className="overflow-hidden">
-        <CardHeader title="Day by day" description="Click a day to see its clock-ins and selfies" />
+        <CardHeader title="Day by day" description="Click a day to see its clock-ins" />
         <div className="px-5 pb-4">
           <StatusLegend />
         </div>

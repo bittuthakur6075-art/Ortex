@@ -29,6 +29,10 @@ export const MODULES = [
   { key: "attendance", path: "/attendance", label: "Attendance", section: "People", always: true },
   { key: "attendance-team", path: "/attendance?tab=register", label: "Attendance · Everyone's records", section: "People" },
   { key: "attendance-register", path: "/attendance?tab=register", label: "Attendance · Register & payroll", section: "People" },
+  // The rotating QR code staff scan to mark attendance (migration 0043).
+  // Granting it to someone who is not an admin does nothing: the database's
+  // attendance_qr_issuer() wants the Super Admin, or an admin holding this key.
+  { key: "attendance-qr", path: "/attendance?tab=qr", label: "Attendance · Show the QR code", section: "People" },
   // Payroll (docs/pm/PAYROLL_PLAN.md, modelled on Zoho Payroll).
   { key: "payroll", path: "/payroll", label: "Payroll", section: "People", payrollOnly: true },
   { key: "payslips", path: "/payslips", label: "My payslips", section: "People", always: true },

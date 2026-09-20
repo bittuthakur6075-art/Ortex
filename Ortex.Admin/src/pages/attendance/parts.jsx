@@ -18,7 +18,7 @@ const REVIEW_TONE = { ok: "emerald", flagged: "amber", accepted: "emerald", reje
 export function Selfie({ url, size = "h-10 w-10", onOpen, label }) {
   if (!url) {
     return (
-      <span className={cn("inline-grid flex-none place-items-center rounded-lg bg-muted text-subtle-foreground", size)} title="No selfie">
+      <span className={cn("inline-grid flex-none place-items-center rounded-lg bg-muted text-subtle-foreground", size)} title="No selfie. Attendance has been marked by code since 20 September 2026.">
         <Camera className="h-4 w-4" />
       </span>
     )
@@ -196,7 +196,7 @@ export function ReviewButtons({ punch, onDone }) {
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={3}
-            placeholder="For example: selfie is not of the person clocking in"
+            placeholder="For example: marked without scanning a code"
           />
         </Field>
       </Modal>
