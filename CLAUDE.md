@@ -167,7 +167,7 @@ npm run fixture   # XML builder self-test (also run in CI)
 * `README.md`: repo map, quick start, conventions.
 * `docs/architecture/ARCHITECTURE.md`: narratives, directories, data flows, design system.
 * `docs/pm/PRODUCT_BACKLOG.md`, `docs/pm/GROWTH_ROADMAP.md`: backlog and release progress.
-* `docs/guides/GETTING_STARTED.md`, `docs/guides/META_SETUP.md`, `docs/guides/TELECALLER_SETUP.md`, `docs/guides/PUSH_SETUP.md`, setup guides.
+* `docs/guides/GETTING_STARTED.md`, `docs/guides/META_SETUP.md`, `docs/guides/TELECALLER_SETUP.md`, `docs/guides/PUSH_SETUP.md`, `docs/guides/MOBILE_RELEASE.md`, setup guides.
 * `Ortex.Admin/docs/`: PRD, environments, growth tracking, leads & receipts.
 * `Ortex.Web/docs/DEPLOY_HOSTINGER.md`: static deploy guide.
 * `Ortex.Mobile/README.md`: mobile setup, the ported-logic mirror, bare-workflow notes.

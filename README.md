@@ -100,7 +100,7 @@ Ortex/
 
 - `docs/architecture/ARCHITECTURE.md`: system narrative, data flows, design system
 - `docs/pm/PRODUCT_BACKLOG.md`, `docs/pm/GROWTH_ROADMAP.md`: roadmap and status
-- `docs/guides/GETTING_STARTED.md`, `docs/guides/META_SETUP.md`, setup guides
+- `docs/guides/GETTING_STARTED.md`, `docs/guides/META_SETUP.md`, `docs/guides/MOBILE_RELEASE.md`, setup guides
 - `Ortex.Web/docs/DEPLOY_HOSTINGER.md`: static deploy of the marketing site
 - `Ortex.Admin/docs/ENVIRONMENTS.md`: staging vs production Supabase projects
 - `Ortex.Mobile/README.md`: mobile setup, the ported-logic mirror, bare-workflow notes
