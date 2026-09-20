@@ -7,8 +7,10 @@ import { clockIST, dayKey } from "@/domain/attendance"
 import { ActionAdvisory, InfoChip, DayDone } from "@/features/attendance/attendanceUi"
 import { dayLabel } from "@/features/attendance/format"
 import { DayTimelineBar, LiveTimer } from "@/features/attendance/LiveProgress"
-import { dayTimeline, progressWords, shiftEnded, shiftMinutes, workedMs } from "@/features/attendance/progress"
-import { useAttendanceNotices, useAttendanceToday, useStartClock } from "@/features/attendance/useAttendance"
+import { dayTimeline, progressWords, shiftEnded, shiftMinutes, weekColumns, workedMs } from "@/features/attendance/progress"
+import { weekCells } from "@/features/attendance/days"
+import WeekStatusStrip from "@/features/attendance/WeekStatusStrip"
+import { useAttendanceNotices, useAttendanceToday, useStartClock, useWeekDays } from "@/features/attendance/useAttendance"
 import { feedback } from "@/lib/feedback"
 import { shiftClock } from "@/lib/attendance"
 import type { RootStackParamList } from "@/navigation/types"
@@ -39,6 +41,17 @@ export default function AttendanceHomeCard() {
   const shiftMin = shiftMinutes(settings, today)
   const worked = workedMs(today, punches, now)
   const timeline = dayTimeline(today, punches, settings, now)
+
+  // THIS WEEK, above the clock, exactly as Zoho People opens: a rep reads "have
+  // I been here all week" before "am I in right now". Same hook as the
+  // Attendance page, so the two strips can never disagree.
+  const { rows: weekDays } = useWeekDays()
+  const nextHolidayDay = notices.nextHoliday?.day
+  const liveMin = Math.round(worked.ms / 60000)
+  const week = React.useMemo(
+    () => weekCells(weekColumns(weekDays, liveMin, now), weekDays, nextHolidayDay),
+    [weekDays, liveMin, now, nextHolidayDay],
+  )
 
 
   const shift =
@@ -89,6 +102,9 @@ export default function AttendanceHomeCard() {
           You did not clock out yesterday. Request a correction
         </ActionAdvisory>
       )}
+      <View style={styles.week}>
+        <WeekStatusStrip cells={week} onOpen={(day) => navigation.navigate("AttendanceDay", { day })} />
+      </View>
       <View style={styles.body}>
         <View style={styles.chips}>
           <View>
@@ -156,6 +172,7 @@ export default function AttendanceHomeCard() {
 
 const styles = StyleSheet.create({
   body: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.md },
+  week: { paddingHorizontal: gutter - 6, paddingBottom: spacing.md },
   chips: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.sm },
   figureRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   figure: { flexDirection: "row", alignItems: "baseline", gap: 6 },

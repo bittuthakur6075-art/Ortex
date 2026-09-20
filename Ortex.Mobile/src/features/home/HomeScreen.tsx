@@ -56,8 +56,10 @@ import { useDashboard } from "@/features/home/useDashboard"
  *
  *   1. THE GREETING IS THE TITLE, with the date above it in words (Jobber,
  *      Asana). It is the one line that tells a rep the page is theirs and today's.
- *   2. SHORTCUTS BEFORE DATA (Remote's quick actions): the four things a rep
- *      opens the app to do are one tap from launch, not a tab and a FAB away.
+ *   2. SHORTCUTS WITHIN REACH (Remote's quick actions): the four things a rep
+ *      opens the app to do are one tap away, never a tab and a FAB away. They
+ *      sit UNDER the to-do list rather than over it: you read what needs doing,
+ *      then act on it.
  *   3. THE TO-DO LIST OWNS THE TOP, and its rows are actionable in place: a
  *      waiting lead carries a Call button on the row itself (Yubo, Strava), so
  *      the commonest job, ring them back, needs no screen in between. The list
@@ -70,6 +72,14 @@ import { useDashboard } from "@/features/home/useDashboard"
  *      website are preview rows here and full panels on Insights (Jobber's
  *      "Business health → View all"). The earlier Home ran to fourteen panels
  *      and buried the pipeline under a report nobody reads between two visits.
+ *   7. TODAY BEFORE FEATURES (Zoho People, and the reason for the 2026-09-20
+ *      pass): attendance opens the page, because clocking in is every role's
+ *      first act of the day, and it now carries THIS WEEK as a strip above the
+ *      clock, so "have I been here all week" is answered before "am I in now".
+ *      Everything else that is about the person rather than the work, the
+ *      payslip line and the Anu card, moved to the FOOT. They had drifted above
+ *      "Needs you today", which left the page opening with three feature cards
+ *      and the actual to-do list fifth, against rule 3 above.
  *
  * Every figure comes from features/home/useDashboard.ts → domain/dashboard.ts,
  * shared with Insights, with each section gated on its module exactly as the
@@ -169,29 +179,6 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
         {/* ---- 0. attendance: every role's first action of the day ---- */}
         <AttendanceHomeCard />
 
-        {/* ---- the latest payslip, only once one has been released ---- */}
-        <PayHomeLine />
-
-        {/* ---- 1. shortcuts ---- */}
-        {!nothingGranted && (
-          <View style={styles.quickRow}>
-            {access.quotes && (
-              <QuickAction icon="quote" label="New quote" onPress={() => navigation.navigate("QuotationEditor")} />
-            )}
-            {access.customers && (
-              <QuickAction icon="customer" label="Add customer" onPress={() => navigation.navigate("ContactEditor")} />
-            )}
-            {access.leads && <QuickAction icon="leads" label="Leads" onPress={() => navigation.navigate("Leads")} />}
-            <QuickAction icon="insights" label="Insights" onPress={() => openInsights()} />
-            {access.social && (
-              <QuickAction icon="share" label="Social" onPress={() => navigation.navigate("Social")} />
-            )}
-          </View>
-        )}
-
-        {/* ---- the AI assistant, one tap from launch ---- */}
-        <AnuHomeCard />
-
         {nothingGranted ? (
           <EmptyState
             icon="info"
@@ -281,6 +268,21 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
                 </>
               )}
             </Panel>
+
+            {/* ---- 2b. shortcuts, under the work rather than over it ---- */}
+            <View style={styles.quickRow}>
+              {access.quotes && (
+                <QuickAction icon="quote" label="New quote" onPress={() => navigation.navigate("QuotationEditor")} />
+              )}
+              {access.customers && (
+                <QuickAction icon="customer" label="Add customer" onPress={() => navigation.navigate("ContactEditor")} />
+              )}
+              {access.leads && <QuickAction icon="leads" label="Leads" onPress={() => navigation.navigate("Leads")} />}
+              <QuickAction icon="insights" label="Insights" onPress={() => openInsights()} />
+              {access.social && (
+                <QuickAction icon="share" label="Social" onPress={() => navigation.navigate("Social")} />
+              )}
+            </View>
 
             {/* ---- 3. how the period is going ---- */}
             <Panel title="Performance" padded>
@@ -498,8 +500,14 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
                 />
               )}
             </Panel>
+
           </FadeIn>
         )}
+
+        {/* ---- 7. yours: pay, then the assistant. Outside the branch above,
+                   because an attendance-only account still has a payslip. ---- */}
+        <PayHomeLine />
+        <AnuHomeCard />
       </AppScreen>
     </View>
   )

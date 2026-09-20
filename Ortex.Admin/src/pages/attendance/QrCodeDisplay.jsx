@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Button, Card, CardHeader, Banner, Select, Field, EmptyState, Spinner } from "../../components/ui/Ui"
 import { QrCode, Maximize, RefreshCw } from "../../components/ui/Icons"
 import { showCode, listStations, watchStation } from "../../services/attendanceQr"
@@ -35,6 +35,8 @@ export default function QrCodeDisplay() {
   const [state, setState] = useState("loading")
   const [error, setError] = useState("")
   const [missing, setMissing] = useState(false)
+  // The server's own words behind a "not set up". See services/attendanceQr.js.
+  const [detail, setDetail] = useState("")
   const [left, setLeft] = useState(0)
   const [full, setFull] = useState(false)
   const timer = useRef(null)
@@ -44,8 +46,10 @@ export default function QrCodeDisplay() {
     let alive = true
     void listStations().then((r) => {
       if (!alive) return
-      if (r.missing) setMissing(true)
-      else if (r.error) setError(r.error)
+      if (r.missing) {
+        setMissing(true)
+        setDetail(r.detail || "")
+      } else if (r.error) setError(r.error)
       setStations(r.rows || [])
       setSiteId((cur) => cur || r.rows?.[0]?.id || "")
     })
@@ -63,6 +67,7 @@ export default function QrCodeDisplay() {
     const r = await showCode(siteId)
     if (r.missing) {
       setMissing(true)
+      setDetail(r.detail || "")
       setState("error")
       return
     }
@@ -129,7 +134,11 @@ export default function QrCodeDisplay() {
     return (
       <div className="p-6">
         <Banner tone="warning">
-          Attendance codes are not set up on this database yet. Push migration 0043 and reload.
+          Attendance codes are not set up on this database yet. Push the attendance migrations to this project and
+          reload. If the server&apos;s words below name a FUNCTION rather than a table, the migrations are already
+          there and one of them needs replacing, which takes a NEW migration file: db push skips one it has already
+          recorded, so editing an applied migration in place changes nothing.
+          {detail ? <span className="mt-1 block text-xs opacity-80">Server said: {detail}</span> : null}
         </Banner>
       </div>
     )

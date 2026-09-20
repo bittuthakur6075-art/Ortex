@@ -9,10 +9,13 @@ import {
   onDutySince,
   summarizeDay,
   type AttendanceDay,
+  type DayStatus,
   type DaySummary,
   type Punch,
 } from "@/domain/attendance"
 import { isAdmin } from "@/domain/modules"
+import { daysFromPunches } from "@/features/attendance/days"
+import { weekStart } from "@/features/attendance/progress"
 import {
   flaggedPunches,
   holidays,
@@ -28,6 +31,9 @@ import type { RootStackParamList } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
 
 const DAY_MS = 86400000
+
+/** One day of this week, as both the strip and the legend read it. */
+export type WeekRow = { day: string; worked_min: number; status: DayStatus | null }
 
 /**
  * Today, for the Home card and the Attendance page: the settings (shift, notice),
@@ -151,4 +157,44 @@ export function useStartClock() {
     },
     [uid],
   )
+}
+
+/**
+ * THIS WEEK, Monday to today, for the Home card and the Attendance page.
+ *
+ * Reads the day rows (migration 0034) and falls back to the raw punches until
+ * they exist, so a project without the nightly job still draws a real week
+ * rather than an empty strip. Extracted from AttendanceScreen when Home grew
+ * the same strip: two copies of this would have drifted the first time the
+ * fallback changed.
+ */
+export function useWeekDays(): { rows: WeekRow[]; loading: boolean; reload: () => Promise<void> } {
+  const [rows, setRows] = React.useState<WeekRow[]>([])
+  const [loading, setLoading] = React.useState(true)
+
+  const load = React.useCallback(async () => {
+    const from = weekStart(Date.now())
+    const to = dayKey(Date.now())
+    try {
+      const days = await myDays({ from, to })
+      if (days.length) {
+        setRows(days.map((r) => ({ day: r.day, worked_min: r.worked_min || 0, status: effectiveStatus(r) })))
+        setLoading(false)
+        return
+      }
+    } catch {
+      /* not set up yet: fall back to the punches below */
+    }
+    const p = await myPunches({ from, to }).catch(() => [])
+    setRows(daysFromPunches(p, to).map((d) => ({ day: d.day, worked_min: d.worked_min || 0, status: d.status })))
+    setLoading(false)
+  }, [])
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void load()
+    }, [load]),
+  )
+
+  return { rows, loading, reload: load }
 }

@@ -128,11 +128,18 @@ $$;
 
 -- ---- making a code ------------------------------------------------------------------------------
 
--- 24 url-safe characters from 18 random bytes: base64 less the three
--- characters a QR scanner or a URL would argue about.
+-- 32 url-safe hex characters, 128 bits of randomness.
+--
+-- gen_random_uuid() rather than pgcrypto's gen_random_bytes(): pgcrypto lives
+-- in the `extensions` schema on Supabase, and every function here pins
+-- `search_path = public`, so gen_random_bytes is invisible to them and the
+-- whole thing fails at runtime with 42883. gen_random_uuid() is core Postgres
+-- (pg_catalog, v13+), so it needs no extension and no search_path juggling.
+-- v4 uuids are drawn from the same CSPRNG, and 128 bits is far beyond what a
+-- token living 30 seconds needs.
 create or replace function public.attendance_qr_token()
 returns text language sql volatile as $$
-  select translate(encode(gen_random_bytes(18), 'base64'), '+/=', '-_.');
+  select replace(gen_random_uuid()::text, '-', '');
 $$;
 
 -- The payload a phone actually scans. Prefixed and versioned so the scanner

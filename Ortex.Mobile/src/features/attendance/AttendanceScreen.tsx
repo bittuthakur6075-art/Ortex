@@ -1,12 +1,11 @@
-import { useFocusEffect } from "@react-navigation/native"
 import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
-import { clockIST, dayKey, effectiveStatus, type DayStatus } from "@/domain/attendance"
+import { clockIST, dayKey, type DayStatus } from "@/domain/attendance"
 import { ActionAdvisory, InfoChip, DayDone } from "@/features/attendance/attendanceUi"
 import { DialHeroSkeleton, WeekSkeleton } from "@/features/attendance/AttendanceSkeletons"
 import CheckButton from "@/features/attendance/CheckButton"
-import { daysFromPunches, weekCells } from "@/features/attendance/days"
+import { weekCells } from "@/features/attendance/days"
 import { dayLabel, hoursShort } from "@/features/attendance/format"
 import { DayTimelineBar, LiveTimer } from "@/features/attendance/LiveProgress"
 import MonthAttendance from "@/features/attendance/MonthAttendance"
@@ -16,13 +15,12 @@ import {
   shiftEnded,
   shiftMinutes,
   weekColumns,
-  weekStart,
   workedMs,
 } from "@/features/attendance/progress"
-import { useAttendanceNotices, useAttendanceToday, useStartClock } from "@/features/attendance/useAttendance"
+import { useAttendanceNotices, useAttendanceToday, useStartClock, useWeekDays } from "@/features/attendance/useAttendance"
 import WeekStatusStrip, { StatusLegend } from "@/features/attendance/WeekStatusStrip"
 import { feedback } from "@/lib/feedback"
-import { myDays, myPunches, shiftClock } from "@/lib/attendance"
+import { shiftClock } from "@/lib/attendance"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
@@ -31,7 +29,6 @@ import { AppScreen, DataNotice, ListRefreshControl, Panel, Section, SectionRow }
 
 const TODAY = new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Kolkata" })
 
-type WeekRow = { day: string; worked_min: number; status: DayStatus | null }
 
 /**
  * Attendance, the page, laid out like Zoho People's attendance screen. On top,
@@ -50,38 +47,16 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
   const notices = useAttendanceNotices()
   const [monthKey, setMonthKey] = React.useState(0)
   const [refreshing, setRefreshing] = React.useState(false)
-  const [weekDays, setWeekDays] = React.useState<WeekRow[]>([])
 
-  // This week: the day rows (0034), or, until they exist, the punches.
-  const loadWeek = React.useCallback(async () => {
-    const from = weekStart(Date.now())
-    const to = dayKey(Date.now())
-    try {
-      const rows = await myDays({ from, to })
-      if (rows.length) {
-        setWeekDays(rows.map((r) => ({ day: r.day, worked_min: r.worked_min || 0, status: effectiveStatus(r) })))
-        return
-      }
-    } catch {
-      /* not set up yet: fall back below */
-    }
-    const p = await myPunches({ from, to }).catch(() => [])
-    setWeekDays(
-      daysFromPunches(p, to).map((d) => ({ day: d.day, worked_min: d.worked_min || 0, status: d.status })),
-    )
-  }, [])
-
-  useFocusEffect(
-    React.useCallback(() => {
-      void loadWeek()
-    }, [loadWeek]),
-  )
+  // This week: the shared hook, so Home and this page cannot disagree.
+  const nextHolidayDay = notices.nextHoliday?.day
+  const { rows: weekDays, reload: loadWeek } = useWeekDays()
 
   const today = dayKey(now)
   const shiftMin = shiftMinutes(settings, today)
   const worked = workedMs(today, punches, now)
   const timeline = dayTimeline(today, punches, settings, now)
-  const holiday = notices.nextHoliday?.day
+  const holiday = nextHolidayDay
   const liveMin = Math.round(worked.ms / 60000)
   const week = React.useMemo(
     () => weekCells(weekColumns(weekDays, liveMin, now), weekDays, holiday),

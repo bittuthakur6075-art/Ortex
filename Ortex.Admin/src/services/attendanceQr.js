@@ -18,7 +18,14 @@ export async function showCode(siteId) {
   if (!hasSupabase) return { missing: true }
   const { data, error } = await supabase.rpc("attendance_qr_show", { p_site: siteId || null })
   if (error) {
-    if (isMissing(error)) return { missing: true }
+    // `detail` matters. isMissing() keys off 42883 ("function does not exist"),
+    // which is usually "0043 was never pushed" but is ALSO what a function
+    // raises when a function IT calls is missing. That happened for real on
+    // 2026-09-20: attendance_qr_token used pgcrypto's gen_random_bytes, which
+    // is not on the search_path these functions pin, and the console reported
+    // a migration that was sitting right there in the database. Carry the
+    // server's own words so the next one is diagnosed in seconds, not an hour.
+    if (isMissing(error)) return { missing: true, detail: error.message }
     return { error: error.message || "The code could not be shown." }
   }
   return { code: data }
@@ -29,7 +36,7 @@ export async function listStations() {
   if (!hasSupabase) return { rows: [], missing: true }
   const { data, error } = await supabase.rpc("attendance_qr_sites")
   if (error) {
-    if (isMissing(error)) return { rows: [], missing: true }
+    if (isMissing(error)) return { rows: [], missing: true, detail: error.message }
     return { rows: [], error: error.message || "The stations could not be read." }
   }
   return { rows: data || [], missing: false }
