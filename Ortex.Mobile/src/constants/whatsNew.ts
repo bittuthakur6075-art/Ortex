@@ -29,6 +29,31 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.3.3",
+    version: "1.3.3",
+    date: "2026-09-20",
+    title: "Leave and My pay, made easier to read",
+    summary:
+      "Leave and My pay now read at a glance: each leave type has its own colour and icon, and payslips, salary and claims are laid out the way you actually scan them.",
+    items: [
+      {
+        kind: "improved",
+        title: "Leave at a glance",
+        detail: "Your balance, the year so far and each request now carry the same colour and icon per leave type, so casual, sick and unpaid are told apart without reading the label.",
+      },
+      {
+        kind: "improved",
+        title: "Applying for leave",
+        detail: "The apply and request pages are laid out in clear steps, so the dates, the type and the reason are all visible before you send it.",
+      },
+      {
+        kind: "improved",
+        title: "My pay",
+        detail: "Payslips, the salary breakup and your claims are easier to scan, and each claim category now shows its own icon.",
+      },
+    ],
+  },
+  {
     id: "1.3.2",
     version: "1.3.2",
     date: "2026-09-19",
