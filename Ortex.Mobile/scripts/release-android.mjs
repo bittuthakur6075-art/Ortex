@@ -173,7 +173,9 @@ if (aapt2) {
 // properties, fell back to signingConfigs.debug without a word, and every phone
 // that took it then refused properly signed updates until it was reinstalled.
 // So read the certificate back from the finished file, never trust the config.
-const RELEASE_CERT_SHA256 = "a18174356eb29a698a936e45057d53adffa8b0dd7d6698141f5b3538fb7079ae"
+// The key changed on 2026-09-23 when builds moved to the new PC (the old key,
+// a18174..., was lost with the old PC); 1.4.0 is the first release on this one.
+const RELEASE_CERT_SHA256 = "650d1a7db9e67e5d277c6d0489f9b5e6ad68a10e4ac7dba232135bb2e72e149d"
 function findApksigner() {
   const tools = sdkDir && join(sdkDir, "build-tools")
   if (!tools || !existsSync(tools)) return null
