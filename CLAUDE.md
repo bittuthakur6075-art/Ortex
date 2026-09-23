@@ -33,6 +33,7 @@ Never run destructive SQL, a test write or a bulk import against it casually.
 |---|---|
 | `Ortex.Admin/src/lib/pricing.js`, `format.js`, `id.js`, `gstStates.js`, `quoteRfq.js`, `data/domain/schema.js`, `settingsDefaults.js`, `data/domain/domain.js` (quotations), `data/domain/modules.js`, `pages/voice-leads/helpers.js`, `data/store/apiStore.js` | The line-for-line mirror in `Ortex.Mobile/src/domain/` (and `src/data/repo.ts`). `npm test` in Mobile fails if the GST engines drift. |
 | `Ortex.Admin/src/lib/anu.js` (staff Anu answers) | `Ortex.Mobile/src/domain/anu.ts` |
+| `Ortex.Admin/src/lib/anuIntent.js`, `anuReply.js`, `chat.js` (Team chat and Anu in chat) | `Ortex.Mobile/src/domain/anuIntent.ts`, `anuReply.ts`, `chat.ts` (parity test `test/anuIntent.test.mjs`) |
 | `Ortex.Admin/src/lib/attendance.js` | Nothing: it is GENERATED from `Ortex.Mobile/src/domain/attendance.ts` (tsc + prettier --no-semi); parity test `Ortex.Mobile/test/attendance.test.mjs` |
 | `Ortex.Admin/src/lib/roles.js` | `Ortex.Mobile/src/domain/modules.ts` |
 | `Ortex.Web/src/pages/Privacy.jsx`, `Terms.jsx` | `Ortex.Mobile/src/features/profile/legal.ts` (verbatim mirror) |

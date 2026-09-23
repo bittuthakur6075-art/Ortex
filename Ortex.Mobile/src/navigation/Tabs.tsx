@@ -5,6 +5,7 @@ import {
 import { BlurTargetView } from "expo-blur"
 import React from "react"
 
+import ChatScreen from "@/features/chat/ChatScreen"
 import ContactsScreen from "@/features/contacts/ContactsScreen"
 import HomeScreen from "@/features/home/HomeScreen"
 import LeadsScreen from "@/features/leads/LeadsScreen"
@@ -73,6 +74,7 @@ export default function Tabs() {
       >
         {/* First, so it is where the app opens: the day's work before any list. */}
         {allowed("Home") && <Tab.Screen name="Home" component={HomeScreen} options={{ title: "Home" }} />}
+        {allowed("Chat") && <Tab.Screen name="Chat" component={ChatScreen} options={{ title: "Chat" }} />}
         {allowed("Quotes") && (
           <Tab.Screen name="Quotes" component={QuotationsScreen} options={{ title: "Quotes" }} />
         )}

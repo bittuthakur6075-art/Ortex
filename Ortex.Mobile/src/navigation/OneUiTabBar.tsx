@@ -6,6 +6,7 @@ import { Animated, Pressable, StyleSheet, View, useWindowDimensions } from "reac
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useNotifications } from "@/features/notifications/useNotifications"
+import { useChatInbox } from "@/features/chat/useChat"
 import { feedback } from "@/lib/feedback"
 import { blurTargetRef } from "@/navigation/blurTarget"
 import { useIsDark, useTheme } from "@/store/ThemeContext"
@@ -95,6 +96,7 @@ export const TAB_BAR_HEIGHT = CHIP_H + INNER_PADDING * 2
 
 const ICONS: Record<string, IconName> = {
   Home: "home",
+  Chat: "enquiry",
   Quotes: "quote",
   Leads: "leads",
   Products: "product",
@@ -168,14 +170,17 @@ export default function OneUiTabBar({ state: navState, descriptors, navigation }
   // (so a tab dot and the bell dot can never disagree). A notification belongs
   // to the tab that opens its record; tabs no notification leads to never dot.
   const { unread } = useNotifications()
+  // Team chat dots its own tab from the chat inbox (muted chats excluded).
+  const chatUnread = useChatInbox().unread
   const dotted = React.useMemo(() => {
     const out = new Set<string>()
+    if (chatUnread > 0) out.add("Chat")
     for (const n of unread) {
       const tab = TAB_FOR_SCREEN[n.target.screen]
       if (tab) out.add(tab)
     }
     return out
-  }, [unread])
+  }, [unread, chatUnread])
 
   const press = React.useRef<Animated.Value[]>([]).current
   navState.routes.forEach((_, i) => {

@@ -35,6 +35,7 @@ import NotificationsScreen from "@/features/notifications/NotificationsScreen"
 import { NotificationEngine } from "@/features/notifications/useNotificationEngine"
 import GlobalSearchScreen from "@/features/search/GlobalSearchScreen"
 import AnuScreen from "@/features/anu/AnuScreen"
+import ChatThreadScreen from "@/features/chat/ChatThreadScreen"
 import AttendanceApprovalsScreen from "@/features/attendance/AttendanceApprovalsScreen"
 import {
   AttendanceApprovalAlerts,
@@ -146,6 +147,7 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         }}
       >
         <Stack.Screen name="Tabs" component={Tabs} />
+        <Stack.Screen name="ChatThread" component={ChatThreadScreen} />
         <Stack.Screen name="QuotationEditor" component={QuotationEditorScreen} />
         <Stack.Screen name="QuotationDetail" component={QuotationDetailScreen} />
         <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} />

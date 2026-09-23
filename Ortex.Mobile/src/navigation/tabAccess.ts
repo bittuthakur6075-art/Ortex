@@ -10,6 +10,7 @@ import type { TabParamList } from "@/navigation/types"
 // Home is the console's Dashboard, which every signed-in account reaches.
 export const TAB_REQUIRES: Record<keyof TabParamList, ModuleKey[]> = {
   Home: ["dashboard"],
+  Chat: ["chat"],
   Quotes: ["quotations"],
   Leads: ["enquiries", "voice-leads"],
   Products: ["products"],

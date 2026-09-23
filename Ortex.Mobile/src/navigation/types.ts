@@ -9,6 +9,7 @@ import type { LegalDocKey } from "@/features/profile/legal"
 
 export type TabParamList = {
   Home: undefined
+  Chat: undefined
   Quotes: undefined
   Leads: undefined
   Products: undefined
@@ -25,6 +26,8 @@ export type QuotationPrefill = {
 
 export type RootStackParamList = {
   Tabs: undefined
+  // Team chat (migrations 0045/0046): one conversation, direct, group, team or Anu.
+  ChatThread: { id: string }
   QuotationEditor: { id?: string; prefill?: QuotationPrefill } | undefined
   QuotationDetail: { id: string }
   CustomerDetail: { id: string }

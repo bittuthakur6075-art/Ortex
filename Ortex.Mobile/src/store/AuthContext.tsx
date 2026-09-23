@@ -4,6 +4,7 @@ import React from "react"
 
 import { clearCache } from "@/data/cache"
 import { resetCollections } from "@/data/collectionStore"
+import { resetChat } from "@/features/chat/useChat"
 import { errorMessage, supabase } from "@/data/supabase"
 import { isAdmin, type Profile } from "@/domain/modules"
 import { signOut as authSignOut } from "@/lib/auth"
@@ -182,6 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await authSignOut()
     await clearCache()
     resetCollections()
+    resetChat()
     // The next person to sign in on this handset starts with an empty inbox and
     // an empty shade, not the last rep's read marks.
     resetNotificationState()

@@ -29,6 +29,66 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.4.0",
+    version: "1.4.0",
+    date: "2026-09-23",
+    title: "Team chat, and Anu in it",
+    summary:
+      "Required update, installed once by hand: open Settings, Apps, Ortex Sales, Uninstall. Then open the download link your admin sends and install Ortex Sales 1.4.0. Sign in again as usual. Future updates arrive inside the app as before.",
+    items: [
+      {
+        kind: "new",
+        title: "Chat tab",
+        detail: "Message a colleague or make a group, send photos, reply to a message and delete your own for everyone. The same chats as the Ortex console on a computer.",
+      },
+      {
+        kind: "new",
+        title: "Your team channel",
+        detail: "Every team has a channel. Anu posts the daily update there in the morning and the attendance status after check-in time and again in the evening.",
+      },
+      {
+        kind: "new",
+        title: "Ask Anu in Chat",
+        detail: "Type a question: what needs my attention, who is not in today, daily update, leads, quotations, a customer, a price or sales this month. Answers come straight from the database, instantly. She can also pass a message to another team after you tap Send.",
+      },
+      {
+        kind: "improved",
+        title: "Includes everything in 1.3.4",
+        detail: "Attendance by QR code, the new Home order and the new Ortex signing key, which is why this one update needs a reinstall.",
+      },
+    ],
+  },
+  {
+    id: "1.3.4",
+    version: "1.3.4",
+    date: "2026-09-23",
+    title: "Attendance by QR code",
+    summary:
+      "One-time reinstall: uninstall Ortex Sales, then install it again from the link your admin sends. After that, updates arrive inside the app as before.",
+    items: [
+      {
+        kind: "new",
+        title: "Check in by scanning the office QR code",
+        detail: "Attendance is now marked by scanning the code on the office screen. No selfie and no location are needed. The code changes every few seconds, so a photo of it will not work.",
+      },
+      {
+        kind: "improved",
+        title: "Out in the field",
+        detail: "Sales staff away from the office can still check in without a code. Those check-ins are reviewed by the office.",
+      },
+      {
+        kind: "improved",
+        title: "Home page",
+        detail: "Attendance and your to-do list now come first, with the shortcuts right below them.",
+      },
+      {
+        kind: "fixed",
+        title: "New signing key",
+        detail: "The app is now signed with a new Ortex key, which is why this version needs one reinstall.",
+      },
+    ],
+  },
+  {
     id: "1.3.3",
     version: "1.3.3",
     date: "2026-09-20",
