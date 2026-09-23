@@ -1,6 +1,6 @@
 # Rule: Automatically Update CLAUDE.md
 
-AI agents MUST check and update the `CLAUDE.md` file in the workspace root at the end of any task or sequence of edits.
+AI agents MUST check and update the relevant `CLAUDE.md` at the end of any task or sequence of edits: the root file for repo-wide facts, `Ortex.Web/`, `Ortex.Admin/` or `Ortex.Mobile/CLAUDE.md` for that app. Correct stale sentences rather than appending new ones.
 
 ## Guidelines:
 1. **When to Update**:

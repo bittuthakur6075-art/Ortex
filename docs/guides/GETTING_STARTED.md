@@ -48,4 +48,4 @@ See `docs/pm/PRODUCT_BACKLOG.md` for the plan to route these to a real backend.
 
 - `docs/architecture/ARCHITECTURE.md`: full codebase + business-context reference.
 - `docs/pm/PRODUCT_BACKLOG.md`: product/feature backlog.
-- `CLAUDE.md` (repo root): the condensed guide for working in this repo.
+- `CLAUDE.md` (repo root, plus one per app): the condensed guide for working in this repo.

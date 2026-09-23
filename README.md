@@ -79,7 +79,7 @@ Ortex/
 ├── Ortex.Tally.Connector/     # Node CLI (src/, test/)
 ├── docs/                      # cross-cutting: architecture, backlog, guides
 ├── .github/workflows/ci.yml
-└── CLAUDE.md                  # working notes for AI coding assistants
+└── CLAUDE.md                  # AI assistant notes (each app also has its own CLAUDE.md)
 ```
 
 ## Conventions
@@ -102,5 +102,5 @@ Ortex/
 - `docs/pm/PRODUCT_BACKLOG.md`, `docs/pm/GROWTH_ROADMAP.md`: roadmap and status
 - `docs/guides/GETTING_STARTED.md`, `docs/guides/META_SETUP.md`, `docs/guides/MOBILE_RELEASE.md`, setup guides
 - `Ortex.Web/docs/DEPLOY_HOSTINGER.md`: static deploy of the marketing site
-- `Ortex.Admin/docs/ENVIRONMENTS.md`: staging vs production Supabase projects
+- `Ortex.Admin/docs/ENVIRONMENTS.md`: the one (production) Supabase project and demo-mode dev/staging
 - `Ortex.Mobile/README.md`: mobile setup, the ported-logic mirror, bare-workflow notes
