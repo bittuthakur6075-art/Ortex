@@ -2,9 +2,9 @@ import { useNavigate } from "react-router-dom"
 import { Badge } from "../../components/ui/Ui"
 import { ArrowRight, Pencil, Trash2, RefreshCw, X, Search, Users, FileText, Package, Inbox, Headset, Sparkles } from "../../components/ui/Icons"
 import { cn } from "../../lib/cn"
-import { clock, firstName, linkSegments, tickState } from "../../lib/chat"
+import { clock, firstName, isMultiPerson, linkSegments, tickState } from "../../lib/chat"
 import { routeFor } from "../../lib/anu"
-import { Attachment, PersonAvatar, Ticks } from "./parts"
+import { ANU_PERSON, Attachment, PersonAvatar, Ticks } from "./parts"
 
 const EDIT_WINDOW_MS = 15 * 60 * 1000
 
@@ -14,9 +14,11 @@ const CARD_ICON = { customer: Users, quotation: FileText, product: Package, enqu
 // white, system lines centred, Anu's answers carry their record cards.
 export default function MessageBubble({ item, conv, meId, members, replied, onReply, onEdit, onDelete, onRetry, onDiscard }) {
   const { message: m, runStart, runEnd } = item
-  const mine = m.sender_id === meId && m.kind !== "assistant"
-  const sender = members.get(m.sender_id)
-  const isGroup = conv.kind === "group"
+  const mine = m.sender_id === meId && m.kind !== "assistant" && m.kind !== "bot"
+  const isBot = m.kind === "bot"
+  // A bot post is Anu; someone posting from outside a team is named in meta.
+  const sender = isBot ? ANU_PERSON : members.get(m.sender_id) || (m.meta?.sender_name ? { id: m.sender_id, name: m.meta.sender_name } : null)
+  const isGroup = isMultiPerson(conv)
 
   if (m.kind === "system") {
     return (
@@ -47,7 +49,7 @@ export default function MessageBubble({ item, conv, meId, members, replied, onRe
         )}
       >
         {!mine && isGroup && runStart && (
-          <p className="mb-0.5 text-xs font-semibold text-primary">{sender ? firstName(sender.name) : "Former colleague"}</p>
+          <p className="mb-0.5 text-xs font-semibold text-primary">{sender ? (isBot ? "Anu" : firstName(sender.name)) : "Former colleague"}{isBot && <span className="ml-1.5 font-normal text-muted-foreground">automatic update</span>}</p>
         )}
 
         {replied && !deleted && (
@@ -69,7 +71,7 @@ export default function MessageBubble({ item, conv, meId, members, replied, onRe
           <>
             {m.attachment && <div className="mb-1"><Attachment att={m.attachment} mine={mine} /></div>}
             {m.body && <Body text={m.body} mine={mine} />}
-            {m.kind === "assistant" && <AssistantExtras meta={m.meta} />}
+            {(m.kind === "assistant" || isBot) && <AssistantExtras meta={m.meta} />}
           </>
         )}
 

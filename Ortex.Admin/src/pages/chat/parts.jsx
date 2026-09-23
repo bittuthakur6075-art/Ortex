@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react"
 import { Avatar } from "../../components/ui/Ui"
-import { Users, FileText, Download } from "../../components/ui/Icons"
+import { Users, FileText, Download, Globe, IndianRupee, Package, ShieldCheck, TrendingUp } from "../../components/ui/Icons"
 import { cn } from "../../lib/cn"
 import { fileSize, isImage, peerOf } from "../../lib/chat"
 import { fileUrl } from "../../services/chat"
 
 export const ANU_PHOTO = "/img/anu.jpg"
+
+const TEAM_ICON = { sales: TrendingUp, accounts: IndianRupee, staff: Package, management: ShieldCheck, everyone: Globe }
+
+/** Anu drawn as a message sender (her posts in team channels). */
+export const ANU_PERSON = { id: "anu", name: "Anu", avatar_url: ANU_PHOTO }
 
 // The round picture a conversation is known by: a colleague's photo (with a
 // live dot when they are online), a group's glyph, or Anu's portrait.
@@ -15,6 +20,14 @@ export function ConversationAvatar({ conv, meId, online, size = "h-11 w-11" }) {
       <span className={cn("relative inline-block flex-none", size)}>
         <img src={ANU_PHOTO} alt="Anu" className="h-full w-full rounded-full bg-primary/10 object-cover" />
         <span className="absolute -bottom-0.5 -right-0.5 grid h-[18px] w-[18px] place-items-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground ring-2 ring-card">AI</span>
+      </span>
+    )
+  }
+  if (conv?.kind === "team") {
+    const Icon = TEAM_ICON[conv.team] || Users
+    return (
+      <span className={cn("grid flex-none place-items-center rounded-full bg-success/12 text-success-text", size)}>
+        <Icon className="h-1/2 w-1/2" />
       </span>
     )
   }

@@ -23,7 +23,7 @@ export default function ChatNotifier() {
     if (p.table !== "chat_messages" || p.eventType !== "INSERT") return
     const m = p.new
     const me = currentUserId()
-    if (!m || m.sender_id === me || m.kind !== "text") return
+    if (!m || m.sender_id === me || (m.kind !== "text" && m.kind !== "bot")) return
     const hidden = document.visibilityState === "hidden"
     if (!hidden && getActiveConversation() === m.conversation_id) return
 
@@ -31,8 +31,8 @@ export default function ChatNotifier() {
     if (!conv) { await reloadInbox(); conv = getInbox().find((c) => c.id === m.conversation_id) }
     if (!conv || conv.muted) return
 
-    const sender = conv.members?.find((x) => x.id === m.sender_id)
-    const title = conv.kind === "group" ? `${firstName(sender?.name)} in ${conversationTitle(conv, me)}` : conversationTitle(conv, me)
+    const sender = m.kind === "bot" ? { name: "Anu" } : conv.members?.find((x) => x.id === m.sender_id) || { name: m.meta?.sender_name }
+    const title = conv.kind === "group" || conv.kind === "team" ? `${firstName(sender?.name)} in ${conversationTitle(conv, me)}` : conversationTitle(conv, me)
     const body = m.body ? oneLine(m.body).slice(0, 140) : m.attachment ? "Sent a file" : ""
     const go = () => navigate(`/chat?c=${m.conversation_id}`)
 

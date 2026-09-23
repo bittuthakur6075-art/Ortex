@@ -3,10 +3,11 @@ import { toast } from "sonner"
 import { Button } from "../../components/ui/Ui"
 import { ArrowLeft, Info, Bell, Trash2, Sparkles, AlertTriangle } from "../../components/ui/Icons"
 import { cn } from "../../lib/cn"
-import { conversationTitle, firstName, memberLine, peerOf, threadSections } from "../../lib/chat"
+import { conversationTitle, firstName, isMultiPerson, memberLine, peerOf, threadSections } from "../../lib/chat"
 import { useChatThread, patchConversation } from "../../hooks/useChat"
 import { useTypingSignal } from "../../hooks/useChatPresence"
 import { useAssistantChat } from "../../components/chat/useAssistantChat"
+import { TEAM_TITLES } from "../../lib/anuIntent"
 import { chat } from "../../services/chat"
 import { ConversationAvatar, ANU_PHOTO } from "./parts"
 import MessageBubble from "./MessageBubble"
@@ -14,9 +15,11 @@ import Composer from "./Composer"
 
 const ANU_SUGGESTIONS = [
   "What needs my attention today?",
+  "Who is not in today?",
+  "Daily update for my team",
+  "Sales this month",
+  "New leads this week",
   "What's new in the console?",
-  "How do I create a quotation?",
-  "How are sales this month?",
 ]
 
 export default function Thread({ conv, meId, profile, presence, onBack, onInfo }) {
@@ -109,10 +112,12 @@ export default function Thread({ conv, meId, profile, presence, onBack, onInfo }
   const typers = [...(presence?.typing.get(conv.id) || [])].filter((id) => id !== meId)
   const peer = peerOf(conv, meId)
   const subtitle = isAnu
-    ? "AI assistant · answers from your own data"
+    ? "Assistant · answers straight from the database"
     : typers.length
-      ? conv.kind === "group" ? `${typers.map((id) => firstName(members.get(id)?.name)).join(", ")} typing…` : "typing…"
-      : conv.kind === "group"
+      ? isMultiPerson(conv) ? `${typers.map((id) => firstName(members.get(id)?.name)).join(", ")} typing…` : "typing…"
+      : conv.kind === "team"
+        ? `${conv.members?.length || 0} members · Anu posts the daily update and attendance here`
+        : conv.kind === "group"
         ? memberLine(conv, meId)
         : peer && presence?.online.has(peer.id) ? "Online" : peer?.active === false ? "Account deactivated" : "Offline"
 
@@ -124,7 +129,7 @@ export default function Thread({ conv, meId, profile, presence, onBack, onInfo }
         <button type="button" onClick={onBack} className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground hover:bg-accent lg:hidden" aria-label="Back to chats">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <button type="button" onClick={conv.kind === "group" ? onInfo : undefined} className={cn("flex min-w-0 flex-1 items-center gap-3 text-left", conv.kind !== "group" && "cursor-default")}>
+        <button type="button" onClick={isMultiPerson(conv) ? onInfo : undefined} className={cn("flex min-w-0 flex-1 items-center gap-3 text-left", !isMultiPerson(conv) && "cursor-default")}>
           <ConversationAvatar conv={conv} meId={meId} online={presence?.online} size="h-10 w-10" />
           <span className="min-w-0">
             <span className="block truncate text-[15px] font-semibold text-foreground">{conversationTitle(conv, meId)}</span>
@@ -137,7 +142,7 @@ export default function Thread({ conv, meId, profile, presence, onBack, onInfo }
               <Bell className="h-5 w-5" />
             </button>
           )}
-          {conv.kind === "group" && (
+          {isMultiPerson(conv) && (
             <button type="button" onClick={onInfo} className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground hover:bg-accent" title="Group info" aria-label="Group info">
               <Info className="h-5 w-5" />
             </button>
@@ -192,6 +197,17 @@ export default function Thread({ conv, meId, profile, presence, onBack, onInfo }
         ))}
 
         {isAnu && assistant.thinking && <AnuThinking steps={assistant.steps} />}
+        {isAnu && assistant.pending && (
+          <div className="mt-3 max-w-md rounded-2xl border border-warning/40 bg-card p-3.5 animate-row-in" role="alert">
+            <p className="text-[13px] font-semibold text-foreground">Send to {TEAM_TITLES[assistant.pending.team]}?</p>
+            <p className="mt-1 whitespace-pre-wrap rounded-lg bg-well px-3 py-2 text-[13px] text-foreground">{assistant.pending.body}</p>
+            <p className="mt-1.5 text-xs text-muted-foreground">It goes out under your name.</p>
+            <div className="mt-3 flex gap-2">
+              <Button size="sm" onClick={assistant.confirmSend} className="flex-1">Send</Button>
+              <Button size="sm" variant="outline" onClick={assistant.cancelSend} className="flex-1">Cancel</Button>
+            </div>
+          </div>
+        )}
         {isAnu && assistant.error && (
           <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-destructive/10 px-3.5 py-2.5 text-[13px] text-destructive-text">
             <AlertTriangle className="mt-px h-4 w-4 flex-none" />
@@ -225,7 +241,7 @@ function AnuWelcome({ name, onAsk, disabled }) {
       <img src={ANU_PHOTO} alt="Anu" className="h-20 w-20 rounded-full object-cover" />
       <h3 className="mt-4 text-lg font-semibold tracking-tight text-foreground">Namaste {name}, I'm Anu</h3>
       <p className="mt-1.5 text-[13px] text-muted-foreground">
-        Ask me about your leads, quotations, customers and products, how to do something in the console, or what's new. I only read your data; I never change it from here.
+        I read the Ortex database and answer straight from it: today's to-dos, who is in, your team's daily update, leads, quotations, customers, products and sales. I can also pass a message to another team, and explain how to use the console.
       </p>
       <div className="mt-5 grid w-full gap-2 sm:grid-cols-2">
         {ANU_SUGGESTIONS.map((q) => (

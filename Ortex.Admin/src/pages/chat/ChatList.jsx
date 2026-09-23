@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { Button, Chip, ChipGroup, SearchInput } from "../../components/ui/Ui"
-import { Pencil, MessageCircle, Bell } from "../../components/ui/Icons"
+import { Pencil, MessageCircle, Bell, Settings } from "../../components/ui/Icons"
 import { cn } from "../../lib/cn"
 import { conversationTitle, inboxTime, previewText, searchConversations, tickState } from "../../lib/chat"
 import { ConversationAvatar, Ticks } from "./parts"
@@ -12,7 +12,7 @@ const FILTERS = [
 ]
 
 // The left pane: every conversation, Anu pinned first, newest activity next.
-export default function ChatList({ list, meId, activeId, onOpen, onNew, presence, loading }) {
+export default function ChatList({ list, meId, activeId, onOpen, onNew, onAutomations, presence, loading }) {
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState("all")
   // Desktop alerts are opt-in: the browser asks once, and only after a click.
@@ -30,9 +30,16 @@ export default function ChatList({ list, meId, activeId, onOpen, onNew, presence
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-none items-center justify-between gap-2 px-5 pb-3 pt-5">
         <h2 className="text-lg font-semibold tracking-tight text-foreground">Chats</h2>
-        <Button size="sm" variant="outline" onClick={onNew} title="New chat or group">
-          <Pencil className="h-4 w-4" /> New
-        </Button>
+        <div className="flex items-center gap-1.5">
+          {onAutomations && (
+            <Button size="sm" variant="ghost" icon onClick={onAutomations} title="Anu's automations" aria-label="Anu's automations">
+              <Settings className="h-4 w-4" />
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={onNew} title="New chat or group">
+            <Pencil className="h-4 w-4" /> New
+          </Button>
+        </div>
       </div>
       <div className="flex-none space-y-3 px-5 pb-3">
         <SearchInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search chats" />

@@ -48,9 +48,9 @@ Security lives in the database (RLS, security-definer RPCs, triggers). A client-
 
 ## Database migration status
 
-**Every migration up to 0045 is applied in production** (checked with `supabase migration list` on 2026-09-23; 0041 and 0044 had been missed until then and went in with 0045). Check with `supabase migration list` before assuming; `db push` skips a migration already recorded even if its objects were later deleted (this happened with the `product-images` bucket).
+**Every migration up to 0046 is applied in production** (checked with `supabase migration list` on 2026-09-23; 0041 and 0044 had been missed until then and went in with 0045). Check with `supabase migration list` before assuming; `db push` skips a migration already recorded even if its objects were later deleted (this happened with the `product-images` bucket).
 
-* `anu-chat` (Team chat's Anu) is deployed. The CLI is linked to project `pfoeztiakqtemakfgpgs`; on Windows PowerShell call it as `npx.cmd supabase ...` (script execution is disabled).
+* Anu in Team chat uses NO language model (the `anu-chat` function was deleted 2026-09-23); pg_cron job `anu-bot-tick` runs every 5 minutes. The CLI is linked to project `pfoeztiakqtemakfgpgs`; on Windows PowerShell call it as `npx.cmd supabase ...` (script execution is disabled).
 * `0031` push devices: applied, but remote push stays inert until the Firebase files and the Vault/function secrets in `docs/guides/PUSH_SETUP.md` exist.
 
 ## Repo-wide conventions

@@ -14,7 +14,8 @@ export default function GroupInfoDrawer({ open, onClose, conv, meId, presence, o
   const [renaming, setRenaming] = useState(false)
   const [title, setTitle] = useState("")
   const [adding, setAdding] = useState(false)
-  const owner = conv?.my_role === "owner"
+  const isTeam = conv?.kind === "team"
+  const owner = !isTeam && conv?.my_role === "owner"
   if (!conv) return null
 
   const run = async (fn, ok) => {
@@ -44,7 +45,7 @@ export default function GroupInfoDrawer({ open, onClose, conv, meId, presence, o
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title="Group info" width="max-w-md">
+    <Drawer open={open} onClose={onClose} title={isTeam ? "Team channel" : "Group info"} width="max-w-md">
       <div className="flex flex-col items-center text-center">
         <ConversationAvatar conv={conv} meId={meId} size="h-20 w-20" />
         {renaming ? (
@@ -62,7 +63,12 @@ export default function GroupInfoDrawer({ open, onClose, conv, meId, presence, o
             )}
           </h3>
         )}
-        <p className="mt-1 text-[13px] text-muted-foreground">Group · {conv.members.length} {conv.members.length === 1 ? "member" : "members"}</p>
+        <p className="mt-1 text-[13px] text-muted-foreground">{isTeam ? "Team" : "Group"} · {conv.members.length} {conv.members.length === 1 ? "member" : "members"}</p>
+        {isTeam && (
+          <p className="mt-2 max-w-xs text-xs text-muted-foreground">
+            Members follow each person's role, so this list updates itself. Admins are in every team. Anu posts the daily update and attendance here.
+          </p>
+        )}
       </div>
 
       <div className="mt-6 flex items-center justify-between">
@@ -87,11 +93,13 @@ export default function GroupInfoDrawer({ open, onClose, conv, meId, presence, o
         ))}
       </div>
 
-      <div className="mt-6 border-t border-border pt-4">
-        <Button variant="outline" className="w-full text-destructive" onClick={leave}>
-          <LogOut className="h-4 w-4" /> Leave group
-        </Button>
-      </div>
+      {!isTeam && (
+        <div className="mt-6 border-t border-border pt-4">
+          <Button variant="outline" className="w-full text-destructive" onClick={leave}>
+            <LogOut className="h-4 w-4" /> Leave group
+          </Button>
+        </div>
+      )}
 
       <NewChatModal
         open={adding}

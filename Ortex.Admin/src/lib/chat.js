@@ -9,6 +9,9 @@ const DAY = 24 * 60 * MIN
 /** A run of bubbles from one sender breaks after this gap, like WhatsApp. */
 export const RUN_GAP_MS = 5 * MIN
 
+/** Group and team chats show each sender's name; a direct chat does not need to. */
+export const isMultiPerson = (conv) => conv?.kind === "group" || conv?.kind === "team"
+
 export const firstName = (name) => String(name || "").trim().split(/\s+/)[0] || "Someone"
 
 /** The other person in a direct chat (null for groups and the Anu thread). */
@@ -20,7 +23,7 @@ export function peerOf(conv, meId) {
 export function conversationTitle(conv, meId) {
   if (!conv) return ""
   if (conv.kind === "assistant") return "Anu"
-  if (conv.kind === "group") return conv.title || "Group"
+  if (conv.kind === "group" || conv.kind === "team") return conv.title || "Group"
   return peerOf(conv, meId)?.name || "Former colleague"
 }
 
@@ -46,11 +49,11 @@ export function previewText(conv, meId) {
       ? isImage(last.attachment) ? "Photo" : `File: ${last.attachment.name || "attachment"}`
       : ""
   if (last.kind === "system") return content
-  if (last.kind === "assistant") return `Anu: ${content}`
+  if (last.kind === "assistant" || last.kind === "bot") return `Anu: ${content}`
   if (last.sender_id === meId) return `You: ${content}`
-  if (conv.kind === "group") {
+  if (isMultiPerson(conv)) {
     const who = (conv.members || []).find((m) => m.id === last.sender_id)
-    return `${firstName(who?.name)}: ${content}`
+    return `${firstName(who?.name || last.sender_name)}: ${content}`
   }
   return content
 }
@@ -133,7 +136,7 @@ export function searchConversations(list, query, meId) {
   )
 }
 
-/** Inbox order: the Anu thread pinned first, then newest activity. */
+/** Inbox order: the Anu thread pinned first, then newest activity (team channels included). */
 export function sortInbox(list) {
   return [...list].sort((a, b) => {
     if (a.kind === "assistant" && b.kind !== "assistant") return -1

@@ -14,6 +14,8 @@ import ChatList from "./chat/ChatList"
 import Thread from "./chat/Thread"
 import NewChatModal from "./chat/NewChatModal"
 import GroupInfoDrawer from "./chat/GroupInfoDrawer"
+import AutomationsDrawer from "./chat/AutomationsDrawer"
+import { isAdmin, isSuperAdmin } from "../lib/roles"
 
 /* ============================================================
    Team chat (/chat): WhatsApp for the team, inside the console.
@@ -35,6 +37,7 @@ export default function Chat() {
   const [params, setParams] = useSearchParams()
   const [newOpen, setNewOpen] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
+  const [autoOpen, setAutoOpen] = useState(false)
   const activeId = params.get("c")
 
   const open = useCallback((id) => {
@@ -86,6 +89,7 @@ export default function Chat() {
           activeId={activeId}
           onOpen={open}
           onNew={() => setNewOpen(true)}
+          onAutomations={isAdmin(profile) ? () => setAutoOpen(true) : null}
           presence={presence}
           loading={inbox.loading}
         />
@@ -108,7 +112,7 @@ export default function Chat() {
             </span>
             <h2 className="mt-4 text-lg font-semibold tracking-tight text-foreground">Team chat</h2>
             <p className="mt-1.5 max-w-sm text-[13px] text-muted-foreground">
-              Message a colleague, make a group for a job, or ask Anu for today's briefing, a lookup or help with the console.
+              Message a colleague, make a group for a job, follow your team channel, or ask Anu for today's to-dos, attendance, a lookup or help with the console.
               Chats are private to the people in them.
             </p>
             {inbox.error && <p className="mt-3 text-[13px] text-destructive-text">{inbox.error}</p>}
@@ -116,8 +120,9 @@ export default function Chat() {
         )}
       </div>
 
+      <AutomationsDrawer open={autoOpen} onClose={() => setAutoOpen(false)} superAdmin={isSuperAdmin(profile)} />
       <NewChatModal open={newOpen} onClose={() => setNewOpen(false)} onOpened={opened} presence={presence} />
-      <GroupInfoDrawer open={infoOpen && active?.kind === "group"} onClose={() => setInfoOpen(false)} conv={active} meId={meId} presence={presence} onLeft={() => open(null)} />
+      <GroupInfoDrawer open={infoOpen && (active?.kind === "group" || active?.kind === "team")} onClose={() => setInfoOpen(false)} conv={active} meId={meId} presence={presence} onLeft={() => open(null)} />
     </Card>
   )
 }

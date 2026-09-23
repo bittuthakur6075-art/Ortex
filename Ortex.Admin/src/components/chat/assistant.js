@@ -1,34 +1,9 @@
-import { MODULES, canAccess } from "../../data/domain/modules"
+import { canAccess } from "../../data/domain/modules"
 import { RELEASES } from "../../data/domain/whatsNew"
-import { roleLabel } from "../../lib/roles"
-import { ANU_TOOLS } from "../anu/tools"
 
-// Anu in TEAM CHAT: the typed sibling of the voice panel (components/anu/).
-// Same data tools and the same pure answers (lib/anu.js through readTools.js),
-// plus two of her own: how to do things in the console (HELP, below) and what
-// changed in it (whatsNew.js). She only READS here: changing a status or
-// drafting a quotation stays with voice Anu, whose Confirm card is built for it.
-
-const READ_ONLY = new Set(["get_briefing", "find_customers", "find_enquiries", "find_quotations", "get_quotation", "find_products", "sales_summary"])
-
-export const CHAT_TOOLS = [
-  {
-    functionDeclarations: [
-      ...ANU_TOOLS[0].functionDeclarations.filter((d) => READ_ONLY.has(d.name)),
-      {
-        name: "console_help",
-        description:
-          "How to do something in the Ortex console: step-by-step help articles (quotations, invoices, payments, enquiries, products, attendance, leave, payslips, social posts, users, team chat, search). Use for any 'how do I', 'where is', 'kaise karu' question.",
-        parameters: { type: "OBJECT", properties: { topic: { type: "STRING", description: "What they want to do, in their words" } }, required: ["topic"] },
-      },
-      {
-        name: "whats_new",
-        description: "The latest changes to the console: new features, improvements and fixes, newest release first. Use for 'what's new', 'any updates', 'what changed'.",
-        parameters: { type: "OBJECT", properties: { releases: { type: "NUMBER", description: "How many releases, 1 to 3. Default 1." } } },
-      },
-    ],
-  },
-]
+// Anu in TEAM CHAT answers from rules and data (anuEngine.js), never a model.
+// This file holds what she knows that is not in the database: how to do things
+// in the console (HELP) and what changed in it (whatsNew.js).
 
 // Help articles. `module` gates an article the same way the sidebar does, so
 // Anu never explains a page the person cannot open. Keep the wording in step
@@ -64,6 +39,10 @@ export const HELP = [
     steps: ["Open Users and press Add user: set their email, a starting password and their role. They can be emailed their sign-in details.", "A role decides their pages; extra pages can be ticked for one person.", "Deactivating a user signs them out everywhere."] },
   { id: "chat", module: "chat", path: "/chat", title: "Use Team chat",
     steps: ["Open Team chat in the sidebar. Press the pencil to message a colleague or make a group.", "Enter sends, Shift and Enter adds a new line. Attach photos and files with the paperclip.", "Two blue ticks mean everyone in the chat has read it. Hover over a message to reply to it; your own can also be edited for 15 minutes or deleted for everyone.", "Chats are private to their members; admins cannot read them."] },
+  { id: "teams", module: "chat", path: "/chat", title: "Team channels and Anu's updates",
+    steps: ["Every team has a channel in Team chat (Sales team, Accounts team, Staff, Management, Everyone). You are added to your team automatically; admins are in all of them.", "Anu posts each team's daily update in the morning and the attendance status after check-in time and again in the evening.", "To reach another team, ask Anu: tell accounts that INV-12 is paid. She shows it to you first and sends it when you press Send. Only admins can post to Everyone."] },
+  { id: "ask-anu", module: "chat", path: "/chat", title: "What you can ask Anu",
+    steps: ["Anu reads the database directly, so her answers are always current: what needs my attention today, who is not in today, daily update for sales, quotations for Sharma, new leads this week, customer 9876543210, price of satin lanyard, sales this month, what's new.", "She only reads. To change something, open the record from the card under her answer."] },
   { id: "search", module: "dashboard", path: "/", title: "Find anything fast",
     steps: ["Press Ctrl K (Cmd K on a Mac) anywhere for search across customers, enquiries, calls, quotations, invoices and products.", "Press Ctrl J to talk to Anu by voice."] },
 ]
@@ -97,29 +76,4 @@ export function whatsNew(count = 1) {
       items: (r.items || []).map((i) => `${i.kind}: ${i.title}. ${i.detail}`),
     })),
   }
-}
-
-export function chatInstruction(profile, now = new Date()) {
-  const first = (profile?.name || "").trim().split(/\s+/)[0] || "there"
-  const modules = MODULES.filter((m) => !m.always && canAccess(profile, m.key)).map((m) => m.label)
-  const today = now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
-  return `You are Anu, the assistant in Team chat inside the Ortex Industries admin console. Ortex makes customised MDF and acrylic products, lanyards and ID cards, trophies, keychains, corporate gifts and OEM or white-label runs.
-
-You are chatting with ${first}, a member of the Ortex team (${roleLabel(profile?.role) || "staff"}). You are their helpful colleague: you find their leads, quotations, customers and products, give them today's briefing and numbers, explain how to use the console, and tell them what is new in it. You never sell to them and never ask for contact details.
-
-Today is ${today}.
-${first} can open: ${modules.length ? modules.join(", ") : "no business modules"}.
-
-HOW TO ANSWER
-- Written chat: lead with the answer in one or two sentences, then at most five short "- " lines of detail. Records you find are shown under your message as cards they can click, so do not repeat every field.
-- Reply in the language they write in: English, Hindi or Hinglish.
-- Money the Indian way (lakh, crore, Rs or the rupee sign), dates like "15 September".
-- Never show ids, JSON or tool names.
-
-DATA
-- Every figure, name, status or price must come from a tool result in this conversation. Look it up, never guess.
-- If a tool says something is outside their access, say it is not in their access and an admin can grant it in Users.
-- For "how do I", "where is" or "kaise" questions, use console_help. For "what's new" or "updates", use whats_new.
-- You cannot change anything from chat. If they want a status changed or a quotation drafted, tell them to press Ctrl J and ask voice Anu, or open the record from a card and do it there.
-- Invoices, payments and stock are not something you can look up yet: point them to Billing.`
 }
