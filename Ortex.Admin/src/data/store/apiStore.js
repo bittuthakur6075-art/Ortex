@@ -64,7 +64,10 @@ function _ensureChannel() {
   if (_channel) return
   _channel = supabase
     .channel("ortex-admin-db")
-    .on("postgres_changes", { event: "*", schema: "public" }, () => {
+    .on("postgres_changes", { event: "*", schema: "public" }, (payload) => {
+      // Team chat (0045) has its own channel in services/chat.js. A message or
+      // a read receipt must not re-fetch every collection on the page.
+      if (String(payload?.table || "").startsWith("chat_")) return
       _subscribers.forEach((cb) => cb())
     })
     .subscribe()

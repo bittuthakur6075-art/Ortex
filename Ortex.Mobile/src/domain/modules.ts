@@ -37,6 +37,7 @@ export type Profile = {
 
 export type ModuleKey =
   | "dashboard"
+  | "chat"
   | "attendance"
   | "attendance-team"
   | "attendance-register"
@@ -73,6 +74,9 @@ export const MODULES: ModuleDef[] = [
   // The console's Dashboard, which every signed-in user reaches. On the phone it
   // is the Home tab; what it SHOWS is still gated section by section.
   { key: "dashboard", label: "Dashboard", always: true },
+  // Team chat (console only for now, migration 0045). Everyone chats; privacy
+  // is per conversation, not per module.
+  { key: "chat", label: "Team chat", always: true },
   // Everyone marks their own attendance and applies for their own leave.
   { key: "attendance", label: "Attendance", always: true },
   { key: "attendance-team", label: "Attendance · Everyone's records" },

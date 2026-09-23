@@ -15,6 +15,9 @@ import { isAdmin, isSuperAdmin } from "../../lib/roles"
 
 export const MODULES = [
   { key: "dashboard", path: "/", label: "Dashboard", section: null, always: true },
+  // Team chat and the Anu thread (migration 0045). Everyone chats; privacy is
+  // per conversation (members only), not per module.
+  { key: "chat", path: "/chat", label: "Team chat", section: null, always: true },
   { key: "voice-leads", path: "/crm?tab=voice", label: "Leads · Voice calls", section: "CRM" },
   { key: "enquiries", path: "/crm?tab=enquiries", label: "Leads · Enquiries", section: "CRM" },
   { key: "customers", path: "/customers", label: "Customers", section: "CRM" },

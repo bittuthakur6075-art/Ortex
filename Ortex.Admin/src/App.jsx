@@ -23,6 +23,7 @@ import Payroll from "./pages/Payroll"
 import PayRun from "./pages/payroll/PayRun"
 import EmployeeProfile from "./pages/payroll/EmployeeProfile"
 import MyPayslips from "./pages/MyPayslips"
+import Chat from "./pages/Chat"
 import { useProfile } from "./hooks/useProfile"
 import { canAccess } from "./data/domain/modules"
 
@@ -62,6 +63,7 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="profile" element={<Profile />} />
           <Route path="whats-new" element={<WhatsNew />} />
+          <Route path="chat" element={<Chat />} />
           <Route path="crm" element={<HubGuard keys={CRM_MODULE_KEYS}><Crm /></HubGuard>} />
           <Route path="leads" element={<Redirect to="/crm?tab=enquiries" />} />
           <Route path="voice-leads" element={<Redirect to="/crm?tab=voice" />} />

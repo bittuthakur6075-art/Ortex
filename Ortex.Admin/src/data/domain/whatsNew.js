@@ -10,6 +10,39 @@
 
 export const RELEASES = [
   {
+    id: "2026-09-23",
+    version: "1.45",
+    date: "2026-09-23",
+    title: "Team chat, and Anu in it",
+    summary:
+      "Message colleagues and groups without leaving the console, and ask Anu for help and updates in writing.",
+    items: [
+      {
+        kind: "new",
+        title: "Team chat",
+        detail:
+          "Open Team chat in the sidebar to message a colleague or make a group. Send photos and files, reply to a message, edit it for 15 minutes or delete it for everyone. Two ticks show when everyone has read it, and you can see who is online and typing.",
+      },
+      {
+        kind: "new",
+        title: "Anu, pinned at the top of your chats",
+        detail:
+          "Type a question: today's briefing, a customer, a quotation, a product, this month's numbers, how to do something in the console, or what is new. Her answers come with cards that open the record.",
+      },
+      {
+        kind: "new",
+        title: "Never miss a message",
+        detail:
+          "A count on Team chat and in the browser tab shows what is unread, a pop-up tells you about new messages while you work elsewhere, and desktop alerts can be switched on for when the console is in the background. Mute a busy chat from its header.",
+      },
+      {
+        kind: "improved",
+        title: "Private by design",
+        detail: "Only the people in a chat can read it. Admins cannot open other people's conversations, and your Anu thread is yours alone.",
+      },
+    ],
+  },
+  {
     id: "2026-09-14",
     version: "1.44",
     date: "2026-09-14",

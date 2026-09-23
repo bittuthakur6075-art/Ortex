@@ -19,6 +19,7 @@ import {
   Sparkles,
   CalendarClock,
   IndianRupee,
+  MessageCircle,
 } from "../ui/Icons"
 import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
 import { useProfile } from "../../hooks/useProfile"
@@ -27,6 +28,8 @@ import { CommandPalette } from "./CommandPalette"
 import { AnuProvider, useAnuController } from "../anu/AnuContext"
 import AnuPanel from "../anu/AnuPanel"
 import { AnuHeaderButton, AnuMiniCall } from "../anu/AnuLauncher"
+import ChatNotifier from "../chat/ChatNotifier"
+import { useChatInbox } from "../../hooks/useChat"
 import { canAccess } from "../../data/domain/modules"
 import { syncLocalToSupabase } from "../../data/store/sync"
 import { cn } from "../../lib/cn"
@@ -46,7 +49,13 @@ const SIDEBAR_PAD = "lg:pl-[260px]"
 // Grouped navigation. `key` / `keys` map each item to a module so the sidebar
 // hides what a user isn't allowed to access.
 const NAV = [
-  { section: null, items: [{ to: "/", end: true, key: "dashboard", label: "Dashboard", icon: LayoutDashboard }] },
+  {
+    section: null,
+    items: [
+      { to: "/", end: true, key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/chat", key: "chat", label: "Team chat", icon: MessageCircle, badge: "chat" },
+    ],
+  },
   {
     section: "Sales",
     items: [
@@ -112,6 +121,9 @@ function Brand() {
 
 // Metronic menu: 32px rows, 8px radius, 14px medium; heading 12px uppercase.
 function NavItems({ groups, onNavigate }) {
+  // Unread chat messages, as a count on the Team chat row (muted chats excluded).
+  const { unread } = useChatInbox()
+  const badges = { chat: unread }
   return (
     <nav className="flex flex-col">
       {groups.map((group, gi) => (
@@ -119,7 +131,7 @@ function NavItems({ groups, onNavigate }) {
           {group.section && (
             <div className="mb-[8px] mt-[18px] px-6 text-[12px] font-medium uppercase leading-none text-muted-foreground/70">{group.section}</div>
           )}
-          {group.items.map(({ to, end, label, icon: Icon }) => (
+          {group.items.map(({ to, end, label, icon: Icon, badge }) => (
             <NavLink
               key={to}
               to={to}
@@ -138,6 +150,11 @@ function NavItems({ groups, onNavigate }) {
                 <>
                   <Icon className={cn("h-5 w-5 flex-none", isActive ? "text-primary" : "text-muted-foreground group-hover:text-primary")} />
                   {label}
+                  {badge && badges[badge] > 0 && (
+                    <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground" aria-label={`${badges[badge]} unread`}>
+                      {badges[badge] > 99 ? "99+" : badges[badge]}
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>
@@ -385,6 +402,7 @@ export default function AdminLayout() {
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} pages={pages} />
       <AnuPanel />
       <AnuMiniCall />
+      <ChatNotifier />
     </div>
     </AnuProvider>
   )

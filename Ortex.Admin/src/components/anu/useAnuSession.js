@@ -6,10 +6,8 @@ import { canAccess } from "../../data/domain/modules"
 import { ENQUIRY_STATUS } from "../../data/domain/schema"
 import { INPUT_RATE, OUTPUT_RATE, floatTo16BitPCM, int16ToBase64, base64ToInt16 } from "../../pages/telecaller/audio"
 import { voiceCallsFrom } from "../../pages/voice-leads/helpers"
-import {
-  briefing, cardFor, draftLines, findCustomers, findEnquiries, findProducts, findQuotations,
-  quotationDetail, routeFor, salesSummary,
-} from "../../lib/anu"
+import { cardFor, draftLines, findCustomers, routeFor } from "../../lib/anu"
+import { accessFor, denied, runReadTool } from "./readTools"
 import { staffInstruction } from "./prompt"
 import { ANU_TOOLS } from "./tools"
 
@@ -123,13 +121,7 @@ export function useAnuSession({ profile, navigate }) {
   const cardsRef = useRef(new Map()) // every record surfaced this conversation, by key
   const levelBuf = useRef(new Uint8Array(256))
 
-  const access = useMemo(() => ({
-    enquiries: canAccess(profile, "enquiries"),
-    voice: canAccess(profile, "voice-leads"),
-    quotations: canAccess(profile, "quotations"),
-    customers: canAccess(profile, "customers"),
-    products: canAccess(profile, "products"),
-  }), [profile])
+  const access = useMemo(() => accessFor(canAccess, profile), [profile])
   const accessRef = useRef(access)
   accessRef.current = access
   const profileRef = useRef(profile)
@@ -224,7 +216,6 @@ export function useAnuSession({ profile, navigate }) {
   }, [])
 
   const rows = (name) => repo.list(name)
-  const denied = (what) => ({ ok: false, error: `${what} is not in this person's access. Tell them an admin can grant it in Users.` })
 
   const surface = (results) => {
     const list = (Array.isArray(results) ? results : [results]).filter(Boolean)
@@ -243,58 +234,6 @@ export function useAnuSession({ profile, navigate }) {
     const a = accessRef.current
     const now = Date.now()
     switch (name) {
-      case "get_briefing": {
-        if (!a.enquiries && !a.voice && !a.quotations) return [denied("Leads and quotations")]
-        const [enquiries, quotations] = await Promise.all([
-          a.enquiries || a.voice ? rows("enquiries") : [],
-          a.quotations ? rows("quotations") : [],
-        ])
-        const b = briefing({ enquiries, quotations }, a, now)
-        const cards = surface([
-          ...(b.anu_calls_to_return?.latest || []),
-          ...(b.new_enquiries?.latest || []),
-          ...(b.quotations?.expiring_within_3_days || []),
-          ...(b.quotations?.already_expired_but_still_sent || []),
-        ])
-        return [{ ok: true, ...b }, cards, briefingStats(b)]
-      }
-      case "find_customers": {
-        if (!a.customers) return [denied("Customers")]
-        const [customers, quotations] = await Promise.all([rows("customers"), a.quotations ? rows("quotations") : []])
-        const results = findCustomers(customers, quotations, String(args.query || ""))
-        return [{ ok: true, count: results.length, results }, surface(results)]
-      }
-      case "find_enquiries": {
-        if (!a.enquiries && !a.voice) return [denied("Enquiries")]
-        const out = findEnquiries(await rows("enquiries"), { query: args.query, status: args.status, days: Number(args.days) || undefined }, a, now)
-        return [{ ok: true, ...out }, surface(out.results)]
-      }
-      case "find_quotations": {
-        if (!a.quotations) return [denied("Quotations")]
-        const out = findQuotations(await rows("quotations"), { query: args.query, status: args.status })
-        return [{ ok: true, ...out }, surface(out.results)]
-      }
-      case "get_quotation": {
-        if (!a.quotations) return [denied("Quotations")]
-        const q = (await rows("quotations")).find((x) => x.id === args.id)
-        if (!q) return [{ ok: false, error: "No quotation with that id. Search again with find_quotations." }]
-        const detail = quotationDetail(q)
-        return [{ ok: true, ...detail }, surface(detail)]
-      }
-      case "find_products": {
-        if (!a.products) return [denied("The product catalogue")]
-        const results = findProducts(await rows("products"), String(args.query || ""))
-        return [{ ok: true, count: results.length, results }, surface(results)]
-      }
-      case "sales_summary": {
-        const days = Math.min(365, Math.max(1, Number(args.days) || 30))
-        const [enquiries, quotations] = await Promise.all([
-          a.enquiries || a.voice ? rows("enquiries") : [],
-          a.quotations ? rows("quotations") : [],
-        ])
-        const s = salesSummary({ enquiries, quotations }, days, a, now)
-        return [{ ok: true, ...s }, [], summaryStats(s)]
-      }
       case "set_enquiry_status": {
         const kind = String(args.kind)
         if (kind === "voice_call" ? !a.voice : !a.enquiries) return [denied(kind === "voice_call" ? "Voice calls" : "Enquiries")]
@@ -369,8 +308,11 @@ export function useAnuSession({ profile, navigate }) {
         if (!sourcesRef.current.length) window.setTimeout(() => endWantedRef.current && !sourcesRef.current.length && stop("ended"), 1500)
         return [{ ok: true }]
       }
-      default:
-        return [{ ok: false, error: `Unknown tool ${name}.` }]
+      default: {
+        const read = await runReadTool(name, args, a, now)
+        if (!read) return [{ ok: false, error: `Unknown tool ${name}.` }]
+        return [read.response, surface(read.results || []), read.stats]
+      }
     }
   }
 
@@ -599,23 +541,4 @@ export function useAnuSession({ profile, navigate }) {
     status, error, speaking, thinking, muted, seconds, turns, partial, pendingAction, access,
     readLevel, start, hangUp, reset, toggleMute, sendText, confirmAction, cancelAction, openCard,
   }
-}
-
-// Figures drawn as a small stat row under a step, so a spoken summary is also readable.
-function briefingStats(b) {
-  const out = []
-  if (b.new_enquiries) out.push({ label: "New enquiries", value: String(b.new_enquiries.count) })
-  if (b.anu_calls_to_return) out.push({ label: "Calls to return", value: String(b.anu_calls_to_return.count) })
-  if (b.quotations) out.push({ label: "Open pipeline", value: b.quotations.open_pipeline_value })
-  return out
-}
-
-function summaryStats(s) {
-  const out = []
-  if (s.quoted_value) out.push({ label: "Quoted", value: s.quoted_value })
-  if (s.won_value) out.push({ label: "Won", value: s.won_value })
-  if (s.win_rate) out.push({ label: "Win rate", value: s.win_rate })
-  if (s.website_enquiries !== undefined) out.push({ label: "Enquiries", value: String(s.website_enquiries) })
-  if (s.anu_calls !== undefined) out.push({ label: "Anu calls", value: String(s.anu_calls) })
-  return out.slice(0, 4)
 }
