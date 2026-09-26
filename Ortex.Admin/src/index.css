@@ -54,6 +54,10 @@
   --color-warning-text: hsl(var(--warning-text));
   --color-info: hsl(var(--info));
   --color-info-text: hsl(var(--info-text));
+  /* The gate display (Attendance → QR code, full screen): a deep navy kiosk so
+     the white code is the brightest thing on the wall. */
+  --color-kiosk: hsl(var(--kiosk));
+  --color-kiosk-2: hsl(var(--kiosk-2));
 
   /* Radius ladder: tight and consistent. Cards 12, controls 8, chips 6. */
   --radius-sm: 6px;
@@ -70,7 +74,7 @@
   --radius-btn-md: 16px;
   --radius-btn-lg: 20px;
   --radius-nav: 8px;
-  --radius-card: 20px;
+  --radius-card: 16px;
 
 /* Surfaces are flat: no drop shadows anywhere. Cards separate from the page by
      their white fill alone. Floating UI (menus, modals, drawers) keeps only a
@@ -145,6 +149,8 @@
   --warning-text: 32 95% 44%;       /* yellow-600 / amber-600 */
   --info: 262 83% 58%;              /* violet-500 */
   --info-text: 263 70% 50%;         /* violet-600 */
+  --kiosk: 229 72% 11%;             /* #081033 */
+  --kiosk-2: 232 73% 31%;           /* #15248A */
   --radius: 0.5rem;
 }
 

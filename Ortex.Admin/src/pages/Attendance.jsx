@@ -15,6 +15,7 @@ import Mine from "./attendance/Mine"
 import AttendanceSettings from "./attendance/Settings"
 import Leave from "./attendance/Leave"
 import QrCodeDisplay from "./attendance/QrCodeDisplay"
+import { canShowGateCode } from "./attendance/gate"
 
 // Attendance hub (docs/pm/ATTENDANCE_LEAVE_PLAN.md). The console VIEWS and
 // manages attendance; it never marks it. Clocking in and out happens only in
@@ -39,17 +40,9 @@ const TABS = [
   { value: "corrections", label: "Corrections", icon: FileText, Page: Corrections, allow: (p) => isAdmin(p) },
   { value: "mine", label: "My attendance", icon: CalendarClock, Page: Mine, allow: () => true },
   { value: "leave", label: "Leave", icon: Sun, Page: Leave, allow: () => true },
-  // Not canAccess(): that is true for every admin by design (0032/modules.js),
-  // and the owner asked for the Super Admin plus SELECTED admins. This reads
-  // the person's own grant, exactly as the database's attendance_qr_issuer()
-  // does, so the tab appears for precisely the people the server will serve.
-  {
-    value: "qr",
-    label: "QR code",
-    icon: QrCode,
-    Page: QrCodeDisplay,
-    allow: (p) => isSuperAdmin(p) || (isAdmin(p) && (p.modules || []).includes("attendance-qr")),
-  },
+  // Not canAccess(): see canShowGateCode, which is also what the Dashboard's
+  // gate card checks.
+  { value: "qr", label: "QR code", icon: QrCode, Page: QrCodeDisplay, allow: canShowGateCode },
   { value: "settings", label: "Settings", icon: Settings, Page: AttendanceSettings, allow: (p) => isSuperAdmin(p) },
 ]
 

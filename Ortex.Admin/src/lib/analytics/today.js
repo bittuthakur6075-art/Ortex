@@ -193,6 +193,222 @@ export function attentionItems(
   return out.sort((a, b) => a.priority - b.priority || (b.amount || 0) - (a.amount || 0))
 }
 
+// ---- cash flow ------------------------------------------------------------------
+
+/**
+ * Invoiced (grand total, by issue date, cancelled and drafts left out) against
+ * collected and paid out (payments by date), per week for the last `weeks`
+ * weeks. The last bucket ends now, so this week is always the right-hand bar.
+ */
+export function weeklyCash({ invoices = [], payments = [] }, weeks = 12, now = Date.now()) {
+  const WEEK = 7 * DAY
+  const start = now - weeks * WEEK
+  const out = Array.from({ length: weeks }, (_, i) => ({
+    label: new Date(start + i * WEEK + DAY).toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+    invoiced: 0,
+    collected: 0,
+    paidOut: 0,
+  }))
+  const slot = (ts) => {
+    const i = Math.floor((ms(ts) - start) / WEEK)
+    return i >= 0 && i < weeks ? out[i] : null
+  }
+  for (const inv of invoices) {
+    if (inv.status === "cancelled" || inv.status === "draft") continue
+    const b = slot(inv.issueDate)
+    if (b) b.invoiced = round2(b.invoiced + grand(inv))
+  }
+  for (const p of payments) {
+    const b = slot(p.date)
+    if (!b) continue
+    if (p.type === "inflow") b.collected = round2(b.collected + (Number(p.amount) || 0))
+    else b.paidOut = round2(b.paidOut + (Number(p.amount) || 0))
+  }
+  return out
+}
+
+/**
+ * Invoiced / collected / paid out per calendar month, the last `months`
+ * months, this month last. Same rules as weeklyCash.
+ */
+export function monthlyCash({ invoices = [], payments = [] }, months = 6, now = Date.now()) {
+  const d = new Date(now)
+  const keys = Array.from({ length: months }, (_, i) => {
+    const m = new Date(d.getFullYear(), d.getMonth() - (months - 1 - i), 1)
+    return { key: `${m.getFullYear()}-${m.getMonth()}`, label: m.toLocaleDateString("en-IN", { month: "short" }), invoiced: 0, collected: 0, paidOut: 0 }
+  })
+  const slot = (ts) => {
+    const t = new Date(ts)
+    return Number.isNaN(t.getTime()) ? null : keys.find((k) => k.key === `${t.getFullYear()}-${t.getMonth()}`) || null
+  }
+  for (const inv of invoices) {
+    if (inv.status === "cancelled" || inv.status === "draft") continue
+    const b = slot(inv.issueDate)
+    if (b) b.invoiced = round2(b.invoiced + grand(inv))
+  }
+  for (const p of payments) {
+    const b = slot(p.date)
+    if (!b) continue
+    if (p.type === "inflow") b.collected = round2(b.collected + (Number(p.amount) || 0))
+    else b.paidOut = round2(b.paidOut + (Number(p.amount) || 0))
+  }
+  return keys.map(({ key, ...rest }) => rest)
+}
+
+/**
+ * The last `days` days of activity behind each headline figure, one value per
+ * day, oldest first: cash collected, taxable revenue, invoiced (behind
+ * Outstanding), quoted, new leads and quotations won (behind Win rate).
+ */
+export function dailySparks({ enquiries = [], quotations = [], invoices = [], payments = [] }, days = 14, now = Date.now()) {
+  const start = new Date(now).setHours(0, 0, 0, 0) - (days - 1) * DAY
+  const blank = () => new Array(days).fill(0)
+  const out = { cash: blank(), revenue: blank(), invoiced: blank(), quoted: blank(), leads: blank(), won: blank() }
+  const add = (key, ts, v = 1) => {
+    const i = Math.floor((ms(ts) - start) / DAY)
+    if (i >= 0 && i < days) out[key][i] += Number(v) || 0
+  }
+  for (const p of payments) if (p.type === "inflow") add("cash", p.date, p.amount)
+  for (const i of invoices) {
+    if (i.status === "cancelled") continue
+    add("revenue", i.issueDate, i.totals?.taxable)
+    if (i.status !== "draft") add("invoiced", i.issueDate, grand(i))
+  }
+  for (const q of quotations) {
+    add("quoted", quoteDate(q), grand(q))
+    if (WON.has(q.status)) add("won", quoteDate(q))
+  }
+  for (const e of enquiries.filter((x) => x.source !== VOICE_SOURCE)) add("leads", e.createdAt)
+  for (const c of voiceCalls(enquiries)) add("leads", c.startedAt || c.endedAt)
+  return out
+}
+
+// ---- approvals ------------------------------------------------------------------
+
+// Call agent outcomes that need a person next (pages/telecaller/helpers.js
+// ACTION_OUTCOMES), in the words the queue shows.
+const CALL_ACTION = { deal_closed: "Deal closed", needs_quote: "Needs a quote", complaint: "Complaint", interested: "Interested" }
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+const dayWords = (iso) => (iso ? `${Number(String(iso).slice(8, 10))} ${MONTHS[Number(String(iso).slice(5, 7)) - 1]}` : "")
+const monthWords = (iso) => {
+  const [y, m] = String(iso || "").split("-").map(Number)
+  return m ? `${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][m - 1]} ${y}` : ""
+}
+
+/**
+ * The decisions waiting on a person, from the modules outside quote-to-cash:
+ * leave and attendance corrections (an admin decides, never on one's own),
+ * pay runs awaiting their second approver, social posts in review (admin-only
+ * in the database) and Call agent calls that ended needing a human.
+ *
+ * Same item shape as attentionItems, so the Dashboard sorts them together.
+ * `names` resolves a user id; `leaveTypes` a type code. `selfId` drops the
+ * viewer's own leave and corrections: the database refuses those anyway.
+ */
+export function approvalItems(
+  { leave = [], corrections = [], runs = [], social = [], calls = [] },
+  { names = {}, leaveTypes = {}, selfId = null } = {},
+  access = { leave: false, corrections: false, payroll: false, social: false, calls: false },
+  now = Date.now(),
+) {
+  const out = []
+  const who = (id) => names[id] || "Someone"
+
+  if (access.leave) {
+    for (const r of leave) {
+      if (r.status !== "pending" || r.user_id === selfId) continue
+      const starts = Math.ceil((ms(r.from_day) - now) / DAY)
+      const days = Number(r.days) || 0
+      // The type's own name ("Casual leave", "Comp-off"), else the code.
+      const type = (leaveTypes[r.type_code] || r.type_code || "Leave").toLowerCase()
+      out.push({
+        id: `leave-${r.id}`,
+        group: "approvals",
+        priority: starts <= 2 ? 0 : 1,
+        tone: "violet",
+        kind: "Leave",
+        title: `${who(r.user_id)} · ${type}, ${days === 1 ? "1 day" : `${days} days`}`,
+        detail: `${dayWords(r.from_day)}${r.to_day !== r.from_day ? ` to ${dayWords(r.to_day)}` : ""} · ${r.reason || "No reason given"}`,
+        to: "/attendance?tab=leave",
+      })
+    }
+  }
+
+  if (access.corrections) {
+    for (const c of corrections) {
+      if (c.status !== "pending" || c.user_id === selfId) continue
+      out.push({
+        id: `corr-${c.id}`,
+        group: "approvals",
+        priority: 1,
+        tone: "violet",
+        kind: "Correction",
+        title: `${who(c.user_id)} · attendance correction for ${dayWords(c.day)}`,
+        detail: c.reason || "No reason given",
+        to: "/attendance?tab=corrections",
+      })
+    }
+  }
+
+  if (access.payroll) {
+    for (const r of runs) {
+      if (r.status !== "pending_approval") continue
+      out.push({
+        id: `run-${r.id}`,
+        group: "approvals",
+        priority: 0,
+        tone: "violet",
+        kind: "Pay run",
+        title: `${r.title || monthWords(r.month)} pay run is waiting for approval`,
+        detail: `${r.pay_date ? `Pay day ${dayWords(r.pay_date)} · ` : ""}needs a second person`,
+        amount: Number(r.totals?.netPay) || 0,
+        to: "/payroll?tab=runs",
+      })
+    }
+  }
+
+  if (access.social) {
+    for (const p of social) {
+      if (p.status !== "review") continue
+      const when = p.scheduledFor ? ` · for ${dayWords(new Date(p.scheduledFor).toISOString())}` : ""
+      out.push({
+        id: `social-${p.id}`,
+        group: "approvals",
+        priority: 1,
+        tone: "violet",
+        kind: "Social post",
+        title: `“${p.topic || "Untitled post"}” is waiting for approval`,
+        detail: `${(p.platforms || []).join(", ") || "No platform chosen"}${when}`,
+        to: "/social",
+        state: { openId: p.id },
+      })
+    }
+  }
+
+  if (access.calls) {
+    for (const c of calls) {
+      const outcome = c.analysis?.outcome
+      if (c.status !== "completed" || !CALL_ACTION[outcome] || c.handled) continue
+      const age = now - ms(c.createdAt)
+      if (!(age >= 0 && age <= 14 * DAY)) continue
+      out.push({
+        id: `tc-${c.id}`,
+        group: "leads",
+        priority: outcome === "complaint" || outcome === "deal_closed" ? 0 : 2,
+        tone: outcome === "complaint" ? "rose" : "blue",
+        kind: CALL_ACTION[outcome],
+        title: `Call agent · ${c.contactName || "Unknown contact"}`,
+        detail: c.analysis?.nextAction || c.analysis?.summary || `Call ${ageWords(age)}`,
+        amount: Number(c.analysis?.estimatedValue) || 0,
+        phone: c.phone || "",
+        to: "/telecaller?tab=calls",
+      })
+    }
+  }
+
+  return out.sort((a, b) => a.priority - b.priority || (b.amount || 0) - (a.amount || 0))
+}
+
 // ---- the window -----------------------------------------------------------------
 
 /** Running total per day for [from, from + days), one point per day. */
