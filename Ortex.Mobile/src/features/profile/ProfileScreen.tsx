@@ -23,13 +23,15 @@
 
 import * as ImagePicker from "expo-image-picker"
 import React from "react"
-import { Pressable, StyleSheet, Text, View } from "react-native"
+import { StyleSheet, Text, View } from "react-native"
 
 import { supabase } from "@/data/supabase"
-import { roleLabel } from "@/domain/modules"
+import { canAccess, isAdmin } from "@/domain/modules"
 import { hasDefaults } from "@/domain/quotationDefaults"
 import { APP_CREDIT, APP_VERSION } from "@/constants/app"
+import { ActionAdvisory } from "@/features/attendance/attendanceUi"
 import { biometricAvailable } from "@/features/auth/useAppLock"
+import ProfileMe from "@/features/profile/ProfileMe"
 import { MAX_AVATAR_MB, base64Bytes, removeAvatar, uploadAvatar } from "@/lib/avatarUpload"
 import { feedback } from "@/lib/feedback"
 import { useNotificationStore } from "@/lib/notificationStore"
@@ -42,9 +44,8 @@ import { textVariants } from "@/theme/typography"
 import {
   AppScreen,
   Avatar,
-  Chip,
   Dialog,
-  RadioGroup,
+  SegmentedControl,
   Section,
   SectionRow,
   Sheet,
@@ -52,10 +53,10 @@ import {
   useToast,
 } from "@/ui"
 
-const THEMES: { key: ThemePref; label: string; description?: string }[] = [
-  { key: "system", label: "Match the phone", description: "Follows your device's dark mode setting" },
-  { key: "light", label: "Always light" },
-  { key: "dark", label: "Always dark" },
+const THEMES: { key: ThemePref; short: string }[] = [
+  { key: "system", short: "Auto" },
+  { key: "light", short: "Light" },
+  { key: "dark", short: "Dark" },
 ]
 
 export default function ProfileScreen({ navigation }: StackScreenProps<"Profile">) {
@@ -68,7 +69,6 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
 
   const [canBiometric, setCanBiometric] = React.useState(false)
   const [confirmOut, setConfirmOut] = React.useState(false)
-  const [themeOpen, setThemeOpen] = React.useState(false)
   const [photoOpen, setPhotoOpen] = React.useState(false)
   const [confirmRemovePhoto, setConfirmRemovePhoto] = React.useState(false)
   const [photoBusy, setPhotoBusy] = React.useState(false)
@@ -82,7 +82,12 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
   // no one has filled the name in yet.
   const headName = profile?.name?.trim() || email || "Signed in"
   const photo = profile?.avatar_url ?? undefined
-  const themeLabel = THEMES.find((o) => o.key === pref)?.label ?? ""
+  const phone = profile?.phone?.trim() || ""
+  const admin = isAdmin(profile)
+  const openAccount = () => {
+    feedback.tap()
+    navigation.navigate("AccountDetails")
+  }
 
   /**
    * Pick a photo and upload it. `allowsEditing` + a 1:1 aspect makes the picker
@@ -175,92 +180,33 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
         inTabs={false}
         contentStyle={styles.content}
       >
-        {/* THE HERO. Everything on the centre line: the face (tappable, carrying
-            the camera badge), the name once, one caption, then the standing said
-            in words — the chip is what a screen reader gets, since a ring is
-            only a summary. */}
-        <View style={[styles.hero, { backgroundColor: t.surface }]}>
-          <View style={styles.heroInner}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Change profile photo"
-              hitSlop={6}
-              onPress={() => {
-                feedback.tap()
-                setPhotoOpen(true)
-              }}
-            >
-              <Avatar name={headName} uri={photo} size={100} ring="primary" ringGap={3} edit />
-            </Pressable>
+        <ProfileMe
+          name={headName}
+          email={email}
+          photo={photo}
+          role={profile?.role}
+          joined={profile?.created_at}
+          onPhoto={() => setPhotoOpen(true)}
+          onOpen={(screen) => navigation.navigate(screen)}
+        />
 
-            <Text style={[textVariants.detailTitle, styles.heroName, { color: t.text }]}>{headName}</Text>
-            {!!email && email !== headName && (
-              <Text style={[textVariants.captionStrong, styles.heroMeta, { color: t.textSecondary }]}>
-                {email}
-              </Text>
-            )}
-            {!!profile?.role && (
-              <View style={styles.heroChip}>
-                <Chip label={roleLabel(profile.role)} icon="profile" active />
-              </View>
-            )}
-          </View>
-        </View>
-        <View style={[styles.heroRule, { backgroundColor: t.divider }]} />
+        {/* The one thing only this person can fix, shown only while it is missing. */}
+        {!phone && (
+          <ActionAdvisory tone="warning" icon="callAdd" onPress={openAccount}>
+            Add your phone number, so customers and the team can call you from quotes and chat
+          </ActionAdvisory>
+        )}
 
         <Section title="Account">
           <SectionRow
-            leadingIcon="profile"
+            leadingIcon="userEdit"
+            leadingTone={phone ? "primary" : "warning"}
             title="Account details"
-            subtitle="Name, phone, email and access"
-            onPress={() => {
-              feedback.tap()
-              navigation.navigate("AccountDetails")
-            }}
+            subtitle={phone ? `${phone} · ${email}` : "Phone number missing"}
+            onPress={openAccount}
           />
           <SectionRow
-            leadingIcon="calendar"
-            title="My attendance"
-            subtitle="Clock in and out, and your days"
-            onPress={() => {
-              feedback.tap()
-              navigation.navigate("Attendance")
-            }}
-          />
-          <SectionRow
-            leadingIcon="calendar"
-            title="My leave"
-            subtitle="Balances, apply, and your requests"
-            onPress={() => {
-              feedback.tap()
-              navigation.navigate("Leave")
-            }}
-          />
-          <SectionRow
-            leadingIcon="money"
-            title="My pay"
-            subtitle="Payslips, salary and claims"
-            onPress={() => {
-              feedback.tap()
-              navigation.navigate("Pay")
-            }}
-          />
-          {/* Always shown. The gate is `profiles_self_read` (migration 0002) —
-              `id = auth.uid() or is_admin()` — so a Sales Executive opening this
-              gets their own row and nobody else's, which the screen says out
-              loud. Hiding the row on the client's copy of `role` instead meant a
-              profile that loaded a beat late took the door with it. */}
-          <SectionRow
-            leadingIcon="customer"
-            title="Team"
-            subtitle="Who can sign in, and what they reach"
-            onPress={() => {
-              feedback.tap()
-              navigation.navigate("Team")
-            }}
-          />
-          <SectionRow
-            leadingIcon="lock"
+            leadingIcon="password"
             title="Change password"
             subtitle="Set a new sign-in password"
             onPress={() => {
@@ -268,74 +214,83 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
               navigation.navigate("ChangePassword")
             }}
           />
-        </Section>
-
-        <Section title="Quotations">
+          {/* Always shown. The gate is `profiles_self_read` (migration 0002):
+              an admin gets everyone, anyone else gets their own row, so the
+              row says which of the two it is. */}
           <SectionRow
-            leadingIcon="quote"
-            title="Quotation defaults"
-            subtitle={hasDefaults(quoteDefaults) ? "Your own payment terms, T&C and notes" : "Payment terms, T&C and notes for new quotes"}
+            leadingIcon={admin ? "team" : "access"}
+            title={admin ? "Team" : "Your access"}
+            subtitle={admin ? "Who can sign in, and what they reach" : "What your role lets you open"}
             onPress={() => {
               feedback.tap()
-              navigation.navigate("QuotationDefaults")
+              navigation.navigate("Team")
             }}
           />
         </Section>
 
-        <Section title="Alerts">
+        {canAccess(profile, "quotations") && (
+          <Section title="Quotations">
+            <SectionRow
+              leadingIcon="quoteDefaults"
+              title="Quotation defaults"
+              subtitle={
+                hasDefaults(quoteDefaults)
+                  ? "Your own payment terms, T&C and notes"
+                  : "The company's terms, until you set yours"
+              }
+              onPress={() => {
+                feedback.tap()
+                navigation.navigate("QuotationDefaults")
+              }}
+            />
+          </Section>
+        )}
+
+        <Section title="This phone">
           <SectionRow
             leadingIcon="bell"
             title="Notifications"
-            subtitle={
-              notificationPrefs.enabled
-                ? "New enquiries, voice leads and quotation reminders"
-                : "Muted on this phone"
-            }
+            subtitle={notificationPrefs.enabled ? "On · leads, quotes and chat" : "Muted on this phone"}
             onPress={() => {
               feedback.tap()
               navigation.navigate("NotificationSettings")
             }}
           />
-        </Section>
-
-        <Section title="Security">
           <SectionRow
             leadingIcon="fingerprint"
             title="Fingerprint unlock"
-            subtitle={
-              canBiometric
-                ? "Asked for when you return to Ortex"
-                : "No fingerprint enrolled on this phone"
-            }
+            subtitle={canBiometric ? "Asked for when you come back" : "No fingerprint enrolled on this phone"}
             chevron={false}
             trailing={
-              <Switch
-                value={biometricEnabled}
-                // Switch fires the toggle haptic itself.
-                onValueChange={setBiometricEnabled}
-                disabled={!canBiometric}
-              />
+              <Switch value={biometricEnabled} onValueChange={setBiometricEnabled} disabled={!canBiometric} />
             }
           />
+          {/* Three choices, always visible: one tap instead of a sheet. */}
+          <SectionRow leadingIcon="swatch" title="Theme" chevron={false} />
+          <View style={styles.theme}>
+            <SegmentedControl
+              options={THEMES.map((o) => ({ key: o.key, label: o.short }))}
+              value={pref}
+              onChange={(next) => {
+                feedback.select()
+                setPref(next)
+              }}
+            />
+          </View>
         </Section>
 
-        <Section title="Appearance">
-          {/* A bottom sheet, not an expanded radio list: three mutually exclusive
-              options is exactly the shape the sheet idiom is for. */}
-          <SectionRow
-            leadingIcon="theme"
-            title="Theme"
-            subtitle={themeLabel}
-            onPress={() => {
-              feedback.tap()
-              setThemeOpen(true)
-            }}
-          />
-        </Section>
-
-        <Section title="About">
+        <Section title="Help and about">
           <SectionRow
             leadingIcon="assistant"
+            title="Ask Anu how to…"
+            subtitle="Leave kaise apply karun?"
+            onPress={() => {
+              feedback.tap()
+              navigation.navigate("Anu", { ask: "Leave kaise apply karun?" })
+            }}
+          />
+          <SectionRow
+            leadingIcon="gift"
             title="What's new"
             subtitle={`Version ${APP_VERSION}: what changed, and why it matters`}
             onPress={() => {
@@ -343,13 +298,10 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
               navigation.navigate("WhatsNew")
             }}
           />
-        </Section>
-
-        {/* The published terms, carried locally (features/profile/legal.ts) so
-            they open on a warehouse floor with no signal. */}
-        <Section title="Legal">
+          {/* The published terms, carried locally (features/profile/legal.ts) so
+              they open on a warehouse floor with no signal. */}
           <SectionRow
-            leadingIcon="lock"
+            leadingIcon="shield"
             title="Privacy policy"
             subtitle="What Ortex stores, and why"
             onPress={() => navigation.navigate("Legal", { doc: "privacy" })}
@@ -376,9 +328,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
         {/* The foot of the page: which build this is — the first thing asked for
             when something behaves oddly in the field — and whose app it is. */}
         <View style={styles.foot}>
-          <Text style={[textVariants.captionStrong, { color: t.textTertiary }]}>
-            Version {APP_VERSION}
-          </Text>
+          <Text style={[textVariants.captionStrong, { color: t.textTertiary }]}>Version {APP_VERSION}</Text>
           <Text style={[textVariants.caption, styles.footCredit, { color: t.textTertiary }]}>
             {APP_CREDIT}
           </Text>
@@ -408,18 +358,6 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
             onPress={() => setConfirmRemovePhoto(true)}
           />
         )}
-      </Sheet>
-
-      <Sheet visible={themeOpen} onClose={() => setThemeOpen(false)} title="Theme">
-        <RadioGroup
-          options={THEMES}
-          value={pref}
-          onChange={(next) => {
-            feedback.select()
-            setPref(next)
-            setThemeOpen(false)
-          }}
-        />
       </Sheet>
 
       <Dialog
@@ -458,12 +396,7 @@ const styles = StyleSheet.create({
   // One white sheet: the hero heads it and every Section follows, each parted
   // from the next by the 2dp band each panel draws (ui/Section.tsx).
   content: { paddingTop: 0, paddingBottom: spacing.md },
-  hero: { paddingHorizontal: gutter },
-  heroRule: { height: StyleSheet.hairlineWidth, marginHorizontal: gutter },
-  heroInner: { alignItems: "center", paddingTop: spacing.md, paddingBottom: spacing.xl },
-  heroName: { marginTop: spacing.md, textAlign: "center" },
-  heroMeta: { marginTop: spacing.xs, textAlign: "center" },
-  heroChip: { marginTop: spacing.md, alignItems: "center" },
+  theme: { paddingHorizontal: gutter, paddingBottom: spacing.md },
   // The final panel: no closing rule under the last row, which would read as a
   // stray separator at the foot of the page.
   // Sign out is not one more setting: a clear step of air parts it from the

@@ -142,6 +142,16 @@ export default function ChatThreadScreen({ navigation, route }: StackScreenProps
 
   useDismissChatNotification(route.params.id)
 
+  // Opened from one of Anu's questions on the Chat tab: ask it once, when the
+  // thread has loaded, so the answer lands under what is already there.
+  const asked = React.useRef(false)
+  React.useEffect(() => {
+    const q = route.params.ask
+    if (!q || asked.current || !isAnu || thread.loading) return
+    asked.current = true
+    void anu.ask(q)
+  }, [route.params.ask, isAnu, thread.loading, anu])
+
   React.useEffect(() => {
     setActiveConversation(route.params.id)
     return () => setActiveConversation(null)
@@ -424,6 +434,8 @@ function Bubble({
         delayLongPress={300}
         style={[
           styles.bubble,
+          // Anu's daily update and attendance report read as a card, not a chat line.
+          isBot && styles.botCard,
           mine ? { backgroundColor: t.primary } : { backgroundColor: t.surface, borderColor: t.border, borderWidth: StyleSheet.hairlineWidth },
           runEnd && (mine ? { borderBottomRightRadius: 6 } : { borderBottomLeftRadius: 6 }),
           m.local === "failed" && { borderColor: t.danger, borderWidth: 1.5 },
@@ -559,6 +571,7 @@ const styles = StyleSheet.create({
   system: { textAlign: "center", paddingHorizontal: spacing.lg },
   bubbleRow: { flexDirection: "row", alignItems: "flex-end", gap: 6 },
   faceSlot: { width: 28 },
+  botCard: { flex: 1, maxWidth: "100%", borderRadius: 20, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8, gap: 6 },
   bubble: { maxWidth: "80%", borderRadius: 18, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 6, gap: 4 },
   quote: { borderLeftWidth: 3, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
   metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 4 },

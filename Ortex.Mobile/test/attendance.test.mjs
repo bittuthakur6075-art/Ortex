@@ -55,10 +55,14 @@ for (const [side, a] of both) {
     assert.equal(s.workedMin, 120)
   })
 
-  test(`${side}: on duty since the latest counted in, closed after 20 hours`, () => {
+  test(`${side}: on duty since the latest counted in, until midnight IST (0049)`, () => {
     const list = [punch({ at: ist(9, 0) })]
     assert.equal(a.onDutySince(list, new Date(ist(12, 0)).getTime()), ist(9, 0))
     assert.equal(a.onDutySince(list, new Date(ist(9, 0, 20)).getTime()), null)
+    // An unclosed day resets at midnight: 11 PM is still on duty, 12:01 AM is not.
+    const late = [punch({ at: ist(23, 0) })]
+    assert.equal(a.onDutySince(late, new Date(ist(23, 59)).getTime()), ist(23, 0))
+    assert.equal(a.onDutySince(late, new Date(ist(0, 1, 20)).getTime()), null)
     assert.equal(a.onDutySince([...list, punch({ id: "o", kind: "out", at: ist(18, 0) })], new Date(ist(19, 0)).getTime()), null)
   })
 

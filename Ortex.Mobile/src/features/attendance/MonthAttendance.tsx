@@ -76,7 +76,7 @@ export default function MonthAttendance({
   const [hols, setHols] = React.useState<Holiday[]>([])
   const [settings, setSettings] = React.useState<AttendanceSettings>({})
   const [notice, setNotice] = React.useState<string | null>(null)
-  const [view, setView] = React.useState<ViewMode>("list")
+  const [view, setView] = React.useState<ViewMode>("calendar")
   // Approved leave still to come: dashed "L" cells in the calendar.
   const [futureLeave, setFutureLeave] = React.useState<Set<string>>(new Set())
 
@@ -191,8 +191,8 @@ export default function MonthAttendance({
         <View style={styles.segment}>
           <SegmentedControl<ViewMode>
             options={[
-              { key: "list", label: "List" },
               { key: "calendar", label: "Calendar" },
+              { key: "list", label: "List" },
             ]}
             value={view}
             onChange={(v) => {

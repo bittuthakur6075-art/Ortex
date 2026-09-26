@@ -63,6 +63,15 @@ import Trash from "iconsax-react-native/dist/esm/Trash"
 import Whatsapp from "iconsax-react-native/dist/esm/Whatsapp"
 
 import { useTheme } from "@/store/ThemeContext"
+import CallAdd from "iconsax-react-native/dist/esm/CallAdd"
+import ColorSwatch from "iconsax-react-native/dist/esm/ColorSwatch"
+import Gift from "iconsax-react-native/dist/esm/Gift"
+import PasswordCheck from "iconsax-react-native/dist/esm/PasswordCheck"
+import People from "iconsax-react-native/dist/esm/People"
+import ReceiptEdit from "iconsax-react-native/dist/esm/ReceiptEdit"
+import SecurityUser from "iconsax-react-native/dist/esm/SecurityUser"
+import ShieldSecurity from "iconsax-react-native/dist/esm/ShieldSecurity"
+import UserEdit from "iconsax-react-native/dist/esm/UserEdit"
 
 /** Iconsax variants: Linear (idle) and Bold (active/filled). */
 export type IconVariant = "Linear" | "Outline" | "Bold" | "Bulk" | "Broken" | "TwoTone"
@@ -137,6 +146,15 @@ const GLYPHS = {
   lock: Lock,
   fingerprint: FingerScan,
   logout: Logout,
+  userEdit: UserEdit,
+  password: PasswordCheck,
+  team: People,
+  access: SecurityUser,
+  quoteDefaults: ReceiptEdit,
+  swatch: ColorSwatch,
+  gift: Gift,
+  shield: ShieldSecurity,
+  callAdd: CallAdd,
 } as const
 
 export type IconName = keyof typeof GLYPHS

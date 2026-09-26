@@ -430,6 +430,16 @@ function Rules() {
             <Input id="rule-shift-end" type="time" value={shift.end || "18:30"} onChange={(e) => set("shift", { ...shift, end: e.target.value })} />
           </Field>
         </div>
+        {/* The check-in window (migration 0049). Check-out has none, and an open
+            day resets at midnight, so there is nothing to set for it. */}
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Check-in opens at" hint="Check-out can happen any time the same day.">
+            <Input id="rule-checkin-from" type="time" value={doc.checkInFrom || "08:50"} onChange={(e) => set("checkInFrom", e.target.value)} />
+          </Field>
+          <Field label="Check-in closes at" hint="A day left open resets at midnight.">
+            <Input id="rule-close-at" type="time" value={doc.closeAt || "21:00"} onChange={(e) => set("closeAt", e.target.value)} />
+          </Field>
+        </div>
         <Field label="Weekly off">
           <ChipGroup>
             {WEEKDAYS.map((d, i) => (

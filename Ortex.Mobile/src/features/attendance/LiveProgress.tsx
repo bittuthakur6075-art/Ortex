@@ -28,7 +28,17 @@ import { useReducedMotion } from "@/ui/motion"
 const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 
 /** HH:MM:SS that ticks itself. `baseMs` is the time worked at `baseAt`. */
-export function LiveTimer({ baseMs, baseAt, running, style }: { baseMs: number; baseAt: number; running: boolean; style: object }) {
+export function LiveTimer({
+  baseMs,
+  baseAt,
+  running,
+  style,
+}: {
+  baseMs: number
+  baseAt: number
+  running: boolean
+  style: object
+}) {
   const focused = useIsFocused()
   const [now, setNow] = React.useState(() => Date.now())
   React.useEffect(() => {
@@ -53,6 +63,8 @@ export function ProgressRing({
   size = 200,
   stroke = 14,
   compact = false,
+  color,
+  caption,
 }: {
   workedMs: number
   computedAt: number
@@ -61,6 +73,10 @@ export function ProgressRing({
   size?: number
   stroke?: number
   compact?: boolean
+  /** The arc's colour, when the state decides it (the Home card). */
+  color?: string
+  /** A line under the timer in the compact ring: "of 9 h". */
+  caption?: string
 }) {
   const t = useTheme()
   const reduce = useReducedMotion()
@@ -93,14 +109,18 @@ export function ProgressRing({
   const c = size / 2
 
   return (
-    <View style={{ width: size, height: size }} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(done * 100) }}>
+    <View
+      style={{ width: size, height: size }}
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(done * 100) }}
+    >
       <Svg width={size} height={size}>
         <Circle cx={c} cy={c} r={r} stroke={t.fieldBg} strokeWidth={stroke} fill="none" />
         <AnimatedCircle
           cx={c}
           cy={c}
           r={r}
-          stroke={complete ? t.success : t.primary}
+          stroke={color ?? (complete ? t.success : t.primary)}
           strokeWidth={stroke}
           strokeLinecap="round"
           fill="none"
@@ -131,6 +151,9 @@ export function ProgressRing({
           style={[compact ? styles.timerCompact : styles.timer, { color: t.text }]}
         />
         {!compact && <Text style={[textVariants.caption, { color: t.textTertiary }]}>Worked today</Text>}
+        {compact && caption ? (
+          <Text style={[styles.ringCaption, { color: t.textTertiary }]}>{caption}</Text>
+        ) : null}
       </View>
     </View>
   )
@@ -148,25 +171,47 @@ export function DayTimelineBar({ timeline, compact = false }: { timeline: Timeli
         <View
           style={[
             styles.abs,
-            { left: pct(timeline.shiftLeft), width: pct(timeline.shiftRight - timeline.shiftLeft), backgroundColor: t.border, opacity: 0.5 },
+            {
+              left: pct(timeline.shiftLeft),
+              width: pct(timeline.shiftRight - timeline.shiftLeft),
+              backgroundColor: t.border,
+              opacity: 0.5,
+            },
           ]}
         />
         {timeline.late && (
-          <View style={[styles.abs, { left: pct(timeline.late.left), width: pct(timeline.late.width), backgroundColor: t.warningBg }]} />
+          <View
+            style={[
+              styles.abs,
+              {
+                left: pct(timeline.late.left),
+                width: pct(timeline.late.width),
+                backgroundColor: t.warningBg,
+              },
+            ]}
+          />
         )}
         {timeline.segments.map((s, i) => (
           <View
             key={i}
             style={[
               styles.abs,
-              { left: pct(s.left), width: pct(s.width), backgroundColor: t.success, borderRadius: h / 2, opacity: s.open ? 0.85 : 1 },
+              {
+                left: pct(s.left),
+                width: pct(s.width),
+                backgroundColor: t.success,
+                borderRadius: h / 2,
+                opacity: s.open ? 0.85 : 1,
+              },
             ]}
           />
         ))}
         {timeline.grace != null && (
           <View style={[styles.tick, { left: pct(timeline.grace), backgroundColor: t.textFaint }]} />
         )}
-        {timeline.now != null && <View style={[styles.now, { left: pct(timeline.now), backgroundColor: t.text }]} />}
+        {timeline.now != null && (
+          <View style={[styles.now, { left: pct(timeline.now), backgroundColor: t.text }]} />
+        )}
       </View>
       {!compact && (
         <View style={styles.ends}>
@@ -191,7 +236,11 @@ export function WeekStrip({ columns, targetMin }: { columns: WeekColumn[]; targe
         {columns.map((c) => {
           const barH = c.minutes > 0 ? Math.max(4, (c.minutes / max) * H) : 0
           return (
-            <View key={c.day} style={styles.weekCol} accessibilityLabel={`${c.label}: ${Math.floor(c.minutes / 60)} hours ${c.minutes % 60} minutes`}>
+            <View
+              key={c.day}
+              style={styles.weekCol}
+              accessibilityLabel={`${c.label}: ${Math.floor(c.minutes / 60)} hours ${c.minutes % 60} minutes`}
+            >
               <View
                 style={{
                   height: barH,
@@ -207,11 +256,23 @@ export function WeekStrip({ columns, targetMin }: { columns: WeekColumn[]; targe
       <View style={styles.weekLabels}>
         {columns.map((c) => (
           <View key={c.day} style={styles.weekCol}>
-            <Text style={[textVariants.caption, { color: c.today ? t.primary : c.future ? t.textFaint : t.textTertiary, fontFamily: c.today ? font.semibold : font.regular }]}>
+            <Text
+              style={[
+                textVariants.caption,
+                {
+                  color: c.today ? t.primary : c.future ? t.textFaint : t.textTertiary,
+                  fontFamily: c.today ? font.semibold : font.regular,
+                },
+              ]}
+            >
               {c.label}
             </Text>
             <Text style={[styles.hours, { color: c.future ? t.textFaint : t.textSecondary }]}>
-              {c.future ? "" : c.minutes ? `${Math.floor(c.minutes / 60)}h${c.minutes % 60 ? ` ${c.minutes % 60}m` : ""}` : "0h"}
+              {c.future
+                ? ""
+                : c.minutes
+                ? `${Math.floor(c.minutes / 60)}h${c.minutes % 60 ? ` ${c.minutes % 60}m` : ""}`
+                : "0h"}
             </Text>
           </View>
         ))}
@@ -223,7 +284,8 @@ export function WeekStrip({ columns, targetMin }: { columns: WeekColumn[]; targe
 const styles = StyleSheet.create({
   center: { alignItems: "center", justifyContent: "center", gap: 2 },
   timer: { fontFamily: font.semibold, fontSize: 30, lineHeight: 36, fontVariant: ["tabular-nums"] },
-  timerCompact: { fontFamily: font.semibold, fontSize: 13, lineHeight: 16, fontVariant: ["tabular-nums"] },
+  timerCompact: { fontFamily: font.semibold, fontSize: 15, lineHeight: 19, fontVariant: ["tabular-nums"] },
+  ringCaption: { fontFamily: font.medium, fontSize: 11, lineHeight: 14 },
   track: { width: "100%", overflow: "hidden", position: "relative" },
   abs: { position: "absolute", top: 0, bottom: 0 },
   tick: { position: "absolute", top: 0, bottom: 0, width: 1.5 },

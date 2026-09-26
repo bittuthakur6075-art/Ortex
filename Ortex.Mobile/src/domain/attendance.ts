@@ -176,8 +176,9 @@ export function onDutySince(punches: Punch[], now = Date.now()): string | null {
   const valid = counted(punches).sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
   const last = valid[0]
   if (!last || last.kind !== "in") return null
-  // The server treats an in older than 20 hours as closed; so do we.
-  return now - new Date(last.at).getTime() < 20 * 60 * MINUTE ? last.at : null
+  // An in is open only on its own day: at midnight IST an unclosed day resets
+  // (migration 0049), exactly as the server decides.
+  return dayKey(last.at) === dayKey(now) ? last.at : null
 }
 
 export const FLAG_LABEL: Record<string, string> = {

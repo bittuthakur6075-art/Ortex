@@ -65,34 +65,40 @@ export function workedMs(day: string, punches: Punch[], now: number): { ms: numb
 }
 
 /**
- * Null when a punch is allowed now, else the sentence saying when it is. The
- * window is openBeforeMin (20) before the shift starts to closeAt (21:00), IST.
- * Mirrors attendance_punch (migration 0048), which has the final say.
+ * The check-in window, IST: from checkInFrom (08:50) to closeAt (21:00). A
+ * check-out has no window, and an unclosed day resets at midnight
+ * (onDutySince). Mirrors attendance_punch (migration 0049), which has the
+ * final say.
  */
-type WindowSettings = ShiftSettings & { openBeforeMin?: number; closeAt?: string }
+type WindowSettings = ShiftSettings & { checkInFrom?: string; closeAt?: string }
 
-/** Today's punch window in epoch ms, IST. */
+/** Today's check-in window in epoch ms, IST. */
 export function punchWindow(s: WindowSettings, now: number): { open: number; close: number } {
   const day = dayKey(now)
-  const open = istMs(day, hhmmOk(s.shift?.start) ? s.shift!.start! : "09:30") - (s.openBeforeMin ?? 20) * MINUTE
+  const open = istMs(day, hhmmOk(s.checkInFrom) ? s.checkInFrom! : "08:50")
   const close = istMs(day, hhmmOk(s.closeAt) ? s.closeAt! : "21:00")
   return { open, close }
 }
 
-export function punchWindowClosed(s: WindowSettings, now: number): string | null {
+/** Null when this punch is allowed now, else the sentence saying why not. */
+export function punchWindowClosed(s: WindowSettings, now: number, kind: "in" | "out" = "in"): string | null {
+  if (kind === "out") return null
   const { open, close } = punchWindow(s, now)
-  if (now >= open && now <= close) return null
-  return `Attendance can be marked only between ${clockIST(open)} and ${clockIST(close)}.`
+  if (now < open) return `Check-in opens at ${clockIST(open)}.`
+  if (now > close) return `Check-in closed at ${clockIST(close)}. Ask an admin for a correction.`
+  return null
 }
 
 /**
- * The same window as the label a check control wears while it is shut, so the
- * card says when it opens instead of refusing after the slide. Null when open.
+ * The same rule as the label a check control wears while it is shut, so the
+ * card says when it opens instead of refusing after the slide. Null when open,
+ * and always null for a check-out.
  */
 export function punchWindowLabel(s: WindowSettings, now: number, kind: "in" | "out"): string | null {
+  if (kind === "out") return null
   const { open, close } = punchWindow(s, now)
   if (now < open) return `Check-in opens at ${clockIST(open)}`
-  if (now > close) return `${kind === "in" ? "Check-in" : "Check-out"} closed at ${clockIST(close)}`
+  if (now > close) return `Check-in closed at ${clockIST(close)}`
   return null
 }
 

@@ -147,7 +147,7 @@ export async function markNoticeSeen(uid?: string | null): Promise<void> {
 /**
  * The one door into clocking in: the privacy notice (and permissions) the first
  * time on this handset for this person, the camera flow after that. Outside
- * the punch window (20 min before the shift to 9 PM) it says so instead.
+ * the check-in window (8:50 AM to 9 PM; a check-out has none) it says so instead.
  */
 export function useStartClock() {
   const { session } = useAuth()
@@ -159,7 +159,7 @@ export function useStartClock() {
       kind: "in" | "out",
       settings: AttendanceSettings,
     ) => {
-      const closed = punchWindowClosed(settings, Date.now())
+      const closed = punchWindowClosed(settings, Date.now(), kind)
       if (closed) return toast.show({ message: closed, tone: "danger" })
       if (await noticeSeen(uid)) navigation.navigate("AttendanceClock", { kind })
       else navigation.navigate("AttendanceNotice", { kind })

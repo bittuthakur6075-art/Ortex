@@ -27,7 +27,7 @@ export type QuotationPrefill = {
 export type RootStackParamList = {
   Tabs: undefined
   // Team chat (migrations 0045/0046): one conversation, direct, group, team or Anu.
-  ChatThread: { id: string }
+  ChatThread: { id: string; ask?: string }
   QuotationEditor: { id?: string; prefill?: QuotationPrefill } | undefined
   QuotationDetail: { id: string }
   CustomerDetail: { id: string }

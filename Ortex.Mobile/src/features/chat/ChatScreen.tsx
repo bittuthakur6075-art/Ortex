@@ -25,6 +25,7 @@ import {
   EmptyState,
   Fab,
   ListRefreshControl,
+  Panel,
   ProfileAvatarButton,
   RowSeparator,
   SearchField,
@@ -35,20 +36,19 @@ import {
 /**
  * Team chat, the phone's Chat tab — the console's pages/Chat.jsx list pane.
  *
- * Anu is pinned first (ask her anything, answers straight from the database),
- * then every chat by newest activity: direct chats, groups, and the team
- * channels where Anu posts the daily update and attendance. A row opens the
+ * Anu is pinned in her own panel above the list (Beside's pattern), with three
+ * questions that open her thread already asking, so she reads as a tool rather
+ * than one more contact. Then two sections: the team channels, where Anu posts
+ * the daily update and attendance, and direct chats and groups. A row opens the
  * thread as a pushed page. Same rows, same RLS as the console: a message sent
  * here appears there at once.
  */
 
-type Filter = "all" | "unread" | "teams"
+type Filter = "all" | "unread" | "teams" | "direct"
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "unread", label: "Unread" },
-  { key: "teams", label: "Teams" },
-]
+const ANU_ASKS = ["Aaj kya pending hai?", "Kaun absent hai?", "Is mahine ki sales"]
+
+type ChatSection = { key: string; title: string; data: Conversation[] }
 
 export default function ChatScreen({ navigation }: TabScreenProps<"Chat">) {
   const meId = useMyId()
@@ -61,19 +61,37 @@ export default function ChatScreen({ navigation }: TabScreenProps<"Chat">) {
   // Anu's thread always exists, so she is always pinned at the top.
   React.useEffect(() => {
     if (inbox.loading || inbox.missing) return
-    if (!inbox.list.some((c) => c.kind === "assistant")) chat.openAssistant().then(() => reloadInbox()).catch(() => undefined)
+    if (!inbox.list.some((c) => c.kind === "assistant"))
+      chat
+        .openAssistant()
+        .then(() => reloadInbox())
+        .catch(() => undefined)
   }, [inbox.loading, inbox.missing, inbox.list])
 
-  const shown = React.useMemo(() => {
-    let rows = searchConversations(inbox.list, query, meId)
-    if (filter === "unread") rows = rows.filter((c) => c.unread > 0)
-    if (filter === "teams") rows = rows.filter((c) => c.kind === "team" || c.kind === "group")
-    return rows
-  }, [inbox.list, query, filter, meId])
+  const anu = inbox.list.find((c) => c.kind === "assistant") || null
+  const people = React.useMemo(() => inbox.list.filter((c) => c.kind !== "assistant"), [inbox.list])
+  const unreadChats = people.filter((c) => c.unread > 0).length
+  const filters: { key: Filter; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "unread", label: unreadChats ? `Unread ${unreadChats}` : "Unread" },
+    { key: "teams", label: "Teams" },
+    { key: "direct", label: "Direct" },
+  ]
 
-  const open = (id: string) => {
+  const sections = React.useMemo(() => {
+    let rows = searchConversations(people, query, meId)
+    if (filter === "unread") rows = rows.filter((c) => c.unread > 0)
+    const teams = filter === "direct" ? [] : rows.filter((c) => c.kind === "team")
+    const others = filter === "teams" ? [] : rows.filter((c) => c.kind !== "team")
+    const out: ChatSection[] = []
+    if (teams.length) out.push({ key: "teams", title: "Teams", data: teams })
+    if (others.length) out.push({ key: "direct", title: "Direct and groups", data: others })
+    return out
+  }, [people, query, filter, meId])
+
+  const open = (id: string, ask?: string) => {
     feedback.tap()
-    navigation.navigate("ChatThread", { id })
+    navigation.navigate("ChatThread", ask ? { id, ask } : { id })
   }
 
   const refresh = async () => {
@@ -95,31 +113,52 @@ export default function ChatScreen({ navigation }: TabScreenProps<"Chat">) {
         </View>
       }
       overlay={<Fab icon="add" onPress={() => setCreating(true)} accessibilityLabel="New chat or group" />}
-      list={{
-        data: inbox.loading && !inbox.list.length ? [] : shown,
+      sections={{
+        sections: inbox.loading && !inbox.list.length ? [] : sections,
         refreshControl: <ListRefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />,
         keyExtractor: (x: unknown) => (x as Conversation).id,
         ItemSeparatorComponent: RowSeparator,
+        stickySectionHeadersEnabled: false,
+        renderSectionHeader: ({ section }: { section: unknown }) => (
+          <SectionTitle title={(section as ChatSection).title} />
+        ),
         ListEmptyComponent: inbox.loading ? (
           <SkeletonList count={6} leading="avatar" />
         ) : inbox.missing ? (
-          <EmptyState icon="warning" title="Chat is not set up yet" hint="The office needs to switch Team chat on for this account's server." />
+          <EmptyState
+            icon="warning"
+            title="Chat is not set up yet"
+            hint="The office needs to switch Team chat on for this account's server."
+          />
         ) : inbox.error && !inbox.list.length ? (
-          <EmptyState icon="warning" title="Could not load chats" hint={inbox.error} actionLabel="Try again" onAction={() => void reloadInbox()} />
+          <EmptyState
+            icon="warning"
+            title="Could not load chats"
+            hint={inbox.error}
+            actionLabel="Try again"
+            onAction={() => void reloadInbox()}
+          />
         ) : (
           <EmptyState
             icon="enquiry"
             title={query || filter !== "all" ? "No chats match" : "No chats yet"}
-            hint={query || filter !== "all" ? "Try another search or filter." : "Tap + to message a colleague or make a group."}
+            hint={
+              query || filter !== "all"
+                ? "Try another search or filter."
+                : "Tap + to message a colleague or make a group."
+            }
           />
         ),
-        renderItem: ({ item }: { item: unknown }) => <ChatRow conv={item as Conversation} meId={meId} onPress={() => open((item as Conversation).id)} />,
+        renderItem: ({ item }: { item: unknown }) => (
+          <ChatRow conv={item as Conversation} meId={meId} onPress={() => open((item as Conversation).id)} />
+        ),
       }}
     >
       <View style={styles.tools}>
-        <SearchField value={query} onChangeText={setQuery} placeholder="Search chats" />
-        <SegmentedControl options={FILTERS} value={filter} onChange={setFilter} />
+        <SearchField value={query} onChangeText={setQuery} placeholder="Search chats and people" />
+        <SegmentedControl options={filters} value={filter} onChange={setFilter} />
       </View>
+      {anu && !query ? <AnuPanel conv={anu} meId={meId} onOpen={(ask) => open(anu.id, ask)} /> : null}
       <NewChatSheet
         visible={creating}
         onClose={() => setCreating(false)}
@@ -128,8 +167,73 @@ export default function ChatScreen({ navigation }: TabScreenProps<"Chat">) {
           void reloadInbox().then(() => open(id))
         }}
       />
-      {shown.length ? <RowSeparator /> : null}
     </AppScreen>
+  )
+}
+
+/** Anu, pinned: her face, what she is for, and three questions that open her thread already asking. */
+function AnuPanel({
+  conv,
+  meId,
+  onOpen,
+}: {
+  conv: Conversation
+  meId: string | null
+  onOpen: (ask?: string) => void
+}) {
+  const t = useTheme()
+  return (
+    <Panel>
+      <Pressable
+        onPress={() => onOpen()}
+        accessibilityRole="button"
+        accessibilityLabel={`Anu, your assistant${conv.unread ? `, ${conv.unread} unread` : ""}`}
+        style={({ pressed }) => [styles.row, { backgroundColor: pressed ? t.surfacePressed : t.surface }]}
+      >
+        <ConversationAvatar conv={conv} meId={meId} size={52} />
+        <View style={styles.rowBody}>
+          <View style={styles.rowTop}>
+            <Text style={[textVariants.listTitle, { color: t.text }]}>Anu</Text>
+            <View style={[styles.tag, { backgroundColor: t.primary10 }]}>
+              <Text style={[textVariants.captionStrong, { color: t.primary }]}>Assistant</Text>
+            </View>
+            <View style={styles.flex} />
+            {conv.unread ? (
+              <View style={[styles.badge, { backgroundColor: t.primary }]}>
+                <Text style={[styles.badgeText, { color: t.textOnPrimary }]}>{conv.unread}</Text>
+              </View>
+            ) : null}
+          </View>
+          <Text numberOfLines={1} style={[textVariants.small, { color: t.textSecondary }]}>
+            {previewText(conv, meId)}
+          </Text>
+        </View>
+      </Pressable>
+      <View style={styles.asks}>
+        {ANU_ASKS.map((q) => (
+          <Pressable
+            key={q}
+            onPress={() => onOpen(q)}
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.ask,
+              { backgroundColor: pressed ? t.surfacePressed : t.surfaceInset },
+            ]}
+          >
+            <Text style={[textVariants.smallStrong, { color: t.textSecondary }]}>{q}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </Panel>
+  )
+}
+
+function SectionTitle({ title }: { title: string }) {
+  const t = useTheme()
+  return (
+    <View style={[styles.sectionTitle, { backgroundColor: t.surface }]}>
+      <Text style={[textVariants.sectionLabel, { color: t.textTertiary }]}>{title.toUpperCase()}</Text>
+    </View>
   )
 }
 
@@ -151,19 +255,31 @@ function ChatRow({ conv, meId, onPress }: { conv: Conversation; meId: string | n
           <Text numberOfLines={1} style={[textVariants.listTitle, styles.flex, { color: t.text }]}>
             {conversationTitle(conv, meId)}
           </Text>
-          <Text style={[textVariants.caption, { color: unread && !conv.muted ? t.primary : t.textTertiary, fontFamily: unread ? fontFamily.semibold : fontFamily.regular }]}>
+          <Text
+            style={[
+              textVariants.caption,
+              {
+                color: unread && !conv.muted ? t.primary : t.textTertiary,
+                fontFamily: unread ? fontFamily.semibold : fontFamily.regular,
+              },
+            ]}
+          >
             {inboxTime(last?.created_at || (conv.kind === "assistant" ? null : conv.activity_at))}
           </Text>
         </View>
         <View style={styles.rowBottom}>
-          {mineLast && last ? <Ticks state={tickState(last, conv, meId)} color={t.textTertiary} readColor={t.primary} /> : null}
+          {mineLast && last ? (
+            <Ticks state={tickState(last, conv, meId)} color={t.textTertiary} readColor={t.primary} />
+          ) : null}
           <Text numberOfLines={1} style={[textVariants.small, styles.flex, { color: t.textSecondary }]}>
             {previewText(conv, meId)}
           </Text>
           {conv.muted ? <Text style={[textVariants.caption, { color: t.textTertiary }]}>Muted</Text> : null}
           {unread ? (
             <View style={[styles.badge, { backgroundColor: conv.muted ? t.mutedBg : t.primary }]}>
-              <Text style={[styles.badgeText, { color: conv.muted ? t.textSecondary : t.textOnPrimary }]}>{conv.unread > 99 ? "99+" : conv.unread}</Text>
+              <Text style={[styles.badgeText, { color: conv.muted ? t.textSecondary : t.textOnPrimary }]}>
+                {conv.unread > 99 ? "99+" : conv.unread}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -175,11 +291,34 @@ function ChatRow({ conv, meId, onPress }: { conv: Conversation; meId: string | n
 const styles = StyleSheet.create({
   headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   tools: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.md },
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingHorizontal: gutter, paddingVertical: spacing.md - 2 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingHorizontal: gutter,
+    paddingVertical: spacing.md - 2,
+  },
   rowBody: { flex: 1, minWidth: 0, gap: 3 },
   rowTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   rowBottom: { flexDirection: "row", alignItems: "center", gap: 6 },
   flex: { flex: 1, minWidth: 0 },
-  badge: { minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, alignItems: "center", justifyContent: "center" },
+  badge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   badgeText: { fontFamily: fontFamily.semibold, fontSize: 11, lineHeight: 13 },
+  tag: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  asks: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    paddingHorizontal: gutter,
+    paddingBottom: spacing.md,
+  },
+  ask: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
+  sectionTitle: { paddingHorizontal: gutter, paddingTop: spacing.md, paddingBottom: spacing.xs },
 })

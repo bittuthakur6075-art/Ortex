@@ -7,7 +7,7 @@ import { DialHeroSkeleton, WeekSkeleton } from "@/features/attendance/Attendance
 import CheckButton from "@/features/attendance/CheckButton"
 import { weekCells } from "@/features/attendance/days"
 import { dayLabel, hoursShort } from "@/features/attendance/format"
-import { DayTimelineBar, LiveTimer } from "@/features/attendance/LiveProgress"
+import { DayTimelineBar, ProgressRing } from "@/features/attendance/LiveProgress"
 import MonthAttendance from "@/features/attendance/MonthAttendance"
 import {
   dayTimeline,
@@ -16,20 +16,30 @@ import {
   shiftMinutes,
   weekColumns,
   workedMs,
+  punchWindow,
   punchWindowLabel,
 } from "@/features/attendance/progress"
-import { useAttendanceNotices, useAttendanceToday, useStartClock, useWeekDays } from "@/features/attendance/useAttendance"
+import {
+  useAttendanceNotices,
+  useAttendanceToday,
+  useStartClock,
+  useWeekDays,
+} from "@/features/attendance/useAttendance"
 import WeekStatusStrip, { StatusLegend } from "@/features/attendance/WeekStatusStrip"
 import { feedback } from "@/lib/feedback"
 import { shiftClock } from "@/lib/attendance"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, spacing } from "@/theme/tokens"
+import { gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
 import { AppScreen, DataNotice, ListRefreshControl, Panel, Section, SectionRow } from "@/ui"
 
-const TODAY = new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Kolkata" })
-
+const TODAY = new Intl.DateTimeFormat("en-IN", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  timeZone: "Asia/Kolkata",
+})
 
 /**
  * Attendance, the page, laid out like Zoho People's attendance screen. On top,
@@ -76,23 +86,20 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
     settings.shift?.start && settings.shift?.end
       ? `${shiftClock(settings.shift.start)} to ${shiftClock(settings.shift.end)}`
       : ""
-  const where = summary.field ? "Field visit" : summary.site || ""
+  // "Office", not the check-in station's name, as on the Home card.
+  const where = summary.field ? "Field visit" : "Office"
+  const win = punchWindow(settings, now)
+  const weekMin = week.reduce((sum, c) => sum + c.minutes, 0)
   const workedMin = worked.ms / 60000
   const kind = onDutySince ? "out" : "in"
   // One check-in and one check-out a day: after the check-out the day is done.
   const dayDone = !onDutySince && !!summary.lastOut
 
-  // The line under the button: Zoho says when you checked in, or out.
-  const stamp = onDutySince
-    ? `Checked in at ${clockIST(summary.firstIn || onDutySince)}`
-    : summary.lastOut
-      ? `Last check-out ${clockIST(summary.lastOut)}`
-      : "You have not checked in today"
   const state = onDutySince
     ? { label: "Checked in", tone: "success" as const }
     : summary.lastOut
-      ? { label: "Checked out", tone: "neutral" as const }
-      : { label: "Not checked in", tone: "warning" as const }
+    ? { label: "Checked out", tone: "neutral" as const }
+    : { label: "Not checked in", tone: "warning" as const }
   const progress = summary.firstIn
     ? progressWords(workedMin, shiftMin, !onDutySince && shiftEnded(settings, today, now))
     : `${hoursShort(shiftMin)} shift`
@@ -142,30 +149,59 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
         <>
           <Panel>
             <View style={styles.hero}>
-              <View style={styles.chips}>
-                <View>
-                  <InfoChip icon="clock" align="start">
-                    {shift ? `General shift · ${shift}` : "Shift not set"}
-                  </InfoChip>
-                </View>
+              <View style={styles.headRow}>
                 <InfoChip icon={onDutySince ? "tick" : "clock"} tone={state.tone} align="start">
                   {state.label}
                 </InfoChip>
+                <Text
+                  style={[textVariants.caption, styles.shift, { color: t.textTertiary }]}
+                  numberOfLines={1}
+                >
+                  {shift ? `General shift · ${shift}` : "Shift not set"}
+                </Text>
               </View>
 
-              <View style={styles.timerBlock}>
-                <View style={styles.timerRow}>
-                  <LiveTimer baseMs={worked.ms} baseAt={now} running={!!onDutySince} style={[styles.timer, { color: t.text }]} />
-                  <Text style={[styles.hrs, { color: t.textTertiary }]}>Hrs</Text>
-                </View>
+              <View style={styles.ringWrap}>
+                <ProgressRing
+                  workedMs={worked.ms}
+                  computedAt={now}
+                  running={!!onDutySince}
+                  shiftMin={shiftMin}
+                  size={184}
+                  stroke={12}
+                  color={onDutySince || dayDone ? t.success : t.primary}
+                />
                 <Text style={[textVariants.small, { color: t.textTertiary }]}>{progress}</Text>
               </View>
+
+              <View style={styles.stamps}>
+                <Stamp
+                  label="Check-in"
+                  value={summary.firstIn ? clockIST(summary.firstIn) : "Not yet"}
+                  sub={summary.firstIn ? where : `From ${clockIST(win.open)}`}
+                  dot={summary.firstIn ? t.success : t.textFaint}
+                />
+                <Stamp
+                  label="Check-out"
+                  value={dayDone ? clockIST(summary.lastOut!) : "Not yet"}
+                  sub={dayDone ? "Day complete" : "Any time before midnight"}
+                  dot={dayDone ? t.success : t.textFaint}
+                />
+              </View>
+
+              {summary.firstIn ? <DayTimelineBar timeline={timeline} /> : null}
 
               {dayDone ? (
                 <DayDone
                   inAt={summary.firstIn ? clockIST(summary.firstIn) : null}
                   outAt={clockIST(summary.lastOut!)}
-                  onCorrect={() => navigation.navigate("AttendanceCorrection", { day: today, inAt: summary.firstIn, outAt: summary.lastOut })}
+                  onCorrect={() =>
+                    navigation.navigate("AttendanceCorrection", {
+                      day: today,
+                      inAt: summary.firstIn,
+                      outAt: summary.lastOut,
+                    })
+                  }
                 />
               ) : (
                 <CheckButton
@@ -176,36 +212,27 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
                 />
               )}
 
-              <View style={styles.stampRow}>
-                <Text style={[textVariants.smallStrong, { color: t.textSecondary, flexShrink: 1 }]} numberOfLines={1}>
-                  {stamp}
-                </Text>
-                {where ? (
-                  <InfoChip icon="address" tone={summary.field ? "neutral" : "success"} align="start">
-                    {where}
-                  </InfoChip>
-                ) : null}
-              </View>
-
-              {summary.firstIn ? <DayTimelineBar timeline={timeline} /> : null}
-
               <Text style={[textVariants.caption, styles.center, { color: t.textTertiary }]}>
-                Check-in reads the code on the office screen.
+                {`Check-in ${clockIST(win.open)} to ${clockIST(win.close)} · check-out any time · scan the office QR code`}
               </Text>
             </View>
           </Panel>
 
-          <Panel title="This week" meta={`Target ${hoursShort(shiftMin)} a day`}>
+          <Panel
+            title="This week"
+            meta={`${hoursShort(weekMin)} worked · target ${hoursShort(shiftMin)} a day`}
+          >
             <View style={styles.week}>
-              <WeekStatusStrip
-                cells={week}
-                onOpen={(day) => navigation.navigate("AttendanceDay", { day })}
-              />
+              <WeekStatusStrip cells={week} onOpen={(day) => navigation.navigate("AttendanceDay", { day })} />
               <StatusLegend statuses={weekStatuses} />
             </View>
           </Panel>
 
-          <MonthAttendance now={now} refreshKey={monthKey} onOpen={(day) => navigation.navigate("AttendanceDay", { day })} />
+          <MonthAttendance
+            now={now}
+            refreshKey={monthKey}
+            onOpen={(day) => navigation.navigate("AttendanceDay", { day })}
+          />
 
           <Section title="More">
             <SectionRow
@@ -244,7 +271,9 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
 
           <Panel padded>
             <Text style={[textVariants.small, { color: t.textTertiary }]}>
-              {`Shift ${shift || "not set"}${settings.graceMin ? `, ${settings.graceMin} min grace` : ""}. Attendance is marked only in this app, by scanning the code on the office screen. No selfie is taken and your location is not read.`}
+              {`Shift ${shift || "not set"}${
+                settings.graceMin ? `, ${settings.graceMin} min grace` : ""
+              }. Attendance is marked only in this app, by scanning the code on the office screen. No selfie is taken and your location is not read.`}
             </Text>
           </Panel>
         </>
@@ -253,14 +282,33 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
   )
 }
 
+/** One of the two tiles under the ring: when you checked in, or out, and the fact beside it. */
+function Stamp({ label, value, sub, dot }: { label: string; value: string; sub: string; dot: string }) {
+  const t = useTheme()
+  return (
+    <View style={[styles.stamp, { backgroundColor: t.surfaceInset }]}>
+      <View style={styles.stampHead}>
+        <View style={[styles.dot, { backgroundColor: dot }]} />
+        <Text style={[textVariants.caption, { color: t.textTertiary }]}>{label}</Text>
+      </View>
+      <Text style={[styles.stampValue, { color: t.text }]}>{value}</Text>
+      <Text style={[textVariants.caption, { color: t.textTertiary }]} numberOfLines={1}>
+        {sub}
+      </Text>
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
   hero: { paddingHorizontal: gutter, paddingTop: gutter, paddingBottom: gutter, gap: spacing.md },
-  chips: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.sm },
-  timerBlock: { alignItems: "center", gap: 2, paddingVertical: spacing.sm },
-  timerRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
-  timer: { fontFamily: font.semibold, fontSize: 44, lineHeight: 52, fontVariant: ["tabular-nums"] },
-  hrs: { fontFamily: font.medium, fontSize: 16, lineHeight: 22 },
-  stampRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, flexWrap: "wrap" },
+  headRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  shift: { flex: 1, textAlign: "right" },
+  ringWrap: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs },
+  stamps: { flexDirection: "row", gap: spacing.sm },
+  stamp: { flex: 1, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, gap: 2 },
+  stampHead: { flexDirection: "row", alignItems: "center", gap: 6 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  stampValue: { fontFamily: font.semibold, fontSize: 20, lineHeight: 26, fontVariant: ["tabular-nums"] },
   center: { textAlign: "center" },
   week: { paddingHorizontal: gutter - 6, paddingBottom: gutter },
 })

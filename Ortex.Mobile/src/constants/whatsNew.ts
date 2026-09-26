@@ -29,6 +29,45 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.5.0",
+    version: "1.5.0",
+    date: "2026-09-26",
+    title: "A fresh look for attendance, chat and your profile",
+    summary: "Attendance, Chat and Profile are easier to read at a glance, and each shows the one thing that needs you.",
+    items: [
+      {
+        kind: "improved",
+        title: "Attendance on Home",
+        detail: "A smaller card with a ring for today's hours, your week as coloured dates, and the times check-in is open. Outside those times the slider tells you when it opens instead of refusing after you slide.",
+      },
+      {
+        kind: "improved",
+        title: "Attendance page",
+        detail: "A large ring with the live time, your check-in and check-out as two tiles, this week's hours, and the month opens as a calendar.",
+      },
+      {
+        kind: "new",
+        title: "Anu at the top of Chat",
+        detail: "Anu has her own place above your chats, with three questions one tap away. Chats are split into Teams and Direct, and the filters show how many are unread.",
+      },
+      {
+        kind: "improved",
+        title: "Anu's daily update",
+        detail: "Anu's posts in your team channel now show as a full-width card, so they stand apart from people's messages.",
+      },
+      {
+        kind: "improved",
+        title: "Your profile",
+        detail: "Your attendance today, leave left and last payday sit under your name, and each opens its page. Theme is now an Auto, Light or Dark switch on the page.",
+      },
+      {
+        kind: "new",
+        title: "A reminder to add your phone",
+        detail: "If your phone number is missing, Profile asks for it, so customers and the team can call you from quotes and chat.",
+      },
+    ],
+  },
+  {
     id: "1.4.1",
     version: "1.4.1",
     date: "2026-09-23",
