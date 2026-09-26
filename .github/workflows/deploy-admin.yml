@@ -1,0 +1,50 @@
+name: Deploy Admin
+
+# Production deploy of the business console (Vercel project ortex-admin) on
+# every push to Development that touches Ortex.Admin. It uses the Vercel CLI,
+# the same `vercel deploy --prod` that deploys by hand, so the Vercel GitHub
+# app is not needed. Vercel builds it with the project's own Production
+# environment variables (npm run build, check-env included).
+#
+# Needs one repository secret: VERCEL_TOKEN (vercel.com/account/tokens, scoped
+# to the ortex-industries team). Without it the deploy step is skipped.
+
+on:
+  push:
+    branches: [Development]
+    paths:
+      - "Ortex.Admin/**"
+      - ".github/workflows/deploy-admin.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-admin
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Ortex.Admin → Vercel production
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Ortex.Admin
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: team_UeksgkuUSpg5hzFbzTCj49x4
+      VERCEL_PROJECT_ID: prj_On2BOePGUvTLmXJbo003IqzqoiSD
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Ortex.Admin/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - name: Skip without a token
+        if: env.VERCEL_TOKEN == ''
+        run: echo "::notice::VERCEL_TOKEN is not set, so nothing was deployed. Add it under Settings, Secrets and variables, Actions."
+      - name: Deploy to production
+        if: env.VERCEL_TOKEN != ''
+        run: npx --yes vercel@60 deploy --prod --yes --token "$VERCEL_TOKEN"

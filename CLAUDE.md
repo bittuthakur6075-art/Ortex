@@ -66,7 +66,7 @@ Security lives in the database (RLS, security-definer RPCs, triggers). A client-
 
 ## CI
 
-`.github/workflows/ci.yml`: Web lint + `build:ci`; Admin lint + test + `build:staging` + `check:functions` (Deno type-check); Mobile lint + typecheck + test + Android JS bundle; Tally XML fixture. CI holds no production credentials, so both web builds run in a non-production mode; the production `npm run build` and its credential guard run only where the keys live (Vercel, the build machine).
+`.github/workflows/ci.yml`: Web lint + `build:ci`; Admin lint + test + `build:staging` + `check:functions` (Deno type-check); Mobile lint + typecheck + test + Android JS bundle; Tally XML fixture. CI holds no production credentials, so both web builds run in a non-production mode; the production `npm run build` and its credential guard run only where the keys live (Vercel, the build machine). `.github/workflows/deploy-admin.yml` deploys the Admin console to Vercel production with the Vercel CLI on every push to `Development` touching `Ortex.Admin/` (secret `VERCEL_TOKEN`); the Vercel projects have no Git link.
 
 ## Ortex.Tally.Connector
 

@@ -210,8 +210,12 @@ but those files are not in the repository, so on Vercel there is nothing to
 compare against. Pinning the ref restores the check: the build fails the day
 the injected URL changes.
 
-Vercel auto-deploys on push to the connected branch. The whole site is
-`noindex`, which is what you want for an admin console.
+Deploys are made with the Vercel CLI, not the Vercel GitHub app (the project
+has no Git link). `.github/workflows/deploy-admin.yml` runs lint and tests,
+then `vercel deploy --prod`, on every push to `Development` that touches
+`Ortex.Admin/`; it needs the `VERCEL_TOKEN` repository secret and skips the
+deploy without it. By hand, from `Ortex.Admin/`: `npx vercel deploy --prod`.
+The whole site is `noindex`, which is what you want for an admin console.
 
 ### Production by hand (Hostinger subdomain)
 
@@ -234,7 +238,7 @@ Still supported, and the fallback if Vercel is ever unavailable:
 2. Push a branch → Vercel builds a preview on demo data, badged **Staging**.
 3. Apply a migration or function to production with
    `npm run provision -- <production-ref>`.
-4. Merge to the production branch → Vercel builds and deploys production.
+4. Merge to `Development` → the Deploy Admin workflow deploys production.
 
 Because production is the only database, "apply it everywhere" means running
 the provision step exactly once. The trade-off is that a migration gets no
