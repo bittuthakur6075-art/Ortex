@@ -10,6 +10,39 @@
 
 export const RELEASES = [
   {
+    id: "2026-09-26",
+    version: "1.46",
+    date: "2026-09-26",
+    title: "A new dashboard, and a gate screen you can read across the room",
+    summary: "Everything waiting on you is now in one list, and live operations sit in a column on the right.",
+    items: [
+      {
+        kind: "new",
+        title: "One list for everything that needs you",
+        detail:
+          "Needs you today now includes leave requests, attendance corrections, pay runs waiting for approval, social posts in review and calls the Call agent hands to a person, next to overdue invoices, new leads and quotations about to lapse. Approve leave right from the list.",
+      },
+      {
+        kind: "new",
+        title: "The gate QR code on your dashboard",
+        detail:
+          "If you show the attendance code, it now sits at the top right of your dashboard with its countdown, today's scans and the last person in. Open full screen puts it straight on the gate display.",
+      },
+      {
+        kind: "improved",
+        title: "A gate screen made for the wall",
+        detail:
+          "Full screen is now a dark display with a large code, the time, three simple steps and the latest scans. When someone scans, it greets them by name, and if the connection drops it dims the code and says so.",
+      },
+      {
+        kind: "new",
+        title: "Team today, cash flow and automation at a glance",
+        detail:
+          "See who is in, late or on leave, invoiced against collected week by week or month by month, where leads come from, and whether Anu, the Call agent, Social and the team bot are running smoothly.",
+      },
+    ],
+  },
+  {
     id: "2026-09-23",
     version: "1.45",
     date: "2026-09-23",
