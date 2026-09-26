@@ -40,7 +40,9 @@ npm run build:staging     # .env.staging has empty Supabase values
 Then deploy `dist/` anywhere static (a Vercel project, or a second Hostinger
 subdomain). They sign in with any email plus the offline passphrase
 `ortex@admin`, and click **Load demo data** on the Dashboard to populate
-enquiries, quotations, GST invoices and payments.
+enquiries, quotations, GST invoices and payments. (The button exists only in
+this offline mode: on the live database it is hidden and the seeder refuses,
+because sample invoices would reuse real GST invoice numbers.)
 
 ### Why this is safe, and why it is not "multi-user"
 

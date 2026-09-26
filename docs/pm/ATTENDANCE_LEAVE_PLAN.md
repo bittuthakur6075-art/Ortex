@@ -159,7 +159,7 @@ No reference exists for two states we need, so these are original designs: **wea
   - Add `expo-camera`, `expo-location` and `expo-image-manipulator`.
   - Manifest: `CAMERA`, `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`.
   - iOS: `NSCameraUsageDescription`, `NSLocationWhenInUseUsageDescription`.
-- **Realtime:** the new tables join `supabase_realtime` (idempotent block as in 0029), are added to `REALTIME_TABLES` in the phone's `repo.ts`, and to `apiStore.clearAll` / `exportAll` in the console.
+- **Realtime:** the new tables join `supabase_realtime` (idempotent block as in 0029), are added to `REALTIME_TABLES` in the phone's `repo.ts`, and to `apiStore.exportAll` in the console (`clearAll` refuses on the live database since 2026-09-26).
 
 ## 3a. Roles (decided 2026-09-19)
 

@@ -197,13 +197,18 @@ per tick (roughly half enquiry / lead follow-ups, a quarter reorders, the rest
 feedback and referrals) so care calls are never starved. Callbacks a customer
 asked for (P85) and referrals (P72) jump the queue.
 
+Enquiry text reaches the agent's prompt marked as customer-written information,
+never instructions. Placing a call (`telecaller-dial`) or running the engine by
+hand needs the `telecaller` module (admins pass), and only an admin may re-dial a
+job that already finished.
+
 Inside the calling window (default 10:00–19:00 IST, never Sunday) and under
 the daily cap, the sources are:
 
 | Source | Rule | Job |
 | --- | --- | --- |
 | Leads in `new` / `contacted` with a valid mobile and no follow-up due later | no open job for the number | `followup` |
-| Enquiries (website, IndiaMART, voice leads) still `new` after 2 hours | no job for that enquiry | `followup` |
+| Enquiries still `new` after 2 hours: **IndiaMART, or starred by a person**. Website and Anu voice enquiries are anonymous (anyone can type anyone's number), so they wait for someone to press **AI call** or star them | no job for that enquiry | `followup` |
 | Invoices older than **feedback.daysAfterInvoice** (7) | one per invoice | `feedback` |
 | Invoices older than **upsell.daysAfterInvoice** (30), no newer order | at most one per **repeatEveryDays** (90) | `upsell` |
 

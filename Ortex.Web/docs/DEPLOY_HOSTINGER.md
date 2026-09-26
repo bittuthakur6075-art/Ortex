@@ -36,7 +36,8 @@ writes it into every page and fails the build on a malformed value.
 ## Every deploy (build + upload)
 
 1. **Build locally** with your Supabase env set (so the live catalogue is baked
-   into SEO). In `Ortex.Web/.env`:
+   into SEO). In `Ortex.Web/.env.production` (gitignored; the same URL and anon
+   key as `Ortex.Admin/.env.production`):
 
    ```
    VITE_SUPABASE_URL=...
@@ -58,6 +59,11 @@ writes it into every page and fails the build on a malformed value.
    - **File Manager**: hPanel → Files → File Manager → `public_html`. Delete old
      files, then upload a zip of `dist/`'s contents and Extract. Make sure the
      hidden **`.htaccess`** is included (enable "show hidden files").
+     **Do not zip with Windows' own "Send to → Compressed folder" or PowerShell 5's
+     `Compress-Archive`**: they store paths with backslashes, and Hostinger's Linux
+     extractor then creates files literally named `assetsindex.js` instead of
+     folders (the site loads with no styles or scripts). Use 7-Zip, `tar -a -cf
+     site.zip -C dist .`, or any zip tool that writes forward slashes.
    - **or FTP** (FileZilla): connect with your hPanel FTP account and upload the
      contents of `dist/` into `public_html`.
 

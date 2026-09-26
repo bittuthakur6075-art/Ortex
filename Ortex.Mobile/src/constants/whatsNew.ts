@@ -29,6 +29,35 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.6.0",
+    version: "1.6.0",
+    date: "2026-09-26",
+    title: "A cleaner Home, made for your job",
+    summary: "Home, Chat, Attendance and Profile now use soft rounded cards, and Home shows what your role needs first.",
+    items: [
+      {
+        kind: "improved",
+        title: "Home for your role",
+        detail: "Staff see their requests, leave, pay and the next holiday. Sales see who to call now, their month and quotes to chase. Admins can approve leave and corrections straight from Home.",
+      },
+      {
+        kind: "improved",
+        title: "Attendance out of the way",
+        detail: "Once you are checked in, the attendance card shrinks to one line with your time and a Check out button. Tap it to see the full card.",
+      },
+      {
+        kind: "improved",
+        title: "Rounded cards everywhere",
+        detail: "Home, Chat, Attendance and Profile sit on soft cards with smooth corners, easier to scan at a glance.",
+      },
+      {
+        kind: "improved",
+        title: "Anu asks what you would ask",
+        detail: "The questions under Anu now match your job: leave and salary for staff, sales for the sales team, the business and approvals for admins.",
+      },
+    ],
+  },
+  {
     id: "1.5.1",
     version: "1.5.1",
     date: "2026-09-26",
