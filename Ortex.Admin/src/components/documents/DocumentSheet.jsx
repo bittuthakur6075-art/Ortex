@@ -207,7 +207,8 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
         {hsnCodes.length > 0 && <p>HSN/SAC: {hsnCodes.join(", ")}</p>}
         <p>{isInvoice ? "Tax invoice" : "Quotation"}</p>
         <p>Amount in words: {amountInWords(t.grandTotal || 0)}</p>
-        {isInvoice && c.bankName && (
+        {/* On quotations too: a quote asking for an advance says how to pay it. */}
+        {c.bankName && (
           <p>
             Bank: {c.bankName}
             {c.bankAccount && <>, A/C {c.bankAccount}</>}

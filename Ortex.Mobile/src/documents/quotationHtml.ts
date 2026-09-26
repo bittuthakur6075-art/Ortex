@@ -52,6 +52,17 @@ const totalRow = (label: string, value: string, grand = false) =>
     value,
   )}</span></div>`
 
+/**
+ * "Bank: HDFC, A/C 1234, IFSC HDFC0001, UPI ortex@hdfc", the console's
+ * DocumentSheet line word for word, so a customer paying the advance on a quote
+ * need not ask how. Only the parts that are filled in.
+ */
+function bankLine(c: Settings["company"]): string {
+  return [`Bank: ${c.bankName}`, c.bankAccount && `A/C ${c.bankAccount}`, c.bankIfsc && `IFSC ${c.bankIfsc}`, c.upi && `UPI ${c.upi}`]
+    .filter(Boolean)
+    .join(", ")
+}
+
 export function quotationHtml(doc: Quotation, settings: Settings): string {
   const c = settings.company
   const t = doc.totals || ({} as Quotation["totals"])
@@ -297,6 +308,7 @@ export function quotationHtml(doc: Quotation, settings: Settings): string {
       ${hsnCodes.length ? `<p>HSN/SAC: ${esc(hsnCodes.join(", "))}</p>` : ""}
       <p>Quotation</p>
       <p>Amount in words: ${esc(amountInWords(t.grandTotal || 0))}</p>
+      ${c.bankName ? `<p>${esc(bankLine(c))}</p>` : ""}
       ${doc.terms ? `<h4>Terms and conditions</h4><p>${esc(doc.terms)}</p>` : ""}
       ${doc.notes ? `<h4>Notes</h4><p>${esc(doc.notes)}</p>` : ""}
     </div>

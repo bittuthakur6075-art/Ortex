@@ -10,6 +10,20 @@
 
 export const RELEASES = [
   {
+    id: "1.46.1",
+    version: "1.46.1",
+    date: "2026-09-26",
+    title: "Bank details on quotations",
+    items: [
+      {
+        kind: "improved",
+        title: "Customers know how to pay the advance",
+        detail:
+          "A quotation now carries your bank name, account number, IFSC and UPI ID under the amount in words, as an invoice always has. It shows once they are filled in under Settings, Company, and the same line is on quotations sent from the phone.",
+      },
+    ],
+  },
+  {
     id: "2026-09-26",
     version: "1.46",
     date: "2026-09-26",

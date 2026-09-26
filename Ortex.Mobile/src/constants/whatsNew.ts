@@ -29,6 +29,19 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.5.1",
+    version: "1.5.1",
+    date: "2026-09-26",
+    title: "Bank details on your quotations",
+    items: [
+      {
+        kind: "improved",
+        title: "Customers know how to pay the advance",
+        detail: "The quotation PDF you share now shows the company's bank, account number, IFSC and UPI ID under the amount in words, the same as on the web.",
+      },
+    ],
+  },
+  {
     id: "1.5.0",
     version: "1.5.0",
     date: "2026-09-26",
