@@ -22,7 +22,10 @@ jobs:
           cache-dependency-path: Ortex.Web/package-lock.json
       - run: npm ci
       - run: npm run lint
-      - run: npm run build
+      # CI holds no production credentials, so it builds in a non-production
+      # mode: the same code and prerender (on the static catalogue). The
+      # production build and its credential guard run where the keys live.
+      - run: npm run build:ci
 
   admin:
     name: Ortex.Admin — lint + build
@@ -40,7 +43,8 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
-      - run: npm run build
+      # Same reason: build:staging needs no credentials and runs on demo data.
+      - run: npm run build:staging
       - run: npm run check:functions   # Deno 2 fetched via npx
 
   mobile:

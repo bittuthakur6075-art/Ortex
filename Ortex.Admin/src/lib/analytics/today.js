@@ -252,7 +252,7 @@ export function monthlyCash({ invoices = [], payments = [] }, months = 6, now = 
     if (p.type === "inflow") b.collected = round2(b.collected + (Number(p.amount) || 0))
     else b.paidOut = round2(b.paidOut + (Number(p.amount) || 0))
   }
-  return keys.map(({ key, ...rest }) => rest)
+  return keys.map(({ key: _key, ...rest }) => rest)
 }
 
 /**
