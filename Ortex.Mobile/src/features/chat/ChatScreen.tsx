@@ -18,18 +18,17 @@ import { chat } from "@/lib/chat"
 import { feedback } from "@/lib/feedback"
 import type { TabScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, spacing } from "@/theme/tokens"
+import { Card, SubHeader } from "@/ui/OneUi"
+import { SquircleBackground } from "@/ui/Squircle"
+import { spacing } from "@/theme/tokens"
 import { fontFamily, textVariants } from "@/theme/typography"
 import {
   AppScreen,
   EmptyState,
   Fab,
   ListRefreshControl,
-  Panel,
   ProfileAvatarButton,
-  RowSeparator,
   SearchField,
-  SegmentedControl,
   SkeletonList,
 } from "@/ui"
 
@@ -51,6 +50,7 @@ const ANU_ASKS = ["Aaj kya pending hai?", "Kaun absent hai?", "Is mahine ki sale
 type ChatSection = { key: string; title: string; data: Conversation[] }
 
 export default function ChatScreen({ navigation }: TabScreenProps<"Chat">) {
+  const t = useTheme()
   const meId = useMyId()
   const inbox = useChatInbox()
   const [query, setQuery] = React.useState("")
@@ -105,6 +105,7 @@ export default function ChatScreen({ navigation }: TabScreenProps<"Chat">) {
       title="Chat"
       subtitle={inbox.unread ? `${inbox.unread} unread` : "Your team, and Anu"}
       inTabs
+      inset
       headerLeft={<ProfileAvatarButton />}
       headerRight={
         <View style={styles.headerActions}>
@@ -117,11 +118,14 @@ export default function ChatScreen({ navigation }: TabScreenProps<"Chat">) {
         sections: inbox.loading && !inbox.list.length ? [] : sections,
         refreshControl: <ListRefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />,
         keyExtractor: (x: unknown) => (x as Conversation).id,
-        ItemSeparatorComponent: RowSeparator,
+        // Each section's rows sit in ONE card (Figma "Chat · Inbox"): the label
+        // above, the rows inside, a rule between them indented to the text.
+        ItemSeparatorComponent: RowRule,
         stickySectionHeadersEnabled: false,
         renderSectionHeader: ({ section }: { section: unknown }) => (
-          <SectionTitle title={(section as ChatSection).title} />
+          <SubHeader title={(section as ChatSection).title} />
         ),
+        renderSectionFooter: () => <View style={styles.sectionGap} />,
         ListEmptyComponent: inbox.loading ? (
           <SkeletonList count={6} leading="avatar" />
         ) : inbox.missing ? (
@@ -149,14 +153,49 @@ export default function ChatScreen({ navigation }: TabScreenProps<"Chat">) {
             }
           />
         ),
-        renderItem: ({ item }: { item: unknown }) => (
-          <ChatRow conv={item as Conversation} meId={meId} onPress={() => open((item as Conversation).id)} />
-        ),
+        renderItem: ({ item, index, section }: { item: unknown; index: number; section: unknown }) => {
+          const last = index === (section as ChatSection).data.length - 1
+          return (
+            <View style={[styles.cardRow, index === 0 && styles.cardFirst, last && styles.cardLast]}>
+              {/* The card's smoothed corners on its first and last rows only. */}
+              <SquircleBackground
+                fill={t.surfaceRaised}
+                radius={24}
+                corners={{ topLeft: index === 0, topRight: index === 0, bottomLeft: last, bottomRight: last }}
+              />
+              <ChatRow
+                conv={item as Conversation}
+                meId={meId}
+                onPress={() => open((item as Conversation).id)}
+              />
+            </View>
+          )
+        },
       }}
     >
       <View style={styles.tools}>
         <SearchField value={query} onChangeText={setQuery} placeholder="Search chats and people" />
-        <SegmentedControl options={filters} value={filter} onChange={setFilter} />
+      </View>
+      <View style={styles.chips}>
+        {filters.map((f) => {
+          const on = f.key === filter
+          return (
+            <Pressable
+              key={f.key}
+              onPress={() => {
+                feedback.select()
+                setFilter(f.key)
+              }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+              style={[styles.chip, { backgroundColor: on ? t.text : t.surfaceRaised }]}
+            >
+              <Text style={[styles.chipText, { color: on ? t.surfaceRaised : t.textSecondary }]}>
+                {f.label}
+              </Text>
+            </Pressable>
+          )
+        })}
       </View>
       {anu && !query ? <AnuPanel conv={anu} meId={meId} onOpen={(ask) => open(anu.id, ask)} /> : null}
       <NewChatSheet
@@ -183,12 +222,12 @@ function AnuPanel({
 }) {
   const t = useTheme()
   return (
-    <Panel>
+    <Card style={styles.anuCard}>
       <Pressable
         onPress={() => onOpen()}
         accessibilityRole="button"
         accessibilityLabel={`Anu, your assistant${conv.unread ? `, ${conv.unread} unread` : ""}`}
-        style={({ pressed }) => [styles.row, { backgroundColor: pressed ? t.surfacePressed : t.surface }]}
+        style={({ pressed }) => [styles.row, { opacity: pressed ? 0.6 : 1 }]}
       >
         <ConversationAvatar conv={conv} meId={meId} size={52} />
         <View style={styles.rowBody}>
@@ -224,15 +263,16 @@ function AnuPanel({
           </Pressable>
         ))}
       </View>
-    </Panel>
+    </Card>
   )
 }
 
-function SectionTitle({ title }: { title: string }) {
+/** The rule between two rows of a card, indented to the text (16 + 48 + 14). */
+function RowRule() {
   const t = useTheme()
   return (
-    <View style={[styles.sectionTitle, { backgroundColor: t.surface }]}>
-      <Text style={[textVariants.sectionLabel, { color: t.textTertiary }]}>{title.toUpperCase()}</Text>
+    <View style={[styles.cardRow, { backgroundColor: t.surfaceRaised }]}>
+      <View style={[styles.rule, { backgroundColor: t.border }]} />
     </View>
   )
 }
@@ -247,12 +287,18 @@ function ChatRow({ conv, meId, onPress }: { conv: Conversation; meId: string | n
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${conversationTitle(conv, meId)}${unread ? `, ${conv.unread} unread` : ""}`}
-      style={({ pressed }) => [styles.row, { backgroundColor: pressed ? t.surfacePressed : t.surface }]}
+      style={({ pressed }) => [styles.row, { opacity: pressed ? 0.6 : 1 }]}
     >
       <ConversationAvatar conv={conv} meId={meId} />
       <View style={styles.rowBody}>
         <View style={styles.rowTop}>
-          <Text numberOfLines={1} style={[textVariants.listTitle, styles.flex, { color: t.text }]}>
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.name,
+              { color: t.text, fontFamily: unread ? fontFamily.semibold : fontFamily.medium },
+            ]}
+          >
             {conversationTitle(conv, meId)}
           </Text>
           <Text
@@ -271,7 +317,16 @@ function ChatRow({ conv, meId, onPress }: { conv: Conversation; meId: string | n
           {mineLast && last ? (
             <Ticks state={tickState(last, conv, meId)} color={t.textTertiary} readColor={t.primary} />
           ) : null}
-          <Text numberOfLines={1} style={[textVariants.small, styles.flex, { color: t.textSecondary }]}>
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.preview,
+              {
+                color: unread ? t.textSecondary : t.textTertiary,
+                fontFamily: unread ? fontFamily.medium : fontFamily.regular,
+              },
+            ]}
+          >
             {previewText(conv, meId)}
           </Text>
           {conv.muted ? <Text style={[textVariants.caption, { color: t.textTertiary }]}>Muted</Text> : null}
@@ -290,18 +345,23 @@ function ChatRow({ conv, meId, onPress }: { conv: Conversation; meId: string | n
 
 const styles = StyleSheet.create({
   headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  tools: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.md },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingHorizontal: gutter,
-    paddingVertical: spacing.md - 2,
-  },
+  tools: { paddingHorizontal: 16, paddingBottom: 10 },
+  chips: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingBottom: 14 },
+  chip: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  chipText: { fontFamily: fontFamily.semibold, fontSize: 13.5, lineHeight: 17 },
+  anuCard: { paddingTop: 14, paddingBottom: 14, gap: 12 },
+  cardRow: { marginHorizontal: 12 },
+  cardFirst: { paddingTop: 6 },
+  cardLast: { paddingBottom: 6 },
+  rule: { height: 1, marginLeft: 78, marginRight: 16 },
+  sectionGap: { height: 12 },
+  row: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 16, paddingVertical: 12 },
   rowBody: { flex: 1, minWidth: 0, gap: 3 },
-  rowTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  rowTop: { flexDirection: "row", alignItems: "center", gap: 8 },
   rowBottom: { flexDirection: "row", alignItems: "center", gap: 6 },
   flex: { flex: 1, minWidth: 0 },
+  name: { flex: 1, minWidth: 0, fontSize: 16, lineHeight: 21 },
+  preview: { flex: 1, minWidth: 0, fontSize: 14, lineHeight: 19 },
   badge: {
     minWidth: 20,
     height: 20,
@@ -310,15 +370,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  badgeText: { fontFamily: fontFamily.semibold, fontSize: 11, lineHeight: 13 },
+  badgeText: { fontFamily: fontFamily.semibold, fontSize: 12, lineHeight: 14 },
   tag: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
-  asks: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-    paddingHorizontal: gutter,
-    paddingBottom: spacing.md,
-  },
+  asks: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16 },
   ask: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
-  sectionTitle: { paddingHorizontal: gutter, paddingTop: spacing.md, paddingBottom: spacing.xs },
 })

@@ -162,6 +162,14 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
             multiline
             numberOfLines={3}
           />
+          <TextField
+            label="Notes"
+            value={draft.notes || ""}
+            onChangeText={(v) => set("notes", v)}
+            placeholder="For the team only, never printed"
+            multiline
+            numberOfLines={3}
+          />
         </Section>
 
         <View style={styles.pageBlock}>

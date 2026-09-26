@@ -132,6 +132,11 @@
 }
 
 .lp-footer a {
+  /* At least 24px tall (WCAG 2.2 target size): the links measured 21px on a
+     phone, a hard tap with a thumb. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   color: rgba(255, 255, 255, 0.86);
   text-decoration: none;
   font-size: clamp(15px, 1.4vw, 16px);

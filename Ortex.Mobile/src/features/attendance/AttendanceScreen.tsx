@@ -30,9 +30,10 @@ import { feedback } from "@/lib/feedback"
 import { shiftClock } from "@/lib/attendance"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
-import { radius, spacing } from "@/theme/tokens"
+import { spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
 import { AppScreen, DataNotice, ListRefreshControl } from "@/ui"
+import { SquircleBackground } from "@/ui/Squircle"
 import { Card, CardPanel as Panel, CardRow, CardRows, SubHeader, Tag } from "@/ui/OneUi"
 
 const TODAY = new Intl.DateTimeFormat("en-IN", {
@@ -290,7 +291,8 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
 function Stamp({ label, value, sub, dot }: { label: string; value: string; sub: string; dot: string }) {
   const t = useTheme()
   return (
-    <View style={[styles.stamp, { backgroundColor: t.surfaceInset }]}>
+    <View style={styles.stamp}>
+      <SquircleBackground fill={t.surfaceInset} radius={18} />
       <View style={styles.stampHead}>
         <View style={[styles.dot, { backgroundColor: dot }]} />
         <Text style={[textVariants.caption, { color: t.textTertiary }]}>{label}</Text>
@@ -309,7 +311,7 @@ const styles = StyleSheet.create({
   shift: { flex: 1, textAlign: "right" },
   ringWrap: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs },
   stamps: { flexDirection: "row", gap: spacing.sm },
-  stamp: { flex: 1, borderRadius: radius.md, paddingHorizontal: 14, paddingVertical: 12, gap: 2 },
+  stamp: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, gap: 2 },
   stampHead: { flexDirection: "row", alignItems: "center", gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   stampValue: { fontFamily: font.semibold, fontSize: 20, lineHeight: 26, fontVariant: ["tabular-nums"] },

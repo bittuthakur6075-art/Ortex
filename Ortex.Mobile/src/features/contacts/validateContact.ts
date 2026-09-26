@@ -180,5 +180,6 @@ export function normaliseContact(draft: ContactDraft): Customer {
     // left for someone to get wrong later.
     stateCode: draft.stateCode.trim() || (GSTIN.test(gstin) ? gstin.slice(0, 2) : ""),
     address: draft.address.trim(),
+    notes: (draft.notes || "").trim(),
   }
 }

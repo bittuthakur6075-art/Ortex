@@ -670,6 +670,14 @@ input[type="search"]::-webkit-search-decoration {
 .doc-notes h4 { font-size: 9pt; font-weight: 600; margin-top: 11.5pt; }
 .doc-notes p { white-space: pre-wrap; }
 .doc-notes .ref { margin-top: 11.5pt; font-size: 7.5pt; }
+/* Terms left, bank details right in a tinted box so the payee is found at a glance. */
+.doc-terms-row { display: flex; align-items: flex-start; gap: 20pt; }
+.doc-terms { flex: 1; min-width: 0; }
+.doc-bank { width: 220pt; flex: none; margin-top: 11.5pt; padding: 8pt 10pt; background: #F4F6FA; border-left: 2.5pt solid var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.doc-bank h4 { margin-top: 0; margin-bottom: 5pt; font-size: 9pt; font-weight: 600; }
+.doc-bank dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; column-gap: 8pt; row-gap: 1.5pt; }
+.doc-bank dt { font-weight: 400; font-size: 7.5pt; line-height: 13.5pt; letter-spacing: 0.04em; text-transform: uppercase; }
+.doc-bank dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 
 /* Footer: hairline, 7.5pt, pinned to the bottom of the sheet. */
 .doc-foot { margin-top: auto; padding-top: 6pt; border-top: 0.75pt solid var(--rule); display: flex; justify-content: space-between; gap: 12pt; font-size: 7.5pt; line-height: 1.5; color: var(--ink); }
@@ -684,6 +692,8 @@ input[type="search"]::-webkit-search-decoration {
   .doc-parties, .doc-parties.three { grid-template-columns: 1fr; gap: 16px; }
   .doc-totals { width: 100%; }
   .doc-notes { grid-template-columns: 1fr; }
+  .doc-terms-row { flex-direction: column; gap: 0; }
+  .doc-bank { width: 100%; box-sizing: border-box; }
 }
 
 /* Print: the overlay is portaled to <body>, a sibling of the app root, so

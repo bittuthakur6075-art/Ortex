@@ -279,6 +279,12 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
           />
         </Panel>
 
+        {!!customer.notes && (
+          <Panel title="Notes">
+            <Text style={[styles.notes, { color: t.textSecondary }]}>{customer.notes}</Text>
+          </Panel>
+        )}
+
         <Panel>
           <View style={styles.statRow}>
             <Stat label="Quotations" value={String(theirQuotes.length)} />
@@ -435,6 +441,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 
 const styles = StyleSheet.create({
+  notes: { fontSize: 14, lineHeight: 21, fontFamily: font.regular, paddingHorizontal: gutter, paddingBottom: spacing.md },
   root: { flex: 1 },
   centre: { alignItems: "center", justifyContent: "center" },
   // The first panel under this bar is white, so the bar needs the divider

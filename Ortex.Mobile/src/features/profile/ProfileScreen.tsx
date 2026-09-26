@@ -33,6 +33,7 @@ import { biometricAvailable } from "@/features/auth/useAppLock"
 import ProfileMe from "@/features/profile/ProfileMe"
 import Icon from "@/ui/Icon"
 import { Card, CardRow, CardRows, SubHeader, Tag } from "@/ui/OneUi"
+import { SquircleBackground } from "@/ui/Squircle"
 import { MAX_AVATAR_MB, base64Bytes, removeAvatar, uploadAvatar } from "@/lib/avatarUpload"
 import { feedback } from "@/lib/feedback"
 import { useNotificationStore } from "@/lib/notificationStore"
@@ -42,16 +43,7 @@ import { useAuth } from "@/store/AuthContext"
 import { useThemePref, type ThemePref } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
 import { fontFamily, textVariants } from "@/theme/typography"
-import {
-  AppScreen,
-  Avatar,
-  Dialog,
-  SegmentedControl,
-  SectionRow,
-  Sheet,
-  Switch,
-  useToast,
-} from "@/ui"
+import { AppScreen, Avatar, Dialog, SegmentedControl, SectionRow, Sheet, Switch, useToast } from "@/ui"
 
 const SINCE_DAY = new Intl.DateTimeFormat("en-IN", {
   day: "numeric",
@@ -361,11 +353,9 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
             setConfirmOut(true)
           }}
           accessibilityRole="button"
-          style={({ pressed }) => [
-            styles.signOut,
-            { backgroundColor: t.surfaceRaised, opacity: pressed ? 0.6 : 1 },
-          ]}
+          style={({ pressed }) => [styles.signOut, { opacity: pressed ? 0.6 : 1 }]}
         >
+          <SquircleBackground fill={t.surfaceRaised} radius={24} />
           <Icon name="logout" size={20} color={t.dangerText} variant="Bulk" />
           <Text style={[styles.signOutText, { color: t.dangerText }]}>Sign out</Text>
         </Pressable>
@@ -460,7 +450,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginHorizontal: 12,
     marginTop: 4,
-    borderRadius: 24,
     paddingVertical: 16,
   },
   signOutText: { fontFamily: fontFamily.semibold, fontSize: 16, lineHeight: 20 },

@@ -27,7 +27,7 @@ import { formatCurrency, formatDate, formatNumber, relativeTime } from "../lib/f
 import { stateLabel } from "../lib/gstStates"
 import { findDuplicate, normaliseCustomer, validateCustomer } from "../lib/validateCustomer"
 import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../components/editors/DocumentEditorShell"
-import { Banner, Button, Input, Field, StatusBadge, EmptyState, Money, PageLoader } from "../components/ui/Ui"
+import { Banner, Button, Input, Field, StatusBadge, EmptyState, Money, PageLoader, Textarea } from "../components/ui/Ui"
 import { RecordActivity } from "../components/ui/RecordActivity"
 
 const byNewest = (a, b) => new Date(b.issueDate || b.createdAt || 0) - new Date(a.issueDate || a.createdAt || 0)
@@ -209,6 +209,9 @@ export default function CustomerDetail() {
               </Field>
               <Field label="Address" className="sm:col-span-2">
                 <Input value={form.address} onChange={(e) => set("address", e.target.value)} onBlur={saveField} />
+              </Field>
+              <Field label="Notes" className="sm:col-span-2" hint="For the team only. Never printed on a quotation or invoice.">
+                <Textarea rows={3} value={form.notes || ""} onChange={(e) => set("notes", e.target.value)} onBlur={saveField} placeholder="Preferences, past issues, who to ask for" />
               </Field>
             </div>
           </Section>

@@ -216,6 +216,12 @@ export default function ProductImport({ open, onClose }) {
     const file = e.target.files?.[0]
     e.target.value = "" // allow re-upload of the same file
     if (!file) return
+    // A sheet with pasted photos runs to a few MB; anything this big is not a
+    // product list, and parsing it could freeze the tab.
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error("That file is over 20 MB. Split it, or add photos by URL instead of pasting them in.")
+      return
+    }
     setFileName(file.name)
     setBusy(true)
     try {

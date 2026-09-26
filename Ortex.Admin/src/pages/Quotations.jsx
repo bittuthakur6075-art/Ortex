@@ -393,10 +393,13 @@ function QuotationEditor({ draft, products, customers, settings, profile, onClos
   // the button and gets an RLS error for pressing it, which reads as a bug
   // rather than as a permission.
   const isAdmin = isAdminRole(profile)
-  const [form, setForm] = useState(draft)
+  // A new quotation starts with the signed-in user's name as the seller; it is
+  // an ordinary field after that, editable on create and edit alike.
+  const [start] = useState(() => (isEdit || draft.sellerName ? draft : { ...draft, sellerName: profile?.name?.trim() || "" }))
+  const [form, setForm] = useState(start)
   // What the form was opened with, moved forward whenever the screen persists
   // it (send, a status change), so "unsaved changes" means exactly that.
-  const [baseline, setBaseline] = useState(draft)
+  const [baseline, setBaseline] = useState(start)
   const dirty = isDirty(form, baseline)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState("")
@@ -462,10 +465,6 @@ function QuotationEditor({ draft, products, customers, settings, profile, onClos
     if (dirty && !saving) setConfirmLeave(true)
     else onClose()
   }
-  // WHOSE NAME goes on the sheet. A new quotation takes the signed-in user's; an
-  // existing one keeps the name it was raised under, because re-stamping it on
-  // edit would quietly reassign a document that has already been sent.
-  const sellerName = isEdit ? form.sellerName || "" : profile?.name?.trim() || ""
   const [showLost, setShowLost] = useState(false)
   const [moreOpen, setMoreOpen] = useState(Boolean(draft.shipTo || draft.notes))
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
@@ -493,7 +492,7 @@ function QuotationEditor({ draft, products, customers, settings, profile, onClos
     let created = null
     try {
       if (isEdit) await updateQuotation(form.id, form)
-      else created = await createQuotation({ ...form, sellerName })
+      else created = await createQuotation(form)
     } catch (e) {
       // Nothing was saved. The form and its local draft stay exactly as they
       // are, so nothing typed is lost and Save can simply be pressed again.
@@ -708,18 +707,22 @@ function QuotationEditor({ draft, products, customers, settings, profile, onClos
                 <Input value={form.paymentTerms} onChange={(e) => set({ paymentTerms: e.target.value })} placeholder="Enter payment terms" />
               </Field>
             </div>
-            {/* WHO QUOTED IT, on the sheet the customer keeps. `sellerName` is
-                stamped from the signed-in profile when the quotation is created
-                and never re-stamped on edit, so it names the person who raised
-                it rather than whoever last opened it. */}
-            <label className="mt-4 flex items-center gap-2 border-t border-border pt-4 text-sm text-foreground">
+            {/* WHO QUOTED IT, on the sheet the customer keeps. Prefilled with the
+                signed-in user's name on a new quotation, never re-stamped on
+                edit, and editable either way. */}
+            <div className="mt-4 grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
+              <Field label="Seller Name">
+                <Input value={form.sellerName || ""} onChange={(e) => set({ sellerName: e.target.value })} placeholder="Enter seller name" />
+              </Field>
+            </div>
+            <label className="mt-3 flex items-center gap-2 text-sm text-foreground">
               <input
                 type="checkbox"
                 className="h-4 w-4 rounded border-border accent-primary"
                 checked={form.showSeller !== false}
                 onChange={(e) => set({ showSeller: e.target.checked })}
               />
-              {sellerName ? `Show "Quoted by ${sellerName}" on the PDF` : "Show the seller's name on the PDF"}
+              Show the seller name on the PDF
             </label>
             {isEdit && (
               <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-border pt-4">

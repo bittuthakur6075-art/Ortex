@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native"
 import { clockIST, dayKey } from "@/domain/attendance"
 import { ActionAdvisory, DayDone } from "@/features/attendance/attendanceUi"
 import { dayLabel } from "@/features/attendance/format"
-import { ProgressRing } from "@/features/attendance/LiveProgress"
+import { LiveTimer, ProgressRing } from "@/features/attendance/LiveProgress"
 import {
   progressWords,
   punchWindow,
@@ -50,12 +50,13 @@ const CLOSING_SOON_MIN = 30
  * slider says when it opens. Check-out has no window, but an open day resets at
  * midnight, so the last half hour before midnight warns.
  */
-export default function AttendanceHomeCard() {
+export default function AttendanceHomeCard({ collapse = false }: { collapse?: boolean } = {}) {
   const t = useTheme()
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const startClock = useStartClock()
   const { settings, punches, summary, onDutySince, loading, now } = useAttendanceToday()
   const notices = useAttendanceNotices()
+  const [expanded, setExpanded] = React.useState(false)
 
   const today = dayKey(now)
   const shiftMin = shiftMinutes(settings, today)
@@ -123,6 +124,57 @@ export default function AttendanceHomeCard() {
   const open = (fn: () => void) => () => {
     feedback.tap()
     fn()
+  }
+
+  if (collapse && onDutySince && !expanded) {
+    return (
+      <Card style={styles.mini}>
+        <Pressable
+          onPress={() => {
+            feedback.tap()
+            setExpanded(true)
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`${pill.label}, ${line1}. Show today's attendance`}
+          style={styles.miniRow}
+        >
+          <ProgressRing
+            workedMs={worked.ms}
+            computedAt={now}
+            running
+            shiftMin={shiftMin}
+            size={48}
+            stroke={5}
+            compact
+            color={ring}
+            face={<Icon name="clock" size={18} color={ring} variant="Bulk" />}
+          />
+          <View style={styles.facts}>
+            <View style={styles.miniTop}>
+              <LiveTimer
+                baseMs={worked.ms}
+                baseAt={now}
+                running
+                short
+                style={[styles.miniTime, { color: t.text }]}
+              />
+              <Text style={[styles.miniState, { color: t.successText }]}>{pill.label}</Text>
+            </View>
+            <Text style={[styles.line2, { color: t.textTertiary }]} numberOfLines={1}>
+              {line1}
+            </Text>
+          </View>
+          <Text
+            onPress={() => void startClock(navigation, "out", settings)}
+            suppressHighlighting
+            accessibilityRole="button"
+            style={[styles.miniOut, { backgroundColor: t.dangerBg, color: t.dangerText }]}
+          >
+            Check out
+          </Text>
+        </Pressable>
+      </Card>
+    )
   }
 
   return (
@@ -239,4 +291,17 @@ const styles = StyleSheet.create({
   line1: { fontFamily: fontFamily.semibold, fontSize: 16, lineHeight: 21 },
   line2: { fontFamily: fontFamily.regular, fontSize: 13.5, lineHeight: 18 },
   footer: { flexDirection: "row", alignItems: "center", gap: 6 },
+  mini: { paddingVertical: 12, marginTop: spacing.sm },
+  miniRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14 },
+  miniTop: { flexDirection: "row", alignItems: "baseline", gap: 6 },
+  miniTime: { fontFamily: fontFamily.semibold, fontSize: 20, lineHeight: 24 },
+  miniState: { fontFamily: fontFamily.semibold, fontSize: 13, lineHeight: 17 },
+  miniOut: {
+    borderRadius: 999,
+    overflow: "hidden",
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    fontFamily: fontFamily.semibold,
+    fontSize: 13.5,
+  },
 })

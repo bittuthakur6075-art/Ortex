@@ -53,14 +53,22 @@ const totalRow = (label: string, value: string, grand = false) =>
   )}</span></div>`
 
 /**
- * "Bank: HDFC, A/C 1234, IFSC HDFC0001, UPI ortex@hdfc", the console's
- * DocumentSheet line word for word, so a customer paying the advance on a quote
- * need not ask how. Only the parts that are filled in.
+ * The "To Pay" box beside the terms, the console's DocumentSheet box, so a
+ * customer paying the advance on a quote need not ask how. Only the parts that
+ * are filled in.
  */
-function bankLine(c: Settings["company"]): string {
-  return [`Bank: ${c.bankName}`, c.bankAccount && `A/C ${c.bankAccount}`, c.bankIfsc && `IFSC ${c.bankIfsc}`, c.upi && `UPI ${c.upi}`]
-    .filter(Boolean)
-    .join(", ")
+function bankBox(c: Settings["company"]): string {
+  const rows = [
+    ["Bank name", c.bankName],
+    ["Account number", c.bankAccount],
+    ["IFSC code", c.bankIfsc],
+    ["Branch", c.bankBranch],
+    ["UPI ID", c.upi],
+  ]
+    .filter(([, v]) => v)
+    .map(([k, v]) => `<dt>${esc(k)}:</dt><dd>${esc(v)}</dd>`)
+    .join("")
+  return `<div class="doc-bank"><h4>To Pay</h4><dl>${rows}</dl></div>`
 }
 
 export function quotationHtml(doc: Quotation, settings: Settings): string {
@@ -237,6 +245,15 @@ export function quotationHtml(doc: Quotation, settings: Settings): string {
   .doc-notes h4 { font-size: 9pt; font-weight: 600; margin-top: 11.5pt; }
   .doc-notes p { white-space: pre-wrap; }
 
+  /* Terms left, the To Pay box right, tinted so the payee is found at a glance. */
+  .doc-terms-row { display: flex; align-items: flex-start; gap: 20pt; }
+  .doc-terms { flex: 1; min-width: 0; }
+  .doc-bank { width: 220pt; flex: none; margin-top: 11.5pt; padding: 8pt 10pt; background: #F4F6FA; border-left: 2.5pt solid #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .doc-bank h4 { margin-top: 0; margin-bottom: 5pt; font-size: 9pt; font-weight: 600; }
+  .doc-bank dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; column-gap: 8pt; row-gap: 1.5pt; }
+  .doc-bank dt { font-weight: 400; font-size: 7.5pt; line-height: 13.5pt; letter-spacing: 0.04em; text-transform: uppercase; }
+  .doc-bank dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
   /* Footer: hairline, 7.5pt, pinned to the bottom of the sheet. */
   .doc-foot { margin-top: auto; padding-top: 6pt; border-top: 0.75pt solid var(--rule); display: flex; justify-content: space-between; gap: 12pt; font-size: 7.5pt; line-height: 1.5; }
 </style>
@@ -308,8 +325,13 @@ export function quotationHtml(doc: Quotation, settings: Settings): string {
       ${hsnCodes.length ? `<p>HSN/SAC: ${esc(hsnCodes.join(", "))}</p>` : ""}
       <p>Quotation</p>
       <p>Amount in words: ${esc(amountInWords(t.grandTotal || 0))}</p>
-      ${c.bankName ? `<p>${esc(bankLine(c))}</p>` : ""}
-      ${doc.terms ? `<h4>Terms and conditions</h4><p>${esc(doc.terms)}</p>` : ""}
+      ${
+        doc.terms || c.bankName
+          ? `<div class="doc-terms-row"><div class="doc-terms">${
+              doc.terms ? `<h4>Terms and conditions</h4><p>${esc(doc.terms)}</p>` : ""
+            }</div>${c.bankName ? bankBox(c) : ""}</div>`
+          : ""
+      }
       ${doc.notes ? `<h4>Notes</h4><p>${esc(doc.notes)}</p>` : ""}
     </div>
 

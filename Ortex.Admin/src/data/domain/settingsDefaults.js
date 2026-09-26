@@ -15,6 +15,7 @@ export const DEFAULT_SETTINGS = {
     stateCode: "07", // Delhi - home state for CGST/SGST vs IGST determination
     address: "New Delhi, India",
     bankName: "",
+    bankBranch: "",
     bankAccount: "",
     bankIfsc: "",
     upi: "",

@@ -17,6 +17,7 @@ import { cors, json } from "../_shared/http.ts"
 import { requireStaff } from "../_shared/auth.ts"
 import { generateContent, extractText, logAiUsage } from "../_shared/gemini.ts"
 import { fetchImage, ownStorageUrl, toBase64 } from "../_shared/images.ts"
+import { clipStrings } from "../_shared/guard.ts"
 
 const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-flash-lite-latest"
 
@@ -61,7 +62,7 @@ Deno.serve(async (req) => {
     if (staff instanceof Response) return staff
 
     // 2) Validate input.
-    const body = await req.json().catch(() => ({}))
+    const body = clipStrings(await req.json().catch(() => ({})))
     const allowed: string[] = Array.isArray(body.allowedCategories) ? body.allowedCategories.filter(Boolean) : []
     if (!allowed.length) return json({ error: "No categories provided" }, 400)
     const hasPhoto = ownStorageUrl(body.imageUrl)

@@ -14,6 +14,7 @@
 import { cors, json } from "../_shared/http.ts"
 import { requireStaff } from "../_shared/auth.ts"
 import { generateContent, extractText, logAiUsage } from "../_shared/gemini.ts"
+import { clipStrings } from "../_shared/guard.ts"
 
 const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-flash-lite-latest"
 
@@ -47,7 +48,7 @@ Deno.serve(async (req) => {
     if (staff instanceof Response) return staff
 
     // 2) Validate input.
-    const body = await req.json().catch(() => ({}))
+    const body = clipStrings(await req.json().catch(() => ({})))
     if (!body.category && !body.title && !body.notes) {
       return json({ error: "Pick a category or enter a few keywords first." }, 400)
     }

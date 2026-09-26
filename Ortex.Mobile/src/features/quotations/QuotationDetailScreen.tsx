@@ -422,6 +422,25 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
             <Text style={[styles.body, { color: t.textTertiary }]}>{doc.terms}</Text>
           </>
         )}
+        {/* The PDF's To Pay box, the same rows in the same order. */}
+        {!!settings.company.bankName && (
+          <>
+            <SectionTitle text="To Pay" />
+            {(
+              [
+                ["Bank name", settings.company.bankName],
+                ["Account number", settings.company.bankAccount],
+                ["IFSC code", settings.company.bankIfsc],
+                ["Branch", settings.company.bankBranch],
+                ["UPI ID", settings.company.upi],
+              ] as const
+            )
+              .filter(([, v]) => v)
+              .map(([k, v]) => (
+                <TotalRow key={k} label={k} value={v} />
+              ))}
+          </>
+        )}
 
         {/* Who raised this quotation and who changed it since — the question a
             disputed rate always comes down to. `bare` because this page is a

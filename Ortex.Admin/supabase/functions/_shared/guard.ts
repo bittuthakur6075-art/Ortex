@@ -60,3 +60,21 @@ export async function callerHasModule(req: Request, module: string): Promise<boo
   const { data, error } = await client.rpc("has_module_access", { p_module: module })
   return !error && data === true
 }
+
+/**
+ * A request body with every string cut to `max` characters and every list to
+ * 100 items, one level deep: what reaches an LLM prompt is bounded however big
+ * the request was.
+ */
+// deno-lint-ignore no-explicit-any
+export function clipStrings(body: any, max = 500): Record<string, any> {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return {}
+  // deno-lint-ignore no-explicit-any
+  const out: Record<string, any> = {}
+  for (const [k, v] of Object.entries(body)) {
+    if (typeof v === "string") out[k] = v.slice(0, max)
+    else if (Array.isArray(v)) out[k] = v.slice(0, 100).map((x) => (typeof x === "string" ? x.slice(0, max) : x))
+    else out[k] = v
+  }
+  return out
+}

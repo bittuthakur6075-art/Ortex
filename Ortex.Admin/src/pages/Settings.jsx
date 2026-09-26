@@ -133,10 +133,13 @@ export default function Settings() {
             <Field label="Account Number">
               <Input value={draft.company.bankAccount} onChange={(e) => setCompany("bankAccount", e.target.value)} />
             </Field>
-            <Field label="IFSC">
+            <Field label="IFSC Code">
               <Input value={draft.company.bankIfsc} onChange={(e) => setCompany("bankIfsc", e.target.value)} />
             </Field>
-            <Field label="UPI ID">
+            <Field label="Branch">
+              <Input value={draft.company.bankBranch} onChange={(e) => setCompany("bankBranch", e.target.value)} />
+            </Field>
+            <Field label="UPI ID (optional)">
               <Input value={draft.company.upi} onChange={(e) => setCompany("upi", e.target.value)} placeholder="Enter UPI ID" />
             </Field>
           </div>

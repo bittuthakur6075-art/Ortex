@@ -168,6 +168,13 @@ export default function CustomerEditSheet({
             placeholder="Enter billing address"
             multiline
           />
+          <TextField
+            label="Notes"
+            value={draft.notes}
+            onChangeText={(v) => set({ notes: v })}
+            placeholder="For the team only, never printed"
+            multiline
+          />
 
           <View style={styles.actions}>
             <Button label="Cancel" variant="secondary" onPress={onClose} style={styles.action} />
@@ -189,7 +196,7 @@ export default function CustomerEditSheet({
   )
 }
 
-/** The seven doc fields, every one a string so the inputs stay controlled. */
+/** The eight doc fields, every one a string so the inputs stay controlled. */
 function fields(c: CustomerRow) {
   return {
     name: c.name || "",
@@ -199,6 +206,7 @@ function fields(c: CustomerRow) {
     gstin: c.gstin || "",
     stateCode: c.stateCode || "",
     address: c.address || "",
+    notes: c.notes || "",
   }
 }
 

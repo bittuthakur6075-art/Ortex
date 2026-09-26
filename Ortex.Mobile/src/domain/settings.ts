@@ -16,6 +16,7 @@ export type CompanySettings = {
   stateCode: string
   address: string
   bankName: string
+  bankBranch: string
   bankAccount: string
   bankIfsc: string
   upi: string
@@ -40,6 +41,7 @@ export const DEFAULT_SETTINGS: Settings = {
     stateCode: "07", // Delhi — home state for CGST/SGST vs IGST determination
     address: "New Delhi, India",
     bankName: "",
+    bankBranch: "",
     bankAccount: "",
     bankIfsc: "",
     upi: "",

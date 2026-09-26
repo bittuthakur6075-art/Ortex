@@ -1,4 +1,4 @@
-import { forwardRef } from "react"
+import { Fragment, forwardRef } from "react"
 import { formatCurrency, formatDate, amountInWords, daysUntil } from "../../lib/format"
 import { stateLabel } from "../../lib/gstStates"
 
@@ -207,20 +207,39 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
         {hsnCodes.length > 0 && <p>HSN/SAC: {hsnCodes.join(", ")}</p>}
         <p>{isInvoice ? "Tax invoice" : "Quotation"}</p>
         <p>Amount in words: {amountInWords(t.grandTotal || 0)}</p>
-        {/* On quotations too: a quote asking for an advance says how to pay it. */}
-        {c.bankName && (
-          <p>
-            Bank: {c.bankName}
-            {c.bankAccount && <>, A/C {c.bankAccount}</>}
-            {c.bankIfsc && <>, IFSC {c.bankIfsc}</>}
-            {c.upi && <>, UPI {c.upi}</>}
-          </p>
-        )}
-        {doc.terms && (
-          <>
-            <h4>Terms and conditions</h4>
-            <p>{doc.terms}</p>
-          </>
+        {(doc.terms || c.bankName) && (
+          <div className="doc-terms-row">
+            <div className="doc-terms">
+              {doc.terms && (
+                <>
+                  <h4>Terms and conditions</h4>
+                  <p>{doc.terms}</p>
+                </>
+              )}
+            </div>
+            {/* On quotations too: a quote asking for an advance says how to pay it. */}
+            {c.bankName && (
+              <div className="doc-bank">
+                <h4>To Pay</h4>
+                <dl>
+                  {[
+                    ["Bank name", c.bankName],
+                    ["Account number", c.bankAccount],
+                    ["IFSC code", c.bankIfsc],
+                    ["Branch", c.bankBranch],
+                    ["UPI ID", c.upi],
+                  ]
+                    .filter(([, v]) => v)
+                    .map(([k, v]) => (
+                      <Fragment key={k}>
+                        <dt>{k}:</dt>
+                        <dd>{v}</dd>
+                      </Fragment>
+                    ))}
+                </dl>
+              </div>
+            )}
+          </div>
         )}
         {doc.notes && (
           <>

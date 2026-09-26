@@ -145,9 +145,8 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
             lostReason: existing.lostReason || "",
             enquiryId: existing.enquiryId,
             leadId: existing.leadId,
-            // Editing keeps the name the quotation was RAISED under. Re-stamping
-            // it with whoever opened the record would quietly reassign a sent
-            // document to a different rep.
+            // Editing keeps the name the quotation was raised under until someone
+            // changes it in the field below.
             sellerName: existing.sellerName || "",
             showSeller: existing.showSeller !== false,
           })
@@ -156,10 +155,9 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         return
       }
 
-      // A new quotation's seller name is NOT stamped here: it is resolved at save
-      // time from the profile (like the console), so a name added on Account
-      // details mid-draft still prints, and a persisted draft never freezes "".
-      const base = withDefaults(emptyDraft(settings), quoteDefaults)
+      // A new quotation starts with the signed-in user's name as the seller,
+      // editable like any other field (the console does the same).
+      const base = { ...withDefaults(emptyDraft(settings), quoteDefaults), sellerName: profile?.name?.trim() || "" }
       if (prefill) {
         setDraft({
           ...base,
@@ -180,18 +178,12 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
     }
 
     void run()
-  }, [seeded, settingsLoading, settings, editingId, prefill, defaultsLoaded, quoteDefaults])
+  }, [seeded, settingsLoading, settings, editingId, prefill, defaultsLoaded, quoteDefaults, profile])
 
   // Only a new, unsaved quotation is worth persisting locally.
   usePersistedDraft(draft, seeded && !editingId)
 
   const set = (patch: Partial<QuotationDraft>) => setDraft((d) => ({ ...d, ...patch }))
-
-  // WHOSE NAME goes on the sheet. A new quotation takes the signed-in user's, read
-  // live so a name added on Account details mid-draft is picked up; an existing
-  // one keeps the name it was raised under, because re-stamping it on edit would
-  // quietly reassign a document that has already been sent.
-  const sellerName = editingId ? draft.sellerName || "" : profile?.name?.trim() || ""
 
   const interState = isInterState(
     settings.company.stateCode,
@@ -228,7 +220,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         toast.show({ message: "Quotation updated", tone: "success" })
         navigation.goBack()
       } else {
-        const created = await createQuotation({ ...draft, sellerName }, settings)
+        const created = await createQuotation(draft, settings)
         // The quotation EXISTS from here on, so nothing below may throw into the
         // catch: a "Could not save" toast after a successful insert makes the
         // rep press Save again and mint a second number for the same document.
@@ -603,8 +595,17 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         {/* ── THE SHEET ITSELF ───────────────────────────────────────────── */}
         {/* Not folded away with the terms: whose name goes on a document the
             customer keeps is a decision worth seeing while writing it, and it is
-            one tap. The name is the signed-in profile's, fixed at creation. */}
+            one tap. Prefilled with the signed-in user's name, editable. */}
         <Panel title="On the PDF">
+          <View style={styles.checkRow}>
+            <TextField
+              label="Seller Name"
+              value={draft.sellerName || ""}
+              onChangeText={(v) => set({ sellerName: v })}
+              placeholder="Enter seller name"
+              autoCapitalize="words"
+            />
+          </View>
           {/* A Switch, not the kit Checkbox: that one is a checklist "done" tick
               that greys and strikes its label when on, so ON would read as OFF. */}
           <View style={styles.checkRow}>
@@ -612,14 +613,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
               value={draft.showSeller}
               // Switch fires the toggle haptic itself.
               onValueChange={(next) => set({ showSeller: next })}
-              label={sellerName ? `Show "Quoted by ${sellerName}"` : "Show my name as the seller"}
-              description={
-                sellerName
-                  ? undefined
-                  : editingId
-                    ? "This quotation was raised without a seller name."
-                    : "Add your name on Profile → Account details, and it will print here."
-              }
+              label="Show the seller name on the PDF"
             />
           </View>
         </Panel>

@@ -333,7 +333,7 @@ export default function ChatThreadScreen({ navigation, route }: StackScreenProps
             renderItem={({ item }) =>
               item.type === "day" ? (
                 <View style={styles.dayWrap}>
-                  <Text style={[textVariants.caption, styles.day, { backgroundColor: t.surface, color: t.textSecondary }]}>{item.label}</Text>
+                  <Text style={[textVariants.caption, styles.day, { backgroundColor: t.surfaceRaised, color: t.textSecondary }]}>{item.label}</Text>
                 </View>
               ) : conv ? (
                 <Bubble
@@ -366,7 +366,7 @@ export default function ChatThreadScreen({ navigation, route }: StackScreenProps
           </View>
         ) : null}
 
-        <View style={[styles.composer, { backgroundColor: t.surface, borderTopColor: t.border, paddingBottom: keyboard.lift ? spacing.sm : Math.max(insets.bottom, spacing.sm) }]}>
+        <View style={[styles.composer, { backgroundColor: t.surfaceInset, borderTopColor: "transparent", paddingBottom: keyboard.lift ? spacing.sm : Math.max(insets.bottom, spacing.sm) }]}>
           {!isAnu ? <IconButton name="image" onPress={() => void sendPhoto()} accessibilityLabel="Send a photo" /> : null}
           <TextInput
             value={text}
@@ -374,7 +374,7 @@ export default function ChatThreadScreen({ navigation, route }: StackScreenProps
             multiline
             placeholder={isAnu ? "Ask Anu anything about the business" : "Message"}
             placeholderTextColor={t.textHint}
-            style={[styles.input, { backgroundColor: t.fieldBg, color: t.text }]}
+            style={[styles.input, { backgroundColor: t.surfaceRaised, color: t.text }]}
           />
           <Pressable
             onPress={() => void send()}
@@ -436,7 +436,7 @@ function Bubble({
           styles.bubble,
           // Anu's daily update and attendance report read as a card, not a chat line.
           isBot && styles.botCard,
-          mine ? { backgroundColor: t.primary } : { backgroundColor: t.surface, borderColor: t.border, borderWidth: StyleSheet.hairlineWidth },
+          mine ? { backgroundColor: t.primary } : { backgroundColor: t.surfaceRaised },
           runEnd && (mine ? { borderBottomRightRadius: 6 } : { borderBottomLeftRadius: 6 }),
           m.local === "failed" && { borderColor: t.danger, borderWidth: 1.5 },
         ]}
@@ -551,7 +551,7 @@ function Thinking() {
   const t = useTheme()
   return (
     <View style={[styles.bubbleRow, { marginTop: spacing.sm }]}>
-      <View style={[styles.bubble, { backgroundColor: t.surface, borderColor: t.border, borderWidth: StyleSheet.hairlineWidth }]}>
+      <View style={[styles.bubble, { backgroundColor: t.surfaceRaised }]}>
         <Text style={[textVariants.small, { color: t.textTertiary }]}>Anu is looking it up…</Text>
       </View>
     </View>

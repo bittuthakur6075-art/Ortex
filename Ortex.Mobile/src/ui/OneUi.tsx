@@ -5,6 +5,7 @@ import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
 import { fontFamily } from "@/theme/typography"
 import Icon, { type IconName } from "@/ui/Icon"
+import { SquircleBackground } from "@/ui/Squircle"
 
 /**
  * The One UI card vocabulary of the Figma redesign ("Mobile Home v3 · by role",
@@ -54,14 +55,9 @@ export function Card({
   const t = useTheme()
   const tint = useOneTone()
   return (
-    <View
-      style={[
-        styles.card,
-        { backgroundColor: tone ? tint(tone).bg : t.surfaceRaised },
-        padded && styles.padded,
-        style,
-      ]}
-    >
+    <View style={[styles.card, padded && styles.padded, style]}>
+      {/* Figma's 100% corner smoothing, drawn: a border radius is only an arc. */}
+      <SquircleBackground fill={tone ? tint(tone).bg : t.surfaceRaised} radius={ONE_UI.radius} />
       {children}
     </View>
   )
@@ -228,9 +224,7 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: ONE_UI.inset,
     marginBottom: ONE_UI.gap,
-    borderRadius: ONE_UI.radius,
     paddingVertical: 6,
-    overflow: "hidden",
   },
   padded: { padding: 16 },
   sub: { flexDirection: "row", alignItems: "center", paddingHorizontal: 28, paddingTop: 8, paddingBottom: 8 },

@@ -75,6 +75,7 @@ export function ProgressRing({
   color,
   caption,
   short = false,
+  face,
 }: {
   workedMs: number
   computedAt: number
@@ -89,6 +90,8 @@ export function ProgressRing({
   caption?: string
   /** H:MM in the ring, for the small Home ring. */
   short?: boolean
+  /** Drawn in the ring instead of the timer: the collapsed Home row's clock glyph. */
+  face?: React.ReactNode
 }) {
   const t = useTheme()
   const reduce = useReducedMotion()
@@ -156,20 +159,24 @@ export function ProgressRing({
         )}
       </Svg>
       <View style={[StyleSheet.absoluteFill, styles.center]} pointerEvents="none">
-        <LiveTimer
-          baseMs={workedMs}
-          baseAt={computedAt}
-          running={running}
-          short={short}
-          style={[
-            short ? styles.timerShort : compact ? styles.timerCompact : styles.timer,
-            { color: t.text },
-          ]}
-        />
-        {!compact && <Text style={[textVariants.caption, { color: t.textTertiary }]}>Worked today</Text>}
-        {compact && caption ? (
-          <Text style={[styles.ringCaption, { color: t.textTertiary }]}>{caption}</Text>
-        ) : null}
+        {face ?? (
+          <>
+            <LiveTimer
+              baseMs={workedMs}
+              baseAt={computedAt}
+              running={running}
+              short={short}
+              style={[
+                short ? styles.timerShort : compact ? styles.timerCompact : styles.timer,
+                { color: t.text },
+              ]}
+            />
+            {!compact && <Text style={[textVariants.caption, { color: t.textTertiary }]}>Worked today</Text>}
+            {compact && caption ? (
+              <Text style={[styles.ringCaption, { color: t.textTertiary }]}>{caption}</Text>
+            ) : null}
+          </>
+        )}
       </View>
     </View>
   )
