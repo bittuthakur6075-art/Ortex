@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { useEffect, useState, useMemo } from "react"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { Users, Plus, AlertTriangle } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
@@ -48,6 +48,14 @@ export default function Customers({ embedded = false }) {
   const { items: payments } = useCollection("payments")
   const [query, setQuery] = useState("")
   const [creating, setCreating] = useState(false)
+  const location = useLocation()
+  const navTo = useNavigate()
+  // The header's "+ New" menu: a new customer.
+  useEffect(() => {
+    if (!location.state?.create) return
+    setCreating(true)
+    navTo(location.pathname + location.search, { replace: true })
+  }, [location.state, navTo, location.pathname, location.search])
   const [sort, onSort] = useSorting("_business", true)
   const navigate = useNavigate()
 

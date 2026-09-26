@@ -153,11 +153,15 @@ export default function Quotations() {
   //    quotation" action.
   //  - fromCustomer: start a blank quotation for a customer-master record.
   //  - openId: open an existing quotation (links from Customers / Products).
+  //  - create: a blank quotation (the header's "+ New" menu).
   useEffect(() => {
     // Wait for the profile too: it carries the quotation defaults to seed with.
     if (!settings || !profile) return
-    const { fromEnquiry, fromLead, fromCustomer, openId } = location.state || {}
-    if (fromEnquiry || fromLead) {
+    const { fromEnquiry, fromLead, fromCustomer, openId, create } = location.state || {}
+    if (create) {
+      setEditing(newDraft())
+      navigate(location.pathname, { replace: true })
+    } else if (fromEnquiry || fromLead) {
       const src = fromEnquiry || fromLead
       const base = newDraft()
       setEditing({

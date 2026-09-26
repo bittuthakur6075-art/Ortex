@@ -1,43 +1,689 @@
 import { useState, useEffect, useMemo } from "react"
-import { Building2, Percent, Hash, Database, Sparkles, Trash2, Info, Save, Mail, Inbox } from "../components/ui/Icons"
+import { Link, useSearchParams } from "react-router-dom"
+import {
+  AlertTriangle,
+  ArrowRight,
+  Building2,
+  CheckCircle2,
+  Database,
+  Eye,
+  EyeOff,
+  FileText,
+  Globe,
+  Inbox,
+  Instagram,
+  Lock,
+  Mail,
+  PhoneOutgoing,
+  Printer,
+  RefreshCw,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+} from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { hasSupabase } from "../data/store/supabaseClient"
 import { useSettings, useCollections, useCollection } from "../hooks/useCollection"
+import { useSocialAccounts } from "../hooks/useSocialAccounts"
 import { loadDemoData, countDemoData, removeDemoData } from "../data/seed/seed"
 import { syncIndiaMart } from "../services/integrations"
 import { GST_RATES } from "../data/domain/schema"
-import PageHeader from "../components/layout/PageHeader"
+import { GST_STATES, stateLabel } from "../lib/gstStates"
 import PasswordCard from "../components/ui/PasswordCard"
-import { Button, Card, Input, Select, Textarea, Field, PageLoader } from "../components/ui/Ui"
+import { Button, Input, Select, Textarea, PageLoader } from "../components/ui/Ui"
+import { cn } from "../lib/cn"
 
-function SettingsCard({ icon: Icon, title, description, tone = "primary", children }) {
-  const toneClass = tone === "danger" ? "bg-destructive/10 text-destructive-text" : "bg-muted text-muted-foreground"
-  return (
-    <Card className={tone === "danger" ? "border-destructive/30" : undefined}>
-      <div className="flex items-start gap-3 border-b border-border px-5 py-4">
-        <span className={`grid h-8 w-8 flex-none place-items-center rounded-md ${toneClass}`}>
-          <Icon className="h-4 w-4" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-semibold leading-5 text-foreground">{title}</h3>
-          {description && <p className="mt-0.5 text-[13px] text-muted-foreground">{description}</p>}
-        </div>
-      </div>
-      <div className="px-5 py-5">{children}</div>
-    </Card>
-  )
+// Settings (Figma "V3 · Settings"): a section menu on the left, one section at
+// a time, every setting as a row (label and why on the left, control on the
+// right), a live preview of how the company prints on a quotation, and a
+// floating bar whenever something is unsaved. The page is the Super Admin's
+// (the settings table is written only by them, migration 0050); attendance,
+// payroll, the team bot and role permissions keep their own pages, linked
+// under "Elsewhere".
+
+const SECTIONS = [
+  { id: "company", label: "Company", icon: Building2 },
+  { id: "documents", label: "Documents", icon: FileText },
+  { id: "notifications", label: "Notifications", icon: Mail },
+  { id: "integrations", label: "Integrations", icon: Globe },
+  { id: "security", label: "Security", icon: Lock },
+  { id: "data", label: "Data", icon: Database },
+]
+
+const ELSEWHERE = [
+  { label: "Attendance rules", to: "/attendance?tab=settings" },
+  { label: "Payroll settings", to: "/payroll?tab=settings" },
+  { label: "Anu team bot", to: "/chat" },
+  { label: "Roles and permissions", to: "/users?tab=roles" },
+]
+
+const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/
+
+// Every leaf that differs between two settings objects, as "a.b.c" paths.
+function changedPaths(a, b, prefix = "") {
+  if (a === b) return []
+  if (!a || !b || typeof a !== "object" || typeof b !== "object") return [prefix || "settings"]
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)])
+  return [...keys].flatMap((k) => changedPaths(a[k], b[k], prefix ? `${prefix}.${k}` : k))
+}
+
+const PATH_LABEL = {
+  "company.name": "Company name",
+  "company.tagline": "Tagline",
+  "company.gstin": "GSTIN",
+  "company.stateCode": "State",
+  "company.email": "Email",
+  "company.phone": "Phone",
+  "company.address": "Address",
+  "company.bankName": "Bank name",
+  "company.bankAccount": "Account number",
+  "company.bankIfsc": "IFSC",
+  "company.bankBranch": "Branch",
+  "company.upi": "UPI ID",
+  "tax.defaultGstRate": "Default GST",
+  "numbering.quotationPrefix": "Quotation prefix",
+  "numbering.invoicePrefix": "Invoice prefix",
+  "numbering.paymentPrefix": "Payment prefix",
+  "quotation.validityDays": "Validity",
+  "quotation.terms": "Terms",
+  "notifications.invoiceEmailEnabled": "Invoice email",
+  "notifications.recipient": "Recipient",
+  "notifications.sender": "Sender",
+  "integrations.indiamart.enabled": "IndiaMART sync",
+  "integrations.indiamart.crmKey": "IndiaMART key",
+}
+
+// The financial year as the document numbers write it: Sep 2026 → "2627".
+function fyCode(d = new Date()) {
+  const y = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1
+  return `${String(y).slice(2)}${String(y + 1).slice(2)}`
 }
 
 export default function Settings() {
   const settings = useSettings()
-  const { data } = useCollections(["products", "enquiries", "quotations", "invoices", "payments"])
+  const [params, setParams] = useSearchParams()
   const [draft, setDraft] = useState(null)
-  const [syncing, setSyncing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const section = SECTIONS.some((s) => s.id === params.get("section")) ? params.get("section") : "company"
 
   useEffect(() => {
     if (settings) setDraft(structuredClone(settings))
   }, [settings])
+
+  const changes = useMemo(() => (settings && draft ? changedPaths(settings, draft) : []), [settings, draft])
+
+  if (!settings || !draft) return <PageLoader />
+
+  const set = (group, key, v) => setDraft((d) => ({ ...d, [group]: { ...d[group], [key]: v } }))
+  const setEmailjs = (key, v) => setDraft((d) => ({ ...d, notifications: { ...d.notifications, emailjs: { ...d.notifications.emailjs, [key]: v } } }))
+  const setIndiamart = (key, v) => setDraft((d) => ({ ...d, integrations: { ...d.integrations, indiamart: { ...d.integrations.indiamart, [key]: v } } }))
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      await repo.saveSettings(draft)
+      toast.success("Settings saved")
+    } catch (e) {
+      toast.error(e.message || "Could not save the settings")
+    } finally {
+      setSaving(false)
+    }
+  }
+  const go = (id) => setParams(id === "company" ? {} : { section: id }, { replace: true })
+  const changedWords = changes.map((p) => PATH_LABEL[p] || p.split(".").pop()).filter((v, i, a) => a.indexOf(v) === i)
+
+  const indiamartOn = !!draft.integrations.indiamart.enabled && !!draft.integrations.indiamart.crmKey
+  const emailOn = !!draft.notifications.invoiceEmailEnabled
+
+  return (
+    <div className="pb-24">
+      <header className="mb-6">
+        <h1 className="text-[28px] font-semibold leading-9 tracking-[-0.02em] text-foreground">Settings</h1>
+        <p className="mt-1.5 text-[13.5px] text-subtle-foreground">Company details, documents and connections. Changes apply to documents created after you save.</p>
+      </header>
+
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        {/* ---- section menu ---- */}
+        <nav className="flex flex-none gap-1 overflow-x-auto lg:sticky lg:top-20 lg:w-[212px] lg:flex-col lg:gap-0.5 lg:overflow-visible" aria-label="Settings sections">
+          {SECTIONS.map((s) => {
+            const active = s.id === section
+            const pill = s.id === "notifications" ? (emailOn ? null : ["Off", "slate"]) : s.id === "integrations" ? (indiamartOn ? null : ["1 off", "amber"]) : null
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => go(s.id)}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "squircle flex h-10 flex-none items-center gap-2.5 rounded-[10px] px-2.5 text-[13.5px] transition-colors",
+                  active ? "bg-card font-semibold text-foreground" : "font-medium text-muted-foreground hover:bg-card/70",
+                )}
+              >
+                <s.icon className={cn("h-[18px] w-[18px] flex-none", active ? "text-primary" : "text-subtle-foreground")} />
+                <span className="flex-1 whitespace-nowrap text-left">{s.label}</span>
+                {pill && <Pill tone={pill[1]}>{pill[0]}</Pill>}
+              </button>
+            )
+          })}
+          <div className="hidden px-2.5 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-[0.06em] text-subtle-foreground lg:block">Elsewhere</div>
+          {ELSEWHERE.map((l) => (
+            <Link key={l.to} to={l.to} className="hidden h-[34px] items-center gap-2 rounded-[10px] px-2.5 text-[13px] font-medium text-muted-foreground hover:text-foreground lg:flex">
+              <span className="flex-1">{l.label}</span>
+              <ArrowRight variant="Linear" className="h-3.5 w-3.5 text-subtle-foreground" />
+            </Link>
+          ))}
+        </nav>
+
+        {/* ---- the section ---- */}
+        <div className="min-w-0 flex-1">
+          {section === "company" && <CompanySection draft={draft} set={set} />}
+          {section === "documents" && <DocumentsSection draft={draft} set={set} />}
+          {section === "notifications" && <NotificationsSection draft={draft} set={set} setEmailjs={setEmailjs} />}
+          {section === "integrations" && <IntegrationsSection draft={draft} settings={settings} setIndiamart={setIndiamart} />}
+          {section === "security" && (
+            <SectionHead title="Security" description="How you sign in.">
+              <PasswordCard title="Account password" description="Change the password you sign in with." />
+            </SectionHead>
+          )}
+          {section === "data" && <DataSection />}
+        </div>
+      </div>
+
+      {/* ---- unsaved changes ---- */}
+      {changes.length > 0 && (
+        <div className="squircle fixed bottom-5 left-1/2 z-30 flex w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 items-center gap-3 rounded-2xl bg-foreground py-2.5 pl-[18px] pr-2.5 text-primary-foreground animate-pop-in lg:left-[calc(50%+116px)]">
+          <span className="h-2 w-2 flex-none rounded-full bg-warning" />
+          <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
+            {changes.length === 1 ? "1 unsaved change" : `${changes.length} unsaved changes`}
+            <span className="opacity-60"> · {changedWords.slice(0, 3).join(", ")}{changedWords.length > 3 ? "…" : ""}</span>
+          </span>
+          <button type="button" onClick={() => setDraft(structuredClone(settings))} className="h-9 rounded-xl px-3.5 text-[13.5px] font-medium opacity-80 hover:opacity-100">
+            Discard
+          </button>
+          <button type="button" onClick={save} disabled={saving} className="squircle h-9 rounded-xl bg-card px-4 text-[13.5px] font-semibold text-foreground disabled:opacity-60">
+            {saving ? "Saving…" : "Save changes"}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---- building blocks ------------------------------------------------------------------
+
+function Pill({ tone = "slate", children }) {
+  const t = {
+    slate: "bg-secondary text-muted-foreground",
+    amber: "bg-warning/12 text-warning-text",
+    green: "bg-success/12 text-success-text",
+    blue: "bg-primary/10 text-primary",
+    red: "bg-destructive/10 text-destructive-text",
+  }[tone]
+  return <span className={cn("squircle inline-flex items-center whitespace-nowrap rounded-[10px] px-[9px] py-[3px] text-[11.5px] font-medium leading-[14px]", t)}>{children}</span>
+}
+
+function SectionHead({ title, description, children }) {
+  return (
+    <section className="flex flex-col gap-5">
+      <div>
+        <h2 className="text-lg font-semibold tracking-[-0.01em] text-foreground">{title}</h2>
+        {description && <p className="mt-1 text-[13px] text-subtle-foreground">{description}</p>}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function Group({ title, description, children, className }) {
+  return (
+    <div className={cn("squircle rounded-card bg-card", className)}>
+      <div className="px-6 pb-1 pt-5">
+        <h3 className="text-[15px] font-semibold text-foreground">{title}</h3>
+        {description && <p className="mt-0.5 text-[12.5px] text-subtle-foreground">{description}</p>}
+      </div>
+      <div className="divide-y divide-border px-6 pb-3">{children}</div>
+    </div>
+  )
+}
+
+// A setting: label and why on the left, the control on the right; stacked on a phone.
+function Row({ label, hint, children }) {
+  return (
+    <div className="flex flex-col gap-2 py-3 sm:flex-row sm:gap-5">
+      <div className="sm:w-[170px] sm:flex-none">
+        <div className="text-[13.5px] font-medium text-foreground">{label}</div>
+        {hint && <div className="mt-0.5 text-xs text-subtle-foreground">{hint}</div>}
+      </div>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  )
+}
+
+function Switch({ checked, onChange, label }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={cn("relative h-6 w-10 flex-none rounded-full transition-colors", checked ? "bg-primary" : "bg-subtle-foreground/40")}
+    >
+      <span className={cn("absolute left-0 top-0.5 h-5 w-5 rounded-full bg-card transition-transform", checked ? "translate-x-[18px]" : "translate-x-0.5")} />
+    </button>
+  )
+}
+
+// ---- Company ---------------------------------------------------------------------------
+
+function CompanySection({ draft, set }) {
+  const c = draft.company
+  const [showAcct, setShowAcct] = useState(false)
+  const gstin = String(c.gstin || "").trim().toUpperCase()
+  const gstOk = GSTIN_RE.test(gstin)
+  const gstState = gstOk ? gstin.slice(0, 2) : null
+  const stateMismatch = gstOk && c.stateCode && String(c.stateCode).padStart(2, "0") !== gstState
+  const acct = String(c.bankAccount || "")
+
+  return (
+    <SectionHead title="Company" description="How your business appears on quotations and invoices.">
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+        <div className="flex min-w-0 flex-1 flex-col gap-5">
+          <Group title="Business details" description="Printed at the top of every document.">
+            <Row label="Company name">
+              <Input value={c.name} onChange={(e) => set("company", "name", e.target.value)} />
+            </Row>
+            <Row label="Tagline" hint="Optional, under the name">
+              <Input value={c.tagline} onChange={(e) => set("company", "tagline", e.target.value)} />
+            </Row>
+            <Row label="GSTIN" hint="15 characters">
+              <Input value={c.gstin} onChange={(e) => set("company", "gstin", e.target.value.toUpperCase())} />
+              {gstin && (
+                <p className={cn("mt-1.5 flex items-center gap-1.5 text-xs font-medium", gstOk && !stateMismatch ? "text-success-text" : "text-warning-text")}>
+                  {gstOk && !stateMismatch ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
+                  {!gstOk ? "This does not look like a GSTIN" : stateMismatch ? `The GSTIN is from ${stateLabel(gstState)}, but the state below says otherwise` : `Valid · ${stateLabel(gstState)}`}
+                </p>
+              )}
+            </Row>
+            <Row label="State" hint="Place of business: sets local or interstate GST">
+              <Select value={String(c.stateCode || "").padStart(2, "0")} onChange={(e) => set("company", "stateCode", e.target.value)}>
+                <option value="00">Choose a state</option>
+                {Object.entries(GST_STATES).map(([code, name]) => (
+                  <option key={code} value={code}>
+                    {code} · {name}
+                  </option>
+                ))}
+              </Select>
+            </Row>
+            <Row label="Email">
+              <Input type="email" value={c.email} onChange={(e) => set("company", "email", e.target.value)} />
+            </Row>
+            <Row label="Phone">
+              <Input value={c.phone} onChange={(e) => set("company", "phone", e.target.value)} />
+            </Row>
+            <Row label="Address">
+              <Textarea value={c.address} onChange={(e) => set("company", "address", e.target.value)} className="min-h-[76px]" />
+            </Row>
+          </Group>
+
+          <Group title="Bank details" description="Shown on quotations and invoices so customers can pay.">
+            <Row label="Bank name">
+              <Input value={c.bankName} onChange={(e) => set("company", "bankName", e.target.value)} />
+            </Row>
+            <Row label="Account number">
+              <div className="relative">
+                <Input
+                  value={showAcct || !acct ? acct : `•••• •••• ${acct.slice(-4)}`}
+                  readOnly={!showAcct && !!acct}
+                  onFocus={() => setShowAcct(true)}
+                  onChange={(e) => set("company", "bankAccount", e.target.value)}
+                  className="pr-16"
+                />
+                {acct && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAcct((s) => !s)}
+                    className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-lg px-2 py-1 text-[12.5px] font-semibold text-primary hover:bg-primary/10"
+                  >
+                    {showAcct ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {showAcct ? "Hide" : "Show"}
+                  </button>
+                )}
+              </div>
+            </Row>
+            <Row label="IFSC and branch">
+              <div className="grid grid-cols-2 gap-2.5">
+                <Input value={c.bankIfsc} onChange={(e) => set("company", "bankIfsc", e.target.value.toUpperCase())} placeholder="IFSC" />
+                <Input value={c.bankBranch} onChange={(e) => set("company", "bankBranch", e.target.value)} placeholder="Branch" />
+              </div>
+            </Row>
+            <Row label="UPI ID" hint="Optional">
+              <Input value={c.upi} onChange={(e) => set("company", "upi", e.target.value)} placeholder="name@bank" />
+            </Row>
+          </Group>
+        </div>
+
+        <aside className="flex flex-col gap-3 xl:sticky xl:top-20 xl:w-[312px] xl:flex-none">
+          <DocumentPreview company={c} prefix={draft.numbering.quotationPrefix} />
+          <p className="squircle flex items-start gap-2.5 rounded-xl bg-primary/10 px-3.5 py-3 text-[12.5px] font-medium text-primary">
+            <ShieldCheck className="mt-0.5 h-[18px] w-[18px] flex-none" />
+            Only the Super Admin can change these. Admins can read them.
+          </p>
+        </aside>
+      </div>
+    </SectionHead>
+  )
+}
+
+function DocumentPreview({ company: c, prefix }) {
+  const acct = String(c.bankAccount || "")
+  const lines = [c.address, [c.gstin && `GSTIN ${c.gstin}`, c.phone].filter(Boolean).join(" · ")].filter(Boolean)
+  return (
+    <div className="squircle flex flex-col gap-3.5 rounded-card bg-card p-5">
+      <div className="flex items-center gap-2">
+        <Printer className="h-[18px] w-[18px] text-primary" />
+        <span className="flex-1 text-sm font-semibold text-foreground">On a quotation</span>
+        <Pill tone="green">Live</Pill>
+      </div>
+      <div className="squircle flex flex-col gap-2.5 rounded-xl border border-border p-4">
+        <div className="flex gap-2.5">
+          <span className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[9px] bg-primary text-sm font-bold text-primary-foreground">
+            {(c.name || "?").slice(0, 1).toUpperCase()}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[13px] font-bold text-foreground">{c.name || "Company name"}</div>
+            {c.tagline && <div className="text-[10px] leading-snug text-subtle-foreground">{c.tagline}</div>}
+          </div>
+          <div className="flex-none text-right">
+            <div className="text-[10px] font-bold tracking-[0.06em] text-primary">QUOTATION</div>
+            <div className="text-[10px] font-medium text-muted-foreground">
+              {prefix || "QTN"}-{fyCode()}-0001
+            </div>
+          </div>
+        </div>
+        {lines.length > 0 && <div className="whitespace-pre-line text-[10px] leading-relaxed text-muted-foreground">{lines.join("\n")}</div>}
+        <div className="h-px bg-border" />
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex gap-1.5">
+            <span className="h-1.5 flex-1 rounded-full bg-secondary" />
+            <span className="h-1.5 w-10 rounded-full bg-secondary" />
+          </div>
+        ))}
+        {(c.bankName || acct || c.upi) && (
+          <div className="rounded-lg bg-subtle p-2.5">
+            <div className="text-[9px] font-bold tracking-[0.06em] text-subtle-foreground">PAY TO</div>
+            <div className="mt-0.5 text-[10px] font-medium text-foreground">
+              {[c.bankName, acct && `A/c ••${acct.slice(-4)}`, c.bankIfsc].filter(Boolean).join(" · ")}
+            </div>
+            {c.upi && <div className="text-[10px] text-muted-foreground">UPI {c.upi}</div>}
+          </div>
+        )}
+      </div>
+      <p className="text-xs text-subtle-foreground">Updates as you type. Documents already sent keep the details they were created with.</p>
+    </div>
+  )
+}
+
+// ---- Documents -------------------------------------------------------------------------
+
+function DocumentsSection({ draft, set }) {
+  const n = draft.numbering
+  const fy = fyCode()
+  return (
+    <SectionHead title="Documents" description="Defaults for every new quotation and invoice.">
+      <Group title="Tax">
+        <Row label="Default GST" hint="For new lines; each line can change it">
+          <Select value={draft.tax.defaultGstRate} onChange={(e) => set("tax", "defaultGstRate", Number(e.target.value))}>
+            {GST_RATES.map((r) => (
+              <option key={r} value={r}>
+                {r}%
+              </option>
+            ))}
+          </Select>
+        </Row>
+      </Group>
+      <Group title="Numbering" description={`Numbers restart every financial year: PREFIX-${fy}-0001.`}>
+        {[
+          ["Quotation", "quotationPrefix"],
+          ["Invoice", "invoicePrefix"],
+          ["Payment", "paymentPrefix"],
+        ].map(([label, key]) => (
+          <Row key={key} label={`${label} prefix`}>
+            <div className="flex items-center gap-3">
+              <Input value={n[key]} onChange={(e) => set("numbering", key, e.target.value.toUpperCase())} className="max-w-[160px]" />
+              <span className="text-[13px] text-subtle-foreground">
+                Next looks like <span className="font-medium text-foreground tabular">{(n[key] || "?") + `-${fy}-0001`}</span>
+              </span>
+            </div>
+          </Row>
+        ))}
+      </Group>
+      <Group title="Quotation terms" description="Pre-filled on every new quotation; each one can be edited.">
+        <Row label="Valid for" hint="Days from the issue date">
+          <Input type="number" min="1" value={draft.quotation.validityDays} onChange={(e) => set("quotation", "validityDays", Number(e.target.value))} className="max-w-[160px]" />
+        </Row>
+        <Row label="Terms and conditions" hint="One term per line">
+          <Textarea
+            ai={{
+              purpose:
+                "Default terms and conditions pre-filled on every new sales quotation from Ortex Industries: validity, payment, artwork approval, production time and delivery, one term per line",
+              context: () => ({ validityDays: draft.quotation.validityDays }),
+              format: "lines",
+              maxChars: 900,
+            }}
+            value={draft.quotation.terms}
+            onChange={(e) => set("quotation", "terms", e.target.value)}
+            className="min-h-[140px]"
+          />
+        </Row>
+      </Group>
+    </SectionHead>
+  )
+}
+
+// ---- Notifications -------------------------------------------------------------------
+
+function NotificationsSection({ draft, set, setEmailjs }) {
+  const nf = draft.notifications
+  const silent = !!(nf.emailjs.serviceId && nf.emailjs.templateId && nf.emailjs.publicKey)
+  return (
+    <SectionHead title="Notifications" description="Emails the console sends for you.">
+      <Group title="Invoice email" description="A copy of every new invoice, sent to your accounts inbox.">
+        <Row label="Send a copy" hint={nf.invoiceEmailEnabled ? (silent ? "Sends silently through EmailJS" : "Opens your mail app, ready to send") : "Off"}>
+          <Switch checked={!!nf.invoiceEmailEnabled} onChange={(v) => set("notifications", "invoiceEmailEnabled", v)} label="Email a copy when an invoice is generated" />
+        </Row>
+        <Row label="Send to" hint="Where the copy goes">
+          <Input type="email" value={nf.recipient} onChange={(e) => set("notifications", "recipient", e.target.value)} placeholder="accounts@yourcompany.in" />
+        </Row>
+        <Row label="Sent from" hint="Reply address, used with EmailJS">
+          <Input type="email" value={nf.sender} onChange={(e) => set("notifications", "sender", e.target.value)} placeholder="sales@yourcompany.in" />
+        </Row>
+      </Group>
+      <Group title="Send silently (optional)" description="With EmailJS keys the copy goes out without opening your mail app.">
+        <Row label="Service ID">
+          <Input value={nf.emailjs.serviceId} onChange={(e) => setEmailjs("serviceId", e.target.value)} />
+        </Row>
+        <Row label="Template ID">
+          <Input value={nf.emailjs.templateId} onChange={(e) => setEmailjs("templateId", e.target.value)} />
+        </Row>
+        <Row label="Public key">
+          <Input value={nf.emailjs.publicKey} onChange={(e) => setEmailjs("publicKey", e.target.value)} />
+        </Row>
+      </Group>
+    </SectionHead>
+  )
+}
+
+// ---- Integrations -------------------------------------------------------------------
+
+function IntegrationCard({ icon: Icon, tone, title, description, status, facts, children }) {
+  const well = { blue: "bg-primary/10 text-primary", violet: "bg-info/10 text-info-text", rose: "bg-destructive/10 text-destructive-text", slate: "bg-secondary text-muted-foreground" }[tone]
+  return (
+    <div className="squircle flex flex-col gap-4 rounded-card bg-card p-5">
+      <div className="flex items-center gap-3">
+        <span className={cn("squircle grid h-10 w-10 flex-none place-items-center rounded-xl", well)}>
+          <Icon className="h-5 w-5" />
+        </span>
+        <span className="flex-1 text-[15px] font-semibold text-foreground">{title}</span>
+        <Pill tone={status[1]}>{status[0]}</Pill>
+      </div>
+      <p className="text-[13px] text-muted-foreground">{description}</p>
+      {facts && (
+        <div className="grid grid-cols-2 gap-2">
+          {facts.map(([k, v]) => (
+            <div key={k} className="squircle rounded-xl bg-subtle px-3 py-2.5">
+              <div className="text-[11.5px] font-medium text-subtle-foreground">{k}</div>
+              <div className="mt-1 truncate text-[13px] font-semibold text-foreground" title={String(v)}>
+                {v}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {children}
+    </div>
+  )
+}
+
+function IntegrationsSection({ draft, settings, setIndiamart }) {
+  const im = draft.integrations.indiamart
+  const [syncing, setSyncing] = useState(false)
+  const [editingKey, setEditingKey] = useState(!im.crmKey)
+  const { status: social, loading: socialLoading } = useSocialAccounts()
+  const { items: usage } = useCollection("ai_usage")
+  const provider = settings.telecaller?.provider || "simulate"
+
+  const ai = useMemo(() => {
+    const rows = usage || []
+    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()
+    const today = new Date().toDateString()
+    return {
+      tokens: rows.reduce((a, r) => a + (Number(r.totalTokens) || 0), 0),
+      month: rows.filter((r) => r.createdAt && new Date(r.createdAt).getTime() >= monthStart).length,
+      today: rows.filter((r) => r.createdAt && new Date(r.createdAt).toDateString() === today).length,
+      model: rows.find((r) => r.model)?.model || "gemini-flash-lite-latest",
+    }
+  }, [usage])
+
+  const li = social?.linkedin
+  const liDays = li?.connected && li.reconnectBy ? Math.ceil((new Date(li.reconnectBy).getTime() - Date.now()) / 86400000) : null
+  const checking = socialLoading && !social
+  const igOk = checking ? null : Boolean(social?.meta?.instagram)
+  const socialStatus = checking ? ["Checking", "slate"] : liDays != null && liDays <= 14 ? ["Renew soon", "amber"] : igOk || li?.connected ? ["Connected", "green"] : ["Not connected", "slate"]
+
+  const syncNow = async () => {
+    setSyncing(true)
+    try {
+      await repo.saveSettings(draft) // the server pulls with the saved key
+      const res = await syncIndiaMart()
+      if (res.error) toast.error(res.error)
+      else if (res.skipped) toast.message(res.reason || "IndiaMART sync is off")
+      else toast.success(`IndiaMART: ${res.inserted} new lead(s) imported${res.duplicates ? `, ${res.duplicates} already had` : ""}`)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  const imOn = !!im.enabled && !!im.crmKey
+  const nf = (n) => (Number(n) || 0).toLocaleString("en-IN")
+
+  return (
+    <SectionHead title="Integrations" description="What the console is connected to, and whether each connection is working.">
+      <div className="grid gap-5 lg:grid-cols-2">
+        <IntegrationCard
+          icon={Inbox}
+          tone="blue"
+          title="IndiaMART leads"
+          description="Imports buyer enquiries into Enquiries."
+          status={imOn ? ["On", "green"] : im.crmKey ? ["Off", "slate"] : ["No key", "amber"]}
+          facts={[
+            ["Last sync", im.lastPull ? new Date(im.lastPull).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "Never"],
+            ["Result", im.lastResult || "No sync yet"],
+          ]}
+        >
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5">
+            <span className="text-[13px] font-medium text-foreground">Sync new leads</span>
+            <Switch checked={!!im.enabled} onChange={(v) => setIndiamart("enabled", v)} label="Enable IndiaMART lead sync" />
+          </div>
+          {editingKey ? (
+            <Input
+              type="password"
+              value={im.crmKey}
+              onChange={(e) => setIndiamart("crmKey", e.target.value)}
+              placeholder="CRM / Pull API key (Lead Manager → CRM Integration)"
+            />
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={syncNow} disabled={syncing || !im.crmKey}>
+              <RefreshCw className="h-4 w-4" /> {syncing ? "Syncing…" : "Save and sync now"}
+            </Button>
+            {!editingKey && (
+              <Button size="sm" variant="outline" onClick={() => setEditingKey(true)}>
+                Change key
+              </Button>
+            )}
+          </div>
+        </IntegrationCard>
+
+        <IntegrationCard
+          icon={Sparkles}
+          tone="violet"
+          title="AI assistant"
+          description="Gemini writes copy and powers Anu. Product photo edits run on Cloudflare."
+          status={["Working", "green"]}
+          facts={[
+            ["Calls this month", nf(ai.month)],
+            ["Today", `${nf(ai.today)} of 1,000 free`],
+            ["Model", ai.model],
+            ["Tokens, all time", nf(ai.tokens)],
+          ]}
+        >
+          <a href="https://aistudio.google.com/usage" target="_blank" rel="noreferrer" className="text-[13px] font-semibold text-primary hover:underline">
+            Usage in Google AI Studio →
+          </a>
+        </IntegrationCard>
+
+        <IntegrationCard
+          icon={PhoneOutgoing}
+          tone="violet"
+          title="Call agent"
+          description="Places follow-up calls for IndiaMART and starred enquiries."
+          status={provider === "simulate" ? ["Simulate", "amber"] : ["Live", "green"]}
+          facts={[
+            ["Provider", provider === "simulate" ? "Simulate, no real calls" : "Vapi"],
+            ["Daily cap", `${settings.telecaller?.dailyCap ?? 40} calls`],
+          ]}
+        >
+          <Link to="/telecaller?tab=agent" className="text-[13px] font-semibold text-primary hover:underline">
+            Open the agent's settings →
+          </Link>
+        </IntegrationCard>
+
+        <IntegrationCard
+          icon={Instagram}
+          tone="rose"
+          title="Social accounts"
+          description="Instagram and LinkedIn, for publishing approved posts."
+          status={socialStatus}
+          facts={[
+            ["Instagram", igOk == null ? "Checking" : igOk ? "Connected" : "Not connected"],
+            ["LinkedIn", checking ? "Checking" : !li?.connected ? "Not connected" : liDays != null ? `Renew in ${Math.max(0, liDays)} days` : "Connected"],
+          ]}
+        >
+          <Link to="/social" className="text-[13px] font-semibold text-primary hover:underline">
+            Manage in Social →
+          </Link>
+        </IntegrationCard>
+      </div>
+    </SectionHead>
+  )
+}
+
+// ---- Data ------------------------------------------------------------------------------
+
+function DataSection() {
+  const { data } = useCollections(["products", "enquiries", "quotations", "invoices", "payments"])
 
   // Count first, then confirm with the real numbers, so nobody deletes blind.
   const purgeDemoData = async () => {
@@ -53,278 +699,51 @@ export default function Settings() {
     toast.success(`Demo data removed (${Object.values(removed).reduce((n, c) => n + c, 0)} records)`)
   }
 
-  if (!settings || !draft) return <PageLoader />
-
-  const setCompany = (key, v) => setDraft((d) => ({ ...d, company: { ...d.company, [key]: v } }))
-  const setTax = (key, v) => setDraft((d) => ({ ...d, tax: { ...d.tax, [key]: v } }))
-  const setNumbering = (key, v) => setDraft((d) => ({ ...d, numbering: { ...d.numbering, [key]: v } }))
-  const setQuotation = (key, v) => setDraft((d) => ({ ...d, quotation: { ...d.quotation, [key]: v } }))
-  const setNotifications = (key, v) => setDraft((d) => ({ ...d, notifications: { ...d.notifications, [key]: v } }))
-  const setEmailjs = (key, v) => setDraft((d) => ({ ...d, notifications: { ...d.notifications, emailjs: { ...d.notifications.emailjs, [key]: v } } }))
-  const setIndiamart = (key, v) =>
-    setDraft((d) => ({ ...d, integrations: { ...d.integrations, indiamart: { ...d.integrations.indiamart, [key]: v } } }))
-
-  const saveSettings = async () => {
-    await repo.saveSettings(draft)
-    toast.success("Settings saved")
-  }
-
-  const syncIndiaMartNow = async () => {
-    setSyncing(true)
-    await repo.saveSettings(draft) // persist the latest key before the server pulls
-    const res = await syncIndiaMart()
-    setSyncing(false)
-    if (res.error) return toast.error(res.error)
-    if (res.skipped) return toast.message(res.reason || "IndiaMART sync is off")
-    toast.success(`IndiaMART: ${res.inserted} new lead(s) imported${res.duplicates ? `, ${res.duplicates} already had` : ""}`)
-  }
-
   return (
-    <div>
-      <PageHeader title="Settings" subtitle="Company profile, tax, numbering and data">
-        <Button size="sm" onClick={saveSettings}>
-          <Save className="h-4 w-4" /> Save settings
-        </Button>
-      </PageHeader>
-
-      <div className="space-y-4">
-        <div className="rounded-xl border border-info/20 bg-info/5 p-4">
-          <div className="flex gap-3">
-            <Info className="h-5 w-5 flex-none text-info-text" />
-            <p className="text-sm text-foreground">
-              Data is stored in Supabase (Postgres with row-level security) through{" "}
-              <span className="font-mono text-xs">data/store/repository.js</span>; without backend credentials the console
-              falls back to this browser&apos;s local storage for demos. Payment gateways, vendor payouts and GST
-              e-invoicing (IRN) are integrations still to be connected.
-            </p>
+    <SectionHead title="Data" description={hasSupabase ? "What the live database holds." : "This browser's local demo data."}>
+      <div className="squircle grid grid-cols-2 gap-2 rounded-card bg-card p-5 sm:grid-cols-5">
+        {[
+          ["Products", data.products?.length || 0],
+          ["Enquiries", data.enquiries?.length || 0],
+          ["Quotations", data.quotations?.length || 0],
+          ["Invoices", data.invoices?.length || 0],
+          ["Payments", data.payments?.length || 0],
+        ].map(([label, count]) => (
+          <div key={label} className="squircle rounded-xl bg-subtle px-3.5 py-3">
+            <div className="text-xl font-semibold text-foreground tabular">{count.toLocaleString("en-IN")}</div>
+            <div className="mt-1 text-xs font-medium text-muted-foreground">{label}</div>
           </div>
-        </div>
+        ))}
+      </div>
 
-        <AiUsageCard />
-
-        <SettingsCard icon={Building2} title="Company profile" description="Appears on quotation and invoice documents.">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Company Name">
-              <Input value={draft.company.name} onChange={(e) => setCompany("name", e.target.value)} />
-            </Field>
-            <Field label="Tagline">
-              <Input value={draft.company.tagline} onChange={(e) => setCompany("tagline", e.target.value)} />
-            </Field>
-            <Field label="Email">
-              <Input value={draft.company.email} onChange={(e) => setCompany("email", e.target.value)} />
-            </Field>
-            <Field label="Phone">
-              <Input value={draft.company.phone} onChange={(e) => setCompany("phone", e.target.value)} />
-            </Field>
-            <Field label="GSTIN">
-              <Input value={draft.company.gstin} onChange={(e) => setCompany("gstin", e.target.value)} />
-            </Field>
-            <Field label="State Code" hint="Home state for CGST/SGST vs IGST">
-              <Input value={draft.company.stateCode} onChange={(e) => setCompany("stateCode", e.target.value)} placeholder="Enter state code" />
-            </Field>
-            <Field label="Address" className="sm:col-span-2">
-              <Input value={draft.company.address} onChange={(e) => setCompany("address", e.target.value)} />
-            </Field>
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Bank Name">
-              <Input value={draft.company.bankName} onChange={(e) => setCompany("bankName", e.target.value)} />
-            </Field>
-            <Field label="Account Number">
-              <Input value={draft.company.bankAccount} onChange={(e) => setCompany("bankAccount", e.target.value)} />
-            </Field>
-            <Field label="IFSC Code">
-              <Input value={draft.company.bankIfsc} onChange={(e) => setCompany("bankIfsc", e.target.value)} />
-            </Field>
-            <Field label="Branch">
-              <Input value={draft.company.bankBranch} onChange={(e) => setCompany("bankBranch", e.target.value)} />
-            </Field>
-            <Field label="UPI ID (optional)">
-              <Input value={draft.company.upi} onChange={(e) => setCompany("upi", e.target.value)} placeholder="Enter UPI ID" />
-            </Field>
-          </div>
-        </SettingsCard>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <SettingsCard icon={Percent} title="Tax defaults" description="Default GST rate for new lines.">
-            <Field label="Default GST Rate">
-              <Select value={draft.tax.defaultGstRate} onChange={(e) => setTax("defaultGstRate", Number(e.target.value))}>
-                {GST_RATES.map((r) => (
-                  <option key={r} value={r}>
-                    {r}%
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </SettingsCard>
-
-          <SettingsCard icon={Hash} title="Document numbering" description="Prefixes for quotes, invoices & payments.">
-            <div className="grid grid-cols-3 gap-3">
-              <Field label="Quotation">
-                <Input value={draft.numbering.quotationPrefix} onChange={(e) => setNumbering("quotationPrefix", e.target.value)} />
-              </Field>
-              <Field label="Invoice">
-                <Input value={draft.numbering.invoicePrefix} onChange={(e) => setNumbering("invoicePrefix", e.target.value)} />
-              </Field>
-              <Field label="Payment">
-                <Input value={draft.numbering.paymentPrefix} onChange={(e) => setNumbering("paymentPrefix", e.target.value)} />
-              </Field>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">Format: PREFIX-FY-0001 (e.g. QTN-2526-0007). Resets each financial year.</p>
-          </SettingsCard>
-        </div>
-
-        <SettingsCard icon={Percent} title="Default quotation terms" description="Pre-filled on new quotations.">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-            <Field label="Validity (Days)">
-              <Input type="number" min="1" value={draft.quotation.validityDays} onChange={(e) => setQuotation("validityDays", Number(e.target.value))} />
-            </Field>
-            <Field label="Terms & Conditions" className="sm:col-span-3">
-              <Textarea
-                ai={{
-                  purpose: "Default terms and conditions pre-filled on every new sales quotation from Ortex Industries: validity, payment, artwork approval, production time and delivery, one term per line",
-                  context: () => ({ validityDays: draft.quotation.validityDays }),
-                  format: "lines",
-                  maxChars: 900,
-                }}
-                value={draft.quotation.terms}
-                onChange={(e) => setQuotation("terms", e.target.value)}
-                className="min-h-[120px]"
-              />
-            </Field>
-          </div>
-        </SettingsCard>
-
-        <SettingsCard
-          icon={Mail}
-          title="Invoice email notifications"
-          description="Email a copy of every generated invoice. With no EmailJS keys, your mail client opens pre-composed; with keys, it sends silently from the browser."
-        >
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-border accent-primary"
-              checked={!!draft.notifications.invoiceEmailEnabled}
-              onChange={(e) => setNotifications("invoiceEmailEnabled", e.target.checked)}
-            />
-            Email a copy when an invoice is generated
-          </label>
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Recipient Email (To)" hint="Where the invoice copy is sent">
-              <Input
-                type="email"
-                value={draft.notifications.recipient}
-                onChange={(e) => setNotifications("recipient", e.target.value)}
-                placeholder="Enter recipient email"
-              />
-            </Field>
-            <Field label="Sender Email (From)" hint="Company reply address shown as sender - applied on the EmailJS path">
-              <Input
-                type="email"
-                value={draft.notifications.sender}
-                onChange={(e) => setNotifications("sender", e.target.value)}
-                placeholder="Enter sender email"
-              />
-            </Field>
-          </div>
-          <p className="mt-5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            EmailJS (optional - for silent sending)
-          </p>
-          <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Field label="Service ID">
-              <Input value={draft.notifications.emailjs.serviceId} onChange={(e) => setEmailjs("serviceId", e.target.value)} />
-            </Field>
-            <Field label="Template ID">
-              <Input value={draft.notifications.emailjs.templateId} onChange={(e) => setEmailjs("templateId", e.target.value)} />
-            </Field>
-            <Field label="Public Key">
-              <Input value={draft.notifications.emailjs.publicKey} onChange={(e) => setEmailjs("publicKey", e.target.value)} />
-            </Field>
-          </div>
-        </SettingsCard>
-
-        <SettingsCard
-          icon={Inbox}
-          title="IndiaMART leads"
-          description="Auto-import buyer enquiries from IndiaMART into the Enquiries module."
-        >
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-border accent-primary"
-              checked={!!draft.integrations.indiamart.enabled}
-              onChange={(e) => setIndiamart("enabled", e.target.checked)}
-            />
-            Enable IndiaMART lead sync
-          </label>
-          <div className="mt-4 max-w-xl">
-            <Field label="IndiaMART CRM / Pull API Key" hint="From IndiaMART → Lead Manager → CRM Integration">
-              <Input
-                type="password"
-                value={draft.integrations.indiamart.crmKey}
-                onChange={(e) => setIndiamart("crmKey", e.target.value)}
-                placeholder="Enter API key"
-              />
-            </Field>
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Button size="sm" variant="outline" onClick={syncIndiaMartNow} disabled={syncing || !draft.integrations.indiamart.crmKey}>
-              <Inbox className="h-4 w-4" /> {syncing ? "Syncing…" : "Save & sync now"}
+      <Group title="Demo data" description="The eight sample customers and the enquiries, quotations, invoices and payments attached to them.">
+        <Row label="Remove it" hint="Website, IndiaMART and hand-entered records are untouched, as are products">
+          <Button variant="outline" size="sm" onClick={purgeDemoData}>
+            <Trash2 className="h-4 w-4" /> Remove demo data
+          </Button>
+        </Row>
+        {/* Local demo only: on the live database it would add fake invoices
+            (duplicate GST numbers) and products the public site shows. seedDemo()
+            refuses there too. */}
+        {!hasSupabase && (
+          <Row label="Load it" hint="Local demo only">
+            <Button variant="outline" size="sm" onClick={loadDemoData}>
+              <Sparkles className="h-4 w-4" /> Load demo data
             </Button>
-            {draft.integrations.indiamart.lastResult && (
-              <span className="text-xs text-muted-foreground">
-                Last sync: {draft.integrations.indiamart.lastResult}
-                {draft.integrations.indiamart.lastPull ? ` · ${new Date(draft.integrations.indiamart.lastPull).toLocaleString("en-IN")}` : ""}
-              </span>
-            )}
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Paste your key, enable, then click <strong>Save & sync now</strong> to import. Automatic scheduled sync can be turned on separately.
-          </p>
-        </SettingsCard>
+          </Row>
+        )}
+      </Group>
 
-        <PasswordCard title="Account password" description="Change the password you sign in with." />
-
-        <SettingsCard icon={Database} title="Data" description="Storage overview and demo data.">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-            {[
-              ["Products", data.products?.length || 0],
-              ["Enquiries", data.enquiries?.length || 0],
-              ["Quotations", data.quotations?.length || 0],
-              ["Invoices", data.invoices?.length || 0],
-              ["Payments", data.payments?.length || 0],
-            ].map(([label, count]) => (
-              <div key={label} className="rounded-lg bg-muted/30 p-3">
-                <div className="text-2xl font-bold text-foreground">{count}</div>
-                <div className="text-xs text-muted-foreground">{label}</div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {/* Demo data is for the local demo only: on the live database it would
-                add fake invoices (duplicate GST numbers) and products the public
-                site shows. seedDemo() refuses there too. */}
-            {!hasSupabase && (
-              <Button variant="outline" size="sm" onClick={loadDemoData}>
-                <Sparkles className="h-4 w-4" /> Load demo data
-              </Button>
-            )}
-            <Button variant="outline" size="sm" onClick={purgeDemoData}>
-              <Trash2 className="h-4 w-4" /> Remove demo data
-            </Button>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Remove deletes only the eight sample customers and the enquiries, leads, quotations, invoices and payments attached to
-            them. Records from the website, IndiaMART or entered by hand are untouched, as are products and categories.
-          </p>
-        </SettingsCard>
-
-        {/* Local demo only: on the live database this would wipe every business
-            table. apiStore.clearAll() refuses as well. */}
-        {!hasSupabase && <SettingsCard icon={Trash2} tone="danger" title="Danger zone" description="Permanently delete everything stored in this browser.">
+      {/* Local demo only: on the live database this would wipe every business
+          table. apiStore.clearAll() refuses as well. */}
+      {!hasSupabase && (
+        <div className="squircle rounded-card border border-destructive/30 bg-card p-5">
+          <h3 className="text-[15px] font-semibold text-destructive-text">Delete everything in this browser</h3>
+          <p className="mt-1 text-[13px] text-muted-foreground">Products, enquiries, quotations, invoices, payments and settings. Local demo only.</p>
           <Button
             variant="danger"
             size="sm"
+            className="mt-4"
             onClick={async () => {
               if (window.confirm("Delete ALL data - products, enquiries, quotations, invoices, payments and settings? This cannot be undone.")) {
                 await repo.clearAll()
@@ -334,132 +753,8 @@ export default function Settings() {
           >
             Clear all data
           </Button>
-        </SettingsCard>}
-      </div>
-    </div>
+        </div>
+      )}
+    </SectionHead>
   )
 }
-
-function AiUsageCard() {
-  const { items } = useCollection("ai_usage")
-
-  const stats = useMemo(() => {
-    const rows = items || []
-    const sum = (key) => rows.reduce((a, r) => a + (Number(r[key]) || 0), 0)
-    const today = new Date().toDateString()
-    const requestsToday = rows.filter((r) => r.createdAt && new Date(r.createdAt).toDateString() === today).length
-    const feat = (f) => rows.filter((r) => r.feature === f)
-    const featTokens = (f) => feat(f).reduce((a, r) => a + (Number(r.totalTokens) || 0), 0)
-    const lastAt = rows.reduce((m, r) => (r.createdAt && (!m || r.createdAt > m) ? r.createdAt : m), null)
-    return {
-      requests: rows.length,
-      requestsToday,
-      promptTokens: sum("promptTokens"),
-      outputTokens: sum("outputTokens"),
-      totalTokens: sum("totalTokens"),
-      chatbot: { n: feat("chatbot").length, t: featTokens("chatbot") },
-      copywriter: { n: feat("copywriter").length, t: featTokens("copywriter") },
-      writer: { n: feat("writer").length, t: featTokens("writer") },
-      // Cloudflare reports no tokens, so the studio row counts renders only.
-      imageStudio: { n: feat("image-studio").length },
-      imageStudioToday: feat("image-studio").filter((r) => r.createdAt && new Date(r.createdAt).toDateString() === today).length,
-      lastAt,
-      model: rows.find((r) => r.model)?.model || "gemini-flash-lite-latest",
-    }
-  }, [items])
-
-  const nf = (n) => (Number(n) || 0).toLocaleString("en-IN")
-
-  return (
-    <SettingsCard
-      icon={Sparkles}
-      title="AI assistant (LLM)"
-      description="Google Gemini powers Orty (website chat), the product copywriter and the AI writer on every text field. Product photo edits run on Cloudflare Workers AI (FLUX.2 klein). Usage is tracked per call."
-    >
-      {/* Configuration */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          ["Model", stats.model],
-          ["Provider", "Google AI Studio"],
-          ["Voice assistant", "orty-live-token"],
-          ["Copywriter function", "product-copywriter"],
-        ].map(([k, v]) => (
-          <div key={k} className="rounded-lg bg-muted/30 p-3">
-            <div className="text-xs text-muted-foreground">{k}</div>
-            <div className="mt-0.5 truncate text-sm font-semibold text-foreground" title={v}>{v}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Token totals */}
-      <p className="mt-5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Token usage (all time)</p>
-      <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          ["Total requests", nf(stats.requests)],
-          ["Total tokens", nf(stats.totalTokens)],
-          ["Input tokens", nf(stats.promptTokens)],
-          ["Output tokens", nf(stats.outputTokens)],
-        ].map(([k, v]) => (
-          <div key={k} className="rounded-lg bg-muted/30 p-3">
-            <div className="text-2xl font-bold text-foreground">{v}</div>
-            <div className="text-xs text-muted-foreground">{k}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Per feature */}
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-lg bg-muted/30 p-3">
-          <div className="text-sm font-semibold text-foreground">Orty chatbot</div>
-          <div className="mt-1 text-xs text-muted-foreground">{nf(stats.chatbot.n)} requests · {nf(stats.chatbot.t)} tokens</div>
-        </div>
-        <div className="rounded-lg bg-muted/30 p-3">
-          <div className="text-sm font-semibold text-foreground">AI copywriter</div>
-          <div className="mt-1 text-xs text-muted-foreground">{nf(stats.copywriter.n)} requests · {nf(stats.copywriter.t)} tokens</div>
-        </div>
-        <div className="rounded-lg bg-muted/30 p-3">
-          <div className="text-sm font-semibold text-foreground">AI writer</div>
-          <div className="mt-1 text-xs text-muted-foreground">{nf(stats.writer.n)} requests · {nf(stats.writer.t)} tokens · ai-writer</div>
-        </div>
-        <div className="rounded-lg bg-muted/30 p-3">
-          <div className="text-sm font-semibold text-foreground">Photo studio</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {nf(stats.imageStudio.n)} photos · {nf(stats.imageStudioToday)} today, about 80 free a day on Cloudflare · product-image-studio
-          </div>
-        </div>
-      </div>
-
-      {/* Free-tier limits */}
-      <p className="mt-5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Free-tier limits (Gemini Flash-Lite)</p>
-      <div className="mt-2 grid grid-cols-3 gap-3">
-        {[
-          ["Requests / min", "15", null],
-          ["Tokens / min", "250,000", null],
-          ["Requests / day", "1,000", stats.requestsToday],
-        ].map(([k, v, used]) => (
-          <div key={k} className="rounded-lg bg-muted/30 p-3">
-            <div className="text-lg font-bold text-foreground">{v}</div>
-            <div className="text-xs text-muted-foreground">
-              {k}
-              {used != null ? ` · ${nf(used)} used today` : ""}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-        {stats.lastAt && <span>Last used: {new Date(stats.lastAt).toLocaleString("en-IN")}</span>}
-        {stats.requests === 0 && <span>No AI calls recorded yet - usage appears here after the functions run.</span>}
-        <a
-          href="https://aistudio.google.com/usage"
-          target="_blank"
-          rel="noreferrer"
-          className="font-semibold text-primary hover:underline"
-        >
-          View usage in Google AI Studio →
-        </a>
-      </div>
-    </SettingsCard>
-  )
-}
-

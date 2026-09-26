@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react"
+import { useEffect, useState, useMemo } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
 import { Wallet, Plus, ArrowDownLeft, ArrowUpRight, Trash2, ReceiptText } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
@@ -17,6 +18,14 @@ export default function Payments() {
   const [query, setQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [newPayment, setNewPayment] = useState(null) // "inflow" | "payout" | null
+  const location = useLocation()
+  const navigate = useNavigate()
+  // The header's "+ New" menu: record a payment received.
+  useEffect(() => {
+    if (!location.state?.create) return
+    setNewPayment("inflow")
+    navigate(location.pathname + location.search, { replace: true })
+  }, [location.state, navigate, location.pathname, location.search])
   const [receiptFor, setReceiptFor] = useState(null)
   const [sort, onSort] = useSorting("date", true)
 

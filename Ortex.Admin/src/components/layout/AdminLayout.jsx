@@ -20,6 +20,10 @@ import {
   CalendarClock,
   IndianRupee,
   MessageCircle,
+  Plus,
+  ArrowDownLeft,
+  MoreHorizontal,
+  Wallet,
 } from "../ui/Icons"
 import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
 import { useProfile } from "../../hooks/useProfile"
@@ -31,43 +35,39 @@ import { AnuHeaderButton, AnuMiniCall } from "../anu/AnuLauncher"
 import ChatNotifier from "../chat/ChatNotifier"
 import { useChatInbox } from "../../hooks/useChat"
 import { canAccess } from "../../data/domain/modules"
+import { roleLabel } from "../../lib/roles"
 import { cn } from "../../lib/cn"
 // The one version number: bump package.json and the sidebar follows. A named
 // import lets Vite inline just this field rather than the whole manifest.
 import { version as APP_VERSION } from "../../../package.json"
 
-// Metronic 9 Demo 1 shell: fixed 260px white sidebar with a right hairline
-// (70px logo row, 32px menu items, uppercase section headings), a 70px white
-// header carrying the breadcrumb and the icon actions + avatar, content on a
-// white canvas padded 24px, and a footer line.
+// The shell (Figma "V3 · Settings, minimal sidebar and slim top bar"): a 232px
+// sidebar with the seven modules most roles open every day, the rest folded
+// under "More", and Settings plus the account at the bottom; a 56px top bar
+// with search (Ctrl K), "+ New", Anu and notifications. A person only ever sees
+// the modules they can open.
 
-const ROLE_LABEL = { admin: "Admin", sales: "Sales Executive" }
-const SIDEBAR_W = "w-[260px]"
-const SIDEBAR_PAD = "lg:pl-[260px]"
+const SIDEBAR_W = "w-[232px]"
+const SIDEBAR_PAD = "lg:pl-[232px]"
+const MORE_KEY = "ortex.nav.more"
 
-// Grouped navigation. `key` / `keys` map each item to a module so the sidebar
-// hides what a user isn't allowed to access.
-const NAV = [
-  {
-    section: null,
-    items: [
-      { to: "/", end: true, key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/chat", key: "chat", label: "Team chat", icon: MessageCircle, badge: "chat" },
-    ],
-  },
-  {
-    section: "Sales",
-    items: [
-      { to: "/crm", keys: ["enquiries", "voice-leads"], label: "Enquiries", icon: Inbox },
-      { to: "/customers", key: "customers", label: "Customers", icon: Users },
-      { to: "/catalog", keys: ["products", "categories", "work"], label: "Catalog", icon: Package },
-      { to: "/quotations", key: "quotations", label: "Quotations", icon: FileText },
-      { to: "/billing", keys: ["invoices", "payments"], label: "Billing", icon: ReceiptIndianRupee },
-    ],
-  },
+// `key` / `keys` map each item to a module so the sidebar hides what a user
+// isn't allowed to open. PRIMARY is what most roles use every day; MORE holds
+// the weekly and admin-only modules, in their old groups.
+const PRIMARY = [
+  { to: "/", end: true, key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/chat", key: "chat", label: "Team chat", icon: MessageCircle, badge: "chat" },
+  { to: "/crm", keys: ["enquiries", "voice-leads"], label: "Enquiries", icon: Inbox },
+  { to: "/quotations", key: "quotations", label: "Quotations", icon: FileText },
+  { to: "/billing", keys: ["invoices", "payments"], label: "Billing", icon: ReceiptIndianRupee },
+  { to: "/customers", key: "customers", label: "Customers", icon: Users },
+  { to: "/attendance", key: "attendance", label: "Attendance", icon: CalendarClock },
+]
+const MORE = [
   {
     section: "Marketing",
     items: [
+      { to: "/catalog", keys: ["products", "categories", "work"], label: "Catalog", icon: Package },
       { to: "/social", key: "social", label: "Social", icon: Instagram },
       { to: "/telecaller", key: "telecaller", label: "Call agent", icon: PhoneOutgoing },
       { to: "/insights", keys: ["growth", "automation", "attendance-team"], label: "Insights", icon: TrendingUp },
@@ -76,18 +76,20 @@ const NAV = [
   {
     section: "People",
     items: [
-      { to: "/attendance", key: "attendance", label: "Attendance", icon: CalendarClock },
       { to: "/payroll", key: "payroll", label: "Payroll", icon: IndianRupee },
       { to: "/payslips", key: "payslips", label: "My payslips", icon: ReceiptIndianRupee },
     ],
   },
-  {
-    section: "Admin",
-    items: [
-      { to: "/users", key: "users", label: "Users", icon: UserTag },
-      { to: "/settings", key: "settings", label: "Settings", icon: Settings },
-    ],
-  },
+  { section: "Admin", items: [{ to: "/users", key: "users", label: "Users", icon: UserTag }] },
+]
+const SETTINGS_ITEM = { to: "/settings", key: "settings", label: "Settings", icon: Settings }
+
+// "+ New": what the person can create, each opening that page's editor.
+const NEW_ITEMS = [
+  { label: "Quotation", key: "quotations", to: "/quotations", icon: FileText, hotkey: "q" },
+  { label: "Invoice", key: "invoices", to: "/billing?tab=invoices", icon: ReceiptIndianRupee, hotkey: "i" },
+  { label: "Payment", key: "payments", to: "/billing?tab=payments", icon: Wallet, hotkey: "p" },
+  { label: "Customer", key: "customers", to: "/customers", icon: Users, hotkey: "c" },
 ]
 
 // Non-production environments (e.g. Staging on Vercel) set VITE_ENV_LABEL so the
@@ -105,86 +107,219 @@ function useAllowedNav() {
   const profile = useProfile()
   return useMemo(() => {
     const allowed = (it) => (it.keys ? it.keys.some((k) => canAccess(profile, k)) : canAccess(profile, it.key))
-    return NAV.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length)
+    return {
+      primary: PRIMARY.filter(allowed),
+      more: MORE.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length),
+      settings: allowed(SETTINGS_ITEM) ? SETTINGS_ITEM : null,
+    }
   }, [profile])
 }
 
 function Brand() {
   return (
-    <Link to="/" className="flex min-w-0 items-center gap-2.5 focus:outline-none">
-      <img src="/img/logo.svg" alt="Ortex Industries" className="h-8 w-auto flex-none object-contain" />
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      <Link to="/" className="flex min-w-0 items-center focus:outline-none">
+        <img src="/img/logo.svg" alt="Ortex Industries" className="h-7 w-auto flex-none object-contain" />
+      </Link>
       {ENV_LABEL && <span className="rounded bg-warning/12 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warning-text">{ENV_LABEL}</span>}
-    </Link>
+      <Link
+        to="/whats-new"
+        title="What's new"
+        className="squircle ml-auto rounded-[10px] bg-secondary px-2 py-0.5 text-[11px] font-medium text-muted-foreground tabular hover:text-primary"
+      >
+        {APP_VERSION.replace(/\.0$/, "")}
+      </Link>
+    </div>
   )
 }
 
-// Metronic menu: 32px rows, 8px radius, 14px medium; heading 12px uppercase.
-function NavItems({ groups, onNavigate }) {
+// One 38px row, 10px radius; active is a soft primary tint.
+function NavRow({ to, end, label, icon: Icon, count = 0, onNavigate }) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      onClick={onNavigate}
+      className={({ isActive }) =>
+        cn(
+          "squircle group flex h-[38px] items-center gap-[11px] rounded-[10px] px-2.5 text-[13.5px] transition-colors",
+          isActive ? "bg-primary/10 font-semibold text-primary" : "font-medium text-muted-foreground hover:bg-accent hover:text-foreground",
+        )
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <Icon className={cn("h-[19px] w-[19px] flex-none", isActive ? "text-primary" : "text-subtle-foreground group-hover:text-foreground")} />
+          <span className="flex-1 truncate">{label}</span>
+          {count > 0 && (
+            <span
+              className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-primary px-1.5 text-[10.5px] font-semibold text-primary-foreground"
+              aria-label={`${count} unread`}
+            >
+              {count > 99 ? "99+" : count}
+            </span>
+          )}
+        </>
+      )}
+    </NavLink>
+  )
+}
+
+function NavList({ nav, onNavigate }) {
+  const { pathname } = useLocation()
   // Unread chat messages, as a count on the Team chat row (muted chats excluded).
   const { unread } = useChatInbox()
-  const badges = { chat: unread }
+  const moreItems = nav.more.flatMap((g) => g.items)
+  const inMore = moreItems.some((it) => pathname.startsWith(it.to))
+  const [moreOpen, setMoreOpen] = useState(() => {
+    try {
+      return localStorage.getItem(MORE_KEY) === "1"
+    } catch {
+      return false
+    }
+  })
+  // A page under More keeps More open, so the active row is always visible.
+  const open = moreOpen || inMore
+  const toggle = () => {
+    const next = !open
+    setMoreOpen(next)
+    try {
+      localStorage.setItem(MORE_KEY, next ? "1" : "0")
+    } catch {
+      // Private window: the choice is simply not remembered.
+    }
+  }
+
   return (
-    <nav className="flex flex-col">
-      {groups.map((group, gi) => (
-        <div key={gi} className="flex flex-col gap-0.5">
-          {group.section && (
-            <div className="mb-[8px] mt-[18px] px-6 text-[12px] font-medium uppercase leading-none text-muted-foreground/70">{group.section}</div>
-          )}
-          {group.items.map(({ to, end, label, icon: Icon, badge }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              onClick={onNavigate}
-              className={({ isActive }) =>
-                cn(
-                  "group relative flex h-10 items-center gap-2.5 border-r-[3px] px-6 text-sm font-medium transition-colors",
-                  isActive
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-transparent text-secondary-foreground hover:bg-accent",
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon className={cn("h-5 w-5 flex-none", isActive ? "text-primary" : "text-muted-foreground group-hover:text-primary")} />
-                  {label}
-                  {badge && badges[badge] > 0 && (
-                    <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground" aria-label={`${badges[badge]} unread`}>
-                      {badges[badge] > 99 ? "99+" : badges[badge]}
-                    </span>
-                  )}
-                </>
-              )}
-            </NavLink>
-          ))}
-        </div>
+    <nav className="flex flex-col gap-0.5" aria-label="Main">
+      {nav.primary.map((it) => (
+        <NavRow key={it.to} to={it.to} end={it.end} label={it.label} icon={it.icon} count={it.badge === "chat" ? unread : 0} onNavigate={onNavigate} />
       ))}
+      {moreItems.length > 0 && (
+        <>
+          <div className="mx-2.5 my-2 h-px bg-border" />
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={open}
+            className={cn(
+              "squircle flex h-[38px] items-center gap-[11px] rounded-[10px] px-2.5 text-[13.5px] transition-colors hover:bg-accent",
+              open ? "font-semibold text-foreground" : "font-medium text-muted-foreground",
+            )}
+          >
+            <MoreHorizontal className="h-[19px] w-[19px] flex-none text-subtle-foreground" />
+            <span className="flex-1 text-left">More</span>
+            {!open && <span className="rounded-full bg-secondary px-1.5 text-[10.5px] font-semibold text-muted-foreground">{moreItems.length}</span>}
+            <ArrowDownLeft className={cn("h-3.5 w-3.5 flex-none text-subtle-foreground transition-transform", open && "rotate-180")} />
+          </button>
+          {open &&
+            nav.more.map((g) => (
+              <div key={g.section} className="flex flex-col gap-0.5">
+                <div className="pb-1 pl-10 pt-2.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-subtle-foreground">{g.section}</div>
+                {g.items.map((it) => (
+                  <NavRow key={it.to} to={it.to} end={it.end} label={it.label} icon={it.icon} onNavigate={onNavigate} />
+                ))}
+              </div>
+            ))}
+        </>
+      )}
     </nav>
   )
 }
 
-// Header avatar with the account popover (profile, settings, sign out).
-function AccountMenu({ onSignOut }) {
+// Close a popover on an outside click or Escape.
+function useDismiss(open, setOpen, ref, onKey) {
+  useEffect(() => {
+    if (!open) return undefined
+    const down = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    const key = (e) => {
+      if (e.key === "Escape") setOpen(false)
+      else onKey?.(e)
+    }
+    document.addEventListener("mousedown", down)
+    document.addEventListener("keydown", key)
+    return () => {
+      document.removeEventListener("mousedown", down)
+      document.removeEventListener("keydown", key)
+    }
+  }, [open, setOpen, ref, onKey])
+}
+
+// "+ New": a small menu of what this person can create. Each item opens the
+// page with { create: true }, which the page answers by opening its editor.
+function NewMenu() {
+  const profile = useProfile()
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const items = useMemo(() => NEW_ITEMS.filter((it) => canAccess(profile, it.key)), [profile])
+  const go = (it) => {
+    setOpen(false)
+    navigate(it.to, { state: { create: true } })
+  }
+  // While open, the item's letter picks it.
+  const onKey = (e) => {
+    const hit = items.find((it) => it.hotkey === e.key.toLowerCase())
+    if (hit) {
+      e.preventDefault()
+      go(hit)
+    }
+  }
+  useDismiss(open, setOpen, ref, onKey)
+  if (!items.length) return null
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="squircle flex h-9 items-center gap-1.5 rounded-xl bg-primary pl-2.5 pr-2 text-[13.5px] font-semibold text-primary-foreground transition-colors hover:bg-primary-hover"
+      >
+        <Plus variant="Linear" className="h-4 w-4" />
+        <span className="hidden sm:inline">New</span>
+        <ArrowDownLeft className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div role="menu" className="squircle absolute right-0 z-30 mt-2 w-60 rounded-xl border border-border bg-card p-1.5 shadow-overlay-lg animate-pop-in">
+          {items.map((it) => (
+            <button
+              key={it.label}
+              type="button"
+              role="menuitem"
+              onClick={() => go(it)}
+              className="squircle flex h-[38px] w-full items-center gap-[11px] rounded-[10px] px-2.5 text-left text-[13.5px] font-medium text-foreground hover:bg-accent"
+            >
+              <it.icon className="h-[18px] w-[18px] flex-none text-primary" />
+              <span className="flex-1">{it.label}</span>
+              <kbd className="rounded-md bg-secondary px-1.5 text-[11px] font-semibold uppercase text-subtle-foreground">{it.hotkey}</kbd>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// The account card at the foot of the sidebar, with its popover (profile,
+// what's new, sign out) opening upwards.
+function AccountMenu({ onSignOut, onNavigate }) {
   const profile = useProfile()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const email = profile?.email || currentEmail() || ""
   const name = profile?.name || email || "Account"
-  const role = profile ? ROLE_LABEL[profile.role] || profile.role : ""
+  const role = profile ? roleLabel(profile.role) : ""
   const photo = profile?.avatar_url || ""
-
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    const onKey = (e) => { if (e.key === "Escape") setOpen(false) }
-    document.addEventListener("mousedown", onDown)
-    document.addEventListener("keydown", onKey)
-    return () => {
-      document.removeEventListener("mousedown", onDown)
-      document.removeEventListener("keydown", onKey)
-    }
-  }, [open])
+  useDismiss(open, setOpen, ref)
+  const close = () => {
+    setOpen(false)
+    onNavigate?.()
+  }
+  const initial = (name || "?").slice(0, 1).toUpperCase()
 
   return (
     <div ref={ref} className="relative">
@@ -192,62 +327,39 @@ function AccountMenu({ onSignOut }) {
         onClick={() => setOpen((o) => !o)}
         aria-label="Account menu"
         aria-expanded={open}
-        className="grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-primary text-[13px] font-semibold text-white ring-2 ring-success ring-offset-2 ring-offset-card"
+        className="squircle flex w-full items-center gap-2.5 rounded-xl bg-subtle p-2.5 text-left transition-colors hover:bg-accent"
       >
-        {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : (name || "?").slice(0, 1).toUpperCase()}
+        <span className="grid h-[34px] w-[34px] flex-none place-items-center overflow-hidden rounded-full bg-primary text-[12px] font-semibold text-white">
+          {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : initial}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-semibold text-foreground">{name}</span>
+          {role && <span className="block truncate text-[11.5px] font-medium text-info-text">{role}</span>}
+        </span>
+        <ArrowDownLeft className={cn("h-3.5 w-3.5 flex-none text-subtle-foreground transition-transform", !open && "rotate-180")} />
       </button>
       {open && (
-        <div className="absolute right-0 mt-2.5 w-64 rounded-card border border-border bg-card p-2 shadow-overlay-lg animate-pop-in">
-          <div className="flex items-center gap-3 px-2 py-2">
-            <span className="grid h-10 w-10 flex-none place-items-center overflow-hidden rounded-full bg-primary text-sm font-semibold text-white">
-              {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : (name || "?").slice(0, 1).toUpperCase()}
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-foreground">{name}</p>
-              {email && <p className="truncate text-xs text-muted-foreground">{email}</p>}
-              {role && <span className="mt-1 inline-flex h-5 items-center rounded bg-primary/10 px-1.5 text-[11px] font-medium text-primary">{role}</span>}
-            </div>
-          </div>
-          <div className="my-1.5 h-px bg-border" />
-          <NavLink to="/profile" onClick={() => setOpen(false)} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-secondary-foreground hover:bg-accent">
+        <div className="absolute bottom-full left-0 right-0 mb-2 rounded-card border border-border bg-card p-2 shadow-overlay-lg animate-pop-in">
+          {email && <p className="truncate px-2 pb-1.5 pt-1 text-xs text-muted-foreground">{email}</p>}
+          <NavLink to="/profile" onClick={close} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-secondary-foreground hover:bg-accent">
             <Users variant="Linear" className="h-4 w-4 text-muted-foreground" /> My profile
           </NavLink>
-          {canAccess(profile, "settings") && (
-            <NavLink to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-secondary-foreground hover:bg-accent">
-              <Settings variant="Linear" className="h-4 w-4 text-muted-foreground" /> Settings
-            </NavLink>
-          )}
-          <NavLink to="/whats-new" onClick={() => setOpen(false)} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-secondary-foreground hover:bg-accent">
+          <NavLink to="/whats-new" onClick={close} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-secondary-foreground hover:bg-accent">
             <Sparkles variant="Linear" className="h-4 w-4 text-muted-foreground" /> What's new
           </NavLink>
           <div className="my-1.5 h-px bg-border" />
-          <button onClick={() => { setOpen(false); onSignOut() }} className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-secondary-foreground hover:bg-accent">
+          <button
+            onClick={() => {
+              setOpen(false)
+              onSignOut()
+            }}
+            className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-secondary-foreground hover:bg-accent"
+          >
             <LogOut variant="Linear" className="h-4 w-4 text-muted-foreground" /> Log out
           </button>
         </div>
       )}
     </div>
-  )
-}
-
-// Breadcrumb for the header: "Section › Page" from the nav config.
-function Breadcrumb({ groups }) {
-  const { pathname } = useLocation()
-  const match = useMemo(() => {
-    for (const g of groups) for (const it of g.items) if (it.end ? pathname === it.to : pathname.startsWith(it.to)) return { section: g.section, item: it }
-    return null
-  }, [groups, pathname])
-  if (!match) return null
-  return (
-    <nav className="hidden items-center gap-1.5 text-sm lg:flex" aria-label="Breadcrumb">
-      {match.section && (
-        <>
-          <span className="text-muted-foreground">{match.section}</span>
-          <span className="text-muted-foreground/60">›</span>
-        </>
-      )}
-      <span className="font-medium text-foreground">{match.item.label}</span>
-    </nav>
   )
 }
 
@@ -257,14 +369,19 @@ export default function AdminLayout() {
   useDarkMode()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const groups = useAllowedNav()
+  const nav = useAllowedNav()
   const ready = useAuthReady()
   // Anu lives in the shell, so a conversation survives every route change.
   const anu = useAnuController()
 
+  // Search reaches every page this person can open, including those under More.
   const pages = useMemo(
-    () => groups.flatMap((g) => g.items.map((it) => ({ to: it.to, label: it.label, icon: it.icon, section: g.section || "General" }))),
-    [groups],
+    () => [
+      ...nav.primary.map((it) => ({ to: it.to, label: it.label, icon: it.icon, section: "General" })),
+      ...nav.more.flatMap((g) => g.items.map((it) => ({ to: it.to, label: it.label, icon: it.icon, section: g.section }))),
+      ...(nav.settings ? [{ to: nav.settings.to, label: nav.settings.label, icon: nav.settings.icon, section: "Admin" }] : []),
+    ],
+    [nav],
   )
 
   useEffect(() => {
@@ -299,106 +416,103 @@ export default function AdminLayout() {
   }
 
   const sidebarBody = (onNavigate) => (
-    <div className="scroll-thin flex-1 overflow-y-auto pb-6 pt-[50px]">
-      <NavItems groups={groups} onNavigate={onNavigate} />
+    <div className="scroll-thin flex-1 overflow-y-auto px-3 pb-4 pt-2">
+      <NavList nav={nav} onNavigate={onNavigate} />
     </div>
   )
 
-  // Pinned under the scrolling nav, so it stays at the bottom however long the
-  // menu grows.
-  const sidebarFoot = (
-    <div className="flex h-12 flex-none items-center border-t border-border px-6 text-xs text-muted-foreground">
-      Version <span className="ml-1 font-medium text-foreground tabular">{APP_VERSION}</span>
-      <Link to="/whats-new" onClick={() => setMobileOpen(false)} className="ml-auto font-medium text-primary hover:underline">
-        What's new
-      </Link>
+  // Pinned under the scrolling nav: Settings (Super Admin) and the account.
+  const sidebarFoot = (onNavigate) => (
+    <div className="flex flex-none flex-col gap-1.5 px-3 pb-3 pt-1">
+      {nav.settings && <NavRow to={nav.settings.to} label={nav.settings.label} icon={nav.settings.icon} onNavigate={onNavigate} />}
+      <AccountMenu onSignOut={handleLogout} onNavigate={onNavigate} />
     </div>
   )
 
   return (
     <AnuProvider value={anu}>
-    <div className="flex min-h-screen bg-background text-foreground">
-      {/* Desktop sidebar */}
-      <aside className={cn("no-print fixed inset-y-0 left-0 z-20 hidden shrink-0 flex-col items-stretch bg-card lg:flex", SIDEBAR_W)}>
-        <div className="flex h-[70px] flex-none items-center border-b border-border px-6">
-          <Brand />
-        </div>
-        {sidebarBody()}
-        {sidebarFoot}
-      </aside>
-
-      {/* Mobile drawer */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/50 animate-fade-in" onClick={() => setMobileOpen(false)} />
-          <aside className={cn("absolute inset-y-0 left-0 flex flex-col bg-card shadow-overlay-lg", SIDEBAR_W)}>
-            <div className="flex h-[70px] items-center justify-between border-b border-border px-6">
-              <Brand />
-              <button onClick={() => setMobileOpen(false)} className="squircle grid h-[30px] w-[30px] place-items-center rounded-btn-sm text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Close menu">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            {sidebarBody(() => setMobileOpen(false))}
-            {sidebarFoot}
-          </aside>
-        </div>
-      )}
-
-      {/* Main column */}
-      {/* On a wide screen the page makes room for Anu instead of hiding under her. */}
-      <div className={cn("flex min-h-screen w-full flex-col transition-[padding] duration-200", SIDEBAR_PAD, anu.open && "xl:pr-[400px]")}>
-        <header className="no-print sticky top-0 z-10 flex h-[70px] flex-none items-center gap-3 border-l border-border bg-card px-6">
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="squircle grid h-10 w-10 place-items-center rounded-btn-md text-muted-foreground hover:bg-accent hover:text-foreground lg:hidden"
-            aria-label="Open menu"
-          >
-            <Menu variant="Linear" className="h-5 w-5" />
-          </button>
-          <div className="lg:hidden">
+      <div className="flex min-h-screen bg-background text-foreground">
+        {/* Desktop sidebar */}
+        <aside className={cn("no-print fixed inset-y-0 left-0 z-20 hidden shrink-0 flex-col items-stretch border-r border-border bg-card lg:flex", SIDEBAR_W)}>
+          <div className="flex h-14 flex-none items-center px-5">
             <Brand />
           </div>
-          <Breadcrumb groups={groups} />
+          {sidebarBody()}
+          {sidebarFoot()}
+        </aside>
 
-          <div className="ml-auto flex items-center gap-1.5">
-            <AnuHeaderButton />
+        {/* Mobile drawer */}
+        {mobileOpen && (
+          <div className="fixed inset-0 z-40 lg:hidden">
+            <div className="absolute inset-0 bg-black/50 animate-fade-in" onClick={() => setMobileOpen(false)} />
+            <aside className={cn("absolute inset-y-0 left-0 flex flex-col bg-card shadow-overlay-lg", SIDEBAR_W)}>
+              <div className="flex h-14 items-center gap-2 px-5">
+                <Brand />
+                <button
+                  onClick={() => setMobileOpen(false)}
+                  className="squircle grid h-[30px] w-[30px] flex-none place-items-center rounded-btn-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                  aria-label="Close menu"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {sidebarBody(() => setMobileOpen(false))}
+              {sidebarFoot(() => setMobileOpen(false))}
+            </aside>
+          </div>
+        )}
+
+        {/* Main column */}
+        {/* On a wide screen the page makes room for Anu instead of hiding under her. */}
+        <div className={cn("flex min-h-screen w-full flex-col transition-[padding] duration-200", SIDEBAR_PAD, anu.open && "xl:pr-[400px]")}>
+          <header className="no-print sticky top-0 z-10 flex h-14 flex-none items-center gap-2.5 border-b border-border bg-card px-4 lg:px-6">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="squircle grid h-10 w-10 flex-none place-items-center rounded-btn-md text-muted-foreground hover:bg-accent hover:text-foreground lg:hidden"
+              aria-label="Open menu"
+            >
+              <Menu variant="Linear" className="h-5 w-5" />
+            </button>
+
+            {/* Search looks like a field, so every page stays one keystroke away
+                while the sidebar shows only the everyday modules. */}
             <button
               type="button"
               onClick={() => setPaletteOpen(true)}
-              className="squircle grid h-10 w-10 place-items-center rounded-btn-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="squircle flex h-[38px] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left text-[13.5px] text-subtle-foreground transition-colors hover:bg-accent sm:max-w-[420px]"
               aria-label="Search (Ctrl K)"
-              title="Search (Ctrl K)"
             >
-              <Search variant="Linear" className="h-[18px] w-[18px]" />
+              <Search variant="Linear" className="h-[17px] w-[17px] flex-none" />
+              <span className="flex-1 truncate">Search customers, quotes, pages…</span>
+              <kbd className="hidden rounded-md bg-card px-1.5 py-0.5 text-[11px] font-medium sm:inline">Ctrl K</kbd>
             </button>
-            <NotificationsDrawer />
-            <div className="ml-1.5">
-              <AccountMenu onSignOut={handleLogout} />
+
+            <div className="ml-auto flex items-center gap-1.5">
+              <NewMenu />
+              <AnuHeaderButton />
+              <NotificationsDrawer />
             </div>
-          </div>
-        </header>
+          </header>
 
-        <main className="w-full grow px-6 pt-5">
-          <Outlet />
-        </main>
+          <main className="w-full grow px-6 pt-5">
+            <Outlet />
+          </main>
 
-        <footer className="mt-10 flex flex-wrap items-center justify-between gap-3 px-6 py-5 text-[13px] text-muted-foreground">
-          <span>
-            {new Date().getFullYear()} © <span className="text-foreground">Ortex Industries</span>
-          </span>
-          <div className="flex items-center gap-4">
-            <Link to="/settings" className="hover:text-primary">Settings</Link>
-            <Link to="/users" className="hover:text-primary">Users</Link>
-            <a href="https://bizgift.ortexindustries.in" target="_blank" rel="noreferrer" className="hover:text-primary">Website</a>
-          </div>
-        </footer>
+          <footer className="mt-10 flex flex-wrap items-center justify-between gap-3 px-6 py-5 text-[13px] text-muted-foreground">
+            <span>
+              {new Date().getFullYear()} © <span className="text-foreground">Ortex Industries</span>
+            </span>
+            <a href="https://bizgift.ortexindustries.in" target="_blank" rel="noreferrer" className="hover:text-primary">
+              Website
+            </a>
+          </footer>
+        </div>
+
+        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} pages={pages} />
+        <AnuPanel />
+        <AnuMiniCall />
+        <ChatNotifier />
       </div>
-
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} pages={pages} />
-      <AnuPanel />
-      <AnuMiniCall />
-      <ChatNotifier />
-    </div>
     </AnuProvider>
   )
 }

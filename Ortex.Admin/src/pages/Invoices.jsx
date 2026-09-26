@@ -28,6 +28,14 @@ export default function Invoices() {
   const location = useLocation()
   const navigate = useNavigate()
 
+  // The header's "+ New" menu: a blank invoice once the settings (numbering,
+  // tax defaults) are in.
+  useEffect(() => {
+    if (!location.state?.create || !settings) return
+    setEditing(emptyDraft(settings))
+    navigate(location.pathname + location.search, { replace: true })
+  }, [location.state, settings, navigate, location.pathname, location.search])
+
   // Arriving from a customer / product link that names an invoice to open.
   useEffect(() => {
     const id = location.state?.openId
