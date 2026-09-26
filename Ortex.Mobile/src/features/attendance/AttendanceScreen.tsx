@@ -16,6 +16,7 @@ import {
   shiftMinutes,
   weekColumns,
   workedMs,
+  punchWindowLabel,
 } from "@/features/attendance/progress"
 import { useAttendanceNotices, useAttendanceToday, useStartClock, useWeekDays } from "@/features/attendance/useAttendance"
 import WeekStatusStrip, { StatusLegend } from "@/features/attendance/WeekStatusStrip"
@@ -167,7 +168,12 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
                   onCorrect={() => navigation.navigate("AttendanceCorrection", { day: today, inAt: summary.firstIn, outAt: summary.lastOut })}
                 />
               ) : (
-                <CheckButton kind={kind} disabled={loading} onPress={() => void startClock(navigation, kind, settings)} />
+                <CheckButton
+                  kind={kind}
+                  disabled={loading}
+                  shut={punchWindowLabel(settings, now, kind)}
+                  onPress={() => void startClock(navigation, kind, settings)}
+                />
               )}
 
               <View style={styles.stampRow}>

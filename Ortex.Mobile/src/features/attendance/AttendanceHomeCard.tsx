@@ -7,7 +7,15 @@ import { clockIST, dayKey } from "@/domain/attendance"
 import { ActionAdvisory, InfoChip, DayDone } from "@/features/attendance/attendanceUi"
 import { dayLabel } from "@/features/attendance/format"
 import { DayTimelineBar, LiveTimer } from "@/features/attendance/LiveProgress"
-import { dayTimeline, progressWords, shiftEnded, shiftMinutes, weekColumns, workedMs } from "@/features/attendance/progress"
+import {
+  dayTimeline,
+  progressWords,
+  punchWindowLabel,
+  shiftEnded,
+  shiftMinutes,
+  weekColumns,
+  workedMs,
+} from "@/features/attendance/progress"
 import { weekCells } from "@/features/attendance/days"
 import WeekStatusStrip from "@/features/attendance/WeekStatusStrip"
 import { useAttendanceNotices, useAttendanceToday, useStartClock, useWeekDays } from "@/features/attendance/useAttendance"
@@ -59,6 +67,8 @@ export default function AttendanceHomeCard() {
       ? `General shift · ${shiftClock(settings.shift.start)} to ${shiftClock(settings.shift.end)}`
       : "Shift not set"
   const where = summary.field ? "Field visit" : summary.site || ""
+  // Outside the punch window the slider is shut and says when it opens.
+  const shut = punchWindowLabel(settings, now, onDutySince ? "out" : "in")
 
   // The state as a pill, and one line that says the rest.
   let state: { label: string; tone: "success" | "neutral" | "warning" }
@@ -140,9 +150,9 @@ export default function AttendanceHomeCard() {
           />
         ) : (
           <SlideToConfirm
-            label={onDutySince ? "Slide to check out" : "Slide to check in"}
+            label={shut || (onDutySince ? "Slide to check out" : "Slide to check in")}
             tone={onDutySince ? "danger" : "primary"}
-            disabled={loading}
+            disabled={loading || !!shut}
             hint={onDutySince ? "Scan the office code to check out" : "Scan the office code to check in"}
             onConfirm={() => void startClock(navigation, onDutySince ? "out" : "in", settings)}
           />

@@ -69,15 +69,31 @@ export function workedMs(day: string, punches: Punch[], now: number): { ms: numb
  * window is openBeforeMin (20) before the shift starts to closeAt (21:00), IST.
  * Mirrors attendance_punch (migration 0048), which has the final say.
  */
-export function punchWindowClosed(
-  s: ShiftSettings & { openBeforeMin?: number; closeAt?: string },
-  now: number,
-): string | null {
+type WindowSettings = ShiftSettings & { openBeforeMin?: number; closeAt?: string }
+
+/** Today's punch window in epoch ms, IST. */
+export function punchWindow(s: WindowSettings, now: number): { open: number; close: number } {
   const day = dayKey(now)
   const open = istMs(day, hhmmOk(s.shift?.start) ? s.shift!.start! : "09:30") - (s.openBeforeMin ?? 20) * MINUTE
   const close = istMs(day, hhmmOk(s.closeAt) ? s.closeAt! : "21:00")
+  return { open, close }
+}
+
+export function punchWindowClosed(s: WindowSettings, now: number): string | null {
+  const { open, close } = punchWindow(s, now)
   if (now >= open && now <= close) return null
   return `Attendance can be marked only between ${clockIST(open)} and ${clockIST(close)}.`
+}
+
+/**
+ * The same window as the label a check control wears while it is shut, so the
+ * card says when it opens instead of refusing after the slide. Null when open.
+ */
+export function punchWindowLabel(s: WindowSettings, now: number, kind: "in" | "out"): string | null {
+  const { open, close } = punchWindow(s, now)
+  if (now < open) return `Check-in opens at ${clockIST(open)}`
+  if (now > close) return `${kind === "in" ? "Check-in" : "Check-out"} closed at ${clockIST(close)}`
+  return null
 }
 
 /**

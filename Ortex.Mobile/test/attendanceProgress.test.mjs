@@ -82,4 +82,7 @@ test("punch window: 20 min before the shift to 9 PM, IST", () => {
   assert.equal(p.punchWindowClosed(S, at(9, 9)), "Attendance can be marked only between 9:10 AM and 9:00 PM.")
   assert.ok(p.punchWindowClosed(S, at(21, 1)))
   assert.equal(p.punchWindowClosed({ ...S, openBeforeMin: 60, closeAt: "22:00" }, at(21, 30)), null)
+  assert.equal(p.punchWindowLabel(S, at(9, 9), "in"), "Check-in opens at 9:10 AM")
+  assert.equal(p.punchWindowLabel(S, at(9, 10), "in"), null)
+  assert.equal(p.punchWindowLabel(S, at(21, 1), "out"), "Check-out closed at 9:00 PM")
 })

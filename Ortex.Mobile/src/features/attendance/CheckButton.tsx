@@ -15,18 +15,22 @@ import { AnimatedPressable, usePressMotion } from "@/ui/motion"
  */
 export default function CheckButton({
   kind,
-  disabled = false,
+  disabled: disabledProp = false,
+  shut,
   onPress,
 }: {
   kind: "in" | "out"
   disabled?: boolean
+  /** Outside the punch window: says when it opens, and the button is off. */
+  shut?: string | null
   onPress: () => void
 }) {
   const t = useTheme()
   const press = usePressMotion({ scale: 0.97, dim: 0.9 })
+  const disabled = disabledProp || !!shut
   const fill = disabled ? t.mutedBg : kind === "in" ? t.success : t.danger
   const ink = disabled ? t.textTertiary : "#FFFFFF"
-  const label = kind === "in" ? "Check-in" : "Check-out"
+  const label = shut || (kind === "in" ? "Check-in" : "Check-out")
   return (
     <AnimatedPressable
       disabled={disabled}
@@ -37,7 +41,7 @@ export default function CheckButton({
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
       accessibilityRole="button"
-      accessibilityLabel={`${label}. Opens the scanner for the office code.`}
+      accessibilityLabel={shut ? label : `${label}. Opens the scanner for the office code.`}
       accessibilityState={{ disabled }}
       style={[styles.button, { backgroundColor: fill }, press.style]}
     >
