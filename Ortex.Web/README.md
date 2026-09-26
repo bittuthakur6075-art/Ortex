@@ -6,7 +6,7 @@ quote calculator, contact/lead capture and the **Live Orty** voice assistant.
 - **Stack**: React 19, Vite 8, Tailwind CSS v4, React Router v7, Framer Motion, Lenis, Iconsax icons (via `components/ui/Icons.jsx`, the same set as the Admin).
 - **Backend**: none of its own. Reads the live catalogue and writes leads through the
   browser Supabase client (`src/lib/supabaseClient.js`); the voice assistant talks to the
-  `orty-live-token` / `orty-chat` edge functions deployed from `Ortex.Admin/supabase`.
+  `orty-live-token` edge function deployed from `Ortex.Admin/supabase` (rate-limited per visitor).
 - **Static output**: `npm run build` verifies route metadata, builds to `dist/` and
   prerenders every static route so crawlers get real `<title>`/OG tags.
 

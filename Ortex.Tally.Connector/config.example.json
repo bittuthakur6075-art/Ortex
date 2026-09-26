@@ -4,7 +4,7 @@
     "company": "Ortex Industries"
   },
   "supabase": {
-    "url": "https://pfoeztiakqtemakfgpgs.supabase.co",
+    "url": "https://YOUR-PROJECT-REF.supabase.co",
     "serviceKey": "PASTE-YOUR-SERVICE_ROLE-KEY-HERE"
   },
   "ledgers": {

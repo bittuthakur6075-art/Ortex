@@ -2,16 +2,16 @@
 
 The marketing site is a **static Vite build** (`dist/`). It talks to Supabase
 directly from the browser (catalogue, leads) and to a **Supabase Edge Function**
-(`orty-chat`) for the AI assistant, so it needs **no Node server** and runs on
+(`orty-live-token`) for the voice assistant, so it needs **no Node server** and runs on
 any Hostinger plan (Shared / Cloud / VPS).
 
 ## One-time setup
 
-### 1. Deploy the Orty chat backend (Supabase Edge Function)
+### 1. Deploy the voice assistant backend (Supabase Edge Function)
 From the `Ortex.Admin` folder (that's where `supabase/functions/` lives):
 
 ```bash
-supabase functions deploy orty-chat
+supabase functions deploy orty-live-token
 supabase secrets set GEMINI_API_KEY=your-google-ai-studio-key
 # optional: supabase secrets set GEMINI_MODEL=gemini-flash-lite-latest
 ```
@@ -73,6 +73,6 @@ writes it into every page and fails the build on a malformed value.
 - **Admin panel** (`Ortex.Admin`) deploys the same way if you host it on
   Hostinger too, build it and upload its `dist/` to a subdomain (e.g.
   `admin.yourdomain.com`). Add the same SPA `.htaccess` there.
-- If Orty ever shows only its short FAQ answers, the `orty-chat` function isn't
-  reachable (not deployed, or missing `GEMINI_API_KEY`). The widget is designed
-  to fall back gracefully.
+- If the voice assistant will not start, the `orty-live-token` function isn't
+  reachable (not deployed, or missing `GEMINI_API_KEY`), or a visitor hit its
+  rate limit (6 sessions per 10 minutes, 400 a day across the site).

@@ -88,7 +88,12 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 async function insertEnquiry(doc) {
   if (!hasSupabase) return "Backend not configured"
   try {
-    const { error } = await supabase.from("enquiries").insert({ doc })
+    // A stalled connection must not leave the visitor watching a spinner: after
+    // 20 s this attempt counts as failed and the outbox takes over.
+    const { error } = await Promise.race([
+      supabase.from("enquiries").insert({ doc }),
+      new Promise((resolve) => setTimeout(() => resolve({ error: { message: "Timed out" } }), 20000)),
+    ])
     return error ? error.message : null
   } catch (err) {
     return err?.message || "Network error"

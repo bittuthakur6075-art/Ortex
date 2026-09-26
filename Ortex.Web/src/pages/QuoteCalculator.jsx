@@ -106,27 +106,33 @@ export default function QuoteCalculator() {
       contactData.message ? `Notes: ${contactData.message}` : null,
     ].filter(Boolean)
 
-    const res = await submitEnquiry({
-      reference: ref,
-      source: "Quote calculator",
-      customer: {
-        name: contactData.name,
-        email: contactData.email,
-        phone: contactData.phone,
-        company: contactData.company,
-      },
-      productInterest: categories.length === 1 ? categories[0] : "Multiple categories",
-      message: summaryLines.join("\n"),
-      notes: JSON.stringify({
-        items: lines.map((l) => ({
-          productId: l.product.id, name: l.product.name, sku: l.product.sku,
-          category: l.product.category, unit: l.product.unit, quantity: l.qty,
-        })),
-        artwork, artworkError,
-      }),
-    })
-
-    setIsSubmitting(false)
+    let res
+    try {
+      res = await submitEnquiry({
+        reference: ref,
+        source: "Quote calculator",
+        customer: {
+          name: contactData.name,
+          email: contactData.email,
+          phone: contactData.phone,
+          company: contactData.company,
+        },
+        productInterest: categories.length === 1 ? categories[0] : "Multiple categories",
+        message: summaryLines.join("\n"),
+        notes: JSON.stringify({
+          items: lines.map((l) => ({
+            productId: l.product.id, name: l.product.name, sku: l.product.sku,
+            category: l.product.category, unit: l.product.unit, quantity: l.qty,
+          })),
+          artwork, artworkError,
+        }),
+      })
+    } catch {
+      toast.error("We could not send your quote request. Please WhatsApp or call us, and we will take it from there.")
+      return
+    } finally {
+      setIsSubmitting(false)
+    }
     setReference(res.reference)
     setIsQueued(Boolean(res.queued))
 

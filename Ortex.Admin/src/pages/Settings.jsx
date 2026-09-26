@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react"
 import { Building2, Percent, Hash, Database, Sparkles, Trash2, Info, Save, Mail, Inbox } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
+import { hasSupabase } from "../data/store/supabaseClient"
 import { useSettings, useCollections, useCollection } from "../hooks/useCollection"
 import { loadDemoData, countDemoData, removeDemoData } from "../data/seed/seed"
 import { syncIndiaMart } from "../services/integrations"
@@ -297,9 +298,14 @@ export default function Settings() {
             ))}
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={loadDemoData}>
-              <Sparkles className="h-4 w-4" /> Load demo data
-            </Button>
+            {/* Demo data is for the local demo only: on the live database it would
+                add fake invoices (duplicate GST numbers) and products the public
+                site shows. seedDemo() refuses there too. */}
+            {!hasSupabase && (
+              <Button variant="outline" size="sm" onClick={loadDemoData}>
+                <Sparkles className="h-4 w-4" /> Load demo data
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={purgeDemoData}>
               <Trash2 className="h-4 w-4" /> Remove demo data
             </Button>
@@ -310,7 +316,9 @@ export default function Settings() {
           </p>
         </SettingsCard>
 
-        <SettingsCard icon={Trash2} tone="danger" title="Danger zone" description="Permanently delete everything stored in this browser.">
+        {/* Local demo only: on the live database this would wipe every business
+            table. apiStore.clearAll() refuses as well. */}
+        {!hasSupabase && <SettingsCard icon={Trash2} tone="danger" title="Danger zone" description="Permanently delete everything stored in this browser.">
           <Button
             variant="danger"
             size="sm"
@@ -323,7 +331,7 @@ export default function Settings() {
           >
             Clear all data
           </Button>
-        </SettingsCard>
+        </SettingsCard>}
       </div>
     </div>
   )
@@ -370,7 +378,7 @@ function AiUsageCard() {
         {[
           ["Model", stats.model],
           ["Provider", "Google AI Studio"],
-          ["Chatbot function", "orty-chat"],
+          ["Voice assistant", "orty-live-token"],
           ["Copywriter function", "product-copywriter"],
         ].map(([k, v]) => (
           <div key={k} className="rounded-lg bg-muted/30 p-3">

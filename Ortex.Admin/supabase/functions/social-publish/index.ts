@@ -34,6 +34,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
 import { requireStaff, type Db } from "../_shared/auth.ts"
+import { ownStorageUrl } from "../_shared/images.ts"
 import {
   LI_MAX_COMMENTARY, liConfigured, linkedInCommentary, loadConnection, publishLinkedIn, usableConnection,
 } from "../_shared/linkedin.ts"
@@ -143,6 +144,9 @@ async function problemWith(db: Db, doc: Post): Promise<string> {
   const image = String(doc.image || "")
   const caption = captionText(doc)
   if (!image) return "This post has no creative yet."
+  // The server fetches this URL (and LinkedIn uploads the bytes): only our own
+  // storage, never an arbitrary or internal address.
+  if (!ownStorageUrl(image)) return "The creative must be an image uploaded to Social. Upload or generate it again."
   if (!caption) return "This post has no caption yet."
   if (!platforms.length) return "No platform selected for this post."
 

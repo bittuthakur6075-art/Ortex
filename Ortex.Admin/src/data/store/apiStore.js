@@ -253,18 +253,11 @@ export const apiStore = {
   },
 
   async clearAll() {
-    // Guarded destructive op, wipes every business table for this project.
-    const tables = [
-      "products", "categories", "social", "customers", "enquiries", "leads", "quotations", "invoices", "payments", "notifications",
-      "user_activities", "event_logs", "whatsapp_logs", "ai_messages", "automation_rules", "message_templates",
-      "telecaller_jobs", "telecaller_calls"
-    ]
-    for (const t of tables) {
-      const { error } = await supabase.from(t).delete().neq("id", "00000000-0000-0000-0000-000000000000")
-      if (error) throw error
-    }
-    await supabase.from("settings").upsert({ id: SETTINGS_ROW_ID, doc: DEFAULT_SETTINGS }, { onConflict: "id" })
-    return true
+    // Wiping every business table is a local-demo convenience only. There is
+    // one Supabase project and it is production (docs/ENVIRONMENTS.md): a
+    // browser confirm() must never be all that stands between a click and the
+    // company's invoices. Maintenance on the live data is SQL, by hand.
+    throw new Error("Clearing all data is disabled on the live database.")
   },
 
   async exportAll() {

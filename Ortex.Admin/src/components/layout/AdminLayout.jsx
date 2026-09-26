@@ -31,7 +31,6 @@ import { AnuHeaderButton, AnuMiniCall } from "../anu/AnuLauncher"
 import ChatNotifier from "../chat/ChatNotifier"
 import { useChatInbox } from "../../hooks/useChat"
 import { canAccess } from "../../data/domain/modules"
-import { syncLocalToSupabase } from "../../data/store/sync"
 import { cn } from "../../lib/cn"
 // The one version number: bump package.json and the sidebar follows. A named
 // import lets Vite inline just this field rather than the whole manifest.
@@ -271,10 +270,6 @@ export default function AdminLayout() {
   useEffect(() => {
     if (ready && !authed) navigate("/login", { replace: true })
   }, [ready, authed, navigate])
-
-  useEffect(() => {
-    if (authed) syncLocalToSupabase()
-  }, [authed])
 
   // Ctrl/⌘ K opens global search from anywhere.
   useEffect(() => {

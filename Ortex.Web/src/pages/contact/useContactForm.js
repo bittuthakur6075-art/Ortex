@@ -44,18 +44,25 @@ export default function useContactForm() {
     e.preventDefault()
     if (!validateForm()) return
     setIsSubmitting(true)
-    const res = await submitEnquiry({
-      source: "Website contact form",
-      customer: {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        company: formData.company,
-      },
-      productInterest: formData.productInterest,
-      message: formData.message,
-    })
-    setIsSubmitting(false)
+    let res
+    try {
+      res = await submitEnquiry({
+        source: "Website contact form",
+        customer: {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          company: formData.company,
+        },
+        productInterest: formData.productInterest,
+        message: formData.message,
+      })
+    } catch {
+      toast.error("We could not send that. Please WhatsApp or call us, and we will take it from there.")
+      return
+    } finally {
+      setIsSubmitting(false)
+    }
 
     if (res.queued) {
       toast.warning(

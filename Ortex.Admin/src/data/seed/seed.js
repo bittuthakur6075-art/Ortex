@@ -1,3 +1,4 @@
+import { hasSupabase } from "../store/supabaseClient"
 // Demo data seeder. Populates every collection with a coherent, cross-linked
 // dataset (enquiries → leads → quotations → invoices → payments) spread over
 // the last few months so the dashboard, aging buckets and trend charts are
@@ -103,6 +104,9 @@ const CATEGORIES = [
 ]
 
 export async function seedDemo() {
+  // Never on the live database: sample invoices would reuse real GST invoice
+  // numbers and sample products would appear on the public website.
+  if (hasSupabase) throw new Error("Demo data can only be loaded in the local demo, never on the live database.")
   // ---- categories, products & customers (no inbound references) ----
   await repo.bulkCreate("categories", CATEGORIES.map((c) => ({ ...c, description: "" })))
   const productIds = await createMapped("products", PRODUCTS)

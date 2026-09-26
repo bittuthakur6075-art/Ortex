@@ -1,4 +1,5 @@
 import { cors, json } from "../_shared/http.ts"
+import { clientIp, withinLimit } from "../_shared/guard.ts"
 // Edge Function: orty-live-token
 //
 // Mints a short-lived, single-use EPHEMERAL token for the Gemini Live API so the
@@ -11,7 +12,7 @@ import { cors, json } from "../_shared/http.ts"
 //
 // Deploy:
 //   supabase functions deploy orty-live-token
-//   (uses the same GEMINI_API_KEY secret as orty-chat / product-copywriter)
+//   (uses the same GEMINI_API_KEY secret as product-copywriter)
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors })
@@ -19,6 +20,13 @@ Deno.serve(async (req) => {
 
   const apiKey = Deno.env.get("GEMINI_API_KEY")
   if (!apiKey) return json({ error: "Live assistant is not configured." }, 500)
+
+  // Public, so bounded: a visitor gets a handful of sessions, and the whole site
+  // a daily ceiling, so nobody can script the Gemini quota staff Anu relies on.
+  const ip = clientIp(req)
+  if (!(await withinLimit(`orty-live:ip:${ip}`, 6, 600)) || !(await withinLimit("orty-live:all", 400, 86400))) {
+    return json({ error: "The voice assistant is busy right now. Please try again in a few minutes." }, 429)
+  }
 
   try {
     const now = Date.now()

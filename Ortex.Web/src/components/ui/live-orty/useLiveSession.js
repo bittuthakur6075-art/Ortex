@@ -315,7 +315,7 @@ export function useLiveSession() {
       playLeadRef.current = Math.min(PLAYBACK_LEAD_MAX, playLeadRef.current + PLAYBACK_LEAD_STEP)
       if (import.meta.env.DEV) {
         if (window.__anu) window.__anu.underruns += 1
-        console.info(`[Anu] playback underrun, lead now ${Math.round(playLeadRef.current * 1000)} ms`)
+        if (import.meta.env.DEV) console.info(`[Anu] playback underrun, lead now ${Math.round(playLeadRef.current * 1000)} ms`)
       }
     }
     replyingRef.current = true
@@ -472,7 +472,7 @@ export function useLiveSession() {
           const query = String(fc.args?.query || "")
           response = lookupProduct(catalogueRef.current, query)
           if (import.meta.env.DEV) {
-            console.info("[Anu] lookup_product:", query, "->", response.matches?.length ? response.matches.map((m) => m.name).join(" | ") : response.standard_range ? "standard range, not listed yet" : "not in catalogue (custom run)")
+            if (import.meta.env.DEV) console.info("[Anu] lookup_product:", query, "->", response.matches?.length ? response.matches.map((m) => m.name).join(" | ") : response.standard_range ? "standard range, not listed yet" : "not in catalogue (custom run)")
           }
         }
         if (fc.name === "find_past_work") response = findPastWork(catalogueRef.current, String(fc.args?.query || ""))
@@ -518,7 +518,7 @@ export function useLiveSession() {
           // Transcription trails the audio a little, so this slightly
           // UNDER-states the gap; a large number is a real one.
           if (heardAtRef.current && !replyingRef.current && !sourcesRef.current.length) {
-            console.info(`[Anu] reply started ${Math.round(performance.now() - heardAtRef.current)} ms after the customer's last words${toolSinceHeardRef.current ? " (a tool call in between)" : ""}`)
+            if (import.meta.env.DEV) console.info(`[Anu] reply started ${Math.round(performance.now() - heardAtRef.current)} ms after the customer's last words${toolSinceHeardRef.current ? " (a tool call in between)" : ""}`)
             heardAtRef.current = 0
           }
         }
@@ -621,7 +621,7 @@ export function useLiveSession() {
       unwatchCatalogueRef.current?.()
       unwatchCatalogueRef.current = catalogue ? watchCatalogue() : null
       if (import.meta.env.DEV) {
-        console.info("[Anu] catalogue:", catalogue ? `${catalogue.products.length} products, ${catalogue.categories.length} categories` : "unavailable, using the prompt's general range")
+        if (import.meta.env.DEV) console.info("[Anu] catalogue:", catalogue ? `${catalogue.products.length} products, ${catalogue.categories.length} categories` : "unavailable, using the prompt's general range")
       }
       // Closed while connecting: stop() already tore everything down.
       if (outCtxRef.current !== out) return

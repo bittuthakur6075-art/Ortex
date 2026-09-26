@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { clientIp, withinLimit } from '../_shared/guard.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -135,12 +136,24 @@ Deno.serve(async (req: Request) => {
     // ------------------------------------------------------------------
     // 1. Parse request body
     // ------------------------------------------------------------------
-    const { eventType, userId, description, metadata } = await req.json() as {
+    // Public (the website calls it): at most 30 events a visitor in 10 minutes.
+    if (!(await withinLimit(`automation:ip:${clientIp(req)}`, 30, 600))) {
+      return new Response(JSON.stringify({ error: 'Too many requests' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const parsed = await req.json() as {
       eventType: string
       userId?: string
       description?: string
       metadata?: Record<string, unknown>
     }
+    const eventType = String(parsed.eventType || '').slice(0, 64)
+    const userId = parsed.userId ? String(parsed.userId).slice(0, 64) : undefined
+    const description = parsed.description ? String(parsed.description).slice(0, 500) : undefined
+    const metadata = parsed.metadata && JSON.stringify(parsed.metadata).length <= 4000 ? parsed.metadata : undefined
 
     if (!eventType) {
       return new Response(JSON.stringify({ error: 'eventType is required' }), {
@@ -359,7 +372,7 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     console.error('Unexpected error in automation-engine:', err)
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: String(err) }),
+      JSON.stringify({ error: 'Internal server error' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

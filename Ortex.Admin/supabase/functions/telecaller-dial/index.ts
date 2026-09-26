@@ -18,7 +18,8 @@
 //   supabase secrets set TELECALLER_WEBHOOK_SECRET=<random string>
 
 import { cors, json } from "../_shared/http.ts"
-import { requireStaff } from "../_shared/auth.ts"
+import { isAdminRole, requireStaff } from "../_shared/auth.ts"
+import { callerHasModule } from "../_shared/guard.ts"
 import { briefForJob, dialJob, insertDoc, isIndianMobile, loadSettings, newJob, normalizePhone, recordLiveCall, vapiConfigured } from "../_shared/telecaller.ts"
 
 Deno.serve(async (req) => {
@@ -27,6 +28,10 @@ Deno.serve(async (req) => {
 
   const staff = await requireStaff(req)
   if (staff instanceof Response) return staff
+  // Real calls cost money: the caller needs the Call agent module, not just a login.
+  if (!isAdminRole(staff.role) && !(await callerHasModule(req, "telecaller"))) {
+    return json({ error: "You need access to the Call agent to place calls." }, 403)
+  }
   if (!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) return json({ error: "Telecaller is not configured (missing service role)." }, 500)
 
   try {
@@ -68,7 +73,8 @@ Deno.serve(async (req) => {
     }
 
     const provider = body.provider === "simulate" ? "simulate" : body.provider === "vapi" ? "vapi" : undefined
-    const result = await dialJob(staff.db, jobId, { force: true, provider })
+    // Re-dialling a finished job is an admin decision.
+    const result = await dialJob(staff.db, jobId, { force: isAdminRole(staff.role), provider })
     return json({
       ok: !result.error,
       jobId,

@@ -17,18 +17,26 @@ const NO_LOCATION = {
 // Generate or retrieve tracking user ID and session ID. Exported so lead
 // capture can stamp the same ids onto the enquiry, giving the admin Growth
 // dashboard a deterministic behavior→revenue join key.
-export function getTrackingIds() {
-  let userId = localStorage.getItem("ortex_tracking_user_id")
-  if (!userId) {
-    userId = "usr_" + Math.random().toString(36).substring(2, 11)
-    localStorage.setItem("ortex_tracking_user_id", userId)
+// Storage can be blocked (Safari lockdown, some privacy modes): then the ids
+// are one-off rather than an exception, because an enquiry submit calls this
+// and must never fail on analytics.
+function stored(store, key, prefix) {
+  const fresh = () => prefix + Math.random().toString(36).substring(2, 11)
+  try {
+    let id = store.getItem(key)
+    if (!id) {
+      id = fresh()
+      store.setItem(key, id)
+    }
+    return id
+  } catch {
+    return fresh()
   }
+}
 
-  let sessionId = sessionStorage.getItem("ortex_tracking_session_id")
-  if (!sessionId) {
-    sessionId = "sess_" + Math.random().toString(36).substring(2, 11)
-    sessionStorage.setItem("ortex_tracking_session_id", sessionId)
-  }
+export function getTrackingIds() {
+  const userId = stored(localStorage, "ortex_tracking_user_id", "usr_")
+  const sessionId = stored(sessionStorage, "ortex_tracking_session_id", "sess_")
 
   return { userId, sessionId }
 }

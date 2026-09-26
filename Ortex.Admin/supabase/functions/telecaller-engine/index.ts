@@ -24,7 +24,8 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
-import { requireStaff } from "../_shared/auth.ts"
+import { isAdminRole, requireStaff } from "../_shared/auth.ts"
+import { callerHasModule, secretsMatch } from "../_shared/guard.ts"
 import { sweep } from "../_shared/telecaller.ts"
 import { refreshPulse } from "../_shared/telecallerPulse.ts"
 
@@ -39,11 +40,14 @@ Deno.serve(async (req) => {
   const bearer = (req.headers.get("Authorization") || "").replace(/^bearer\s+/i, "").trim()
   const cronSecret = Deno.env.get("TELECALLER_WEBHOOK_SECRET") || ""
   const givenSecret = req.headers.get("x-telecaller-secret") || ""
-  const isScheduler = bearer === service || (cronSecret.length > 0 && givenSecret === cronSecret)
+  const isScheduler = secretsMatch(bearer, service) || secretsMatch(givenSecret, cronSecret)
   let force = false
   if (!isScheduler) {
     const staff = await requireStaff(req)
     if (staff instanceof Response) return staff
+    if (!isAdminRole(staff.role) && !(await callerHasModule(req, "telecaller"))) {
+      return json({ error: "You need access to the Call agent to run it." }, 403)
+    }
     const body = await req.clone().json().catch(() => ({}))
     force = body.force === true && (staff.role === "admin" || staff.role === "super_admin")
   }
