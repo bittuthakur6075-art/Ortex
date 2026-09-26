@@ -35,6 +35,7 @@ import {
   type Conversation,
 } from "@/domain/chat"
 import { ConversationAvatar, PersonFace, Ticks } from "@/features/chat/chatUi"
+import { useDismissChatNotification } from "@/features/chat/ChatNotifier"
 import { useAnuChat } from "@/features/chat/useAnuChat"
 import { getInbox, patchConversation, setActiveConversation, useChatInbox, useChatThread, useMyId, type Photo } from "@/features/chat/useChat"
 import { keyboardTopInWindow } from "@/hooks/useKeyboardAwareScroll"
@@ -138,6 +139,8 @@ export default function ChatThreadScreen({ navigation, route }: StackScreenProps
   const keyboard = useKeyboardLift(useReducedMotion())
   const [text, setText] = React.useState("")
   const [replyTo, setReplyTo] = React.useState<ChatMessage | null>(null)
+
+  useDismissChatNotification(route.params.id)
 
   React.useEffect(() => {
     setActiveConversation(route.params.id)

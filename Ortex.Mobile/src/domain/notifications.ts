@@ -98,6 +98,8 @@ export type NotificationPrefs = {
   insights: boolean
   /** "You have not clocked in" / "Clock out?" (lib/attendanceReminders.ts). */
   attendance: boolean
+  /** A new Team chat message (features/chat/ChatNotifier.tsx, and server push). */
+  chat: boolean
 }
 
 export const DEFAULT_PREFS: NotificationPrefs = {
@@ -109,6 +111,7 @@ export const DEFAULT_PREFS: NotificationPrefs = {
   motivation: true,
   insights: true,
   attendance: true,
+  chat: true,
 }
 
 /** Every switchable signal, for the settings screen. */
@@ -121,6 +124,7 @@ export const NOTIFICATION_SETTINGS: {
   { key: "voice", label: "Voice calls", hint: "Leads Anu captures on a call" },
   { key: "stale", label: "Enquiries going cold", hint: "Still new after two days" },
   { key: "quotations", label: "Quotation validity", hint: "Sent quotes about to expire" },
+  { key: "chat", label: "Team chat", hint: "Messages from colleagues, your team channel and Anu. Mute one chat from its page" },
 ]
 
 /** The scheduled morning notifications, for the settings screen's Daily section. */

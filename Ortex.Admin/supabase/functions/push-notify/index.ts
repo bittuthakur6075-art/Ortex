@@ -61,13 +61,15 @@ Deno.serve(async (req) => {
   if (!sa) return json({ skipped: "FIREBASE_SERVICE_ACCOUNT is not set" })
 
   const { table, id } = (await req.json().catch(() => ({}))) as { table?: string; id?: string }
-  if (!id || !["enquiries", "leave_requests", "regularisations"].includes(table || "")) {
-    return json({ error: "expected { table: 'enquiries' | 'leave_requests' | 'regularisations', id }" }, 400)
+  if (!id || !["enquiries", "leave_requests", "regularisations", "chat_messages"].includes(table || "")) {
+    return json({ error: "expected { table: 'enquiries' | 'leave_requests' | 'regularisations' | 'chat_messages', id }" }, 400)
   }
 
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },
   })
+
+  if (table === "chat_messages") return json(await chatMessage(db, sa, id))
 
   if (table === "leave_requests" || table === "regularisations") {
     return json(await attendanceApproval(db, sa, table, id))
@@ -254,6 +256,64 @@ async function attendanceApproval(db: any, sa: any, table: string, id: string) {
       title,
       remote: "1",
     },
+  })
+  const gone = results.filter((r) => r.unregistered).map((r) => r.token)
+  if (gone.length) await db.from("push_devices").delete().in("token", gone)
+  return { sent: results.filter((r) => r.ok).length, removed: gone.length }
+}
+
+// ---- Team chat (migration 0047) ----------------------------------------------------
+//
+// To every other member of the conversation who has not muted it and is active,
+// on the phone's "Team chat" channel, tagged `chat-<conversation>` so each chat
+// is one notification (the newest message replacing the last), and the phone's
+// own realtime copy (features/chat/ChatNotifier.tsx) replaces it rather than
+// stacking. A tap opens the thread (targetScreen ChatThread).
+
+const CHAT_CHANNEL = "chat_v1" // Ortex.Mobile/src/lib/push.ts CHANNEL_CHAT
+
+// deno-lint-ignore no-explicit-any
+async function chatMessage(db: any, sa: any, id: string) {
+  const { data: m } = await db.from("chat_messages").select("*").eq("id", id).maybeSingle()
+  if (!m || m.deleted_at || !["text", "bot"].includes(m.kind)) return { skipped: "nothing to announce" }
+  const { data: conv } = await db.from("chat_conversations").select("id, kind, title").eq("id", m.conversation_id).maybeSingle()
+  if (!conv || conv.kind === "assistant") return { skipped: "private thread" }
+
+  const { data: members } = await db.from("chat_members").select("user_id, muted").eq("conversation_id", conv.id)
+  // deno-lint-ignore no-explicit-any
+  const rows = (members || []) as any[]
+  const ids = rows.map((r) => r.user_id as string)
+  const { data: people } = await db.from("profiles").select("id, name, active").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"])
+  // deno-lint-ignore no-explicit-any
+  const byId = new Map((people || []).map((p: any) => [p.id, p]))
+  const recipients = rows
+    // deno-lint-ignore no-explicit-any
+    .filter((r) => r.user_id !== m.sender_id && !r.muted && (byId.get(r.user_id) as any)?.active !== false)
+    .map((r) => r.user_id as string)
+  if (!recipients.length) return { skipped: "nobody to tell" }
+
+  // deno-lint-ignore no-explicit-any
+  const senderName = m.kind === "bot" ? "Anu" : clean((byId.get(m.sender_id) as any)?.name) || clean(m.meta?.sender_name) || "Someone"
+  const first = senderName.split(/\s+/)[0]
+  const title = conv.kind === "direct" ? senderName : `${first} in ${clean(conv.title) || "a group"}`
+  const text = clean(m.body).replace(/\s+/g, " ")
+  const body = text
+    ? text.slice(0, 240)
+    : m.attachment
+      ? String(m.attachment?.type || "").startsWith("image/") ? "Photo" : "Sent a file"
+      : "New message"
+
+  const { data: devices } = await db.from("push_devices").select("token").in("user_id", recipients)
+  const tokens = [...new Set((devices || []).map((d: { token: string }) => d.token))]
+  if (!tokens.length) return { skipped: "no registered phones" }
+
+  const tag = `chat-${conv.id}`
+  const results = await sendToTokens(sa, tokens as string[], {
+    title,
+    body,
+    tag,
+    channelId: CHAT_CHANNEL,
+    data: { id: `chat-msg-${m.id}`, targetScreen: "ChatThread", targetId: String(conv.id), phone: "", title, remote: "1", chat: "1" },
   })
   const gone = results.filter((r) => r.unregistered).map((r) => r.token)
   if (gone.length) await db.from("push_devices").delete().in("token", gone)

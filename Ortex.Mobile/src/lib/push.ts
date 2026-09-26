@@ -41,6 +41,8 @@ export const CATEGORY_PLAIN = "ortex.lead.plain"
  */
 export const CHANNEL_LEADS = "leads_v3"
 export const CHANNEL_REMINDERS = "reminders_v3"
+/** Team chat: HIGH (a heads-up) with the system sound, never the lead ring. Must equal CHANNEL_CHAT in push-notify. */
+export const CHANNEL_CHAT = "chat_v1"
 const RETIRED_CHANNELS = ["leads", "reminders", "leads_v2", "reminders_v2"]
 
 /** The file name in android/app/src/main/res/raw (and the iOS bundle, once added). */
@@ -126,6 +128,16 @@ export async function configurePush(): Promise<void> {
       sound: RING_SOUND,
       enableVibrate: true,
       vibrationPattern: REMINDER_VIBRATION,
+      lightColor: "#2F50E4",
+    }).catch(() => {})
+    await Notifications.setNotificationChannelAsync(CHANNEL_CHAT, {
+      name: "Team chat",
+      description: "Messages from colleagues, team channels and Anu",
+      importance: Notifications.AndroidImportance.HIGH,
+      enableVibrate: true,
+      vibrationPattern: [0, 180, 90, 180],
+      // The lock screen shows "Ortex Sales" and hides the text: a chat can be private.
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
       lightColor: "#2F50E4",
     }).catch(() => {})
   }
@@ -282,6 +294,42 @@ export async function dismissNotification(id: string): Promise<void> {
 
 export async function setBadge(count: number): Promise<void> {
   await Notifications.setBadgeCountAsync(count).catch(() => {})
+}
+
+/** The OS identifier of a chat's notification: one per conversation, the newest message replacing the last. */
+export const chatNotificationId = (conversationId: string) => `chat-${conversationId}`
+
+/**
+ * Post a Team chat message to the shade, now. One entry per conversation (the
+ * same identifier the server push uses as its Android tag), so a burst of
+ * messages is one notification showing the latest, as WhatsApp does. A tap
+ * opens the thread through the engine's response listener, which reads
+ * targetScreen / targetId exactly as it does for a server push.
+ */
+export async function presentChatNotification(m: {
+  conversationId: string
+  messageId: string
+  title: string
+  body: string
+}): Promise<void> {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: m.title,
+      body: m.body,
+      data: { id: `chat-msg-${m.messageId}`, targetScreen: "ChatThread", targetId: m.conversationId, phone: "", title: m.title, chat: "1" },
+      categoryIdentifier: CATEGORY_PLAIN,
+      priority: Notifications.AndroidNotificationPriority.HIGH,
+      color: "#2F50E4",
+    },
+    identifier: chatNotificationId(m.conversationId),
+    // The channel on the TRIGGER, never on content (see presentNotification).
+    trigger: Platform.OS === "android" ? { channelId: CHANNEL_CHAT } : null,
+  })
+}
+
+/** Clear a conversation's notification once it is on screen. */
+export async function dismissChatNotification(conversationId: string): Promise<void> {
+  await Notifications.dismissNotificationAsync(chatNotificationId(conversationId)).catch(() => {})
 }
 
 /** The action the rep tapped, or "open" for the notification body itself. */

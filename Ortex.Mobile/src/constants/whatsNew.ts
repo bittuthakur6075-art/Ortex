@@ -29,6 +29,31 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.4.1",
+    version: "1.4.1",
+    date: "2026-09-23",
+    title: "Chat notifications",
+    summary:
+      "New chat messages now appear as notifications. Still on 1.3 or older? Install once by hand: Settings, Apps, Ortex Sales, Uninstall, then open the download link your admin sends and install. Sign in again as usual.",
+    items: [
+      {
+        kind: "new",
+        title: "Chat notifications",
+        detail: "A message from a colleague, a group or your team channel shows in the notification shade straight away, one notification per chat with the newest message. Tap it to open the chat.",
+      },
+      {
+        kind: "improved",
+        title: "Quiet when you are reading",
+        detail: "Nothing pops up for the chat already open on your screen, and opening a chat clears its notification.",
+      },
+      {
+        kind: "new",
+        title: "Your choice",
+        detail: "Turn Team chat notifications off in Profile, Notifications, or mute one busy chat from its own page with the bell.",
+      },
+    ],
+  },
+  {
     id: "1.4.0",
     version: "1.4.0",
     date: "2026-09-23",

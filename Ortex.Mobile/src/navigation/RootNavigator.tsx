@@ -35,6 +35,7 @@ import NotificationsScreen from "@/features/notifications/NotificationsScreen"
 import { NotificationEngine } from "@/features/notifications/useNotificationEngine"
 import GlobalSearchScreen from "@/features/search/GlobalSearchScreen"
 import AnuScreen from "@/features/anu/AnuScreen"
+import { ChatNotifier } from "@/features/chat/ChatNotifier"
 import ChatThreadScreen from "@/features/chat/ChatThreadScreen"
 import AttendanceApprovalsScreen from "@/features/attendance/AttendanceApprovalsScreen"
 import {
@@ -132,6 +133,8 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
       <AttendanceReminderPlanner />
       <AttendanceApprovalAlerts />
       <PayslipAlerts />
+      {/* Team chat messages to the shade, the moment they arrive (renders nothing). */}
+      <ChatNotifier />
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
