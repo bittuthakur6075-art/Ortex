@@ -7,7 +7,7 @@ import { DialHeroSkeleton, WeekSkeleton } from "@/features/attendance/Attendance
 import CheckButton from "@/features/attendance/CheckButton"
 import { weekCells } from "@/features/attendance/days"
 import { dayLabel, hoursShort } from "@/features/attendance/format"
-import { DayTimelineBar, ProgressRing } from "@/features/attendance/LiveProgress"
+import { DayTimelineBar, LiveTimer, ShiftBar } from "@/features/attendance/LiveProgress"
 import MonthAttendance from "@/features/attendance/MonthAttendance"
 import {
   dayTimeline,
@@ -165,15 +165,19 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
               </View>
 
               <View style={styles.ringWrap}>
-                <ProgressRing
-                  workedMs={worked.ms}
-                  computedAt={now}
+                <LiveTimer
+                  baseMs={worked.ms}
+                  baseAt={now}
                   running={!!onDutySince}
-                  shiftMin={shiftMin}
-                  size={176}
-                  stroke={10}
-                  color={onDutySince || dayDone ? t.success : t.primary}
+                  style={[styles.bigTime, { color: t.text }]}
                 />
+                <View style={styles.barWide}>
+                  <ShiftBar
+                    fraction={shiftMin > 0 ? worked.ms / 60000 / shiftMin : 0}
+                    color={onDutySince || dayDone ? t.success : t.primary}
+                    height={12}
+                  />
+                </View>
                 <Text style={[textVariants.small, { color: t.textTertiary }]}>{progress}</Text>
               </View>
 
@@ -309,6 +313,14 @@ const styles = StyleSheet.create({
   hero: { paddingHorizontal: 18, gap: spacing.md },
   headRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   shift: { flex: 1, textAlign: "right" },
+  bigTime: {
+    fontFamily: font.semibold,
+    fontSize: 40,
+    lineHeight: 48,
+    letterSpacing: -0.5,
+    fontVariant: ["tabular-nums"],
+  },
+  barWide: { alignSelf: "stretch" },
   ringWrap: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs },
   stamps: { flexDirection: "row", gap: spacing.sm },
   stamp: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, gap: 2 },

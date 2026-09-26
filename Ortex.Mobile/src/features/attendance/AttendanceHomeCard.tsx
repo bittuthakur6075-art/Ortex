@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native"
 import { clockIST, dayKey } from "@/domain/attendance"
 import { ActionAdvisory, DayDone } from "@/features/attendance/attendanceUi"
 import { dayLabel } from "@/features/attendance/format"
-import { LiveTimer, ProgressRing } from "@/features/attendance/LiveProgress"
+import { LiveTimer, ShiftBar } from "@/features/attendance/LiveProgress"
 import {
   progressWords,
   punchWindow,
@@ -86,6 +86,9 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
   // "Office", not the check-in station's name: the person was at work, not at a door.
   const where = summary.field ? "Field visit" : "Office"
   const hours = `of ${Math.round(shiftMin / 60)} h`
+  const fraction = shiftMin > 0 ? worked.ms / MINUTE / shiftMin : 0
+  const shiftStart = settings.shift?.start ? shiftClock(settings.shift.start) : ""
+  const shiftEnd = settings.shift?.end ? shiftClock(settings.shift.end) : ""
 
   // The state: a pill, the ring's colour, and two lines that say the rest.
   let pill: { label: string; tone: "success" | "neutral" | "warning" }
@@ -138,17 +141,9 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
           accessibilityLabel={`${pill.label}, ${line1}. Show today's attendance`}
           style={styles.miniRow}
         >
-          <ProgressRing
-            workedMs={worked.ms}
-            computedAt={now}
-            running
-            shiftMin={shiftMin}
-            size={48}
-            stroke={5}
-            compact
-            color={ring}
-            face={<Icon name="clock" size={18} color={ring} variant="Bulk" />}
-          />
+          <View style={[styles.miniWell, { backgroundColor: t.successBg }]}>
+            <Icon name="clock" size={20} color={ring} variant="Bulk" />
+          </View>
           <View style={styles.facts}>
             <View style={styles.miniTop}>
               <LiveTimer
@@ -173,6 +168,9 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
             Check out
           </Text>
         </Pressable>
+        <View style={styles.miniBar}>
+          <ShiftBar fraction={fraction} color={ring} height={6} />
+        </View>
       </Card>
     )
   }
@@ -187,27 +185,32 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
         <Tag label={pill.label} tone={pill.tone === "neutral" ? "neutral" : pill.tone} dot />
       </View>
       <View style={styles.body}>
-        <View style={styles.hero}>
-          <ProgressRing
-            workedMs={worked.ms}
-            computedAt={now}
-            running={!!onDutySince}
-            shiftMin={shiftMin}
-            size={78}
-            stroke={7}
-            compact
-            short
-            color={ring}
-            caption={hours}
-          />
-          <View style={styles.facts}>
-            <Text style={[styles.line1, { color: t.text }]} numberOfLines={2}>
-              {line1}
-            </Text>
-            <Text style={[styles.line2, { color: t.textSecondary }]} numberOfLines={2}>
-              {line2}
-            </Text>
+        <View style={styles.facts}>
+          <View style={styles.timeRow}>
+            <LiveTimer
+              baseMs={worked.ms}
+              baseAt={now}
+              running={!!onDutySince}
+              short
+              style={[styles.bigTime, { color: t.text }]}
+            />
+            <Text style={[styles.unit, { color: t.textTertiary }]}>{`hrs ${hours}`}</Text>
           </View>
+          <Text style={[styles.line1, { color: t.text }]} numberOfLines={1}>
+            {line1}
+          </Text>
+          <Text style={[styles.line2, { color: t.textSecondary }]} numberOfLines={1}>
+            {line2}
+          </Text>
+        </View>
+        <View style={styles.barBlock}>
+          <ShiftBar fraction={fraction} color={ring} />
+          {shiftStart && shiftEnd ? (
+            <View style={styles.ticks}>
+              <Text style={[styles.tick, { color: t.textTertiary }]}>{shiftStart}</Text>
+              <Text style={[styles.tick, { color: t.textTertiary }]}>{shiftEnd}</Text>
+            </View>
+          ) : null}
         </View>
 
         <WeekStatusStrip
@@ -218,11 +221,12 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
 
         {/* One problem at a time, each with its fix. */}
         {closingSoon ? (
-          <ActionAdvisory tone="warning" icon="clock">
+          <ActionAdvisory inCard tone="warning" icon="clock">
             Check out before midnight. After that the day resets and needs a correction
           </ActionAdvisory>
         ) : notices.missedYesterday ? (
           <ActionAdvisory
+            inCard
             tone="warning"
             icon="warning"
             onPress={open(() =>
@@ -286,7 +290,14 @@ const styles = StyleSheet.create({
   title: { fontFamily: fontFamily.semibold, fontSize: 16, lineHeight: 20 },
   shift: { flex: 1, fontFamily: fontFamily.regular, fontSize: 13, lineHeight: 17 },
   body: { paddingHorizontal: 16, gap: 12 },
-  hero: { flexDirection: "row", alignItems: "center", gap: 14 },
+  timeRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
+  bigTime: { fontFamily: fontFamily.semibold, fontSize: 32, lineHeight: 38, letterSpacing: -0.4 },
+  unit: { fontFamily: fontFamily.medium, fontSize: 13.5, lineHeight: 18 },
+  barBlock: { gap: 6 },
+  ticks: { flexDirection: "row", justifyContent: "space-between" },
+  tick: { fontFamily: fontFamily.regular, fontSize: 11.5, lineHeight: 14 },
+  miniWell: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  miniBar: { paddingHorizontal: 14, paddingTop: 10 },
   facts: { flex: 1, gap: 3 },
   line1: { fontFamily: fontFamily.semibold, fontSize: 16, lineHeight: 21 },
   line2: { fontFamily: fontFamily.regular, fontSize: 13.5, lineHeight: 18 },

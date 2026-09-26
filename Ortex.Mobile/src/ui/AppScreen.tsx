@@ -368,13 +368,19 @@ export default function AppScreen({
   })
 
   return (
-    <View style={[styles.root, { backgroundColor: ground, paddingTop: insets.top }]}>
+    // The status bar and the app bar are always white (owner, 2026-09-27); on an
+    // inset page the grey canvas is painted by the scroller alone, so no grey
+    // band shows between the status bar and the bar.
+    <View style={[styles.root, { backgroundColor: c.appBar, paddingTop: insets.top }]}>
       {appBar}
       {sections ? (
         <Animated.SectionList
           ref={innerListRef as never}
           {...sections}
-          style={[sections.style, arrivalAt(1)]}
+          style={[{ backgroundColor: ground }, sections.style, arrivalAt(1)]}
+          // Cards live in the list header; Android detaching "off-screen" views
+          // crops their drawn corners mid-scroll.
+          removeClippedSubviews={inset ? false : sections.removeClippedSubviews}
           onScroll={onScroll}
           scrollEventThrottle={16}
           ListHeaderComponent={
@@ -394,7 +400,8 @@ export default function AppScreen({
         <Animated.FlatList
           ref={innerListRef as never}
           {...list}
-          style={[list.style, arrivalAt(1)]}
+          style={[{ backgroundColor: ground }, list.style, arrivalAt(1)]}
+          removeClippedSubviews={inset ? false : list.removeClippedSubviews}
           onScroll={onScroll}
           scrollEventThrottle={16}
           ListHeaderComponent={
@@ -427,13 +434,11 @@ export default function AppScreen({
         // be reached at all. See hooks/useKeyboardAwareScroll.ts.
         <Animated.ScrollView
           ref={keyboardAware.ref as never}
+          style={{ backgroundColor: ground }}
           onScroll={onScroll}
           onLayout={keyboardAware.onLayout}
           scrollEventThrottle={16}
-          contentContainerStyle={[
-            { paddingBottom: bottomReserve + keyboardAware.keyboard },
-            contentStyle,
-          ]}
+          contentContainerStyle={[{ paddingBottom: bottomReserve + keyboardAware.keyboard }, contentStyle]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
@@ -442,7 +447,10 @@ export default function AppScreen({
               the scroll — the keyboard only announces itself once. */}
           <KeyboardAwareFocusProvider value={keyboardAware.reportFocus}>
             {React.Children.toArray(children).map((child, i) => (
-              <Animated.View key={React.isValidElement(child) && child.key != null ? child.key : i} style={arrivalAt(i + 1)}>
+              <Animated.View
+                key={React.isValidElement(child) && child.key != null ? child.key : i}
+                style={arrivalAt(i + 1)}
+              >
                 {child}
               </Animated.View>
             ))}
@@ -472,7 +480,6 @@ export default function AppScreen({
     </View>
   )
 }
-
 
 const styles = StyleSheet.create({
   root: { flex: 1 },

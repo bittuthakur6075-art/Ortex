@@ -29,6 +29,30 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.6.1",
+    version: "1.6.1",
+    date: "2026-09-27",
+    title: "Attendance as a bar, and smoother scrolling",
+    summary: "Your shift now fills a bar from start to end, and the top of every page scrolls cleanly under a white header.",
+    items: [
+      {
+        kind: "improved",
+        title: "Your shift as a bar",
+        detail: "The attendance card shows your hours in large numbers and a bar that fills from the start of your shift to its end, with both times under it.",
+      },
+      {
+        kind: "fixed",
+        title: "Time fits the attendance card",
+        detail: "The time on the Home attendance card now shows hours and minutes, and no longer overflows.",
+      },
+      {
+        kind: "fixed",
+        title: "Clean header when you scroll",
+        detail: "The status bar and header are white on every page, and the cards no longer get cut at the corners while you scroll.",
+      },
+    ],
+  },
+  {
     id: "1.6.0",
     version: "1.6.0",
     date: "2026-09-26",

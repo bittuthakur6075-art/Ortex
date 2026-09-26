@@ -1,7 +1,6 @@
 import { useIsFocused } from "@react-navigation/native"
 import React from "react"
 import { Animated, Easing, StyleSheet, Text, View } from "react-native"
-import Svg, { Circle } from "react-native-svg"
 
 import { clockIST } from "@/domain/attendance"
 import { hms, type Timeline, type WeekColumn } from "@/features/attendance/progress"
@@ -11,23 +10,20 @@ import { font, textVariants } from "@/theme/typography"
 import { useReducedMotion } from "@/ui/motion"
 
 /**
- * The live attendance progress display (Zoho People's check-in screen is the
- * reference): a ring of the shift done, a live timer inside it, the day as a
- * timeline bar, and (full size) the week as columns.
+ * The live attendance progress display: a live timer, the shift as a
+ * horizontal bar, the day as a timeline bar, and (full size) the week as columns.
  *
  * Smoothness, in a codebase with no Reanimated:
  *   · the TIMER is its own component with its own 1 s interval, running only
- *     while the screen is focused AND the person is on duty, so the ring, the
- *     bar and the page around them never re-render once a second;
- *   · the ring's arc moves on Animated (JS driver: SVG props cannot use the
- *     native one), only when the parent's 30 s tick or new data changes it;
- *   · under reduced motion the arc jumps instead of sweeping, and the numbers
+ *     while the screen is focused AND the person is on duty, so the bars and
+ *     the page around them never re-render once a second;
+ *   · the shift bar eases on Animated (JS driver: a width cannot use the native
+ *     one), only when the parent's 30 s tick or new data changes it;
+ *   · under reduced motion the bar jumps instead of easing, and the numbers
  *     still update.
  */
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle)
-
-/** 3:42, hours unpadded, for the small ring. */
+/** 3:42, hours unpadded, for the Home card. */
 const shortHm = (ms: number) => {
   const m = Math.max(0, Math.floor(ms / 60000))
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`
@@ -58,126 +54,57 @@ export function LiveTimer({
   }, [running, focused])
   const ms = running ? baseMs + Math.max(0, now - baseAt) : baseMs
   return (
-    <Text style={style} accessibilityLabel={`Worked ${short ? shortHm(ms) : hms(ms)}`}>
-      {hms(ms)}
+    <Text style={style} accessibilityLabel={`Worked ${hms(ms)}`}>
+      {short ? shortHm(ms) : hms(ms)}
     </Text>
   )
 }
 
-export function ProgressRing({
-  workedMs,
-  computedAt,
-  running,
-  shiftMin,
-  size = 200,
-  stroke = 14,
-  compact = false,
+/**
+ * The shift as a horizontal bar (owner, 2026-09-27: a bar, not a donut): the
+ * share of today's shift worked, full at the end of the shift and beyond. The
+ * fill eases to its width on the JS driver (a width cannot use the native one)
+ * and jumps under reduced motion.
+ */
+export function ShiftBar({
+  fraction,
   color,
-  caption,
-  short = false,
-  face,
+  height = 10,
 }: {
-  workedMs: number
-  computedAt: number
-  running: boolean
-  shiftMin: number
-  size?: number
-  stroke?: number
-  compact?: boolean
-  /** The arc's colour, when the state decides it (the Home card). */
-  color?: string
-  /** A line under the timer in the compact ring: "of 9 h". */
-  caption?: string
-  /** H:MM in the ring, for the small Home ring. */
-  short?: boolean
-  /** Drawn in the ring instead of the timer: the collapsed Home row's clock glyph. */
-  face?: React.ReactNode
+  fraction: number
+  color: string
+  height?: number
 }) {
   const t = useTheme()
   const reduce = useReducedMotion()
-  const r = (size - stroke) / 2
-  const circumference = 2 * Math.PI * r
-  const fraction = shiftMin > 0 ? workedMs / 60000 / shiftMin : 0
-  const done = Math.min(1, fraction)
-  const over = Math.min(1, Math.max(0, fraction - 1))
-  const complete = fraction >= 1
-
-  const progress = React.useRef(new Animated.Value(0)).current
-  const overtime = React.useRef(new Animated.Value(0)).current
+  const to = Math.max(0, Math.min(1, fraction || 0))
+  const width = React.useRef(new Animated.Value(0)).current
   React.useEffect(() => {
     if (reduce) {
-      progress.setValue(done)
-      overtime.setValue(over)
+      width.setValue(to)
       return
     }
-    const easing = Easing.bezier(0.16, 1, 0.3, 1)
-    Animated.parallel([
-      Animated.timing(progress, { toValue: done, duration: 700, easing, useNativeDriver: false }),
-      Animated.timing(overtime, { toValue: over, duration: 700, easing, useNativeDriver: false }),
-    ]).start()
-  }, [done, over, reduce, progress, overtime])
-
-  const offset = progress.interpolate({ inputRange: [0, 1], outputRange: [circumference, 0] })
-  const innerR = r - stroke / 2 - 5
-  const innerC = 2 * Math.PI * innerR
-  const overOffset = overtime.interpolate({ inputRange: [0, 1], outputRange: [innerC, 0] })
-  const c = size / 2
-
+    Animated.timing(width, {
+      toValue: to,
+      duration: 700,
+      easing: Easing.bezier(0.16, 1, 0.3, 1),
+      useNativeDriver: false,
+    }).start()
+  }, [to, reduce, width])
   return (
     <View
-      style={{ width: size, height: size }}
       accessibilityRole="progressbar"
-      accessibilityValue={{ min: 0, max: 100, now: Math.round(done * 100) }}
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(to * 100) }}
+      style={{ height, borderRadius: height / 2, backgroundColor: t.surfaceInset, overflow: "hidden" }}
     >
-      <Svg width={size} height={size}>
-        <Circle cx={c} cy={c} r={r} stroke={t.fieldBg} strokeWidth={stroke} fill="none" />
-        <AnimatedCircle
-          cx={c}
-          cy={c}
-          r={r}
-          stroke={color ?? (complete ? t.success : t.primary)}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          fill="none"
-          strokeDasharray={`${circumference} ${circumference}`}
-          strokeDashoffset={offset}
-          transform={`rotate(-90 ${c} ${c})`}
-        />
-        {over > 0 && (
-          <AnimatedCircle
-            cx={c}
-            cy={c}
-            r={innerR}
-            stroke={t.warning}
-            strokeWidth={Math.max(3, stroke / 3)}
-            strokeLinecap="round"
-            fill="none"
-            strokeDasharray={`${innerC} ${innerC}`}
-            strokeDashoffset={overOffset}
-            transform={`rotate(-90 ${c} ${c})`}
-          />
-        )}
-      </Svg>
-      <View style={[StyleSheet.absoluteFill, styles.center]} pointerEvents="none">
-        {face ?? (
-          <>
-            <LiveTimer
-              baseMs={workedMs}
-              baseAt={computedAt}
-              running={running}
-              short={short}
-              style={[
-                short ? styles.timerShort : compact ? styles.timerCompact : styles.timer,
-                { color: t.text },
-              ]}
-            />
-            {!compact && <Text style={[textVariants.caption, { color: t.textTertiary }]}>Worked today</Text>}
-            {compact && caption ? (
-              <Text style={[styles.ringCaption, { color: t.textTertiary }]}>{caption}</Text>
-            ) : null}
-          </>
-        )}
-      </View>
+      <Animated.View
+        style={{
+          height: "100%",
+          borderRadius: height / 2,
+          backgroundColor: color,
+          width: width.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }),
+        }}
+      />
     </View>
   )
 }
@@ -305,17 +232,6 @@ export function WeekStrip({ columns, targetMin }: { columns: WeekColumn[]; targe
 }
 
 const styles = StyleSheet.create({
-  center: { alignItems: "center", justifyContent: "center", gap: 2 },
-  timer: { fontFamily: font.semibold, fontSize: 30, lineHeight: 36, fontVariant: ["tabular-nums"] },
-  timerShort: {
-    fontFamily: font.semibold,
-    fontSize: 20,
-    lineHeight: 24,
-    letterSpacing: -0.3,
-    fontVariant: ["tabular-nums"],
-  },
-  timerCompact: { fontFamily: font.semibold, fontSize: 15, lineHeight: 19, fontVariant: ["tabular-nums"] },
-  ringCaption: { fontFamily: font.medium, fontSize: 11, lineHeight: 14 },
   track: { width: "100%", overflow: "hidden", position: "relative" },
   abs: { position: "absolute", top: 0, bottom: 0 },
   tick: { position: "absolute", top: 0, bottom: 0, width: 1.5 },
