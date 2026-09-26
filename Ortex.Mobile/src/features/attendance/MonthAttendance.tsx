@@ -33,7 +33,8 @@ import { myRequests } from "@/lib/leave"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { EmptyState, IconButton, Panel, RowSeparator, SegmentedControl } from "@/ui"
+import { EmptyState, IconButton, RowSeparator, SegmentedControl } from "@/ui"
+import { CardPanel as Panel } from "@/ui/OneUi"
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"]
 
@@ -86,7 +87,7 @@ export default function MonthAttendance({
   const load = React.useCallback(async () => {
     const b = monthBounds(ym.y, ym.m)
     const [s, h] = await Promise.all([
-      loadSettings().catch(() => ({}) as AttendanceSettings),
+      loadSettings().catch(() => ({} as AttendanceSettings)),
       loadHolidays({ from: b.from, to: b.to }).catch(() => [] as Holiday[]),
     ])
     setSettings(s)
@@ -97,7 +98,12 @@ export default function MonthAttendance({
         const set = new Set<string>()
         for (const r of reqs) {
           if (r.status !== "approved" || r.to_day <= nowKey) continue
-          for (let d = r.from_day > nowKey ? r.from_day : addDays(nowKey, 1); d <= r.to_day; d = addDays(d, 1)) set.add(d)
+          for (
+            let d = r.from_day > nowKey ? r.from_day : addDays(nowKey, 1);
+            d <= r.to_day;
+            d = addDays(d, 1)
+          )
+            set.add(d)
         }
         setFutureLeave(set)
       })
@@ -110,7 +116,9 @@ export default function MonthAttendance({
       if (msg === NOT_SET_UP) {
         const p = await myPunches({ from: b.from, to: b.to }).catch(() => [])
         setDays(daysFromPunches(p, dayKey(Date.now())))
-        setNotice("Absences, late marks and payable days appear once attendance rules are set up on the server.")
+        setNotice(
+          "Absences, late marks and payable days appear once attendance rules are set up on the server.",
+        )
       } else {
         setNotice(msg)
         setDays((d) => d ?? [])
@@ -137,7 +145,10 @@ export default function MonthAttendance({
     void loadRef.current().finally(() => onLoadedRef.current?.())
   }, [refreshKey])
 
-  const entries = React.useMemo(() => monthEntries(monthBounds(ym.y, ym.m), days || [], hols, today), [ym, days, hols, today])
+  const entries = React.useMemo(
+    () => monthEntries(monthBounds(ym.y, ym.m), days || [], hols, today),
+    [ym, days, hols, today],
+  )
   const weeks = React.useMemo(() => monthGrid(ym.y, ym.m, days || []), [ym, days])
   const totals = React.useMemo(() => monthTotals(days || [], settings.lateRule), [days, settings.lateRule])
   const holidayByDay = React.useMemo(() => new Map(hols.map((h) => [h.day, h.name])), [hols])
@@ -183,10 +194,17 @@ export default function MonthAttendance({
           <View style={styles.monthWords}>
             <Text style={[textVariants.cardTitle, { color: t.text }]}>{bounds.label}</Text>
             {totals.workedMin ? (
-              <Text style={[textVariants.caption, { color: t.textTertiary }]}>{`${durationWords(totals.workedMin)} worked`}</Text>
+              <Text style={[textVariants.caption, { color: t.textTertiary }]}>{`${durationWords(
+                totals.workedMin,
+              )} worked`}</Text>
             ) : null}
           </View>
-          <IconButton name="forward" onPress={() => shiftMonth(1)} disabled={isCurrent} accessibilityLabel="Next month" />
+          <IconButton
+            name="forward"
+            onPress={() => shiftMonth(1)}
+            disabled={isCurrent}
+            accessibilityLabel="Next month"
+          />
         </View>
         <View style={styles.segment}>
           <SegmentedControl<ViewMode>
@@ -242,8 +260,8 @@ export default function MonthAttendance({
                         (cell.inMonth && holidayByDay.has(cell.day)
                           ? "H"
                           : cell.inMonth && !future && new Date(`${cell.day}T00:00:00Z`).getUTCDay() === 0
-                            ? "WO"
-                            : null)
+                          ? "WO"
+                          : null)
                       const tint = status ? statusColors(t, status) : null
                       const planned = !status && cell.inMonth && futureLeave.has(cell.day)
                       const leaveTint = statusColors(t, "L")
@@ -254,7 +272,9 @@ export default function MonthAttendance({
                           disabled={!cell.inMonth || future}
                           onPress={() => open(cell.day)}
                           accessibilityRole="button"
-                          accessibilityLabel={`${dayLabel(cell.day)}${status ? `, ${STATUS_LABEL[status]}` : planned ? ", Leave planned" : ""}`}
+                          accessibilityLabel={`${dayLabel(cell.day)}${
+                            status ? `, ${STATUS_LABEL[status]}` : planned ? ", Leave planned" : ""
+                          }`}
                           style={styles.cell}
                         >
                           <View
@@ -262,13 +282,25 @@ export default function MonthAttendance({
                               styles.dateWell,
                               tint && { backgroundColor: tint.bg },
                               isToday && { borderWidth: 2, borderColor: t.primary },
-                              planned && { borderWidth: 1.5, borderStyle: "dashed", borderColor: leaveTint.fg },
+                              planned && {
+                                borderWidth: 1.5,
+                                borderStyle: "dashed",
+                                borderColor: leaveTint.fg,
+                              },
                             ]}
                           >
                             <Text
                               style={[
                                 styles.date,
-                                { color: !cell.inMonth ? t.textHint : tint ? tint.fg : future ? t.textFaint : t.textSecondary },
+                                {
+                                  color: !cell.inMonth
+                                    ? t.textHint
+                                    : tint
+                                    ? tint.fg
+                                    : future
+                                    ? t.textFaint
+                                    : t.textSecondary,
+                                },
                               ]}
                             >
                               {cell.date}
@@ -278,7 +310,11 @@ export default function MonthAttendance({
                             style={[
                               styles.dot,
                               {
-                                backgroundColor: status ? statusHue(t, status) : planned ? statusHue(t, "L") : "transparent",
+                                backgroundColor: status
+                                  ? statusHue(t, status)
+                                  : planned
+                                  ? statusHue(t, "L")
+                                  : "transparent",
                                 opacity: planned ? 0.5 : 1,
                               },
                             ]}
@@ -303,7 +339,13 @@ export default function MonthAttendance({
                   {entries.map((e, i) => (
                     <React.Fragment key={e.day}>
                       {i > 0 && <RowSeparator />}
-                      <DayListRow entry={e} settings={settings} today={e.day === today} now={now} onPress={() => open(e.day)} />
+                      <DayListRow
+                        entry={e}
+                        settings={settings}
+                        today={e.day === today}
+                        now={now}
+                        onPress={() => open(e.day)}
+                      />
                     </React.Fragment>
                   ))}
                 </View>
@@ -313,7 +355,9 @@ export default function MonthAttendance({
 
           <Panel title="Summary" meta={bounds.label}>
             <SummaryTiles tiles={tiles} />
-            {!!notice && <Text style={[textVariants.caption, styles.notice, { color: t.textTertiary }]}>{notice}</Text>}
+            {!!notice && (
+              <Text style={[textVariants.caption, styles.notice, { color: t.textTertiary }]}>{notice}</Text>
+            )}
           </Panel>
         </>
       )}
@@ -341,15 +385,35 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: gutter,
   },
-  legendChip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
+  legendChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
   legendDot: { width: 7, height: 7, borderRadius: 3.5 },
   legendText: { fontFamily: font.semibold, fontSize: 11, lineHeight: 14 },
   notice: { paddingHorizontal: gutter, paddingBottom: spacing.md },
   calendar: { paddingHorizontal: gutter - 4, paddingTop: spacing.md, paddingBottom: gutter, gap: 4 },
   weekRow: { flexDirection: "row" },
-  dow: { flex: 1, textAlign: "center", fontFamily: font.semibold, fontSize: 11, lineHeight: 16, paddingBottom: 4 },
+  dow: {
+    flex: 1,
+    textAlign: "center",
+    fontFamily: font.semibold,
+    fontSize: 11,
+    lineHeight: 16,
+    paddingBottom: 4,
+  },
   cell: { flex: 1, alignItems: "center", paddingVertical: 3, gap: 3 },
-  dateWell: { width: CELL_DATE, height: CELL_DATE, borderRadius: CELL_DATE / 2, alignItems: "center", justifyContent: "center" },
+  dateWell: {
+    width: CELL_DATE,
+    height: CELL_DATE,
+    borderRadius: CELL_DATE / 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   date: { fontFamily: font.semibold, fontSize: 13, lineHeight: 16, fontVariant: ["tabular-nums"] },
   dot: { width: 5, height: 5, borderRadius: 2.5 },
 })

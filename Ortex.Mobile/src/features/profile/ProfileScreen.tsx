@@ -23,15 +23,16 @@
 
 import * as ImagePicker from "expo-image-picker"
 import React from "react"
-import { StyleSheet, Text, View } from "react-native"
+import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { supabase } from "@/data/supabase"
 import { canAccess, isAdmin } from "@/domain/modules"
 import { hasDefaults } from "@/domain/quotationDefaults"
 import { APP_CREDIT, APP_VERSION } from "@/constants/app"
-import { ActionAdvisory } from "@/features/attendance/attendanceUi"
 import { biometricAvailable } from "@/features/auth/useAppLock"
 import ProfileMe from "@/features/profile/ProfileMe"
+import Icon from "@/ui/Icon"
+import { Card, CardRow, CardRows, SubHeader, Tag } from "@/ui/OneUi"
 import { MAX_AVATAR_MB, base64Bytes, removeAvatar, uploadAvatar } from "@/lib/avatarUpload"
 import { feedback } from "@/lib/feedback"
 import { useNotificationStore } from "@/lib/notificationStore"
@@ -40,18 +41,23 @@ import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
 import { useThemePref, type ThemePref } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
-import { textVariants } from "@/theme/typography"
+import { fontFamily, textVariants } from "@/theme/typography"
 import {
   AppScreen,
   Avatar,
   Dialog,
   SegmentedControl,
-  Section,
   SectionRow,
   Sheet,
   Switch,
   useToast,
 } from "@/ui"
+
+const SINCE_DAY = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  timeZone: "Asia/Kolkata",
+})
 
 const THEMES: { key: ThemePref; short: string }[] = [
   { key: "system", short: "Auto" },
@@ -84,6 +90,8 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
   const photo = profile?.avatar_url ?? undefined
   const phone = profile?.phone?.trim() || ""
   const admin = isAdmin(profile)
+  const signedIn = session?.user?.last_sign_in_at
+  const signedInSince = signedIn ? SINCE_DAY.format(new Date(signedIn)) : ""
   const openAccount = () => {
     feedback.tap()
     navigation.navigate("AccountDetails")
@@ -178,6 +186,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
         back
         onBack={() => navigation.goBack()}
         inTabs={false}
+        inset
         contentStyle={styles.content}
       >
         <ProfileMe
@@ -192,143 +201,183 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
 
         {/* The one thing only this person can fix, shown only while it is missing. */}
         {!phone && (
-          <ActionAdvisory tone="warning" icon="callAdd" onPress={openAccount}>
-            Add your phone number, so customers and the team can call you from quotes and chat
-          </ActionAdvisory>
+          <Card tone="warning">
+            <CardRow
+              leading={
+                <View style={[styles.nudgeWell, { backgroundColor: t.surfaceRaised }]}>
+                  <Icon name="callAdd" size={19} color={t.warningText} variant="Bulk" />
+                </View>
+              }
+              title="Add your phone number"
+              subtitle="So customers and the team can call you"
+              subtitleTone="warning"
+              chevron={false}
+              trailing={
+                <Text
+                  onPress={openAccount}
+                  suppressHighlighting
+                  style={[styles.addBtn, { backgroundColor: t.surfaceRaised, color: t.warningText }]}
+                >
+                  Add
+                </Text>
+              }
+              onPress={openAccount}
+            />
+          </Card>
         )}
 
-        <Section title="Account">
-          <SectionRow
-            leadingIcon="userEdit"
-            leadingTone={phone ? "primary" : "warning"}
-            title="Account details"
-            subtitle={phone ? `${phone} · ${email}` : "Phone number missing"}
-            onPress={openAccount}
-          />
-          <SectionRow
-            leadingIcon="password"
-            title="Change password"
-            subtitle="Set a new sign-in password"
-            onPress={() => {
-              feedback.tap()
-              navigation.navigate("ChangePassword")
-            }}
-          />
-          {/* Always shown. The gate is `profiles_self_read` (migration 0002):
-              an admin gets everyone, anyone else gets their own row, so the
-              row says which of the two it is. */}
-          <SectionRow
-            leadingIcon={admin ? "team" : "access"}
-            title={admin ? "Team" : "Your access"}
-            subtitle={admin ? "Who can sign in, and what they reach" : "What your role lets you open"}
-            onPress={() => {
-              feedback.tap()
-              navigation.navigate("Team")
-            }}
-          />
-        </Section>
+        <SubHeader title="Account" />
+        <Card>
+          <CardRows>
+            <CardRow
+              icon="userEdit"
+              title="Account details"
+              subtitle={phone ? `${phone} · ${email}` : "Phone number missing"}
+              subtitleTone={phone ? undefined : "warning"}
+              onPress={openAccount}
+            />
+            <CardRow
+              icon="password"
+              title="Change password"
+              subtitle="Set a new sign-in password"
+              onPress={() => navigation.navigate("ChangePassword")}
+            />
+            {/* Always shown. The gate is `profiles_self_read` (migration 0002):
+                an admin gets everyone, anyone else gets their own row. */}
+            <CardRow
+              icon={admin ? "team" : "access"}
+              title={admin ? "Team" : "Your access"}
+              subtitle={admin ? "Who can sign in, and what they reach" : "What your role lets you open"}
+              onPress={() => navigation.navigate("Team")}
+            />
+          </CardRows>
+        </Card>
 
         {canAccess(profile, "quotations") && (
-          <Section title="Quotations">
-            <SectionRow
-              leadingIcon="quoteDefaults"
-              title="Quotation defaults"
-              subtitle={
-                hasDefaults(quoteDefaults)
-                  ? "Your own payment terms, T&C and notes"
-                  : "The company's terms, until you set yours"
-              }
-              onPress={() => {
-                feedback.tap()
-                navigation.navigate("QuotationDefaults")
-              }}
-            />
-          </Section>
+          <>
+            <SubHeader title="Quotations" />
+            <Card>
+              <CardRow
+                icon="quoteDefaults"
+                title="Quotation defaults"
+                subtitle={
+                  hasDefaults(quoteDefaults)
+                    ? "Your own payment terms, T&C and notes"
+                    : "The company's terms, until you set yours"
+                }
+                trailing={hasDefaults(quoteDefaults) ? <Tag label="Yours" tone="success" /> : undefined}
+                onPress={() => navigation.navigate("QuotationDefaults")}
+              />
+            </Card>
+          </>
         )}
 
-        <Section title="This phone">
-          <SectionRow
-            leadingIcon="bell"
-            title="Notifications"
-            subtitle={notificationPrefs.enabled ? "On · leads, quotes and chat" : "Muted on this phone"}
-            onPress={() => {
-              feedback.tap()
-              navigation.navigate("NotificationSettings")
-            }}
-          />
-          <SectionRow
-            leadingIcon="fingerprint"
-            title="Fingerprint unlock"
-            subtitle={canBiometric ? "Asked for when you come back" : "No fingerprint enrolled on this phone"}
-            chevron={false}
-            trailing={
-              <Switch value={biometricEnabled} onValueChange={setBiometricEnabled} disabled={!canBiometric} />
-            }
-          />
-          {/* Three choices, always visible: one tap instead of a sheet. */}
-          <SectionRow leadingIcon="swatch" title="Theme" chevron={false} />
-          <View style={styles.theme}>
-            <SegmentedControl
-              options={THEMES.map((o) => ({ key: o.key, label: o.short }))}
-              value={pref}
-              onChange={(next) => {
-                feedback.select()
-                setPref(next)
-              }}
+        <SubHeader title="This phone" />
+        <Card>
+          <CardRows>
+            <CardRow
+              icon="bell"
+              title="Notifications"
+              subtitle={notificationPrefs.enabled ? "Leads, quotes and chat" : "Muted on this phone"}
+              trailing={
+                notificationPrefs.enabled ? <Tag label="On" tone="success" dot /> : <Tag label="Off" />
+              }
+              onPress={() => navigation.navigate("NotificationSettings")}
             />
-          </View>
-        </Section>
+            <CardRow
+              icon="fingerprint"
+              title="Fingerprint unlock"
+              subtitle={
+                canBiometric ? "Asked for when you come back" : "No fingerprint enrolled on this phone"
+              }
+              chevron={false}
+              trailing={
+                <Switch
+                  value={biometricEnabled}
+                  onValueChange={setBiometricEnabled}
+                  disabled={!canBiometric}
+                />
+              }
+            />
+            {/* Three choices, always visible: one tap instead of a sheet. */}
+            <CardRow
+              icon="swatch"
+              title="Theme"
+              chevron={false}
+              trailing={
+                <View style={styles.theme}>
+                  <SegmentedControl
+                    options={THEMES.map((o) => ({ key: o.key, label: o.short }))}
+                    value={pref}
+                    onChange={(next) => {
+                      feedback.select()
+                      setPref(next)
+                    }}
+                  />
+                </View>
+              }
+            />
+          </CardRows>
+        </Card>
 
-        <Section title="Help and about">
-          <SectionRow
-            leadingIcon="assistant"
-            title="Ask Anu how to…"
-            subtitle="Leave kaise apply karun?"
-            onPress={() => {
-              feedback.tap()
-              navigation.navigate("Anu", { ask: "Leave kaise apply karun?" })
-            }}
-          />
-          <SectionRow
-            leadingIcon="gift"
-            title="What's new"
-            subtitle={`Version ${APP_VERSION}: what changed, and why it matters`}
-            onPress={() => {
-              feedback.tap()
-              navigation.navigate("WhatsNew")
-            }}
-          />
-          {/* The published terms, carried locally (features/profile/legal.ts) so
-              they open on a warehouse floor with no signal. */}
-          <SectionRow
-            leadingIcon="shield"
-            title="Privacy policy"
-            subtitle="What Ortex stores, and why"
-            onPress={() => navigation.navigate("Legal", { doc: "privacy" })}
-          />
-          <SectionRow
-            leadingIcon="quote"
-            title="Terms of service"
-            subtitle="The rules for using this app"
-            onPress={() => navigation.navigate("Legal", { doc: "terms" })}
-          />
-        </Section>
+        <SubHeader title="Help and about" />
+        <Card>
+          <CardRows>
+            <CardRow
+              icon="assistant"
+              tone="violet"
+              title="Ask Anu how to…"
+              subtitle="Leave kaise apply karun?"
+              onPress={() => navigation.navigate("Anu", { ask: "Leave kaise apply karun?" })}
+            />
+            <CardRow
+              icon="gift"
+              title="What's new"
+              subtitle={`Version ${APP_VERSION}`}
+              trailing={<Tag label="New" tone="primary" />}
+              onPress={() => navigation.navigate("WhatsNew")}
+            />
+            {/* The published terms, carried locally (features/profile/legal.ts) so
+                they open on a warehouse floor with no signal. */}
+            <CardRow
+              icon="shield"
+              title="Privacy policy"
+              subtitle="What Ortex stores, and why"
+              onPress={() => navigation.navigate("Legal", { doc: "privacy" })}
+            />
+            <CardRow
+              icon="quote"
+              title="Terms of service"
+              subtitle="The rules for using this app"
+              onPress={() => navigation.navigate("Legal", { doc: "terms" })}
+            />
+          </CardRows>
+        </Card>
 
-        <Section style={styles.signOutSection} bodyStyle={styles.signOutBody}>
-          <SectionRow
-            leadingIcon="logout"
-            leadingTone="danger"
-            title="Sign out"
-            danger
-            chevron={false}
-            onPress={() => setConfirmOut(true)}
-          />
-        </Section>
+        {/* Sign out alone in its own card, red, away from anything a thumb scrolls onto. */}
+        <Pressable
+          onPress={() => {
+            feedback.tap()
+            setConfirmOut(true)
+          }}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.signOut,
+            { backgroundColor: t.surfaceRaised, opacity: pressed ? 0.6 : 1 },
+          ]}
+        >
+          <Icon name="logout" size={20} color={t.dangerText} variant="Bulk" />
+          <Text style={[styles.signOutText, { color: t.dangerText }]}>Sign out</Text>
+        </Pressable>
 
-        {/* The foot of the page: which build this is — the first thing asked for
-            when something behaves oddly in the field — and whose app it is. */}
+        {/* The foot: which build this is, the first thing asked for when something
+            behaves oddly in the field, and when this phone signed in. */}
         <View style={styles.foot}>
-          <Text style={[textVariants.captionStrong, { color: t.textTertiary }]}>Version {APP_VERSION}</Text>
+          <Text style={[textVariants.caption, styles.footCredit, { color: t.textTertiary }]}>
+            {`Ortex ${APP_VERSION}${
+              signedInSince ? ` · signed in on this phone since ${signedInSince}` : ""
+            }`}
+          </Text>
           <Text style={[textVariants.caption, styles.footCredit, { color: t.textTertiary }]}>
             {APP_CREDIT}
           </Text>
@@ -393,17 +442,29 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
 }
 
 const styles = StyleSheet.create({
-  // One white sheet: the hero heads it and every Section follows, each parted
-  // from the next by the 2dp band each panel draws (ui/Section.tsx).
   content: { paddingTop: 0, paddingBottom: spacing.md },
-  theme: { paddingHorizontal: gutter, paddingBottom: spacing.md },
-  // The final panel: no closing rule under the last row, which would read as a
-  // stray separator at the foot of the page.
-  // Sign out is not one more setting: a clear step of air parts it from the
-  // menu above, so it is never the row a thumb lands on by momentum.
-  signOutSection: { marginTop: spacing.xl },
-  signOutBody: { paddingBottom: 0 },
-  foot: { alignItems: "center", paddingTop: spacing.xl, paddingHorizontal: gutter, gap: 3 },
+  theme: { width: 184 },
+  nudgeWell: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  addBtn: {
+    borderRadius: 999,
+    overflow: "hidden",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    fontFamily: fontFamily.semibold,
+    fontSize: 14,
+  },
+  signOut: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 12,
+    marginTop: 4,
+    borderRadius: 24,
+    paddingVertical: 16,
+  },
+  signOutText: { fontFamily: fontFamily.semibold, fontSize: 16, lineHeight: 20 },
+  foot: { alignItems: "center", paddingTop: spacing.lg, paddingHorizontal: gutter, gap: 3 },
   footCredit: { textAlign: "center" },
   photoHead: { alignItems: "center", paddingTop: spacing.sm, paddingBottom: spacing.lg },
 })

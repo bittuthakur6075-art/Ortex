@@ -11,9 +11,10 @@ import { feedback } from "@/lib/feedback"
 import * as leave from "@/lib/leave"
 import { latestPayslip } from "@/lib/pay"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, spacing } from "@/theme/tokens"
-import { textVariants } from "@/theme/typography"
-import { Avatar, PanelBand } from "@/ui"
+import { spacing } from "@/theme/tokens"
+import { fontFamily, textVariants } from "@/theme/typography"
+import { Avatar } from "@/ui"
+import { Card } from "@/ui/OneUi"
 
 const SINCE = new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric", timeZone: "Asia/Kolkata" })
 const PAYDAY = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })
@@ -109,85 +110,83 @@ export default function ProfileMe({
   }
 
   return (
-    <>
-      <View style={[styles.card, { backgroundColor: t.surface }]}>
-        <View style={styles.who}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Change profile photo"
-            hitSlop={6}
-            onPress={() => {
-              feedback.tap()
-              onPhoto()
-            }}
-          >
-            <Avatar name={name} uri={photo} size={72} edit />
-          </Pressable>
-          <View style={styles.whoText}>
-            <Text style={[textVariants.subtitle, { color: t.text }]} numberOfLines={1}>
-              {name}
+    <Card style={styles.card}>
+      <View style={styles.who}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Change profile photo"
+          hitSlop={6}
+          onPress={() => {
+            feedback.tap()
+            onPhoto()
+          }}
+        >
+          <Avatar name={name} uri={photo} size={72} edit />
+        </Pressable>
+        <View style={styles.whoText}>
+          <Text style={[styles.name, { color: t.text }]} numberOfLines={1}>
+            {name}
+          </Text>
+          {!!email && email !== name && (
+            <Text style={[textVariants.small, { color: t.textSecondary }]} numberOfLines={1}>
+              {email}
             </Text>
-            {!!email && email !== name && (
-              <Text style={[textVariants.small, { color: t.textSecondary }]} numberOfLines={1}>
-                {email}
-              </Text>
+          )}
+          <View style={styles.roleRow}>
+            {!!role && (
+              <View style={[styles.role, { backgroundColor: t.primary10 }]}>
+                <Text style={[textVariants.captionStrong, { color: t.primary }]}>{roleLabel(role)}</Text>
+              </View>
             )}
-            <View style={styles.roleRow}>
-              {!!role && (
-                <View style={[styles.role, { backgroundColor: t.primary10 }]}>
-                  <Text style={[textVariants.captionStrong, { color: t.primary }]}>{roleLabel(role)}</Text>
-                </View>
-              )}
-              {!!joined && (
-                <Text style={[textVariants.caption, { color: t.textTertiary }]}>{`Since ${SINCE.format(
-                  new Date(joined),
-                )}`}</Text>
-              )}
-            </View>
+            {!!joined && (
+              <Text style={[textVariants.caption, { color: t.textTertiary }]}>{`Since ${SINCE.format(
+                new Date(joined),
+              )}`}</Text>
+            )}
           </View>
         </View>
-
-        <View style={[styles.rule, { backgroundColor: t.border }]} />
-
-        <View style={styles.stats}>
-          {stats.map((s, i) => (
-            <Pressable
-              key={s.key}
-              onPress={() => {
-                feedback.tap()
-                s.onPress()
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`${s.label}: ${s.value}, ${s.sub}`}
-              style={({ pressed }) => [
-                styles.stat,
-                i === 0 ? styles.firstStat : { borderLeftWidth: 1, borderLeftColor: t.border },
-                { opacity: pressed ? 0.6 : 1 },
-              ]}
-            >
-              <Text style={[textVariants.sectionLabel, { color: t.textTertiary }]}>
-                {s.label.toUpperCase()}
-              </Text>
-              <Text style={[textVariants.subtitle, { color: t.text }]} numberOfLines={1}>
-                {s.value}
-              </Text>
-              <View style={styles.subRow}>
-                <View style={[styles.dot, { backgroundColor: dot[s.tone] }]} />
-                <Text style={[textVariants.caption, { color: ink[s.tone] }]} numberOfLines={1}>
-                  {s.sub}
-                </Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
       </View>
-      <PanelBand />
-    </>
+
+      <View style={[styles.rule, { backgroundColor: t.border }]} />
+
+      <View style={styles.stats}>
+        {stats.map((s, i) => (
+          <Pressable
+            key={s.key}
+            onPress={() => {
+              feedback.tap()
+              s.onPress()
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`${s.label}: ${s.value}, ${s.sub}`}
+            style={({ pressed }) => [
+              styles.stat,
+              i === 0 ? styles.firstStat : { borderLeftWidth: 1, borderLeftColor: t.border },
+              { opacity: pressed ? 0.6 : 1 },
+            ]}
+          >
+            <Text style={[textVariants.sectionLabel, { color: t.textTertiary }]}>
+              {s.label.toUpperCase()}
+            </Text>
+            <Text style={[textVariants.subtitle, { color: t.text }]} numberOfLines={1}>
+              {s.value}
+            </Text>
+            <View style={styles.subRow}>
+              <View style={[styles.dot, { backgroundColor: dot[s.tone] }]} />
+              <Text style={[textVariants.caption, { color: ink[s.tone] }]} numberOfLines={1}>
+                {s.sub}
+              </Text>
+            </View>
+          </Pressable>
+        ))}
+      </View>
+    </Card>
   )
 }
 
 const styles = StyleSheet.create({
-  card: { paddingHorizontal: gutter, paddingTop: spacing.md, paddingBottom: spacing.md, gap: spacing.md },
+  card: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 14, gap: spacing.md, marginTop: spacing.sm },
+  name: { fontFamily: fontFamily.medium, fontSize: 22, lineHeight: 28, letterSpacing: -0.2 },
   who: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   whoText: { flex: 1, minWidth: 0, gap: 2 },
   roleRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: spacing.sm, marginTop: 4 },

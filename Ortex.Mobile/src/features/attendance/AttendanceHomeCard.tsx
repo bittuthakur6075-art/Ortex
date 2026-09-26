@@ -4,7 +4,7 @@ import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { clockIST, dayKey } from "@/domain/attendance"
-import { ActionAdvisory, InfoChip, DayDone } from "@/features/attendance/attendanceUi"
+import { ActionAdvisory, DayDone } from "@/features/attendance/attendanceUi"
 import { dayLabel } from "@/features/attendance/format"
 import { ProgressRing } from "@/features/attendance/LiveProgress"
 import {
@@ -28,10 +28,10 @@ import { feedback } from "@/lib/feedback"
 import { shiftClock } from "@/lib/attendance"
 import type { RootStackParamList } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, spacing } from "@/theme/tokens"
-import { textVariants } from "@/theme/typography"
+import { spacing } from "@/theme/tokens"
+import { fontFamily, textVariants } from "@/theme/typography"
 import Icon from "@/ui/Icon"
-import Panel from "@/ui/Panel"
+import { Card, Tag } from "@/ui/OneUi"
 import SlideToConfirm from "@/ui/SlideToConfirm"
 
 const MINUTE = 60000
@@ -126,18 +126,14 @@ export default function AttendanceHomeCard() {
   }
 
   return (
-    <Panel
-      title="Attendance"
-      action={
-        <Pressable
-          hitSlop={8}
-          accessibilityRole="button"
-          onPress={open(() => navigation.navigate("Attendance"))}
-        >
-          <Text style={[textVariants.smallStrong, { color: t.primary }]}>History</Text>
-        </Pressable>
-      }
-    >
+    <Card style={styles.card}>
+      <View style={styles.head}>
+        <Text style={[styles.title, { color: t.text }]}>Attendance</Text>
+        <Text style={[styles.shift, { color: t.textTertiary }]} numberOfLines={1}>
+          {shift || "Shift not set"}
+        </Text>
+        <Tag label={pill.label} tone={pill.tone === "neutral" ? "neutral" : pill.tone} dot />
+      </View>
       <View style={styles.body}>
         <View style={styles.hero}>
           <ProgressRing
@@ -145,22 +141,18 @@ export default function AttendanceHomeCard() {
             computedAt={now}
             running={!!onDutySince}
             shiftMin={shiftMin}
-            size={96}
-            stroke={8}
+            size={78}
+            stroke={7}
             compact
+            short
             color={ring}
             caption={hours}
           />
           <View style={styles.facts}>
-            <View style={styles.pill}>
-              <InfoChip icon={onDutySince ? "tick" : "clock"} tone={pill.tone} align="start">
-                {pill.label}
-              </InfoChip>
-            </View>
-            <Text style={[textVariants.bodyStrong, { color: t.text }]} numberOfLines={2}>
+            <Text style={[styles.line1, { color: t.text }]} numberOfLines={2}>
               {line1}
             </Text>
-            <Text style={[textVariants.small, { color: t.textTertiary }]} numberOfLines={2}>
+            <Text style={[styles.line2, { color: t.textSecondary }]} numberOfLines={2}>
               {line2}
             </Text>
           </View>
@@ -217,7 +209,7 @@ export default function AttendanceHomeCard() {
             style={[textVariants.caption, { color: closingSoon ? t.warningText : t.textTertiary, flex: 1 }]}
             numberOfLines={1}
           >
-            {`Check-in ${clockIST(win.open)} to ${clockIST(win.close)} · out any time`}
+            {`Open ${clockIST(win.open)} to ${clockIST(win.close)} · out any time`}
             {notices.nextHoliday
               ? ` · ${notices.nextHoliday.name}, ${dayLabel(notices.nextHoliday.day)}`
               : ""}
@@ -225,21 +217,26 @@ export default function AttendanceHomeCard() {
           <Pressable
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel="Leave: balances and apply"
-            onPress={open(() => navigation.navigate("Leave"))}
+            accessibilityLabel="Attendance history"
+            onPress={open(() => navigation.navigate("Attendance"))}
           >
-            <Text style={[textVariants.smallStrong, { color: t.primary }]}>Leave</Text>
+            <Text style={[textVariants.smallStrong, { color: t.primary }]}>History ›</Text>
           </Pressable>
         </View>
       </View>
-    </Panel>
+    </Card>
   )
 }
 
 const styles = StyleSheet.create({
-  body: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.md },
-  hero: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  facts: { flex: 1, gap: 4 },
-  pill: { flexDirection: "row", marginBottom: 2 },
+  card: { paddingTop: 14, paddingBottom: 12, marginTop: spacing.sm },
+  head: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, marginBottom: 12 },
+  title: { fontFamily: fontFamily.semibold, fontSize: 16, lineHeight: 20 },
+  shift: { flex: 1, fontFamily: fontFamily.regular, fontSize: 13, lineHeight: 17 },
+  body: { paddingHorizontal: 16, gap: 12 },
+  hero: { flexDirection: "row", alignItems: "center", gap: 14 },
+  facts: { flex: 1, gap: 3 },
+  line1: { fontFamily: fontFamily.semibold, fontSize: 16, lineHeight: 21 },
+  line2: { fontFamily: fontFamily.regular, fontSize: 13.5, lineHeight: 18 },
   footer: { flexDirection: "row", alignItems: "center", gap: 6 },
 })

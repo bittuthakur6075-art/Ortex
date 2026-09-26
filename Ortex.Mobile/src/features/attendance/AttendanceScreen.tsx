@@ -30,9 +30,10 @@ import { feedback } from "@/lib/feedback"
 import { shiftClock } from "@/lib/attendance"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, radius, spacing } from "@/theme/tokens"
+import { radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { AppScreen, DataNotice, ListRefreshControl, Panel, Section, SectionRow } from "@/ui"
+import { AppScreen, DataNotice, ListRefreshControl } from "@/ui"
+import { Card, CardPanel as Panel, CardRow, CardRows, SubHeader, Tag } from "@/ui/OneUi"
 
 const TODAY = new Intl.DateTimeFormat("en-IN", {
   weekday: "long",
@@ -111,6 +112,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
       back
       onBack={() => navigation.goBack()}
       inTabs={false}
+      inset
       list={{
         data: [],
         renderItem: () => null,
@@ -167,8 +169,8 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
                   computedAt={now}
                   running={!!onDutySince}
                   shiftMin={shiftMin}
-                  size={184}
-                  stroke={12}
+                  size={176}
+                  stroke={10}
                   color={onDutySince || dayDone ? t.success : t.primary}
                 />
                 <Text style={[textVariants.small, { color: t.textTertiary }]}>{progress}</Text>
@@ -213,7 +215,9 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
               )}
 
               <Text style={[textVariants.caption, styles.center, { color: t.textTertiary }]}>
-                {`Check-in ${clockIST(win.open)} to ${clockIST(win.close)} · check-out any time · scan the office QR code`}
+                {`Check-in ${clockIST(win.open)} to ${clockIST(
+                  win.close,
+                )} · check-out any time · scan the office QR code`}
               </Text>
             </View>
           </Panel>
@@ -234,34 +238,34 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
             onOpen={(day) => navigation.navigate("AttendanceDay", { day })}
           />
 
-          <Section title="More">
-            <SectionRow
-              leadingIcon="calendar"
-              leadingTone="success"
-              title="Leave"
-              subtitle="Balances, apply, and your requests"
-              onPress={() => {
-                feedback.tap()
-                navigation.navigate("Leave")
-              }}
-            />
-            {notices.admin && (
-              <SectionRow
-                leadingIcon="tick"
-                leadingTone={notices.pending ? "warning" : "primary"}
-                title="Approvals"
-                subtitle={
-                  notices.pending
-                    ? `${notices.pending} waiting: leave, corrections and punches to review`
-                    : "Nothing waiting for a decision"
-                }
-                onPress={() => {
-                  feedback.tap()
-                  navigation.navigate("AttendanceApprovals")
-                }}
+          <SubHeader title="More" />
+          <Card>
+            <CardRows>
+              <CardRow
+                icon="calendar"
+                tone="violet"
+                title="Leave"
+                subtitle="Balances, apply, and your requests"
+                onPress={() => navigation.navigate("Leave")}
               />
-            )}
-          </Section>
+              {notices.admin ? (
+                <CardRow
+                  icon="tick"
+                  tone={notices.pending ? "warning" : "primary"}
+                  title="Approvals"
+                  subtitle={
+                    notices.pending
+                      ? "Leave, corrections and punches to review"
+                      : "Nothing waiting for a decision"
+                  }
+                  trailing={
+                    notices.pending ? <Tag label={`${notices.pending} waiting`} tone="primary" /> : undefined
+                  }
+                  onPress={() => navigation.navigate("AttendanceApprovals")}
+                />
+              ) : null}
+            </CardRows>
+          </Card>
 
           {notices.nextHoliday && (
             <ActionAdvisory tone="info" icon="calendar">
@@ -269,13 +273,13 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
             </ActionAdvisory>
           )}
 
-          <Panel padded>
-            <Text style={[textVariants.small, { color: t.textTertiary }]}>
+          <View style={styles.note}>
+            <Text style={[textVariants.caption, styles.center, { color: t.textTertiary }]}>
               {`Shift ${shift || "not set"}${
                 settings.graceMin ? `, ${settings.graceMin} min grace` : ""
               }. Attendance is marked only in this app, by scanning the code on the office screen. No selfie is taken and your location is not read.`}
             </Text>
-          </Panel>
+          </View>
         </>
       )}
     </AppScreen>
@@ -300,7 +304,7 @@ function Stamp({ label, value, sub, dot }: { label: string; value: string; sub: 
 }
 
 const styles = StyleSheet.create({
-  hero: { paddingHorizontal: gutter, paddingTop: gutter, paddingBottom: gutter, gap: spacing.md },
+  hero: { paddingHorizontal: 18, gap: spacing.md },
   headRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   shift: { flex: 1, textAlign: "right" },
   ringWrap: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs },
@@ -310,5 +314,6 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4 },
   stampValue: { fontFamily: font.semibold, fontSize: 20, lineHeight: 26, fontVariant: ["tabular-nums"] },
   center: { textAlign: "center" },
-  week: { paddingHorizontal: gutter - 6, paddingBottom: gutter },
+  week: { paddingHorizontal: 12 },
+  note: { paddingHorizontal: 28, paddingTop: spacing.sm, paddingBottom: spacing.lg },
 })

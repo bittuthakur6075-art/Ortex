@@ -27,17 +27,26 @@ import { useReducedMotion } from "@/ui/motion"
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 
+/** 3:42, hours unpadded, for the small ring. */
+const shortHm = (ms: number) => {
+  const m = Math.max(0, Math.floor(ms / 60000))
+  return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`
+}
+
 /** HH:MM:SS that ticks itself. `baseMs` is the time worked at `baseAt`. */
 export function LiveTimer({
   baseMs,
   baseAt,
   running,
   style,
+  short = false,
 }: {
   baseMs: number
   baseAt: number
   running: boolean
   style: object
+  /** "3:42" instead of "03:42:18": the small ring on the Home card has room for H:MM only. */
+  short?: boolean
 }) {
   const focused = useIsFocused()
   const [now, setNow] = React.useState(() => Date.now())
@@ -49,7 +58,7 @@ export function LiveTimer({
   }, [running, focused])
   const ms = running ? baseMs + Math.max(0, now - baseAt) : baseMs
   return (
-    <Text style={style} accessibilityLabel={`Worked ${hms(ms)}`}>
+    <Text style={style} accessibilityLabel={`Worked ${short ? shortHm(ms) : hms(ms)}`}>
       {hms(ms)}
     </Text>
   )
@@ -65,6 +74,7 @@ export function ProgressRing({
   compact = false,
   color,
   caption,
+  short = false,
 }: {
   workedMs: number
   computedAt: number
@@ -77,6 +87,8 @@ export function ProgressRing({
   color?: string
   /** A line under the timer in the compact ring: "of 9 h". */
   caption?: string
+  /** H:MM in the ring, for the small Home ring. */
+  short?: boolean
 }) {
   const t = useTheme()
   const reduce = useReducedMotion()
@@ -148,7 +160,11 @@ export function ProgressRing({
           baseMs={workedMs}
           baseAt={computedAt}
           running={running}
-          style={[compact ? styles.timerCompact : styles.timer, { color: t.text }]}
+          short={short}
+          style={[
+            short ? styles.timerShort : compact ? styles.timerCompact : styles.timer,
+            { color: t.text },
+          ]}
         />
         {!compact && <Text style={[textVariants.caption, { color: t.textTertiary }]}>Worked today</Text>}
         {compact && caption ? (
@@ -284,6 +300,13 @@ export function WeekStrip({ columns, targetMin }: { columns: WeekColumn[]; targe
 const styles = StyleSheet.create({
   center: { alignItems: "center", justifyContent: "center", gap: 2 },
   timer: { fontFamily: font.semibold, fontSize: 30, lineHeight: 36, fontVariant: ["tabular-nums"] },
+  timerShort: {
+    fontFamily: font.semibold,
+    fontSize: 20,
+    lineHeight: 24,
+    letterSpacing: -0.3,
+    fontVariant: ["tabular-nums"],
+  },
   timerCompact: { fontFamily: font.semibold, fontSize: 15, lineHeight: 19, fontVariant: ["tabular-nums"] },
   ringCaption: { fontFamily: font.medium, fontSize: 11, lineHeight: 14 },
   track: { width: "100%", overflow: "hidden", position: "relative" },
