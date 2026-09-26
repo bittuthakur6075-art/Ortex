@@ -54,6 +54,8 @@ export type PunchResult = {
     | "wrong_code"
     | "used_code"
     | "expired_code"
+    // Before the window opens or after it closes (0048).
+    | "outside_hours"
   message?: string
   id?: string
   kind?: PunchKind

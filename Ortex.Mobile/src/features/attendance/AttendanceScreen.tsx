@@ -167,7 +167,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
                   onCorrect={() => navigation.navigate("AttendanceCorrection", { day: today, inAt: summary.firstIn, outAt: summary.lastOut })}
                 />
               ) : (
-                <CheckButton kind={kind} disabled={loading} onPress={() => void startClock(navigation, kind)} />
+                <CheckButton kind={kind} disabled={loading} onPress={() => void startClock(navigation, kind, settings)} />
               )}
 
               <View style={styles.stampRow}>

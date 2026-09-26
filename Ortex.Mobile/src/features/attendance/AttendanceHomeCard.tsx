@@ -144,7 +144,7 @@ export default function AttendanceHomeCard() {
             tone={onDutySince ? "danger" : "primary"}
             disabled={loading}
             hint={onDutySince ? "Scan the office code to check out" : "Scan the office code to check in"}
-            onConfirm={() => void startClock(navigation, onDutySince ? "out" : "in")}
+            onConfirm={() => void startClock(navigation, onDutySince ? "out" : "in", settings)}
           />
         )}
         <View style={styles.footer}>

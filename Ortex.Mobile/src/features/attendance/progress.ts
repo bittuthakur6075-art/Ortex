@@ -3,7 +3,7 @@
 // and kept out of domain/attendance.ts (which is mirrored to the console).
 // Everything takes `now`, so the tests are not a race with the clock.
 
-import { counted, dayKey, type AttendanceDay, type Punch } from "@/domain/attendance"
+import { clockIST, counted, dayKey, type AttendanceDay, type Punch } from "@/domain/attendance"
 
 const MINUTE = 60000
 const DEFAULT_SHIFT_MIN = 9 * 60
@@ -62,6 +62,22 @@ export function workedMs(day: string, punches: Punch[], now: number): { ms: numb
   }
   if (openAt !== null) ms += Math.max(0, now - openAt)
   return { ms, openSince: openAt }
+}
+
+/**
+ * Null when a punch is allowed now, else the sentence saying when it is. The
+ * window is openBeforeMin (20) before the shift starts to closeAt (21:00), IST.
+ * Mirrors attendance_punch (migration 0048), which has the final say.
+ */
+export function punchWindowClosed(
+  s: ShiftSettings & { openBeforeMin?: number; closeAt?: string },
+  now: number,
+): string | null {
+  const day = dayKey(now)
+  const open = istMs(day, hhmmOk(s.shift?.start) ? s.shift!.start! : "09:30") - (s.openBeforeMin ?? 20) * MINUTE
+  const close = istMs(day, hhmmOk(s.closeAt) ? s.closeAt! : "21:00")
+  if (now >= open && now <= close) return null
+  return `Attendance can be marked only between ${clockIST(open)} and ${clockIST(close)}.`
 }
 
 /**

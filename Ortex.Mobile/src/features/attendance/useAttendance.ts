@@ -15,7 +15,7 @@ import {
 } from "@/domain/attendance"
 import { isAdmin } from "@/domain/modules"
 import { daysFromPunches } from "@/features/attendance/days"
-import { weekStart } from "@/features/attendance/progress"
+import { punchWindowClosed, weekStart } from "@/features/attendance/progress"
 import {
   flaggedPunches,
   holidays,
@@ -29,6 +29,7 @@ import {
 import { pendingLeave } from "@/lib/leave"
 import type { RootStackParamList } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
+import { useToast } from "@/ui"
 
 const DAY_MS = 86400000
 
@@ -145,17 +146,25 @@ export async function markNoticeSeen(uid?: string | null): Promise<void> {
 
 /**
  * The one door into clocking in: the privacy notice (and permissions) the first
- * time on this handset for this person, the camera flow after that.
+ * time on this handset for this person, the camera flow after that. Outside
+ * the punch window (20 min before the shift to 9 PM) it says so instead.
  */
 export function useStartClock() {
   const { session } = useAuth()
+  const toast = useToast()
   const uid = session?.user?.id
   return React.useCallback(
-    async (navigation: Pick<NativeStackNavigationProp<RootStackParamList>, "navigate">, kind: "in" | "out") => {
+    async (
+      navigation: Pick<NativeStackNavigationProp<RootStackParamList>, "navigate">,
+      kind: "in" | "out",
+      settings: AttendanceSettings,
+    ) => {
+      const closed = punchWindowClosed(settings, Date.now())
+      if (closed) return toast.show({ message: closed, tone: "danger" })
       if (await noticeSeen(uid)) navigation.navigate("AttendanceClock", { kind })
       else navigation.navigate("AttendanceNotice", { kind })
     },
-    [uid],
+    [uid, toast],
   )
 }
 

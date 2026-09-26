@@ -125,6 +125,9 @@ export type AttendanceSettings = {
   qrRotateSec?: number
   /** Whether an office punch must carry a scanned code. */
   requireCode?: boolean
+  /** Minutes before the shift a punch opens, and the IST time it closes (0048). */
+  openBeforeMin?: number
+  closeAt?: string
   lateRule?: { count?: number; deductDays?: number }
   correctionsPerMonth?: number
   saturday?: "full" | "half"

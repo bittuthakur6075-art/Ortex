@@ -74,3 +74,12 @@ test("week strip: Monday to Sunday, today live, the future marked", () => {
   assert.equal(cols[4].minutes, 150)
   assert.equal(cols[5].future, true)
 })
+
+test("punch window: 20 min before the shift to 9 PM, IST", () => {
+  const at = (hh, mm) => new Date(ist("2026-09-18", hh, mm)).getTime()
+  assert.equal(p.punchWindowClosed(S, at(9, 10)), null)
+  assert.equal(p.punchWindowClosed(S, at(21, 0)), null)
+  assert.equal(p.punchWindowClosed(S, at(9, 9)), "Attendance can be marked only between 9:10 AM and 9:00 PM.")
+  assert.ok(p.punchWindowClosed(S, at(21, 1)))
+  assert.equal(p.punchWindowClosed({ ...S, openBeforeMin: 60, closeAt: "22:00" }, at(21, 30)), null)
+})
