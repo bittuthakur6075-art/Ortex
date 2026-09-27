@@ -1,7 +1,4 @@
-import { useMemo } from "react"
-import { useSearchParams } from "react-router-dom"
-import { Banner, PageLoader, PillTabs } from "../../components/ui/Ui"
-import { canAccess } from "../../data/domain/modules"
+import { Banner, PageLoader } from "../../components/ui/Ui"
 import { useProfile } from "../../hooks/useProfile"
 import { isAdmin, isSuperAdmin } from "../../lib/roles"
 import Balances from "./leave/Balances"
@@ -10,33 +7,15 @@ import MyLeave from "./leave/MyLeave"
 import Requests from "./leave/Requests"
 import { useLeaveContext } from "./leave/common"
 
-// Attendance → Leave (migration 0036). Everyone applies for and follows their
-// own leave here, as on the phone. Admins decide requests; admins and anyone
-// with "Everyone's records" (Accounts) see the calendar and every balance; the
-// Super Admin adjusts balances. The policy itself is in Settings.
-//
-// The sub-view rides on `?view=`, next to the hub's own `?tab=leave`.
+// Leave (migration 0036). Everyone applies for and follows their own leave
+// ("mine", under My records). Admins decide requests; admins and anyone with
+// "Everyone's records" (Accounts) see the calendar and every balance (under
+// Team); the Super Admin adjusts balances. The policy itself is in Settings.
+// The hub (Attendance.jsx) picks the view and checks who may open it.
 
-export default function Leave() {
+export default function Leave({ view = "mine" }) {
   const profile = useProfile()
   const ctx = useLeaveContext()
-  const [params, setParams] = useSearchParams()
-  const team = isAdmin(profile) || canAccess(profile, "attendance-team")
-
-  const views = useMemo(
-    () => [
-      { value: "mine", label: "My leave" },
-      ...(team
-        ? [
-            { value: "requests", label: "Requests" },
-            { value: "calendar", label: "Calendar" },
-            { value: "balances", label: "Balances" },
-          ]
-        : []),
-    ],
-    [team],
-  )
-  const view = views.find((v) => v.value === params.get("view"))?.value || "mine"
 
   if (ctx.loading) return <PageLoader />
   if (ctx.missing) return <Banner tone="warning">Leave is not set up on this database yet (migration 0036).</Banner>
@@ -44,18 +23,6 @@ export default function Leave() {
   return (
     <div className="space-y-5">
       {ctx.error && <Banner tone="danger">{ctx.error}</Banner>}
-      {views.length > 1 && (
-        <PillTabs
-          items={views}
-          value={view}
-          onChange={(v) => {
-            const next = new URLSearchParams(params)
-            next.set("tab", "leave")
-            next.set("view", v)
-            setParams(next, { replace: true })
-          }}
-        />
-      )}
       {view === "mine" && <MyLeave ctx={ctx} />}
       {view === "requests" && <Requests ctx={ctx} canDecide={isAdmin(profile)} />}
       {view === "calendar" && <LeaveCalendar ctx={ctx} />}

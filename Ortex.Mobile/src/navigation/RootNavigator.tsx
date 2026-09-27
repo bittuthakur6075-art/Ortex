@@ -34,8 +34,10 @@ import { NotificationEngine } from "@/features/notifications/useNotificationEngi
 import GlobalSearchScreen from "@/features/search/GlobalSearchScreen"
 import AnuScreen from "@/features/anu/AnuScreen"
 import { ChatNotifier } from "@/features/chat/ChatNotifier"
+import ChatScreen from "@/features/chat/ChatScreen"
 import ChatThreadScreen from "@/features/chat/ChatThreadScreen"
 import AttendanceApprovalsScreen from "@/features/attendance/AttendanceApprovalsScreen"
+import TeamAttendanceScreen from "@/features/attendance/TeamAttendanceScreen"
 import {
   AttendanceApprovalAlerts,
   AttendanceReminderPlanner,
@@ -148,6 +150,7 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         }}
       >
         <Stack.Screen name="Tabs" component={Tabs} />
+        <Stack.Screen name="Chat" component={ChatScreen} />
         <Stack.Screen name="ChatThread" component={ChatThreadScreen} />
         <Stack.Screen name="QuotationEditor" component={QuotationEditorScreen} />
         <Stack.Screen name="QuotationDetail" component={QuotationDetailScreen} />
@@ -199,6 +202,7 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="AttendanceDay" component={AttendanceDayScreen} />
         <Stack.Screen name="AttendanceCorrection" component={AttendanceCorrectionScreen} />
         <Stack.Screen name="AttendanceApprovals" component={AttendanceApprovalsScreen} />
+        <Stack.Screen name="TeamAttendance" component={TeamAttendanceScreen} />
         {/* Leave: pages you work in, so pushes. */}
         <Stack.Screen name="Leave" component={LeaveScreen} />
         <Stack.Screen name="LeaveApply" component={LeaveApplyScreen} />

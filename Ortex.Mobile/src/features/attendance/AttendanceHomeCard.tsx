@@ -84,43 +84,58 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
       : null
   // "Office", not the check-in station's name: the person was at work, not at a door.
   const where = summary.field ? "Field visit" : "Office"
-  const hours = `of ${Math.round(shiftMin / 60)} h`
+  const hours = `of ${Math.round(shiftMin / 60)} h shift`
   const fraction = shiftMin > 0 ? worked.ms / MINUTE / shiftMin : 0
   const shiftStart = settings.shift?.start ? shiftClock(settings.shift.start) : ""
   const shiftEnd = settings.shift?.end ? shiftClock(settings.shift.end) : ""
+  // The bar's end labels already show the shift, so the lines never repeat it.
+  const noShift = shift ? null : "Shift not set"
+  const shiftFrom = settings.shift?.start ? Date.parse(`${today}T${settings.shift.start}:00+05:30`) : NaN
+  const shiftTo = settings.shift?.end ? Date.parse(`${today}T${settings.shift.end}:00+05:30`) : NaN
+  // Where now falls in the shift, for the bar's tick; none once the day is done.
+  const elapsed = dayDone || !(shiftTo > shiftFrom) ? undefined : (now - shiftFrom) / (shiftTo - shiftFrom)
+  const shiftBegun = !!settings.shift?.start && now >= Date.parse(`${today}T${settings.shift.start}:00+05:30`)
 
-  // The state: a pill, the ring's colour, and two lines that say the rest.
+  // The state: a pill, the bar's colour, and at most two lines that say the
+  // rest. Each line adds something the pill and the bar do not already say.
   let pill: { label: string; tone: "success" | "neutral" | "warning" }
   let ring: string
   let line1: string
-  let line2: string
+  let line2: string | null
   if (loading) {
-    pill = { label: "Checking", tone: "neutral" }
+    pill = { label: "Loading", tone: "neutral" }
     ring = t.primary
     line1 = "Checking today"
-    line2 = shift ? `Shift ${shift}` : "Shift not set"
+    line2 = noShift
   } else if (onDutySince) {
-    pill = { label: summary.field ? "Field visit" : "Checked in", tone: "success" }
+    pill = { label: summary.field ? "Field" : "On duty", tone: "success" }
     ring = closingSoon ? t.warning : t.success
     line1 = `In at ${clockIST(summary.firstIn || onDutySince)} · ${where}`
     line2 = progressWords(worked.ms / MINUTE, shiftMin, shiftEnded(settings, today, now))
   } else if (dayDone) {
-    pill = { label: "Checked out", tone: "neutral" }
+    pill = { label: "Done", tone: "neutral" }
     ring = t.success
     line1 = `In ${summary.firstIn ? clockIST(summary.firstIn) : "not recorded"} · out ${clockIST(
       summary.lastOut!,
     )}`
     line2 = progressWords(worked.ms / MINUTE, shiftMin, shiftEnded(settings, today, now))
   } else if (now < win.open) {
-    pill = { label: "Not open yet", tone: "neutral" }
+    pill = { label: `Opens ${clockIST(win.open)}`, tone: "neutral" }
     ring = t.primary
     line1 = `Check-in opens at ${clockIST(win.open)}`
-    line2 = shift ? `Shift ${shift}` : "Shift not set"
-  } else {
-    pill = { label: "Not checked in", tone: "warning" }
+    line2 = noShift
+  } else if (now > win.close) {
+    pill = { label: "Missed", tone: "warning" }
     ring = t.primary
-    line1 = "You have not checked in today"
-    line2 = shift ? `Shift ${shift}` : "Shift not set"
+    line1 = "You did not check in today"
+    line2 = null
+  } else {
+    pill = { label: "Not in", tone: "warning" }
+    ring = t.primary
+    line1 = shiftStart
+      ? `Shift ${shiftBegun ? "started" : "starts"} at ${shiftStart}`
+      : "Check in to start your day"
+    line2 = noShift
   }
 
   const open = (fn: () => void) => () => {
@@ -191,17 +206,19 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
               short
               style={[styles.bigTime, { color: t.text }]}
             />
-            <Text style={[styles.unit, { color: t.textTertiary }]}>{`hrs ${hours}`}</Text>
+            <Text style={[styles.unit, { color: t.textTertiary }]}>{hours}</Text>
           </View>
           <Text style={[styles.line1, { color: t.text }]} numberOfLines={1}>
             {line1}
           </Text>
-          <Text style={[styles.line2, { color: t.textSecondary }]} numberOfLines={1}>
-            {line2}
-          </Text>
+          {line2 ? (
+            <Text style={[styles.line2, { color: t.textSecondary }]} numberOfLines={1}>
+              {line2}
+            </Text>
+          ) : null}
         </View>
         <View style={styles.barBlock}>
-          <ShiftBar fraction={fraction} color={ring} />
+          <ShiftBar fraction={fraction} color={ring} elapsed={elapsed} />
           {shiftStart && shiftEnd ? (
             <View style={styles.ticks}>
               <Text style={[styles.tick, { color: t.textTertiary }]}>{shiftStart}</Text>
@@ -246,20 +263,22 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
               }),
             )}
           />
-        ) : (
+        ) : shut ? null : (
+          // Outside the window the lines above say when it opens; a disabled
+          // slider still read as one to slide (phone, 2026-09-27).
           <SlideToConfirm
-            label={shut || (onDutySince ? "Slide to check out" : "Slide to check in")}
+            label={onDutySince ? "Slide to check out" : "Slide to check in"}
             tone={onDutySince ? "danger" : "primary"}
-            disabled={loading || !!shut}
+            disabled={loading}
             hint={onDutySince ? "Scan the office code to check out" : "Scan the office code to check in"}
             onConfirm={() => void startClock(navigation, kind, settings)}
           />
         )}
 
         <View style={styles.footer}>
-          <Icon name="clock" size={14} color={closingSoon ? t.warningText : t.textTertiary} />
+          <Icon name="clock" size={16} color={closingSoon ? t.warningText : t.textSecondary} variant="Bulk" />
           <Text
-            style={[textVariants.caption, { color: closingSoon ? t.warningText : t.textTertiary, flex: 1 }]}
+            style={[styles.footerText, { color: closingSoon ? t.warningText : t.textSecondary }]}
             numberOfLines={1}
           >
             {`Check-in ${clockIST(win.open)} to ${clockIST(win.close)}`}
@@ -297,6 +316,14 @@ const styles = StyleSheet.create({
   line1: { fontFamily: fontFamily.semibold, fontSize: 16, lineHeight: 21 },
   line2: { fontFamily: fontFamily.regular, fontSize: 13.5, lineHeight: 18 },
   footer: { flexDirection: "row", alignItems: "center", gap: 6 },
+  footerText: {
+    flex: 1,
+    fontFamily: fontFamily.medium,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
   mini: { paddingVertical: 12, marginTop: spacing.sm },
   miniRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14 },
   miniTop: { flexDirection: "row", alignItems: "baseline", gap: 6 },

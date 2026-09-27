@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { KeyboardAwareFocusProvider, useKeyboardAwareScroll } from "@/hooks/useKeyboardAwareScroll"
 import { useTheme } from "@/store/ThemeContext"
 import { border, gutter, size as sizes, spacing } from "@/theme/tokens"
-import { textVariants } from "@/theme/typography"
+import { fontFamily, textVariants } from "@/theme/typography"
 import Icon from "@/ui/Icon"
 import { TAB_BAR_HEIGHT } from "@/ui/Fab"
 import { arrivalStyle, useArrival } from "@/ui/motion"
@@ -126,6 +126,19 @@ type Props = {
    * collection starts at its first row instead of mid-way down.
    */
   stickyKey?: string
+  /** Home's greeting: a smaller title with more room above it. */
+  titleSize?: number
+  titleTop?: number
+  /** Once scrolled, the bar shows the title small with this line under it. */
+  barSubtitle?: string
+  /** A shorter title for the scrolled bar ("Good evening" without the name). */
+  barTitle?: string
+  /** The subtitle at weight 500. */
+  subtitleStrong?: boolean
+  /** Beside the large title, on its right (Home's weather). */
+  titleRight?: React.ReactNode
+  /** Beside the scrolled bar's title, 8 to its right (Home's weather, compact). */
+  barTitleRight?: React.ReactNode
 }
 
 export default function AppScreen({
@@ -146,6 +159,13 @@ export default function AppScreen({
   stickyBar,
   stickyThreshold = 0,
   stickyKey,
+  titleSize,
+  titleTop,
+  barSubtitle,
+  barTitle,
+  subtitleStrong,
+  titleRight,
+  barTitleRight,
 }: Props) {
   const c = useTheme()
   const ground = inset ? c.surfaceInset : c.background
@@ -286,18 +306,30 @@ export default function AppScreen({
 
       {/* Present in the tree from the start rather than mounted on scroll, so its
           fade is a pure opacity animation and never a layout change. */}
-      <Animated.View style={[styles.barTitle, { opacity: barTitleOpacity }]} pointerEvents="none">
-        <Text
-          numberOfLines={1}
-          style={[
-            back ? textVariants.appBarTitleBack : textVariants.appBarTitle,
-            // Android pads ascent and descent asymmetrically, which drops the
-            // title a couple of dp below the slot's optical centre.
-            { color: c.text, includeFontPadding: false, textAlignVertical: "center" },
-          ]}
-        >
-          {title}
-        </Text>
+      <Animated.View
+        style={[styles.barTitle, barTitleRight ? styles.barTitleRow : null, { opacity: barTitleOpacity }]}
+        pointerEvents="none"
+      >
+        <View style={barTitleRight ? styles.barTitleText : null}>
+          <Text
+            numberOfLines={1}
+            style={[
+              back ? textVariants.appBarTitleBack : textVariants.appBarTitle,
+              // Android pads ascent and descent asymmetrically, which drops the
+              // title a couple of dp below the slot's optical centre.
+              { color: c.text, includeFontPadding: false, textAlignVertical: "center" },
+              barSubtitle ? styles.barTitleSmall : null,
+            ]}
+          >
+            {barTitle ?? title}
+          </Text>
+          {barSubtitle ? (
+            <Text numberOfLines={1} style={[styles.barSubtitle, { color: c.textSecondary }]}>
+              {barSubtitle}
+            </Text>
+          ) : null}
+        </View>
+        {barTitleRight}
       </Animated.View>
 
       <View style={[styles.barRight, { marginRight: gutter - SLOT_INSET.icon }]}>{headerRight}</View>
@@ -327,7 +359,7 @@ export default function AppScreen({
     <Animated.View
       style={{
         paddingHorizontal: gutter,
-        paddingTop: spacing.xs,
+        paddingTop: titleTop ?? spacing.xs,
         paddingBottom: subtitle ? spacing.sm : spacing.md,
         // The scroll collapse and the arrival compose: one is the page moving
         // under the bar, the other the page landing. A list arrives as a whole,
@@ -342,14 +374,31 @@ export default function AppScreen({
         ],
       }}
     >
-      <Text accessibilityRole="header" style={[textVariants.largeTitle, { color: c.text }]}>
-        {title}
-      </Text>
-      {subtitle ? (
-        <Text style={[textVariants.screenSubtitle, { color: c.textSecondary, marginTop: 2 }]}>
-          {subtitle}
-        </Text>
-      ) : null}
+      <View style={styles.titleRow}>
+        <View style={{ flex: 1 }}>
+          <Text
+            accessibilityRole="header"
+            style={[
+              textVariants.largeTitle,
+              { color: c.text },
+              titleSize ? { fontSize: titleSize, lineHeight: Math.round(titleSize * 1.25) } : null,
+            ]}
+          >
+            {title}
+          </Text>
+          {subtitle ? (
+            <Text
+              style={[
+                subtitleStrong ? textVariants.screenSubtitleStrong : textVariants.screenSubtitle,
+                { color: c.textSecondary, marginTop: 2 },
+              ]}
+            >
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+        {titleRight}
+      </View>
     </Animated.View>
   )
 
@@ -503,6 +552,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   barTitle: { flex: 1, justifyContent: "center" },
+  barTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-start", gap: 8 },
+  barTitleText: { flexShrink: 1 },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  barTitleSmall: { fontFamily: fontFamily.medium, fontSize: 12, lineHeight: 16, letterSpacing: 0 },
+  barSubtitle: {
+    fontFamily: fontFamily.medium,
+    fontSize: 14,
+    lineHeight: 18,
+    marginTop: 2,
+    includeFontPadding: false,
+  },
   // 2dp between trailing actions. Each IconButton already carries its own 44dp
   // touch slot around a 24dp glyph, so this is the gap between those slots — the
   // glyphs themselves still read about 22dp apart.

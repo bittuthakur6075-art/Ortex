@@ -48,3 +48,17 @@ export function daysOf(month) {
   const n = new Date(Date.UTC(y, m, 0)).getUTCDate()
   return Array.from({ length: n }, (_, i) => `${month}-${String(i + 1).padStart(2, "0")}`)
 }
+
+/** Props for a table row that opens something: clickable, and reachable by Tab + Enter. */
+export function openRow(onOpen) {
+  return {
+    tabIndex: 0,
+    onClick: onOpen,
+    onKeyDown: (e) => {
+      if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return
+      e.preventDefault()
+      onOpen()
+    },
+    className: "cursor-pointer focus-visible:bg-accent focus-visible:outline-none",
+  }
+}

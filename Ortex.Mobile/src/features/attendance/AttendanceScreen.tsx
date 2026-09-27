@@ -228,7 +228,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
           </Panel>
 
           <Panel
-            title="This week"
+            title="This Week"
             meta={`${hoursShort(weekMin)} worked · target ${hoursShort(shiftMin)} a day`}
           >
             <View style={styles.week}>
@@ -267,6 +267,14 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
                     notices.pending ? <Tag label={`${notices.pending} waiting`} tone="primary" /> : undefined
                   }
                   onPress={() => navigation.navigate("AttendanceApprovals")}
+                />
+              ) : null}
+              {notices.admin ? (
+                <CardRow
+                  icon="team"
+                  title="Team Attendance"
+                  subtitle="Who is in today, and who is not yet"
+                  onPress={() => navigation.navigate("TeamAttendance")}
                 />
               ) : null}
             </CardRows>

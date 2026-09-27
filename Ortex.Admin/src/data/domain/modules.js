@@ -37,8 +37,8 @@ export const MODULES = [
   // attendance_qr_issuer() wants the Super Admin, or an admin holding this key.
   { key: "attendance-qr", path: "/attendance?tab=qr", label: "Attendance · Show the QR code", section: "People" },
   // Payroll (docs/pm/PAYROLL_PLAN.md, modelled on Zoho Payroll).
-  { key: "payroll", path: "/payroll", label: "Payroll", section: "People", payrollOnly: true },
-  { key: "payslips", path: "/payslips", label: "My payslips", section: "People", always: true },
+  { key: "payroll", path: "/attendance?tab=payroll", label: "Payroll", section: "People", payrollOnly: true },
+  { key: "payslips", path: "/attendance?tab=payslips", label: "My payslips", section: "People", always: true },
   { key: "users", path: "/users", label: "Users", section: "System", adminOnly: true },
   { key: "settings", path: "/settings", label: "Settings", section: "System", superAdminOnly: true },
   { key: "social", path: "/social", label: "Marketing", section: "Automation" },

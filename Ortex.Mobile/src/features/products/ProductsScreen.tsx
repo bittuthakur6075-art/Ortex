@@ -4,7 +4,7 @@ import { StyleSheet, View } from "react-native"
 
 import { canAccess } from "@/domain/modules"
 import { type Category, type Product, type Row, type Work } from "@/domain/schema"
-import AnuButton from "@/features/anu/AnuButton"
+import ChatButton from "@/features/chat/ChatButton"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { useCollection } from "@/hooks/useCollection"
 import { feedback } from "@/lib/feedback"
@@ -150,12 +150,12 @@ export default function ProductsScreen({ navigation }: TabScreenProps<"Products"
         headerLeft={<ProfileAvatarButton />}
         headerRight={
           <>
-            <AnuButton />
             <IconButton
               name="search"
               onPress={() => navigation.navigate("Search")}
               accessibilityLabel="Search everything"
             />
+            <ChatButton />
             <NotificationBell />
           </>
         }

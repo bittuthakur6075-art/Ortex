@@ -361,7 +361,7 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
         </Panel>
 
         {!!description && (
-          <Panel title="About this product" padded>
+          <Panel title="About This Product" padded>
             <View style={styles.about}>
               <Text
                 numberOfLines={expanded || !isLong ? undefined : 4}

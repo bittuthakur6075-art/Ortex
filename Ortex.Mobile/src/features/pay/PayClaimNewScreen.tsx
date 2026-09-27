@@ -135,7 +135,7 @@ export default function PayClaimNewScreen({ navigation }: StackScreenProps<"PayC
         </View>
       </Panel>
 
-      <Panel title="Bill date">
+      <Panel title="Bill Date">
         <View style={styles.dateRow}>
           <IconButton name="back" onPress={() => step(-1)} disabled={billDate <= earliest} accessibilityLabel="A day earlier" />
           <View style={styles.dateMid}>
@@ -173,7 +173,7 @@ export default function PayClaimNewScreen({ navigation }: StackScreenProps<"PayC
         </Text>
       </Panel>
 
-      <Panel title="Description and receipt">
+      <Panel title="Description and Receipt">
         <View style={styles.pad}>
           <TextField
             value={description}

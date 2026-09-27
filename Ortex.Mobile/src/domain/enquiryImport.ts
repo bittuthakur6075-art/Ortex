@@ -136,16 +136,27 @@ export function mapStatus(text: string): string {
 }
 
 const phoneKey = (p: unknown) => String(p || "").replace(/\D/g, "").slice(-10)
-type Keyed = { createdAt?: unknown; customer?: { phone?: string }; productInterest?: string }
-/** Same person, same product, same day: the key a re-import is skipped on. */
-export function enquiryKey(e: Keyed): string {
-  const day = String(e.createdAt || "").slice(0, 10)
-  return `${phoneKey(e.customer?.phone)}|${norm(e.productInterest).toLowerCase()}|${day}`
+// The IST calendar day: the database returns created_at in UTC, so a lead saved
+// before 05:30 IST would otherwise land on the day before.
+const istDay = (ts: unknown) => {
+  const t = Date.parse(String(ts ?? ""))
+  return Number.isFinite(t) ? new Date(t + 5.5 * 3600000).toISOString().slice(0, 10) : ""
 }
+type Keyed = { createdAt?: unknown; customer?: { phone?: string; name?: string }; productInterest?: string }
+/**
+ * Same person (mobile, else name), same product, same IST day: the key a
+ * re-import is skipped on. A row with no date keys with an empty day.
+ */
+export function enquiryKey(e: Keyed): string {
+  const who = phoneKey(e.customer?.phone) || norm(e.customer?.name).toLowerCase()
+  return `${who}|${norm(e.productInterest).toLowerCase()}|${istDay(e.createdAt)}`
+}
+const undated = (key: string) => key.slice(0, key.lastIndexOf("|") + 1)
 
 export type SheetResult = {
   enquiries: ImportedEnquiry[]
   skipped: { row: number; reason: string }[]
+  repeats: { row: number; name: string }[]
   columns: Columns | null
   headerRow: number
   error?: string
@@ -153,18 +164,19 @@ export type SheetResult = {
 
 /**
  * Rows (header included) to enquiry docs.
- * `existing` enquiries are only used to skip ones already in the console.
+ * `existing` enquiries skip the rows already in the console; `repeats` are the
+ * rows whose mobile is already a lead (another product or day), for a person
+ * to decide on.
  */
 export function sheetToEnquiries(
   rows: Cell[][],
   { source = "Phone", fileName = "", existing = [] as Keyed[], today = new Date() } = {},
 ): SheetResult {
   const headerRow = findHeaderRow(rows)
-  if (headerRow < 0) return { enquiries: [], skipped: [], columns: null, headerRow, error: "No header row with a Name and a Mobile column in the first five rows." }
+  if (headerRow < 0) return { enquiries: [], skipped: [], repeats: [], columns: null, headerRow, error: "No header row with a Name and a Mobile column in the first five rows." }
   const header = rows[headerRow]
   const columns = mapColumns(header)
   const known = new Set(Object.values(columns))
-  const seen = new Set(existing.map(enquiryKey))
   const enquiries: ImportedEnquiry[] = []
   const skipped: { row: number; reason: string }[] = []
   let date: string | null = null
@@ -243,16 +255,36 @@ export function sheetToEnquiries(
       ...(date ? { createdAt: `${date}T10:00:00+05:30` } : {}),
     }
 
-    const key = enquiryKey(enquiry)
-    if (seen.has(key)) {
-      skipped.push({ row: rowNo, reason: "Already in the console" })
-      continue
-    }
-    seen.add(key)
     enquiries.push(enquiry)
   }
   // Rows above the first dated row belong to that first day.
   const first = enquiries.find((e) => e.createdAt)?.createdAt
   if (first) for (const e of enquiries) if (!e.createdAt) e.createdAt = first
-  return { enquiries, skipped, columns, headerRow }
+
+  // Duplicates are judged on the final dates. A sheet with no dates at all
+  // matches on person and product alone, since its rows are saved as "now".
+  const inConsole = new Set<string>()
+  const leads = new Map<string, string>() // mobile -> name on the lead already in the console
+  for (const e of existing) {
+    const key = enquiryKey(e)
+    inConsole.add(key).add(undated(key))
+    const phone = phoneKey(e.customer?.phone)
+    if (phone.length === 10 && !leads.has(phone)) leads.set(phone, norm(e.customer?.name) || "Unknown")
+  }
+  const inFile = new Set<string>()
+  const kept: ImportedEnquiry[] = []
+  const repeats: { row: number; name: string }[] = []
+  for (const e of enquiries) {
+    const key = enquiryKey(e)
+    if (inConsole.has(key)) skipped.push({ row: e.imported.row, reason: "Already in the console" })
+    else if (inFile.has(key)) skipped.push({ row: e.imported.row, reason: "Repeated in this file" })
+    else {
+      inFile.add(key)
+      kept.push(e)
+      const lead = leads.get(phoneKey(e.customer.phone))
+      if (lead) repeats.push({ row: e.imported.row, name: lead })
+    }
+  }
+  skipped.sort((a, b) => a.row - b.row)
+  return { enquiries: kept, skipped, repeats, columns, headerRow }
 }

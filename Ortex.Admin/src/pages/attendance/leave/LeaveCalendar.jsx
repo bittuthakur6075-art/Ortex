@@ -3,7 +3,7 @@ import { Avatar, Banner, Card, CardHeader, PageLoader } from "../../../component
 import { cn } from "../../../lib/cn"
 import { todayIST } from "../../../services/attendance"
 import { listLeaveRequests } from "../../../services/leave"
-import { dayHead, dayLabel, daysOf } from "../format"
+import { dayHead, daysOf } from "../format"
 import { MonthSwitcher } from "../status"
 import { dayRules, nameOf, typeTone } from "./common"
 import { TypeChip } from "./leaveUi"
@@ -13,6 +13,12 @@ import { TypeChip } from "./leaveUi"
 // leave as light ones, coloured by type. Weekly offs and holidays are shaded.
 // The header says who is out today in words, or that nobody is.
 
+/** Whole days from one ISO day to another. */
+function inDays(from, to) {
+  const utc = (s) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10))
+  return Math.round((utc(to) - utc(from)) / 86400000)
+}
+
 export default function LeaveCalendar({ ctx }) {
   const today = todayIST()
   const [month, setMonth] = useState(today.slice(0, 7))
@@ -20,9 +26,11 @@ export default function LeaveCalendar({ ctx }) {
 
   const days = useMemo(() => daysOf(month), [month])
   const load = useCallback(async () => {
-    const res = await listLeaveRequests({ status: ["approved", "pending"], from: `${month}-01`, to: days[days.length - 1] })
-    // Anyone on leave today, whatever month is on screen.
-    const todayRes = await listLeaveRequests({ status: "approved", from: today, to: today })
+    const [res, todayRes] = await Promise.all([
+      listLeaveRequests({ status: ["approved", "pending"], from: `${month}-01`, to: days[days.length - 1] }),
+      // Anyone on leave today, whatever month is on screen.
+      listLeaveRequests({ status: "approved", from: today, to: today }),
+    ])
     setState({ loading: false, ...res, today: todayRes.rows || [] })
   }, [month, days, today])
 
@@ -92,7 +100,7 @@ export default function LeaveCalendar({ ctx }) {
                     <td className="sticky left-0 z-10 border-t border-border bg-card py-1.5 pr-3">
                       <div className="flex items-center gap-2">
                         <Avatar name={person.name || "?"} src={person.avatarUrl} className="h-6 w-6" />
-                        <span className="truncate text-[13px] text-foreground">{person.name || "Unknown"}</span>
+                        <span className="max-w-[140px] truncate text-[13px] text-foreground">{person.name || "Unknown"}</span>
                       </div>
                     </td>
                     {days.map((d) => {
@@ -134,22 +142,43 @@ export default function LeaveCalendar({ ctx }) {
         </div>
       </Card>
 
-      <Card>
+      <Card className="self-start overflow-hidden">
         <CardHeader title="Upcoming holidays" />
-        <div className="px-5 pb-5">
-          {upcoming.length === 0 ? (
-            <p className="text-sm text-muted-foreground">None added yet. The Super Admin adds them under Settings.</p>
-          ) : (
-            <ul className="space-y-3">
-              {upcoming.map((h) => (
-                <li key={h.id} className="flex items-start justify-between gap-3">
-                  <span className="text-sm font-medium text-foreground">{h.name}</span>
-                  <span className="whitespace-nowrap text-[12px] text-muted-foreground">{dayLabel(h.day, true)}</span>
+        {upcoming.length === 0 ? (
+          <p className="px-5 pb-5 text-sm text-muted-foreground">None added yet. The Super Admin adds them under Settings.</p>
+        ) : (
+          <ul className="border-t border-border">
+            {upcoming.map((h, i) => {
+              const [y, m, d] = h.day.split("-").map(Number)
+              const date = new Date(Date.UTC(y, m - 1, d))
+              const soon = inDays(today, h.day)
+              return (
+                <li key={h.id} className="flex items-center gap-3 border-b border-border px-5 py-3 last:border-b-0">
+                  {/* A small calendar leaf: month over date; the next holiday in brand. */}
+                  <span
+                    className={cn(
+                      "squircle grid w-11 flex-none place-items-center rounded-[10px] py-1 leading-none",
+                      i === 0 ? "bg-primary/10 text-primary" : "bg-subtle text-foreground",
+                    )}
+                  >
+                    <span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">{date.toLocaleDateString("en-IN", { month: "short", timeZone: "UTC" })}</span>
+                    <span className="mt-1 text-[17px] font-semibold tabular">{d}</span>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground" title={h.name}>{h.name}</span>
+                    <span className="block text-[12px] text-muted-foreground">
+                      {date.toLocaleDateString("en-IN", { weekday: "long", timeZone: "UTC" })}
+                      {y !== Number(today.slice(0, 4)) ? ` ${y}` : ""}
+                    </span>
+                  </span>
+                  <span className={cn("flex-none whitespace-nowrap text-[12px] tabular", soon <= 7 ? "font-medium text-primary" : "text-muted-foreground")}>
+                    {soon === 0 ? "Today" : soon === 1 ? "Tomorrow" : `in ${soon} days`}
+                  </span>
                 </li>
-              ))}
-            </ul>
-          )}
-        </div>
+              )
+            })}
+          </ul>
+        )}
       </Card>
     </div>
   )

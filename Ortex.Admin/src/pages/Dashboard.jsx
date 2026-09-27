@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { AlertTriangle, FileText, Sparkles, Wallet } from "../components/ui/Icons"
+import { AlertTriangle, FileText, Sparkles, TrendingUp, Wallet } from "../components/ui/Icons"
 import { useCollections, useSettings } from "../hooks/useCollection"
 import { useProfile } from "../hooks/useProfile"
 import { canAccess } from "../data/domain/modules"
@@ -16,6 +16,7 @@ import { formatNumber } from "../lib/format"
 import { Button, EmptyState, PageLoader } from "../components/ui/Ui"
 import PageHeader from "../components/layout/PageHeader"
 import { canShowGateCode } from "./attendance/gate"
+import { INSIGHTS_MODULE_KEYS } from "./Insights"
 import { Change, Pill, Seg, Spark, money } from "./dashboard/parts"
 import NeedsYou from "./dashboard/NeedsYou"
 import { CashFlow, Receivables } from "./dashboard/Money"
@@ -64,6 +65,7 @@ export default function Dashboard() {
       payroll: canAccess(profile, "payroll"),
       attendance: admin || canAccess(profile, "attendance-team"),
       gate: canShowGateCode(profile),
+      insights: INSIGHTS_MODULE_KEYS.some((k) => canAccess(profile, k)),
     }),
     [profile, admin],
   )
@@ -155,6 +157,7 @@ export default function Dashboard() {
   const activeLogins = ops?.profiles ? ops.profiles.filter((p) => p.active !== false).length : null
 
   const actions = [
+    access.insights && { label: "Insights", to: "/insights", icon: TrendingUp },
     access.payments && { label: "Record payment", to: "/billing?tab=payments", icon: Wallet },
     access.quotations && { label: "New quotation", to: "/quotations", icon: FileText, primary: true },
   ].filter(Boolean)

@@ -8,6 +8,7 @@ import { balanceAfter, daysWords } from "../../../lib/attendance"
 import { formatDateTime, relativeTime } from "../../../lib/format"
 import { cancelLeave, decideLeave, leaveBalances, leaveDocumentUrl, listLeaveRequests } from "../../../services/leave"
 import { datesText, nameOf, num } from "./common"
+import { openRow } from "../format"
 import { LeaveStatusBadge, TypeChip } from "./leaveUi"
 
 // Leave → Requests (Employment Hero's Requests view, Deputy's review drawer):
@@ -119,7 +120,7 @@ export default function Requests({ ctx, canDecide }) {
               </Chip>
             ))}
           </ChipGroup>
-          <div className="ml-auto flex items-center gap-[10px]">
+          <div className="ml-auto flex flex-wrap items-center gap-[10px]">
             {canDecide && pickedRows.length > 0 && (
               <>
                 <Button size="sm" onClick={() => approve(pickedRows)} disabled={busy}>
@@ -141,7 +142,7 @@ export default function Requests({ ctx, canDecide }) {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-sm">
+            <table className={canDecide ? "w-full min-w-[1160px] text-sm" : "w-full min-w-[980px] text-sm"}>
               <thead className="mt-head">
                 <tr className="text-left">
                   {canDecide && (
@@ -163,13 +164,14 @@ export default function Requests({ ctx, canDecide }) {
                   <th>Reason</th>
                   <th>Applied</th>
                   <th>Status</th>
+                  {canDecide && <th className="text-right">Decision</th>}
                 </tr>
               </thead>
               <tbody className="mt-body">
                 {rows.map((r) => {
                   const d = ctx.directory?.[r.user_id] || {}
                   return (
-                    <tr key={r.id} className="cursor-pointer" onClick={() => setOpen(r)}>
+                    <tr key={r.id} {...openRow(() => setOpen(r))}>
                       {canDecide && (
                         <td onClick={(e) => e.stopPropagation()}>
                           <input
@@ -195,6 +197,20 @@ export default function Requests({ ctx, canDecide }) {
                       <td className="max-w-[240px] truncate text-muted-foreground">{r.reason}</td>
                       <td className="text-muted-foreground">{relativeTime(r.created_at)}</td>
                       <td><LeaveStatusBadge status={r.status} /></td>
+                      {canDecide && (
+                        <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                          {selectable(r) && (
+                            <div className="flex justify-end gap-2">
+                              <Button size="sm" onClick={() => approve([r])} disabled={busy} aria-label={`Approve leave for ${d.name || "this person"}`}>
+                                <CheckCircle2 className="h-4 w-4" /> Approve
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setDeclining([r])} disabled={busy} aria-label={`Decline leave for ${d.name || "this person"}`}>
+                                <X className="h-4 w-4" /> Decline
+                              </Button>
+                            </div>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   )
                 })}
@@ -209,6 +225,7 @@ export default function Requests({ ctx, canDecide }) {
         ctx={ctx}
         all={all}
         canDecide={canDecide}
+        deciding={busy}
         selfId={selfId}
         onClose={() => setOpen(null)}
         onApprove={(r) => approve([r])}
@@ -234,7 +251,7 @@ export default function Requests({ ctx, canDecide }) {
 }
 
 /** Deputy's review: the balance now, this request, after; clashes; the certificate; the timeline. */
-function RequestDrawer({ request: r, ctx, all, canDecide, selfId, onClose, onApprove, onDecline, onChanged }) {
+function RequestDrawer({ request: r, ctx, all, canDecide, deciding, selfId, onClose, onApprove, onDecline, onChanged }) {
   const [bal, setBal] = useState(null)
   const [docUrl, setDocUrl] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -288,10 +305,10 @@ function RequestDrawer({ request: r, ctx, all, canDecide, selfId, onClose, onApp
             <span className="text-[13px] text-muted-foreground">Another admin reviews your own leave.</span>
           ) : (
             <div className="flex w-full justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => onDecline(r)}>
+              <Button variant="outline" size="sm" onClick={() => onDecline(r)} disabled={deciding}>
                 <X className="h-4 w-4" /> Decline
               </Button>
-              <Button size="sm" onClick={() => onApprove(r)}>
+              <Button size="sm" onClick={() => onApprove(r)} disabled={deciding}>
                 <CheckCircle2 className="h-4 w-4" /> Approve
               </Button>
             </div>

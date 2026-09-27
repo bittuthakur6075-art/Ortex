@@ -164,7 +164,7 @@ export default function PayScreen({ navigation }: StackScreenProps<"Pay">) {
           ))}
 
           {latest && ytd.count > 0 ? (
-            <Panel title="This financial year" meta={`${fyWords(latest.data.month)} · ${ytd.count} ${ytd.count === 1 ? "payslip" : "payslips"}`}>
+            <Panel title="This Financial Year" meta={`${fyWords(latest.data.month)} · ${ytd.count} ${ytd.count === 1 ? "payslip" : "payslips"}`}>
               <PayDonut
                 centreLabel="Gross"
                 centreValue={money(ytd.gross)}
@@ -189,7 +189,7 @@ export default function PayScreen({ navigation }: StackScreenProps<"Pay">) {
           ) : null}
 
           {openLoans.length > 0 ? (
-            <Panel title="Loans and advances" meta={`${openLoans.length}`}>
+            <Panel title="Loans and Advances" meta={`${openLoans.length}`}>
               {openLoans.map((l, i) => (
                 <React.Fragment key={l.id}>
                   {i > 0 && <RowSeparator />}
@@ -210,7 +210,7 @@ export default function PayScreen({ navigation }: StackScreenProps<"Pay">) {
             </Panel>
           ) : null}
 
-          <Section title="Salary and benefits">
+          <Section title="Salary and Benefits">
             <SectionRow
               leadingIcon="money"
               title="Salary structure"

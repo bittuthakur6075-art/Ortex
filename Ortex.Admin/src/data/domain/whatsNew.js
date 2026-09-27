@@ -10,6 +10,30 @@
 
 export const RELEASES = [
   {
+    id: "1.49.0",
+    version: "1.49.0",
+    date: "2026-09-27",
+    title: "Attendance and pay, together",
+    items: [
+      {
+        kind: "improved",
+        title: "Attendance, payslips and payroll in one place",
+        detail:
+          "The sidebar's Attendance is now Attendance & pay, grouped into My records (your attendance, leave and payslips), Team, Payroll and Settings. Most people see only My records, with nothing else in the way.",
+      },
+      {
+        kind: "improved",
+        title: "Requests waiting for you are counted",
+        detail: "Corrections and leave requests waiting for a decision show their count on the Team tab, and the Dashboard's leave link opens the requests directly.",
+      },
+      {
+        kind: "improved",
+        title: "Insights opens from the Dashboard",
+        detail: "Insights has left the sidebar. Open it with the Insights button at the top of the Dashboard, or search for it with Ctrl K.",
+      },
+    ],
+  },
+  {
     id: "1.48.0",
     version: "1.48.0",
     date: "2026-09-27",

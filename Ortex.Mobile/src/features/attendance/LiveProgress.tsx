@@ -70,10 +70,16 @@ export function ShiftBar({
   fraction,
   color,
   height = 10,
+  elapsed,
 }: {
   fraction: number
   color: string
   height?: number
+  /**
+   * Share of the shift's clock time gone by (0..1). Drawn as a pale track up
+   * to a "now" tick behind the fill, so the gap reads as behind or on pace.
+   */
+  elapsed?: number
 }) {
   const t = useTheme()
   const reduce = useReducedMotion()
@@ -91,20 +97,50 @@ export function ShiftBar({
       useNativeDriver: false,
     }).start()
   }, [to, reduce, width])
+  const at = elapsed != null && elapsed > 0 && elapsed < 1 ? elapsed : null
   return (
     <View
       accessibilityRole="progressbar"
       accessibilityValue={{ min: 0, max: 100, now: Math.round(to * 100) }}
-      style={{ height, borderRadius: height / 2, backgroundColor: t.surfaceInset, overflow: "hidden" }}
     >
-      <Animated.View
-        style={{
-          height: "100%",
-          borderRadius: height / 2,
-          backgroundColor: color,
-          width: width.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }),
-        }}
-      />
+      <View style={{ height, borderRadius: height / 2, backgroundColor: t.surfaceInset, overflow: "hidden" }}>
+        {at != null ? (
+          <View
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: `${at * 100}%`,
+              backgroundColor: color,
+              opacity: 0.18,
+            }}
+          />
+        ) : null}
+        <Animated.View
+          style={{
+            height: "100%",
+            borderRadius: height / 2,
+            backgroundColor: color,
+            width: width.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }),
+          }}
+        />
+      </View>
+      {at != null ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: `${at * 100}%`,
+            top: -4,
+            width: 2,
+            height: height + 8,
+            marginLeft: -1,
+            borderRadius: 1,
+            backgroundColor: t.text,
+          }}
+        />
+      ) : null}
     </View>
   )
 }

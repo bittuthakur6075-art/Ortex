@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { Customer, Row } from "@/domain/schema"
 import ContactIndexBar from "@/features/contacts/ContactIndexBar"
 import ContactRow from "@/features/contacts/ContactRow"
-import AnuButton from "@/features/anu/AnuButton"
+import ChatButton from "@/features/chat/ChatButton"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { useCollection } from "@/hooks/useCollection"
 import { prettyPhone } from "@/lib/contact"
@@ -207,8 +207,8 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
             />
           ) : (
             <>
-              <AnuButton />
               <IconButton name="more" onPress={() => setMenuOpen(true)} accessibilityLabel="More options" />
+              <ChatButton />
               <NotificationBell />
             </>
           )

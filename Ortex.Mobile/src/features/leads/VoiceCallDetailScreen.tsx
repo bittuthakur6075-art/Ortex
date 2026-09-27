@@ -236,7 +236,7 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
         </Panel>
 
         {/* The order as it stands after the last capture. */}
-        <Panel title="What they want" padded>
+        <Panel title="What They Want" padded>
           {call.itemsList.length ? (
             call.itemsList.map((it, i) => (
               <ItemRow
@@ -282,7 +282,7 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
         {/* The fold, made visible. Newest first, because the last capture is how
             the call actually ended. */}
         <Panel
-          title="What Anu heard"
+          title="What Anu Heard"
           meta={call.captures > 1 ? `${call.captures} updates` : undefined}
           padded
         >

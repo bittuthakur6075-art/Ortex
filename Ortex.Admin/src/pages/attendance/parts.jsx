@@ -203,3 +203,24 @@ export function ReviewButtons({ punch, onDone }) {
     </>
   )
 }
+
+// A compact row of figures in one card: icon and label on top, the number
+// under it. Tiles wrap on narrow screens; the -mr-px/-mb-px on the grid tucks
+// the outer hairlines under the card's edge so only the dividers show.
+export function StatStrip({ items, className }) {
+  return (
+    <div className={cn("squircle overflow-hidden rounded-card bg-card", className)}>
+      <div className="-mb-px -mr-px grid grid-cols-2 sm:grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
+        {items.filter(Boolean).map((it) => (
+          <div key={it.label} className="flex min-w-0 flex-col gap-1.5 border-b border-r border-border px-4 py-3">
+            <span className="flex min-w-0 items-center gap-1.5 text-[12.5px] text-muted-foreground">
+              {it.icon && <it.icon className={cn("h-4 w-4 flex-none", it.tone || "text-primary")} />}
+              <span className="truncate" title={it.label}>{it.label}</span>
+            </span>
+            <span className="text-[22px] font-semibold leading-7 tracking-tight text-foreground tabular">{it.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}

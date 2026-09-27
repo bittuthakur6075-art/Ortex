@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { FileText } from "../components/ui/Icons"
-import PageHeader from "../components/layout/PageHeader"
+import { ActionBar } from "../components/layout/PageHeader"
 import { Button, Card, CardHeader, EmptyState, PageLoader, Segmented } from "../components/ui/Ui"
 import { useProfile } from "../hooks/useProfile"
 import { useSettings } from "../hooks/useCollection"
@@ -8,9 +8,9 @@ import { fyOf } from "../lib/payroll"
 import { getPayrollSettings, myPayslips } from "../services/payroll"
 import { LoadError } from "./payroll/setup/common"
 import PayslipPreview from "./payroll/run/PayslipPreview"
-import { monthWords, rupees } from "./payroll/run/shared"
+import { ROW_LINK, monthWords, rowOpens, rupees } from "./payroll/run/shared"
 
-// My payslips (/payslips): every signed-in person's own payslips, once payroll
+// My payslips (/attendance?tab=payslips): every signed-in person's own payslips, once payroll
 // has recorded the payment (a payslip is released with its run, migration
 // 0040; RLS returns nobody else's). Grouped by financial year with the year so
 // far on top; a row opens the payslip with its PDF.
@@ -70,7 +70,7 @@ export default function MyPayslips() {
 
   return (
     <div>
-      <PageHeader title="My payslips" subtitle="Your salary slips, available once payroll has paid the month." />
+      <ActionBar subtitle="Your salary slips, available once payroll has paid the month." />
       {state.loading ? (
         <PageLoader />
       ) : (
@@ -88,7 +88,7 @@ export default function MyPayslips() {
                   onChange={setFy}
                 />
               )}
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                 <Tile label={`Gross, FY ${current[0]}`} value={rupees(ytd.gross)} />
                 <Tile label="Deductions (PF, ESI, loans)" value={rupees(ytd.deductions)} />
                 <Tile label="Income tax deducted" value={rupees(ytd.tds)} />
@@ -110,7 +110,7 @@ export default function MyPayslips() {
                     </thead>
                     <tbody className="mt-body">
                       {current[1].map((s) => (
-                        <tr key={s.id} className="cursor-pointer" onClick={() => setOpen(s)}>
+                        <tr key={s.id} className={ROW_LINK} {...rowOpens(() => setOpen(s))}>
                           <td className="font-medium text-foreground">{monthWords(s.data?.month)}</td>
                           <td className="text-right tabular">
                             {s.data?.paidDays} / {s.data?.basisDays}

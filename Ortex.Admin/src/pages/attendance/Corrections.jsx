@@ -51,7 +51,9 @@ export default function Corrections() {
 
   const rows = useMemo(() => state.rows || [], [state.rows])
 
+  const [approving, setApproving] = useState(null) // id, so a double click cannot send it twice
   const approve = async (r) => {
+    setApproving(r.id)
     try {
       await decideCorrection(r.id, true, null)
       toast.success("Approved. The day is recalculated with the corrected times.")
@@ -59,6 +61,7 @@ export default function Corrections() {
     } catch (e) {
       toast.error(e.message || "Could not approve")
     }
+    setApproving(null)
   }
 
   if (state.loading && !state.rows) return <PageLoader />
@@ -124,10 +127,10 @@ export default function Corrections() {
                           <span className="text-[13px] text-muted-foreground">Another admin reviews this</span>
                         ) : (
                           <div className="flex justify-end gap-2">
-                            <Button size="sm" onClick={() => approve(r)}>
-                              <CheckCircle2 className="h-4 w-4" /> Approve
+                            <Button size="sm" onClick={() => approve(r)} disabled={approving === r.id}>
+                              <CheckCircle2 className="h-4 w-4" /> {approving === r.id ? "Approving…" : "Approve"}
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => setDeclining(r)}>
+                            <Button size="sm" variant="outline" onClick={() => setDeclining(r)} disabled={approving === r.id}>
                               <X className="h-4 w-4" /> Decline
                             </Button>
                           </div>

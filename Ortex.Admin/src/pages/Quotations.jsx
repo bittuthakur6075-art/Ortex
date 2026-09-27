@@ -1,46 +1,35 @@
 import { useState, useMemo, useEffect, useRef } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
-import { FileText, Plus, Eye, FileCheck2, Trash2, AlertTriangle, Send, CalendarClock, Search, MessageCircle, Phone } from "../components/ui/Icons"
+import { Link, useLocation, useNavigate } from "react-router-dom"
+import { ArrowLeft, FileText, Eye, FileCheck2, Trash2, AlertTriangle, Send, MessageCircle, Mail, Printer, MoreHorizontal, Clock, PhoneOutgoing, Calendar, Copy, CheckCircle2, ArrowRight } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
-import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
+import { useCollection, useSettings } from "../hooks/useCollection"
 import { useProfile } from "../hooks/useProfile"
 import useQuotationDefaults from "../hooks/useQuotationDefaults"
 import { withDefaults } from "../lib/quotationDefaults"
 import { clearDraft, draftHasContent, draftKey, isDirty, readDraft, saveBlocker, writeDraft } from "../lib/quotationDraft"
 import { currentUserId } from "../lib/auth"
-import { createQuotation, updateQuotation, convertQuotationToInvoice, markEnquiryQuoted, markLeadQuoted, isInterState } from "../data/domain/domain"
-import { notifyMessage, notifyQuotationSent } from "../services/notify"
+import { createQuotation, updateQuotation, markEnquiryQuoted, markLeadQuoted, isInterState, sameCustomer } from "../data/domain/domain"
 import { QUOTATION_STATUS, LOST_REASONS, newCustomer, newLine } from "../data/domain/schema"
-import { formatDate, toDateInput, daysUntil, formatCurrency } from "../lib/format"
-import { exportCsv } from "../lib/csv"
-import CustomerPicker from "../components/editors/CustomerPicker"
-import LivePreview from "../components/editors/LivePreview"
+import { toDateInput, amountInWords } from "../lib/format"
+import { stateName } from "../lib/gstStates"
 import { computeDocument } from "../lib/pricing"
 import { cn } from "../lib/cn"
+import { QUOTE_TONE, quoteChecks, quoteFollowUp, quoteStatus, validityLeft, dueLabel, rupees, tomorrowAt10 } from "../lib/salesWork"
+import CustomerPicker from "../components/editors/CustomerPicker"
 import ShipToFields from "../components/editors/ShipToFields"
 import LineItemsEditor from "../components/editors/LineItemsEditor"
 import DocumentView from "../components/documents/DocumentView"
-import { abandonWhatsAppShare, beginWhatsAppShare, shareQuotationOnWhatsApp } from "../components/documents/documentPdf"
-import { hasPhone, quotationShareMessage, telLink, whatsappLink } from "../lib/quotationShare"
+import { callContact } from "../components/sales/ContactCard"
 import { RecordActivity } from "../components/ui/RecordActivity"
 import ListTextarea from "../components/ui/ListTextarea"
-import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../components/editors/DocumentEditorShell"
 import { isAdmin as isAdminRole } from "../lib/roles"
-import {
-  Button, ExportButton,
-  Card, CardHeader,
-  Input, SearchInput,
-  Field,
-  StatusBadge,
-  EmptyState,
-  Money,
-  Chip, ChipGroup,
-  Modal,
-  Banner,
-  PageLoader,
-  SortTh,
-} from "../components/ui/Ui"
+import { Button, Input, Field, Chip, Modal, Banner, PageLoader } from "../components/ui/Ui"
+import { ActionMenu, StatusDropdown } from "../components/sales/ListParts"
+import { StatusTimeline, StickyActionBar } from "../components/sales/StatusTimeline"
+import QuotationList from "./quotations/QuotationList"
+import SendScreen from "./quotations/SendScreen"
+import { convertToInvoice, downloadPdf, duplicateDraft, extendValidity, setQuoteStatus, startWhatsAppShare } from "./quotations/actions"
 
 const emptyDraft = (settings) => ({
   id: null,
@@ -64,74 +53,14 @@ const emptyDraft = (settings) => ({
   showSeller: true,
 })
 
-// Status as shown in the UI: a "sent" quote whose validity has lapsed reads as
-// "expired" without a background job mutating the stored record.
-function displayStatus(q) {
-  if (q.status !== "sent" || !q.validUntil) return q.status
-  const left = daysUntil(q.validUntil)
-  return left !== null && left < 0 ? "expired" : q.status
-}
-
-// Email the quotation (EmailJS or mailto per settings) and, if it was still a
-// draft or had lapsed, mark it "sent". Returns true when the send went through.
-async function sendQuotation(q, settings) {
-  if (!q?.id) {
-    toast.error("Save the quotation first")
-    return false
-  }
-  const res = await notifyQuotationSent(q, settings)
-  const m = notifyMessage(res)
-  if (res?.error) {
-    toast.error(m?.text || res.error)
-    return false
-  }
-  if (m) toast[m.tone === "success" ? "success" : "message"](m.text)
-  if (["draft", "expired", "sent"].includes(q.status)) await repo.update("quotations", q.id, { status: "sent" })
-  return true
-}
-
-// Share the PDF with the customer on WhatsApp, and mark a draft "sent" the way
-// the email send does. `ctx` comes from beginWhatsAppShare, which the click
-// handler must call before its first await (popup and clipboard rules).
-// documentPdf.jsx explains why the PDF cannot be put into the chat itself.
-// Returns true when something went out (share sheet completed or chat opened).
-async function shareOnWhatsApp(q, settings, ctx) {
-  let res
-  try {
-    res = await shareQuotationOnWhatsApp(ctx, { doc: q, settings, waUrl: whatsappLink(q.customer?.phone, ctx.message) })
-  } catch (err) {
-    console.error(err)
-    toast.error("Could not generate the PDF.")
-    return false
-  }
-  if (res.outcome === "cancelled") return false
-  const copied = res.copied ? "The message is copied too, paste it as the caption." : undefined
-  if (res.outcome === "shared") {
-    toast.success("Quotation shared", { description: copied })
-  } else if (!res.url) {
-    toast.message(`${res.fileName} downloaded`, { description: "No phone number on this quotation, so no chat was opened." })
-    return false
-  } else if (res.opened) {
-    toast.success("PDF downloaded, attach it in the chat", { description: res.copied ? "The message is typed in and also copied." : undefined })
-  } else {
-    toast.message("PDF downloaded, attach it in the chat", {
-      description: "The browser blocked the new tab.",
-      action: { label: "Open WhatsApp", onClick: () => window.open(res.url, "_blank") },
-    })
-  }
-  if (["draft", "expired"].includes(q.status)) await repo.update("quotations", q.id, { status: "sent" })
-  return true
-}
-
-function startWhatsAppShare(q, settings) {
-  const ctx = beginWhatsAppShare(quotationShareMessage(q, settings), { openChat: hasPhone(q.customer?.phone) })
-  return shareOnWhatsApp(q, settings, ctx)
-}
+const dm = (ts) => new Date(ts).toLocaleDateString("en-IN", { day: "numeric", month: "short" })
 
 export default function Quotations() {
   const { items, loading } = useCollection("quotations")
   const { items: products } = useCollection("products")
   const { items: customers } = useCollection("customers")
+  const { items: enquiries } = useCollection("enquiries")
+  const { items: invoices } = useCollection("invoices")
   const settings = useSettings()
   const profile = useProfile()
   // The signed-in person's own payment terms / T&C / notes (Profile > Quotation
@@ -142,22 +71,22 @@ export default function Quotations() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const [query, setQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
   const [editing, setEditing] = useState(null) // draft object or null
   const [preview, setPreview] = useState(null)
-  const [sort, onSort] = useSorting("issueDate", true)
+  const [sendId, setSendId] = useState(null) // quotation id on the send screen
+  const sending = sendId ? items.find((q) => q.id === sendId) || null : null
 
   // Router state handoffs:
   //  - fromEnquiry / fromLead: prefill a new quotation from a "Convert to
   //    quotation" action.
   //  - fromCustomer: start a blank quotation for a customer-master record.
-  //  - openId: open an existing quotation (links from Customers / Products).
+  //  - openId: open an existing quotation (links from Customers / Products);
+  //    with `send`, straight onto its send screen.
   //  - create: a blank quotation (the header's "+ New" menu).
   useEffect(() => {
     // Wait for the profile too: it carries the quotation defaults to seed with.
     if (!settings || !profile) return
-    const { fromEnquiry, fromLead, fromCustomer, openId, create } = location.state || {}
+    const { fromEnquiry, fromLead, fromCustomer, openId, create, send } = location.state || {}
     if (create) {
       setEditing(newDraft())
       navigate(location.pathname, { replace: true })
@@ -182,200 +111,59 @@ export default function Quotations() {
     } else if (openId) {
       if (loading) return // wait for the collection, the effect re-runs when it lands
       const q = items.find((x) => x.id === openId)
-      if (q) setEditing({ ...q })
-      else toast.error("That quotation no longer exists")
+      if (!q) toast.error("That quotation no longer exists")
+      else if (send) setSendId(q.id)
+      else setEditing({ ...q })
       navigate(location.pathname, { replace: true })
     }
     // newDraft is rebuilt every render; quoteDefaults is the input that matters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location, settings, profile, quoteDefaults, navigate, items, loading])
 
-  const filtered = useMemo(() => {
-    let rows = items
-    if (statusFilter !== "all") rows = rows.filter((q) => displayStatus(q) === statusFilter)
-    const s = query.trim().toLowerCase()
-    if (s) {
-      rows = rows.filter((q) =>
-        [q.number, q.customer?.name, q.customer?.company].filter(Boolean).some((v) => v.toLowerCase().includes(s)),
-      )
-    }
-    const { key, desc } = sort
-    const sorted = [...rows].sort((a, b) => {
-      let valA, valB
-      if (key === "customer") {
-        valA = a.customer?.company || a.customer?.name
-        valB = b.customer?.company || b.customer?.name
-      } else if (key === "grandTotal") {
-        valA = a.totals?.grandTotal
-        valB = b.totals?.grandTotal
-      } else if (key === "issueDate" || key === "validUntil") {
-        valA = a[key] ? new Date(a[key]).getTime() : 0
-        valB = b[key] ? new Date(b[key]).getTime() : 0
-      } else {
-        valA = a[key]
-        valB = b[key]
-      }
-      if (valA === undefined || valA === null) valA = ""
-      if (valB === undefined || valB === null) valB = ""
-      if (typeof valA === "string") return desc ? valB.localeCompare(valA) : valA.localeCompare(valB)
-      return desc ? valB - valA : valA - valB
-    })
-    return sorted
-  }, [items, query, statusFilter, sort])
-
-  const handleExport = () => {
-    exportCsv(
-      `ortex-quotations-${new Date().toISOString().slice(0, 10)}.csv`,
-      [
-        { header: "Number", value: (q) => q.number },
-        { header: "Date", value: (q) => formatDate(q.issueDate) },
-        { header: "Customer", value: (q) => q.customer?.company || q.customer?.name },
-        { header: "Status", value: (q) => displayStatus(q) },
-        { header: "Taxable", value: (q) => q.totals?.taxable },
-        { header: "Grand total", value: (q) => q.totals?.grandTotal },
-        { header: "Valid until", value: (q) => formatDate(q.validUntil) },
-      ],
-      filtered,
-    )
-  }
-
   if (!settings || !profile) return <PageLoader />
+
+  const sendScreen = sending && <SendScreen q={sending} settings={settings} onClose={() => setSendId(null)} onEdit={() => (setEditing({ ...sending }), setSendId(null))} />
 
   if (editing) {
     return (
-      <div className="space-y-6">
+      <div>
         <QuotationEditor
+          key={editing.id || "new"}
           draft={editing}
           products={products}
           customers={customers}
+          enquiries={enquiries}
+          quotations={items}
+          invoices={invoices}
           settings={settings}
           profile={profile}
           onClose={() => setEditing(null)}
+          onOpen={(q) => setEditing(q)}
           onPreview={(q) => setPreview(q)}
-          onSend={(q) => sendQuotation(q, settings)}
-          onShareWhatsApp={(q, ctx) => shareOnWhatsApp(q, settings, ctx)}
+          onSend={(q) => setSendId(q.id)}
         />
         <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settings} type="quotation" />
+        {sendScreen}
       </div>
     )
   }
 
   return (
-    <div>
-      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center">
-        <ChipGroup className="min-w-0">
-          <Chip active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
-            All
-          </Chip>
-          {QUOTATION_STATUS.map((s) => (
-            <Chip key={s.id} active={statusFilter === s.id} onClick={() => setStatusFilter(s.id)}>
-              {s.label}
-            </Chip>
-          ))}
-        </ChipGroup>
-        <div className="flex items-center gap-[10px] md:ml-auto">
-          <SearchInput className="md:w-[320px]" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search quotations" />
-          <ExportButton onClick={handleExport} disabled={!filtered.length} />
-        </div>
-      </div>
-
-      {loading ? (
-        <PageLoader />
-      ) : items.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="No quotations yet"
-          description="Create a quotation from scratch or convert an enquiry into one."
-          action={
-            <Button onClick={() => setEditing(newDraft())}>
-              <Plus className="h-4 w-4" /> New quotation
-            </Button>
-          }
-        />
-      ) : filtered.length === 0 ? (
-        <EmptyState icon={Search} title="No matches" description="Try adjusting your search or filters." />
-      ) : (
-        <Card className="overflow-hidden">
-          <CardHeader
-            title="Quotations"
-            action={<Button onClick={() => setEditing(newDraft())}>New quotation</Button>}
-          />
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="mt-head">
-                <tr>
-                  <SortTh sortKey="number" sort={sort} onSort={onSort}>Number</SortTh>
-                  <SortTh sortKey="customer" sort={sort} onSort={onSort}>Customer</SortTh>
-                  <SortTh sortKey="grandTotal" sort={sort} onSort={onSort} align="right">Total</SortTh>
-                  <SortTh sortKey="status" sort={sort} onSort={onSort}>Status</SortTh>
-                  <SortTh sortKey="validUntil" sort={sort} onSort={onSort}>Validity</SortTh>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="mt-body">
-                {filtered.map((q) => {
-                  const left = daysUntil(q.validUntil)
-                  const expiring = ["draft", "sent"].includes(q.status) && left !== null && left < 0
-                  const canSend = ["draft", "sent"].includes(q.status)
-                  return (
-                    <tr key={q.id} className="cursor-pointer" onClick={() => setEditing({ ...q })}>
-                      <td className="px-4 py-3 font-medium tabular text-foreground">{q.number}</td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-foreground">{q.customer?.company || q.customer?.name}</div>
-                        <div className="text-xs text-muted-foreground">{q.customer?.name}</div>
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold text-foreground">
-                        <Money value={q.totals?.grandTotal} />
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge list={QUOTATION_STATUS} status={displayStatus(q)} />
-                      </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {expiring ? <span className="text-destructive">Expired {formatDate(q.validUntil)}</span> : formatDate(q.validUntil)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-3">
-                          {canSend && (
-                            <Button
-                              onClick={(ev) => {
-                                ev.stopPropagation()
-                                sendQuotation(q, settings)
-                              }}
-                              variant="ghost" size="sm" icon className="text-muted-foreground"
-                              title={q.status === "sent" ? "Resend" : "Send"}
-                            >
-                              <Send className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button
-                            onClick={(ev) => {
-                              ev.stopPropagation()
-                              setPreview(q)
-                            }}
-                            variant="ghost" size="sm" icon className="text-muted-foreground"
-                            title="Preview"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-      <DocumentView
-        open={!!preview}
-        onClose={() => setPreview(null)}
-        doc={preview}
+    <>
+      <QuotationList
+        items={items}
+        loading={loading}
         settings={settings}
-        type="quotation"
-        onShareWhatsApp={(q) => startWhatsAppShare(q, settings)}
+        enquiries={enquiries}
+        invoices={invoices}
+        onOpen={(q) => setEditing(q.id ? { ...q } : newDraft(q))}
+        onNew={() => setEditing(newDraft())}
+        onSend={(q) => setSendId(q.id)}
+        onPreview={(q) => setPreview(q)}
       />
-    </div>
+      <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settings} type="quotation" onShareWhatsApp={(q) => startWhatsAppShare(q, settings)} />
+      {sendScreen}
+    </>
   )
 }
 
@@ -390,7 +178,15 @@ function resumeParty(stored) {
   return name ? ` for ${name}` : ""
 }
 
-function QuotationEditor({ draft, products, customers, settings, profile, onClose, onPreview, onSend, onShareWhatsApp }) {
+// The editable statuses; "expired" and "invoiced" happen on their own.
+const PICKABLE = QUOTATION_STATUS.filter((s) => !["expired", "invoiced"].includes(s.id))
+
+// One quotation (Figma "V2 · Quotation detail"): header with status and the
+// send action, a progress track, the next action said once, the form on the
+// left and sticky totals, send history, pre-send checks and the customer on the
+// right. Saving stays explicit (the sticky bar), because a quotation is a
+// document a customer receives, not a live record.
+function QuotationEditor({ draft, products, customers, enquiries, quotations, invoices, settings, profile, onClose, onOpen, onPreview, onSend }) {
   const isEdit = !!draft.id
   // Deleting a quotation is admin-only IN THE DATABASE as of migration 0022
   // (`admin_quotations_delete`). Without this check a Sales Executive still sees
@@ -407,7 +203,12 @@ function QuotationEditor({ draft, products, customers, settings, profile, onClos
   const dirty = isDirty(form, baseline)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState("")
+  const [savedAt, setSavedAt] = useState(isEdit ? draft.updatedAt : null)
   const [confirmLeave, setConfirmLeave] = useState(false)
+  const [tab, setTab] = useState("details")
+  const [menu, setMenu] = useState(null)
+  const [open, setOpen] = useState({ customer: !isEdit && !draft.customer?.name, ship: false, terms: false, notes: false })
+  const toggle = (k) => setOpen((o) => ({ ...o, [k]: !o[k] }))
 
   // ---- Local draft (lib/quotationDraft.js) --------------------------------
   // Per user + per quotation. Offered back once on open: for an existing
@@ -460,6 +261,18 @@ function QuotationEditor({ draft, products, customers, settings, profile, onClos
     }
   }, [storageKey])
 
+  // A send, a status change or an edit from another tab updates the stored
+  // record; carry the fields this screen does not edit into the baseline so
+  // they are not reported as unsaved changes.
+  const stored = isEdit ? quotations.find((q) => q.id === draft.id) : null
+  useEffect(() => {
+    if (!stored) return
+    const pick = ({ status, sentAt, sendLog, statusAt, followUpAt, lostReason, invoiceId, validityDays, validUntil }) => ({ status, sentAt, sendLog, statusAt, followUpAt, lostReason, invoiceId, validityDays, validUntil })
+    setBaseline((b) => ({ ...b, ...pick(stored) }))
+    setForm((f) => ({ ...f, ...pick(stored) }))
+    setSavedAt(stored.updatedAt)
+  }, [stored])
+
   const discardDraft = () => {
     finished.current = true
     clearDraft(storageKey)
@@ -470,12 +283,12 @@ function QuotationEditor({ draft, products, customers, settings, profile, onClos
     else onClose()
   }
   const [showLost, setShowLost] = useState(false)
-  const [moreOpen, setMoreOpen] = useState(Boolean(draft.shipTo || draft.notes))
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
   const interState = isInterState(settings.company.stateCode, form.shipTo?.stateCode || form.customer.stateCode)
-  const hasState = Boolean(form.shipTo?.stateCode || form.customer.stateCode)
-  const status = isEdit ? displayStatus(form) : form.status
-  const partyLabel = form.customer?.company || form.customer?.name
+  const supplyState = form.shipTo?.stateCode || form.customer.stateCode
+  const status = isEdit ? quoteStatus(form) : form.status
+  const c = form.customer || {}
+  const partyLabel = c.company || c.name
 
   // Live document: what the customer will receive, computed from the form as
   // it is right now (valid-until follows issue date + validity like createQuotation).
@@ -483,20 +296,36 @@ function QuotationEditor({ draft, products, customers, settings, profile, onClos
     const validUntil = form.issueDate && form.validityDays ? new Date(new Date(form.issueDate).getTime() + form.validityDays * 86400000).toISOString() : form.validUntil
     return { ...form, validUntil, totals: computeDocument(form.lines, { interState, extraDiscountPercent: form.extraDiscountPercent }) }
   }, [form, interState])
-  const validDays = liveDoc.validUntil ? daysUntil(liveDoc.validUntil) : null
+  const t = liveDoc.totals
+  const left = validityLeft(liveDoc)
+  const fu = isEdit ? quoteFollowUp(liveDoc) : null
+  const checks = useMemo(() => quoteChecks(liveDoc, settings), [liveDoc, settings])
+  const lead = form.enquiryId ? enquiries.find((e) => e.id === form.enquiryId) : null
+  const party = useMemo(() => {
+    const c = form.customer || {}
+    const qs = quotations.filter((q) => sameCustomer(c, q.customer))
+    const won = qs.filter((q) => ["accepted", "invoiced"].includes(q.status))
+    const billed = invoices.filter((i) => i.status !== "cancelled" && sameCustomer(c, i.customer)).reduce((s, i) => s + (Number(i.totals?.grandTotal) || 0), 0)
+    const master = customers.find((m) => sameCustomer(c, m))
+    return { count: qs.length, won: won.length, billed, master }
+  }, [quotations, invoices, customers, form.customer])
 
   // Said beside the save button while it applies, not only as a toast after.
   const blocker = saveBlocker(form)
 
-  const save = async () => {
-    if (saving) return
-    if (blocker) return toast.error(blocker)
+  // Persist the form. Returns the saved quotation (or null on failure) and
+  // never closes the editor; `save` below decides what happens next.
+  const persist = async () => {
+    if (saving) return null
+    if (blocker) {
+      toast.error(blocker)
+      return null
+    }
     setSaving(true)
     setSaveError("")
-    let created = null
+    let saved = null
     try {
-      if (isEdit) await updateQuotation(form.id, form)
-      else created = await createQuotation(form)
+      saved = isEdit ? await updateQuotation(form.id, form) : await createQuotation(form)
     } catch (e) {
       // Nothing was saved. The form and its local draft stay exactly as they
       // are, so nothing typed is lost and Save can simply be pressed again.
@@ -504,35 +333,57 @@ function QuotationEditor({ draft, products, customers, settings, profile, onClos
       setSaveError(message)
       toast.error(message)
       setSaving(false)
-      return
+      return null
     }
     // The quotation EXISTS from here on, so nothing below may read as a failed
     // save: that makes someone press Save again and mint a second number.
     discardDraft()
     if (isEdit) {
-      toast.success("Quotation updated")
+      toast.success("Quotation saved")
     } else {
       let followUp = ""
       try {
         if (form.enquiryId) await markEnquiryQuoted(form.enquiryId)
-        if (form.leadId) await markLeadQuoted(form.leadId, created.id)
+        if (form.leadId) await markLeadQuoted(form.leadId, saved.id)
       } catch {
         followUp = " The enquiry could not be marked as quoted."
       }
-      toast[followUp ? "message" : "success"](`Quotation ${created.number} created.${followUp}`)
+      toast[followUp ? "message" : "success"](`Quotation ${saved.number} created.${followUp}`)
     }
     setSaving(false)
-    onClose()
+    return saved
+  }
+
+  const save = async () => {
+    const saved = await persist()
+    if (!saved) return
+    if (isEdit) {
+      setBaseline({ ...form })
+      setSavedAt(new Date().toISOString())
+    } else onOpen({ ...saved })
+  }
+
+  // Send needs a saved quotation that matches the screen.
+  const saveThenSend = async () => {
+    if (!isEdit || dirty) {
+      const saved = await persist()
+      if (!saved) return
+      if (!isEdit) return onOpen({ ...saved }), onSend(saved)
+      setBaseline({ ...form })
+    }
+    onSend(form)
+  }
+
+  const saveAndPreview = async () => {
+    if (dirty || !isEdit) await save()
+    onPreview(liveDoc)
   }
 
   const changeStatus = async (next) => {
-    if (next === "rejected") {
-      setShowLost(true)
-      return
-    }
+    if (next === "rejected") return setShowLost(true)
     set({ status: next })
     if (isEdit) {
-      await repo.update("quotations", form.id, { status: next })
+      await setQuoteStatus(form, next)
       setBaseline((b) => ({ ...b, status: next }))
     }
   }
@@ -541,66 +392,15 @@ function QuotationEditor({ draft, products, customers, settings, profile, onClos
     set({ status: "rejected", lostReason: reason })
     setShowLost(false)
     if (isEdit) {
-      await repo.update("quotations", form.id, { status: "rejected", lostReason: reason })
+      await setQuoteStatus(form, "rejected", { lostReason: reason })
       setBaseline((b) => ({ ...b, status: "rejected", lostReason: reason }))
     }
   }
 
-  // Persist any pending edits so the email carries what's on screen, then send.
-  const send = async () => {
-    if (!isEdit) return toast.error("Save the quotation first")
-    if (!form.customer.name.trim()) return toast.error("Customer name is required")
-    const saved = await updateQuotation(form.id, form)
-    // Everything on screen is persisted now, so it is no longer an unsaved draft.
-    const next = { ...form }
-    setBaseline(next)
-    const ok = await onSend(saved || form)
-    if (ok && ["draft", "expired", "sent"].includes(form.status)) {
-      set({ status: "sent" })
-      setBaseline({ ...next, status: "sent" })
-    }
-  }
-
-  // Same shape as send: persist what is on screen, then share it. The share
-  // context is taken BEFORE the save's await, because the WhatsApp tab and the
-  // clipboard write both need the click still in hand.
-  const [sharing, setSharing] = useState(false)
-  const shareWhatsApp = async () => {
-    if (!isEdit) return toast.error("Save the quotation first")
-    if (blocker) return toast.error(blocker)
-    if (sharing) return
-    const ctx = beginWhatsAppShare(quotationShareMessage(liveDoc, settings), { openChat: canReach })
-    setSharing(true)
-    try {
-      let saved
-      try {
-        saved = await updateQuotation(form.id, form)
-      } catch (e) {
-        abandonWhatsAppShare(ctx)
-        return toast.error(e?.message || "Could not save the quotation")
-      }
-      const next = { ...form }
-      setBaseline(next)
-      const ok = await onShareWhatsApp(saved || liveDoc, ctx)
-      if (ok && ["draft", "expired"].includes(form.status)) {
-        set({ status: "sent" })
-        setBaseline({ ...next, status: "sent" })
-      }
-    } finally {
-      setSharing(false)
-    }
-  }
-  const customerPhone = form.customer?.phone
-  const canReach = hasPhone(customerPhone)
-
   const convert = async () => {
     if (!isEdit) return toast.error("Save the quotation first")
-    const inv = await convertQuotationToInvoice(form.id)
-    if (!inv) return toast.error("Could not convert this quotation to an invoice.")
-    toast.success(`Invoice ${inv.number} generated`)
-    const m = notifyMessage(inv._notify)
-    if (m) toast[m.tone === "error" ? "error" : "message"](m.text)
-    onClose()
+    if (dirty && !(await persist())) return
+    if (await convertToInvoice(form)) onClose()
   }
 
   const remove = async () => {
@@ -611,248 +411,476 @@ function QuotationEditor({ draft, products, customers, settings, profile, onClos
     onClose()
   }
 
-  const validityTone = status === "invoiced" || status === "accepted" ? "success" : validDays != null && validDays < 0 ? "danger" : validDays != null && validDays <= 3 ? "warning" : "info"
-  const validitySub = validDays == null ? undefined : validDays < 0 ? `Expired ${-validDays}d ago` : validDays === 0 ? "Expires today" : `${validDays} day${validDays === 1 ? "" : "s"} left`
-  const lineCount = form.lines.length
-  const summary = `${lineCount} line${lineCount === 1 ? "" : "s"} · ${formatCurrency(liveDoc.totals.grandTotal)}`
+  const snooze = async () => {
+    const when = tomorrowAt10()
+    set({ followUpAt: when })
+    if (isEdit) {
+      await repo.update("quotations", form.id, { followUpAt: when })
+      setBaseline((b) => ({ ...b, followUpAt: when }))
+    }
+    toast.success("Follow-up moved to tomorrow")
+  }
+
+  const lineCount = form.lines.filter((l) => l.description || l.quantity).length
+  const sentVia = [...new Set((form.sendLog || []).map((l) => (l.channel === "whatsapp" ? "WhatsApp" : "email")))].join(" + ")
+  const track = [
+    { id: "draft", label: "Draft", when: form.createdAt || form.issueDate },
+    { id: "sent", label: sentVia ? `Sent · ${sentVia}` : "Sent", when: form.sentAt || form.statusAt?.sent },
+    { id: "accepted", label: "Accepted", when: form.statusAt?.accepted },
+    { id: "invoiced", label: "Invoiced", when: form.statusAt?.invoiced },
+  ]
+  // A rejected quotation shows how far it got: accepted if dated, else sent if it went out.
+  const reached = status === "rejected" ? (form.statusAt?.accepted ? 2 : form.sentAt || form.sendLog?.length ? 1 : 0) : ({ draft: 0, sent: 1, expired: 1, accepted: 2, invoiced: 3 }[status] ?? 0)
+  const trackEnd =
+    status === "rejected"
+      ? { label: `Lost${form.lostReason ? `: ${form.lostReason}` : ""}`, tone: "rose", when: form.statusAt?.rejected }
+      : status === "expired"
+        ? { label: "Lapsed", tone: "amber", when: form.validUntil }
+        : null
+  const log = [...(form.sendLog || [])].reverse()
+  const bad = checks.filter((x) => !x.ok)
+
+  const moreSections = [
+    {
+      items: [
+        { icon: Eye, label: "Preview", onSelect: () => onPreview(liveDoc) },
+        { icon: Printer, label: "Download PDF", onSelect: () => downloadPdf(liveDoc, settings) },
+        ...(isEdit ? [{ icon: Calendar, label: "Extend validity", hint: "+15 days", disabled: !["draft", "sent", "expired"].includes(status), onSelect: () => extendValidity(form, 15) }] : []),
+        ...(isEdit ? [{ icon: Copy, label: "Duplicate as new draft", onSelect: () => onOpen(duplicateDraft(form)) }] : []),
+        ...(isEdit && status !== "invoiced" ? [{ icon: FileCheck2, label: "Convert to invoice", onSelect: convert }] : []),
+      ],
+    },
+  ]
 
   return (
-    <div>
-      <EditorHeader
-        onBack={requestClose}
-        backLabel="Back to quotations"
-        title={isEdit ? `Quotation ${draft.number}` : "New quotation"}
-        trail={["Sales", "Quotations", isEdit ? "Details" : "New"]}
-        badge={<StatusBadge list={QUOTATION_STATUS} status={status} />}
-        meta={isEdit ? `${partyLabel || "No customer"} · issued ${formatDate(form.issueDate)}` : `Draft · ${summary}`}
-        actions={
-          <>
-            <Button variant="outline" size="md" onClick={() => onPreview(liveDoc)}>
+    // At least one window tall, so the sticky action bar rests on the bottom edge.
+    <div className="flex min-h-[calc(100dvh-76px)] flex-col gap-4">
+      {/* Breadcrumb */}
+      <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <button type="button" onClick={requestClose} aria-label="Back to quotations" title="Back to quotations" className="grid h-8 w-8 flex-none place-items-center rounded-full border border-line bg-card text-foreground transition-colors hover:border-primary/40 hover:text-primary">
+            <ArrowLeft variant="Linear" className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={requestClose} className="hover:text-foreground">Quotations</button>
+          <span>/</span>
+          <span className="font-medium text-foreground">{isEdit ? draft.number : "New quotation"}</span>
+        </div>
+        <span className="flex items-center gap-1.5 text-muted-foreground">
+          {dirty ? (
+            <><span className="h-2 w-2 rounded-full bg-warning" /> Unsaved changes</>
+          ) : savedAt ? (
+            <><CheckCircle2 className="h-3.5 w-3.5 text-success-text" /> Saved {savedAtLabel(savedAt)}</>
+          ) : (
+            "Not saved yet"
+          )}
+        </span>
+      </div>
+
+      {/* Header */}
+      <section className="squircle rounded-card bg-card px-5 pb-4 pt-5">
+        <div className="flex flex-wrap items-start gap-4">
+          <span className="squircle grid h-[52px] w-[52px] flex-none place-items-center rounded-xl bg-primary/10 text-primary">
+            <FileText className="h-6 w-6" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-semibold leading-8 tracking-[-0.01em] text-foreground tabular">{isEdit ? draft.number : "New quotation"}</h1>
+              {isEdit &&
+                (["expired", "invoiced"].includes(status) ? (
+                  <StatusDropdown value={status} statuses={QUOTATION_STATUS} tones={QUOTE_TONE} onChange={changeStatus} />
+                ) : (
+                  <StatusDropdown value={status} statuses={PICKABLE} tones={QUOTE_TONE} onChange={changeStatus} />
+                ))}
+            </div>
+            <p className="mt-1 truncate text-[13px] text-muted-foreground">
+              {[partyLabel || "No customer yet", c.company && c.name, rupees(t.grandTotal) + " incl. GST", lead?.reference && `from ${lead.reference}`, form.sellerName].filter(Boolean).join(" · ")}
+            </p>
+          </div>
+          <div className="flex flex-none flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => onPreview(liveDoc)}>
               <Eye className="h-4 w-4" /> Preview
             </Button>
-            {isEdit && ["draft", "sent", "expired"].includes(form.status) && (
-              <Button variant="outline" size="md" onClick={send}>
-                <Send className="h-4 w-4" /> {form.status === "sent" ? "Resend" : "Send"}
-              </Button>
-            )}
             {isEdit && (
-              <Button variant="outline" size="md" onClick={shareWhatsApp} disabled={sharing} title="Download the PDF and open the customer's WhatsApp chat">
-                <MessageCircle className="h-4 w-4" /> {sharing ? "Preparing…" : "Share on WhatsApp"}
+              <div className="squircle flex overflow-hidden rounded-xl border border-line">
+                <SegIcon icon={MessageCircle} label="WhatsApp" green onClick={saveThenSend} />
+                <SegIcon icon={Mail} label="Email" onClick={saveThenSend} className="border-x border-line" />
+                <SegIcon icon={Printer} label="Download PDF" onClick={() => downloadPdf(liveDoc, settings)} />
+              </div>
+            )}
+            {status !== "invoiced" && status !== "rejected" && (
+              <Button onClick={status === "accepted" ? convert : saveThenSend} disabled={saving}>
+                {status === "accepted" ? <FileCheck2 className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+                {status === "accepted" ? "Convert to invoice" : status === "draft" || !isEdit ? "Send" : "Send reminder"}
               </Button>
             )}
-            {isEdit && form.status !== "invoiced" && (
-              <Button variant="success" size="md" onClick={convert}>
-                <FileCheck2 className="h-4 w-4" /> Convert to invoice
-              </Button>
-            )}
-            <Button size="md" onClick={save} disabled={saving}>
-              {isEdit ? "Save changes" : "Create quotation"}
+            <Button variant="outline" icon onClick={(e) => setMenu(e.currentTarget)} aria-label="More actions">
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
-          </>
-        }
-      />
-
-      {isEdit && (
-        <Tiles className="xl:grid-cols-3">
-          <Tile icon={FileText} label="Quote value" value={formatCurrency(liveDoc.totals.grandTotal)} sub={`${summary.split(" · ")[0]} · ${interState ? "IGST" : "CGST + SGST"}`} />
-          <Tile icon={CalendarClock} tone={validityTone} label="Valid until" value={liveDoc.validUntil ? formatDate(liveDoc.validUntil) : "-"} sub={validitySub} />
-          <Tile
-            icon={status === "invoiced" ? FileCheck2 : status === "rejected" ? AlertTriangle : Send}
-            tone={status === "invoiced" || status === "accepted" ? "success" : status === "rejected" ? "danger" : status === "sent" ? "info" : "slate"}
-            label="Status"
-            value={QUOTATION_STATUS.find((s) => s.id === status)?.label || status}
-            sub={status === "rejected" && form.lostReason ? `Lost: ${form.lostReason}` : form.invoiceId ? "Invoice generated" : undefined}
-          />
-        </Tiles>
-      )}
-
-      {/* Form left · live document right (Acctual / Mercury / Airwallex) */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_460px]">
-        <div className="min-w-0 space-y-4">
-          {/* 1. Who */}
-          <Section title="Customer" description="Who this quotation is for">
-            <CustomerPicker value={form.customer} onChange={(customer) => set({ customer })} customers={customers} />
-            {partyLabel && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Button variant="outline" size="sm" disabled={!canReach} onClick={() => { window.location.href = telLink(customerPhone) }}>
-                  <Phone className="h-4 w-4" /> Call
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!canReach}
-                  onClick={() => window.open(whatsappLink(customerPhone, quotationShareMessage(liveDoc, settings)), "_blank", "noopener")}
-                >
-                  <MessageCircle className="h-4 w-4" /> WhatsApp message
-                </Button>
-                {!canReach && <span className="text-xs text-muted-foreground">No phone number on this customer. Add one to call or message.</span>}
-              </div>
-            )}
-            {hasState && (
-              <p className={cn("mt-3 text-xs font-medium", interState ? "text-primary" : "text-success-text")}>
-                {interState ? "Inter-state supply - IGST will be applied." : "Intra-state supply - CGST + SGST will be applied."}
-              </p>
-            )}
-          </Section>
-
-          {/* 2. When / how - one compact row (Xero header row) */}
-          <Section title="Details">
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <Field label="Issue Date">
-                <Input type="date" value={toDateInput(form.issueDate)} onChange={(e) => set({ issueDate: new Date(e.target.value).toISOString() })} />
-              </Field>
-              <Field label="Validity (Days)">
-                <Input type="number" min="1" value={form.validityDays} onChange={(e) => set({ validityDays: Number(e.target.value) })} />
-              </Field>
-              <Field label="Valid Until" hint="From issue date + validity">
-                <Input readOnly value={liveDoc.validUntil ? formatDate(liveDoc.validUntil) : ""} />
-              </Field>
-              <Field label="Payment Terms">
-                <Input value={form.paymentTerms} onChange={(e) => set({ paymentTerms: e.target.value })} placeholder="Enter payment terms" />
-              </Field>
-            </div>
-            {/* WHO QUOTED IT, on the sheet the customer keeps. Prefilled with the
-                signed-in user's name on a new quotation, never re-stamped on
-                edit, and editable either way. */}
-            <div className="mt-4 grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
-              <Field label="Seller Name">
-                <Input value={form.sellerName || ""} onChange={(e) => set({ sellerName: e.target.value })} placeholder="Enter seller name" />
-              </Field>
-            </div>
-            <label className="mt-3 flex items-center gap-2 text-sm text-foreground">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-border accent-primary"
-                checked={form.showSeller !== false}
-                onChange={(e) => set({ showSeller: e.target.checked })}
-              />
-              Show the seller name on the PDF
-            </label>
-            {isEdit && (
-              <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-border pt-4">
-                <span className="mr-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground">Mark as</span>
-                {QUOTATION_STATUS.filter((s) => !["invoiced", "expired"].includes(s.id)).map((s) => (
-                  <Chip key={s.id} active={form.status === s.id} onClick={() => changeStatus(s.id)}>
-                    {s.label}
-                  </Chip>
-                ))}
-                <span className="text-xs text-subtle-foreground">· expired and invoiced are automatic</span>
-              </div>
-            )}
-          </Section>
-
-          {/* 3. What - the quote itself */}
-          <Section title="Line items" description="Pick a product to auto-fill HSN, rate and GST, or enter a custom item.">
-            <LineItemsEditor
-              lines={form.lines}
-              onChange={(lines) => set({ lines })}
-              products={products}
-              extraDiscountPercent={form.extraDiscountPercent}
-              onExtraDiscountChange={(v) => set({ extraDiscountPercent: v })}
-              interState={interState}
-            />
-          </Section>
-
-          {/* 4. Terms - always present, rarely edited */}
-          <Section title="Terms & conditions" description="Printed at the foot of the quotation">
-            <ListTextarea
-              ai={{
-                purpose: "Terms and conditions printed at the foot of a sales quotation from Ortex Industries: validity, payment, artwork approval, production and delivery, one term per line",
-                context: () => ({
-                  validityDays: form.validityDays,
-                  validUntil: form.validUntil,
-                  paymentTerms: form.paymentTerms,
-                  items: (form.lines || []).map((l) => l.description).filter(Boolean).slice(0, 10),
-                }),
-                format: "lines",
-                maxChars: 900,
-              }}
-              value={form.terms}
-              onChange={(e) => set({ terms: e.target.value })}
-              placeholder="Enter terms and conditions"
-              className="min-h-[110px]"
-            />
-          </Section>
-
-          {/* 5. Optional extras, collapsed until needed */}
-          <div className="rounded-card bg-card shadow-card">
-            <button type="button" onClick={() => setMoreOpen((o) => !o)} className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left" aria-expanded={moreOpen}>
-              <div>
-                <h3 className="text-[15px] font-semibold leading-5 text-foreground">Ship to & notes</h3>
-                <p className="mt-0.5 text-[13px] text-muted-foreground">
-                  {form.shipTo ? `Ships to ${form.shipTo.company || form.shipTo.name || "a different address"}` : "Ships to the customer address"}
-                  {form.notes ? " · note added" : ""}
-                </p>
-              </div>
-              <span className="text-[13px] font-medium text-primary">{moreOpen ? "Hide" : "Edit"}</span>
-            </button>
-            {moreOpen && (
-              <div className="space-y-5 border-t border-border px-5 py-5">
-                <ShipToFields value={form.shipTo} onChange={(shipTo) => set({ shipTo })} customers={customers} />
-                <Field label="Notes" hint="Printed under the totals">
-                  <ListTextarea
-                    ai={{
-                      format: "paragraph",
-                      purpose: "Short note printed under the totals of a sales quotation, for example what is included, a free mockup offer or a thank you",
-                      context: () => ({
-                        validUntil: form.validUntil,
-                        paymentTerms: form.paymentTerms,
-                        items: (form.lines || []).map((l) => l.description).filter(Boolean).slice(0, 10),
-                      }),
-                      maxChars: 300,
-                    }}
-                    value={form.notes}
-                    onChange={(e) => set({ notes: e.target.value })}
-                    placeholder="Enter notes"
-                    className="min-h-[80px]"
-                  />
-                </Field>
-              </div>
-            )}
           </div>
         </div>
 
-        <div className="min-w-0 space-y-4 xl:sticky xl:top-[72px] xl:self-start">
-          <LivePreview doc={liveDoc} settings={settings} type="quotation" onOpen={() => onPreview(liveDoc)} />
-          {/* Only on a saved quotation: a draft has no row yet, so there is no
-              authorship and nothing to show. */}
-          {isEdit && <RecordActivity collection="quotations" record={draft} />}
+        {isEdit && (
+          <div className="mt-4 flex items-center gap-4 border-t border-border pt-3">
+            <StatusTimeline
+              label="Quotation status timeline"
+              steps={track}
+              reached={reached}
+              end={trackEnd}
+              // Invoiced happens by converting, and nothing moves backwards off an invoice.
+              canPick={(id) => id !== "invoiced" && status !== "invoiced"}
+              onPick={(id) => id !== status && changeStatus(id)}
+            />
+            {!["rejected", "invoiced"].includes(status) && (
+              <button type="button" onClick={() => changeStatus("rejected")} className="squircle h-6 flex-none rounded-lg border border-destructive/30 px-2.5 text-xs font-medium text-destructive-text hover:bg-destructive/[0.06]">
+                Mark as lost
+              </button>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* Next action */}
+      {fu && fu.label && fu.group !== "closed" && (
+        <section className="squircle relative flex flex-wrap items-center gap-4 overflow-hidden rounded-card bg-card py-4 pl-9 pr-4">
+          <span className={cn("absolute bottom-3 left-4 top-3 w-[3px] rounded-full", fu.overdue ? "bg-destructive" : fu.group === "needs" ? "bg-warning" : "bg-primary")} />
+          <div className="min-w-0 flex-1">
+            <p className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
+              <span className={cn("text-[10px] font-semibold uppercase tracking-[0.06em]", fu.overdue ? "text-destructive-text" : "text-muted-foreground")}>Next action</span>
+              <span className="font-semibold text-foreground">
+                {fu.action === "send"
+                  ? "Send this quotation today."
+                  : fu.action === "invoice"
+                    ? "Accepted. Convert it to an invoice."
+                    : fu.overdue
+                      ? `Follow-up is ${dueLabel(fu.due).replace("Overdue ", "")} overdue.`
+                      : `Follow up ${dueLabel(fu.due).toLowerCase()}.`}
+                {form.sentAt && fu.action === "remind" ? ` Sent ${dm(form.sentAt)}${log.length > 1 ? `, ${log.length} times so far` : ""}.` : ""}
+              </span>
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {left != null && status === "sent" && (
+                <Pillish tone={left <= 3 ? "amber" : "slate"} icon={Calendar}>{left < 0 ? "Validity lapsed" : `Valid ${left} more day${left === 1 ? "" : "s"}`}</Pillish>
+              )}
+              {bad.map((x) => (
+                <Pillish key={x.key} tone="amber" icon={AlertTriangle}>{x.text}</Pillish>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-none items-center gap-2">
+            {fu.action === "remind" && (
+              <Button variant="outline" onClick={snooze}>
+                <Clock className="h-4 w-4" /> Snooze
+              </Button>
+            )}
+            {c.phone && (
+              <Button variant="outline" onClick={(ev) => callContact(ev, { name: c.name, company: c.company, phone: c.phone, email: c.email })}>
+                <PhoneOutgoing className="h-4 w-4" /> Call {c.name?.split(" ")[0] || ""}
+              </Button>
+            )}
+            {fu.action === "invoice" ? (
+              <Button onClick={convert}>
+                <FileCheck2 className="h-4 w-4" /> Convert to invoice
+              </Button>
+            ) : (
+              <Button onClick={saveThenSend}>
+                <MessageCircle className="h-4 w-4" /> {fu.action === "send" ? "Send" : "WhatsApp reminder"}
+              </Button>
+            )}
+          </div>
+        </section>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0 space-y-4 [&>*:first-child]:!mb-0">
+          {isEdit && (
+            <div className="squircle flex items-center gap-6 rounded-t-card border-b border-border bg-card px-[18px]">
+              {[
+                { key: "details", label: "Details" },
+                { key: "activity", label: "Activity" },
+              ].map((x) => (
+                <button key={x.key} type="button" onClick={() => setTab(x.key)} className={cn("-mb-px h-12 border-b-2 text-[13px] font-medium", tab === x.key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
+                  {x.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {tab === "activity" && isEdit ? (
+            <Box attached title="Change history" sub="Who changed this quotation, and when.">
+              <RecordActivity collection="quotations" record={draft} bare title="" />
+            </Box>
+          ) : (
+            <>
+              <Box attached={isEdit} title="Customer and supply" action={<TextBtn onClick={() => toggle("customer")}>{open.customer ? "Done" : partyLabel ? "Change customer" : "Add customer"}</TextBtn>}>
+                {open.customer && (
+                  <div className="mb-4">
+                    <CustomerPicker value={form.customer} onChange={(customer) => set({ customer })} customers={customers} />
+                  </div>
+                )}
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <PartyBox title="Bill to" onEdit={() => toggle("customer")}>
+                    {partyLabel ? (
+                      <>
+                        <b className="block text-foreground">{c.company || c.name}</b>
+                        {c.company && c.name && <span className="block">{[c.name, c.phone].filter(Boolean).join(" · ")}</span>}
+                        {c.address && <span className="block whitespace-pre-line">{c.address}</span>}
+                        {c.gstin && <span className="block">GSTIN {c.gstin}</span>}
+                      </>
+                    ) : (
+                      <span className="text-subtle-foreground">No customer yet</span>
+                    )}
+                  </PartyBox>
+                  <PartyBox title="Ship to" onEdit={() => toggle("ship")}>
+                    {form.shipTo ? (
+                      <>
+                        <b className="block text-foreground">{form.shipTo.company || form.shipTo.name}</b>
+                        {form.shipTo.address && <span className="block whitespace-pre-line">{form.shipTo.address}</span>}
+                      </>
+                    ) : (
+                      <b className="block text-foreground">Same as billing</b>
+                    )}
+                  </PartyBox>
+                  <div className={cn("squircle rounded-xl px-3.5 py-3 text-[12.5px] leading-5", supplyState ? "bg-success/[0.07]" : "bg-warning/10")}>
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Place of supply</p>
+                    {supplyState ? (
+                      <>
+                        <b className="block text-foreground">
+                          {stateName(supplyState) || "State"} ({supplyState})
+                        </b>
+                        <span className="block text-muted-foreground">
+                          {interState ? `Inter-state from ${stateName(settings.company.stateCode) || "your state"} (${settings.company.stateCode})` : "Same state as yours"}
+                        </span>
+                        <span className="block font-medium text-success-text">{interState ? "IGST applies" : "CGST + SGST apply"}</span>
+                      </>
+                    ) : (
+                      <span className="text-warning-text">Add the customer&apos;s state or GSTIN to decide IGST or CGST + SGST.</span>
+                    )}
+                  </div>
+                </div>
+                {open.ship && (
+                  <div className="mt-4 border-t border-border pt-4">
+                    <ShipToFields value={form.shipTo} onChange={(shipTo) => set({ shipTo })} customers={customers} />
+                  </div>
+                )}
+              </Box>
+
+              <Box title="Details">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+                  <Field label="Issue date">
+                    <Input type="date" value={toDateInput(form.issueDate)} onChange={(e) => set({ issueDate: new Date(e.target.value).toISOString() })} />
+                  </Field>
+                  <Field label="Validity">
+                    <Input type="number" min="1" value={form.validityDays} onChange={(e) => set({ validityDays: Number(e.target.value) })} />
+                  </Field>
+                  <Field label="Valid until" hint={left == null ? undefined : left < 0 ? `Lapsed ${-left} days ago` : `${left} days left`}>
+                    <Input readOnly value={liveDoc.validUntil ? dm(liveDoc.validUntil) + " " + new Date(liveDoc.validUntil).getFullYear() : ""} />
+                  </Field>
+                  <Field label="Payment terms">
+                    <Input value={form.paymentTerms} onChange={(e) => set({ paymentTerms: e.target.value })} placeholder="e.g. 50% advance" />
+                  </Field>
+                  <Field label="Seller">
+                    <Input value={form.sellerName || ""} onChange={(e) => set({ sellerName: e.target.value })} placeholder="Enter seller name" />
+                  </Field>
+                </div>
+                {/* WHO QUOTED IT, on the sheet the customer keeps. Prefilled with the
+                    signed-in user's name on a new quotation, never re-stamped on
+                    edit, and editable either way. */}
+                <label className="mt-3 flex items-center gap-2 text-[13px] text-foreground">
+                  <input type="checkbox" className="h-4 w-4 rounded border-border accent-primary" checked={form.showSeller !== false} onChange={(e) => set({ showSeller: e.target.checked })} />
+                  Show the seller name on the PDF
+                </label>
+              </Box>
+
+              <Box title="Line items" sub="Pick a product to fill HSN, rate and GST.">
+                <LineItemsEditor
+                  lines={form.lines}
+                  onChange={(lines) => set({ lines })}
+                  products={products}
+                  extraDiscountPercent={form.extraDiscountPercent}
+                  onExtraDiscountChange={(v) => set({ extraDiscountPercent: v })}
+                  interState={interState}
+                  showTotals={false}
+                />
+              </Box>
+
+              <FoldBox
+                title="Terms and conditions"
+                sub={`${(form.terms || "").split("\n").filter((l) => l.trim()).length} clauses · printed at the foot`}
+                open={open.terms}
+                onToggle={() => toggle("terms")}
+              >
+                <ListTextarea
+                  ai={{
+                    purpose: "Terms and conditions printed at the foot of a sales quotation from Ortex Industries: validity, payment, artwork approval, production and delivery, one term per line",
+                    context: () => ({
+                      validityDays: form.validityDays,
+                      validUntil: form.validUntil,
+                      paymentTerms: form.paymentTerms,
+                      items: (form.lines || []).map((l) => l.description).filter(Boolean).slice(0, 10),
+                    }),
+                    format: "lines",
+                    maxChars: 900,
+                  }}
+                  value={form.terms}
+                  onChange={(e) => set({ terms: e.target.value })}
+                  placeholder="Enter terms and conditions"
+                  className="min-h-[110px]"
+                />
+              </FoldBox>
+
+              <FoldBox title="Notes on the quotation" sub={form.notes?.trim() ? `“${form.notes.trim().split("\n")[0].slice(0, 80)}”` : "Printed under the totals"} open={open.notes} onToggle={() => toggle("notes")}>
+                <ListTextarea
+                  ai={{
+                    format: "paragraph",
+                    purpose: "Short note printed under the totals of a sales quotation, for example what is included, a free mockup offer or a thank you",
+                    context: () => ({
+                      validUntil: form.validUntil,
+                      paymentTerms: form.paymentTerms,
+                      items: (form.lines || []).map((l) => l.description).filter(Boolean).slice(0, 10),
+                    }),
+                    maxChars: 300,
+                  }}
+                  value={form.notes}
+                  onChange={(e) => set({ notes: e.target.value })}
+                  placeholder="Enter notes"
+                  className="min-h-[80px]"
+                />
+              </FoldBox>
+            </>
+          )}
+        </div>
+
+        {/* Rail */}
+        <div className="space-y-4 xl:sticky xl:top-[72px] xl:self-start">
+          <RailCard title="Totals" action={supplyState && <span className="rounded-md bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{interState ? "IGST · inter-state" : "CGST + SGST"}</span>}>
+            <dl className="space-y-2 text-[13px]">
+              <Line label={`Subtotal (${lineCount} line${lineCount === 1 ? "" : "s"})`} value={rupees2(t.subTotal)} />
+              {t.lineDiscount > 0 && <Line label="Line discounts" value={`−${rupees2(t.lineDiscount)}`} good />}
+              <div className="flex items-center justify-between gap-3">
+                <dt className="flex items-center gap-1.5 text-muted-foreground">
+                  Extra discount
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={form.extraDiscountPercent || 0}
+                    onChange={(e) => set({ extraDiscountPercent: Number(e.target.value) })}
+                    aria-label="Extra discount percent"
+                    className="h-6 w-12 rounded-md border border-line bg-card px-1.5 text-right text-xs text-foreground outline-none focus:border-primary"
+                  />
+                  %
+                </dt>
+                <dd className={cn("font-medium tabular", t.docDiscount > 0 ? "text-success-text" : "text-muted-foreground")}>{t.docDiscount > 0 ? `−${rupees2(t.docDiscount)}` : "—"}</dd>
+              </div>
+              <Line label="Taxable value" value={rupees2(t.taxable)} />
+              {Object.entries(t.taxByRate || {})
+                .sort((a, b) => Number(b[0]) - Number(a[0]))
+                .map(([rate, amt]) =>
+                  interState ? (
+                    <Line key={rate} label={`IGST ${rate}%`} value={rupees2(amt)} />
+                  ) : (
+                    <Line key={rate} label={`CGST + SGST ${rate}%`} value={rupees2(amt)} />
+                  ),
+                )}
+              {t.roundOff !== 0 && <Line label="Round off" value={`${t.roundOff > 0 ? "+" : "−"}${rupees2(Math.abs(t.roundOff))}`} />}
+            </dl>
+            <div className="mt-3 flex items-baseline justify-between border-t border-border pt-3">
+              <span className="text-[14px] font-semibold text-foreground">Grand total</span>
+              <span className="text-2xl font-semibold tracking-[-0.01em] text-foreground tabular">{rupees(t.grandTotal)}</span>
+            </div>
+            <p className="mt-1 text-right text-[11px] text-muted-foreground">{amountInWords(t.grandTotal)}</p>
+          </RailCard>
+
+          <RailCard title="Before you send" action={<span className="text-xs text-muted-foreground">{checks.length - bad.length} of {checks.length} ready</span>}>
+            <ul className="space-y-2 text-[12.5px]">
+              {checks.map((x) => (
+                <li key={x.key} className={cn("flex items-start gap-2", x.ok ? "text-foreground" : x.warn ? "text-warning-text" : "text-destructive-text")}>
+                  {x.ok ? <CheckCircle2 className="mt-px h-4 w-4 flex-none text-success-text" /> : <AlertTriangle className="mt-px h-4 w-4 flex-none" />}
+                  {x.text}
+                </li>
+              ))}
+            </ul>
+          </RailCard>
+
+          {isEdit && (
+            <RailCard title="Sent" action={<span className="text-xs text-muted-foreground">{log.length ? `${log.length} time${log.length === 1 ? "" : "s"}` : ""}</span>}>
+              {log.length ? (
+                <ul className="space-y-2.5">
+                  {log.slice(0, 5).map((l, i) => (
+                    <li key={i} className="flex gap-2.5 text-[12.5px]">
+                      {l.channel === "whatsapp" ? <MessageCircle className="mt-0.5 h-4 w-4 flex-none text-success-text" /> : <Mail className="mt-0.5 h-4 w-4 flex-none text-muted-foreground" />}
+                      <span>
+                        <b className="block font-semibold text-foreground">{l.channel === "whatsapp" ? "Sent on WhatsApp" : "Emailed with PDF"}</b>
+                        <span className="text-[11px] text-muted-foreground">
+                          {savedAtLabel(l.at)}
+                          {l.to ? ` · ${l.to}` : ""}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[12.5px] text-muted-foreground">Not sent yet. Send it from here and every send is listed.</p>
+              )}
+            </RailCard>
+          )}
+
+          {partyLabel && party.count > 0 && (
+            <RailCard title={partyLabel} action={party.master && <Link to={`/customers/${party.master.id}`} className="text-[12.5px] font-medium text-primary hover:underline">Open customer</Link>}>
+              <div className="grid grid-cols-3 gap-2">
+                <Mini label="Quotes" value={party.count} />
+                <Mini label="Won" value={`${party.won} · ${Math.round((party.won / party.count) * 100)}%`} />
+                <Mini label="Billed" value={compactRs(party.billed)} />
+              </div>
+              {lead && (
+                <Link to={`/enquiries/${lead.id}`} className="mt-3 flex items-center gap-2 text-[12.5px] font-medium text-primary hover:underline">
+                  From lead {lead.reference || lead.customer?.name} <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              )}
+            </RailCard>
+          )}
         </div>
       </div>
 
-      <EditorFooter
+      <StickyActionBar
         left={
           isEdit && isAdmin && (
-            <Button variant="dangerGhost" size="sm" onClick={remove}>
-              <Trash2 className="h-4 w-4" /> Delete
-            </Button>
+            <button type="button" onClick={remove} className="squircle inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 font-medium text-destructive-text hover:bg-destructive/[0.06]">
+              <Trash2 className="h-3.5 w-3.5" /> Delete quotation
+            </button>
           )
         }
-        right={
-          <>
-            {saveError ? (
-              <span className="mr-2 text-[13px] font-medium text-destructive-text" role="alert">
-                Not saved: {saveError}
-              </span>
-            ) : blocker ? (
-              <span className="mr-2 flex items-center gap-1.5 text-[13px] font-medium text-warning-text">
-                <AlertTriangle className="h-4 w-4" /> {blocker}
-              </span>
-            ) : (
-              <span className="mr-2 hidden text-[13px] text-muted-foreground sm:inline">
-                {summary}
-                {dirty ? " · unsaved changes" : ""}
-              </span>
-            )}
-            <Button variant="outline" size="sm" onClick={requestClose}>
-              Cancel
-            </Button>
-            <Button size="sm" onClick={save} disabled={saving}>
-              {saving ? "Saving…" : isEdit ? "Save changes" : "Create quotation"}
-            </Button>
-          </>
-        }
-      />
+      >
+        <span className="mr-1 inline-flex min-w-0 items-center gap-1.5">
+          {saveError ? (
+            <span className="font-medium text-destructive-text" role="alert">Not saved: {saveError}</span>
+          ) : blocker ? (
+            <span className="inline-flex items-center gap-1.5 font-medium text-warning-text"><AlertTriangle className="h-3.5 w-3.5" /> {blocker}</span>
+          ) : dirty ? (
+            <span className="inline-flex items-center gap-1.5 font-medium text-warning-text"><span className="h-2 w-2 rounded-full bg-warning" /> {isEdit ? "Unsaved changes" : "Not created yet"}</span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-muted-foreground"><CheckCircle2 className="h-3.5 w-3.5 text-success-text" /> {lineCount} line{lineCount === 1 ? "" : "s"} · {rupees(t.grandTotal)} incl. GST · all changes saved</span>
+          )}
+        </span>
+        {dirty && isEdit && (
+          <Button variant="ghost" size="sm" onClick={() => (setForm(baseline), discardDraft(), (finished.current = false))}>
+            Discard
+          </Button>
+        )}
+        <Button variant="outline" size="sm" onClick={requestClose}>
+          Close
+        </Button>
+        {(dirty || !isEdit) && (
+          <Button variant="outline" size="sm" onClick={save} disabled={saving}>
+            {saving ? "Saving…" : isEdit ? "Save" : "Create quotation"}
+          </Button>
+        )}
+        <Button size="sm" onClick={saveAndPreview} disabled={saving}>
+          <Eye className="h-3.5 w-3.5" /> {dirty || !isEdit ? "Save and preview" : "Preview"}
+        </Button>
+      </StickyActionBar>
+
+      <ActionMenu open={!!menu} anchor={menu} onClose={() => setMenu(null)} sections={moreSections} width={240} />
 
       <Modal
         open={!!resume}
@@ -919,7 +947,7 @@ function QuotationEditor({ draft, products, customers, settings, profile, onClos
         </p>
       </Modal>
 
-      <Modal open={showLost} onClose={() => setShowLost(false)} title="Reason for losing this quote" width="max-w-sm">
+      <Modal open={showLost} onClose={() => setShowLost(false)} title="Why was this quotation lost?" width="max-w-sm">
         <div className="flex flex-wrap gap-2">
           {LOST_REASONS.map((r) => (
             <Chip key={r} onClick={() => confirmReject(r)}>
@@ -929,5 +957,109 @@ function QuotationEditor({ draft, products, customers, settings, profile, onClos
         </div>
       </Modal>
     </div>
+  )
+}
+
+// ---- pieces ---------------------------------------------------------------
+
+const rupees2 = (n) => `₹${(Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+
+function compactRs(v) {
+  const n = Number(v) || 0
+  if (n >= 1e7) return `₹${+(n / 1e7).toFixed(1)}Cr`
+  if (n >= 1e5) return `₹${+(n / 1e5).toFixed(1)}L`
+  return rupees(n)
+}
+
+// `attached` joins the box to the tab bar above it.
+function Box({ title, sub, action, attached, children }) {
+  return (
+    <section className={cn("squircle rounded-card bg-card p-[18px]", attached && "rounded-t-none")}>
+      <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-semibold leading-5 text-foreground">{title}</h2>
+          {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
+        </div>
+        {action && <div className="flex flex-none items-center gap-2">{action}</div>}
+      </header>
+      {children}
+    </section>
+  )
+}
+
+function FoldBox({ title, sub, open, onToggle, children }) {
+  return (
+    <section className="squircle rounded-card bg-card">
+      <div className="flex items-center gap-3 px-[18px] py-3.5">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[14px] font-semibold text-foreground">{title}</h2>
+          <p className="truncate text-xs text-muted-foreground">{sub}</p>
+        </div>
+        <TextBtn onClick={onToggle}>{open ? "Done" : "Edit"}</TextBtn>
+      </div>
+      {open && <div className="border-t border-border px-[18px] py-4">{children}</div>}
+    </section>
+  )
+}
+
+function PartyBox({ title, onEdit, children }) {
+  return (
+    <div className="squircle rounded-xl bg-muted px-3.5 py-3 text-[12.5px] leading-5 text-muted-foreground">
+      <p className="mb-1 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.06em]">
+        {title}
+        <button type="button" onClick={onEdit} className="text-[12px] font-medium normal-case tracking-normal text-primary hover:underline">
+          Edit
+        </button>
+      </p>
+      {children}
+    </div>
+  )
+}
+
+function RailCard({ title, action, children }) {
+  return (
+    <section className="squircle rounded-card bg-card p-[18px]">
+      <header className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="truncate text-[14px] font-semibold text-foreground">{title}</h2>
+        {action}
+      </header>
+      {children}
+    </section>
+  )
+}
+
+const Line = ({ label, value, good }) => (
+  <div className="flex items-center justify-between gap-3">
+    <dt className="text-muted-foreground">{label}</dt>
+    <dd className={cn("font-medium tabular", good ? "text-success-text" : "text-foreground")}>{value}</dd>
+  </div>
+)
+
+const Mini = ({ label, value }) => (
+  <div className="squircle min-w-0 rounded-xl bg-muted px-2.5 py-2">
+    <div className="truncate text-[11px] text-muted-foreground">{label}</div>
+    <div className="truncate text-[14px] font-semibold text-foreground tabular">{value}</div>
+  </div>
+)
+
+const TextBtn = ({ onClick, children }) => (
+  <button type="button" onClick={onClick} className="flex-none text-[12.5px] font-medium text-primary hover:underline">
+    {children}
+  </button>
+)
+
+function Pillish({ tone, icon: Icon, children }) {
+  return (
+    <span className={cn("inline-flex h-5 items-center gap-1 rounded-full px-2 text-[11px] font-medium", tone === "amber" ? "bg-warning/12 text-warning-text" : "bg-background text-muted-foreground")}>
+      <Icon className="h-3 w-3" /> {children}
+    </span>
+  )
+}
+
+function SegIcon({ icon: Icon, label, onClick, green, className }) {
+  return (
+    <button type="button" onClick={onClick} title={label} aria-label={label} className={cn("grid h-10 w-11 place-items-center bg-card transition-colors hover:bg-muted", green ? "text-success-text" : "text-muted-foreground", className)}>
+      <Icon className="h-4 w-4" />
+    </button>
   )
 }

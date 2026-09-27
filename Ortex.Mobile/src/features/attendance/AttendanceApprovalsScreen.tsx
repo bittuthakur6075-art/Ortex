@@ -208,7 +208,7 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
           </Panel>
 
           {leave.length > 0 && (
-            <Panel title="Leave requests" meta={`${leave.length}`}>
+            <Panel title="Leave Requests" meta={`${leave.length}`}>
               {leave.map((r, i) => {
                 const mine = r.user_id === me
                 const b = (leaveBal[r.user_id] || []).find((x) => x.code === r.type_code)
@@ -282,7 +282,7 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
           )}
 
           {punches!.length > 0 && (
-            <Panel title="Punches to review" meta={`${punches!.length}`}>
+            <Panel title="Punches to Review" meta={`${punches!.length}`}>
               {punches!.map((p, i) => {
                 const mine = p.user_id === me
                 return (

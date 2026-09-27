@@ -30,6 +30,12 @@ import { AnimatedPressable, usePressMotion } from "@/ui/motion"
 export const ROW_PADDING = gutter
 export const ROW_SEPARATOR_HEIGHT = 2
 
+/** The 1px line BETWEEN rows of one section, indented to the text. */
+export function RowRule({ inset = 72 }: { inset?: number }) {
+  const c = useTheme()
+  return <View style={{ height: 1, marginLeft: inset, backgroundColor: c.border }} />
+}
+
 export function RowSeparator() {
   const c = useTheme()
   return <View style={{ height: ROW_SEPARATOR_HEIGHT, backgroundColor: c.border }} />

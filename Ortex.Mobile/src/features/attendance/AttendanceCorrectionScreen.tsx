@@ -142,7 +142,7 @@ export default function AttendanceCorrectionScreen({ navigation, route }: StackS
         </View>
       </Panel>
 
-      <Panel title="What happened">
+      <Panel title="What Happened">
         <View style={styles.body}>
           <TextField
             value={reason}

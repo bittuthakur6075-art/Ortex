@@ -154,14 +154,14 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
       <DataNotice error={error} onRetry={() => void load()} />
       {loading ? (
         <>
-          <Panel title="Leave balance">
+          <Panel title="Leave Balance">
             <View style={styles.railSkeleton}>
               <BalanceTileSkeleton />
               <BalanceTileSkeleton />
               <BalanceTileSkeleton />
             </View>
           </Panel>
-          <Panel title="My leave">
+          <Panel title="My Leave">
             <View style={styles.switchWrap}>
               <Skeleton height={44} radius={22} />
             </View>
@@ -175,7 +175,7 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
         </>
       ) : (
         <>
-          <Panel title="Leave balance" meta={bal!.length ? "This year" : undefined}>
+          <Panel title="Leave Balance" meta={bal!.length ? "This year" : undefined}>
             {bal!.length === 0 ? (
               <Text style={[textVariants.small, styles.pad, { color: t.textTertiary }]}>
                 No leave types are set up yet.
@@ -207,7 +207,7 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
           </Panel>
 
           {out.length > 0 && (
-            <Panel title="On leave this week" meta={outToday ? `${outToday} out today` : `${out.length}`}>
+            <Panel title="On Leave This Week" meta={outToday ? `${outToday} out today` : `${out.length}`}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.team}>
                 {out.map((r) => {
                   const now = r.from_day <= today
@@ -232,7 +232,7 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
             </Panel>
           )}
 
-          <Panel title="My leave" meta={requests!.length ? `${requests!.length}` : undefined}>
+          <Panel title="My Leave" meta={requests!.length ? `${requests!.length}` : undefined}>
             <View style={styles.switchWrap}>
               <SegmentedControl<Tab>
                 options={[

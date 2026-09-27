@@ -235,7 +235,7 @@ export default function WorkEditorScreen({ route, navigation }: StackScreenProps
           {!!error && <Text style={[textVariants.caption, { color: t.dangerText }]}>{error}</Text>}
         </Section>
 
-        <Section title="What it is" style={styles.section} bodyStyle={styles.form}>
+        <Section title="What It Is" style={styles.section} bodyStyle={styles.form}>
           <TextField
             label="Caption"
             value={draft.title}
@@ -275,7 +275,7 @@ export default function WorkEditorScreen({ route, navigation }: StackScreenProps
           />
         </Section>
 
-        <Section title="On the website" style={styles.section} bodyStyle={styles.form}>
+        <Section title="On the Website" style={styles.section} bodyStyle={styles.form}>
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
               <Text style={[styles.switchLabel, { color: t.text }]}>Show in the gallery</Text>

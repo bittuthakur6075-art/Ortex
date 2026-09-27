@@ -211,27 +211,27 @@ export function WebsitePanels({
       </Panel>
 
       {w.demandGaps.length > 0 && (
-        <Panel title="Searched, not in catalogue" meta="What to add next" padded>
+        <Panel title="Searched, Not in Catalogue" meta="What to add next" padded>
           <RankedBars color={t.warning} rows={rows(w.demandGaps)} />
         </Panel>
       )}
       {w.channels.length > 0 && (
-        <Panel title="How they found us" meta="Share of sessions" padded>
+        <Panel title="How They Found Us" meta="Share of sessions" padded>
           <RankedBars color={t.primary} rows={rows(w.channels)} total={w.sessions} />
         </Panel>
       )}
       {w.topPages.length > 0 && (
-        <Panel title="Most viewed" meta="Share of page views" padded>
+        <Panel title="Most Viewed" meta="Share of page views" padded>
           <RankedBars color={t.primary} rows={rows(w.topPages)} total={w.pageViews} />
         </Panel>
       )}
       {w.topSearches.length > 0 && (
-        <Panel title="Top searches" padded>
+        <Panel title="Top Searches" padded>
           <RankedBars color={t.primary} rows={rows(w.topSearches)} />
         </Panel>
       )}
       {w.cities.length > 0 && (
-        <Panel title="Visitors by city" meta="Consenting visitors only" padded>
+        <Panel title="Visitors by City" meta="Consenting visitors only" padded>
           <RankedBars color={t.primary} rows={rows(w.cities)} />
         </Panel>
       )}

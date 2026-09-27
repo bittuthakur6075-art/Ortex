@@ -17,7 +17,7 @@ import VoiceLeads from "./VoiceLeads"
 // Access is still granted per tab through the original module keys, so a
 // user's permissions carry over without migration.
 const TABS = [
-  { value: "enquiries", moduleKey: "enquiries", label: "Enquiries", icon: Inbox, Page: Enquiries },
+  { value: "enquiries", moduleKey: "enquiries", label: "Leads", icon: Inbox, Page: Enquiries },
   { value: "voice", moduleKey: "voice-leads", label: "Voice calls", icon: Mic, Page: VoiceLeads },
 ]
 
@@ -45,10 +45,14 @@ export default function Crm() {
 
   const Page = current.Page
 
+  // The Leads list (Figma V2) carries its own title, smart views and a link to
+  // Voice calls, so it takes the page without the hub band.
+  if (current.value === "enquiries") return <Page embedded />
+
   return (
     <div>
       <HeaderBand>
-        <PageHeader title="Enquiries" subtitle="Everything customers send in, from the website and from Anu's calls" />
+        <PageHeader title="Leads" subtitle="Everything customers send in, from the website and from Anu's calls" />
         <Tabs
           items={items}
           value={current.value}

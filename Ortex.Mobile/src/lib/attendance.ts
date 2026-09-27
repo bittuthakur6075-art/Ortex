@@ -2,7 +2,16 @@ import { Platform } from "react-native"
 
 import { APP_VERSION } from "@/constants/app"
 import { errorMessage, hasSupabase, supabase } from "@/data/supabase"
-import type { AttendanceDay, Punch, PunchKind, PunchResult } from "@/domain/attendance"
+import {
+  dayKey,
+  onDutySince,
+  summarizeDay,
+  type AttendanceDay,
+  type DaySummary,
+  type Punch,
+  type PunchKind,
+  type PunchResult,
+} from "@/domain/attendance"
 import type { StaffDirectory } from "@/data/repo"
 import { loadDirectory } from "@/hooks/useRecordHistory"
 
@@ -328,6 +337,49 @@ export async function flaggedPunches(): Promise<FlaggedPunch[]> {
     person: nameOf(dir, p.user_id),
     avatarUrl: dir[p.user_id]?.avatarUrl || "",
   }))
+}
+
+export type TeamMember = { userId: string; name: string; avatarUrl: string; summary: DaySummary; onDuty: boolean }
+
+/**
+ * Admins: today's team as the console's Attendance → Today reads it. Everyone
+ * who punched today, first in first, and the active accounts with no check-in.
+ */
+export async function teamToday(now = Date.now()): Promise<{ people: TeamMember[]; notIn: TeamMember[] }> {
+  const today = dayKey(now)
+  const [punches, profiles, dir] = await Promise.all([
+    supabase.from("attendance_punches").select("*").eq("day", today).limit(1000),
+    supabase.from("profiles").select("id, name, email, avatar_url, active"),
+    loadDirectory(),
+  ])
+  if (punches.error) throw fail(punches.error, "Could not load today's attendance.")
+  const by = new Map<string, Punch[]>()
+  for (const p of (punches.data || []) as Punch[]) {
+    if (!by.has(p.user_id)) by.set(p.user_id, [])
+    by.get(p.user_id)!.push(p)
+  }
+  const people = [...by.entries()]
+    .map(([userId, list]) => ({
+      userId,
+      name: nameOf(dir, userId),
+      avatarUrl: dir[userId]?.avatarUrl || "",
+      summary: summarizeDay(today, list, now),
+      onDuty: Boolean(onDutySince(list, now)),
+    }))
+    .sort((a, b) => (a.summary.firstIn || "~").localeCompare(b.summary.firstIn || "~"))
+  const seen = new Set(people.filter((p) => p.summary.firstIn).map((p) => p.userId))
+  type Row = { id: string; name: string | null; email: string | null; avatar_url: string | null; active: boolean }
+  const notIn = ((profiles.data || []) as Row[])
+    .filter((p) => p.active && !seen.has(p.id))
+    .map((p) => ({
+      userId: p.id,
+      name: p.name?.trim() || p.email || "A colleague",
+      avatarUrl: p.avatar_url || "",
+      summary: summarizeDay(today, [], now),
+      onDuty: false,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  return { people, notIn }
 }
 
 export async function reviewPunch(id: string, decision: "accepted" | "rejected", note?: string): Promise<void> {

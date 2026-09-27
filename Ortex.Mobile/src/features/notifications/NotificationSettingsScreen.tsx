@@ -124,7 +124,7 @@ export default function NotificationSettingsScreen({
         />
       </Section>
 
-      <Section title="What to announce">
+      <Section title="What to Announce">
         {NOTIFICATION_SETTINGS.map((s) => (
           <SectionRow
             key={s.key}

@@ -7,6 +7,9 @@
 // (inherits text colour) and `variant="Bulk"` unless a caller overrides them.
 
 import {
+  ImportCurve,
+  ExportCurve,
+  RecordCircle as RecordCircleIcon,
   Notification as NotificationIcon,
   Warning2,
   ArrowDown2,
@@ -182,6 +185,9 @@ export const Smartphone = wrap(Mobile)
 export const Monitor = wrap(MonitorIcon)
 export const Globe = wrap(Global)
 export const Copy = wrap(CopyIcon)
+export const RecordCircle = wrap(RecordCircleIcon)
+export const ImportFile = wrap(ImportCurve)
+export const ExportFile = wrap(ExportCurve)
 
 // Iconsax has no LinkedIn mark, so this one is drawn here (Simple Icons path,
 // CC0). Same call shape as the wrapped icons: className sizes it, currentColor.

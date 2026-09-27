@@ -6,7 +6,7 @@ import { Badge, Button, Card, CardHeader, Chip, ChipGroup, EmptyState, Field, In
 import { loadDirectory } from "../../hooks/useRecordHistory"
 import { createRun, listRuns } from "../../services/payroll"
 import { LoadError } from "./setup/common"
-import { KIND_LABEL, RUN_STATUS, RUN_STATUS_ORDER, dayWords, defaultRunMonth, monthWords, rupees, thisMonthIST } from "./run/shared"
+import { KIND_LABEL, ROW_LINK, RUN_STATUS, RUN_STATUS_ORDER, dayWords, defaultRunMonth, monthWords, rowOpens, rupees, thisMonthIST } from "./run/shared"
 
 // Payroll → Pay runs: every run, newest month first, as Zoho Payroll lists
 // them. A regular run per month (the database allows one that is not
@@ -92,7 +92,7 @@ export default function PayRuns() {
             </div>
           }
         />
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 pb-4 text-[12px] text-muted-foreground">
+        <div className="hidden flex-wrap items-center gap-x-4 gap-y-2 px-5 pb-4 text-[12px] text-muted-foreground sm:flex">
           {RUN_STATUS_ORDER.map((s) => (
             <span key={s} className="inline-flex items-center gap-1.5">
               <Badge tone={RUN_STATUS[s].tone}>{RUN_STATUS[s].label}</Badge>
@@ -127,7 +127,7 @@ export default function PayRuns() {
                   const t = r.totals || {}
                   const meta = RUN_STATUS[r.status] || RUN_STATUS.draft
                   return (
-                    <tr key={r.id} className="cursor-pointer" onClick={() => navigate(`/payroll/runs/${r.id}`)}>
+                    <tr key={r.id} className={ROW_LINK} {...rowOpens(() => navigate(`/payroll/runs/${r.id}`))}>
                       <td>
                         <div className="font-medium text-foreground">{monthWords(r.month)}</div>
                         {r.kind !== "regular" && (

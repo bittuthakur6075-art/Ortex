@@ -125,7 +125,7 @@ export default function InsightsScreen({ navigation, route }: StackScreenProps<"
 
             {access.leads && (
               <View onLayout={anchor("sources")}>
-                <Panel title="Where leads come from" meta={`Share of ${formatNumber(d.leads.total)} ${d.leads.total === 1 ? "lead" : "leads"}`} padded>
+                <Panel title="Where Leads Come From" meta={`Share of ${formatNumber(d.leads.total)} ${d.leads.total === 1 ? "lead" : "leads"}`} padded>
                   {d.sources.length ? (
                     // Volume AND conversion in one mark: the whole bar is the leads a
                     // source sent, the dark part inside it the ones that were won.
@@ -152,7 +152,7 @@ export default function InsightsScreen({ navigation, route }: StackScreenProps<"
 
             {access.leads && (
               <View onLayout={anchor("timing")}>
-                <Panel title="When leads arrive" meta="Last 90 days, your local time" padded>
+                <Panel title="When Leads Arrive" meta="Last 90 days, your local time" padded>
                   {d.heatmap.total ? (
                     <HeatGrid data={d.heatmap} color={t.primary} />
                   ) : (
@@ -164,7 +164,7 @@ export default function InsightsScreen({ navigation, route }: StackScreenProps<"
 
             {access.quotes && (
               <View onLayout={anchor("products")}>
-                <Panel title="Most quoted products" meta="By value, ex-GST" padded>
+                <Panel title="Most Quoted Products" meta="By value, ex-GST" padded>
                   {d.topProducts.length ? (
                     <RankedBars
                       color={t.primary}
@@ -185,7 +185,7 @@ export default function InsightsScreen({ navigation, route }: StackScreenProps<"
 
             {access.quotes && (
               <View onLayout={anchor("customers")}>
-                <Panel title="Top customers" meta="Won inside quoted" padded>
+                <Panel title="Top Customers" meta="Won inside quoted" padded>
                   {d.topCustomers.length ? (
                     <RankedBars
                       color={t.primary}
@@ -209,7 +209,7 @@ export default function InsightsScreen({ navigation, route }: StackScreenProps<"
 
             {access.quotes && (
               <View onLayout={anchor("losses")}>
-                <Panel title="Why we lose" meta="Share of rejected quotes" padded>
+                <Panel title="Why We Lose" meta="Share of rejected quotes" padded>
                   {d.lostReasons.length ? (
                     <RankedBars
                       color={t.danger}

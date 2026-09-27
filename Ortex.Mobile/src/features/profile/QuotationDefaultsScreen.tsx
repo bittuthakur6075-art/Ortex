@@ -92,7 +92,7 @@ export default function QuotationDefaultsScreen({ navigation }: StackScreenProps
         Every new quotation you start is filled with these. You can still change them on each quotation.
       </Text>
 
-      <Section title="Payment terms" bodyStyle={styles.form}>
+      <Section title="Payment Terms" bodyStyle={styles.form}>
         <TextField
           value={paymentTerms}
           onChangeText={setPaymentTerms}
@@ -109,7 +109,7 @@ export default function QuotationDefaultsScreen({ navigation }: StackScreenProps
       </Section>
 
       <Section
-        title="Terms and conditions"
+        title="Terms and Conditions"
         action={
           !termsLinked && companyTerms ? (
             <Pressable

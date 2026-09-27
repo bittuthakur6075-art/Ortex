@@ -1,9 +1,8 @@
 import { useNavigation } from "@react-navigation/native"
 import React from "react"
-import { Image, Pressable, StyleSheet, Text, View } from "react-native"
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 
 import { canAccess, isAdmin } from "@/domain/modules"
-import { CardHead } from "@/features/home/homeCards"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
@@ -61,26 +60,30 @@ export default function AnuHomeCard() {
 
   return (
     <Card style={styles.card}>
-      <CardHead icon="assistant" tone="violet" title="Ask Anu" />
       <Pressable
         onPress={() => open()}
         accessibilityRole="button"
         accessibilityLabel="Talk to Anu, your AI assistant"
         style={({ pressed }) => [styles.hero, { opacity: pressed ? state.pressedOpacity : 1 }]}
       >
-        <Image source={PHOTO} style={styles.face} />
+        <View>
+          <Image source={PHOTO} style={styles.face} />
+          <View style={[styles.badge, { backgroundColor: t.tones.violet.bg, borderColor: t.surfaceRaised }]}>
+            <Icon name="assistant" size={11} color={t.tones.violet.fg} variant="Bold" />
+          </View>
+        </View>
         <View style={styles.body}>
-          <Text style={[styles.name, { color: t.text }]}>Bolo ya likho</Text>
-          <Text style={[styles.sub, { color: t.textTertiary }]} numberOfLines={1}>
-            Main dhoondh deti hoon, aapke access ke hisaab se
+          <Text style={[styles.name, { color: t.text }]}>Ask Anu</Text>
+          <Text style={[styles.sub, { color: t.textSecondary }]} numberOfLines={1}>
+            Bolo ya likho, main hoon na
           </Text>
         </View>
         <View style={[styles.mic, { backgroundColor: t.primary }]}>
-          <Icon name="voice" size={22} color={t.textOnPrimary} variant="Bold" />
+          <Icon name="voice" size={20} color={t.textOnPrimary} variant="Bold" />
         </View>
       </Pressable>
 
-      <View style={styles.asks}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.asks}>
         {asks.map((a) => (
           <Pressable
             key={a.label}
@@ -89,39 +92,36 @@ export default function AnuHomeCard() {
             accessibilityLabel={`Ask Anu: ${a.label}`}
             style={({ pressed }) => [styles.ask, { opacity: pressed ? state.pressedOpacity : 1 }]}
           >
-            <SquircleBackground fill={t.surfaceInset} radius={18} />
-            <Icon name={a.icon} size={16} color={t.primary} variant="Bulk" />
-            <Text style={[styles.askText, { color: t.textSecondary }]}>{a.label}</Text>
+            <SquircleBackground fill={t.surfaceInset} radius={14} />
+            <Icon name={a.icon} size={15} color={t.primary} variant="Bulk" />
+            <Text style={[styles.askText, { color: t.text }]}>{a.label}</Text>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
     </Card>
   )
 }
 
 const styles = StyleSheet.create({
-  card: { paddingTop: 18, paddingBottom: 18 },
-  hero: {
-    flexDirection: "row",
+  card: { paddingTop: 14, paddingBottom: 14 },
+  hero: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingBottom: 12 },
+  face: { width: 44, height: 44, borderRadius: 22 },
+  badge: {
+    position: "absolute",
+    right: -3,
+    bottom: -3,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
     alignItems: "center",
-    gap: 14,
-    paddingHorizontal: 20,
-    paddingTop: 6,
-    paddingBottom: 14,
+    justifyContent: "center",
   },
-  face: { width: 52, height: 52, borderRadius: 26 },
-  body: { flex: 1, minWidth: 0, gap: 2 },
-  name: { fontFamily: fontFamily.semibold, fontSize: 16, lineHeight: 21 },
+  body: { flex: 1, minWidth: 0, gap: 1 },
+  name: { fontFamily: fontFamily.semibold, fontSize: 16, lineHeight: 20 },
   sub: { fontFamily: fontFamily.regular, fontSize: 13, lineHeight: 17 },
-  mic: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
-  asks: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 20 },
-  ask: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingLeft: 12,
-    paddingRight: 14,
-    paddingVertical: 9,
-  },
-  askText: { fontFamily: fontFamily.medium, fontSize: 13.5, lineHeight: 17 },
+  mic: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  asks: { gap: 8, paddingHorizontal: 16 },
+  ask: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8 },
+  askText: { fontFamily: fontFamily.medium, fontSize: 13, lineHeight: 16 },
 })

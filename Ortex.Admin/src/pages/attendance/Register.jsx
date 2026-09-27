@@ -15,6 +15,7 @@ import {
   Field,
   Modal,
   PageLoader,
+  SearchInput,
   Textarea,
   ToolbarButton,
 } from "../../components/ui/Ui"
@@ -60,6 +61,7 @@ export default function Register() {
   const thisMonth = todayIST().slice(0, 7)
   const [month, setMonth] = useState(thisMonth)
   const [filter, setFilter] = useState("all")
+  const [q, setQ] = useState("")
   const [state, setState] = useState({ loading: true })
   const [cell, setCell] = useState(null) // { userId, day }
   const [locking, setLocking] = useState(false)
@@ -114,11 +116,12 @@ export default function Register() {
   }, [state.days])
 
   const rows = useMemo(() => {
-    const all = state.summary || []
+    const needle = q.trim().toLowerCase()
+    const all = (state.summary || []).filter((r) => !needle || String(r.name || "").toLowerCase().includes(needle))
     if (filter === "absent") return all.filter((r) => r.absent > 0)
     if (filter === "missed") return all.filter((r) => r.missed > 0)
     return all
-  }, [state.summary, filter])
+  }, [state.summary, filter, q])
 
   const counts = useMemo(() => {
     const all = state.summary || []
@@ -213,13 +216,14 @@ export default function Register() {
               </Chip>
             ))}
           </ChipGroup>
-          <div className="ml-auto flex items-center gap-[10px]">
+          <div className="ml-auto flex flex-wrap items-center gap-[10px]">
+            <SearchInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a name" aria-label="Search a name" />
             <ToolbarButton onClick={exportGrid} disabled={!(state.summary || []).length}>Day grid CSV</ToolbarButton>
             <ExportButton label="Export summary CSV" onClick={exportSummary} disabled={!(state.summary || []).length} />
           </div>
         </div>
         {rows.length === 0 ? (
-          <EmptyState icon={CalendarClock} title="Nobody to show" description="No attendance for this month matches the filter." />
+          <EmptyState icon={CalendarClock} title="Nobody to show" description={q.trim() ? "No one by that name this month." : "No attendance for this month matches the filter."} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1040px] text-sm">
@@ -227,13 +231,13 @@ export default function Register() {
                 <tr className="text-left">
                   <th>Person</th>
                   <th>Role</th>
-                  <th className="text-right">P</th>
-                  <th className="text-right">OD</th>
-                  <th className="text-right">HD</th>
-                  <th className="text-right">A</th>
-                  <th className="text-right">MP</th>
-                  <th className="text-right">WO</th>
-                  <th className="text-right">H</th>
+                  <th className="text-right" title={STATUS_LABEL.P}>P</th>
+                  <th className="text-right" title={STATUS_LABEL.OD}>OD</th>
+                  <th className="text-right" title={STATUS_LABEL.HD}>HD</th>
+                  <th className="text-right" title={STATUS_LABEL.A}>A</th>
+                  <th className="text-right" title={STATUS_LABEL.MP}>MP</th>
+                  <th className="text-right" title={STATUS_LABEL.WO}>WO</th>
+                  <th className="text-right" title={STATUS_LABEL.H}>H</th>
                   <th className="text-right">Lates</th>
                   <th className="text-right">Penalty</th>
                   <th className="text-right">Worked</th>
@@ -277,6 +281,7 @@ export default function Register() {
         <div className="px-5 pb-4">
           <StatusLegend />
         </div>
+        {rows.length === 0 && <p className="px-5 pb-5 text-[13px] text-muted-foreground">Nobody to show for this filter.</p>}
         {rows.length > 0 && (
           <div className="overflow-x-auto pb-2">
             <table className="border-separate border-spacing-0 text-[12px]">

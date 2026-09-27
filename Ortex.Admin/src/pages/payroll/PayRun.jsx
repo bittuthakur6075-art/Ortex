@@ -16,7 +16,7 @@ import OneTimeModal from "./run/OneTimeModal"
 import PayslipPreview from "./run/PayslipPreview"
 import RunFiles from "./run/RunFiles"
 import SlipDrawer from "./run/SlipDrawer"
-import { KIND_LABEL, RUN_STATUS, SLIP_STATUS, dayWords, flatSlip, monthWords, pctChange, previousPaidRegular, rupees, runName, todayISTDay } from "./run/shared"
+import { KIND_LABEL, ROW_LINK, RUN_STATUS, SLIP_STATUS, dayWords, flatSlip, monthWords, pctChange, previousPaidRegular, rowOpens, rupees, runName, todayISTDay } from "./run/shared"
 
 // One pay run (Zoho Payroll's pay run page). A draft is where the work is:
 // Calculate builds every payslip from the salary in force, this month's
@@ -247,7 +247,11 @@ export default function PayRun() {
               <Button variant="dangerGhost" onClick={() => openDialog("cancel")} disabled={Boolean(busy)}>
                 Cancel run
               </Button>
-              <Button onClick={() => transition("approve", "Pay run approved")} disabled={Boolean(busy)}>
+              <Button
+                onClick={() => transition("approve", "Pay run approved")}
+                disabled={Boolean(busy) || (submittedByMe && !isSuperAdmin(profile))}
+                title={submittedByMe && !isSuperAdmin(profile) ? "You submitted this run, so someone else approves it" : undefined}
+              >
                 <CheckCircle2 className="h-4 w-4" /> {busy === "approve" ? "Approving…" : "Approve"}
               </Button>
             </>
@@ -281,7 +285,13 @@ export default function PayRun() {
         <Banner tone="info">You submitted this run, so someone else with payroll access, or the Super Admin, has to approve it.</Banner>
       )}
       {draft && !state.locked && (
-        <Banner tone="warning">Attendance for {monthWords(run.month)} is not locked; paid days may change. Lock it under Attendance → Register before you submit.</Banner>
+        <Banner tone="warning">
+          Attendance for {monthWords(run.month)} is not locked; paid days may change.{" "}
+          <Link to="/attendance?tab=register" className="font-medium underline">
+            Lock it in the Register
+          </Link>{" "}
+          before you submit.
+        </Banner>
       )}
       {draft && run.kind !== "regular" && (
         <Banner tone="warning">
@@ -299,7 +309,7 @@ export default function PayRun() {
       )}
       {run.note && <Banner tone="info">Note: {run.note}</Banner>}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         {tiles.map((x) => (
           <Tile key={x.label} label={x.label} value={rupees(x.value)} change={pctChange(x.value, x.before)} prevLabel={state.prev ? monthWords(state.prev.month) : null} />
         ))}
@@ -382,7 +392,7 @@ export default function PayRun() {
                   const oneTime = e.oneTime ?? d.oneTimeInput ?? []
                   const stop = (ev) => ev.stopPropagation()
                   return (
-                    <tr key={r.id} className={cn("cursor-pointer", sStatus === "skipped" && "text-muted-foreground")} onClick={() => setOpenRow(r)}>
+                    <tr key={r.id} className={cn(ROW_LINK, sStatus === "skipped" && "text-muted-foreground")} {...rowOpens(() => setOpenRow(r))}>
                       <td>
                         <div className={cn("font-medium", sStatus === "skipped" ? "text-muted-foreground line-through" : "text-foreground")}>{d.employee?.name || "Unknown"}</div>
                         <div className="text-[12px] text-muted-foreground">

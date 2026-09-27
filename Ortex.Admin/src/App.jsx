@@ -19,10 +19,8 @@ import UserDetail from "./pages/users/UserDetail"
 import Profile from "./pages/Profile"
 import WhatsNew from "./pages/WhatsNew"
 import Attendance from "./pages/Attendance"
-import Payroll from "./pages/Payroll"
 import PayRun from "./pages/payroll/PayRun"
 import EmployeeProfile from "./pages/payroll/EmployeeProfile"
-import MyPayslips from "./pages/MyPayslips"
 import Chat from "./pages/Chat"
 import { useProfile } from "./hooks/useProfile"
 import { canAccess } from "./data/domain/modules"
@@ -54,6 +52,14 @@ function Redirect({ to }) {
   return <Navigate to={to} state={location.state} replace />
 }
 
+// Payroll is a section of the Attendance hub; /payroll?tab=runs keeps working.
+const PAYROLL_PAGE = { dashboard: "payroll", settings: "payroll-settings" }
+function PayrollRedirect() {
+  const { search } = useLocation()
+  const sub = new URLSearchParams(search).get("tab") || "dashboard"
+  return <Redirect to={`/attendance?tab=${encodeURIComponent(PAYROLL_PAGE[sub] || sub)}`} />
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -82,10 +88,10 @@ export default function App() {
           <Route path="invoices" element={<Redirect to="/billing?tab=invoices" />} />
           <Route path="payments" element={<Redirect to="/billing?tab=payments" />} />
           <Route path="attendance" element={guard("attendance", <Attendance />)} />
-          <Route path="payroll" element={guard("payroll", <Payroll />)} />
+          <Route path="payroll" element={<PayrollRedirect />} />
           <Route path="payroll/runs/:id" element={guard("payroll", <PayRun />)} />
           <Route path="payroll/employees/:id" element={guard("payroll", <EmployeeProfile />)} />
-          <Route path="payslips" element={guard("payslips", <MyPayslips />)} />
+          <Route path="payslips" element={<Redirect to="/attendance?tab=payslips" />} />
           <Route path="users" element={guard("users", <Users />)} />
           <Route path="users/:id" element={guard("users", <UserDetail />)} />
           <Route path="settings" element={guard("settings", <SettingsPage />)} />

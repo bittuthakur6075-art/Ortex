@@ -21,7 +21,9 @@ import { useToast } from "@/ui/Toast"
 // Leads -> Import: the same spreadsheet import as the console's Enquiries ->
 // Import (Ortex.Admin/src/components/editors/EnquiryImport.jsx), through the
 // shared converter in domain/enquiryImport.ts. Rows already in the console are
-// skipped, so importing the same file from both places adds nothing twice.
+// skipped, so importing the same file from both places adds nothing twice. A row
+// whose mobile is already a lead (another product or day) is left out unless
+// the person includes them.
 
 const CHUNK = 200
 const TYPES = [
@@ -42,6 +44,7 @@ export default function EnquiryImportSheet({ visible, onClose, existing, onImpor
   const [busy, setBusy] = React.useState(false)
   const [done, setDone] = React.useState(0)
   const [error, setError] = React.useState("")
+  const [withRepeats, setWithRepeats] = React.useState(false)
 
   const result: SheetResult | null = React.useMemo(
     () => (rows ? sheetToEnquiries(rows as never, { source, fileName, existing: existing as never }) : null),
@@ -53,6 +56,7 @@ export default function EnquiryImportSheet({ visible, onClose, existing, onImpor
     setFileName("")
     setDone(0)
     setError("")
+    setWithRepeats(false)
   }
   const close = () => {
     if (busy) return
@@ -82,7 +86,6 @@ export default function EnquiryImportSheet({ visible, onClose, existing, onImpor
   }
 
   const importAll = async () => {
-    const list = result?.enquiries || []
     if (!list.length) return
     let saved = 0
     setBusy(true)
@@ -104,7 +107,8 @@ export default function EnquiryImportSheet({ visible, onClose, existing, onImpor
     }
   }
 
-  const list = result?.enquiries || []
+  const repeatRows = new Set((result?.repeats || []).map((r) => r.row))
+  const list = (result?.enquiries || []).filter((e) => withRepeats || !repeatRows.has(e.imported.row))
   const dates = list.map((e) => e.createdAt).filter(Boolean).sort() as string[]
   const counts = ENQUIRY_STATUS.map((s) => [s.label, list.filter((e) => e.status === s.id).length] as const).filter(([, n]) => n)
 
@@ -128,6 +132,18 @@ export default function EnquiryImportSheet({ visible, onClose, existing, onImpor
             <Stat label="Ready" value={formatNumber(list.length)} />
             <Stat label="Skipped" value={formatNumber(result?.skipped.length || 0)} />
           </View>
+          {repeatRows.size ? (
+            <View style={[styles.note, { backgroundColor: t.warningBg, marginTop: 0, marginBottom: spacing.md }]}>
+              <Icon name="warning" size={16} color={t.warning} variant="Bulk" />
+              <View style={styles.noteText}>
+                <Text style={[textVariants.small, { color: t.warningText, marginBottom: spacing.sm }]}>
+                  {formatNumber(repeatRows.size)} {repeatRows.size === 1 ? "mobile is" : "mobiles are"} already a lead, asking about another product or on another day.{" "}
+                  {withRepeats ? "They will be added as new enquiries." : "They are left out."}
+                </Text>
+                <Chip label={withRepeats ? "Leave them out" : "Include them"} active={withRepeats} onPress={() => setWithRepeats((v) => !v)} />
+              </View>
+            </View>
+          ) : null}
           {dates.length ? (
             <Text style={[textVariants.small, { color: t.textSecondary, marginBottom: spacing.sm }]}>
               {formatDate(dates[0])} to {formatDate(dates[dates.length - 1])}

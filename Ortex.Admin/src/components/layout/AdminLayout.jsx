@@ -13,16 +13,15 @@ import {
   Menu,
   X,
   TrendingUp,
+  IndianRupee,
   Instagram,
   PhoneOutgoing,
   Search,
   Sparkles,
   CalendarClock,
-  IndianRupee,
   MessageCircle,
   Plus,
   ArrowDownLeft,
-  MoreHorizontal,
   Wallet,
 } from "../ui/Icons"
 import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
@@ -42,47 +41,52 @@ import { cn } from "../../lib/cn"
 import { version as APP_VERSION } from "../../../package.json"
 
 // The shell (Figma "V3 · Settings, minimal sidebar and slim top bar"): a 232px
-// sidebar with the seven modules most roles open every day, the rest folded
-// under "More", and Settings plus the account at the bottom; a 56px top bar
+// sidebar with Dashboard and Team chat, the modules under section headings,
+// and Settings plus the account at the bottom; a 56px top bar
 // with search (Ctrl K), "+ New", Anu and notifications. A person only ever sees
 // the modules they can open.
 
 const SIDEBAR_W = "w-[232px]"
 const SIDEBAR_PAD = "lg:pl-[232px]"
-const MORE_KEY = "ortex.nav.more"
 
 // `key` / `keys` map each item to a module so the sidebar hides what a user
-// isn't allowed to open. PRIMARY is what most roles use every day; MORE holds
-// the weekly and admin-only modules, in their old groups.
+// isn't allowed to open, and a section with nothing left loses its heading.
+// Ordered by use: what everyone opens first, then quote-to-cash in the order
+// the work flows (lead, quote, bill, customer, and the call agent that works
+// the leads), then marketing, people and admin.
 const PRIMARY = [
   { to: "/", end: true, key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/chat", key: "chat", label: "Team chat", icon: MessageCircle, badge: "chat" },
-  { to: "/crm", keys: ["enquiries", "voice-leads"], label: "Enquiries", icon: Inbox },
-  { to: "/quotations", key: "quotations", label: "Quotations", icon: FileText },
-  { to: "/billing", keys: ["invoices", "payments"], label: "Billing", icon: ReceiptIndianRupee },
-  { to: "/customers", key: "customers", label: "Customers", icon: Users },
-  { to: "/attendance", key: "attendance", label: "Attendance", icon: CalendarClock },
 ]
-const MORE = [
+const SECTIONS = [
+  {
+    section: "Sales",
+    items: [
+      { to: "/crm", keys: ["enquiries", "voice-leads"], label: "Leads", icon: Inbox, also: ["/enquiries/"] },
+      { to: "/quotations", key: "quotations", label: "Quotations", icon: FileText },
+      { to: "/billing", keys: ["invoices", "payments"], label: "Billing", icon: ReceiptIndianRupee },
+      { to: "/customers", key: "customers", label: "Customers", icon: Users },
+      { to: "/telecaller", key: "telecaller", label: "Call agent", icon: PhoneOutgoing },
+    ],
+  },
   {
     section: "Marketing",
     items: [
       { to: "/catalog", keys: ["products", "categories", "work"], label: "Catalog", icon: Package },
       { to: "/social", key: "social", label: "Marketing", icon: Instagram },
-      { to: "/telecaller", key: "telecaller", label: "Call agent", icon: PhoneOutgoing },
-      { to: "/insights", keys: ["growth", "automation", "attendance-team"], label: "Insights", icon: TrendingUp },
     ],
   },
-  {
-    section: "People",
-    items: [
-      { to: "/payroll", key: "payroll", label: "Payroll", icon: IndianRupee },
-      { to: "/payslips", key: "payslips", label: "My payslips", icon: ReceiptIndianRupee },
-    ],
-  },
+  // One hub for attendance, leave, payslips and payroll. Insights opens from the Dashboard.
+  { section: "People", items: [{ to: "/attendance", key: "attendance", label: "Attendance & pay", icon: CalendarClock }] },
   { section: "Admin", items: [{ to: "/users", key: "users", label: "Users", icon: UserTag }] },
 ]
 const SETTINGS_ITEM = { to: "/settings", key: "settings", label: "Settings", icon: Settings }
+// Not in the sidebar, but still found by search (Ctrl K).
+const SEARCH_ONLY = [
+  { to: "/insights", keys: ["growth", "automation", "attendance-team"], label: "Insights", icon: TrendingUp },
+  { to: "/attendance?tab=payslips", key: "payslips", label: "My payslips", icon: ReceiptIndianRupee },
+  { to: "/attendance?tab=payroll", key: "payroll", label: "Payroll", icon: IndianRupee },
+]
 
 // "+ New": what the person can create, each opening that page's editor.
 const NEW_ITEMS = [
@@ -109,8 +113,9 @@ function useAllowedNav() {
     const allowed = (it) => (it.keys ? it.keys.some((k) => canAccess(profile, k)) : canAccess(profile, it.key))
     return {
       primary: PRIMARY.filter(allowed),
-      more: MORE.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length),
+      sections: SECTIONS.map((g) => ({ ...g, items: g.items.filter(allowed) })).filter((g) => g.items.length),
       settings: allowed(SETTINGS_ITEM) ? SETTINGS_ITEM : null,
+      searchOnly: SEARCH_ONLY.filter(allowed),
     }
   }, [profile])
 }
@@ -133,23 +138,26 @@ function Brand() {
   )
 }
 
-// One 38px row, 10px radius; active is a soft primary tint.
-function NavRow({ to, end, label, icon: Icon, count = 0, onNavigate }) {
+// One 38px row, 10px radius; active is a soft primary tint. `also` lists other
+// path prefixes that belong to the same item (a lead's own page under Leads).
+function NavRow({ to, end, label, icon: Icon, count = 0, also, onNavigate }) {
+  const { pathname } = useLocation()
+  const alsoActive = Boolean(also?.some((p) => pathname.startsWith(p)))
   return (
     <NavLink
       to={to}
       end={end}
       onClick={onNavigate}
-      className={({ isActive }) =>
+      className={({ isActive: hit }) =>
         cn(
           "squircle group flex h-[38px] items-center gap-[11px] rounded-[10px] px-2.5 text-[13.5px] transition-colors",
-          isActive ? "bg-primary/10 font-semibold text-primary" : "font-medium text-muted-foreground hover:bg-accent hover:text-foreground",
+          hit || alsoActive ? "bg-primary/10 font-semibold text-primary" : "font-medium text-muted-foreground hover:bg-accent hover:text-foreground",
         )
       }
     >
-      {({ isActive }) => (
+      {({ isActive: hit }) => (
         <>
-          <Icon className={cn("h-[19px] w-[19px] flex-none", isActive ? "text-primary" : "text-subtle-foreground group-hover:text-foreground")} />
+          <Icon className={cn("h-[19px] w-[19px] flex-none", hit || alsoActive ? "text-primary" : "text-subtle-foreground group-hover:text-foreground")} />
           <span className="flex-1 truncate">{label}</span>
           {count > 0 && (
             <span
@@ -166,63 +174,22 @@ function NavRow({ to, end, label, icon: Icon, count = 0, onNavigate }) {
 }
 
 function NavList({ nav, onNavigate }) {
-  const { pathname } = useLocation()
   // Unread chat messages, as a count on the Team chat row (muted chats excluded).
   const { unread } = useChatInbox()
-  const moreItems = nav.more.flatMap((g) => g.items)
-  const inMore = moreItems.some((it) => pathname.startsWith(it.to))
-  const [moreOpen, setMoreOpen] = useState(() => {
-    try {
-      return localStorage.getItem(MORE_KEY) === "1"
-    } catch {
-      return false
-    }
-  })
-  // A page under More keeps More open, so the active row is always visible.
-  const open = moreOpen || inMore
-  const toggle = () => {
-    const next = !open
-    setMoreOpen(next)
-    try {
-      localStorage.setItem(MORE_KEY, next ? "1" : "0")
-    } catch {
-      // Private window: the choice is simply not remembered.
-    }
-  }
 
   return (
     <nav className="flex flex-col gap-0.5" aria-label="Main">
       {nav.primary.map((it) => (
-        <NavRow key={it.to} to={it.to} end={it.end} label={it.label} icon={it.icon} count={it.badge === "chat" ? unread : 0} onNavigate={onNavigate} />
+        <NavRow key={it.to} to={it.to} end={it.end} label={it.label} icon={it.icon} count={it.badge === "chat" ? unread : 0} also={it.also} onNavigate={onNavigate} />
       ))}
-      {moreItems.length > 0 && (
-        <>
-          <div className="mx-2.5 my-2 h-px bg-border" />
-          <button
-            type="button"
-            onClick={toggle}
-            aria-expanded={open}
-            className={cn(
-              "squircle flex h-[38px] items-center gap-[11px] rounded-[10px] px-2.5 text-[13.5px] transition-colors hover:bg-accent",
-              open ? "font-semibold text-foreground" : "font-medium text-muted-foreground",
-            )}
-          >
-            <MoreHorizontal className="h-[19px] w-[19px] flex-none text-subtle-foreground" />
-            <span className="flex-1 text-left">More</span>
-            {!open && <span className="rounded-full bg-secondary px-1.5 text-[10.5px] font-semibold text-muted-foreground">{moreItems.length}</span>}
-            <ArrowDownLeft className={cn("h-3.5 w-3.5 flex-none text-subtle-foreground transition-transform", open && "rotate-180")} />
-          </button>
-          {open &&
-            nav.more.map((g) => (
-              <div key={g.section} className="flex flex-col gap-0.5">
-                <div className="pb-1 pl-10 pt-2.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-subtle-foreground">{g.section}</div>
-                {g.items.map((it) => (
-                  <NavRow key={it.to} to={it.to} end={it.end} label={it.label} icon={it.icon} onNavigate={onNavigate} />
-                ))}
-              </div>
-            ))}
-        </>
-      )}
+      {nav.sections.map((g) => (
+        <div key={g.section} className="flex flex-col gap-0.5">
+          <div className="px-2.5 pb-1 pt-4 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-subtle-foreground">{g.section}</div>
+          {g.items.map((it) => (
+            <NavRow key={it.to} to={it.to} end={it.end} label={it.label} icon={it.icon} also={it.also} onNavigate={onNavigate} />
+          ))}
+        </div>
+      ))}
     </nav>
   )
 }
@@ -378,7 +345,8 @@ export default function AdminLayout() {
   const pages = useMemo(
     () => [
       ...nav.primary.map((it) => ({ to: it.to, label: it.label, icon: it.icon, section: "General" })),
-      ...nav.more.flatMap((g) => g.items.map((it) => ({ to: it.to, label: it.label, icon: it.icon, section: g.section }))),
+      ...nav.sections.flatMap((g) => g.items.map((it) => ({ to: it.to, label: it.label, icon: it.icon, section: g.section }))),
+      ...nav.searchOnly.map((it) => ({ to: it.to, label: it.label, icon: it.icon, section: "General" })),
       ...(nav.settings ? [{ to: nav.settings.to, label: nav.settings.label, icon: nav.settings.icon, section: "Admin" }] : []),
     ],
     [nav],
@@ -498,7 +466,8 @@ export default function AdminLayout() {
             <Outlet />
           </main>
 
-          <footer className="mt-10 flex flex-wrap items-center justify-between gap-3 px-6 py-5 text-[13px] text-muted-foreground">
+          {/* Hidden (html.own-footer) while a page shows its own StickyActionBar. */}
+          <footer className="site-footer mt-10 flex flex-wrap items-center justify-between gap-3 px-6 py-5 text-[13px] text-muted-foreground">
             <span>
               {new Date().getFullYear()} © <span className="text-foreground">Ortex Industries</span>
             </span>

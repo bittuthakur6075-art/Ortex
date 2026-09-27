@@ -43,6 +43,13 @@ import Minus from "iconsax-react-native/dist/esm/Minus"
 import Money from "iconsax-react-native/dist/esm/Money"
 import Notification from "iconsax-react-native/dist/esm/Notification"
 import Moon from "iconsax-react-native/dist/esm/Moon"
+import Sun1 from "iconsax-react-native/dist/esm/Sun1"
+import CloudSunny from "iconsax-react-native/dist/esm/CloudSunny"
+import Cloud from "iconsax-react-native/dist/esm/Cloud"
+import CloudFog from "iconsax-react-native/dist/esm/CloudFog"
+import CloudDrizzle from "iconsax-react-native/dist/esm/CloudDrizzle"
+import CloudLightning from "iconsax-react-native/dist/esm/CloudLightning"
+import CloudSnow from "iconsax-react-native/dist/esm/CloudSnow"
 import More from "iconsax-react-native/dist/esm/More"
 import Pause from "iconsax-react-native/dist/esm/Pause"
 import PercentageSquare from "iconsax-react-native/dist/esm/PercentageSquare"
@@ -57,6 +64,7 @@ import SearchNormal1 from "iconsax-react-native/dist/esm/SearchNormal1"
 import Send from "iconsax-react-native/dist/esm/Send"
 import Setting2 from "iconsax-react-native/dist/esm/Setting2"
 import Sms from "iconsax-react-native/dist/esm/Sms"
+import Messages2 from "iconsax-react-native/dist/esm/Messages2"
 import Sort from "iconsax-react-native/dist/esm/Sort"
 import Star1 from "iconsax-react-native/dist/esm/Star1"
 import TickCircle from "iconsax-react-native/dist/esm/TickCircle"
@@ -132,6 +140,8 @@ const GLYPHS = {
   call: Call,
   whatsapp: Whatsapp,
   mail: Sms,
+  // Team chat: two bubbles, a conversation, not an inbox.
+  chat: Messages2,
   address: Location,
   // state
   star: Star1,
@@ -157,6 +167,15 @@ const GLYPHS = {
   gift: Gift,
   shield: ShieldSecurity,
   callAdd: CallAdd,
+  // weather (Home greeting)
+  sun: Sun1,
+  moon: Moon,
+  cloudSun: CloudSunny,
+  cloud: Cloud,
+  fog: CloudFog,
+  rain: CloudDrizzle,
+  storm: CloudLightning,
+  snow: CloudSnow,
 } as const
 
 export type IconName = keyof typeof GLYPHS

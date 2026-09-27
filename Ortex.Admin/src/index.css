@@ -39,6 +39,7 @@
   --color-card-foreground: hsl(var(--card-foreground));
   --color-border: hsl(var(--border));
   --color-border-strong: hsl(var(--border-strong));
+  --color-line: hsl(var(--line));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
   --color-destructive: hsl(var(--destructive));
@@ -131,6 +132,7 @@
      matched the page and the card looked like it began at row one. 94% reads
      as a band inside the card from either side. */
   --table-head: 212 22% 94%;        /* #EDF0F4 */
+  --line: 220 19% 91%;              /* #E3E6EC V2 outline: buttons, inputs, menus */
   --field: 0 0% 100%;
   --well: 200 33% 98%;               /* #F9FBFC */
   --card: 0 0% 100%;
@@ -172,6 +174,7 @@
   --muted-foreground: 217 20% 74%;
   --subtle: 222 30% 12%;
   --table-head: 222 26% 15%;
+  --line: 222 20% 26%;
   --field: 222 30% 10%;
   --well: 222 26% 14%;
   --card: 222 34% 9.5%;
@@ -208,6 +211,12 @@
 
   h1, h2, h3, h4 {
     letter-spacing: -0.01em;
+  }
+
+  /* A data-table cell lines up under its 16px-padded header by default. In
+     this layer, so a cell's own px-/py-/p- utility still wins. */
+  .mt-body td {
+    padding: 10px 16px;
   }
 
   /* Keyboard focus is a 2px brand outline everywhere except fields,
@@ -699,7 +708,11 @@ input[type="search"]::-webkit-search-decoration {
 /* Print: the overlay is portaled to <body>, a sibling of the app root, so
    the whole shell can be dropped with display:none and only the sheet prints. */
 @media print {
-  body.doc-open > :not(.doc-overlay) { display: none !important; }
+  body.doc-open > :not(.doc-overlay):not(.send-screen) { display: none !important; }
+  /* Quotation preview-and-send screen: print just the sheet, at 100%. */
+  .send-screen { position: static !important; display: block !important; background: #fff !important; }
+  .send-screen .no-print { display: none !important; }
+  .send-screen [data-zoom] { zoom: 1 !important; }
   .doc-overlay { position: static; background: #fff; backdrop-filter: none; display: block; }
   .doc-toolbar { display: none !important; }
   .doc-scroll { padding: 0; overflow: visible; }
@@ -726,3 +739,37 @@ input[type="search"]::-webkit-search-decoration {
 .leaflet-interactive.ortex-fence-other { stroke: hsl(var(--muted-foreground)); fill: hsl(var(--muted-foreground)); fill-opacity: 0.1; }
 .leaflet-interactive.ortex-fence-off { stroke: hsl(var(--muted-foreground) / 0.5); fill: transparent; stroke-dasharray: 4 4; }
 .leaflet-container { font-family: inherit; }
+
+/* V2 list tables (Figma "V2 · Leads · List", "V2 · Quotations · List"):
+   a 34px head in 10px uppercase on #F6F7F9, 56px rows split by #EEF0F4
+   hairlines, the selected row tinted brand. Use `v2-head` on <thead> and
+   `v2-body` on <tbody> instead of the mt-* pair. */
+.v2-head th {
+  height: 34px;
+  padding: 0 12px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+  text-align: left;
+  white-space: nowrap;
+  background: hsl(216 20% 97%);
+}
+.v2-head th.text-right { text-align: right; }
+.v2-body td {
+  height: 56px;
+  padding: 0 12px;
+  font-size: 13px;
+  line-height: 16px;
+  vertical-align: middle;
+  border-top: 1px solid hsl(220 20% 95%);
+}
+.v2-body tr[data-selected="true"] td { background: hsl(229 77% 54% / 0.05); }
+.v2-body tr.v2-row:hover td { background: hsl(var(--subtle)); cursor: pointer; }
+.v2-body tr.v2-row[data-selected="true"]:hover td { background: hsl(229 77% 54% / 0.07); }
+
+/* A page with its own sticky action bar (components/sales/StatusTimeline.jsx)
+   hides the site footer so it never ends in two footers. */
+html.own-footer .site-footer { display: none; }

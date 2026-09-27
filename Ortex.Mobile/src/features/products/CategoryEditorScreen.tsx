@@ -299,7 +299,7 @@ export default function CategoryEditorScreen({ route, navigation }: StackScreenP
         </Section>
 
         <Section
-          title="Tax defaults"
+          title="Tax Defaults"
           style={styles.section}
           bodyStyle={styles.form}
         >

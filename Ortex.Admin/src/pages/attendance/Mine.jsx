@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { AlertTriangle, CalendarClock, CheckCircle2, Clock, Smartphone } from "../../components/ui/Icons"
-import { Banner, Card, CardHeader, EmptyState, PageLoader, StatCard } from "../../components/ui/Ui"
+import { Banner, Card, CardHeader, EmptyState, PageLoader } from "../../components/ui/Ui"
 import { useProfile } from "../../hooks/useProfile"
 import { currentUserId } from "../../lib/auth"
 import { repo } from "../../data/store/repository"
@@ -15,8 +15,8 @@ import {
 } from "../../lib/attendance"
 import { getSettings, listDays, listPunches, todayIST } from "../../services/attendance"
 import { cn } from "../../lib/cn"
-import { FlagBadges } from "./parts"
-import { dayLabel, daysOf, toneFor } from "./format"
+import { FlagBadges, StatStrip } from "./parts"
+import { dayLabel, daysOf, toneFor, openRow } from "./format"
 import { MonthSwitcher, StatusLegend } from "./status"
 import StatusDayDrawer from "./StatusDayDrawer"
 import TodayCard from "./TodayCard"
@@ -108,17 +108,19 @@ export default function Mine() {
       </div>
 
       {!state.daysMissing && (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard icon={CheckCircle2} label="Payable days" value={totals.payable} accent="bg-success/12 text-success-text" />
-          <StatCard icon={CalendarClock} label="Days present" value={present} />
-          <StatCard icon={Clock} label="Hours worked" value={durationWords(totals.workedMin)} />
-          <StatCard
-            icon={AlertTriangle}
-            label={totals.lates ? `Absent or missed · ${totals.lates} late` : "Absent or missed"}
-            value={absences}
-            accent="bg-warning/12 text-warning-text"
-          />
-        </div>
+        <StatStrip
+          items={[
+            { icon: CheckCircle2, label: "Payable days", value: totals.payable, tone: "text-success-text" },
+            { icon: CalendarClock, label: "Days present", value: present },
+            { icon: Clock, label: "Hours worked", value: durationWords(totals.workedMin) },
+            {
+              icon: AlertTriangle,
+              label: totals.lates ? `Absent or missed · ${totals.lates} late` : "Absent or missed",
+              value: absences,
+              tone: "text-warning-text",
+            },
+          ]}
+        />
       )}
 
       {!state.daysMissing && (
@@ -128,7 +130,7 @@ export default function Mine() {
             description={totals.latePenalty ? `Late penalty this month: ${totals.latePenalty} day` : "What each day counts as for payroll"}
           />
           <div className="px-5 pb-5">
-            <div className="grid grid-cols-7 gap-1.5 text-center">
+            <div className="grid grid-cols-7 gap-1 text-center">
               {WEEK.map((w) => (
                 <div key={w} className="pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{w}</div>
               ))}
@@ -142,8 +144,10 @@ export default function Mine() {
                     disabled={!c.inMonth}
                     onClick={() => setOpenDay(c.day)}
                     title={c.inMonth ? `${dayLabel(c.day, true)}: ${s ? STATUS_LABEL[s] : "no record"}` : undefined}
+                    aria-label={c.inMonth ? `${dayLabel(c.day, true)}: ${s ? STATUS_LABEL[s] : "no record"}${c.entry?.late ? ", late" : ""}` : undefined}
+                    aria-current={isToday ? "date" : undefined}
                     className={cn(
-                      "relative flex aspect-square max-h-20 flex-col items-center justify-center gap-0.5 rounded-lg text-[13px] transition-opacity",
+                      "relative flex h-14 flex-col items-center justify-center gap-0.5 rounded-lg text-[13px] transition-opacity",
                       !c.inMonth && "invisible",
                       s ? toneFor(s) : "bg-subtle text-muted-foreground",
                       isToday && "ring-2 ring-primary",
@@ -163,9 +167,9 @@ export default function Mine() {
       )}
 
       <Card className="overflow-hidden">
-        <CardHeader title={`${profile?.name || "My"} attendance`} description="Times in IST, from the server's clock" />
+        <CardHeader title="Day by day" description="Times in IST, from the server's clock. Click a day for its clock-ins." />
         {summaries.length === 0 ? (
-          <EmptyState icon={CalendarClock} title="No attendance yet" description="No attendance yet. Clock in from the Ortex phone app." />
+          <EmptyState icon={CalendarClock} title="No attendance this month" description="Clock in from the Ortex phone app and your days appear here." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-sm">
@@ -184,7 +188,7 @@ export default function Mine() {
                   const e = byDay.get(d.day)
                   const s = e ? effectiveStatus(e) : null
                   return (
-                    <tr key={d.day} className="cursor-pointer" onClick={() => setOpenDay(d.day)}>
+                    <tr key={d.day} {...openRow(() => setOpenDay(d.day))}>
                       <td className="font-medium text-foreground">{dayLabel(d.day, true)}</td>
                       <td>
                         {s ? (

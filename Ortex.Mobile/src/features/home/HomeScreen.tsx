@@ -1,12 +1,16 @@
+import { useFocusEffect } from "@react-navigation/native"
 import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
+import { delhiWeather, type Weather } from "@/lib/weather"
+import Icon from "@/ui/Icon"
+
 import { RANGES, delta, rangeFor, type AttentionItem, type Delta, type RangeKey } from "@/domain/dashboard"
 import { formatCurrency, formatNumber } from "@/domain/format"
-import AnuButton from "@/features/anu/AnuButton"
 import AnuHomeCard from "@/features/anu/AnuHomeCard"
 import AttendanceHomeCard from "@/features/attendance/AttendanceHomeCard"
 import { useAttendanceNotices } from "@/features/attendance/useAttendance"
+import ChatButton from "@/features/chat/ChatButton"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { feedback } from "@/lib/feedback"
 import type { TabScreenProps } from "@/navigation/types"
@@ -16,7 +20,7 @@ import AppScreen from "@/ui/AppScreen"
 import DataNotice from "@/ui/DataNotice"
 import IconButton from "@/ui/IconButton"
 import ListRefreshControl from "@/ui/ListRefreshControl"
-import { Card, SubHeader, Tag } from "@/ui/OneUi"
+import { Card, CardRow, CardRows, SubHeader, Tag } from "@/ui/OneUi"
 import ProfileAvatarButton from "@/ui/ProfileAvatarButton"
 import SegmentedControl from "@/ui/SegmentedControl"
 import { SkeletonPanel } from "@/ui/Skeleton"
@@ -105,7 +109,9 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
   const today = new Date(now)
   const firstName = (profile?.name || "").trim().split(/\s+/)[0]
   const title = `${greeting(today)}${firstName ? `, ${firstName}` : ""}`
-  const dateLine = `${WEEKDAYS[today.getDay()]}, ${today.getDate()} ${MONTHS[today.getMonth()]}`
+  const dateLine = `${WEEKDAYS[today.getDay()].slice(0, 3)}, ${today.getDate()} ${MONTHS[
+    today.getMonth()
+  ].slice(0, 3)}`
   const expiring = attention.filter((i) => i.target.screen === "QuotationDetail").length
 
   const openRecord = (it: AttentionItem) => navigation.navigate(it.target.screen, { id: it.target.id })
@@ -113,14 +119,14 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
 
   const actions = staff
     ? [
-        { icon: "calendar" as const, label: "Apply leave", onPress: () => navigation.navigate("LeaveApply") },
-        { icon: "invoice" as const, label: "New claim", onPress: () => navigation.navigate("PayClaimNew") },
-        { icon: "clock" as const, label: "Fix a punch", onPress: () => navigation.navigate("Attendance") },
-        { icon: "enquiry" as const, label: "Team chat", onPress: () => navigation.navigate("Chat") },
+        { icon: "calendar" as const, label: "Apply Leave", onPress: () => navigation.navigate("LeaveApply") },
+        { icon: "invoice" as const, label: "New Claim", onPress: () => navigation.navigate("PayClaimNew") },
+        { icon: "clock" as const, label: "Fix a Punch", onPress: () => navigation.navigate("Attendance") },
+        { icon: "enquiry" as const, label: "Team Chat", onPress: () => navigation.navigate("Chat") },
       ]
     : admin
     ? [
-        { icon: "quote" as const, label: "New quote", onPress: () => navigation.navigate("QuotationEditor") },
+        { icon: "quote" as const, label: "New Quote", onPress: () => navigation.navigate("QuotationEditor") },
         {
           icon: "tick" as const,
           label: "Approvals",
@@ -133,12 +139,12 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
     : [
         access.quotes && {
           icon: "quote" as const,
-          label: "New quote",
+          label: "New Quote",
           onPress: () => navigation.navigate("QuotationEditor"),
         },
         access.customers && {
           icon: "customer" as const,
-          label: "Add customer",
+          label: "Add Customer",
           onPress: () => navigation.navigate("ContactEditor"),
         },
         access.leads && {
@@ -146,7 +152,7 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
           label: "Leads",
           onPress: () => navigation.navigate("Leads"),
         },
-        { icon: "enquiry" as const, label: "Team chat", onPress: () => navigation.navigate("Chat") },
+        { icon: "enquiry" as const, label: "Team Chat", onPress: () => navigation.navigate("Chat") },
       ].filter(
         (a): a is { icon: "quote" | "customer" | "leads" | "enquiry"; label: string; onPress: () => void } =>
           Boolean(a),
@@ -157,16 +163,23 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
       <AppScreen
         title={title}
         subtitle={dateLine}
+        titleSize={24}
+        titleTop={20}
+        barSubtitle={dateLine}
+        subtitleStrong
+        barTitle={greeting(today)}
+        titleRight={<WeatherNow />}
+        barTitleRight={<WeatherNow compact />}
         inset
         headerLeft={<ProfileAvatarButton />}
         headerRight={
           <>
-            <AnuButton />
             <IconButton
               name="search"
               onPress={() => navigation.navigate("Search")}
               accessibilityLabel="Search everything"
             />
+            <ChatButton />
             <NotificationBell />
           </>
         }
@@ -276,7 +289,7 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
               <CardHead
                 icon="insights"
                 tone="success"
-                title="My month"
+                title="My Month"
                 action="Insights"
                 onAction={openInsights}
               />
@@ -363,7 +376,7 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
                 <CardHead
                   icon="quote"
                   tone="warning"
-                  title="Quotes by age"
+                  title="Quotes by Age"
                   action="All"
                   onAction={() => navigation.navigate("Quotes")}
                 />
@@ -376,13 +389,88 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
           </>
         )}
 
+        {admin ? (
+          <>
+            <SubHeader title="Team and pay" />
+            <Card>
+              <CardRows>
+                <CardRow
+                  icon="team"
+                  title="Team Attendance"
+                  subtitle="Who is in today, and who is not yet"
+                  onPress={() => navigation.navigate("TeamAttendance")}
+                />
+                <CardRow
+                  icon="money"
+                  tone="success"
+                  title="My Payslips"
+                  subtitle="Payslips, salary and claims"
+                  onPress={() => navigation.navigate("Pay")}
+                />
+              </CardRows>
+            </Card>
+          </>
+        ) : null}
+
         <AnuHomeCard />
       </AppScreen>
     </View>
   )
 }
 
+/** One UI Weather's widget in miniature: glyph and temperature, then city and the day's range.
+ *  Compact (the scrolled bar): glyph and temperature only. */
+function WeatherNow({ compact = false }: { compact?: boolean }) {
+  const t = useTheme()
+  const [w, setW] = React.useState<Weather | null>(null)
+  useFocusEffect(
+    React.useCallback(() => {
+      let alive = true
+      void delhiWeather().then((x) => alive && setW(x))
+      return () => {
+        alive = false
+      }
+    }, []),
+  )
+  if (!w) return null
+  const tint =
+    w.icon === "sun" ? t.warning : w.icon === "rain" || w.icon === "storm" ? t.primary : t.textSecondary
+  if (compact)
+    return (
+      <View style={styles.weatherTop} accessibilityLabel={`Delhi, ${w.label}, ${w.temp} degrees`}>
+        <Icon name={w.icon} size={18} color={tint} variant="Bulk" />
+        <Text style={[styles.weatherTempSmall, { color: t.text }]}>{`${w.temp}°`}</Text>
+      </View>
+    )
+  return (
+    <View style={styles.weather} accessibilityLabel={`Delhi, ${w.label}, ${w.temp} degrees`}>
+      <View style={styles.weatherTop}>
+        <Icon name={w.icon} size={26} color={tint} variant="Bulk" />
+        <Text style={[styles.weatherTemp, { color: t.text }]}>{`${w.temp}°`}</Text>
+      </View>
+      <Text style={[styles.weatherMeta, { color: t.textSecondary }]} numberOfLines={1}>
+        {`Delhi · ${w.high}° / ${w.low}°`}
+      </Text>
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
+  weather: { alignItems: "flex-end", gap: 2 },
+  weatherTop: { flexDirection: "row", alignItems: "center", gap: 6 },
+  weatherTemp: {
+    fontFamily: fontFamily.display,
+    fontSize: 24,
+    lineHeight: 28,
+    fontVariant: ["tabular-nums"],
+  },
+  weatherTempSmall: {
+    fontFamily: fontFamily.semibold,
+    fontSize: 15,
+    lineHeight: 20,
+    fontVariant: ["tabular-nums"],
+  },
+  weatherMeta: { fontFamily: fontFamily.regular, fontSize: 12, lineHeight: 16 },
   summary: { flexDirection: "row", flexWrap: "wrap", gap: 6, paddingHorizontal: 26, paddingBottom: 14 },
   headed: { paddingTop: 18, paddingBottom: 4 },
   seg: { paddingHorizontal: 16, paddingBottom: 14 },

@@ -420,7 +420,7 @@ function ForYou({
           : { bg: t.surfaceInset, fg: t.textSecondary }
 
   return (
-    <Panel title="For you">
+    <Panel title="For You">
       {loading && !rows.length ? (
         <View style={styles.forYouList}>
           {[0, 1].map((i) => (

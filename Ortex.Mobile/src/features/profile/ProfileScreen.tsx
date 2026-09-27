@@ -32,7 +32,7 @@ import { APP_CREDIT, APP_VERSION } from "@/constants/app"
 import { biometricAvailable } from "@/features/auth/useAppLock"
 import ProfileMe from "@/features/profile/ProfileMe"
 import Icon from "@/ui/Icon"
-import { Card, CardRow, CardRows, SubHeader, Tag } from "@/ui/OneUi"
+import { Card, CardRow, CardRows, ONE_UI, SubHeader, Tag } from "@/ui/OneUi"
 import { SquircleBackground } from "@/ui/Squircle"
 import { MAX_AVATAR_MB, base64Bytes, removeAvatar, uploadAvatar } from "@/lib/avatarUpload"
 import { feedback } from "@/lib/feedback"
@@ -223,14 +223,14 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
           <CardRows>
             <CardRow
               icon="userEdit"
-              title="Account details"
+              title="Account Details"
               subtitle={phone ? `${phone} · ${email}` : "Phone number missing"}
               subtitleTone={phone ? undefined : "warning"}
               onPress={openAccount}
             />
             <CardRow
               icon="password"
-              title="Change password"
+              title="Change Password"
               subtitle="Set a new sign-in password"
               onPress={() => navigation.navigate("ChangePassword")}
             />
@@ -251,7 +251,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
             <Card>
               <CardRow
                 icon="quoteDefaults"
-                title="Quotation defaults"
+                title="Quotation Defaults"
                 subtitle={
                   hasDefaults(quoteDefaults)
                     ? "Your own payment terms, T&C and notes"
@@ -278,7 +278,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
             />
             <CardRow
               icon="fingerprint"
-              title="Fingerprint unlock"
+              title="Fingerprint Unlock"
               subtitle={
                 canBiometric ? "Asked for when you come back" : "No fingerprint enrolled on this phone"
               }
@@ -318,13 +318,13 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
             <CardRow
               icon="assistant"
               tone="violet"
-              title="Ask Anu how to…"
+              title="Ask Anu How to…"
               subtitle="Leave kaise apply karun?"
               onPress={() => navigation.navigate("Anu", { ask: "Leave kaise apply karun?" })}
             />
             <CardRow
               icon="gift"
-              title="What's new"
+              title="What's New"
               subtitle={`Version ${APP_VERSION}`}
               trailing={<Tag label="New" tone="primary" />}
               onPress={() => navigation.navigate("WhatsNew")}
@@ -333,13 +333,13 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
                 they open on a warehouse floor with no signal. */}
             <CardRow
               icon="shield"
-              title="Privacy policy"
+              title="Privacy Policy"
               subtitle="What Ortex stores, and why"
               onPress={() => navigation.navigate("Legal", { doc: "privacy" })}
             />
             <CardRow
               icon="quote"
-              title="Terms of service"
+              title="Terms of Service"
               subtitle="The rules for using this app"
               onPress={() => navigation.navigate("Legal", { doc: "terms" })}
             />
@@ -355,7 +355,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
           accessibilityRole="button"
           style={({ pressed }) => [styles.signOut, { opacity: pressed ? 0.6 : 1 }]}
         >
-          <SquircleBackground fill={t.surfaceRaised} radius={24} />
+          <SquircleBackground fill={t.surfaceRaised} radius={ONE_UI.radius} />
           <Icon name="logout" size={20} color={t.dangerText} variant="Bulk" />
           <Text style={[styles.signOutText, { color: t.dangerText }]}>Sign out</Text>
         </Pressable>

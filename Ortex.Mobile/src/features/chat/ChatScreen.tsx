@@ -9,31 +9,30 @@ import {
   tickState,
   type Conversation,
 } from "@/domain/chat"
-import AnuButton from "@/features/anu/AnuButton"
 import { ConversationAvatar, Ticks } from "@/features/chat/chatUi"
 import NewChatSheet from "@/features/chat/NewChatSheet"
 import { reloadInbox, useChatInbox, useMyId } from "@/features/chat/useChat"
-import NotificationBell from "@/features/notifications/NotificationBell"
 import { chat } from "@/lib/chat"
 import { feedback } from "@/lib/feedback"
-import type { TabScreenProps } from "@/navigation/types"
+import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
-import { Card, SubHeader } from "@/ui/OneUi"
-import { SquircleBackground } from "@/ui/Squircle"
-import { spacing } from "@/theme/tokens"
+import { SubHeader } from "@/ui/OneUi"
+import { gutter } from "@/theme/tokens"
 import { fontFamily, textVariants } from "@/theme/typography"
 import {
   AppScreen,
   EmptyState,
   Fab,
   ListRefreshControl,
-  ProfileAvatarButton,
+  RowRule,
+  RowSeparator,
   SearchField,
   SkeletonList,
 } from "@/ui"
 
 /**
- * Team chat, the phone's Chat tab — the console's pages/Chat.jsx list pane.
+ * Team chat, opened from the app bar's chat button: the console's pages/Chat.jsx
+ * list pane, edge to edge on white like Quotations and Leads.
  *
  * Anu is pinned in her own panel above the list (Beside's pattern), with three
  * questions that open her thread already asking, so she reads as a tool rather
@@ -49,7 +48,7 @@ const ANU_ASKS = ["Aaj kya pending hai?", "Kaun absent hai?", "Is mahine ki sale
 
 type ChatSection = { key: string; title: string; data: Conversation[] }
 
-export default function ChatScreen({ navigation }: TabScreenProps<"Chat">) {
+export default function ChatScreen({ navigation }: StackScreenProps<"Chat">) {
   const t = useTheme()
   const meId = useMyId()
   const inbox = useChatInbox()
@@ -104,28 +103,24 @@ export default function ChatScreen({ navigation }: TabScreenProps<"Chat">) {
     <AppScreen
       title="Chat"
       subtitle={inbox.unread ? `${inbox.unread} unread` : "Your team, and Anu"}
-      inTabs
-      inset
-      headerLeft={<ProfileAvatarButton />}
-      headerRight={
-        <View style={styles.headerActions}>
-          <AnuButton />
-          <NotificationBell />
-        </View>
-      }
-      overlay={<Fab icon="add" onPress={() => setCreating(true)} accessibilityLabel="New chat or group" />}
+      back
+      onBack={() => navigation.goBack()}
+      inTabs={false}
+      overlay={<Fab icon="add" inTabs={false} onPress={() => setCreating(true)} accessibilityLabel="New chat or group" />}
       sections={{
         sections: inbox.loading && !inbox.list.length ? [] : sections,
         refreshControl: <ListRefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />,
         keyExtractor: (x: unknown) => (x as Conversation).id,
         // Each section's rows sit in ONE card (Figma "Chat · Inbox"): the label
         // above, the rows inside, a rule between them indented to the text.
-        ItemSeparatorComponent: RowRule,
         stickySectionHeadersEnabled: false,
         renderSectionHeader: ({ section }: { section: unknown }) => (
-          <SubHeader title={(section as ChatSection).title} />
+          <SubHeader flush title={(section as ChatSection).title} />
         ),
-        renderSectionFooter: () => <View style={styles.sectionGap} />,
+        ItemSeparatorComponent: () => <RowRule inset={82} />,
+        renderSectionFooter: () => <RowSeparator />,
+        // Room for the + button, so it never sits on the last row.
+        ListFooterComponent: <View style={styles.fabClear} />,
         ListEmptyComponent: inbox.loading ? (
           <SkeletonList count={6} leading="avatar" />
         ) : inbox.missing ? (
@@ -153,24 +148,9 @@ export default function ChatScreen({ navigation }: TabScreenProps<"Chat">) {
             }
           />
         ),
-        renderItem: ({ item, index, section }: { item: unknown; index: number; section: unknown }) => {
-          const last = index === (section as ChatSection).data.length - 1
-          return (
-            <View style={[styles.cardRow, index === 0 && styles.cardFirst, last && styles.cardLast]}>
-              {/* The card's smoothed corners on its first and last rows only. */}
-              <SquircleBackground
-                fill={t.surfaceRaised}
-                radius={24}
-                corners={{ topLeft: index === 0, topRight: index === 0, bottomLeft: last, bottomRight: last }}
-              />
-              <ChatRow
-                conv={item as Conversation}
-                meId={meId}
-                onPress={() => open((item as Conversation).id)}
-              />
-            </View>
-          )
-        },
+        renderItem: ({ item }: { item: unknown }) => (
+          <ChatRow conv={item as Conversation} meId={meId} onPress={() => open((item as Conversation).id)} />
+        ),
       }}
     >
       <View style={styles.tools}>
@@ -188,7 +168,7 @@ export default function ChatScreen({ navigation }: TabScreenProps<"Chat">) {
               }}
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
-              style={[styles.chip, { backgroundColor: on ? t.text : t.surfaceRaised }]}
+              style={[styles.chip, { backgroundColor: on ? t.text : t.surfaceInset }]}
             >
               <Text style={[styles.chipText, { color: on ? t.surfaceRaised : t.textSecondary }]}>
                 {f.label}
@@ -198,6 +178,7 @@ export default function ChatScreen({ navigation }: TabScreenProps<"Chat">) {
         })}
       </View>
       {anu && !query ? <AnuPanel conv={anu} meId={meId} onOpen={(ask) => open(anu.id, ask)} /> : null}
+      {sections.length ? <RowSeparator /> : null}
       <NewChatSheet
         visible={creating}
         onClose={() => setCreating(false)}
@@ -222,7 +203,7 @@ function AnuPanel({
 }) {
   const t = useTheme()
   return (
-    <Card style={styles.anuCard}>
+    <View style={styles.anuCard}>
       <Pressable
         onPress={() => onOpen()}
         accessibilityRole="button"
@@ -263,16 +244,6 @@ function AnuPanel({
           </Pressable>
         ))}
       </View>
-    </Card>
-  )
-}
-
-/** The rule between two rows of a card, indented to the text (16 + 48 + 14). */
-function RowRule() {
-  const t = useTheme()
-  return (
-    <View style={[styles.cardRow, { backgroundColor: t.surfaceRaised }]}>
-      <View style={[styles.rule, { backgroundColor: t.border }]} />
     </View>
   )
 }
@@ -344,18 +315,14 @@ function ChatRow({ conv, meId, onPress }: { conv: Conversation; meId: string | n
 }
 
 const styles = StyleSheet.create({
-  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  tools: { paddingHorizontal: 16, paddingBottom: 10 },
-  chips: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingBottom: 14 },
+  // SearchField carries the page gutter itself.
+  tools: { paddingBottom: 10 },
+  chips: { flexDirection: "row", gap: 8, paddingHorizontal: gutter, paddingBottom: 14 },
   chip: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
   chipText: { fontFamily: fontFamily.semibold, fontSize: 13.5, lineHeight: 17 },
-  anuCard: { paddingTop: 14, paddingBottom: 14, gap: 12 },
-  cardRow: { marginHorizontal: 12 },
-  cardFirst: { paddingTop: 6 },
-  cardLast: { paddingBottom: 6 },
-  rule: { height: 1, marginLeft: 78, marginRight: 16 },
-  sectionGap: { height: 12 },
-  row: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 16, paddingVertical: 12 },
+  anuCard: { paddingBottom: 14, gap: 12 },
+  fabClear: { height: 72 },
+  row: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: gutter, paddingVertical: 12 },
   rowBody: { flex: 1, minWidth: 0, gap: 3 },
   rowTop: { flexDirection: "row", alignItems: "center", gap: 8 },
   rowBottom: { flexDirection: "row", alignItems: "center", gap: 6 },
@@ -372,6 +339,6 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontFamily: fontFamily.semibold, fontSize: 12, lineHeight: 14 },
   tag: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
-  asks: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16 },
+  asks: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: gutter },
   ask: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
 })

@@ -19,6 +19,7 @@ import {
   CardDivider,
   CardRow,
   CardRows,
+  ONE_UI,
   SubHeader,
   Tag,
   Well,
@@ -47,8 +48,8 @@ export function CardHead({
   action,
   onAction,
 }: {
-  icon: IconName
-  tone: OneTone
+  icon?: IconName
+  tone?: OneTone
   title: string
   count?: number
   countTone?: OneTone
@@ -58,7 +59,7 @@ export function CardHead({
   const t = useTheme()
   return (
     <View style={styles.head}>
-      <Well icon={icon} tone={tone} size={28} />
+      {icon ? <Well icon={icon} tone={tone} size={28} /> : null}
       <Text style={[styles.headTitle, { color: t.text }]}>{title}</Text>
       {count ? <Tag label={String(count)} tone={countTone} /> : null}
       <View style={styles.flex} />
@@ -130,27 +131,36 @@ export function NeedsYouCard({
   const t = useTheme()
   if (!items.length) {
     return (
-      <Card>
-        <CardHead icon="bell" tone="success" title="Needs you now" />
-        <CardRow
-          icon="tick"
-          tone="success"
-          title="You're all caught up"
-          subtitle="No lead is waiting and no quote is about to lapse"
-        />
+      <Card style={styles.headed}>
+        <CardHead title="All Caught Up" />
+        <Text style={[styles.needsSummary, { color: t.textSecondary }]}>
+          No lead is waiting and no quote is about to lapse
+        </Text>
       </Card>
     )
   }
+  const quotes = items.filter((i) => i.target.screen === "QuotationDetail").length
+  const leads = items.length - quotes
+  const summary = [
+    leads ? `${leads} ${leads === 1 ? "lead" : "leads"} to call` : null,
+    quotes ? `${quotes} ${quotes === 1 ? "quote" : "quotes"} to chase` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ")
+  const urgent = items.some((i) => i.tone === "rose")
+  const rest = items.length - limit
   return (
     <Card style={styles.headed}>
       <CardHead
         icon="bell"
-        tone="danger"
-        title="Needs you now"
+        tone={urgent ? "danger" : "warning"}
+        title="Needs You Now"
         count={items.length}
+        countTone={urgent ? "danger" : "warning"}
         action="All"
         onAction={onAll}
       />
+      <Text style={[styles.needsSummary, { color: t.textSecondary }]}>{summary}</Text>
       <CardRows>
         {items.slice(0, limit).map((it) => (
           <CardRow
@@ -159,7 +169,7 @@ export function NeedsYouCard({
             tone={ATTENTION_TONE[it.tone]}
             title={it.title}
             subtitle={it.amount ? `${it.detail} · ${money(it.amount)}` : it.detail}
-            chevron={false}
+            chevron={!it.phone}
             onPress={() => onOpen(it)}
             trailing={
               it.phone ? (
@@ -172,13 +182,16 @@ export function NeedsYouCard({
                 >
                   <Icon name="call" size={20} color={t.successText} variant="Bulk" />
                 </Pressable>
-              ) : (
-                <PillButton label={it.icon === "quote" ? "Chase" : "Open"} onPress={() => onOpen(it)} />
-              )
+              ) : undefined
             }
           />
         ))}
       </CardRows>
+      {rest > 0 ? (
+        <Text onPress={onAll} suppressHighlighting style={[styles.more, { color: t.primary }]}>
+          {`Show ${rest} more`}
+        </Text>
+      ) : null}
     </Card>
   )
 }
@@ -205,7 +218,7 @@ export function QuickActionsCard({
             style={({ pressed }) => [styles.quickItem, { opacity: pressed ? 0.6 : 1 }]}
           >
             <Well icon={a.icon} tone={a.tone || "primary"} size={52} />
-            <Text style={[styles.quickLabel, { color: t.textSecondary }]} numberOfLines={1}>
+            <Text style={[styles.quickLabel, { color: t.text }]} numberOfLines={1}>
               {a.label}
             </Text>
           </Pressable>
@@ -335,7 +348,7 @@ export function Widget({
   const t = useTheme()
   return (
     <View style={styles.widget}>
-      <SquircleBackground fill={t.surfaceRaised} radius={22} />
+      <SquircleBackground fill={t.surfaceRaised} radius={ONE_UI.radius} />
       <View style={styles.widgetHead}>
         <Well icon={icon} tone={tone} size={24} />
         <Text style={[styles.tileLabel, { color: t.textSecondary }]} numberOfLines={1}>
@@ -668,6 +681,7 @@ export function ComingUpCard({ holiday }: { holiday: { name: string; day: string
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   headed: { paddingTop: 18 },
+  needsSummary: { fontFamily: fontFamily.regular, fontSize: 13.5, lineHeight: 18, paddingHorizontal: 20, paddingBottom: 8 },
   head: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, paddingBottom: 8 },
   headTitle: { fontFamily: fontFamily.semibold, fontSize: 17, lineHeight: 22 },
   headAction: { fontFamily: fontFamily.semibold, fontSize: 14, lineHeight: 18 },

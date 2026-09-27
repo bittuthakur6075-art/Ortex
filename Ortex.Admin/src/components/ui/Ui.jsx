@@ -293,16 +293,21 @@ export function Textarea({ className, ai, ...props }) {
 // The menu renders in a portal and is positioned against the trigger's viewport
 // rect. Absolute positioning would be simpler, but several Selects live inside
 // scroll containers (the line-items grid, drawers) that would clip the popup.
-export function Select({ className, children, value, onChange, disabled, placeholder, ...props }) {
-  const options = useMemo(() => collectOptions(children), [children])
+// `searchable` adds a type-to-filter box at the top of the list; an <option>
+// may carry `data-search` with extra words to match (a SKU, a category).
+export function Select({ className, children, value, onChange, disabled, placeholder, searchable = false, searchPlaceholder = "Search", ...props }) {
+  const all = useMemo(() => collectOptions(children), [children])
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
   const [highlight, setHighlight] = useState(-1)
   const triggerRef = useRef(null)
   const menuRef = useRef(null)
   const [rect, setRect] = useState(null)
 
+  const q = searchable ? query.trim().toLowerCase() : ""
+  const options = useMemo(() => (q ? all.filter((o) => `${o.label} ${o.search}`.toLowerCase().includes(q)) : all), [all, q])
+  const selected = all.find((o) => String(o.value) === String(value ?? "")) || null
   const selectedIndex = options.findIndex((o) => String(o.value) === String(value ?? ""))
-  const selected = selectedIndex >= 0 ? options[selectedIndex] : null
 
   const measure = useCallback(() => {
     const el = triggerRef.current
@@ -311,8 +316,13 @@ export function Select({ className, children, value, onChange, disabled, placeho
     const below = window.innerHeight - r.bottom
     // Flip above when the space underneath can't hold a usable list.
     const flip = below < 200 && r.top > below
-    setRect({ left: r.left, width: r.width, top: r.bottom + 4, bottom: window.innerHeight - r.top + 4, flip })
-  }, [])
+    const width = searchable ? Math.max(r.width, 300) : r.width
+    setRect({ left: Math.min(r.left, window.innerWidth - width - 8), width, top: r.bottom + 4, bottom: window.innerHeight - r.top + 4, flip })
+  }, [searchable])
+
+  useEffect(() => {
+    if (!open) setQuery("")
+  }, [open])
 
   useLayoutEffect(() => {
     if (!open) return
@@ -362,11 +372,11 @@ export function Select({ className, children, value, onChange, disabled, placeho
       return
     }
     if (!open) return
-    if (ev.key === "Escape") { ev.preventDefault(); setOpen(false) }
+    if (ev.key === "Escape") { ev.preventDefault(); setOpen(false); triggerRef.current?.focus() }
     else if (ev.key === "ArrowDown") { ev.preventDefault(); step(1) }
     else if (ev.key === "ArrowUp") { ev.preventDefault(); step(-1) }
     else if (ev.key === "Home") { ev.preventDefault(); setHighlight(options.findIndex((o) => !o.disabled)) }
-    else if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); commit(options[highlight] ?? selected) }
+    else if (ev.key === "Enter" || (ev.key === " " && !searchable)) { ev.preventDefault(); commit(options[highlight] ?? (q ? options[0] : selected)) }
     else if (ev.key === "Tab") setOpen(false)
   }
 
@@ -400,9 +410,29 @@ export function Select({ className, children, value, onChange, disabled, placeho
             width: rect.width,
             ...(rect.flip ? { bottom: rect.bottom } : { top: rect.top }),
           }}
-          className="squircle z-[60] max-h-64 overflow-y-auto rounded-[16px] border border-border bg-card p-1.5 shadow-overlay-lg scroll-thin animate-pop-in"
+          className={cn("squircle z-[60] overflow-y-auto rounded-[16px] border border-border bg-card p-1.5 shadow-overlay-lg scroll-thin animate-pop-in", searchable ? "max-h-80" : "max-h-64")}
         >
-          {options.length === 0 && <p className="px-3 py-2 text-[13px] text-muted-foreground">No options</p>}
+          {searchable && (
+            <div className="sticky -top-1.5 z-10 -mx-1.5 -mt-1.5 mb-1 border-b border-border bg-card p-1.5">
+              <label className="flex h-9 items-center gap-2 rounded-[10px] bg-muted px-2.5">
+                <Search variant="Linear" className="h-4 w-4 flex-none text-subtle-foreground" />
+                <input
+                  autoFocus
+                  value={query}
+                  onChange={(ev) => {
+                    setQuery(ev.target.value)
+                    setHighlight(0)
+                  }}
+                  onKeyDown={onKeyDown}
+                  placeholder={searchPlaceholder}
+                  aria-label={searchPlaceholder}
+                  className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-subtle-foreground"
+                />
+                {query && <span className="flex-none text-[11px] text-muted-foreground tabular">{options.length}</span>}
+              </label>
+            </div>
+          )}
+          {options.length === 0 && <p className="px-3 py-2 text-[13px] text-muted-foreground">{q ? `Nothing matches "${query.trim()}"` : "No options"}</p>}
           {options.map((o, i) => {
             const isSelected = String(o.value) === String(value ?? "")
             return (
@@ -441,6 +471,7 @@ function collectOptions(children, out = []) {
       out.push({
         value: child.props.value ?? "",
         label: childText(child.props.children),
+        search: child.props["data-search"] || "",
         disabled: Boolean(child.props.disabled),
       })
     } else if (child.props?.children) {

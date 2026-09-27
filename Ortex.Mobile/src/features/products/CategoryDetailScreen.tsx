@@ -162,14 +162,14 @@ export default function CategoryDetailScreen({ route, navigation }: StackScreenP
         {/* The tax defaults, stated as facts rather than buried in a form: every
             product filed here inherits them, so a wrong HSN here is a wrong HSN
             on every quotation that follows. */}
-        <Section title="Quoting defaults">
+        <Section title="Quoting Defaults">
           <FactRow icon="gst" label="HSN code" value={category.hsn || null} />
           <FactRow icon="percent" label="GST rate" value={`${category.gstRate ?? 0}%`} />
           <FactRow icon="sort" label="Website order" value={String(category.sortOrder ?? 0)} />
         </Section>
 
         {onShelf.length > 0 ? (
-          <Panel title="On this shelf">
+          <Panel title="On This Shelf">
             <RowSeparator />
             {onShelf.map((p, i) => (
               <View key={p.id}>
@@ -203,7 +203,7 @@ export default function CategoryDetailScreen({ route, navigation }: StackScreenP
                 and two of them stack into a 4dp rule. */}
           </Panel>
         ) : (
-          <Panel title="On this shelf" padded>
+          <Panel title="On This Shelf" padded>
             <Text style={[textVariants.body, { color: t.textSecondary }]}>
               Nothing is filed here yet. A product picks up this category's HSN and GST the moment it is
               filed on the shelf.
@@ -226,7 +226,7 @@ export default function CategoryDetailScreen({ route, navigation }: StackScreenP
             still be able to see what the site says about a range they are
             selling. Only what has actually been filled in is drawn. */}
         {(!!category.slug || !!category.seoTitle || !!category.seoDescription) && (
-          <Section title="On the website">
+          <Section title="On the Website">
             <FactRow icon="catalogue" label="URL slug" value={category.slug || null} />
             <FactRow icon="catalogue" label="Heading" value={category.displayName || category.name || null} />
             <FactRow icon="preview" label="SEO title" value={category.seoTitle || null} />

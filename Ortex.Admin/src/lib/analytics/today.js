@@ -328,7 +328,7 @@ export function approvalItems(
         kind: "Leave",
         title: `${who(r.user_id)} · ${type}, ${days === 1 ? "1 day" : `${days} days`}`,
         detail: `${dayWords(r.from_day)}${r.to_day !== r.from_day ? ` to ${dayWords(r.to_day)}` : ""} · ${r.reason || "No reason given"}`,
-        to: "/attendance?tab=leave",
+        to: "/attendance?tab=leave-requests",
       })
     }
   }

@@ -31,7 +31,7 @@ export const HELP = [
     steps: ["Attendance is marked in the Ortex phone app, not on the web: open the app and scan the QR code on the office screen.", "Field staff check in from the app without a code.", "Your own days are under Attendance, My attendance. A missed check-out is fixed with a correction request."] },
   { id: "leave", module: "attendance", path: "/attendance?tab=leave", title: "Apply for leave",
     steps: ["Open Attendance, Leave and press Apply for leave.", "Pick the leave type and dates. Weekly offs and holidays are not counted.", "An admin approves it; you see the decision there and on your phone."] },
-  { id: "payslips", module: "payslips", path: "/payslips", title: "See your payslips",
+  { id: "payslips", module: "payslips", path: "/attendance?tab=payslips", title: "See your payslips",
     steps: ["Open My payslips in the sidebar. A payslip appears once that month's pay run is marked paid."] },
   { id: "social", module: "social", path: "/social", title: "See our posts, DMs and follow-ups",
     steps: ["Open Marketing in the sidebar. It shows what the marketing team has posted and scheduled on Instagram and LinkedIn, the DMs and comments sent, and the follow-ups.", "Posts, DMs, Comments and Follow-ups each have a tab; search and filter by platform.", "The page is read only. It fills in when the marketing machine runs its sync."] },

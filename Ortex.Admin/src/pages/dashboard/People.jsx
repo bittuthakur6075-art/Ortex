@@ -67,7 +67,7 @@ export function TeamToday({ ops, pendingLeave, pendingCorrections }) {
       <div className="grid grid-cols-3 gap-2">
         <Flag to="/attendance?tab=today" tone="amber" value={v.review} label="Needs review" />
         <Flag to="/attendance?tab=register" tone="rose" value={v.missed} label="Missed clock-out" />
-        <Flag to="/attendance?tab=leave" tone="violet" value={pendingLeave} label="Leave pending" />
+        <Flag to="/attendance?tab=leave-requests" tone="violet" value={pendingLeave} label="Leave pending" />
       </div>
       {v.notIn && v.notIn.length > 0 && (
         <div>

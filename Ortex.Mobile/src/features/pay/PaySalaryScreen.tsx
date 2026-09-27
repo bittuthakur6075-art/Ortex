@@ -87,7 +87,7 @@ export default function PaySalaryScreen({ navigation }: StackScreenProps<"PaySal
           </Panel>
 
           {current.employer_pf_in_ctc > 0 ? (
-            <Panel title="Employer contributions">
+            <Panel title="Employer Contributions">
               <PayTable
                 headers={["Component", "Monthly", "Annual"]}
                 rows={[
@@ -110,7 +110,7 @@ export default function PaySalaryScreen({ navigation }: StackScreenProps<"PaySal
           </Panel>
 
           {upcoming.length > 0 || earlier.length > 0 ? (
-            <Panel title="Revision history" meta={`${upcoming.length + earlier.length}`}>
+            <Panel title="Revision History" meta={`${upcoming.length + earlier.length}`}>
               {[...upcoming, ...earlier].map((r, i) => (
                 <React.Fragment key={r.id}>
                   {i > 0 && <RowSeparator />}

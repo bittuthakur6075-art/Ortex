@@ -279,7 +279,7 @@ export default function LeaveApplyScreen({ navigation, route }: StackScreenProps
         </>
       ) : (
         <>
-          <Panel title="Leave type" meta={type ? undefined : "Choose one"}>
+          <Panel title="Leave Type" meta={type ? undefined : "Choose one"}>
             {types.map((ty, i) => {
               const b = bal.find((x) => x.code === ty.code)
               const active = ty.code === code

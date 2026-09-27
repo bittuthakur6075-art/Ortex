@@ -159,7 +159,7 @@ export default function PayslipScreen({ navigation, route }: StackScreenProps<"P
               </Panel>
             ) : null}
 
-            <Panel title="Net pay">
+            <Panel title="Net Pay">
               <PayTable
                 headers={["", "Amount"]}
                 rows={[
@@ -174,7 +174,7 @@ export default function PayslipScreen({ navigation, route }: StackScreenProps<"P
             </Panel>
 
             {employer.length > 0 ? (
-              <Panel title="Employer contributions">
+              <Panel title="Employer Contributions">
                 <Text style={[textVariants.caption, styles.note, { color: t.textTertiary }]}>
                   Paid by the company on top of your salary. Not deducted from you.
                 </Text>
@@ -187,7 +187,7 @@ export default function PayslipScreen({ navigation, route }: StackScreenProps<"P
             ) : null}
 
             {d.tds && (Number(d.tds.annualTax) > 0 || Number(d.tds.monthly) > 0) ? (
-              <Panel title="Income tax">
+              <Panel title="Income Tax">
                 <FactRow icon="percent" label="Tax regime" value={d.tds.regime === "old" ? "Old regime" : "New regime"} />
                 <FactRow icon="insights" label="Projected tax for the year" value={money(d.tds.annualTax || 0)} />
                 {Number(d.tds.taxable) > 0 ? (
@@ -198,7 +198,7 @@ export default function PayslipScreen({ navigation, route }: StackScreenProps<"P
             ) : null}
 
             {d.employee ? (
-              <Panel title="Employee details">
+              <Panel title="Employee Details">
                 <FactRow icon="profile" label="Name" value={d.employee.name} />
                 {d.employee.employee_code ? <FactRow icon="gst" label="Employee ID" value={d.employee.employee_code} /> : null}
                 {d.employee.designation ? (

@@ -76,7 +76,7 @@ export default function SlipDrawer({ row, onClose, onPreview, onDownload, downlo
       }
     >
       <div className="space-y-5">
-        <div className="grid grid-cols-3 gap-2.5">
+        <div className="grid gap-2.5 sm:grid-cols-3">
           <Tile label="Gross" value={money(d.gross)} />
           <Tile label="Deductions" value={money(d.totalDeductions)} />
           <Tile label="Net pay" value={money(d.netPay)} strong />

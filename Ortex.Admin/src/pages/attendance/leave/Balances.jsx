@@ -65,7 +65,7 @@ export default function Balances({ ctx, canAdjust }) {
               ? "Use Adjust for opening balances and comp-off. Every change is kept in the ledger with your note."
               : "Only the Super Admin can adjust a balance."}
           </p>
-          <div className="ml-auto flex items-center gap-[10px]">
+          <div className="ml-auto flex flex-wrap items-center gap-[10px]">
             <SearchInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a name" />
             <ExportButton onClick={exportRows} />
           </div>
@@ -86,6 +86,13 @@ export default function Balances({ ctx, canAdjust }) {
               </tr>
             </thead>
             <tbody className="mt-body">
+              {shown.length === 0 && (
+                <tr>
+                  <td colSpan={types.length + (canAdjust ? 2 : 1)} className="text-center text-muted-foreground">
+                    {q.trim() ? "No one by that name." : "No people to show yet."}
+                  </td>
+                </tr>
+              )}
               {shown.map((id) => {
                 const person = ctx.directory?.[id] || {}
                 return (

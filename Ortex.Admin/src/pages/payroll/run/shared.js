@@ -9,6 +9,21 @@ export const money = (n) => formatCurrency(Number(n) || 0)
 /** Whole rupees, for tiles and tables where paise are noise. */
 export const rupees = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`
 
+/**
+ * A table row that opens something: clickable, reachable with Tab and opened
+ * with Enter or Space. Keys pressed inside the row's own inputs are ignored.
+ */
+export const ROW_LINK = "cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+export const rowOpens = (open) => ({
+  tabIndex: 0,
+  onClick: open,
+  onKeyDown: (e) => {
+    if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return
+    e.preventDefault()
+    open()
+  },
+})
+
 export const RUN_STATUS = {
   draft: { label: "Draft", tone: "slate" },
   pending_approval: { label: "Awaiting approval", tone: "amber" },

@@ -8,6 +8,7 @@ import { formatDateTime } from "../../lib/format"
 import { listEmployees, listLoans, recordLoanRepayment, saveLoan } from "../../services/payroll"
 import { LoadError } from "./setup/common"
 import { dateLabel, fromMonthInput, money, monthLabel, thisMonthIST } from "./setup/helpers"
+import { ROW_LINK, rowOpens } from "./run/shared"
 
 // Payroll → Loans (Zoho Payroll's Loans): salary advances and loans, each
 // recovered by a fixed instalment in every pay run from its start month. A
@@ -106,8 +107,8 @@ export default function Loans() {
             </Chip>
           ))}
         </ChipGroup>
-        <div className="ml-auto flex items-center gap-[10px]">
-          <SearchInput value={query} onChange={(e) => setQuery(e.target.value)} onClear={() => setQuery("")} placeholder="Search person or loan" />
+        <div className="ml-auto flex w-full items-center gap-[10px] sm:w-auto">
+          <SearchInput className="min-w-0 flex-1" aria-label="Search loans" value={query} onChange={(e) => setQuery(e.target.value)} onClear={() => setQuery("")} placeholder="Search person or loan" />
           <ExportButton onClick={exportRows} disabled={!shown.length} />
         </div>
       </div>
@@ -145,7 +146,7 @@ export default function Loans() {
                 {shown.map((l) => {
                   const p = byId.get(l.user_id)
                   return (
-                    <tr key={l.id} className="cursor-pointer" onClick={() => setOpenId(l.id)}>
+                    <tr key={l.id} className={ROW_LINK} {...rowOpens(() => setOpenId(l.id))}>
                       <td>
                         <div className="flex items-center gap-3">
                           <Avatar name={nameOf(l.user_id)} src={p?.avatar_url} className="h-8 w-8" />

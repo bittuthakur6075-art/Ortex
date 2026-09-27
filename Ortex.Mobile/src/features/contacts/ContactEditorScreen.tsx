@@ -92,7 +92,7 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
           </View>
         )}
 
-        <Section title="Who they are" style={styles.section} bodyStyle={styles.form}>
+        <Section title="Who They Are" style={styles.section} bodyStyle={styles.form}>
           <TextField
             label="Name"
             value={draft.name}
@@ -111,7 +111,7 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
           />
         </Section>
 
-        <Section title="How to reach them" style={styles.section} bodyStyle={styles.form}>
+        <Section title="How to Reach Them" style={styles.section} bodyStyle={styles.form}>
           <TextField
             label="Phone"
             value={draft.phone}

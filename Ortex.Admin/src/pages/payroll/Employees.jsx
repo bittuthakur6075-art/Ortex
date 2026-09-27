@@ -6,6 +6,7 @@ import { exportCsv } from "../../lib/csv"
 import { listEmployees, revisionFor } from "../../services/payroll"
 import { LoadError } from "./setup/common"
 import { dateLabel, missingFor, money, thisMonthIST } from "./setup/helpers"
+import { ROW_LINK, rowOpens } from "./run/shared"
 
 // Payroll → Employees (Zoho Payroll's employee list): everyone with a login,
 // their current salary, their PF / ESI flags and what is still missing before
@@ -96,8 +97,8 @@ export default function Employees() {
             </Chip>
           ))}
         </ChipGroup>
-        <div className="ml-auto flex items-center gap-[10px]">
-          <SearchInput value={query} onChange={(e) => setQuery(e.target.value)} onClear={() => setQuery("")} placeholder="Search name, code, department" />
+        <div className="ml-auto flex w-full items-center gap-[10px] sm:w-auto">
+          <SearchInput className="min-w-0 flex-1" aria-label="Search employees" value={query} onChange={(e) => setQuery(e.target.value)} onClear={() => setQuery("")} placeholder="Search name, code, department" />
           <ExportButton onClick={exportRows} disabled={!shown.length} />
         </div>
       </div>
@@ -131,7 +132,7 @@ export default function Employees() {
                 {shown.map((p) => {
                   const e = p.employee || {}
                   return (
-                    <tr key={p.id} className="cursor-pointer" onClick={() => navigate(`/payroll/employees/${p.id}`)}>
+                    <tr key={p.id} className={ROW_LINK} {...rowOpens(() => navigate(`/payroll/employees/${p.id}`))}>
                       <td>
                         <div className="flex items-center gap-3">
                           <Avatar name={p.name || p.email} src={p.avatar_url} className="h-8 w-8" />

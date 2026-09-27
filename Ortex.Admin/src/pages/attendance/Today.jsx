@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { AlertTriangle, CalendarClock, Clock, MapPin, UserCheck, Users } from "../../components/ui/Icons"
-import { Avatar, Badge, Banner, Card, CardHeader, EmptyState, PageLoader, StatCard } from "../../components/ui/Ui"
+import { Avatar, Badge, Banner, Card, CardHeader, EmptyState, PageLoader } from "../../components/ui/Ui"
 import { useProfile } from "../../hooks/useProfile"
 import { isAdmin, roleLabel, ROLE_TONE } from "../../lib/roles"
 import { currentUserId } from "../../lib/auth"
@@ -8,8 +8,8 @@ import { repo } from "../../data/store/repository"
 import { clockIST, durationWords, flagWords, onDutySince, summarizeDay } from "../../lib/attendance"
 import { listDays, listFlagged, listPunches, todayIST } from "../../services/attendance"
 import { listProfiles } from "../../services/users"
-import { DayDrawer, FlagBadges, ReviewButtons, Selfie } from "./parts"
-import { dayLabel } from "./format"
+import { DayDrawer, FlagBadges, ReviewButtons, Selfie, StatStrip } from "./parts"
+import { dayLabel, openRow } from "./format"
 import { useSelfieUrls } from "./useSelfieUrls"
 import { ImageViewer } from "../../components/ui/ImageViewer"
 
@@ -122,19 +122,17 @@ export default function Today() {
     <div className="space-y-5">
       {state.error && <Banner tone="danger">{state.error}</Banner>}
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-7">
-        <StatCard icon={UserCheck} label="On duty now" value={people.filter((p) => p.onDuty).length} accent="bg-success/12 text-success-text" />
-        <StatCard icon={CalendarClock} label="Clocked in today" value={people.filter((p) => p.summary.firstIn).length} />
-        {notInYet && <StatCard icon={Users} label="Not in yet" value={notInYet.length} accent="bg-secondary text-secondary-foreground" />}
-        <StatCard icon={MapPin} label="Field today" value={people.filter((p) => p.summary.field).length} accent="bg-info/10 text-info-text" />
-        <StatCard icon={AlertTriangle} label="Needs review" value={state.flagged.length} accent="bg-warning/12 text-warning-text" />
-        {state.lateToday != null && (
-          <StatCard icon={Clock} label="Late today" value={state.lateToday} accent="bg-warning/12 text-warning-text" />
-        )}
-        {state.missedYesterday != null && (
-          <StatCard icon={CalendarClock} label="Missed clock-out yesterday" value={state.missedYesterday} accent="bg-destructive/10 text-destructive-text" />
-        )}
-      </div>
+      <StatStrip
+        items={[
+          { icon: UserCheck, label: "On duty now", value: people.filter((p) => p.onDuty).length, tone: "text-success-text" },
+          { icon: CalendarClock, label: "Clocked in today", value: people.filter((p) => p.summary.firstIn).length },
+          notInYet && { icon: Users, label: "Not in yet", value: notInYet.length, tone: "text-muted-foreground" },
+          { icon: MapPin, label: "Field today", value: people.filter((p) => p.summary.field).length, tone: "text-info-text" },
+          { icon: AlertTriangle, label: "Needs review", value: state.flagged.length, tone: "text-warning-text" },
+          state.lateToday != null && { icon: Clock, label: "Late today", value: state.lateToday, tone: "text-warning-text" },
+          state.missedYesterday != null && { icon: CalendarClock, label: "Missed clock-out, yesterday", value: state.missedYesterday, tone: "text-destructive-text" },
+        ]}
+      />
 
       <Card className="overflow-hidden">
         <CardHeader title={`Today · ${dayLabel(todayIST(), true)}`} description="Times in IST, from the server's clock" />
@@ -156,7 +154,7 @@ export default function Today() {
               </thead>
               <tbody className="mt-body">
                 {people.map((p) => (
-                  <tr key={p.userId} className="cursor-pointer" onClick={() => setOpen(p.userId)}>
+                  <tr key={p.userId} {...openRow(() => setOpen(p.userId))}>
                     <td>
                       <div className="flex items-center gap-3">
                         <Avatar name={p.name} src={p.avatarUrl} className="h-8 w-8" />
@@ -199,14 +197,15 @@ export default function Today() {
       <Card className="overflow-hidden">
         <CardHeader title="Needs review" description="Flagged punches from the last 30 days" />
         {state.flagged.length === 0 ? (
-          <EmptyState icon={UserCheck} title="Nothing to review" description="Punches with a weak location, a wrong phone clock or an offline save show up here." />
+          <EmptyState icon={UserCheck} title="Nothing to review" description="Punches marked without scanning a code or with a wrong phone clock show up here." />
         ) : (
           <ul className="divide-y divide-border">
             {state.flagged.map((p) => {
               const d = state.directory[p.user_id] || {}
               return (
                 <li key={p.id} className="flex items-start gap-3 px-5 py-4">
-                  <Selfie url={flaggedUrls[p.selfie_path]} size="h-14 w-14" onOpen={() => setViewerUrl(flaggedUrls[p.selfie_path])} />
+                  {/* Only pre-QR punches carry a selfie; a camera placeholder on every row is noise. */}
+                  {p.selfie_path && <Selfie url={flaggedUrls[p.selfie_path]} size="h-14 w-14" onOpen={() => setViewerUrl(flaggedUrls[p.selfie_path])} />}
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-foreground">{d.name || "Unknown"}</span>

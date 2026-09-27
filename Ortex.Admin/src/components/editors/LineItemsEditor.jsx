@@ -1,3 +1,4 @@
+import { Fragment } from "react"
 import { Plus, Trash2 } from "../ui/Icons"
 import { newLine, GST_RATES } from "../../data/domain/schema"
 import { computeDocument } from "../../lib/pricing"
@@ -13,7 +14,8 @@ import { cn } from "../../lib/cn"
 //   products        , product master for the picker (autofills a line)
 //   extraDiscountPercent, onExtraDiscountChange
 //   interState      , controls the GST split shown in the summary
-export default function LineItemsEditor({ lines, onChange, products, extraDiscountPercent = 0, onExtraDiscountChange, interState }) {
+// `showTotals` false leaves the totals to the page (the quotation editor's rail).
+export default function LineItemsEditor({ lines, onChange, products, extraDiscountPercent = 0, onExtraDiscountChange, interState, showTotals = true }) {
   const totals = computeDocument(lines, { interState, extraDiscountPercent })
 
   const update = (i, patch) => onChange(lines.map((l, idx) => (idx === i ? { ...l, ...patch } : l)))
@@ -34,30 +36,33 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
   }
 
   const cell = "h-8 px-2 text-[13px] shadow-none"
-  const num = cn(cell, "text-right tabular")
+  // No browser spinner arrows: in a 70px cell they hide the number itself.
+  const num = cn(cell, "text-right tabular [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none")
 
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[900px] table-fixed text-left text-sm">
+        {/* Each line is two rows: the product and its description across the
+            full width, then the numbers. Nine columns side by side left the
+            product name a few characters wide beside the totals rail. */}
+        <table className="w-full min-w-[640px] table-fixed text-left text-sm">
           <thead className="mt-head">
             <tr>
               <th className="w-9 px-2 py-2.5 text-center">#</th>
-              <th className="px-3 py-2.5">Item / description</th>
-              <th className="w-[88px] px-2 py-2.5">HSN</th>
-              <th className="w-[84px] px-2 py-2.5 text-right">Qty</th>
-              <th className="w-[72px] px-2 py-2.5">Unit</th>
-              <th className="w-[104px] px-2 py-2.5 text-right">Rate</th>
-              <th className="w-[72px] px-2 py-2.5 text-right">Disc %</th>
-              <th className="w-[84px] px-2 py-2.5 text-right">GST %</th>
-              <th className="w-[112px] px-2 py-2.5 text-right">Amount</th>
+              <th className="px-2 py-2.5">Item · HSN</th>
+              <th className="w-[80px] px-2 py-2.5 text-right">Qty</th>
+              <th className="w-[62px] px-2 py-2.5">Unit</th>
+              <th className="w-[84px] px-2 py-2.5 text-right">Rate</th>
+              <th className="w-[60px] px-2 py-2.5 text-right">Disc %</th>
+              <th className="w-[76px] px-2 py-2.5 text-right">GST %</th>
+              <th className="w-[100px] px-2 py-2.5 text-right">Amount</th>
               <th className="w-9 px-1 py-2.5" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody>
             {lines.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-3 py-8 text-center text-[13px] text-muted-foreground">
+                <td colSpan={9} className="px-3 py-8 text-center text-[13px] text-muted-foreground">
                   No items yet. Add a line to get started.
                 </td>
               </tr>
@@ -65,31 +70,38 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
             {lines.map((line, i) => {
               const computed = totals.lines[i]
               return (
-                <tr key={i} className="align-top hover:bg-subtle/50">
-                  <td className="px-2 py-2.5 text-center text-xs text-subtle-foreground tabular">{i + 1}</td>
-                  <td className="px-2 py-2">
-                    <Select value={line.productId || ""} onChange={(e) => pickProduct(i, e.target.value)} className={cn(cell, "mb-1.5 pr-8")}>
+                <Fragment key={i}>
+                <tr className="align-top border-t border-border first:border-t-0">
+                  <td rowSpan={2} className="px-2 py-3 text-center text-xs text-subtle-foreground tabular">{i + 1}</td>
+                  <td colSpan={8} className="px-2 pb-1.5 pt-2.5">
+                    <div className="flex flex-col gap-1.5 sm:flex-row">
+                    <div className="min-w-0 sm:w-[45%]">
+                    <Select searchable searchPlaceholder="Search products, SKU or category" value={line.productId || ""} onChange={(e) => pickProduct(i, e.target.value)} className={cn(cell, "pr-8")}>
                       <option value="">Custom item…</option>
                       {products
                         .filter((p) => p.status !== "archived")
                         .map((p) => (
-                          <option key={p.id} value={p.id}>
+                          <option key={p.id} value={p.id} data-search={[p.sku, p.category, p.hsn].filter(Boolean).join(" ")}>
                             {p.name}
                           </option>
                         ))}
                     </Select>
-                    <Input value={line.description} onChange={(e) => update(i, { description: e.target.value })} placeholder="Description" className={cell} />
+                    </div>
+                    <Input value={line.description} onChange={(e) => update(i, { description: e.target.value })} placeholder="Description as it prints on the quotation" className={cn(cell, "min-w-0 flex-1")} />
+                    </div>
                   </td>
-                  <td className="px-2 py-2">
+                </tr>
+                <tr className="align-top">
+                  <td className="px-2 pb-2.5 pt-0">
                     <Input value={line.hsn} onChange={(e) => update(i, { hsn: e.target.value })} className={cell} placeholder="HSN" />
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="px-2 pb-2.5 pt-0">
                     <Input type="number" min="0" value={line.quantity} onChange={(e) => update(i, { quantity: Number(e.target.value) })} className={num} />
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="px-2 pb-2.5 pt-0">
                     <Input value={line.unit ?? "pcs"} onChange={(e) => update(i, { unit: e.target.value })} className={cell} placeholder="pcs" />
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="px-2 pb-2.5 pt-0">
                     <Input
                       type="number"
                       min="0"
@@ -104,11 +116,11 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
                       }
                     />
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="px-2 pb-2.5 pt-0">
                     <Input type="number" min="0" max="100" value={line.discountPercent} onChange={(e) => update(i, { discountPercent: Number(e.target.value) })} className={num} />
                   </td>
-                  <td className="px-2 py-2">
-                    <Select value={line.gstRate} onChange={(e) => update(i, { gstRate: Number(e.target.value) })} className={cn(cell, "pr-6 text-left")}>
+                  <td className="px-2 pb-2.5 pt-0">
+                    <Select value={line.gstRate} onChange={(e) => update(i, { gstRate: Number(e.target.value) })} className={cn(cell, "gap-1 !px-2 text-left")}>
                       {GST_RATES.map((r) => (
                         <option key={r} value={r}>
                           {r}
@@ -116,13 +128,14 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
                       ))}
                     </Select>
                   </td>
-                  <td className="px-2 py-3 text-right text-[13px] font-semibold text-foreground tabular">{formatCurrency(computed.total)}</td>
-                  <td className="px-1 py-2 text-right">
+                  <td className="px-2 pb-2.5 pt-1.5 text-right text-[13px] font-semibold text-foreground tabular">{formatCurrency(computed.total)}</td>
+                  <td className="px-1 pb-2.5 pt-0 text-right">
                     <Button type="button" variant="dangerGhost" size="sm" icon onClick={() => remove(i)} aria-label="Remove line" className="text-subtle-foreground">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </td>
                 </tr>
+                </Fragment>
               )
             })}
           </tbody>
@@ -137,6 +150,7 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
       </div>
 
       {/* Totals - right half, hairline rows (Keystone document style) */}
+      {showTotals && (
       <div className="flex flex-col items-end">
         <div className="w-full max-w-sm text-[13px]">
           <Row label="Subtotal">{formatCurrency(totals.subTotal)}</Row>
@@ -172,6 +186,7 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
           <p className="text-right text-[11px] text-subtle-foreground">{totals.interState ? "Inter-state supply · IGST" : "Intra-state supply · CGST + SGST"}</p>
         </div>
       </div>
+      )}
     </div>
   )
 }

@@ -7,7 +7,7 @@ import { loadDirectory } from "../../hooks/useRecordHistory"
 import { decideClaim, listClaims, receiptUrl } from "../../services/payroll"
 import { formatDateTime } from "../../lib/format"
 import { LoadError } from "./setup/common"
-import { dayWords, money } from "./run/shared"
+import { ROW_LINK, dayWords, money, rowOpens } from "./run/shared"
 
 // Payroll → Approvals: reimbursement claims people submit from the phone with
 // a receipt. Payroll approves or rejects each (a rejection says why); an
@@ -151,7 +151,7 @@ export default function Approvals() {
               </thead>
               <tbody className="mt-body">
                 {rows.map((c) => (
-                  <tr key={c.id} className="cursor-pointer" onClick={() => setOpen(c)}>
+                  <tr key={c.id} className={ROW_LINK} {...rowOpens(() => setOpen(c))}>
                     {filter === "pending" && (
                       <td onClick={(e) => e.stopPropagation()}>
                         {mine(c) ? null : (

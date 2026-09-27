@@ -9,7 +9,6 @@ import type { LegalDocKey } from "@/features/profile/legal"
 
 export type TabParamList = {
   Home: undefined
-  Chat: undefined
   Quotes: undefined
   Leads: undefined
   Products: undefined
@@ -26,7 +25,9 @@ export type QuotationPrefill = {
 
 export type RootStackParamList = {
   Tabs: undefined
-  // Team chat (migrations 0045/0046): one conversation, direct, group, team or Anu.
+  // Team chat (migrations 0045/0046), opened from the app bar: the inbox, then
+  // one conversation, direct, group, team or Anu.
+  Chat: undefined
   ChatThread: { id: string; ask?: string }
   QuotationEditor: { id?: string; prefill?: QuotationPrefill } | undefined
   QuotationDetail: { id: string }
@@ -70,6 +71,7 @@ export type RootStackParamList = {
   AttendanceCorrection: { day: string; inAt?: string | null; outAt?: string | null }
   /** Admins: corrections and flagged punches waiting for a decision. */
   AttendanceApprovals: undefined
+  TeamAttendance: undefined
   // Leave (phase 3, migration 0036).
   Leave: undefined
   /** Optionally pre-selects a leave type. */

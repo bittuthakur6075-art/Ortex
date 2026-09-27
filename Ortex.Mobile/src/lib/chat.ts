@@ -127,6 +127,12 @@ export const chat = {
 const urlCache = new Map<string, { url: string; until: number }>()
 const URL_TTL_S = 3600
 
+/** The signed URL already in hand, so a remounted photo paints at once. */
+export function cachedFileUrl(path: string): string {
+  const hit = urlCache.get(path)
+  return hit && hit.until > Date.now() ? hit.url : ""
+}
+
 export async function fileUrl(path: string): Promise<string> {
   const hit = urlCache.get(path)
   if (hit && hit.until > Date.now()) return hit.url
@@ -146,13 +152,16 @@ export type ChatChange = {
 }
 
 let channel: RealtimeChannel | null = null
+let joins = 0
 const listeners = new Set<(p: ChatChange) => void>()
 
 export function onChatChange(cb: (p: ChatChange) => void): () => void {
   if (!hasSupabase) return () => undefined
   listeners.add(cb)
   if (!channel) {
-    const ch = supabase.channel("ortex-chat-mobile")
+    // A fresh topic each time: removeChannel is async, and supabase.channel()
+    // hands back a same-named channel still subscribed, which throws on .on().
+    const ch = supabase.channel(`ortex-chat-mobile-${++joins}`)
     for (const table of ["chat_messages", "chat_members", "chat_conversations"]) {
       ch.on("postgres_changes" as never, { event: "*", schema: "public", table } as never, (payload: ChatChange) => {
         listeners.forEach((fn) => fn(payload))

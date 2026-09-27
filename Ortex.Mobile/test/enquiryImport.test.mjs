@@ -32,7 +32,7 @@ test("phone and console read a sheet identically", () => {
   const b = mobile.sheetToEnquiries(ROWS, { fileName: "x.xlsx", today })
   assert.deepEqual(b, a)
   assert.equal(a.enquiries.length, 4)
-  assert.deepEqual(a.skipped.map((s) => s.reason), ["Already in the console", "No name or mobile"])
+  assert.deepEqual(a.skipped.map((s) => s.reason), ["Repeated in this file", "No name or mobile"])
 })
 
 test("helpers agree", () => {

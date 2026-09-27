@@ -12,7 +12,7 @@ import { SquircleBackground } from "@/ui/Squircle"
  * V2/V3 boards, Chat, Attendance and Profile screens), measured off the frames:
  *
  *   · the page is the grey canvas (AppScreen `inset`), and content sits in white
- *     cards 12 from the screen edge, radius 24, 12 apart;
+ *     cards 12 from the screen edge, radius 20, 12 apart;
  *   · a section is named by an UPPERCASE grey label ABOVE its card, 28 in;
  *   · a row is 13 top and bottom, 16 in, a 38 round tinted well with its Bulk
  *     glyph, 14 to a 16 title over a 13.5 subtitle; rows part on a 1px rule
@@ -21,7 +21,7 @@ import { SquircleBackground } from "@/ui/Squircle"
  * Flat, as every surface in the app: no shadow (owner's rule; only the tab bar).
  */
 
-export const ONE_UI = { inset: 12, radius: 24, gap: 12, rowX: 16, well: 38 } as const
+export const ONE_UI = { inset: 12, radius: 20, gap: 12, rowX: 16, well: 38 } as const
 
 export type OneTone = "primary" | "success" | "warning" | "danger" | "neutral" | "violet"
 
@@ -38,7 +38,7 @@ export function useOneTone() {
     }[tone])
 }
 
-/** A white card on the canvas: 12 from the edges, radius 24, 12 below. */
+/** A white card on the canvas: 12 from the edges, radius 20, 12 below. */
 export function Card({
   children,
   style,
@@ -68,14 +68,20 @@ export function SubHeader({
   title,
   action,
   onAction,
+  right,
+  flush,
 }: {
   title: string
   action?: string
   onAction?: () => void
+  /** A count or tag on the right ("• 3"). */
+  right?: React.ReactNode
+  /** On an edge-to-edge page: the label sits on the 20 page gutter, not over a card. */
+  flush?: boolean
 }) {
   const t = useTheme()
   return (
-    <View style={styles.sub}>
+    <View style={[styles.sub, flush && styles.subFlush]}>
       <Text accessibilityRole="header" style={[styles.subText, { color: t.textTertiary }]}>
         {title.toUpperCase()}
       </Text>
@@ -92,6 +98,7 @@ export function SubHeader({
           {action}
         </Text>
       ) : null}
+      {right}
     </View>
   )
 }
@@ -228,6 +235,7 @@ const styles = StyleSheet.create({
   },
   padded: { padding: 16 },
   sub: { flexDirection: "row", alignItems: "center", paddingHorizontal: 28, paddingTop: 8, paddingBottom: 8 },
+  subFlush: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4 },
   subText: { flex: 1, fontFamily: fontFamily.semibold, fontSize: 13, lineHeight: 16, letterSpacing: 0.7 },
   subAction: { fontFamily: fontFamily.semibold, fontSize: 14, lineHeight: 18 },
   well: { alignItems: "center", justifyContent: "center" },

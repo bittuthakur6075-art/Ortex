@@ -46,7 +46,7 @@ export { Section, SectionRow, FactRow, type SectionRowTone } from "@/ui/Section"
 export { default as Panel, PanelBand } from "@/ui/Panel"
 export { default as RecordActivityPanel } from "@/ui/RecordActivityPanel"
 export { default as ProfileAvatarButton } from "@/ui/ProfileAvatarButton"
-export { default as ListRow, RowSeparator, ROW_SEPARATOR_HEIGHT } from "@/ui/ListRow"
+export { default as ListRow, RowRule, RowSeparator, ROW_SEPARATOR_HEIGHT } from "@/ui/ListRow"
 export { SquircleBackground, type SquircleCorners } from "@/ui/Squircle"
 export { default as Fab } from "@/ui/Fab"
 

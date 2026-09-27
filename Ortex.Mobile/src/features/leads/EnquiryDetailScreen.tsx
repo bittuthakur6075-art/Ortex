@@ -264,7 +264,7 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
         {/* WHAT THEY ASKED FOR. The website sends items and quantities only, so
             the money here is ours: catalogue rates, and honest about how much of
             the order it could actually price. */}
-        <Panel title="What they asked for" padded>
+        <Panel title="What They Asked For" padded>
           {rfq && summary ? (
             <>
               <View style={styles.totals}>

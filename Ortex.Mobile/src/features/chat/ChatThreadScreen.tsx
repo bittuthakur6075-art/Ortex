@@ -39,7 +39,7 @@ import { useDismissChatNotification } from "@/features/chat/ChatNotifier"
 import { useAnuChat } from "@/features/chat/useAnuChat"
 import { getInbox, patchConversation, setActiveConversation, useChatInbox, useChatThread, useMyId, type Photo } from "@/features/chat/useChat"
 import { keyboardTopInWindow } from "@/hooks/useKeyboardAwareScroll"
-import { chat, fileUrl } from "@/lib/chat"
+import { cachedFileUrl, chat, fileUrl } from "@/lib/chat"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
@@ -285,7 +285,7 @@ export default function ChatThreadScreen({ navigation, route }: StackScreenProps
         {isAnu && thread.messages.length ? <IconButton name="trash" onPress={clearAnu} accessibilityLabel="Clear chat" /> : null}
       </View>
 
-      <View ref={keyboard.ref} onLayout={keyboard.onLayout} style={[styles.flex, { marginBottom: keyboard.lift }]}>
+      <View ref={keyboard.ref} onLayout={keyboard.onLayout} style={[styles.flex, { paddingBottom: keyboard.lift }]}>
         {thread.loading ? (
           <View style={styles.center}>
             <ActivityIndicator color={t.primary} />
@@ -439,6 +439,8 @@ function Bubble({
           mine ? { backgroundColor: t.primary } : { backgroundColor: t.surfaceRaised },
           runEnd && (mine ? { borderBottomRightRadius: 6 } : { borderBottomLeftRadius: 6 }),
           m.local === "failed" && { borderColor: t.danger, borderWidth: 1.5 },
+          // A photo sits in a thin frame, not the text padding.
+          m.attachment && !m.body && !replied && !deleted && styles.photoBubble,
         ]}
       >
         {!mine && group && runStart ? (
@@ -484,7 +486,7 @@ function Bubble({
             ))}
           </>
         )}
-        <View style={styles.metaRow}>
+        <View style={[styles.metaRow, m.attachment && !m.body && !replied && !deleted && styles.photoMeta]}>
           {m.edited_at && !deleted ? <Text style={[styles.metaText, { color: soft }]}>Edited</Text> : null}
           <Text style={[styles.metaText, { color: soft }]}>{clock(m.created_at)}</Text>
           {mine && !deleted ? <Ticks state={tickState(m, conv, meId)} color={soft} readColor={t.textOnPrimary} /> : null}
@@ -503,7 +505,7 @@ function Bubble({
 
 function Photo({ att }: { att: ChatAttachment }) {
   const t = useTheme()
-  const [uri, setUri] = React.useState(att.localUri || "")
+  const [uri, setUri] = React.useState(att.localUri || (att.path ? cachedFileUrl(att.path) : ""))
   React.useEffect(() => {
     let alive = true
     if (att.path && isImage(att)) fileUrl(att.path).then((u) => alive && setUri(u)).catch(() => undefined)
@@ -518,7 +520,7 @@ function Photo({ att }: { att: ChatAttachment }) {
       </Text>
     )
   }
-  const ratio = att.width && att.height ? Math.min(2, Math.max(0.6, att.width / att.height)) : 4 / 3
+  const ratio = att.width && att.height ? Math.min(2, Math.max(0.75, att.width / att.height)) : 4 / 3
   return (
     <Pressable onPress={() => uri && void Linking.openURL(uri)} style={[styles.photo, { aspectRatio: ratio, backgroundColor: t.skeleton }]}>
       {uri ? <Image source={{ uri }} style={[StyleSheet.absoluteFill, { opacity: att.uploading ? 0.6 : 1 }]} resizeMode="cover" /> : null}
@@ -577,6 +579,8 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 4 },
   metaText: { fontFamily: fontFamily.regular, fontSize: 11, lineHeight: 14 },
   failed: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingTop: 4 },
+  photoBubble: { paddingHorizontal: 4, paddingTop: 4 },
+  photoMeta: { paddingHorizontal: 8 },
   photo: { width: 240, maxWidth: "100%", borderRadius: 12, overflow: "hidden" },
   stats: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   stat: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5, minWidth: "46%" },

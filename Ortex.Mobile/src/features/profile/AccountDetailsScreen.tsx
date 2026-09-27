@@ -120,7 +120,7 @@ export default function AccountDetailsScreen({ navigation }: StackScreenProps<"A
         inTabs={false}
         contentStyle={styles.content}
       >
-        <Section title="Your details">
+        <Section title="Your Details">
           <FactRow
             icon="profile"
             label="Name"
@@ -158,7 +158,7 @@ export default function AccountDetailsScreen({ navigation }: StackScreenProps<"A
 
         {/* Read-only by design: access is granted per user in the console, and a
             switch here that could not change it would be a lie. */}
-        <Section title="What you can open">
+        <Section title="What You Can Open">
           {granted.map((m) => (
             <SectionRow key={m.key} leadingIcon={MODULE_ICON[m.key]} title={m.label} chevron={false} />
           ))}
