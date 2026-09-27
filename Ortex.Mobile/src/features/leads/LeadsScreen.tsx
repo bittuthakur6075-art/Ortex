@@ -7,6 +7,7 @@ import { enquiryAge, parseQuoteRfq, rfqArtwork, rfqUnits } from "@/domain/quoteR
 import { ENQUIRY_STATUS, type Enquiry } from "@/domain/schema"
 import { VOICE_SOURCE, prettyPhone, voiceCallsFrom, type VoiceCall } from "@/domain/voice"
 import AnuButton from "@/features/anu/AnuButton"
+import EnquiryImportSheet from "@/features/leads/EnquiryImportSheet"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { useCollection } from "@/hooks/useCollection"
 import { feedback } from "@/lib/feedback"
@@ -50,6 +51,7 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
 
   const canEnquiries = canAccess(profile, "enquiries")
   const canVoice = canAccess(profile, "voice-leads")
+  const [importing, setImporting] = React.useState(false)
   const [tab, setTab] = React.useState<Tab>(canEnquiries ? "enquiries" : "voice")
   const [segmentsBottom, setSegmentsBottom] = React.useState(0)
 
@@ -101,6 +103,9 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
         headerRight={
           <>
             <AnuButton />
+            {canEnquiries && !showingVoice ? (
+              <IconButton name="upload" onPress={() => setImporting(true)} accessibilityLabel="Import enquiries from Excel" />
+            ) : null}
             <IconButton
               name="search"
               onPress={() => navigation.navigate("Search")}
@@ -225,6 +230,7 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
         )}
         {data.length ? <RowSeparator /> : null}
       </AppScreen>
+      <EnquiryImportSheet visible={importing} onClose={() => setImporting(false)} existing={items} onImported={() => void reload()} />
     </View>
   )
 }

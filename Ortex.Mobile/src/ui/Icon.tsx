@@ -4,6 +4,7 @@ import React from "react"
 // 995 icons and Metro cannot tree-shake it, which added ~4 MB to the bundle.
 import Add from "iconsax-react-native/dist/esm/Add"
 import Additem from "iconsax-react-native/dist/esm/Additem"
+import DocumentUpload from "iconsax-react-native/dist/esm/DocumentUpload"
 import ArrowDown2 from "iconsax-react-native/dist/esm/ArrowDown2"
 import ArrowLeft from "iconsax-react-native/dist/esm/ArrowLeft"
 import ArrowLeft2 from "iconsax-react-native/dist/esm/ArrowLeft2"
@@ -92,6 +93,7 @@ const GLYPHS = {
   add: Add,
   minus: Minus,
   addItem: Additem,
+  upload: DocumentUpload,
   tick: TickCircle,
   edit: Edit2,
   trash: Trash,

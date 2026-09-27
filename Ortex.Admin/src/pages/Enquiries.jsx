@@ -8,8 +8,10 @@ import { isQuoteEnquiry, parseQuoteRfq, rfqToQuotationLines, rfqSummary, rfqArtw
 import { exportCsv } from "../lib/csv"
 import { cn } from "../lib/cn"
 import DocumentView from "../components/documents/DocumentView"
+import EnquiryImport from "../components/editors/EnquiryImport"
 import {
   ExportButton,
+  ToolbarButton,
   Card,
   SearchInput,
   StatusBadge,
@@ -34,6 +36,7 @@ export default function Enquiries() {
   const [statusFilter, setStatusFilter] = useState("all")
   const navigate = useNavigate()
   const [preview, setPreview] = useState(null) // generated quotation to print
+  const [importing, setImporting] = useState(false)
 
   const quoteCount = useMemo(() => items.filter(isQuoteEnquiry).length, [items])
 
@@ -64,8 +67,12 @@ export default function Enquiries() {
         { header: "Company", value: (e) => e.customer?.company },
         { header: "Email", value: (e) => e.customer?.email },
         { header: "Phone", value: (e) => e.customer?.phone },
+        { header: "Alternate mobile", value: (e) => e.altPhone },
+        { header: "City", value: (e) => e.customer?.city },
         { header: "Source", value: (e) => e.source },
         { header: "Interest", value: (e) => e.productInterest },
+        { header: "Quantity", value: (e) => e.quantity },
+        { header: "Rate", value: (e) => e.rate },
         { header: "Status", value: (e) => e.status },
         { header: "Message", value: (e) => e.message },
       ],
@@ -113,6 +120,7 @@ export default function Enquiries() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search enquiries"
           />
+          <ToolbarButton onClick={() => setImporting(true)}>Import</ToolbarButton>
           <ExportButton onClick={handleExport} disabled={!filtered.length} />
         </div>
       </div>
@@ -131,6 +139,7 @@ export default function Enquiries() {
         </div>
       )}
 
+      <EnquiryImport open={importing} onClose={() => setImporting(false)} existing={items} />
       <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settings} type="quotation" />
     </div>
   )
@@ -191,7 +200,7 @@ function EnquiryCard({ e, products, onOpen, onQuote, onDragStart, dragging }) {
                     )}
                   </div>
                 ) : (
-                  <p className="mt-3 line-clamp-2 text-[13px] text-muted-foreground">{e.message || "No message"}</p>
+                  <p className="mt-3 line-clamp-2 text-[13px] text-muted-foreground">{e.message || (e.imported && e.notes?.split("\n")[0]) || "No message"}</p>
                 )}
 
                 {/* What it is worth and what it needs */}
@@ -201,7 +210,12 @@ function EnquiryCard({ e, products, onOpen, onQuote, onDragStart, dragging }) {
                       {formatNumber(sum.units)} units across {sum.lines} line{sum.lines > 1 ? "s" : ""}
                     </span>
                   )}
-                  {!rfq && e.productInterest && <span className="text-muted-foreground">{e.productInterest}</span>}
+                  {!rfq && e.productInterest && (
+                    <span className="text-muted-foreground">
+                      {e.productInterest}
+                      {e.quantity && ` · ${/^\d+$/.test(e.quantity) ? formatNumber(Number(e.quantity)) : e.quantity} pcs`}
+                    </span>
+                  )}
                   {art && (
                     <span className={cn("inline-flex items-center gap-1", art.failed ? "text-destructive-text" : "text-success-text")}>
                       <ImageIcon className="h-3.5 w-3.5" /> {art.failed ? "Artwork missing" : "Artwork attached"}

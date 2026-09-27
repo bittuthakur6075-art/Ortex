@@ -373,60 +373,68 @@ export default function AppScreen({
           the page ground, so no white band can show between the bar and an
           inset page's grey canvas. */}
       <View style={{ paddingTop: insets.top, backgroundColor: c.appBar }}>{appBar}</View>
-      {sections ? (
-        <Animated.SectionList
-          ref={innerListRef as never}
-          {...sections}
-          style={[{ backgroundColor: ground }, sections.style, arrivalAt(1)]}
-          // Cards live in the list header; Android detaching "off-screen" views
-          // crops their drawn corners mid-scroll.
-          removeClippedSubviews={inset ? false : sections.removeClippedSubviews}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          ListHeaderComponent={
-            <>
-              {largeTitle}
-              {children}
-            </>
-          }
-          contentContainerStyle={[
-            { paddingBottom: bottomReserve },
-            sections.contentContainerStyle,
-            contentStyle,
-          ]}
-          keyboardShouldPersistTaps="handled"
-        />
-      ) : list ? (
-        <Animated.FlatList
-          ref={innerListRef as never}
-          {...list}
-          style={[{ backgroundColor: ground }, list.style, arrivalAt(1)]}
-          removeClippedSubviews={inset ? false : list.removeClippedSubviews}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          ListHeaderComponent={
-            <>
-              {largeTitle}
-              {children}
-              {list.ListHeaderComponent as React.ReactElement}
-            </>
-          }
-          onLayout={(e) => {
-            setViewportHeight(e.nativeEvent.layout.height)
-            list.onLayout?.(e)
-          }}
-          contentContainerStyle={[
-            { paddingBottom: bottomReserve },
-            // With a sticky bar the list is never shorter than one screen past
-            // the threshold, so a switch to a SHORT collection (an empty gallery)
-            // can still sit at the threshold. Without it the offset clamps to 0,
-            // the pill is back on screen, and the pinned copy is drawn over it.
-            stickyBar && viewportHeight > 0 ? { minHeight: viewportHeight + stickyThreshold } : null,
-            list.contentContainerStyle,
-            contentStyle,
-          ]}
-          keyboardShouldPersistTaps="handled"
-        />
+      {/* A list arrives through this wrapper, never through its own style: on
+          Android a refreshControl takes the list's style onto its native
+          SwipeRefreshLayout, where the native driver never reaches, so the
+          arrival's rise stayed as a 14dp gap under the app bar. */}
+      {isList ? (
+        <Animated.View style={[styles.root, arrivalAt(1)]}>
+          {sections ? (
+            <Animated.SectionList
+              ref={innerListRef as never}
+              {...sections}
+              style={[{ backgroundColor: ground }, sections.style]}
+              // Cards live in the list header; Android detaching "off-screen" views
+              // crops their drawn corners mid-scroll.
+              removeClippedSubviews={inset ? false : sections.removeClippedSubviews}
+              onScroll={onScroll}
+              scrollEventThrottle={16}
+              ListHeaderComponent={
+                <>
+                  {largeTitle}
+                  {children}
+                </>
+              }
+              contentContainerStyle={[
+                { paddingBottom: bottomReserve },
+                sections.contentContainerStyle,
+                contentStyle,
+              ]}
+              keyboardShouldPersistTaps="handled"
+            />
+          ) : list ? (
+            <Animated.FlatList
+              ref={innerListRef as never}
+              {...list}
+              style={[{ backgroundColor: ground }, list.style]}
+              removeClippedSubviews={inset ? false : list.removeClippedSubviews}
+              onScroll={onScroll}
+              scrollEventThrottle={16}
+              ListHeaderComponent={
+                <>
+                  {largeTitle}
+                  {children}
+                  {list.ListHeaderComponent as React.ReactElement}
+                </>
+              }
+              onLayout={(e) => {
+                setViewportHeight(e.nativeEvent.layout.height)
+                list.onLayout?.(e)
+              }}
+              contentContainerStyle={[
+                { paddingBottom: bottomReserve },
+                // With a sticky bar the list is never shorter than one screen past
+                // the threshold, so a switch to a SHORT collection (an empty gallery)
+                // can still sit at the threshold. Without it the offset clamps to 0,
+                // the pill is back on screen, and the pinned copy is drawn over it.
+                stickyBar && viewportHeight > 0 ? { minHeight: viewportHeight + stickyThreshold } : null,
+                list.contentContainerStyle,
+                contentStyle,
+              ]}
+              keyboardShouldPersistTaps="handled"
+            />
+          ) : null}
+        </Animated.View>
       ) : (
         // The non-list branch is where every FORM in this app lives, so it is
         // keyboard-aware: the focused field is lifted clear of the keyboard, and

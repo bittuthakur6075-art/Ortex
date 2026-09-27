@@ -93,6 +93,8 @@ export type Customer = {
   gstin: string
   stateCode: string
   address: string
+  /** Written by the IndiaMART sync and the spreadsheet import. */
+  city?: string
   /** For the team only, never printed. Only on the customers master, not on a quotation. */
   notes?: string
 }
@@ -161,11 +163,18 @@ export type Enquiry = Row & {
   customer: Customer
   source: string
   productInterest: string
+  /** As the customer said it: "5000", "3K-4K". */
+  quantity?: string
+  /** The rate discussed, per piece. */
+  rate?: string
+  altPhone?: string
   message: string
   status: string
   starred: boolean
   owner: string
   notes: string
+  /** Set on rows filed from a spreadsheet (domain/enquiryImport.ts). */
+  imported?: { file: string; row: number }
   // Not in the console's factory, but written by Ortex.Web's voice assistant.
   items?: EnquiryItem[]
   reference?: string

@@ -262,6 +262,15 @@ export const repo = {
     return fromRow<T>(created as Row) as T
   },
 
+  // Mirrors the console apiStore.bulkCreate: an import may carry the date the
+  // record really began (createdAt), which becomes the row created_at.
+  async bulkCreate<T>(name: Collection, items: Record<string, unknown>[]): Promise<T[]> {
+    const rows = items.map((d) => ({ ...(d.createdAt ? { created_at: d.createdAt } : {}), doc: toDoc(d) }))
+    const { data, error } = await supabase.from(name).insert(rows).select("*")
+    if (error) throw error
+    return ((data || []) as Row[]).map((r) => fromRow<T>(r) as T)
+  },
+
   // Top-level shallow merge, matching the console's {...existing, ...patch}.
   async update<T>(name: Collection, id: string, patch: Record<string, unknown>): Promise<T | null> {
     const existing = await this.get<Record<string, unknown>>(name, id)

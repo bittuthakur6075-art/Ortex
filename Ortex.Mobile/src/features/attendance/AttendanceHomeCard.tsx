@@ -262,7 +262,7 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
             style={[textVariants.caption, { color: closingSoon ? t.warningText : t.textTertiary, flex: 1 }]}
             numberOfLines={1}
           >
-            {`Check-in ${clockIST(win.open)} to ${clockIST(win.close)} · check-out any time`}
+            {`Check-in ${clockIST(win.open)} to ${clockIST(win.close)}`}
           </Text>
           <Pressable
             hitSlop={8}

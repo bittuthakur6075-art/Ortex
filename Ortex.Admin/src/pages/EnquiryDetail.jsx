@@ -233,6 +233,17 @@ export default function EnquiryDetail() {
               <Field label="Phone">
                 <Input value={form.customer.phone} onChange={(e) => setCustomer("phone", e.target.value)} onBlur={saveCustomer} />
               </Field>
+              <Field label="Alternate mobile">
+                <Input
+                  value={form.altPhone}
+                  onChange={(e) => setForm((f) => ({ ...f, altPhone: e.target.value }))}
+                  onBlur={() => repo.update("enquiries", enquiry.id, { altPhone: form.altPhone })}
+                  placeholder="Enter a second number"
+                />
+              </Field>
+              <Field label="City">
+                <Input value={form.customer.city || ""} onChange={(e) => setCustomer("city", e.target.value)} onBlur={saveCustomer} placeholder="Enter city" />
+              </Field>
               <Field label="GSTIN">
                 <Input
                   value={form.customer.gstin}
@@ -269,6 +280,10 @@ export default function EnquiryDetail() {
               <Field label="Product Interest">
                 <Select value={form.productInterest} onChange={(e) => patch({ productInterest: e.target.value })}>
                   <option value="">Not set</option>
+                  {/* IndiaMART and imports write the product as the customer named it. */}
+                  {form.productInterest && !PRODUCT_CATEGORIES.includes(form.productInterest) && (
+                    <option value={form.productInterest}>{form.productInterest}</option>
+                  )}
                   {PRODUCT_CATEGORIES.map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -276,6 +291,24 @@ export default function EnquiryDetail() {
                   ))}
                 </Select>
               </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Quantity">
+                  <Input
+                    value={form.quantity}
+                    onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
+                    onBlur={() => repo.update("enquiries", enquiry.id, { quantity: form.quantity })}
+                    placeholder="e.g. 5000"
+                  />
+                </Field>
+                <Field label="Rate" hint="Per piece, as discussed">
+                  <Input
+                    value={form.rate}
+                    onChange={(e) => setForm((f) => ({ ...f, rate: e.target.value }))}
+                    onBlur={() => repo.update("enquiries", enquiry.id, { rate: form.rate })}
+                    placeholder="e.g. 6.50"
+                  />
+                </Field>
+              </div>
             </div>
           </Section>
 

@@ -146,7 +146,12 @@ export const apiStore = {
   },
 
   async bulkCreate(name, items) {
-    const rows = items.map((d) => (isUuid(d?.id) ? { id: d.id, doc: toDoc(d) } : { doc: toDoc(d) }))
+    // An import may carry the date the record really began (createdAt), as localStore keeps it.
+    const rows = items.map((d) => ({
+      ...(isUuid(d?.id) ? { id: d.id } : {}),
+      ...(d?.createdAt ? { created_at: d.createdAt } : {}),
+      doc: toDoc(d),
+    }))
     const { data, error } = await supabase.from(name).insert(rows).select("*")
     if (error) throw error
     return data.map(fromRow)

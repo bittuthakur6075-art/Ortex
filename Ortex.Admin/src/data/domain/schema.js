@@ -294,6 +294,9 @@ export function newEnquiry(overrides = {}) {
     customer: newCustomer(),
     source: "Website contact form",
     productInterest: "",
+    quantity: "", // as the customer said it: "5000", "3K-4K"
+    rate: "", // the rate discussed, per piece
+    altPhone: "",
     message: "",
     status: "new",
     starred: false,

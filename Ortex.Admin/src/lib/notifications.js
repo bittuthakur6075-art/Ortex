@@ -68,6 +68,7 @@ function enquirySignals(enquiries, now) {
     // Anu's capture rows are folded into calls below; listing them here as well
     // announced one conversation up to four times.
     if (e.source === VOICE_SOURCE || e.status !== "new") continue
+    if (e.imported) continue // filed from a spreadsheet, not news (lib/enquiryImport.js)
     const created = new Date(e.createdAt || now).getTime()
     if (Number.isNaN(created) || now - created > WINDOW_DAYS * DAY_MS) continue
 

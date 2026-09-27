@@ -221,6 +221,7 @@ function enquiryNotifications(
   const out: AppNotification[] = []
 
   for (const e of enquiries) {
+    if (e.imported) continue // filed from a spreadsheet, not news (domain/enquiryImport.ts)
     const created = new Date((e.createdAt as string) || now).getTime()
     if (Number.isNaN(created) || now - created > WINDOW_DAYS * DAY_MS) continue
 
