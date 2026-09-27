@@ -128,14 +128,7 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
           onPress: () => navigation.navigate("AttendanceApprovals"),
         },
         { icon: "team" as const, label: "Team", onPress: () => navigation.navigate("Team") },
-        access.social
-          ? {
-              icon: "share" as const,
-              label: "Social",
-              tone: "danger" as const,
-              onPress: () => navigation.navigate("Social"),
-            }
-          : { icon: "insights" as const, label: "Insights", onPress: openInsights },
+        { icon: "insights" as const, label: "Insights", onPress: openInsights },
       ]
     : [
         access.quotes && {

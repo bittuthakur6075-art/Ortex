@@ -92,8 +92,8 @@ export const MODULES: ModuleDef[] = [
   { key: "products", label: "Products" },
   { key: "categories", label: "Categories" },
   { key: "work", label: "Work gallery" },
-  // Social posts: research, design, approve and schedule (console + phone).
-  { key: "social", label: "Social" },
+  // Marketing: the console's view of posts, DMs, comments and follow-ups (console only).
+  { key: "social", label: "Marketing" },
   { key: "quotations", label: "Quotations" },
   { key: "invoices", label: "Invoices" },
   { key: "payments", label: "Payments" },

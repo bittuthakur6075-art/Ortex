@@ -29,6 +29,20 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.7.0",
+    version: "1.7.0",
+    date: "2026-09-27",
+    title: "Social has moved",
+    summary: "Social posts are now handled by the marketing team.",
+    items: [
+      {
+        kind: "improved",
+        title: "Social is no longer on the phone",
+        detail: "Posts, DMs and follow-ups are on the console's new Marketing page.",
+      },
+    ],
+  },
+  {
     id: "1.6.1",
     version: "1.6.1",
     date: "2026-09-27",
