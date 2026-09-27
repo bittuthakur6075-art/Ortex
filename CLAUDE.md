@@ -36,6 +36,7 @@ Never run destructive SQL, a test write or a bulk import against it casually.
 | `Ortex.Admin/src/lib/anuIntent.js`, `anuReply.js`, `chat.js` (Team chat and Anu in chat) | `Ortex.Mobile/src/domain/anuIntent.ts`, `anuReply.ts`, `chat.ts` (parity test `test/anuIntent.test.mjs`) |
 | `Ortex.Admin/src/lib/attendance.js` | Nothing: it is GENERATED from `Ortex.Mobile/src/domain/attendance.ts` (tsc + prettier --no-semi); parity test `Ortex.Mobile/test/attendance.test.mjs` |
 | `Ortex.Admin/src/lib/roles.js` | `Ortex.Mobile/src/domain/modules.ts` |
+| `Ortex.Admin/src/lib/enquiryImport.js` (Excel import of enquiries) | `Ortex.Mobile/src/domain/enquiryImport.ts` (parity test `test/enquiryImport.test.mjs`) |
 | `Ortex.Web/src/pages/Privacy.jsx`, `Terms.jsx` | `Ortex.Mobile/src/features/profile/legal.ts` (verbatim mirror) |
 | Anu's portrait `Ortex.Web/public/img/anu.jpg` | `Ortex.Admin/public/img/anu.jpg`, `Ortex.Mobile/assets/anu.jpg` |
 | Anu's filler names `PLACEHOLDER_NAMES` in `Ortex.Mobile/src/domain/voice.ts` | The copy inside migration 0029's `upsert_customer_from()` |
@@ -57,7 +58,7 @@ Security lives in the database (RLS, security-definer RPCs, triggers). A client-
 
 ## Database migration status
 
-**Every migration up to 0050 is applied in production** (checked with `supabase migration list` on 2026-09-26; 0041 and 0044 had been missed until 2026-09-23 and went in with 0045). Check with `supabase migration list` before assuming; `db push` skips a migration already recorded even if its objects were later deleted (this happened with the `product-images` bucket).
+**Every migration up to 0051 is applied in production** (checked with `supabase migration list` on 2026-09-27; 0041 and 0044 had been missed until 2026-09-23 and went in with 0045). Check with `supabase migration list` before assuming; `db push` skips a migration already recorded even if its objects were later deleted (this happened with the `product-images` bucket).
 
 * Anu in Team chat uses NO language model (the `anu-chat` function was deleted 2026-09-23); pg_cron job `anu-bot-tick` runs every 5 minutes. The CLI is linked to project `pfoeztiakqtemakfgpgs`; on Windows PowerShell call it as `npx.cmd supabase ...` (script execution is disabled).
 * `0031` push devices (and 0047, chat messages to closed phones): applied, but remote push stays inert until the Firebase files and the Vault/function secrets in `docs/guides/PUSH_SETUP.md` exist.

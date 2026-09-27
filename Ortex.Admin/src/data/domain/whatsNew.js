@@ -10,6 +10,37 @@
 
 export const RELEASES = [
   {
+    id: "1.47.0",
+    version: "1.47.0",
+    date: "2026-09-27",
+    title: "A simpler menu, a new Settings page, and enquiry import",
+    items: [
+      {
+        kind: "improved",
+        title: "A shorter menu",
+        detail:
+          "The sidebar keeps the seven pages you use every day. Everything else sits under More, and Settings and your account are at the bottom. The top bar has one search box (Ctrl K) and a New button to start a quotation, invoice, payment or customer from anywhere.",
+      },
+      {
+        kind: "improved",
+        title: "Settings, one section at a time",
+        detail:
+          "Company, Documents, Notifications, Integrations, Security and Data each have their own page. The GSTIN is checked as you type, a preview shows how your details print on a quotation, and a bar at the bottom tells you when something is not saved yet.",
+      },
+      {
+        kind: "new",
+        title: "Import enquiries from Excel",
+        detail:
+          "Enquiries, Import reads your call log (Date, Name, Mobile No., Status, Product, Quantity, Rate, City, Company, Email). Each row keeps its own date and its status words, and rows already in the console are skipped.",
+      },
+      {
+        kind: "new",
+        title: "Quantity, rate and a second mobile on enquiries",
+        detail: "Every enquiry now has a quantity, the rate discussed, an alternate mobile and a city, and the CSV export includes them.",
+      },
+    ],
+  },
+  {
     id: "1.46.1",
     version: "1.46.1",
     date: "2026-09-26",

@@ -321,7 +321,9 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
             <Fact icon="call" label="Phone" value={phone ? prettyPhone(phone) : ""} important />
           </Pressable>
           <Fact icon="mail" label="Email" value={mail} />
+          {!!enquiry.altPhone && <Fact icon="call" label="Alternate mobile" value={prettyPhone(enquiry.altPhone)} />}
           <Fact icon="company" label="Company" value={enquiry.customer?.company} />
+          {!!enquiry.customer?.city && <Fact icon="address" label="City" value={enquiry.customer.city} />}
           <Fact
             icon="address"
             label="Deliver to"
@@ -335,6 +337,8 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
         <Panel title="Record" padded>
           <Fact icon="enquiry" label="Source" value={enquiry.source} />
           <Fact icon="product" label="Interested in" value={enquiry.productInterest} />
+          {!!enquiry.quantity && <Fact icon="catalogue" label="Quantity" value={/^\d+$/.test(enquiry.quantity) ? `${formatNumber(Number(enquiry.quantity))} pcs` : enquiry.quantity} />}
+          {!!enquiry.rate && <Fact icon="money" label="Rate discussed" value={enquiry.rate} />}
           <Fact icon="clock" label="Received" value={formatDateTime(enquiry.createdAt)} />
           <Fact icon="customer" label="Owner" value={enquiry.owner} missing="Unassigned" />
           {!!enquiry.reference && <Fact icon="copy" label="Reference" value={enquiry.reference} />}
