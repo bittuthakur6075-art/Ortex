@@ -35,7 +35,7 @@ import { SquircleBackground } from "@/ui/Squircle"
  * HomeScreen picks which cards a role gets.
  */
 
-const money = (n: number) => formatCurrency(n, { compact: true })
+const money = (n: number) => (n ? formatCurrency(n, { compact: true }) : "₹0")
 
 /** The head every Home card opens with. */
 export function CardHead({
@@ -247,7 +247,12 @@ export function InsetTile({
         {label.toUpperCase()}
       </Text>
       <View style={styles.tileValueRow}>
-        <Text style={[styles.tileValue, { color: t.text }]} numberOfLines={1}>
+        <Text
+          style={[styles.tileValue, { color: t.text }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.6}
+        >
           {value}
         </Text>
         {tag}
@@ -338,7 +343,12 @@ export function Widget({
         </Text>
       </View>
       <View style={styles.tileValueRow}>
-        <Text style={[styles.widgetValue, { color: t.text }]} numberOfLines={1}>
+        <Text
+          style={[styles.widgetValue, { color: t.text }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.6}
+        >
           {value}
         </Text>
         {tag}

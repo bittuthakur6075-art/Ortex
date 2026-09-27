@@ -72,7 +72,7 @@ const MONTHS = [
   "December",
 ]
 
-const money = (n: number) => formatCurrency(n, { compact: true })
+const money = (n: number) => (n ? formatCurrency(n, { compact: true }) : "₹0")
 
 function greeting(now: Date) {
   const h = now.getHours()

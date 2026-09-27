@@ -5,7 +5,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { clockIST, dayKey } from "@/domain/attendance"
 import { ActionAdvisory, DayDone } from "@/features/attendance/attendanceUi"
-import { dayLabel } from "@/features/attendance/format"
 import { LiveTimer, ShiftBar } from "@/features/attendance/LiveProgress"
 import {
   progressWords,
@@ -179,9 +178,7 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
     <Card style={styles.card}>
       <View style={styles.head}>
         <Text style={[styles.title, { color: t.text }]}>Attendance</Text>
-        <Text style={[styles.shift, { color: t.textTertiary }]} numberOfLines={1}>
-          {shift || "Shift not set"}
-        </Text>
+        <View style={styles.flex} />
         <Tag label={pill.label} tone={pill.tone === "neutral" ? "neutral" : pill.tone} dot />
       </View>
       <View style={styles.body}>
@@ -265,10 +262,7 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
             style={[textVariants.caption, { color: closingSoon ? t.warningText : t.textTertiary, flex: 1 }]}
             numberOfLines={1}
           >
-            {`Open ${clockIST(win.open)} to ${clockIST(win.close)} · out any time`}
-            {notices.nextHoliday
-              ? ` · ${notices.nextHoliday.name}, ${dayLabel(notices.nextHoliday.day)}`
-              : ""}
+            {`Check-in ${clockIST(win.open)} to ${clockIST(win.close)} · check-out any time`}
           </Text>
           <Pressable
             hitSlop={8}
@@ -288,6 +282,7 @@ const styles = StyleSheet.create({
   card: { paddingTop: 14, paddingBottom: 12, marginTop: spacing.sm },
   head: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, marginBottom: 12 },
   title: { fontFamily: fontFamily.semibold, fontSize: 16, lineHeight: 20 },
+  flex: { flex: 1 },
   shift: { flex: 1, fontFamily: fontFamily.regular, fontSize: 13, lineHeight: 17 },
   body: { paddingHorizontal: 16, gap: 12 },
   timeRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },

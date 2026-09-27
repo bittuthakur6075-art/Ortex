@@ -368,11 +368,11 @@ export default function AppScreen({
   })
 
   return (
-    // The status bar and the app bar are always white (owner, 2026-09-27); on an
-    // inset page the grey canvas is painted by the scroller alone, so no grey
-    // band shows between the status bar and the bar.
-    <View style={[styles.root, { backgroundColor: c.appBar, paddingTop: insets.top }]}>
-      {appBar}
+    <View style={[styles.root, { backgroundColor: ground }]}>
+      {/* Only the status bar and the app bar are white; everything under them is
+          the page ground, so no white band can show between the bar and an
+          inset page's grey canvas. */}
+      <View style={{ paddingTop: insets.top, backgroundColor: c.appBar }}>{appBar}</View>
       {sections ? (
         <Animated.SectionList
           ref={innerListRef as never}
