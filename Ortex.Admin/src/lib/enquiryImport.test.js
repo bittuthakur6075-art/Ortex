@@ -42,10 +42,10 @@ describe("enquiryImport", () => {
     const row = ["01/02/2026", "Asha", 9000000001, "", "", "Badge", 100, "", "", "", "", ""]
     const first = sheetToEnquiries([HEADER, row, row], { today })
     expect(first.enquiries).toHaveLength(1)
-    expect(first.skipped).toEqual([{ row: 3, reason: "Repeated in this file" }])
+    expect(first.skipped).toMatchObject([{ row: 3, reason: "Repeated in this file", name: "Asha", since: "row 2" }])
     const again = sheetToEnquiries([HEADER, row], { today, existing: first.enquiries })
     expect(again.enquiries).toHaveLength(0)
-    expect(again.skipped).toEqual([{ row: 2, reason: "Already in the console" }])
+    expect(again.skipped).toMatchObject([{ row: 2, reason: "Already in the console", phone: "9000000001", product: "Badge" }])
   })
 
   it("recognises a re-import however the lead came back from the database", () => {
@@ -62,7 +62,7 @@ describe("enquiryImport", () => {
 
     // A sheet with no dates at all is saved as "now": match on person and product.
     const noDates = sheetToEnquiries([HEADER, undatedFirst], { today, existing: [{ customer: { phone: "9000000002" }, productInterest: "Pen", createdAt: "2026-09-20T09:00:00Z" }] })
-    expect(noDates.skipped).toEqual([{ row: 2, reason: "Already in the console" }])
+    expect(noDates.skipped).toMatchObject([{ row: 2, reason: "Already in the console", since: "2026-09-20T09:00:00Z" }])
   })
 
   it("keeps people without a mobile apart, and flags a mobile that is already a lead", () => {

@@ -155,7 +155,7 @@ export function sheetToEnquiries(rows, { source = "Phone", fileName = "", existi
     const product = norm(cell("product"))
     if (!name && !phoneRaw && !product) continue
     if (!name && !phoneRaw) {
-      skipped.push({ row: rowNo, reason: "No name or mobile" })
+      skipped.push({ row: rowNo, reason: "No name or mobile", name: "", phone: "", product })
       continue
     }
 
@@ -221,23 +221,26 @@ export function sheetToEnquiries(rows, { source = "Phone", fileName = "", existi
 
   // Duplicates are judged on the final dates. A sheet with no dates at all
   // matches on person and product alone, since its rows are saved as "now".
-  const inConsole = new Set()
+  const inConsole = new Map() // key -> when that lead was added
   const leads = new Map() // mobile -> name on the lead already in the console
   for (const e of existing) {
     const key = enquiryKey(e)
-    inConsole.add(key).add(undated(key))
+    const since = String(e.createdAt || "")
+    if (!inConsole.has(key)) inConsole.set(key, since)
+    if (!inConsole.has(undated(key))) inConsole.set(undated(key), since)
     const phone = phoneKey(e.customer?.phone)
     if (phone.length === 10 && !leads.has(phone)) leads.set(phone, norm(e.customer?.name) || "Unknown")
   }
-  const inFile = new Set()
+  const inFile = new Map() // key -> "row N" it repeats
   const kept = []
   const repeats = []
   for (const e of enquiries) {
     const key = enquiryKey(e)
-    if (inConsole.has(key)) skipped.push({ row: e.imported.row, reason: "Already in the console" })
-    else if (inFile.has(key)) skipped.push({ row: e.imported.row, reason: "Repeated in this file" })
+    const who = { row: e.imported.row, name: e.customer.name, phone: e.customer.phone, product: e.productInterest }
+    if (inConsole.has(key)) skipped.push({ ...who, reason: "Already in the console", since: inConsole.get(key) })
+    else if (inFile.has(key)) skipped.push({ ...who, reason: "Repeated in this file", since: inFile.get(key) })
     else {
-      inFile.add(key)
+      inFile.set(key, `row ${e.imported.row}`)
       kept.push(e)
       const lead = leads.get(phoneKey(e.customer.phone))
       if (lead) repeats.push({ row: e.imported.row, name: lead })

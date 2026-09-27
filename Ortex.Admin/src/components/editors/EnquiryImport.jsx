@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { toast } from "sonner"
-import { ImportFile, FileSpreadsheet, CheckCircle2, AlertTriangle, Download, X, Search } from "../ui/Icons"
+import { ImportFile, FileSpreadsheet, CheckCircle2, AlertTriangle, Download, X, Search, Info } from "../ui/Icons"
 import { repo } from "../../data/store/repository"
 import { ENQUIRY_STATUS, LEAD_SOURCES } from "../../data/domain/schema"
 import { sheetToEnquiries } from "../../lib/enquiryImport"
@@ -141,6 +141,7 @@ export default function EnquiryImport({ open, onClose, existing, staff = [], me 
   if (!open) return null
 
   const byReason = (result?.skipped || []).reduce((m, s) => ((m[s.reason] = (m[s.reason] || 0) + 1), m), {})
+  const inDb = byReason["Already in the console"] || 0
   const dates = chosen.map((e) => e.createdAt).filter(Boolean).sort()
   const counts = ENQUIRY_STATUS.map((s) => [s, chosen.filter((e) => e.status === s.id).length]).filter(([, n]) => n)
   const q = query.trim().toLowerCase()
@@ -256,11 +257,27 @@ export default function EnquiryImport({ open, onClose, existing, staff = [], me 
 
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
                 <Stat label="Will be imported" value={formatNumber(chosen.length)} tone="blue" />
-                <Stat label="Duplicates left out" value={formatNumber((byReason["Already in the console"] || 0) + (byReason["Repeated in this file"] || 0))} />
+                <Stat label="Already in the database" value={formatNumber(inDb + (byReason["Repeated in this file"] || 0))} />
                 <Stat label="Mobile already a lead" value={formatNumber(repeatOf.size)} tone={repeatOf.size ? "amber" : undefined} />
                 <Stat label="Missing name and mobile" value={formatNumber(byReason["No name or mobile"] || 0)} tone={byReason["No name or mobile"] ? "amber" : undefined} />
                 <Stat label="Dates" value={!dates.length ? "Today" : dates[0].slice(0, 10) === dates.at(-1).slice(0, 10) ? formatDate(dates[0]) : `${formatDate(dates[0]).slice(0, 6)} to ${formatDate(dates.at(-1)).slice(0, 6)}`} small />
               </div>
+
+              {inDb > 0 && (
+                <div className="squircle flex items-start gap-3 rounded-xl bg-primary/[0.07] px-4 py-3 text-[13px] text-primary">
+                  <Info className="mt-0.5 h-4 w-4 flex-none" />
+                  <div className="min-w-0 flex-1">
+                    <b className="block">
+                      {all.length === 0
+                        ? "Everything in this file is already in the database"
+                        : `${formatNumber(inDb)} ${inDb === 1 ? "row is" : "rows are"} already in the database`}
+                    </b>
+                    {all.length === 0
+                      ? "Every row matches a lead saved before (same mobile, product and date). There is nothing new to import."
+                      : "They match leads saved before (same mobile, product and date), so they are left out and nothing is added twice. The list is at the bottom."}
+                  </div>
+                </div>
+              )}
 
               {repeatOf.size > 0 && (
                 <div className="squircle flex items-start gap-3 rounded-xl bg-warning/12 px-4 py-3 text-[13px] text-warning-text">
@@ -404,18 +421,7 @@ export default function EnquiryImport({ open, onClose, existing, staff = [], me 
                 </div>
               </div>
 
-              {result.skipped.length > 0 && (
-                <details className="text-xs text-muted-foreground">
-                  <summary className="cursor-pointer font-medium text-foreground">Why {formatNumber(result.skipped.length)} {result.skipped.length === 1 ? "row is" : "rows are"} left out</summary>
-                  <ul className="mt-2 max-h-40 space-y-0.5 overflow-auto">
-                    {result.skipped.slice(0, 200).map((s) => (
-                      <li key={s.row}>
-                        Row {s.row}: {s.reason}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
+              <LeftOut skipped={result.skipped} />
             </div>
           )}
 
@@ -448,7 +454,7 @@ export default function EnquiryImport({ open, onClose, existing, staff = [], me 
 
         {/* Footer */}
         <div className="flex flex-none items-center justify-between gap-3 border-t border-border bg-muted px-6 py-3.5">
-          <span className="text-xs text-muted-foreground">{step === "review" && !result?.error ? `${formatNumber(chosen.length)} leads will be added` : ""}</span>
+          <span className="text-xs text-muted-foreground">{step === "review" && !result?.error ? (chosen.length ? `${formatNumber(chosen.length)} leads will be added` : "Nothing new to add") : ""}</span>
           <div className="flex items-center gap-2">
             {step === "pick" && <FootBtn onClick={onClose}>Cancel</FootBtn>}
             {step === "review" && (
@@ -472,6 +478,65 @@ export default function EnquiryImport({ open, onClose, existing, staff = [], me 
       </div>
     </div>,
     document.body,
+  )
+}
+
+// Rows the import leaves out, one section per reason, each saying who the row
+// was and what it matched.
+const LEFT_OUT = [
+  ["Already in the console", "Already in the database", "Same mobile, product and date as a lead saved before."],
+  ["Repeated in this file", "Repeated in this file", "Same mobile, product and date as an earlier row, which is imported once."],
+  ["No name or mobile", "No name or mobile", "Nothing to reach the person by."],
+]
+
+function LeftOut({ skipped }) {
+  if (!skipped.length) return null
+  return (
+    <div className="space-y-2">
+      <p className="text-[13px] font-semibold text-foreground">
+        {formatNumber(skipped.length)} {skipped.length === 1 ? "row is" : "rows are"} left out
+      </p>
+      {LEFT_OUT.map(([reason, title, why]) => {
+        const list = skipped.filter((s) => s.reason === reason)
+        if (!list.length) return null
+        return (
+          <details key={reason} className="squircle overflow-hidden rounded-xl border border-line">
+            <summary className="flex cursor-pointer items-center gap-2 px-3.5 py-2.5 text-[13px]">
+              <span className="font-semibold text-foreground">{title}</span>
+              <span className="rounded-full bg-muted px-2 text-xs font-medium text-muted-foreground tabular">{formatNumber(list.length)}</span>
+              <span className="truncate text-xs text-muted-foreground">{why}</span>
+            </summary>
+            <div className="max-h-[220px] overflow-auto border-t border-border">
+              <table className="w-full text-left">
+                <thead className="v2-head sticky top-0">
+                  <tr>
+                    <th>Row</th>
+                    <th>Name</th>
+                    <th>Mobile</th>
+                    <th>Product</th>
+                    <th>{reason === "Already in the console" ? "Saved on" : reason === "Repeated in this file" ? "Same as" : ""}</th>
+                  </tr>
+                </thead>
+                <tbody className="v2-body [&_td]:!h-9">
+                  {list.slice(0, 200).map((s) => (
+                    <tr key={s.row}>
+                      <td className="text-xs text-muted-foreground tabular">{s.row}</td>
+                      <td className="max-w-[160px] truncate font-medium">{s.name || "-"}</td>
+                      <td className="whitespace-nowrap tabular">{s.phone || "-"}</td>
+                      <td className="max-w-[200px] truncate">{s.product || "-"}</td>
+                      <td className="whitespace-nowrap text-xs text-muted-foreground">
+                        {reason === "Already in the console" ? (s.since ? formatDate(s.since) : "-") : s.since ? `Row ${s.since.replace("row ", "")}` : ""}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {list.length > 200 && <p className="px-3 py-2 text-xs text-muted-foreground">Showing the first 200 of {formatNumber(list.length)}.</p>}
+            </div>
+          </details>
+        )
+      })}
+    </div>
   )
 }
 

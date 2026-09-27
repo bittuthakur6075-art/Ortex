@@ -29,6 +29,45 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.8.0",
+    version: "1.8.0",
+    date: "2026-09-27",
+    title: "Clearer lists, and Chat in the top bar",
+    summary: "Quotations and Leads open on what needs doing first, Chat moves to the top bar, and Home gets a fresh look.",
+    items: [
+      {
+        kind: "improved",
+        title: "Quotations, sorted by what to chase",
+        detail: "Open value, quotes about to expire and this month's wins sit on top. Quotes are grouped into Expiring Soon, This Week and Earlier, and the filters show their counts.",
+      },
+      {
+        kind: "improved",
+        title: "Leads, with who to call first",
+        detail: "New enquiries left waiting and urgent calls come first. Each lead shows what they asked for, and you can call straight from the list.",
+      },
+      {
+        kind: "improved",
+        title: "Chat is in the top bar",
+        detail: "Open Team chat from the chat icon next to search on any page. A dot shows when a message is waiting.",
+      },
+      {
+        kind: "improved",
+        title: "A fresh Home",
+        detail: "A greeting with Delhi's weather, a shorter attendance status, a tidier Needs You Now card and a compact Ask Anu card.",
+      },
+      {
+        kind: "new",
+        title: "Team attendance and payslips for admins",
+        detail: "Admins can see who is in today and who is not yet, and open their own payslips, from Home.",
+      },
+      {
+        kind: "new",
+        title: "Import enquiries from Excel",
+        detail: "On Leads, tap the import icon to add enquiries from the sales call sheet.",
+      },
+    ],
+  },
+  {
     id: "1.7.0",
     version: "1.7.0",
     date: "2026-09-27",

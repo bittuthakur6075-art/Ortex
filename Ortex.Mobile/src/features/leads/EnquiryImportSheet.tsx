@@ -109,6 +109,7 @@ export default function EnquiryImportSheet({ visible, onClose, existing, onImpor
 
   const repeatRows = new Set((result?.repeats || []).map((r) => r.row))
   const list = (result?.enquiries || []).filter((e) => withRepeats || !repeatRows.has(e.imported.row))
+  const inDb = (result?.skipped || []).filter((x) => x.reason !== "No name or mobile").length
   const dates = list.map((e) => e.createdAt).filter(Boolean).sort() as string[]
   const counts = ENQUIRY_STATUS.map((s) => [s.label, list.filter((e) => e.status === s.id).length] as const).filter(([, n]) => n)
 
@@ -130,8 +131,16 @@ export default function EnquiryImportSheet({ visible, onClose, existing, onImpor
           </Text>
           <View style={styles.stats}>
             <Stat label="Ready" value={formatNumber(list.length)} />
-            <Stat label="Skipped" value={formatNumber(result?.skipped.length || 0)} />
+            <Stat label="Already in" value={formatNumber(inDb)} />
+            <Stat label="No name or mobile" value={formatNumber((result?.skipped.length || 0) - inDb)} />
           </View>
+          {inDb ? (
+            <Text style={[textVariants.small, { color: t.textSecondary, marginBottom: spacing.sm }]}>
+              {result?.enquiries.length
+                ? `${formatNumber(inDb)} ${inDb === 1 ? "row is" : "rows are"} already in the database (same mobile, product and date), so ${inDb === 1 ? "it is" : "they are"} left out.`
+                : "Everything in this file is already in the database. There is nothing new to import."}
+            </Text>
+          ) : null}
           {repeatRows.size ? (
             <View style={[styles.note, { backgroundColor: t.warningBg, marginTop: 0, marginBottom: spacing.md }]}>
               <Icon name="warning" size={16} color={t.warning} variant="Bulk" />
