@@ -11,7 +11,6 @@ import {
   FileText,
   Globe,
   Inbox,
-  Instagram,
   Lock,
   Mail,
   PhoneOutgoing,
@@ -25,7 +24,6 @@ import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { hasSupabase } from "../data/store/supabaseClient"
 import { useSettings, useCollections, useCollection } from "../hooks/useCollection"
-import { useSocialAccounts } from "../hooks/useSocialAccounts"
 import { loadDemoData, countDemoData, removeDemoData } from "../data/seed/seed"
 import { syncIndiaMart } from "../services/integrations"
 import { GST_RATES } from "../data/domain/schema"
@@ -550,7 +548,6 @@ function IntegrationsSection({ draft, settings, setIndiamart }) {
   const im = draft.integrations.indiamart
   const [syncing, setSyncing] = useState(false)
   const [editingKey, setEditingKey] = useState(!im.crmKey)
-  const { status: social, loading: socialLoading } = useSocialAccounts()
   const { items: usage } = useCollection("ai_usage")
   const provider = settings.telecaller?.provider || "simulate"
 
@@ -565,12 +562,6 @@ function IntegrationsSection({ draft, settings, setIndiamart }) {
       model: rows.find((r) => r.model)?.model || "gemini-flash-lite-latest",
     }
   }, [usage])
-
-  const li = social?.linkedin
-  const liDays = li?.connected && li.reconnectBy ? Math.ceil((new Date(li.reconnectBy).getTime() - Date.now()) / 86400000) : null
-  const checking = socialLoading && !social
-  const igOk = checking ? null : Boolean(social?.meta?.instagram)
-  const socialStatus = checking ? ["Checking", "slate"] : liDays != null && liDays <= 14 ? ["Renew soon", "amber"] : igOk || li?.connected ? ["Connected", "green"] : ["Not connected", "slate"]
 
   const syncNow = async () => {
     setSyncing(true)
@@ -660,21 +651,6 @@ function IntegrationsSection({ draft, settings, setIndiamart }) {
           </Link>
         </IntegrationCard>
 
-        <IntegrationCard
-          icon={Instagram}
-          tone="rose"
-          title="Social accounts"
-          description="Instagram and LinkedIn, for publishing approved posts."
-          status={socialStatus}
-          facts={[
-            ["Instagram", igOk == null ? "Checking" : igOk ? "Connected" : "Not connected"],
-            ["LinkedIn", checking ? "Checking" : !li?.connected ? "Not connected" : liDays != null ? `Renew in ${Math.max(0, liDays)} days` : "Connected"],
-          ]}
-        >
-          <Link to="/social" className="text-[13px] font-semibold text-primary hover:underline">
-            Manage in Social →
-          </Link>
-        </IntegrationCard>
       </div>
     </SectionHead>
   )

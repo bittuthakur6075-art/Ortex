@@ -298,17 +298,16 @@ const monthWords = (iso) => {
 /**
  * The decisions waiting on a person, from the modules outside quote-to-cash:
  * leave and attendance corrections (an admin decides, never on one's own),
- * pay runs awaiting their second approver, social posts in review (admin-only
- * in the database) and Call agent calls that ended needing a human.
+ * pay runs awaiting their second approver and Call agent calls that ended needing a human.
  *
  * Same item shape as attentionItems, so the Dashboard sorts them together.
  * `names` resolves a user id; `leaveTypes` a type code. `selfId` drops the
  * viewer's own leave and corrections: the database refuses those anyway.
  */
 export function approvalItems(
-  { leave = [], corrections = [], runs = [], social = [], calls = [] },
+  { leave = [], corrections = [], runs = [], calls = [] },
   { names = {}, leaveTypes = {}, selfId = null } = {},
-  access = { leave: false, corrections: false, payroll: false, social: false, calls: false },
+  access = { leave: false, corrections: false, payroll: false, calls: false },
   now = Date.now(),
 ) {
   const out = []
@@ -363,24 +362,6 @@ export function approvalItems(
         detail: `${r.pay_date ? `Pay day ${dayWords(r.pay_date)} · ` : ""}needs a second person`,
         amount: Number(r.totals?.netPay) || 0,
         to: "/payroll?tab=runs",
-      })
-    }
-  }
-
-  if (access.social) {
-    for (const p of social) {
-      if (p.status !== "review") continue
-      const when = p.scheduledFor ? ` · for ${dayWords(new Date(p.scheduledFor).toISOString())}` : ""
-      out.push({
-        id: `social-${p.id}`,
-        group: "approvals",
-        priority: 1,
-        tone: "violet",
-        kind: "Social post",
-        title: `“${p.topic || "Untitled post"}” is waiting for approval`,
-        detail: `${(p.platforms || []).join(", ") || "No platform chosen"}${when}`,
-        to: "/social",
-        state: { openId: p.id },
       })
     }
   }

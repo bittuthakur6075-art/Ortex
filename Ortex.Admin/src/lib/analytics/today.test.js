@@ -133,7 +133,7 @@ describe("computeToday", () => {
 
 describe("approvalItems", () => {
   const day = (days) => ahead(days).slice(0, 10)
-  const all = { leave: true, corrections: true, payroll: true, social: true, calls: true }
+  const all = { leave: true, corrections: true, payroll: true, calls: true }
   const data = {
     leave: [
       { id: "l1", user_id: "u1", type_code: "CL", from_day: day(1), to_day: day(2), days: 2, status: "pending", reason: "Wedding" },
@@ -145,7 +145,6 @@ describe("approvalItems", () => {
       { id: "r1", month: "2026-09-01", status: "pending_approval", pay_date: "2026-09-30", totals: { netPay: 486000 } },
       { id: "r2", month: "2026-08-01", status: "paid", totals: { netPay: 470000 } },
     ],
-    social: [{ id: "s1", status: "review", topic: "Diwali hampers", platforms: ["linkedin"] }, { id: "s2", status: "draft", topic: "Later" }],
     calls: [
       { id: "t1", status: "completed", contactName: "Mehta Exports", createdAt: ago(1), analysis: { outcome: "deal_closed", estimatedValue: 120000 } },
       { id: "t2", status: "completed", contactName: "Done Co", createdAt: ago(1), handled: true, analysis: { outcome: "needs_quote" } },
@@ -156,7 +155,7 @@ describe("approvalItems", () => {
 
   it("lists each pending decision once, never the viewer's own", () => {
     const ids = approvalItems(data, ctx, all, NOW).map((i) => i.id).sort()
-    expect(ids).toEqual(["corr-c1", "leave-l1", "run-r1", "social-s1", "tc-t1"])
+    expect(ids).toEqual(["corr-c1", "leave-l1", "run-r1", "tc-t1"])
   })
 
   it("words them for a person", () => {

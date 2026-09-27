@@ -41,7 +41,7 @@ export const MODULES = [
   { key: "payslips", path: "/payslips", label: "My payslips", section: "People", always: true },
   { key: "users", path: "/users", label: "Users", section: "System", adminOnly: true },
   { key: "settings", path: "/settings", label: "Settings", section: "System", superAdminOnly: true },
-  { key: "social", path: "/social", label: "Social", section: "Automation" },
+  { key: "social", path: "/social", label: "Marketing", section: "Automation" },
   { key: "telecaller", path: "/telecaller", label: "Call agent", section: "Automation" },
   { key: "growth", path: "/insights?tab=growth", label: "Insights · Funnel", section: "Automation", adminOnly: true },
   { key: "automation", path: "/insights?tab=events", label: "Insights · Web events", section: "Automation", adminOnly: true },

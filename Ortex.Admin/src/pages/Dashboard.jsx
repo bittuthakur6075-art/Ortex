@@ -3,11 +3,10 @@ import { useNavigate } from "react-router-dom"
 import { AlertTriangle, FileText, Sparkles, Wallet } from "../components/ui/Icons"
 import { useCollections, useSettings } from "../hooks/useCollection"
 import { useProfile } from "../hooks/useProfile"
-import { useSocialAccounts } from "../hooks/useSocialAccounts"
 import { canAccess } from "../data/domain/modules"
 import { isAdmin, isSuperAdmin } from "../lib/roles"
 import { currentUserId } from "../lib/auth"
-import { RANGES, approvalItems, attentionItems, computeToday, dailySparks, DAY } from "../lib/analytics/today"
+import { RANGES, approvalItems, attentionItems, computeToday, dailySparks } from "../lib/analytics/today"
 import { loadOps } from "../services/dashboard"
 import { decideLeave } from "../services/leave"
 import { decideCorrection } from "../services/attendance"
@@ -62,7 +61,6 @@ export default function Dashboard() {
       customers: canAccess(profile, "customers"),
       products: canAccess(profile, "products"),
       telecaller: canAccess(profile, "telecaller"),
-      social: canAccess(profile, "social"),
       payroll: canAccess(profile, "payroll"),
       attendance: admin || canAccess(profile, "attendance-team"),
       gate: canShowGateCode(profile),
@@ -80,7 +78,6 @@ export default function Dashboard() {
         "payments",
         access.telecaller && "telecaller_jobs",
         access.telecaller && "telecaller_calls",
-        access.social && "social",
         access.products && !access.payroll && "products",
       ].filter(Boolean),
     [access],
@@ -113,9 +110,9 @@ export default function Dashboard() {
   const items = useMemo(() => {
     const work = attentionItems(data, access)
     const decisions = approvalItems(
-      { leave: ops?.leave || [], corrections: ops?.corrections || [], runs: ops?.runs || [], social: data.social || [], calls: data.telecaller_calls || [] },
+      { leave: ops?.leave || [], corrections: ops?.corrections || [], runs: ops?.runs || [], calls: data.telecaller_calls || [] },
       { names: Object.fromEntries(Object.entries(ops?.names || {}).map(([id, p]) => [id, p.name])), leaveTypes: ops?.leaveTypes, selfId: currentUserId() },
-      { leave: admin, corrections: admin, payroll: access.payroll, social: admin && access.social, calls: access.telecaller },
+      { leave: admin, corrections: admin, payroll: access.payroll, calls: access.telecaller },
     )
     return [...decisions, ...work].sort((a, b) => a.priority - b.priority || (b.amount || 0) - (a.amount || 0))
   }, [data, ops, access, admin])
@@ -281,12 +278,7 @@ function words(d, noun) {
 
 function SettingsHealth({ settings }) {
   const navigate = useNavigate()
-  const { status } = useSocialAccounts()
   const issues = []
-  const li = status?.linkedin
-  const reconnectIn = li?.connected && li.reconnectBy ? Math.ceil((new Date(li.reconnectBy).getTime() - Date.now()) / DAY) : null
-  if (reconnectIn != null && reconnectIn <= 14) issues.push(reconnectIn <= 0 ? "LinkedIn needs reconnecting" : `LinkedIn token expires in ${reconnectIn} day${reconnectIn === 1 ? "" : "s"}`)
-  if (status?.instagram?.expired) issues.push("Instagram token has expired")
   if (settings && (settings.telecaller?.provider || "simulate") === "simulate") issues.push("Call agent is on Simulate, no real calls go out")
   if (!issues.length) return null
   return (

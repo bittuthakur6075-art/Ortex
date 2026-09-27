@@ -1,12 +1,12 @@
 import { useMemo } from "react"
 import { Link } from "react-router-dom"
-import { Instagram, Mic, PhoneOutgoing, Sparkles } from "../../components/ui/Icons"
+import { Mic, PhoneOutgoing, Sparkles } from "../../components/ui/Icons"
 import { telecallerStats } from "../telecaller/useTelecallerData"
 import { DAY, voiceCalls } from "../../lib/analytics/today"
 import { cn } from "../../lib/cn"
 import { Dot, Pill, TONE, Tile, money } from "./parts"
 
-// Automation health: Anu on the website, the Call agent, Social publishing and
+// Automation health: Anu on the website, the Call agent and
 // Anu's team bot. Each card only renders for someone who can open its module,
 // and the page loads a module's collection only for someone who may see it.
 
@@ -14,19 +14,18 @@ export default function Automation({ access, data, settings, bot }) {
   const cards = [
     access.voice && <VoiceCard key="voice" enquiries={data.enquiries || []} />,
     access.telecaller && <CallAgentCard key="calls" jobs={data.telecaller_jobs || []} calls={data.telecaller_calls || []} provider={settings?.telecaller?.provider} />,
-    access.social && <SocialCard key="social" items={data.social || []} />,
     bot && <BotCard key="bot" runs={bot} />,
   ].filter(Boolean)
   if (!cards.length) return null
   // Failures only: Simulate is a choice, and its card already says so.
-  const failing = ((data.social || []).some((p) => p.status === "failed") ? 1 : 0) + ((bot || []).some((r) => String(r.outcome).startsWith("error")) ? 1 : 0)
+  const failing = ((bot || []).some((r) => String(r.outcome).startsWith("error")) ? 1 : 0)
 
   return (
     <section className="flex flex-col gap-4">
       <header className="flex items-center justify-between gap-3 px-1">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold leading-[22px] tracking-[-0.01em] text-foreground">Automation health</h2>
-          <p className="mt-1 text-[13px] leading-4 text-subtle-foreground">Anu, the Call agent, Social and the team bot. Failures also land in Needs you.</p>
+          <p className="mt-1 text-[13px] leading-4 text-subtle-foreground">Anu, the Call agent and the team bot. Failures also land in Needs you.</p>
         </div>
         {failing > 0 && <Pill tone="rose" className="text-xs">{failing} need{failing === 1 ? "s" : ""} attention</Pill>}
       </header>
@@ -110,30 +109,6 @@ function CallAgentCard({ jobs, calls, provider }) {
       stats={[["Due now", stats.due], ["Calls, 7 days", stats.week], ["Deals closed", stats.deals ? `${stats.deals} · ${money(stats.pipeline)}` : 0], ["Needs a human", stats.actions]]}
       foot={simulate ? "On Simulate: no real calls go out until Vapi is set up" : `${stats.connectRate}% of calls connected this week`}
       footTone={simulate ? "amber" : "emerald"}
-    />
-  )
-}
-
-function SocialCard({ items }) {
-  const s = useMemo(() => {
-    const c = {}
-    for (const p of items) c[p.status] = (c[p.status] || 0) + 1
-    const weekAgo = Date.now() - 7 * DAY
-    const published = items.filter((p) => p.status === "published" && new Date(p.publishedAt || p.updatedAt || 0).getTime() >= weekAgo).length
-    return { ...c, published }
-  }, [items])
-  const failed = s.failed || 0
-  return (
-    <Shell
-      icon={Instagram}
-      tone="rose"
-      title="Social"
-      subtitle="Idea to published post"
-      to="/social"
-      status={<Pill tone={failed ? "rose" : "emerald"}>{failed ? `${failed} failed` : "On track"}</Pill>}
-      stats={[["In review", s.review || 0], ["Scheduled", s.scheduled || 0], ["Published, 7 days", s.published], ["Failed", failed]]}
-      foot={failed ? "A failed post can be retried; platforms already done are skipped" : s.review ? "Posts in review wait for an admin" : "Nothing waiting"}
-      footTone={failed ? "rose" : s.review ? "violet" : "slate"}
     />
   )
 }

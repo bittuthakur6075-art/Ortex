@@ -6,7 +6,7 @@ products, lanyards, badges, corporate gifts, OEM/white-label manufacturing).
 | App | Path | Stack | Purpose |
 |---|---|---|---|
 | Marketing site | [`Ortex.Web/`](Ortex.Web/README.md) | React 19 · Vite 8 · Tailwind v4 · Framer Motion | Public website, catalogue, quote wizard, lead capture, Live Orty voice assistant |
-| Admin console | [`Ortex.Admin/`](Ortex.Admin/README.md) | React 19 · Vite 8 · Tailwind v4 · Supabase | Quote-to-cash back office: enquiries → quotations → GST invoices → payments, plus growth, social and automation modules |
+| Admin console | [`Ortex.Admin/`](Ortex.Admin/README.md) | React 19 · Vite 8 · Tailwind v4 · Supabase | Quote-to-cash back office: enquiries → quotations → GST invoices → payments, plus growth, marketing and automation modules |
 | Mobile app | [`Ortex.Mobile/`](Ortex.Mobile/README.md) | React Native 0.85 (bare) · Expo SDK 56 modules · TypeScript | Field-sales companion: quick quotations, enquiries and voice leads, catalogue, a call/WhatsApp contact directory, and notifications (in-app and in the phone's shade) |
 | Tally connector | [`Ortex.Tally.Connector/`](Ortex.Tally.Connector/README.md) | Node CLI | Pushes Admin records into TallyPrime through its local XML gateway |
 
@@ -100,7 +100,7 @@ Ortex/
 
 - `docs/architecture/ARCHITECTURE.md`: system narrative, data flows, design system
 - `docs/pm/PRODUCT_BACKLOG.md`, `docs/pm/GROWTH_ROADMAP.md`: roadmap and status
-- `docs/guides/GETTING_STARTED.md`, `docs/guides/META_SETUP.md`, `docs/guides/MOBILE_RELEASE.md`, setup guides
+- `docs/guides/GETTING_STARTED.md`, `docs/guides/MOBILE_RELEASE.md`, setup guides
 - `Ortex.Web/docs/DEPLOY_HOSTINGER.md`: static deploy of the marketing site
 - `Ortex.Admin/docs/ENVIRONMENTS.md`: the one (production) Supabase project and demo-mode dev/staging
 - `Ortex.Mobile/README.md`: mobile setup, the ported-logic mirror, bare-workflow notes

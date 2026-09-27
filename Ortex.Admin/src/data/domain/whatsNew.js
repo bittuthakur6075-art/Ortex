@@ -10,6 +10,25 @@
 
 export const RELEASES = [
   {
+    id: "1.48.0",
+    version: "1.48.0",
+    date: "2026-09-27",
+    title: "Marketing, in one place",
+    items: [
+      {
+        kind: "new",
+        title: "A new Marketing page",
+        detail:
+          "Social is now Marketing. It shows every post the marketing team has put live or scheduled on Instagram and LinkedIn, with its picture and caption, plus the DMs and comments sent and where each follow-up stands. Search it, or filter by platform.",
+      },
+      {
+        kind: "improved",
+        title: "No more posting from the console",
+        detail: "Posts are now made and published by the marketing team. The old post editor, AI ideas and account connections are gone.",
+      },
+    ],
+  },
+  {
     id: "1.47.0",
     version: "1.47.0",
     date: "2026-09-27",

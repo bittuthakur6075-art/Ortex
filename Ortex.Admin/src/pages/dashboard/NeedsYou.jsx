@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Clock,
   FileText,
-  Hash,
   Inbox,
   Mic,
   PhoneOutgoing,
@@ -35,7 +34,6 @@ const ICON = {
   Leave: Calendar,
   Correction: CalendarClock,
   "Pay run": Wallet,
-  "Social post": Hash,
   Overdue: ReceiptIndianRupee,
   "Due soon": ReceiptIndianRupee,
   Complaint: AlertTriangle,
@@ -55,7 +53,6 @@ const ICON = {
 const ACTION = {
   Correction: "Decide",
   "Pay run": "Review",
-  "Social post": "Review",
   Overdue: "View",
   "Due soon": "View",
   Complaint: "Call",
@@ -69,7 +66,7 @@ const ACTION = {
   "Needs a quote": "Quote",
   Interested: "Open",
 }
-const PRIMARY = new Set(["Pay run", "Social post"])
+const PRIMARY = new Set(["Pay run"])
 
 const PREVIEW = 8
 

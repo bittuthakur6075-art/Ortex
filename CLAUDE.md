@@ -58,7 +58,7 @@ Security lives in the database (RLS, security-definer RPCs, triggers). A client-
 
 ## Database migration status
 
-**Every migration up to 0051 is applied in production** (checked with `supabase migration list` on 2026-09-27; 0041 and 0044 had been missed until 2026-09-23 and went in with 0045). Check with `supabase migration list` before assuming; `db push` skips a migration already recorded even if its objects were later deleted (this happened with the `product-images` bucket).
+**Every migration up to 0051 is applied in production; 0052 (Marketing feed) is not yet** (checked with `supabase migration list` on 2026-09-27; 0041 and 0044 had been missed until 2026-09-23 and went in with 0045). Check with `supabase migration list` before assuming; `db push` skips a migration already recorded even if its objects were later deleted (this happened with the `product-images` bucket).
 
 * Anu in Team chat uses NO language model (the `anu-chat` function was deleted 2026-09-23); pg_cron job `anu-bot-tick` runs every 5 minutes. The CLI is linked to project `pfoeztiakqtemakfgpgs`; on Windows PowerShell call it as `npx.cmd supabase ...` (script execution is disabled).
 * `0031` push devices (and 0047, chat messages to closed phones): applied, but remote push stays inert until the Firebase files and the Vault/function secrets in `docs/guides/PUSH_SETUP.md` exist.
@@ -95,6 +95,6 @@ Invoices imported INTO the console from Tally XML are stamped `doc.tally.status 
 * `README.md`: repo map, quick start.
 * `docs/architecture/ARCHITECTURE.md`: narratives, data flows, design system.
 * `docs/pm/`: `PRODUCT_BACKLOG.md`, `GROWTH_ROADMAP.md`, `ATTENDANCE_LEAVE_PLAN.md`, `PAYROLL_PLAN.md`.
-* `docs/guides/`: `GETTING_STARTED`, `META_SETUP`, `LINKEDIN_SETUP`, `TELECALLER_SETUP`, `PUSH_SETUP`, `MOBILE_RELEASE`.
+* `docs/guides/`: `GETTING_STARTED`, `TELECALLER_SETUP`, `PUSH_SETUP`, `MOBILE_RELEASE`.
 * `Ortex.Admin/docs/`: PRD, environments, growth tracking, leads & receipts.
 * `Ortex.Web/docs/DEPLOY_HOSTINGER.md`, `Ortex.Mobile/README.md`.

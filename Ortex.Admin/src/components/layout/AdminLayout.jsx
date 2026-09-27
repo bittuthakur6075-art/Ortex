@@ -68,7 +68,7 @@ const MORE = [
     section: "Marketing",
     items: [
       { to: "/catalog", keys: ["products", "categories", "work"], label: "Catalog", icon: Package },
-      { to: "/social", key: "social", label: "Social", icon: Instagram },
+      { to: "/social", key: "social", label: "Marketing", icon: Instagram },
       { to: "/telecaller", key: "telecaller", label: "Call agent", icon: PhoneOutgoing },
       { to: "/insights", keys: ["growth", "automation", "attendance-team"], label: "Insights", icon: TrendingUp },
     ],
