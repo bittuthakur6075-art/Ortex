@@ -27,6 +27,8 @@ export type Profile = {
    * on, and every Admin reaches it.
    */
   moduleControls?: Record<string, ModuleControl>
+  /** Modules the Super Admin hid from this person, whatever their role gives (migration 0055). */
+  modules_hidden?: string[]
   name?: string
   email?: string
   active?: boolean
@@ -77,8 +79,6 @@ export type ModuleDef = {
   superAdminOnly?: boolean
   /** The Super Admin, and whoever holds the `payroll` grant (is_payroll(), 0040). Not every Admin. */
   payrollOnly?: boolean
-  /** An Admin reaches it only when it is ticked on their own profile (attendance_qr_issuer(), 0043). */
-  adminByGrant?: boolean
 }
 
 export const MODULES: ModuleDef[] = [
@@ -94,7 +94,7 @@ export const MODULES: ModuleDef[] = [
   { key: "attendance-register", label: "Attendance · Register & payroll" },
   // Shown on the console only (the QR display is a web screen), but the key
   // lives here too because this file mirrors the console registry.
-  { key: "attendance-qr", label: "Attendance · Show the QR code", adminByGrant: true },
+  { key: "attendance-qr", label: "Attendance · Show the QR code" },
   { key: "payroll", label: "Payroll", payrollOnly: true },
   { key: "payslips", label: "My payslips", always: true },
   { key: "voice-leads", label: "Voice calls" },
@@ -160,11 +160,13 @@ export function canAccess(profile: Profile | null | undefined, key: ModuleKey): 
   // Switched off for the whole company on the console's Modules page.
   const control = moduleControl(profile, key)
   if (!control.enabled) return false
+  // Hidden from this one person by the Super Admin, whatever their role gives.
+  if ((profile.modules_hidden || []).includes(key)) return false
   const granted = (profile.modules || []).includes(key) || roleModulesOf(profile).includes(key)
   // Payroll is checked before the admin shortcut: salaries are not everything
   // an Admin sees, only the Super Admin's and whoever is granted it.
   if (m?.payrollOnly) return granted
-  if (isAdmin(profile)) return Boolean(m?.adminOnly || m?.adminByGrant || control.adminAccess || granted)
+  if (isAdmin(profile)) return Boolean(m?.adminOnly || control.adminAccess || granted)
   if (m?.adminOnly) return false
   return granted
 }

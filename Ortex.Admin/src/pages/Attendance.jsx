@@ -77,7 +77,7 @@ const PAGES = [
   { section: "team", value: "leave-requests", label: "Leave requests", icon: Sun, render: () => <Leave view="requests" />, allow: team, count: "leave" },
   { section: "team", value: "leave-calendar", label: "Leave calendar", icon: Calendar, render: () => <Leave view="calendar" />, allow: team },
   { section: "team", value: "leave-balances", label: "Leave balances", icon: Wallet, render: () => <Leave view="balances" />, allow: team },
-  // Not canAccess(): see canShowGateCode, which the Dashboard's gate card also checks.
+  // canShowGateCode, which the Dashboard's gate card also checks.
   { section: "team", value: "qr", label: "QR code", icon: QrCode, render: () => <QrCodeDisplay />, allow: canShowGateCode },
 
   { section: "me", value: "mine", label: "My attendance", icon: CalendarClock, render: () => <Mine />, allow: () => true },

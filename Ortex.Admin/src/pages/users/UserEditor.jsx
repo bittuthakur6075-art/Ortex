@@ -30,7 +30,8 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
   // This person's EXTRA sections, on top of what their role grants (0032).
   const [modules, setModules] = useState(user?.modules || [])
   const roleGrants = isAdmin(role) ? [] : grants[role] || []
-  const effective = [...new Set([...roleGrants, ...modules])]
+  // Minus what the Super Admin hid from this person on Modules → People (0055).
+  const effective = [...new Set([...roleGrants, ...modules])].filter((k) => !(user?.modules_hidden || []).includes(k))
   const [active, setActive] = useState(user?.active ?? true)
   const [notify, setNotify] = useState(true)
   const [busy, setBusy] = useState(false)

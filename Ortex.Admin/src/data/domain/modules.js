@@ -8,14 +8,13 @@
 //  - adminOnly:      the Super Admin and Admins; never grantable
 //  - payrollOnly:    the Super Admin, and whoever holds the payroll grant
 //                    (is_payroll(), migration 0040); NOT every Admin
-//  - adminByGrant:   an Admin shows it only when it is ticked on their own
-//                    profile (attendance_qr_issuer(), migration 0043)
 //  - otherwise:      granted to a ROLE by the Super Admin (role_permissions,
 //                    migration 0032), plus any extras ticked on one person
 //
 // On top of that the Super Admin's Modules page (migration 0053,
 // module_controls) can switch a grantable module off for the whole company, or
-// stop Admins reaching it automatically. See moduleControl() below.
+// stop Admins reaching it automatically, and hide any module from one person
+// (profiles.modules_hidden, migration 0055). See moduleControl() below.
 
 import { isAdmin, isSuperAdmin } from "../../lib/roles"
 
@@ -41,7 +40,7 @@ export const MODULES = [
   // The rotating QR code staff scan to mark attendance (migration 0043).
   // Granting it to someone who is not an admin does nothing: the database's
   // attendance_qr_issuer() wants the Super Admin, or an admin holding this key.
-  { key: "attendance-qr", path: "/attendance?tab=qr", label: "Attendance · Show the QR code", section: "People", adminByGrant: true },
+  { key: "attendance-qr", path: "/attendance?tab=qr", label: "Attendance · Show the QR code", section: "People" },
   // Payroll (docs/pm/PAYROLL_PLAN.md, modelled on Zoho Payroll).
   { key: "payroll", path: "/attendance?tab=payroll", label: "Payroll", section: "People", payrollOnly: true },
   { key: "payslips", path: "/attendance?tab=payslips", label: "My payslips", section: "People", always: true },
@@ -85,10 +84,13 @@ export function grantedModules(profile) {
 
 /**
  * Whether the Super Admin can stop Admins reaching this module automatically.
- * Payroll and the QR code never come with the Admin role, so the Modules page
- * does not offer the switch for them.
+ * Payroll never comes with the Admin role, so the Modules page does not offer
+ * the switch for it.
  */
-export const adminAccessConfigurable = (m) => !m.payrollOnly && !m.adminByGrant
+export const adminAccessConfigurable = (m) => !m.payrollOnly
+
+/** Modules the Super Admin has hidden from this person (profiles.modules_hidden, 0055). */
+export const hiddenModules = (profile) => (Array.isArray(profile?.modules_hidden) ? profile.modules_hidden : [])
 
 const OPEN = Object.freeze({ enabled: true, adminAccess: true })
 
@@ -126,10 +128,12 @@ export function canAccess(profile, key) {
   // Switched off for the whole company on the Modules page: the Super Admin only.
   const control = moduleControl(profile, key)
   if (!control.enabled) return false
+  // Hidden from this one person by the Super Admin, whatever their role gives.
+  if (hiddenModules(profile).includes(key)) return false
   const granted = grantedModules(profile).includes(key)
   // Payroll before the admin shortcut: the same rule as is_payroll() (0040).
   if (m.payrollOnly) return granted
-  if (isAdmin(profile)) return Boolean(m.adminOnly || m.adminByGrant || control.adminAccess || granted)
+  if (isAdmin(profile)) return Boolean(m.adminOnly || control.adminAccess || granted)
   if (m.adminOnly) return false
   return granted
 }

@@ -2,7 +2,7 @@
 //
 // The console SHOWS the code; it never validates one. A token reaches this
 // browser only through attendance_qr_show(), which refuses anyone who is not
-// the Super Admin or an admin holding the `attendance-qr` grant, and the
+// anyone who may open the `attendance-qr` module (0055), and the
 // attendance_qr table itself has no select policy at all. So there is nothing
 // here that reads the table: every call is the function.
 //

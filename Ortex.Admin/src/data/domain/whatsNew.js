@@ -10,6 +10,25 @@
 
 export const RELEASES = [
   {
+    id: "1.51.0",
+    version: "1.51.0",
+    date: "2026-09-30",
+    title: "Gate QR code for Admins, and hide per person",
+    items: [
+      {
+        kind: "improved",
+        title: "Admins can show the gate QR code",
+        detail: "Every Admin now sees Attendance, QR code and the gate card on the Dashboard. The Super Admin can still take it away on Modules, Roles.",
+      },
+      {
+        kind: "new",
+        title: "Show or hide any module for one person",
+        detail:
+          "On Modules, People, untick a box to hide that module from that person, even when their role gives it. A shield marks what comes from the role.",
+      },
+    ],
+  },
+  {
     id: "1.50.0",
     version: "1.50.0",
     date: "2026-09-30",

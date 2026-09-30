@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { Avatar, Badge, Button, Card, CardHeader, Chip, ChipGroup, EmptyState, SearchInput } from "../../components/ui/Ui"
-import { Users as UsersIcon } from "../../components/ui/Icons"
-import { ASSIGNABLE_MODULES, moduleControl } from "../../data/domain/modules"
+import { ShieldCheck, Users as UsersIcon } from "../../components/ui/Icons"
+import { ASSIGNABLE_MODULES, hiddenModules, moduleControl } from "../../data/domain/modules"
 import { useRolePermissions } from "../../hooks/useRolePermissions"
 import { useModuleControls } from "../../hooks/useModuleControls"
 import { updateProfile } from "../../services/users"
@@ -12,11 +12,12 @@ import { ROLE_TONE, isSuperAdmin, roleLabel } from "../../lib/roles"
 import { cn } from "../../lib/cn"
 import { groupBySection, shortLabel } from "./helpers"
 
-// Modules → People: every person against every module, in one grid. A locked
-// tick comes from their role (or the Admin role) and is changed on the Roles
-// tab for everyone; an open box is this person's own access (profiles.modules),
-// saved here for as many people as were changed. Same data as the Access ticks
-// in a user's Edit dialog, which still work.
+// Modules → People: every person against every module, in one grid, where the
+// Super Admin shows or hides each module for each person. A box their role (or
+// the Admin role) already gives is shown with a shield; unticking it HIDES the
+// module from this person alone (profiles.modules_hidden, migration 0055).
+// Any other box is their own access (profiles.modules), the same ticks as a
+// user's Edit dialog. Changes for many people save together.
 
 const ROLE_FILTERS = ["all", "admin", "accounts", "sales", "staff"]
 
@@ -25,7 +26,7 @@ export default function PeopleAccess({ people, reload }) {
   const { controls } = useModuleControls()
   const [role, setRole] = useState("all")
   const [q, setQ] = useState("")
-  const [draft, setDraft] = useState({}) // id -> modules[]
+  const [draft, setDraft] = useState({}) // id -> { modules, hidden }
   const [saving, setSaving] = useState(false)
 
   // A fresh list from the server replaces any edits already saved.
@@ -43,15 +44,20 @@ export default function PeopleAccess({ people, reload }) {
       .sort((a, b) => Number(b.active !== false) - Number(a.active !== false) || String(a.name || a.email).localeCompare(String(b.name || b.email)))
   }, [people, role, q])
 
-  const own = (p) => draft[p.id] || p.modules || []
+  const stateOf = (p) => draft[p.id] || { modules: p.modules || [], hidden: hiddenModules(p) }
   const dirtyIds = Object.keys(draft).filter((id) => {
     const p = people.find((x) => x.id === id)
-    return p && !sameSet(draft[id], p.modules || [])
+    return p && (!sameSet(draft[id].modules, p.modules || []) || !sameSet(draft[id].hidden, hiddenModules(p)))
   })
 
-  const toggle = (p, key) => {
-    const cur = own(p)
-    setDraft((d) => ({ ...d, [p.id]: cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key] }))
+  // A box the role gives flips "hidden"; any other box flips their own access.
+  const toggle = (p, key, fromRole) => {
+    const { modules, hidden } = stateOf(p)
+    const flip = (list) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key])
+    const next = fromRole
+      ? { modules: modules.filter((k) => k !== key), hidden: flip(hidden) }
+      : { modules: flip(modules), hidden: hidden.filter((k) => k !== key) }
+    setDraft((d) => ({ ...d, [p.id]: next }))
   }
 
   const save = async () => {
@@ -59,7 +65,7 @@ export default function PeopleAccess({ people, reload }) {
     let done = 0
     try {
       for (const id of dirtyIds) {
-        await updateProfile(id, { modules: [...new Set(draft[id])] })
+        await updateProfile(id, { modules: [...new Set(draft[id].modules)], modules_hidden: [...new Set(draft[id].hidden)] })
         done++
       }
       toast.success(done === 1 ? "Access saved for 1 person." : `Access saved for ${done} people.`)
@@ -87,7 +93,7 @@ export default function PeopleAccess({ people, reload }) {
       <Card className="overflow-hidden">
         <CardHeader
           title="Access per person"
-          description="Locked ticks come from the role; change them on the Roles tab. Open boxes are this person's own access."
+          description="Tick to show a module to a person, untick to hide it. A shield means their role gives it; unticking hides it from this person only."
           action={
             <div className="flex items-center gap-2">
               {dirtyIds.length > 0 && (
@@ -126,7 +132,7 @@ export default function PeopleAccess({ people, reload }) {
               </thead>
               <tbody className="mt-body">
                 {rows.map((p) => {
-                  const mine = own(p)
+                  const { modules: mine, hidden } = stateOf(p)
                   const changed = dirtyIds.includes(p.id)
                   return (
                     <tr key={p.id} className={cn(p.active === false && "opacity-60")}>
@@ -148,22 +154,34 @@ export default function PeopleAccess({ people, reload }) {
                       {columns.map((m) => {
                         // What the role gives, judged on the saved profile so a
                         // personal tick never masquerades as a role grant.
-                        const base = accessReason({ ...p, active: true, modules: [] }, m.key, grants, withModuleOn(controls, m.key))
-                        // The QR code is never the Admin role's: it is ticked per Admin (0043).
-                        const locked = (base === "admin" && !m.adminByGrant) || base === "role"
-                        const checked = locked || mine.includes(m.key)
+                        const base = accessReason({ ...p, active: true, modules: [], modules_hidden: [] }, m.key, grants, withModuleOn(controls, m.key))
+                        const fromRole = base === "admin" || base === "role"
+                        const isHidden = fromRole && hidden.includes(m.key)
+                        const checked = fromRole ? !isHidden : mine.includes(m.key)
                         const off = !moduleControl({ moduleControls: controls }, m.key).enabled
+                        const roleName = base === "admin" ? "the Admin role" : `the ${roleLabel(p.role)} role`
+                        const title = isHidden
+                          ? `Hidden from this person (${roleName} gives it)`
+                          : fromRole
+                            ? `From ${roleName}. Untick to hide it from this person`
+                            : off
+                              ? "Kept, but the module is switched off"
+                              : checked
+                                ? "Own access"
+                                : "Not shown"
                         return (
                           <td key={m.key} className={cn("text-center", off && "opacity-60")}>
-                            <input
-                              type="checkbox"
-                              aria-label={`${p.name || p.email}: ${m.label}`}
-                              title={locked ? (base === "admin" ? "From the Admin role" : `From the ${roleLabel(p.role)} role`) : off ? "Kept, but the module is switched off" : "Own access"}
-                              className="h-4 w-4 rounded border-border accent-primary disabled:opacity-50"
-                              checked={checked}
-                              disabled={locked || saving}
-                              onChange={() => toggle(p, m.key)}
-                            />
+                            <label className="inline-flex items-center gap-1" title={title}>
+                              <input
+                                type="checkbox"
+                                aria-label={`${p.name || p.email}: ${m.label}`}
+                                className={cn("h-4 w-4 rounded border-border accent-primary disabled:opacity-50", isHidden && "outline outline-1 outline-destructive")}
+                                checked={checked}
+                                disabled={saving}
+                                onChange={() => toggle(p, m.key, fromRole)}
+                              />
+                              {fromRole && <ShieldCheck className={cn("h-3.5 w-3.5", isHidden ? "text-destructive-text" : "text-primary")} aria-hidden="true" />}
+                            </label>
                           </td>
                         )
                       })}

@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
   // module is switched on (migration 0053, module_controls), Admins reach it
   // unless it was taken off the Admin role, and everyone gets their role's
   // grants (migration 0032, role_permissions) plus their own extras.
-  const { data: people } = await db.from("profiles").select("id, role, modules, active")
+  const { data: people } = await db.from("profiles").select("id, role, modules, modules_hidden, active")
   const { data: grants } = await db.from("role_permissions").select("role, modules")
   // Missing table (0053 not pushed) or no row: on, Admins included.
   const { data: control } = await db
@@ -123,6 +123,8 @@ Deno.serve(async (req) => {
       (p: Doc) =>
         p.role === "super_admin" ||
         (enabled &&
+          // Hidden from this one person by the Super Admin (migration 0055).
+          !(Array.isArray(p.modules_hidden) && p.modules_hidden.includes(module)) &&
           ((p.role === "admin" && adminAccess) ||
             (Array.isArray(p.modules) && p.modules.includes(module)) ||
             (byRole.get(p.role) || []).includes(module))),

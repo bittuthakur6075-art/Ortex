@@ -1,19 +1,18 @@
 import { useEffect, useState } from "react"
 import { Banner, Spinner } from "../../components/ui/Ui"
-import { isAdmin, isSuperAdmin } from "../../lib/roles"
+import { canAccess } from "../../data/domain/modules"
 import { cn } from "../../lib/cn"
 
 // The pieces the gate code is drawn with, shared by Attendance → QR code, its
 // full-screen display and the Dashboard's gate card.
 
 /**
- * Who is shown the code. Not canAccess(): that is true for every admin by
- * design (0032/modules.js), and the owner asked for the Super Admin plus
- * SELECTED admins. This reads the person's own grant, exactly as the
- * database's attendance_qr_issuer() does, so the code appears for precisely
- * the people the server will serve.
+ * Who is shown the code: whoever may open the attendance-qr module (every Admin
+ * by default; the Super Admin changes it on the Modules page). The same rule as
+ * the database's attendance_qr_issuer() since migration 0055, so the code
+ * appears for precisely the people the server will serve.
  */
-export const canShowGateCode = (p) => isSuperAdmin(p) || (isAdmin(p) && (p?.modules || []).includes("attendance-qr"))
+export const canShowGateCode = (p) => canAccess(p, "attendance-qr")
 
 /**
  * The code itself. `qrcode` is imported dynamically for the reason

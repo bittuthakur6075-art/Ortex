@@ -6,7 +6,7 @@
 //   "admin"  the Admin role reaches it (the Admin switch is on)
 //   "role"   their role's grant (role_permissions)
 //   "own"    ticked on their own profile (profiles.modules)
-//   null     they cannot open it (or the module is switched off)
+//   null     they cannot open it (switched off, hidden from them, or not given)
 
 import { MODULES, canAccess, moduleControl } from "../data/domain/modules"
 import { isAdmin, isSuperAdmin } from "./roles"
@@ -26,10 +26,9 @@ export function accessReason(person, key, grants, controls) {
   if (!m) return null
   const p = { ...person, roleModules: isAdmin(person) ? undefined : grants?.[person.role], moduleControls: controls }
   if (!canAccess(p, key)) return null
-  const own = Array.isArray(person.modules) && person.modules.includes(key)
   if (isAdmin(person)) {
     // Payroll reaches an Admin only through their own tick (canAccess above).
-    if (m.payrollOnly || m.adminByGrant) return own ? "own" : "admin"
+    if (m.payrollOnly) return "own"
     return moduleControl(p, key).adminAccess || m.adminOnly ? "admin" : "own"
   }
   const fromRole = (grants?.[person.role] || []).includes(key)

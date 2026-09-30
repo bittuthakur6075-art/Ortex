@@ -69,3 +69,19 @@ describe("accessReason", () => {
     expect(whoCanOpen(people, "quotations", grants, off).map((x) => x.person.id)).toEqual(["x"])
   })
 })
+
+describe("migration 0055", () => {
+  it("every Admin shows the gate QR code unless it is taken off the Admin role", () => {
+    expect(canAccess(p({ role: "admin" }), "attendance-qr")).toBe(true)
+    const controls = { "attendance-qr": { enabled: true, adminAccess: false } }
+    expect(canAccess(p({ role: "admin", moduleControls: controls }), "attendance-qr")).toBe(false)
+    expect(canAccess(p({ role: "admin", modules: ["attendance-qr"], moduleControls: controls }), "attendance-qr")).toBe(true)
+  })
+
+  it("a module hidden from one person closes it whatever their role gives", () => {
+    expect(canAccess(p({ role: "admin", modules_hidden: ["attendance-qr"] }), "attendance-qr")).toBe(false)
+    expect(canAccess(p({ role: "sales", roleModules: grants.sales, modules_hidden: ["quotations"] }), "quotations")).toBe(false)
+    expect(canAccess(p({ role: "super_admin", modules_hidden: ["quotations"] }), "quotations")).toBe(true)
+    expect(accessReason(p({ role: "admin", modules_hidden: ["invoices"] }), "invoices", grants, {})).toBe(null)
+  })
+})

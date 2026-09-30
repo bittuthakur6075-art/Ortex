@@ -88,3 +88,10 @@ test("a module taken off the Admin role needs the Admin's own tick", () => {
   assert.equal(canAccess(p({ role: "admin", modules: ["invoices"], moduleControls }), "invoices"), true)
   assert.equal(canAccess(p({ role: "admin", moduleControls }), "users"), true)
 })
+
+// Migration 0055: the Super Admin can hide a module from one person.
+test("a module hidden from a person closes it despite their role", () => {
+  assert.equal(canAccess(p({ role: "sales", roleModules: ["quotations"], modules_hidden: ["quotations"] }), "quotations"), false)
+  assert.equal(canAccess(p({ role: "admin", modules_hidden: ["invoices"] }), "invoices"), false)
+  assert.equal(canAccess(p({ role: "super_admin", modules_hidden: ["invoices"] }), "invoices"), true)
+})
