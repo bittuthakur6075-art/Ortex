@@ -10,6 +10,7 @@ import RootNavigator from "@/navigation/RootNavigator"
 import { AuthProvider } from "@/store/AuthContext"
 import { ThemeProvider, useIsDark, useTheme } from "@/store/ThemeContext"
 import { ToastProvider } from "@/ui"
+import ErrorBoundary from "@/ui/ErrorBoundary"
 
 function Root() {
   const t = useTheme()
@@ -39,7 +40,11 @@ function Root() {
       {/* Outermost, so a build the office no longer supports cannot reach even
           the sign-in screen (features/update/UpdateGate.tsx). */}
       <UpdateGate>
-        <RootNavigator fontsReady={fontsReady} />
+        {/* Inside the gate, so a crashed screen still lets a required update
+            take over (ui/ErrorBoundary.tsx). */}
+        <ErrorBoundary>
+          <RootNavigator fontsReady={fontsReady} />
+        </ErrorBoundary>
       </UpdateGate>
     </>
   )
