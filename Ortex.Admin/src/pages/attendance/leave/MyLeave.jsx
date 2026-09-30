@@ -12,10 +12,11 @@ import { dayLabel } from "../format"
 import ApplyLeaveModal from "./ApplyLeaveModal"
 import { datesText, nameOf, num } from "./common"
 import { LeaveStatusBadge, TypeChip } from "./leaveUi"
+import UpcomingHolidays from "./UpcomingHolidays"
 
-// Leave → My leave: my balances, my requests, and "Apply for leave". Everyone
-// sees this, whatever their role. A tile opens that type's ledger, so a balance
-// can be traced row by row to where it came from.
+// Leave → My leave: my balances, my requests, "Apply for leave" and the coming
+// holidays. Everyone sees this, whatever their role. A tile opens that type's
+// ledger, so a balance can be traced row by row to where it came from.
 
 export default function MyLeave({ ctx }) {
   const selfId = currentUserId()
@@ -76,68 +77,72 @@ export default function MyLeave({ ctx }) {
           ))}
       </div>
 
-      <Card className="overflow-hidden">
-        <CardHeader
-          title="My leave requests"
-          description="Applied here or in the phone app. An admin decides each one."
-          action={
-            <Button onClick={() => setApplying(true)}>
-              <Plus className="h-4 w-4" /> Apply for leave
-            </Button>
-          }
-        />
-        {(state.requests || []).length === 0 ? (
-          <EmptyState icon={Calendar} title="No leave requests yet" description="Apply for leave and it appears here with its status." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] text-sm">
-              <thead className="mt-head">
-                <tr className="text-left">
-                  <th>Type</th>
-                  <th>Dates</th>
-                  <th>Days</th>
-                  <th>Reason</th>
-                  <th>Status</th>
-                  <th className="w-28" />
-                </tr>
-              </thead>
-              <tbody className="mt-body">
-                {state.requests.map((r) => {
-                  const canCancel = r.status === "pending" || (r.status === "approved" && r.from_day > today)
-                  return (
-                    <tr key={r.id}>
-                      <td><TypeChip code={r.type_code} /></td>
-                      <td className="text-foreground">{datesText(r)}</td>
-                      <td className="tabular">{num(r.days)}</td>
-                      <td className="max-w-[260px] text-muted-foreground">
-                        {r.reason}
-                        {r.decision_note && <div className="mt-1 text-[12px]">Note: {r.decision_note}</div>}
-                      </td>
-                      <td>
-                        <div className="flex flex-col items-start gap-1">
-                          <LeaveStatusBadge status={r.status} />
-                          {r.decided_by && r.status !== "pending" && (
-                            <span className="text-[12px] text-muted-foreground">
-                              {nameOf(ctx, r.decided_by)} · {relativeTime(r.decided_at)}
-                            </span>
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <Card className="overflow-hidden">
+          <CardHeader
+            title="My leave requests"
+            description="Applied here or in the phone app. An admin decides each one."
+            action={
+              <Button onClick={() => setApplying(true)}>
+                <Plus className="h-4 w-4" /> Apply for leave
+              </Button>
+            }
+          />
+          {(state.requests || []).length === 0 ? (
+            <EmptyState icon={Calendar} title="No leave requests yet" description="Apply for leave and it appears here with its status." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[820px] text-sm">
+                <thead className="mt-head">
+                  <tr className="text-left">
+                    <th>Type</th>
+                    <th>Dates</th>
+                    <th>Days</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th className="w-28" />
+                  </tr>
+                </thead>
+                <tbody className="mt-body">
+                  {state.requests.map((r) => {
+                    const canCancel = r.status === "pending" || (r.status === "approved" && r.from_day > today)
+                    return (
+                      <tr key={r.id}>
+                        <td><TypeChip code={r.type_code} /></td>
+                        <td className="text-foreground">{datesText(r)}</td>
+                        <td className="tabular">{num(r.days)}</td>
+                        <td className="max-w-[260px] text-muted-foreground">
+                          {r.reason}
+                          {r.decision_note && <div className="mt-1 text-[12px]">Note: {r.decision_note}</div>}
+                        </td>
+                        <td>
+                          <div className="flex flex-col items-start gap-1">
+                            <LeaveStatusBadge status={r.status} />
+                            {r.decided_by && r.status !== "pending" && (
+                              <span className="text-[12px] text-muted-foreground">
+                                {nameOf(ctx, r.decided_by)} · {relativeTime(r.decided_at)}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="text-right">
+                          {canCancel && (
+                            <Button size="sm" variant="outline" onClick={() => cancel(r)}>
+                              {r.status === "pending" ? "Withdraw" : "Cancel"}
+                            </Button>
                           )}
-                        </div>
-                      </td>
-                      <td className="text-right">
-                        {canCancel && (
-                          <Button size="sm" variant="outline" onClick={() => cancel(r)}>
-                            {r.status === "pending" ? "Withdraw" : "Cancel"}
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+
+        <UpcomingHolidays holidays={ctx.holidays} className="self-start" />
+      </div>
 
       <ApplyLeaveModal
         open={applying}

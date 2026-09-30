@@ -10,6 +10,19 @@
 
 export const RELEASES = [
   {
+    id: "1.49.1",
+    version: "1.49.1",
+    date: "2026-09-30",
+    title: "Holidays on My leave",
+    items: [
+      {
+        kind: "improved",
+        title: "Everyone sees the coming holidays",
+        detail: "My leave now lists the next holidays beside your requests, so you can plan leave around them whatever your role.",
+      },
+    ],
+  },
+  {
     id: "1.49.0",
     version: "1.49.0",
     date: "2026-09-27",
