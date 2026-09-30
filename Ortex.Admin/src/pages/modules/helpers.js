@@ -10,5 +10,5 @@ export function groupBySection(modules) {
   return [...by.entries()]
 }
 
-/** The registry label without its section ("Catalog · Products" -> "Products"). */
+/** The registry label without its section ("Catalogue · Products" -> "Products"). */
 export const shortLabel = (m) => m.label.replace(/^[^·]+·\s*/, "")

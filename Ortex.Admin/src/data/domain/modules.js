@@ -23,9 +23,9 @@ export const MODULES = [
   // Team chat and the Anu thread (migration 0045). Everyone chats; privacy is
   // per conversation (members only), not per module.
   { key: "chat", path: "/chat", label: "Team chat", section: null, always: true },
-  { key: "voice-leads", path: "/crm?tab=voice", label: "Leads · Voice calls", section: "CRM" },
-  { key: "enquiries", path: "/crm?tab=enquiries", label: "Leads · Enquiries", section: "CRM" },
-  { key: "customers", path: "/customers", label: "Customers", section: "CRM" },
+  { key: "voice-leads", path: "/crm?tab=voice", label: "Leads · Voice calls", section: "Sales" },
+  { key: "enquiries", path: "/crm?tab=enquiries", label: "Leads · Enquiries", section: "Sales" },
+  { key: "customers", path: "/customers", label: "Customers", section: "Sales" },
   { key: "products", path: "/catalog?tab=products", label: "Catalogue · Products", section: "Catalogue" },
   { key: "categories", path: "/catalog?tab=categories", label: "Catalogue · Categories", section: "Catalogue" },
   { key: "work", path: "/catalog?tab=work", label: "Catalogue · Work photos", section: "Catalogue" },
@@ -47,12 +47,12 @@ export const MODULES = [
   // with the Admin role OFF: the Super Admin picks which Admins get it.
   { key: "leave-balances", path: "/attendance?tab=leave-balances", label: "Attendance · Manage leave balances", section: "People" },
   // Payroll (docs/pm/PAYROLL_PLAN.md, modelled on Zoho Payroll).
-  { key: "payroll", path: "/attendance?tab=payroll", label: "Payroll", section: "People", payrollOnly: true },
-  { key: "payslips", path: "/attendance?tab=payslips", label: "My payslips", section: "People", always: true },
-  { key: "users", path: "/users", label: "Users", section: "System", adminOnly: true },
-  { key: "settings", path: "/settings", label: "Settings", section: "System", superAdminOnly: true },
+  { key: "payroll", path: "/payroll", label: "Payroll", section: "People", payrollOnly: true },
+  { key: "payslips", path: "/my-records?tab=payslips", label: "My records · Payslips", section: "People", always: true },
+  { key: "users", path: "/users", label: "Users", section: "Admin", adminOnly: true },
+  { key: "settings", path: "/control", label: "Control centre", section: "Admin", superAdminOnly: true },
   // The Super Admin's one place for who opens what (pages/Modules.jsx).
-  { key: "modules", path: "/modules", label: "Modules", section: "System", superAdminOnly: true },
+  { key: "modules", path: "/control?section=access", label: "Control centre · Modules & roles", section: "Admin", superAdminOnly: true },
   // The key stays `social` while the page is called Marketing: it is mirrored by
   // the phone app, and renaming it on one side takes the module away from
   // whoever holds it.

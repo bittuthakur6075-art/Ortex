@@ -10,6 +10,20 @@
 
 export const RELEASES = [
   {
+    id: "1.55.3",
+    version: "1.55.3",
+    date: "2026-09-30",
+    title: "The same headings everywhere",
+    items: [
+      {
+        kind: "fixed",
+        title: "Modules & roles is grouped like the sidebar",
+        detail:
+          "A module sat under CRM on the Modules list and under Sales in the sidebar, and there was a System heading that no longer exists anywhere else. The headings now match, and the links that still pointed at the old Settings, Modules and payslip addresses were corrected.",
+      },
+    ],
+  },
+  {
     id: "1.55.2",
     version: "1.55.2",
     date: "2026-09-30",
