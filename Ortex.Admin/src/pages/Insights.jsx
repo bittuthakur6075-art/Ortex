@@ -17,11 +17,11 @@ import AttendanceInsights from "./AttendanceInsights"
 // granted per tab through the original module keys, so a user's permissions
 // carry over without migration.
 const TABS = [
-  { value: "growth", moduleKey: "growth", label: "Funnel", icon: TrendingUp, Page: Growth },
+  { value: "growth", moduleKey: "insights", label: "Funnel", icon: TrendingUp, Page: Growth },
   // Sales rides on the growth key: both are admin-only analysis, so no new
   // module (and no permission migration) was needed when it left the Dashboard.
-  { value: "sales", moduleKey: "growth", label: "Sales", icon: ReceiptIndianRupee, Page: SalesInsights },
-  { value: "events", moduleKey: "automation", label: "Web events", icon: Flame, Page: Automation },
+  { value: "sales", moduleKey: "insights", label: "Sales", icon: ReceiptIndianRupee, Page: SalesInsights },
+  { value: "events", moduleKey: "insights", label: "Web events", icon: Flame, Page: Automation },
   // Everyone's attendance, so the same grant as reading it: admins, and
   // Accounts by default (role_permissions, migration 0032).
   { value: "attendance", moduleKey: "attendance-team", label: "Attendance", icon: CalendarClock, Page: AttendanceInsights },

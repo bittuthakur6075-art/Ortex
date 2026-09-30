@@ -20,7 +20,12 @@ const TABS = [
   { value: "people", label: "People", icon: UsersIcon },
 ]
 
-export default function Modules() {
+/**
+ * `embedded` drops the page header, because inside the Control centre the
+ * section already carries a heading and two titles in a row read as a mistake.
+ * The tab switch stays: the three views are genuinely different tables.
+ */
+export default function Modules({ embedded = false }) {
   const [params, setParams] = useSearchParams()
   const tab = TABS.find((t) => t.value === params.get("tab"))?.value || "modules"
 
@@ -41,10 +46,16 @@ export default function Modules() {
 
   return (
     <div>
-      <HeaderBand>
-        <PageHeader title="Modules" subtitle="Switch modules on or off, and choose who can open each one" />
-        <Tabs items={TABS} value={tab} onChange={(v) => setParams(v === "modules" ? {} : { tab: v }, { replace: true })} />
-      </HeaderBand>
+      {embedded ? (
+        <div className="mb-5">
+          <Tabs items={TABS} value={tab} onChange={(v) => setParams(v === "modules" ? {} : { tab: v }, { replace: true })} />
+        </div>
+      ) : (
+        <HeaderBand>
+          <PageHeader title="Modules" subtitle="Switch modules on or off, and choose who can open each one" />
+          <Tabs items={TABS} value={tab} onChange={(v) => setParams(v === "modules" ? {} : { tab: v }, { replace: true })} />
+        </HeaderBand>
+      )}
       {tab === "modules" && <ModuleOverview people={people} peopleError={peopleError} />}
       {tab === "roles" && <RoleMatrix />}
       {tab === "people" && <PeopleAccess people={people} reload={loadPeople} />}

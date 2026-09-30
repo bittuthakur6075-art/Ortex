@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import {
   AlertTriangle,
-  ArrowRight,
   Building2,
   CheckCircle2,
   Database,
@@ -12,6 +11,8 @@ import {
   Globe,
   Inbox,
   Lock,
+  CalendarClock,
+  IndianRupee,
   Mail,
   PhoneOutgoing,
   Printer,
@@ -28,7 +29,9 @@ import { loadDemoData, countDemoData, removeDemoData } from "../data/seed/seed"
 import { syncIndiaMart } from "../services/integrations"
 import { GST_RATES } from "../data/domain/schema"
 import { GST_STATES, stateLabel } from "../lib/gstStates"
-import PasswordCard from "../components/ui/PasswordCard"
+import AttendanceSettings from "./attendance/Settings"
+import PayrollSettings from "./payroll/PayrollSettings"
+import Modules from "./Modules"
 import { Button, Input, Select, Switch, Textarea, PageLoader } from "../components/ui/Ui"
 import { cn } from "../lib/cn"
 
@@ -40,21 +43,27 @@ import { cn } from "../lib/cn"
 // payroll, the team bot and role permissions keep their own pages, linked
 // under "Elsewhere".
 
+// The Control centre: EVERYTHING the Super Admin configures, in one place.
+// Before this it was four: /settings, /modules, and two tabs buried inside the
+// Attendance hub, with a list of links at the bottom of this page apologising
+// for the other three.
+//
+// The group is what the setting is ABOUT, so a person hunting one reads five
+// headings rather than twenty items. "Security" is gone: it held one card for
+// changing your own password, which belongs in Profile and was invisible here
+// to everyone who is not the Super Admin.
 const SECTIONS = [
-  { id: "company", label: "Company", icon: Building2 },
-  { id: "documents", label: "Documents", icon: FileText },
-  { id: "notifications", label: "Notifications", icon: Mail },
-  { id: "integrations", label: "Integrations", icon: Globe },
-  { id: "security", label: "Security", icon: Lock },
-  { id: "data", label: "Data", icon: Database },
+  { id: "company", group: "Business", label: "Company", icon: Building2 },
+  { id: "documents", group: "Business", label: "Documents", icon: FileText },
+  { id: "attendance", group: "People", label: "Attendance & leave", icon: CalendarClock },
+  { id: "payroll", group: "People", label: "Payroll", icon: IndianRupee },
+  { id: "access", group: "Access", label: "Modules & roles", icon: Lock },
+  { id: "notifications", group: "Connections", label: "Notifications", icon: Mail },
+  { id: "integrations", group: "Connections", label: "Integrations", icon: Globe },
+  { id: "data", group: "Data", label: "Data", icon: Database },
 ]
 
-const ELSEWHERE = [
-  { label: "Attendance rules", to: "/attendance?tab=settings" },
-  { label: "Payroll settings", to: "/payroll?tab=settings" },
-  { label: "Anu team bot", to: "/chat" },
-  { label: "Modules and role access", to: "/modules" },
-]
+const GROUPS = [...new Set(SECTIONS.map((s) => s.group))]
 
 const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/
 
@@ -137,14 +146,23 @@ export default function Settings() {
   return (
     <div className="pb-24">
       <header className="mb-6">
-        <h1 className="text-[28px] font-semibold leading-9 tracking-[-0.02em] text-foreground">Settings</h1>
-        <p className="mt-1.5 text-[13.5px] text-subtle-foreground">Company details, documents and connections. Changes apply to documents created after you save.</p>
+        <h1 className="text-[28px] font-semibold leading-9 tracking-[-0.02em] text-foreground">Control centre</h1>
+        <p className="mt-1.5 text-[13.5px] text-subtle-foreground">Everything you configure, in one place. Only you can change these, and a change applies from the moment you save.</p>
       </header>
 
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         {/* ---- section menu ---- */}
-        <nav className="flex flex-none gap-1 overflow-x-auto lg:sticky lg:top-20 lg:w-[212px] lg:flex-col lg:gap-0.5 lg:overflow-visible" aria-label="Settings sections">
-          {SECTIONS.map((s) => {
+        <nav className="flex flex-none gap-1 overflow-x-auto lg:sticky lg:top-20 lg:w-[212px] lg:flex-col lg:gap-0.5 lg:overflow-visible" aria-label="Control centre sections">
+          {GROUPS.flatMap((group) => [
+            // The heading is desktop only: the mobile nav is one scrolling row,
+            // where a heading between items reads as another item.
+            <div
+              key={`g-${group}`}
+              className="hidden px-2.5 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-[0.06em] text-subtle-foreground first:pt-0 lg:block"
+            >
+              {group}
+            </div>,
+            ...SECTIONS.filter((s) => s.group === group).map((s) => {
             const active = s.id === section
             const pill = s.id === "notifications" ? (emailOn ? null : ["Off", "slate"]) : s.id === "integrations" ? (indiamartOn ? null : ["1 off", "amber"]) : null
             return (
@@ -163,14 +181,8 @@ export default function Settings() {
                 {pill && <Pill tone={pill[1]}>{pill[0]}</Pill>}
               </button>
             )
-          })}
-          <div className="hidden px-2.5 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-[0.06em] text-subtle-foreground lg:block">Elsewhere</div>
-          {ELSEWHERE.map((l) => (
-            <Link key={l.to} to={l.to} className="hidden h-[34px] items-center gap-2 rounded-[10px] px-2.5 text-[13px] font-medium text-muted-foreground hover:text-foreground lg:flex">
-              <span className="flex-1">{l.label}</span>
-              <ArrowRight variant="Linear" className="h-3.5 w-3.5 text-subtle-foreground" />
-            </Link>
-          ))}
+            }),
+          ])}
         </nav>
 
         {/* ---- the section ---- */}
@@ -179,9 +191,21 @@ export default function Settings() {
           {section === "documents" && <DocumentsSection draft={draft} set={set} />}
           {section === "notifications" && <NotificationsSection draft={draft} set={set} setEmailjs={setEmailjs} />}
           {section === "integrations" && <IntegrationsSection draft={draft} settings={settings} setIndiamart={setIndiamart} />}
-          {section === "security" && (
-            <SectionHead title="Security" description="How you sign in.">
-              <PasswordCard title="Account password" description="Change the password you sign in with." />
+          {/* These three were whole pages of their own. They keep their own
+              cards and their own save buttons; only their address changed. */}
+          {section === "attendance" && (
+            <SectionHead title="Attendance & leave" description="The rules every clock-in, day status and leave request is judged by.">
+              <AttendanceSettings />
+            </SectionHead>
+          )}
+          {section === "payroll" && (
+            <SectionHead title="Payroll" description="Pay heads, cycles and statutory settings for the pay run.">
+              <PayrollSettings />
+            </SectionHead>
+          )}
+          {section === "access" && (
+            <SectionHead title="Modules & roles" description="Who can open what: each module for the company, for a role, and for one person.">
+              <Modules embedded />
             </SectionHead>
           )}
           {section === "data" && <DataSection />}

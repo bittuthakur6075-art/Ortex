@@ -26,9 +26,9 @@ export const MODULES = [
   { key: "voice-leads", path: "/crm?tab=voice", label: "Leads · Voice calls", section: "CRM" },
   { key: "enquiries", path: "/crm?tab=enquiries", label: "Leads · Enquiries", section: "CRM" },
   { key: "customers", path: "/customers", label: "Customers", section: "CRM" },
-  { key: "products", path: "/catalog?tab=products", label: "Catalog · Products", section: "Catalog" },
-  { key: "categories", path: "/catalog?tab=categories", label: "Catalog · Categories", section: "Catalog" },
-  { key: "work", path: "/catalog?tab=work", label: "Catalog · Work photos", section: "Catalog" },
+  { key: "products", path: "/catalog?tab=products", label: "Catalogue · Products", section: "Catalogue" },
+  { key: "categories", path: "/catalog?tab=categories", label: "Catalogue · Categories", section: "Catalogue" },
+  { key: "work", path: "/catalog?tab=work", label: "Catalogue · Work photos", section: "Catalogue" },
   { key: "quotations", path: "/quotations", label: "Quotations", section: "Sales" },
   { key: "invoices", path: "/billing?tab=invoices", label: "Billing · Invoices", section: "Sales" },
   { key: "payments", path: "/billing?tab=payments", label: "Billing · Payments", section: "Sales" },
@@ -53,10 +53,14 @@ export const MODULES = [
   { key: "settings", path: "/settings", label: "Settings", section: "System", superAdminOnly: true },
   // The Super Admin's one place for who opens what (pages/Modules.jsx).
   { key: "modules", path: "/modules", label: "Modules", section: "System", superAdminOnly: true },
-  { key: "social", path: "/social", label: "Marketing", section: "Automation" },
-  { key: "telecaller", path: "/telecaller", label: "Call agent", section: "Automation" },
-  { key: "growth", path: "/insights?tab=growth", label: "Insights · Funnel", section: "Automation", adminOnly: true },
-  { key: "automation", path: "/insights?tab=events", label: "Insights · Web events", section: "Automation", adminOnly: true },
+  // The key stays `social` while the page is called Marketing: it is mirrored by
+  // the phone app, and renaming it on one side takes the module away from
+  // whoever holds it.
+  { key: "social", path: "/marketing", label: "Marketing", section: "Growth" },
+  { key: "telecaller", path: "/telecaller", label: "Call agent", section: "Growth" },
+  // One page, one key (0061). `growth` and `automation` were two keys for two
+  // tabs of the same page, and both were adminOnly, so neither was ever a grant.
+  { key: "insights", path: "/insights", label: "Insights", section: "Growth", adminOnly: true },
 ]
 
 // Modules the Super Admin can grant to a role, or an admin to one person.

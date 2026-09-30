@@ -8,17 +8,16 @@ import {
   LayoutDashboard,
   QrCode,
   ReceiptIndianRupee,
-  Settings,
   Sun,
   UserCheck,
   Users,
   Wallet,
 } from "../components/ui/Icons"
 import PageHeader, { HeaderBand } from "../components/layout/PageHeader"
-import { PillTabs, Tabs } from "../components/ui/Ui"
+import { PillTabs } from "../components/ui/Ui"
 import { useProfile } from "../hooks/useProfile"
 import { canAccess } from "../data/domain/modules"
-import { isAdmin, isSuperAdmin } from "../lib/roles"
+import { isAdmin } from "../lib/roles"
 import Today from "./attendance/Today"
 import Register from "./attendance/Register"
 import Corrections from "./attendance/Corrections"
@@ -26,7 +25,6 @@ import { listCorrections } from "../services/attendance"
 import { listLeaveRequests } from "../services/leave"
 import { repo } from "../data/store/repository"
 import Mine from "./attendance/Mine"
-import AttendanceSettings from "./attendance/Settings"
 import Leave from "./attendance/Leave"
 import QrCodeDisplay from "./attendance/QrCodeDisplay"
 import { canShowGateCode } from "./attendance/gate"
@@ -38,7 +36,6 @@ import Employees from "./payroll/Employees"
 import Approvals from "./payroll/Approvals"
 import Loans from "./payroll/Loans"
 import Reports from "./payroll/Reports"
-import PayrollSettings from "./payroll/PayrollSettings"
 
 // Attendance & pay (docs/pm/ATTENDANCE_LEAVE_PLAN.md, PAYROLL_PLAN.md). The
 // console VIEWS and manages attendance; it never marks it. Clocking in and out
@@ -58,7 +55,6 @@ const SECTIONS = [
   { value: "team", label: "Team", icon: Users, subtitle: "Who is in today, the monthly register, and requests waiting for a decision." },
   { value: "me", label: "My records", icon: CalendarClock, subtitle: "Your attendance, leave and payslips. Attendance is marked in the phone app." },
   { value: "payroll", label: "Payroll", icon: IndianRupee, subtitle: "Salaries from attendance: pay runs, payslips, PF, ESI and TDS, bank and statutory files." },
-  { value: "settings", label: "Settings", icon: Settings, subtitle: "Working hours, the punch window, leave policy and payroll rules." },
 ]
 
 const team = (p) => isAdmin(p) || canAccess(p, "attendance-team")
@@ -92,16 +88,31 @@ const PAGES = [
   { section: "payroll", value: "approvals", label: "Approvals", icon: ReceiptIndianRupee, render: () => <Approvals />, allow: payroll },
   { section: "payroll", value: "loans", label: "Loans", icon: Wallet, render: () => <Loans />, allow: payroll },
   { section: "payroll", value: "reports", label: "Reports", icon: FileText, render: () => <Reports />, allow: payroll },
-
-  { section: "settings", value: "settings", label: "Attendance and leave", icon: CalendarClock, render: () => <AttendanceSettings />, allow: (p) => isSuperAdmin(p) },
-  { section: "settings", value: "payroll-settings", label: "Payroll", icon: IndianRupee, render: () => <PayrollSettings />, allow: (p) => isSuperAdmin(p) && payroll(p) },
 ]
 
 
-export default function Attendance() {
+/**
+ * One shell, three pages. `scope` picks which section it shows:
+ *
+ *   /attendance   "team"     everyone's attendance, corrections, leave, the QR
+ *   /payroll      "payroll"  the pay run, on is_payroll(), never implied by admin
+ *   /my-records   "me"       your own attendance, leave and payslips
+ *
+ * They used to be sections of one hub, which put a person hunting their own
+ * payslip three clicks into the whole company's register, and hid payroll (a
+ * different permission entirely) inside a page called Attendance. The settings
+ * section is gone from here: it lives in the Control centre with everything
+ * else the Super Admin configures.
+ */
+const SCOPE_TITLE = { team: "Attendance", payroll: "Payroll", me: "My records" }
+
+export default function Attendance({ scope = "team" }) {
   const profile = useProfile()
   const [params, setParams] = useSearchParams()
-  const allowed = useMemo(() => (profile ? PAGES.filter((t) => t.allow(profile)) : []), [profile])
+  const allowed = useMemo(
+    () => (profile ? PAGES.filter((t) => t.section === scope && t.allow(profile)) : []),
+    [profile, scope],
+  )
   const sections = SECTIONS.filter((s) => allowed.some((t) => t.section === s.value))
   // Before the sections, Leave had its own ?view= (requests, calendar, balances).
   const asked = params.get("tab") === "leave" && params.get("view") && params.get("view") !== "mine" ? `leave-${params.get("view")}` : params.get("tab")
@@ -114,20 +125,13 @@ export default function Attendance() {
   const section = sections.find((s) => s.value === current.section)
   const pages = allowed.filter((t) => t.section === section.value)
   const go = (tab) => setParams({ tab }, { replace: true })
-  const sectionCount = (s) => allowed.filter((t) => t.section === s && t.count).reduce((n, t) => n + (counts[t.count] || 0), 0)
 
   return (
     <div>
+      {/* No section switch any more: the three scopes are three sidebar items,
+          so the only tabs left are this page's own pages. */}
       <HeaderBand>
-        <PageHeader title="Attendance & pay" subtitle={section.subtitle} />
-        {sections.length > 1 && (
-          <Tabs
-            items={sections.map((s) => ({ value: s.value, icon: s.icon, label: s.label, count: sectionCount(s.value) || undefined }))}
-            value={section.value}
-            // A section opens on its first page.
-            onChange={(v) => go(allowed.find((t) => t.section === v).value)}
-          />
-        )}
+        <PageHeader title={SCOPE_TITLE[scope] || "Attendance"} subtitle={section.subtitle} />
       </HeaderBand>
       {pages.length > 1 && (
         <PillTabs

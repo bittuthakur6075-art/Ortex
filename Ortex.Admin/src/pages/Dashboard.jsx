@@ -297,7 +297,7 @@ function SettingsHealth({ settings }) {
           </span>
         ))}
       </div>
-      <Button size="sm" variant="outline" onClick={() => navigate("/settings")}>
+      <Button size="sm" variant="outline" onClick={() => navigate("/control")}>
         Fix in Settings
       </Button>
     </div>

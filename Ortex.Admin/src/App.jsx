@@ -15,7 +15,6 @@ import Telecaller from "./pages/Telecaller"
 import Quotations from "./pages/Quotations"
 import SettingsPage from "./pages/Settings"
 import Users from "./pages/Users"
-import Modules from "./pages/Modules"
 import UserDetail from "./pages/users/UserDetail"
 import Profile from "./pages/Profile"
 import WhatsNew from "./pages/WhatsNew"
@@ -53,12 +52,26 @@ function Redirect({ to }) {
   return <Navigate to={to} state={location.state} replace />
 }
 
-// Payroll is a section of the Attendance hub; /payroll?tab=runs keeps working.
-const PAYROLL_PAGE = { dashboard: "payroll", settings: "payroll-settings" }
-function PayrollRedirect() {
+// The Attendance hub's own tabs moved to three pages in 1.55.0. An old
+// /attendance?tab=… link lands on whichever page now holds that tab, so a
+// bookmark, a push notification or a link in a chat message still works.
+const MOVED_TAB = {
+  mine: "/my-records?tab=mine",
+  leave: "/my-records?tab=leave",
+  payslips: "/my-records?tab=payslips",
+  payroll: "/payroll?tab=payroll",
+  runs: "/payroll?tab=runs",
+  employees: "/payroll?tab=employees",
+  approvals: "/payroll?tab=approvals",
+  loans: "/payroll?tab=loans",
+  reports: "/payroll?tab=reports",
+  settings: "/control?section=attendance",
+  "payroll-settings": "/control?section=payroll",
+}
+function AttendanceTabRoute() {
   const { search } = useLocation()
-  const sub = new URLSearchParams(search).get("tab") || "dashboard"
-  return <Redirect to={`/attendance?tab=${encodeURIComponent(PAYROLL_PAGE[sub] || sub)}`} />
+  const to = MOVED_TAB[new URLSearchParams(search).get("tab")]
+  return to ? <Redirect to={to} /> : <Attendance scope="team" />
 }
 
 export default function App() {
@@ -82,21 +95,30 @@ export default function App() {
           <Route path="products" element={<Redirect to="/catalog?tab=products" />} />
           <Route path="categories" element={<Redirect to="/catalog?tab=categories" />} />
           <Route path="work" element={<Redirect to="/catalog?tab=work" />} />
-          <Route path="social" element={guard("social", <Social />)} />
+          <Route path="marketing" element={guard("social", <Social />)} />
+          {/* Renamed to Marketing in 1.48.0; the stored key is still `social`. */}
+          <Route path="social" element={<Redirect to="/marketing" />} />
           <Route path="telecaller" element={guard("telecaller", <Telecaller />)} />
           <Route path="quotations" element={guard("quotations", <Quotations />)} />
           <Route path="billing" element={<HubGuard keys={BILLING_MODULE_KEYS}><Billing /></HubGuard>} />
           <Route path="invoices" element={<Redirect to="/billing?tab=invoices" />} />
           <Route path="payments" element={<Redirect to="/billing?tab=payments" />} />
-          <Route path="attendance" element={guard("attendance", <Attendance />)} />
-          <Route path="payroll" element={<PayrollRedirect />} />
+          {/* One shell, three pages: everyone's attendance, the pay run, your
+              own records. They were sections of a single hub until 1.55.0. */}
+          <Route path="attendance" element={guard("attendance", <AttendanceTabRoute />)} />
+          <Route path="my-records" element={guard("attendance", <Attendance scope="me" />)} />
+          <Route path="payroll" element={guard("payroll", <Attendance scope="payroll" />)} />
           <Route path="payroll/runs/:id" element={guard("payroll", <PayRun />)} />
           <Route path="payroll/employees/:id" element={guard("payroll", <EmployeeProfile />)} />
-          <Route path="payslips" element={<Redirect to="/attendance?tab=payslips" />} />
+          <Route path="payslips" element={<Redirect to="/my-records?tab=payslips" />} />
           <Route path="users" element={guard("users", <Users />)} />
           <Route path="users/:id" element={guard("users", <UserDetail />)} />
-          <Route path="settings" element={guard("settings", <SettingsPage />)} />
-          <Route path="modules" element={guard("modules", <Modules />)} />
+          {/* The Control centre absorbed Settings and Modules (1.55.0). Both
+              old addresses still land, and so do the two settings tabs that
+              used to live inside the Attendance hub. */}
+          <Route path="control" element={guard("settings", <SettingsPage />)} />
+          <Route path="settings" element={<Redirect to="/control" />} />
+          <Route path="modules" element={<Redirect to="/control?section=access" />} />
           <Route path="insights" element={<HubGuard keys={INSIGHTS_MODULE_KEYS}><Insights /></HubGuard>} />
           <Route path="growth" element={<Redirect to="/insights?tab=growth" />} />
           <Route path="automation" element={<Redirect to="/insights?tab=events" />} />

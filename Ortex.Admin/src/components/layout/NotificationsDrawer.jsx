@@ -229,7 +229,7 @@ export function NotificationsDrawer() {
             </button>
             <button
               type="button"
-              onClick={() => go("/settings")}
+              onClick={() => go("/control")}
               aria-label="Notification settings"
               title="Notification settings"
               className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-subtle hover:text-foreground"

@@ -23,7 +23,7 @@ import {
   Plus,
   ArrowDownLeft,
   Wallet,
-  LayoutGrid,
+  UserCheck,
 } from "../ui/Icons"
 import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
 import { useProfile } from "../../hooks/useProfile"
@@ -59,6 +59,9 @@ const PRIMARY = [
   { to: "/", end: true, key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/chat", key: "chat", label: "Team chat", icon: MessageCircle, badge: "chat" },
 ]
+// A section holds ONE kind of thing, so a person looking for something knows
+// which heading to open before they read the items. Selling, then what we sell,
+// then how we reach people, then people, then who administers it.
 const SECTIONS = [
   {
     section: "Sales",
@@ -67,33 +70,48 @@ const SECTIONS = [
       { to: "/quotations", key: "quotations", label: "Quotations", icon: FileText },
       { to: "/billing", keys: ["invoices", "payments"], label: "Billing", icon: ReceiptIndianRupee },
       { to: "/customers", key: "customers", label: "Customers", icon: Users },
-      { to: "/telecaller", key: "telecaller", label: "Call agent", icon: PhoneOutgoing },
     ],
   },
+  // The catalogue is product data, not marketing. It used to sit under a
+  // "Marketing" heading beside the Instagram page, which is where nobody looked
+  // for a product.
   {
-    section: "Marketing",
+    section: "Catalogue",
+    items: [{ to: "/catalog", keys: ["products", "categories", "work"], label: "Products & work", icon: Package }],
+  },
+  // Reaching people, and what came of it. The call agent worked leads from under
+  // "Sales" while marketing sat elsewhere; both are outbound, and Insights is
+  // what they are judged by, so the three belong together.
+  {
+    section: "Growth",
     items: [
-      { to: "/catalog", keys: ["products", "categories", "work"], label: "Catalog", icon: Package },
-      { to: "/social", key: "social", label: "Marketing", icon: Instagram },
+      { to: "/telecaller", key: "telecaller", label: "Call agent", icon: PhoneOutgoing },
+      { to: "/marketing", key: "social", label: "Marketing", icon: Instagram },
+      { to: "/insights", keys: ["insights", "attendance-team"], label: "Insights", icon: TrendingUp },
     ],
   },
-  // One hub for attendance, leave, payslips and payroll. Insights opens from the Dashboard.
-  { section: "People", items: [{ to: "/attendance", key: "attendance", label: "Attendance & pay", icon: CalendarClock }] },
+  // Three items, not one hub: everyone's attendance, the pay run (a different
+  // permission entirely, is_payroll(), never implied by admin), and your own
+  // records. They were stacked in one page where a person hunting their own
+  // payslip walked past the whole company's register.
+  {
+    section: "People",
+    items: [
+      { to: "/attendance", key: "attendance", label: "Attendance", icon: CalendarClock },
+      { to: "/payroll", key: "payroll", label: "Payroll", icon: IndianRupee },
+      { to: "/my-records", key: "attendance", label: "My records", icon: UserCheck },
+    ],
+  },
   {
     section: "Admin",
-    items: [
-      { to: "/users", key: "users", label: "Users", icon: UserTag },
-      { to: "/modules", key: "modules", label: "Modules", icon: LayoutGrid },
-    ],
+    items: [{ to: "/users", key: "users", label: "Users", icon: UserTag }],
   },
 ]
-const SETTINGS_ITEM = { to: "/settings", key: "settings", label: "Settings", icon: Settings }
+// Everything the Super Admin configures, in one place (was /settings plus
+// /modules plus two tabs inside Attendance).
+const SETTINGS_ITEM = { to: "/control", key: "settings", label: "Control centre", icon: Settings }
 // Not in the sidebar, but still found by search (Ctrl K).
-const SEARCH_ONLY = [
-  { to: "/insights", keys: ["growth", "automation", "attendance-team"], label: "Insights", icon: TrendingUp },
-  { to: "/attendance?tab=payslips", key: "payslips", label: "My payslips", icon: ReceiptIndianRupee },
-  { to: "/attendance?tab=payroll", key: "payroll", label: "Payroll", icon: IndianRupee },
-]
+const SEARCH_ONLY = [{ to: "/my-records?tab=payslips", key: "payslips", label: "My payslips", icon: ReceiptIndianRupee }]
 
 // "+ New": what the person can create, each opening that page's editor.
 const NEW_ITEMS = [

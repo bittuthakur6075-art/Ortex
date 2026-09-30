@@ -10,7 +10,7 @@ import { LoadError } from "./payroll/setup/common"
 import PayslipPreview from "./payroll/run/PayslipPreview"
 import { ROW_LINK, monthWords, rowOpens, rupees } from "./payroll/run/shared"
 
-// My payslips (/attendance?tab=payslips): every signed-in person's own payslips, once payroll
+// My payslips (/my-records?tab=payslips): every signed-in person's own payslips, once payroll
 // has recorded the payment (a payslip is released with its run, migration
 // 0040; RLS returns nobody else's). Grouped by financial year with the year so
 // far on top; a row opens the payslip with its PDF.

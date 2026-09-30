@@ -10,6 +10,37 @@
 
 export const RELEASES = [
   {
+    id: "1.55.0",
+    version: "1.55.0",
+    date: "2026-09-30",
+    title: "Everything in one place, and a tidier sidebar",
+    items: [
+      {
+        kind: "new",
+        title: "Control centre",
+        detail:
+          "Everything the Super Admin sets is now on one page. Company and document details, attendance and leave rules, payroll rules, who can open which module, connections and data used to be spread across four places, with a list of links at the bottom of Settings apologising for the other three. Old links still work.",
+      },
+      {
+        kind: "improved",
+        title: "Attendance, Payroll and My records are separate",
+        detail:
+          "They were three sections stacked inside one page, so looking for your own payslip took you through the whole company's register, and payroll (which has its own permission) hid inside a page called Attendance. Each is its own item in the sidebar now.",
+      },
+      {
+        kind: "improved",
+        title: "The sidebar groups things by what they are",
+        detail:
+          "The catalogue was filed under Marketing, next to the Instagram page. It now has its own heading. The call agent, Marketing and Insights sit together under Growth, because all three are about reaching people and seeing what came of it.",
+      },
+      {
+        kind: "improved",
+        title: "Insights is visible",
+        detail: "It was reachable only from the Dashboard or by pressing Ctrl K. It is now in the sidebar under Growth, and it is one module instead of two.",
+      },
+    ],
+  },
+  {
     id: "1.54.0",
     version: "1.54.0",
     date: "2026-09-30",
