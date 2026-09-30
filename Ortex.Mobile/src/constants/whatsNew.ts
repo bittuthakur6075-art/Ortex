@@ -29,6 +29,25 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.8.1",
+    version: "1.8.1",
+    date: "2026-09-30",
+    title: "The app opens again for Staff",
+    summary: "A fix for phones that closed as soon as the app opened.",
+    items: [
+      {
+        kind: "fixed",
+        title: "No more closing on launch",
+        detail: "Staff and Accounts logins, whose app has only the Home tab, were thrown out of the app the moment it opened. It opens normally now.",
+      },
+      {
+        kind: "improved",
+        title: "A problem no longer closes the app",
+        detail: "If a screen ever runs into trouble, you now see a message with Try again and Sign out instead of the app shutting.",
+      },
+    ],
+  },
+  {
     id: "1.8.0",
     version: "1.8.0",
     date: "2026-09-27",
