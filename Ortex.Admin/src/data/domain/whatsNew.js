@@ -10,6 +10,20 @@
 
 export const RELEASES = [
   {
+    id: "1.55.1",
+    version: "1.55.1",
+    date: "2026-09-30",
+    title: "A quieter dashboard",
+    items: [
+      {
+        kind: "improved",
+        title: "The settings warning strip is gone",
+        detail:
+          "The Dashboard carried an orange strip telling the Super Admin the call agent was on Simulate. It said the same thing every day, nothing was broken, and it sat above the work. The Call agent page still says which provider it is using.",
+      },
+    ],
+  },
+  {
     id: "1.55.0",
     version: "1.55.0",
     date: "2026-09-30",

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { AlertTriangle, FileText, Sparkles, TrendingUp, Wallet } from "../components/ui/Icons"
+import { FileText, Sparkles, TrendingUp, Wallet } from "../components/ui/Icons"
 import { useCollections, useSettings } from "../hooks/useCollection"
 import { useProfile } from "../hooks/useProfile"
 import { canAccess } from "../data/domain/modules"
@@ -199,7 +199,6 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {owner && <SettingsHealth settings={settings} />}
 
       <Kpis t={t} access={access} sparks={sparks} />
 
@@ -277,30 +276,4 @@ function words(d, noun) {
   return `${money(Math.abs(d.diff))} ${d.dir === "up" ? "more" : "less"} than before`
 }
 
-// ---- Super Admin: settings that are quietly stopping something --------------
-
-function SettingsHealth({ settings }) {
-  const navigate = useNavigate()
-  const issues = []
-  if (settings && (settings.telecaller?.provider || "simulate") === "simulate") issues.push("Call agent is on Simulate, no real calls go out")
-  if (!issues.length) return null
-  return (
-    <div className="squircle flex flex-wrap items-center gap-3 rounded-card bg-warning/12 px-4 py-3">
-      <AlertTriangle className="h-[22px] w-[22px] flex-none text-warning-text" />
-      <span className="text-[13.5px] font-semibold text-warning-text">
-        {issues.length} setting{issues.length === 1 ? " needs" : "s need"} you
-      </span>
-      <div className="flex min-w-0 flex-1 flex-wrap gap-2">
-        {issues.map((s) => (
-          <span key={s} className="squircle rounded-[10px] bg-card/70 px-2.5 py-[3px] text-[12.5px] font-medium leading-[15px] text-muted-foreground">
-            {s}
-          </span>
-        ))}
-      </div>
-      <Button size="sm" variant="outline" onClick={() => navigate("/control")}>
-        Fix in Settings
-      </Button>
-    </div>
-  )
-}
 
