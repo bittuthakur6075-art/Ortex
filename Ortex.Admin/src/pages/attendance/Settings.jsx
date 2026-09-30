@@ -33,7 +33,7 @@ import {
   saveSite,
 } from "../../services/attendance"
 import { listProfiles } from "../../services/users"
-import { Holidays, Maintenance } from "./SettingsExtra"
+import { Maintenance } from "./SettingsExtra"
 import LeavePolicy from "./LeavePolicy"
 
 // Attendance → Settings, the Super Admin's: stations, the rules, and how each
@@ -65,10 +65,14 @@ const mapsUrl = (lat, lng) => `https://www.google.com/maps?q=${lat},${lng}`
 export default function AttendanceSettings() {
   return (
     <div className="space-y-5">
-      <Banner tone="info">Only you, the Super Admin, can change these. Changes apply from now on.</Banner>
+      {/* No "only the Super Admin can change these" banner: the Control centre
+          that hosts this section says exactly that in its own header, and the
+          same sentence twice on one screen reads as a mistake.
+          No Holidays card either. Holidays are day-to-day management, not a
+          rule, and admins already add them at Attendance → Holidays. Two places
+          to add Diwali is one place too many. */}
       <Sites />
       <Rules />
-      <Holidays />
       <LeavePolicy />
       <People />
       <Maintenance />
@@ -111,7 +115,7 @@ function Sites() {
       {state.error && <Banner tone="danger" className="mx-5 mb-4">{state.error}</Banner>}
       {state.rows.length > 0 && (
         <div className="px-5 pb-4">
-          {/* Every office and its fence, to true scale. Click one to edit it. */}
+          {/* Every station, to scale. Click one to edit it. */}
           <OfficeMap lat={null} lng={null} others={state.rows} onOtherClick={setEditing} className="h-72" />
         </div>
       )}

@@ -10,6 +10,31 @@
 
 export const RELEASES = [
   {
+    id: "1.56.0",
+    version: "1.56.0",
+    date: "2026-09-30",
+    title: "Tidier exports and a cleaner Control centre",
+    items: [
+      {
+        kind: "improved",
+        title: "One Export button on the Register",
+        detail:
+          "Four near-identical buttons sat in a row, and the only way to tell them apart was to read all four. One Export button now opens a short menu: Excel for this month, Excel for every month, then the two CSVs. While a workbook builds it says so, and counts the months as it goes.",
+      },
+      {
+        kind: "improved",
+        title: "Holidays live in one place",
+        detail:
+          "You could add a holiday from Attendance and again from the settings, which meant two lists to keep straight. Holidays are managed on Attendance, where the people who add them already work.",
+      },
+      {
+        kind: "improved",
+        title: "On duty",
+        detail: "The status read \"On duty (field)\". It is now just \"On duty\", on screen and in the exports.",
+      },
+    ],
+  },
+  {
     id: "1.55.3",
     version: "1.55.3",
     date: "2026-09-30",

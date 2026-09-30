@@ -150,7 +150,11 @@ export const STATUS_LABEL = {
   P: "Present",
   HD: "Half day",
   A: "Absent",
-  OD: "On duty (field)",
+  // DELIBERATE DIVERGENCE from Ortex.Mobile/src/domain/attendance.ts, which
+  // still says "On duty (field)". The bracket was the only one in the set and
+  // it read as a footnote rather than a status. The phone is not being touched
+  // this release; put it back in step when it is.
+  OD: "On duty",
   WO: "Weekly off",
   H: "Holiday",
   MP: "Missed punch",

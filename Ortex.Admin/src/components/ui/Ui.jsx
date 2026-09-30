@@ -623,7 +623,7 @@ export function EmptyState({ icon: Icon, title, description, action, className }
   return (
     <div className={cn("flex flex-col items-center justify-center rounded-card border border-dashed border-input bg-card px-6 py-14 text-center", className)}>
       {Icon && (
-        <span className="mb-3.5 inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-sm">
+        <span className="mb-3.5 inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground">
           <Icon className="h-5 w-5" />
         </span>
       )}
@@ -683,7 +683,7 @@ export function TableFooter({ page = 1, pageCount = 1, total = 0, pageSize = 10,
   return (
     <div className={cn("flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-3 text-[13px] text-muted-foreground", className)}>
       <span>
-        Rows per page <span className="ml-1 inline-flex h-8 items-center rounded-btn border border-input bg-card px-2.5 text-foreground shadow-sm">{pageSize}</span>
+        Rows per page <span className="ml-1 inline-flex h-8 items-center rounded-btn border border-input bg-card px-2.5 text-foreground">{pageSize}</span>
       </span>
       <div className="flex items-center gap-2.5">
         <span className="tabular">

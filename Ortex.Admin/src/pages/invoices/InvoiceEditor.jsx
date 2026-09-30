@@ -286,7 +286,7 @@ export default function InvoiceEditor({ draft, products, customers, payments, se
             )}
             {!isEdit && (
               <label className="cursor-pointer">
-                <span className="inline-flex h-8 items-center gap-1.5 rounded-btn border border-border bg-card px-3 text-[13px] font-medium text-foreground shadow-sm transition-colors hover:bg-subtle">
+                <span className="inline-flex h-8 items-center gap-1.5 rounded-btn border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-subtle">
                   <Upload className="h-4 w-4" /> Import Tally XML
                 </span>
                 <input type="file" accept=".xml,text/xml" onChange={handleTallyEditorImport} className="hidden" />

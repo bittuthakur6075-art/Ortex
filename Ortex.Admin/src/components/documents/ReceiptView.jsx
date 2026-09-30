@@ -57,7 +57,7 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
         </div>
       </div>
 
-      <div ref={receiptRef} className="print-area mx-auto w-full max-w-[210mm] bg-white p-8 sm:p-12 text-[13px] text-[#0b1220] sm:rounded-xl shadow-lg flex flex-col" style={{ minHeight: "297mm" }}>
+      <div ref={receiptRef} className="print-area mx-auto w-full max-w-[210mm] bg-white p-8 sm:p-12 text-[13px] text-[#0b1220] sm:rounded-xl flex flex-col" style={{ minHeight: "297mm" }}>
         {/* Header */}
         <div className="flex items-start justify-between border-b-2 border-[#0b1220] pb-4">
           <div>

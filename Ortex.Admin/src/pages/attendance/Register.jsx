@@ -41,6 +41,7 @@ import {
 import { cn } from "../../lib/cn"
 import { dayHead, dayLabel, daysOf, monthLabel, monthsBetween, toneFor } from "./format"
 import { MonthSwitcher, StatusLegend } from "./status"
+import { ActionMenu } from "../../components/sales/ListParts"
 import StatusDayDrawer from "./StatusDayDrawer"
 
 // Attendance → Register: the month payroll reads. A summary per person
@@ -73,6 +74,7 @@ export default function Register() {
   const [unlocking, setUnlocking] = useState(false)
   const [excel, setExcel] = useState(null) // null | "month" | "all"
   const [excelStep, setExcelStep] = useState("")
+  const [exportMenu, setExportMenu] = useState(null)
 
   const load = useCallback(async () => {
     const days = daysOf(month)
@@ -153,7 +155,7 @@ export default function Register() {
       { header: "Name", value: (r) => r.name },
       { header: "Role", value: (r) => roleLabel(r.role) },
       { header: "Present", value: (r) => r.present },
-      { header: "On duty (field)", value: (r) => r.field },
+      { header: "On duty", value: (r) => r.field },
       { header: "Half days", value: (r) => r.half_days },
       { header: "Absent", value: (r) => r.absent },
       { header: "Missed punches", value: (r) => r.missed },
@@ -314,14 +316,21 @@ export default function Register() {
           </ChipGroup>
           <div className="ml-auto flex flex-wrap items-center gap-[10px]">
             <SearchInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a name" aria-label="Search a name" />
-            <ToolbarButton onClick={exportGrid} disabled={!(state.summary || []).length}>Day grid CSV</ToolbarButton>
-            <ToolbarButton onClick={exportExcelMonth} disabled={excel !== null || !(state.summary || []).length}>
-              {excel === "month" ? "Building…" : "Excel, this month"}
-            </ToolbarButton>
-            <ToolbarButton onClick={exportExcelAll} disabled={excel !== null}>
-              {excel === "all" ? `Building… ${excelStep}` : "Excel, every month"}
-            </ToolbarButton>
-            <ExportButton label="Export summary CSV" onClick={exportSummary} disabled={!(state.summary || []).length} />
+            {/* One Export button, not four. Adding the two Excel exports beside
+                the two CSV ones left a row of near-identical buttons where the
+                only way to tell them apart was to read all four labels.
+                While a workbook builds the icon becomes words: "every month"
+                walks the whole history and can take a while, and a 45px icon
+                has nowhere to say so. */}
+            {excel ? (
+              <ToolbarButton disabled>{excel === "all" ? `Building ${excelStep}` : "Building…"}</ToolbarButton>
+            ) : (
+              <ExportButton
+                label="Export"
+                onClick={(e) => setExportMenu(e.currentTarget)}
+                disabled={!(state.summary || []).length}
+              />
+            )}
           </div>
         </div>
         {rows.length === 0 ? (
@@ -462,6 +471,31 @@ export default function Register() {
         canOverride={superAdmin}
         locked={locked}
         onChanged={load}
+      />
+
+      {/* Excel first: it is the one people actually hand to someone. The CSVs
+          stay for Tally and for anyone who wants the raw numbers. */}
+      <ActionMenu
+        open={!!exportMenu}
+        anchor={exportMenu}
+        onClose={() => setExportMenu(null)}
+        width={268}
+        sections={[
+          {
+            title: "Excel",
+            items: [
+              { label: `${monthLabel(month)}, formatted`, onSelect: exportExcelMonth },
+              { label: "Every month, one sheet each", onSelect: exportExcelAll },
+            ],
+          },
+          {
+            title: "CSV",
+            items: [
+              { label: "Summary, one row per person", onSelect: exportSummary },
+              { label: "Day grid, one column per day", onSelect: exportGrid },
+            ],
+          },
+        ]}
       />
 
       <LockModal open={locking} month={month} onClose={() => setLocking(false)} onDone={() => { setLocking(false); void load() }} />

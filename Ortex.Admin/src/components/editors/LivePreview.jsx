@@ -46,7 +46,7 @@ export default function LivePreview({ doc, settings, type, onOpen }) {
         )}
       </div>
       <div className="bg-muted p-3">
-        <div ref={wrapRef} className="relative overflow-hidden rounded-md shadow-md" style={{ height: height || undefined }}>
+        <div ref={wrapRef} className="relative overflow-hidden rounded-md" style={{ height: height || undefined }}>
           <div style={{ width: SHEET_PX, transform: `scale(${scale})`, transformOrigin: "top left" }}>
             <DocumentSheet ref={sheetRef} doc={doc} settings={settings} type={type} className="!m-0 !shadow-none" />
           </div>
