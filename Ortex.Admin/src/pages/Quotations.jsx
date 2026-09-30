@@ -691,7 +691,7 @@ function QuotationEditor({ draft, products, customers, enquiries, quotations, in
                 </label>
               </Box>
 
-              <Box title="Line items" sub="Pick a product to fill HSN, rate and GST.">
+              <Box title="Line items" sub="Pick a product to fill HSN, rate and GST, or type a name to quote something that is not in the catalogue.">
                 <LineItemsEditor
                   lines={form.lines}
                   onChange={(lines) => set({ lines })}

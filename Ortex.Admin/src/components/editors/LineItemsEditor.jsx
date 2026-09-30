@@ -25,15 +25,29 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
   const pickProduct = (i, productId) => {
     const p = products.find((x) => x.id === productId)
     if (!p) return update(i, { productId: null })
+    const line = lines[i]
+    // The description is the sentence that PRINTS, so a product is only allowed
+    // to write it when there is nothing there to lose: an empty field, or the
+    // name of the product that was picked a moment ago and has now been swapped.
+    // Anything typed by hand survives picking, re-picking and correcting the
+    // product. HSN, rate and GST are the catalogue's to state, so they are
+    // copied every time.
+    const previous = products.find((x) => x.id === line.productId)
+    const untouched = !line.description?.trim() || line.description.trim() === previous?.name?.trim()
     update(i, {
       productId: p.id,
-      description: p.name,
+      description: untouched ? p.name : line.description,
       hsn: p.hsn,
       rate: p.basePrice,
       gstRate: p.gstRate,
-      quantity: lines[i].quantity < p.moq ? p.moq : lines[i].quantity,
+      quantity: line.quantity < p.moq ? p.moq : line.quantity,
     })
   }
+
+  // A line that is not a catalogue product: the typed name becomes the
+  // description and the rest of the line is left where it is, so a rate already
+  // keyed in is not wiped by renaming what it is for.
+  const customItem = (i, text) => update(i, { productId: null, description: text })
 
   const cell = "h-8 px-2 text-[13px] shadow-none"
   // No browser spinner arrows: in a 70px cell they hide the number itself.
@@ -63,7 +77,7 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
             {lines.length === 0 && (
               <tr>
                 <td colSpan={9} className="px-3 py-8 text-center text-[13px] text-muted-foreground">
-                  No items yet. Add a line to get started.
+                  No items yet. Add a line, then pick a product or type your own item name.
                 </td>
               </tr>
             )}
@@ -76,8 +90,27 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
                   <td colSpan={8} className="px-2 pb-1.5 pt-2.5">
                     <div className="flex flex-col gap-1.5 sm:flex-row">
                     <div className="min-w-0 sm:w-[45%]">
-                    <Select searchable searchPlaceholder="Search products, SKU or category" value={line.productId || ""} onChange={(e) => pickProduct(i, e.target.value)} className={cn(cell, "pr-8")}>
-                      <option value="">Custom item…</option>
+                    <Select
+                      searchable
+                      searchPlaceholder="Search the catalogue, or type a new item name"
+                      value={line.productId || ""}
+                      onChange={(e) => pickProduct(i, e.target.value)}
+                      /* Closed, the control says what the line IS: the product,
+                         or the name typed for a one-off. "Custom item…" is the
+                         empty state and the way back to it, not a label to sit
+                         under while a name is already written. */
+                      valueLabel={line.productId ? "" : line.description}
+                      placeholder="Type or pick a product"
+                      /* Not everything quoted is in the catalogue: a one-off
+                         job, a custom size. Searching for it and finding
+                         nothing is where the name is already typed, so that
+                         is where it becomes the line's description, exactly
+                         as the phone app's item sheet does it. */
+                      onCreate={(text) => customItem(i, text)}
+                      createLabel={(text) => `Custom item "${text}"`}
+                      className={cn(cell, "pr-8")}
+                    >
+                      <option value="">Custom item (not in the catalogue)</option>
                       {products
                         .filter((p) => p.status !== "archived")
                         .map((p) => (
