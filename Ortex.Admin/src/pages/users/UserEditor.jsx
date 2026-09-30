@@ -185,7 +185,7 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
               <ShieldCheck className="h-4 w-4 text-primary" />
               {isSuperAdmin(role)
                 ? "The Super Admin has access to everything."
-                : "Admins have access to every module except the Super Admin's settings."}
+                : "Admins open every module the Super Admin has not taken off the Admin role. The Super Admin sets this, and any extra for one Admin, on the Modules page."}
             </p>
           ) : (
             <div className="space-y-3">
@@ -213,7 +213,7 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
                             type="checkbox"
                             className="h-4 w-4 shrink-0 rounded border-border accent-primary"
                             checked={effective.includes(m.key)}
-                            // Granted by the role: changed on Roles & permissions, for everyone in it.
+                            // Granted by the role: changed on Modules → Roles, for everyone in it.
                             disabled={roleGrants.includes(m.key)}
                             onChange={() => toggleModule(m.key)}
                           />
@@ -231,7 +231,7 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
           {!isAdmin(role) && (
             <p className="mt-1.5 text-xs text-muted-foreground">
               Dashboard and their own attendance are always available. Locked ticks come from the {roleLabel(role)} role
-              and are changed for everyone in it under Users → Roles &amp; permissions; the others are extras for this
+              and are changed for everyone in it under Modules → Roles; the others are extras for this
               person only. {effective.length ? `Can open: ${effective.map(moduleLabel).join(", ")}.` : "No other sections."}
             </p>
           )}

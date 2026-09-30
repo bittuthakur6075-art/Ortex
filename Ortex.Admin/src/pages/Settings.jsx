@@ -29,7 +29,7 @@ import { syncIndiaMart } from "../services/integrations"
 import { GST_RATES } from "../data/domain/schema"
 import { GST_STATES, stateLabel } from "../lib/gstStates"
 import PasswordCard from "../components/ui/PasswordCard"
-import { Button, Input, Select, Textarea, PageLoader } from "../components/ui/Ui"
+import { Button, Input, Select, Switch, Textarea, PageLoader } from "../components/ui/Ui"
 import { cn } from "../lib/cn"
 
 // Settings (Figma "V3 · Settings"): a section menu on the left, one section at
@@ -53,7 +53,7 @@ const ELSEWHERE = [
   { label: "Attendance rules", to: "/attendance?tab=settings" },
   { label: "Payroll settings", to: "/payroll?tab=settings" },
   { label: "Anu team bot", to: "/chat" },
-  { label: "Roles and permissions", to: "/users?tab=roles" },
+  { label: "Modules and role access", to: "/modules" },
 ]
 
 const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/
@@ -255,21 +255,6 @@ function Row({ label, hint, children }) {
       </div>
       <div className="min-w-0 flex-1">{children}</div>
     </div>
-  )
-}
-
-function Switch({ checked, onChange, label }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={() => onChange(!checked)}
-      className={cn("relative h-6 w-10 flex-none rounded-full transition-colors", checked ? "bg-primary" : "bg-subtle-foreground/40")}
-    >
-      <span className={cn("absolute left-0 top-0.5 h-5 w-5 rounded-full bg-card transition-transform", checked ? "translate-x-[18px]" : "translate-x-0.5")} />
-    </button>
   )
 }
 

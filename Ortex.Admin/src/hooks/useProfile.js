@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { reloadRolePermissions, useRolePermissions } from "./useRolePermissions"
+import { reloadModuleControls, useModuleControls } from "./useModuleControls"
 import { supabase, hasSupabase } from "../data/store/supabaseClient"
 import { useAuth, currentUserId } from "../lib/auth"
 import { ALL_MODULE_KEYS } from "../data/domain/modules"
@@ -58,13 +59,21 @@ export function useProfile() {
   // everyone in that role without a reload. Until the table is readable,
   // roleModules stays unset and canAccess() uses DEFAULT_ROLE_MODULES.
   const { grants, ready } = useRolePermissions()
+  // The Super Admin's switches on the Modules page (migration 0053), for
+  // everyone Admins included, so canAccess() can honour them.
+  const { controls } = useModuleControls()
   // A read made before sign-in was refused by RLS; read again as this person.
   const profileId = profile?.id
   useEffect(() => {
-    if (profileId) void reloadRolePermissions()
+    if (profileId) {
+      void reloadRolePermissions()
+      void reloadModuleControls()
+    }
   }, [profileId])
   return useMemo(() => {
-    if (!profile || isAdmin(profile) || !ready) return profile
-    return { ...profile, roleModules: grants[profile.role] || [] }
-  }, [profile, grants, ready])
+    if (!profile) return profile
+    const withControls = { ...profile, moduleControls: controls }
+    if (isAdmin(profile) || !ready) return withControls
+    return { ...withControls, roleModules: grants[profile.role] || [] }
+  }, [profile, grants, ready, controls])
 }

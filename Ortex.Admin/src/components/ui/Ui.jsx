@@ -1,6 +1,6 @@
 import { Children, isValidElement, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { X, ArrowUpDown, ArrowDownLeft, CheckCircle2, Loader2, Search, Download } from "./Icons"
+import { X, ArrowUpDown, ArrowDownLeft, CheckCircle2, Loader2, Search, Download, Pencil } from "./Icons"
 import { cn } from "../../lib/cn"
 import { statusMeta } from "../../data/domain/schema"
 import { initials, formatCurrency } from "../../lib/format"
@@ -295,7 +295,16 @@ export function Textarea({ className, ai, ...props }) {
 // scroll containers (the line-items grid, drawers) that would clip the popup.
 // `searchable` adds a type-to-filter box at the top of the list; an <option>
 // may carry `data-search` with extra words to match (a SKU, a category).
-export function Select({ className, children, value, onChange, disabled, placeholder, searchable = false, searchPlaceholder = "Search", ...props }) {
+// `onCreate(text)` makes the search box an entry field as well: what was typed
+// and matches nothing can be taken as it stands. The phone app's item picker has
+// always worked this way, and without it a name that is not in the list gets
+// typed once to search, found missing, then typed again somewhere else.
+// `createLabel(text)` words that row.
+// `valueLabel` is what the closed control reads when nothing in the list is
+// selected: a name that was typed rather than picked. Without it a custom entry
+// leaves the control saying "Custom item…" while the name sits in the field
+// beside it, and the control looks like it never took the entry.
+export function Select({ className, children, value, onChange, disabled, placeholder, searchable = false, searchPlaceholder = "Search", onCreate, createLabel, valueLabel, ...props }) {
   const all = useMemo(() => collectOptions(children), [children])
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -376,11 +385,29 @@ export function Select({ className, children, value, onChange, disabled, placeho
     else if (ev.key === "ArrowDown") { ev.preventDefault(); step(1) }
     else if (ev.key === "ArrowUp") { ev.preventDefault(); step(-1) }
     else if (ev.key === "Home") { ev.preventDefault(); setHighlight(options.findIndex((o) => !o.disabled)) }
-    else if (ev.key === "Enter" || (ev.key === " " && !searchable)) { ev.preventDefault(); commit(options[highlight] ?? (q ? options[0] : selected)) }
+    else if (ev.key === "Enter" || (ev.key === " " && !searchable)) {
+      ev.preventDefault()
+      // Type a name nothing matches and press Enter: that takes the name,
+      // rather than doing nothing at all.
+      const hit = options[highlight] ?? (q ? options[0] : selected)
+      if (!hit && canCreate) create()
+      else commit(hit)
+    }
     else if (ev.key === "Tab") setOpen(false)
   }
 
-  const label = selected ? selected.label : placeholder || ""
+  const label = selected ? selected.label : valueLabel || placeholder || ""
+
+  // Offered only once something is typed, and never when the list already holds
+  // that exact name: two rows carrying the same word, one of which quietly drops
+  // the catalogue link, is a trap rather than a shortcut.
+  const typed = query.trim()
+  const canCreate = Boolean(onCreate && searchable && typed && !all.some((o) => o.label.trim().toLowerCase() === typed.toLowerCase()))
+  const create = () => {
+    setOpen(false)
+    triggerRef.current?.focus()
+    onCreate(typed)
+  }
 
   return (
     <>
@@ -396,7 +423,7 @@ export function Select({ className, children, value, onChange, disabled, placeho
         className={cn(CONTROL, "flex cursor-pointer items-center justify-between gap-2 pr-3 text-left", open && "border-ring ring-2 ring-ring/30", className)}
         {...props}
       >
-        <span className={cn("truncate", !selected && "text-subtle-foreground")}>{label}</span>
+        <span className={cn("truncate", !selected && !valueLabel && "text-subtle-foreground")}>{label}</span>
         <ArrowDownLeft variant="Linear" className={cn("h-4 w-4 flex-none text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>
 
@@ -432,7 +459,17 @@ export function Select({ className, children, value, onChange, disabled, placeho
               </label>
             </div>
           )}
-          {options.length === 0 && <p className="px-3 py-2 text-[13px] text-muted-foreground">{q ? `Nothing matches "${query.trim()}"` : "No options"}</p>}
+          {canCreate && (
+            <button
+              type="button"
+              onClick={create}
+              className="squircle mb-1 flex w-full items-center gap-2 rounded-[12px] px-3 py-2 text-left text-[13px] font-medium text-primary transition-colors hover:bg-primary/5"
+            >
+              <Pencil variant="Linear" className="h-4 w-4 flex-none" />
+              <span className="truncate">{createLabel ? createLabel(typed) : `Use "${typed}"`}</span>
+            </button>
+          )}
+          {options.length === 0 && !canCreate && <p className="px-3 py-2 text-[13px] text-muted-foreground">{q ? `Nothing matches "${query.trim()}"` : "No options"}</p>}
           {options.map((o, i) => {
             const isSelected = String(o.value) === String(value ?? "")
             return (
@@ -836,6 +873,26 @@ export function Tabs({ items, value, onChange, className }) {
         )
       })}
     </div>
+  )
+}
+
+// On/off switch for a setting that saves as one flag.
+export function Switch({ checked, onChange, label, disabled }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative h-6 w-10 flex-none rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        checked ? "bg-primary" : "bg-subtle-foreground/40",
+      )}
+    >
+      <span className={cn("absolute left-0 top-0.5 h-5 w-5 rounded-full bg-card transition-transform", checked ? "translate-x-[18px]" : "translate-x-0.5")} />
+    </button>
   )
 }
 

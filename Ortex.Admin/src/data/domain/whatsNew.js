@@ -10,6 +10,30 @@
 
 export const RELEASES = [
   {
+    id: "1.50.0",
+    version: "1.50.0",
+    date: "2026-09-30",
+    title: "One place for who opens what",
+    items: [
+      {
+        kind: "new",
+        title: "Modules page for the Super Admin",
+        detail:
+          "Admin, Modules brings module access together: switch a module off for the whole company, see who can open each one and why, and tick access for many people at once.",
+      },
+      {
+        kind: "new",
+        title: "Choose what Admins open",
+        detail: "On Modules, Roles, the Admin column can now be unticked, so Admins stop reaching a module unless you give it to one of them on the People tab.",
+      },
+      {
+        kind: "improved",
+        title: "Roles and permissions moved",
+        detail: "What each role can open is now on the Modules page instead of Users. Old links still land in the right place.",
+      },
+    ],
+  },
+  {
     id: "1.49.1",
     version: "1.49.1",
     date: "2026-09-30",

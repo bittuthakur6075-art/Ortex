@@ -1,8 +1,9 @@
 // Per-user module access and the five roles.
 //
 // PORT OF Ortex.Admin/src/data/domain/modules.js + lib/roles.js. `profiles.modules`
-// is written by the console's Users page and a role's grants by the Super Admin's
-// Roles & permissions screen (`role_permissions`, migration 0032), so the check has
+// is written by the console's Users page, a role's grants and the module switches
+// by the Super Admin's Modules page (`role_permissions`, migration 0032, and
+// `module_controls`, migration 0053), so the check has
 // to agree exactly with the console and with has_module_access() in the database:
 // a mobile copy that drifts would either hide a tab a user was granted or, worse,
 // show one they were not. (Until 2026-09-19 this file returned `Boolean(profile)`,
@@ -20,6 +21,12 @@ export type Profile = {
    * start still draws the right tabs. Absent for admins, who need none.
    */
   roleModules?: string[]
+  /**
+   * The Super Admin's per-module switches (`module_controls`, migration 0053,
+   * the console's Modules page), read with the profile. A key with no entry is
+   * on, and every Admin reaches it.
+   */
+  moduleControls?: Record<string, ModuleControl>
   name?: string
   email?: string
   active?: boolean
@@ -34,6 +41,8 @@ export type Profile = {
    */
   quotation_defaults?: { paymentTerms?: string | null; terms?: string | null; notes?: string | null } | null
 }
+
+export type ModuleControl = { enabled: boolean; adminAccess: boolean }
 
 export type ModuleKey =
   | "dashboard"
@@ -68,6 +77,8 @@ export type ModuleDef = {
   superAdminOnly?: boolean
   /** The Super Admin, and whoever holds the `payroll` grant (is_payroll(), 0040). Not every Admin. */
   payrollOnly?: boolean
+  /** An Admin reaches it only when it is ticked on their own profile (attendance_qr_issuer(), 0043). */
+  adminByGrant?: boolean
 }
 
 export const MODULES: ModuleDef[] = [
@@ -83,7 +94,7 @@ export const MODULES: ModuleDef[] = [
   { key: "attendance-register", label: "Attendance · Register & payroll" },
   // Shown on the console only (the QR display is a web screen), but the key
   // lives here too because this file mirrors the console registry.
-  { key: "attendance-qr", label: "Attendance · Show the QR code" },
+  { key: "attendance-qr", label: "Attendance · Show the QR code", adminByGrant: true },
   { key: "payroll", label: "Payroll", payrollOnly: true },
   { key: "payslips", label: "My payslips", always: true },
   { key: "voice-leads", label: "Voice calls" },
@@ -129,20 +140,33 @@ export function roleModulesOf(profile: Profile | null | undefined): string[] {
   return DEFAULT_ROLE_MODULES[profile.role as keyof typeof DEFAULT_ROLE_MODULES] || []
 }
 
+const OPEN: ModuleControl = { enabled: true, adminAccess: true }
+
+/** The Super Admin's switches for one module; no entry means on, Admins included. */
+export function moduleControl(profile: Profile | null | undefined, key: string): ModuleControl {
+  const c = profile?.moduleControls?.[key]
+  return c ? { enabled: c.enabled !== false, adminAccess: c.adminAccess !== false } : OPEN
+}
+
 // Can this profile reach the given module? The same rule as the console's
-// canAccess and the database's has_module_access().
+// canAccess and the database's has_module_access() (migrations 0032, 0053).
 export function canAccess(profile: Profile | null | undefined, key: ModuleKey): boolean {
   if (!profile) return false
   if (profile.active === false) return false
   const m = MODULES.find((x) => x.key === key)
   if (m?.always) return true
-  if (m?.superAdminOnly) return isSuperAdmin(profile)
+  if (isSuperAdmin(profile)) return true
+  if (m?.superAdminOnly) return false
+  // Switched off for the whole company on the console's Modules page.
+  const control = moduleControl(profile, key)
+  if (!control.enabled) return false
+  const granted = (profile.modules || []).includes(key) || roleModulesOf(profile).includes(key)
   // Payroll is checked before the admin shortcut: salaries are not everything
   // an Admin sees, only the Super Admin's and whoever is granted it.
-  if (m?.payrollOnly) return isSuperAdmin(profile) || (profile.modules || []).includes(key) || roleModulesOf(profile).includes(key)
-  if (isAdmin(profile)) return true
+  if (m?.payrollOnly) return granted
+  if (isAdmin(profile)) return Boolean(m?.adminOnly || m?.adminByGrant || control.adminAccess || granted)
   if (m?.adminOnly) return false
-  return (profile.modules || []).includes(key) || roleModulesOf(profile).includes(key)
+  return granted
 }
 
 export const ROLE_LABEL: Record<string, string> = {

@@ -6,7 +6,8 @@ import { EditorHeader, Section, Tile, Tiles } from "../../components/editors/Doc
 import { Clock, FileText, Pencil, ShieldCheck, Users as UsersIcon } from "../../components/ui/Icons"
 import { formatDateTime, relativeTime } from "../../lib/format"
 import { isAdmin, isSuperAdmin, moduleLabel, roleLabel, ROLE_TONE } from "../../lib/roles"
-import { grantedModules } from "../../data/domain/modules"
+import { ALL_MODULE_KEYS, reachableModules } from "../../data/domain/modules"
+import { useModuleControls } from "../../hooks/useModuleControls"
 import { useRolePermissions } from "../../hooks/useRolePermissions"
 import { currentUserId } from "../../lib/auth"
 import { getProfile } from "../../services/users"
@@ -92,6 +93,7 @@ export default function UserDetail() {
   }, [entries])
 
   const { grants } = useRolePermissions()
+  const { controls } = useModuleControls()
 
   if (user === undefined) return <PageLoader />
 
@@ -106,7 +108,8 @@ export default function UserDetail() {
     )
   }
 
-  const modules = isAdmin(user) ? [] : grantedModules({ ...user, roleModules: grants[user.role] })
+  const modules = reachableModules(user, grants, controls)
+  const everything = isSuperAdmin(user) || (isAdmin(user) && modules.length === ALL_MODULE_KEYS.length)
   const shown = entries.slice(0, visible)
 
   return (
@@ -169,7 +172,7 @@ export default function UserDetail() {
 
           <div className="mt-5">
             <span className="text-xs font-semibold uppercase tracking-wide text-subtle-foreground">Module access</span>
-            {isAdmin(user) ? (
+            {everything ? (
               <p className="mt-2 flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2.5 text-[13px] text-muted-foreground">
                 <ShieldCheck className="h-4 w-4 text-primary" />
                 {isSuperAdmin(user) ? "Everything, including the Super Admin's settings." : "Every module, by role."}

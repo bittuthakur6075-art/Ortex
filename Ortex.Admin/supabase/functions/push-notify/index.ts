@@ -100,10 +100,20 @@ Deno.serve(async (req) => {
 
   // Who may see it.
   const module = voice ? "voice-leads" : "enquiries"
-  // has_module_access(), in TS: admins reach everything; everyone else gets
-  // their role's grants (migration 0032, role_permissions) plus their own extras.
+  // has_module_access(), in TS: the Super Admin reaches everything; while the
+  // module is switched on (migration 0053, module_controls), Admins reach it
+  // unless it was taken off the Admin role, and everyone gets their role's
+  // grants (migration 0032, role_permissions) plus their own extras.
   const { data: people } = await db.from("profiles").select("id, role, modules, active")
   const { data: grants } = await db.from("role_permissions").select("role, modules")
+  // Missing table (0053 not pushed) or no row: on, Admins included.
+  const { data: control } = await db
+    .from("module_controls")
+    .select("enabled, admin_access")
+    .eq("key", module)
+    .maybeSingle()
+  const enabled = control?.enabled !== false
+  const adminAccess = control?.admin_access !== false
   const byRole = new Map<string, string[]>(
     (grants || []).map((g: Doc) => [g.role as string, Array.isArray(g.modules) ? g.modules : []]),
   )
@@ -111,10 +121,11 @@ Deno.serve(async (req) => {
     .filter((p: Doc) => p.active !== false)
     .filter(
       (p: Doc) =>
-        p.role === "admin" ||
         p.role === "super_admin" ||
-        (Array.isArray(p.modules) && p.modules.includes(module)) ||
-        (byRole.get(p.role) || []).includes(module),
+        (enabled &&
+          ((p.role === "admin" && adminAccess) ||
+            (Array.isArray(p.modules) && p.modules.includes(module)) ||
+            (byRole.get(p.role) || []).includes(module))),
     )
     .map((p: Doc) => p.id as string)
   if (!allowed.length) return json({ skipped: "nobody has access" })

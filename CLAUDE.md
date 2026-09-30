@@ -44,11 +44,11 @@ Never run destructive SQL, a test write or a bulk import against it casually.
 
 ## Roles and access (applies to every client)
 
-Five roles: `super_admin`, `admin`, `accounts`, `sales`, `staff` (migration 0032). **Never write `role === "admin"`**: use `isAdmin()` (true for admin and super_admin) or the Super Admin loses access. Exactly one Super Admin (`louis.sharma37@gmail.com`), protected by triggers; the role moves only through `transfer_super_admin()`. A person's modules = their role's grants (`role_permissions`, edited by the Super Admin) plus their own `profiles.modules`. The same union is in `has_module_access()` (SQL), `canAccess()` (both clients) and `push-notify`. Payroll is NOT implied by admin: `is_payroll()` = Super Admin or the `payroll` grant.
+Five roles: `super_admin`, `admin`, `accounts`, `sales`, `staff` (migration 0032). **Never write `role === "admin"`**: use `isAdmin()` (true for admin and super_admin) or the Super Admin loses access. Exactly one Super Admin (`louis.sharma37@gmail.com`), protected by triggers; the role moves only through `transfer_super_admin()`. A person's modules = their role's grants (`role_permissions`) plus their own `profiles.modules`, gated by `module_controls` (migration 0053): a module switched off reaches only the Super Admin, and one with `admin_access = false` reaches an Admin only through their own tick. All three are edited by the Super Admin on the console's Modules page (`/modules`). The same rule is in `has_module_access()` (SQL), `canAccess()` (both clients) and `push-notify`. Payroll is NOT implied by admin: `is_payroll()` = Super Admin or the `payroll` grant.
 
 Security lives in the database (RLS, security-definer RPCs, triggers). A client-side role check is the second line of defence, never the only one. Migration 0050 (security audit, 2026-09-26) closed the places where the database allowed more than the console shows:
 
-* `audit_log` rows are readable per module (`audit_can_read(table)`: admins, or whoever may open that table's module). It stores full docs, so a blanket staff read would leak invoices and customers.
+* `audit_log` rows are readable per module (`audit_can_read(table)`: whoever may open that table's module, Admins included since 0053; tables with no module, admins). It stores full docs, so a blanket staff read would leak invoices and customers.
 * `profiles`: admins UPDATE; only the Super Admin (or the service role in `admin-create-user` / `admin-manage-user`) INSERTs or DELETEs.
 * `settings`: admins read, only the Super Admin writes. Website analytics (`user_activities`, `event_logs`): admins only.
 * Anonymous inserts are bounded (enquiries 32 KB with field limits, analytics 8 KB), and an anonymous enquiry never fills a customer's GSTIN, state code or address.
@@ -58,7 +58,7 @@ Security lives in the database (RLS, security-definer RPCs, triggers). A client-
 
 ## Database migration status
 
-**Every migration up to 0052 is applied in production** (0052 pushed 2026-09-27; 0041 and 0044 had been missed until 2026-09-23 and went in with 0045). Check with `supabase migration list` before assuming; `db push` skips a migration already recorded even if its objects were later deleted (this happened with the `product-images` bucket).
+**Every migration up to 0054 is applied in production** (0053 module switches and 0054 staff catalogue read-only pushed 2026-09-30; 0041 and 0044 had been missed until 2026-09-23 and went in with 0045). Staff's `products` grant (`role_permissions`) was added on 2026-09-30 only so phones on Mobile 1.8.0 get a second tab; remove it once every phone runs 1.8.1. Check with `supabase migration list` before assuming; `db push` skips a migration already recorded even if its objects were later deleted (this happened with the `product-images` bucket).
 
 * Anu in Team chat uses NO language model (the `anu-chat` function was deleted 2026-09-23); pg_cron job `anu-bot-tick` runs every 5 minutes. The CLI is linked to project `pfoeztiakqtemakfgpgs`; on Windows PowerShell call it as `npx.cmd supabase ...` (script execution is disabled).
 * `0031` push devices (and 0047, chat messages to closed phones): applied, but remote push stays inert until the Firebase files and the Vault/function secrets in `docs/guides/PUSH_SETUP.md` exist.

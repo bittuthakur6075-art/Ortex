@@ -1,42 +1,31 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 import { Plus, Users as UsersIcon } from "../components/ui/Icons"
-import { Avatar, Button, Card, CardHeader, Badge, PageLoader, EmptyState, SortTh, Tabs } from "../components/ui/Ui"
+import { Avatar, Button, Card, CardHeader, Badge, PageLoader, EmptyState, SortTh } from "../components/ui/Ui"
 import { listProfiles } from "../services/users"
 import { useSorting } from "../hooks/useCollection"
 import { currentUserId } from "../lib/auth"
 import { canManageUser, isAdmin, isSuperAdmin, roleLabel, ROLE_TONE } from "../lib/roles"
-import { grantedModules } from "../data/domain/modules"
+import { ALL_MODULE_KEYS, reachableModules } from "../data/domain/modules"
 import { useProfile } from "../hooks/useProfile"
 import { useRolePermissions } from "../hooks/useRolePermissions"
-import RolePermissions from "./users/RolePermissions"
+import { useModuleControls } from "../hooks/useModuleControls"
 import RowActions from "./users/RowActions"
 import UserEditor from "./users/UserEditor"
 
-// Two tabs: the people, and (Super Admin) what each role may open.
+// The people. What each role may open moved to the Super Admin's Modules page
+// (/modules); the old ?tab=roles link lands there.
 export default function Users() {
-  const [params, setParams] = useSearchParams()
-  const tab = params.get("tab") === "roles" ? "roles" : "people"
-  const viewer = useProfile()
-  return (
-    <div className="space-y-5">
-      <Tabs
-        items={[
-          { value: "people", label: "People" },
-          { value: "roles", label: "Roles & permissions" },
-        ]}
-        value={tab}
-        onChange={(v) => setParams(v === "people" ? {} : { tab: v }, { replace: true })}
-      />
-      {tab === "roles" ? <RolePermissions editable={isSuperAdmin(viewer)} /> : <People />}
-    </div>
-  )
+  const [params] = useSearchParams()
+  if (params.get("tab") === "roles") return <Navigate to="/modules?tab=roles" replace />
+  return <People />
 }
 
 function People() {
   const viewer = useProfile()
   const { grants } = useRolePermissions()
+  const { controls } = useModuleControls()
   const [rows, setRows] = useState(null)
   const [editing, setEditing] = useState(null) // profile object or "new"
   const navigate = useNavigate()
@@ -52,7 +41,7 @@ function People() {
     // what the column actually says, with admins (who hold everything) on top.
     const valueOf = (row) => {
       if (key !== "modules") return row[key]
-      return isAdmin(row) ? Number.MAX_SAFE_INTEGER : grantedModules({ ...row, roleModules: grants[row.role] }).length
+      return isSuperAdmin(row) ? Number.MAX_SAFE_INTEGER : reachableModules(row, grants, controls).length
     }
     const sorted = [...rows].sort((a, b) => {
       let valA = valueOf(a)
@@ -64,7 +53,7 @@ function People() {
       return valA - valB
     })
     return desc ? sorted.reverse() : sorted
-  }, [rows, sort, grants])
+  }, [rows, sort, grants, controls])
 
   const load = useCallback(async () => {
     try {
@@ -123,8 +112,9 @@ function People() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {(() => {
-                        if (isAdmin(p)) return isSuperAdmin(p) ? "Everything" : "All modules"
-                        const n = grantedModules({ ...p, roleModules: grants[p.role] }).length
+                        if (isSuperAdmin(p)) return "Everything"
+                        const n = reachableModules(p, grants, controls).length
+                        if (isAdmin(p) && n === ALL_MODULE_KEYS.length) return "All modules"
                         return `${n} module${n === 1 ? "" : "s"}`
                       })()}
                     </td>

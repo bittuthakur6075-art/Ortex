@@ -23,6 +23,7 @@ import {
   Plus,
   ArrowDownLeft,
   Wallet,
+  LayoutGrid,
 } from "../ui/Icons"
 import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
 import { useProfile } from "../../hooks/useProfile"
@@ -78,7 +79,13 @@ const SECTIONS = [
   },
   // One hub for attendance, leave, payslips and payroll. Insights opens from the Dashboard.
   { section: "People", items: [{ to: "/attendance", key: "attendance", label: "Attendance & pay", icon: CalendarClock }] },
-  { section: "Admin", items: [{ to: "/users", key: "users", label: "Users", icon: UserTag }] },
+  {
+    section: "Admin",
+    items: [
+      { to: "/users", key: "users", label: "Users", icon: UserTag },
+      { to: "/modules", key: "modules", label: "Modules", icon: LayoutGrid },
+    ],
+  },
 ]
 const SETTINGS_ITEM = { to: "/settings", key: "settings", label: "Settings", icon: Settings }
 // Not in the sidebar, but still found by search (Ctrl K).

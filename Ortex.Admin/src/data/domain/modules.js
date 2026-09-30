@@ -1,5 +1,5 @@
 // Single source of truth for the app's modules. Drives the sidebar nav, the
-// Roles & permissions matrix, the per-user extras checklist, and the route
+// Modules page (pages/Modules.jsx), the per-user extras checklist, and the route
 // guards. `key` is what gets stored in role_permissions.modules and in each
 // profile's own `modules` list. Mirrored by Ortex.Mobile/src/domain/modules.ts.
 //
@@ -8,8 +8,14 @@
 //  - adminOnly:      the Super Admin and Admins; never grantable
 //  - payrollOnly:    the Super Admin, and whoever holds the payroll grant
 //                    (is_payroll(), migration 0040); NOT every Admin
+//  - adminByGrant:   an Admin shows it only when it is ticked on their own
+//                    profile (attendance_qr_issuer(), migration 0043)
 //  - otherwise:      granted to a ROLE by the Super Admin (role_permissions,
 //                    migration 0032), plus any extras ticked on one person
+//
+// On top of that the Super Admin's Modules page (migration 0053,
+// module_controls) can switch a grantable module off for the whole company, or
+// stop Admins reaching it automatically. See moduleControl() below.
 
 import { isAdmin, isSuperAdmin } from "../../lib/roles"
 
@@ -35,12 +41,14 @@ export const MODULES = [
   // The rotating QR code staff scan to mark attendance (migration 0043).
   // Granting it to someone who is not an admin does nothing: the database's
   // attendance_qr_issuer() wants the Super Admin, or an admin holding this key.
-  { key: "attendance-qr", path: "/attendance?tab=qr", label: "Attendance · Show the QR code", section: "People" },
+  { key: "attendance-qr", path: "/attendance?tab=qr", label: "Attendance · Show the QR code", section: "People", adminByGrant: true },
   // Payroll (docs/pm/PAYROLL_PLAN.md, modelled on Zoho Payroll).
   { key: "payroll", path: "/attendance?tab=payroll", label: "Payroll", section: "People", payrollOnly: true },
   { key: "payslips", path: "/attendance?tab=payslips", label: "My payslips", section: "People", always: true },
   { key: "users", path: "/users", label: "Users", section: "System", adminOnly: true },
   { key: "settings", path: "/settings", label: "Settings", section: "System", superAdminOnly: true },
+  // The Super Admin's one place for who opens what (pages/Modules.jsx).
+  { key: "modules", path: "/modules", label: "Modules", section: "System", superAdminOnly: true },
   { key: "social", path: "/social", label: "Marketing", section: "Automation" },
   { key: "telecaller", path: "/telecaller", label: "Call agent", section: "Automation" },
   { key: "growth", path: "/insights?tab=growth", label: "Insights · Funnel", section: "Automation", adminOnly: true },
@@ -75,17 +83,53 @@ export function grantedModules(profile) {
   return [...new Set([...role, ...own])]
 }
 
+/**
+ * Whether the Super Admin can stop Admins reaching this module automatically.
+ * Payroll and the QR code never come with the Admin role, so the Modules page
+ * does not offer the switch for them.
+ */
+export const adminAccessConfigurable = (m) => !m.payrollOnly && !m.adminByGrant
+
+const OPEN = Object.freeze({ enabled: true, adminAccess: true })
+
+/**
+ * The Super Admin's switches for one module (module_controls, migration 0053),
+ * attached to a profile as `moduleControls` by useProfile. No row means on, and
+ * every Admin reaches it: the state before 0053.
+ */
+export function moduleControl(profile, key) {
+  const c = profile?.moduleControls?.[key]
+  return c ? { enabled: c.enabled !== false, adminAccess: c.adminAccess !== false } : OPEN
+}
+
+/**
+ * The grantable modules SOMEONE ELSE can open, for the Users list and the
+ * Modules page: `roleGrants` is useRolePermissions().grants and `controls` is
+ * useModuleControls().controls.
+ */
+export function reachableModules(person, roleGrants, controls) {
+  if (!person) return []
+  const p = { ...person, roleModules: isAdmin(person) ? undefined : roleGrants?.[person.role], moduleControls: controls }
+  return ASSIGNABLE_MODULES.filter((m) => canAccess(p, m.key)).map((m) => m.key)
+}
+
 // Can this profile reach the given module? The same rule as has_module_access()
-// in the database (migration 0032), so a hidden page is also a refused query.
+// in the database (migrations 0032 and 0053), so a hidden page is also a
+// refused query.
 export function canAccess(profile, key) {
   if (!profile || profile.active === false) return false
   const m = MODULES.find((x) => x.key === key)
   if (!m) return false
   if (m.always) return true
-  if (m.superAdminOnly) return isSuperAdmin(profile)
+  if (isSuperAdmin(profile)) return true
+  if (m.superAdminOnly) return false
+  // Switched off for the whole company on the Modules page: the Super Admin only.
+  const control = moduleControl(profile, key)
+  if (!control.enabled) return false
+  const granted = grantedModules(profile).includes(key)
   // Payroll before the admin shortcut: the same rule as is_payroll() (0040).
-  if (m.payrollOnly) return isSuperAdmin(profile) || grantedModules(profile).includes(key)
-  if (isAdmin(profile)) return true
+  if (m.payrollOnly) return granted
+  if (isAdmin(profile)) return Boolean(m.adminOnly || m.adminByGrant || control.adminAccess || granted)
   if (m.adminOnly) return false
-  return grantedModules(profile).includes(key)
+  return granted
 }

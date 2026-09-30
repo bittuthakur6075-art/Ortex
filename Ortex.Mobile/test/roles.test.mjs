@@ -73,3 +73,18 @@ test("every role has a label", () => {
     assert.notEqual(roleLabel(role), role)
   }
 })
+
+// Migration 0053: the Super Admin's Modules page in the console.
+test("a module switched off reaches only the Super Admin", () => {
+  const moduleControls = { quotations: { enabled: false, adminAccess: true } }
+  assert.equal(canAccess(p({ role: "sales", roleModules: ["quotations"], moduleControls }), "quotations"), false)
+  assert.equal(canAccess(p({ role: "admin", moduleControls }), "quotations"), false)
+  assert.equal(canAccess(p({ role: "super_admin", moduleControls }), "quotations"), true)
+})
+
+test("a module taken off the Admin role needs the Admin's own tick", () => {
+  const moduleControls = { invoices: { enabled: true, adminAccess: false } }
+  assert.equal(canAccess(p({ role: "admin", moduleControls }), "invoices"), false)
+  assert.equal(canAccess(p({ role: "admin", modules: ["invoices"], moduleControls }), "invoices"), true)
+  assert.equal(canAccess(p({ role: "admin", moduleControls }), "users"), true)
+})

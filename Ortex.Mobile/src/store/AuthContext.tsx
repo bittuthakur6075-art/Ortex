@@ -6,7 +6,7 @@ import { clearCache } from "@/data/cache"
 import { resetCollections } from "@/data/collectionStore"
 import { resetChat } from "@/features/chat/useChat"
 import { errorMessage, supabase } from "@/data/supabase"
-import { isAdmin, type Profile } from "@/domain/modules"
+import { isAdmin, type ModuleControl, type Profile } from "@/domain/modules"
 import { signOut as authSignOut } from "@/lib/auth"
 import { resetNotificationState } from "@/lib/notificationStore"
 import { dismissAll } from "@/lib/push"
@@ -50,6 +50,25 @@ async function readRoleModules(profile: Profile): Promise<string[] | undefined> 
     if (error || !data) return undefined
     const modules = (data as { modules?: unknown }).modules
     return Array.isArray(modules) ? modules.map(String) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The Super Admin's module switches (`module_controls`, migration 0053): a
+ * module off for the company, or taken off the Admin role. Undefined when the
+ * table cannot be read (not pushed yet, or no signal): every module stays on.
+ */
+async function readModuleControls(): Promise<Record<string, ModuleControl> | undefined> {
+  try {
+    const { data, error } = await supabase.from("module_controls").select("key, enabled, admin_access")
+    if (error || !data) return undefined
+    const out: Record<string, ModuleControl> = {}
+    for (const row of data as { key: string; enabled?: boolean; admin_access?: boolean }[]) {
+      out[row.key] = { enabled: row.enabled !== false, adminAccess: row.admin_access !== false }
+    }
+    return out
   } catch {
     return undefined
   }
@@ -139,7 +158,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // to crash — fall back to the least-privileged shape so the app renders and
     // the empty tab list makes the problem obvious.
     const base = (data as Profile) || { id: userId, role: "staff", modules: [] }
-    const next: Profile = { ...base, roleModules: await readRoleModules(base) }
+    const [roleModules, moduleControls] = await Promise.all([readRoleModules(base), readModuleControls()])
+    const next: Profile = { ...base, roleModules, moduleControls }
     setProfile(next)
     setProfileError(null)
     AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(next)).catch(() => {})
@@ -169,6 +189,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       void supabase.removeChannel(channel)
     }
   }, [userId, role, loadProfile])
+
+  // The module switches apply to every role, Admins included, so everyone
+  // follows them.
+  React.useEffect(() => {
+    if (!userId) return
+    const channel = supabase
+      .channel("ortex-module-controls")
+      .on("postgres_changes", { event: "*", schema: "public", table: "module_controls" }, () => void loadProfile())
+      .subscribe()
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [userId, loadProfile])
 
   const setBiometricEnabled = React.useCallback((on: boolean) => {
     setBiometricState(on)

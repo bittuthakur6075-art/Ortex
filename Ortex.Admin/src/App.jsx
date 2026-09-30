@@ -15,6 +15,7 @@ import Telecaller from "./pages/Telecaller"
 import Quotations from "./pages/Quotations"
 import SettingsPage from "./pages/Settings"
 import Users from "./pages/Users"
+import Modules from "./pages/Modules"
 import UserDetail from "./pages/users/UserDetail"
 import Profile from "./pages/Profile"
 import WhatsNew from "./pages/WhatsNew"
@@ -95,6 +96,7 @@ export default function App() {
           <Route path="users" element={guard("users", <Users />)} />
           <Route path="users/:id" element={guard("users", <UserDetail />)} />
           <Route path="settings" element={guard("settings", <SettingsPage />)} />
+          <Route path="modules" element={guard("modules", <Modules />)} />
           <Route path="insights" element={<HubGuard keys={INSIGHTS_MODULE_KEYS}><Insights /></HubGuard>} />
           <Route path="growth" element={<Redirect to="/insights?tab=growth" />} />
           <Route path="automation" element={<Redirect to="/insights?tab=events" />} />
