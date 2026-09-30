@@ -1,0 +1,13 @@
+# Vercel builds with the project's OWN environment variables, so no .env file
+# from this machine should ever be uploaded. Without this, a hand-run
+# `vercel deploy` sends the local .env.development along, and check-env.mjs
+# rightly refuses the build: it sees development and production naming the same
+# Supabase project. CI never hit this because a fresh checkout has no .env.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+node_modules
+dist
+dist-ssr
