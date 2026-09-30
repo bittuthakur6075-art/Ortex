@@ -1,7 +1,7 @@
 {
   "name": "ortex-admin",
   "private": true,
-  "version": "1.52.0",
+  "version": "1.53.0",
   "type": "module",
   "description": "Ortex Industries — business operations admin console (Enquiries, Products, Quotations, Invoicing, Payments).",
   "scripts": {
@@ -34,6 +34,7 @@
     "@supabase/supabase-js": "^2.110.0",
     "apexcharts": "^5.16.0",
     "clsx": "^2.1.1",
+    "exceljs": "^4.4.0",
     "fflate": "^0.8.3",
     "html2pdf.js": "^0.14.0",
     "iconsax-react": "^0.0.8",

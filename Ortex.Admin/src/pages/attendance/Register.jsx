@@ -28,6 +28,8 @@ import { exportCsv } from "../../lib/csv"
 import { durationWords, effectiveStatus, STATUS_LABEL } from "../../lib/attendance"
 import {
   getSettings,
+  overtimeByUser,
+  firstAttendanceMonth,
   listDays,
   listHolidays,
   lockedMonths,
@@ -37,7 +39,7 @@ import {
   unlockMonth,
 } from "../../services/attendance"
 import { cn } from "../../lib/cn"
-import { dayHead, dayLabel, daysOf, monthLabel, toneFor } from "./format"
+import { dayHead, dayLabel, daysOf, monthLabel, monthsBetween, toneFor } from "./format"
 import { MonthSwitcher, StatusLegend } from "./status"
 import StatusDayDrawer from "./StatusDayDrawer"
 
@@ -58,6 +60,9 @@ export default function Register() {
   const selfId = currentUserId()
   const canLock = isAdmin(viewer) || canAccess(viewer, "attendance-register")
   const superAdmin = isSuperAdmin(viewer)
+  // Overtime is an admin figure (0056): the table refuses everyone else, so the
+  // column is not rendered for them either.
+  const seesOvertime = isAdmin(viewer)
   const thisMonth = todayIST().slice(0, 7)
   const [month, setMonth] = useState(thisMonth)
   const [filter, setFilter] = useState("all")
@@ -66,6 +71,8 @@ export default function Register() {
   const [cell, setCell] = useState(null) // { userId, day }
   const [locking, setLocking] = useState(false)
   const [unlocking, setUnlocking] = useState(false)
+  const [excel, setExcel] = useState(null) // null | "month" | "all"
+  const [excelStep, setExcelStep] = useState("")
 
   const load = useCallback(async () => {
     const days = daysOf(month)
@@ -77,6 +84,9 @@ export default function Register() {
       getSettings(),
       repo.staffDirectory ? repo.staffDirectory().catch(() => ({})) : {},
     ])
+    const overtime = seesOvertime
+      ? await overtimeByUser({ from: days[0], to: days[days.length - 1] }).catch(() => ({ byUser: {} }))
+      : { byUser: {} }
     setState({
       loading: false,
       missing: summary.missing || dayRows.missing || locks.missing,
@@ -87,8 +97,9 @@ export default function Register() {
       holidays: new Set((holidays.rows || []).filter((h) => h.active && h.kind !== "optional").map((h) => h.day)),
       weeklyOff: new Set(settings.doc?.weeklyOff || [0]),
       directory: directory || {},
+      overtime: overtime.byUser || {},
     })
-  }, [month])
+  }, [month, seesOvertime])
 
   useEffect(() => {
     setState((s) => ({ ...s, loading: true }))
@@ -153,9 +164,94 @@ export default function Register() {
       { header: "Lates", value: (r) => r.lates },
       { header: "Late penalty (days)", value: (r) => Number(r.late_penalty) },
       { header: "Hours worked", value: (r) => (Number(r.worked_min) / 60).toFixed(2) },
+      ...(seesOvertime
+        ? [{ header: "Overtime hours", value: (r) => ((state.overtime?.[r.user_id] || 0) / 60).toFixed(2) }]
+        : []),
       { header: "Payable days", value: (r) => Number(r.payable) },
       { header: "Month locked", value: () => (locked ? "Yes" : "No") },
     ], state.summary || [])
+
+  // ---- Excel ---------------------------------------------------------------
+  // One sheet per month, styled, with the day grid and a legend. The month on
+  // screen is already loaded; every month is gathered here, oldest first, so
+  // the workbook reads like a ledger.
+  const monthData = async (m) => {
+    const list = daysOf(m)
+    const [summary, dayRows, holidays, ot] = await Promise.all([
+      monthSummary(m),
+      listDays({ from: list[0], to: list[list.length - 1] }),
+      listHolidays({ from: list[0], to: list[list.length - 1] }),
+      seesOvertime ? overtimeByUser({ from: list[0], to: list[list.length - 1] }) : Promise.resolve({ byUser: {} }),
+    ])
+    return {
+      month: m,
+      summary: summary.rows || [],
+      days: dayRows.rows || [],
+      dayList: list,
+      holidays: new Set((holidays.rows || []).filter((h) => h.active && h.kind !== "optional").map((h) => h.day)),
+      weeklyOff: state.weeklyOff,
+      overtime: ot.byUser || {},
+      locked: false,
+    }
+  }
+
+  const exportExcelMonth = async () => {
+    setExcel("month")
+    try {
+      const { downloadAttendanceWorkbook } = await import("../../lib/attendanceExcel")
+      await downloadAttendanceWorkbook({
+        filename: `ortex-attendance-${month}.xlsx`,
+        months: [
+          {
+            month,
+            summary: state.summary || [],
+            days: state.days || [],
+            dayList,
+            holidays: state.holidays,
+            weeklyOff: state.weeklyOff,
+            overtime: state.overtime || {},
+            locked,
+          },
+        ],
+        withOvertime: seesOvertime,
+        roleLabel,
+      })
+    } catch (e) {
+      toast.error(e.message || "Could not build the file")
+    }
+    setExcel(null)
+  }
+
+  const exportExcelAll = async () => {
+    setExcel("all")
+    try {
+      const first = await firstAttendanceMonth()
+      const list = monthsBetween(first || thisMonth, thisMonth)
+      const built = []
+      for (const m of list) {
+        setExcelStep(`${built.length + 1} of ${list.length}`)
+        const one = await monthData(m)
+        // A month nobody worked would be an empty sheet, which only makes the
+        // workbook longer to read.
+        if (one.summary.length) built.push(one)
+      }
+      if (!built.length) {
+        toast.error("There is no attendance to export yet")
+      } else {
+        const { downloadAttendanceWorkbook } = await import("../../lib/attendanceExcel")
+        await downloadAttendanceWorkbook({
+          filename: `ortex-attendance-${built[0].month}-to-${built[built.length - 1].month}.xlsx`,
+          months: built,
+          withOvertime: seesOvertime,
+          roleLabel,
+        })
+      }
+    } catch (e) {
+      toast.error(e.message || "Could not build the file")
+    }
+    setExcelStep("")
+    setExcel(null)
+  }
 
   const exportGrid = () =>
     exportCsv(
@@ -219,6 +315,12 @@ export default function Register() {
           <div className="ml-auto flex flex-wrap items-center gap-[10px]">
             <SearchInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a name" aria-label="Search a name" />
             <ToolbarButton onClick={exportGrid} disabled={!(state.summary || []).length}>Day grid CSV</ToolbarButton>
+            <ToolbarButton onClick={exportExcelMonth} disabled={excel !== null || !(state.summary || []).length}>
+              {excel === "month" ? "Building…" : "Excel, this month"}
+            </ToolbarButton>
+            <ToolbarButton onClick={exportExcelAll} disabled={excel !== null}>
+              {excel === "all" ? `Building… ${excelStep}` : "Excel, every month"}
+            </ToolbarButton>
             <ExportButton label="Export summary CSV" onClick={exportSummary} disabled={!(state.summary || []).length} />
           </div>
         </div>
@@ -241,6 +343,7 @@ export default function Register() {
                   <th className="text-right">Lates</th>
                   <th className="text-right">Penalty</th>
                   <th className="text-right">Worked</th>
+                  {seesOvertime && <th className="text-right" title="Past the shift on a working day, every worked minute on a day off. Admins only.">Overtime</th>}
                   <th className="text-right">Payable</th>
                 </tr>
               </thead>
@@ -266,6 +369,11 @@ export default function Register() {
                       <td className={cn("text-right tabular", r.lates > 0 && "text-warning-text")}>{r.lates}</td>
                       <td className="text-right tabular">{Number(r.late_penalty) || "-"}</td>
                       <td className="text-right tabular">{durationWords(Number(r.worked_min))}</td>
+                      {seesOvertime && (
+                        <td className="text-right tabular">
+                          {state.overtime?.[r.user_id] ? durationWords(state.overtime[r.user_id]) : "-"}
+                        </td>
+                      )}
                       <td className="text-right font-semibold text-foreground tabular">{Number(r.payable)}</td>
                     </tr>
                   )

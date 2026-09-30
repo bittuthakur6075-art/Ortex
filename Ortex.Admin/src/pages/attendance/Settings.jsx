@@ -433,8 +433,8 @@ function Rules() {
         {/* The check-in window (migration 0049). Check-out has none, and an open
             day resets at midnight, so there is nothing to set for it. */}
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Check-in opens at" hint="Check-out can happen any time the same day.">
-            <Input id="rule-checkin-from" type="time" value={doc.checkInFrom || "08:50"} onChange={(e) => set("checkInFrom", e.target.value)} />
+          <Field label="Check-in opens at" hint="Coming in earlier still counts from the shift start, so nobody banks time at the gate.">
+            <Input id="rule-checkin-from" type="time" value={doc.checkInFrom || "08:30"} onChange={(e) => set("checkInFrom", e.target.value)} />
           </Field>
           <Field label="Check-in closes at" hint="A day left open resets at midnight.">
             <Input id="rule-close-at" type="time" value={doc.closeAt || "21:00"} onChange={(e) => set("closeAt", e.target.value)} />
@@ -464,9 +464,14 @@ function Rules() {
         </Field>
         {minutesField("halfDayBelowMin", "Half day if worked under, minutes", 270)}
         {minutesField("absentBelowMin", "Absent if worked under, minutes", 120)}
-        {minutesField("autoCloseAfterMin", "Auto clock-out after shift end, minutes", 240, "A missed clock-out is closed this long after the shift and marked for correction.")}
-        <Field label="Corrections allowed a month">
-          <Input id="rule-corrections" type="number" min={0} max={31} value={num("correctionsPerMonth", 3)} onChange={(e) => set("correctionsPerMonth", Number(e.target.value))} />
+        <Field label="Corrections allowed a month" hint="How many days one person may ask to have corrected in a calendar month. Pending requests count against it.">
+          <Input id="rule-corrections" type="number" min={0} max={31} value={num("correctionsPerMonth", 5)} onChange={(e) => set("correctionsPerMonth", Number(e.target.value))} />
+        </Field>
+        <Field
+          label="Closes at midnight as"
+          hint="A day whose check-out never came is an absence, with the check-in time kept on the record. A correction is the way back."
+        >
+          <Input id="rule-missed-out" value="Absent, marked 'Did not check out'" readOnly disabled />
         </Field>
         <Field
           label="Code changes every (seconds)"
@@ -514,9 +519,34 @@ function People() {
   const [state, setState] = useState({ loading: true })
 
   const load = useCallback(async () => {
-    const [profiles, modes, sites] = await Promise.all([listProfiles().catch(() => []), listPeopleModes(), listSites()])
-    setState({ loading: false, profiles: (profiles || []).filter((p) => p.active), modes: modes.byUser, sites: sites.rows, missing: modes.missing })
+    const [profiles, modes, sites, settings] = await Promise.all([
+      listProfiles().catch(() => []),
+      listPeopleModes(),
+      listSites(),
+      getSettings().catch(() => ({ doc: {} })),
+    ])
+    setState({
+      loading: false,
+      profiles: (profiles || []).filter((p) => p.active),
+      modes: modes.byUser,
+      sites: sites.rows,
+      missing: modes.missing,
+      autoPresent: settings?.doc?.autoPresent || [],
+    })
   }, [])
+
+  // Writing the list back is a merge patch on the settings doc, so it cannot
+  // disturb the rules being edited in the card above.
+  const toggleAutoPresent = async (id, on) => {
+    const next = on ? [...new Set([...(state.autoPresent || []), id])] : (state.autoPresent || []).filter((x) => x !== id)
+    setState((s) => ({ ...s, autoPresent: next }))
+    try {
+      await saveSettings({ autoPresent: next })
+    } catch (e) {
+      toast.error(e.message)
+      void load()
+    }
+  }
   useEffect(() => {
     void load()
   }, [load])
@@ -526,7 +556,10 @@ function People() {
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader title="People" description="How each person clocks in. Office staff scan a station code; field staff (Sales) mark without one, and it is flagged for review." />
+      <CardHeader
+        title="People"
+        description="How each person clocks in. Office staff scan a station code; field staff (Sales) mark without one, and it is flagged for review. Always present skips the gate entirely."
+      />
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-sm">
           <thead className="mt-head">
@@ -535,12 +568,21 @@ function People() {
               <th>Role</th>
               <th>Clocks in as</th>
               <th>Office locations</th>
+              <th className="w-[130px]">Always present</th>
               <th className="w-24" />
             </tr>
           </thead>
           <tbody className="mt-body">
             {state.profiles.map((p) => (
-              <PersonRow key={p.id} person={p} row={state.modes[p.id]} sites={state.sites} onSaved={load} />
+              <PersonRow
+                key={p.id}
+                person={p}
+                row={state.modes[p.id]}
+                sites={state.sites}
+                onSaved={load}
+                autoPresent={(state.autoPresent || []).includes(p.id)}
+                onAutoPresent={(on) => toggleAutoPresent(p.id, on)}
+              />
             ))}
           </tbody>
         </table>
@@ -549,7 +591,7 @@ function People() {
   )
 }
 
-function PersonRow({ person, row, sites, onSaved }) {
+function PersonRow({ person, row, sites, onSaved, autoPresent, onAutoPresent }) {
   const [mode, setMode] = useState(row?.mode || "")
   const [siteIds, setSiteIds] = useState(row?.site_ids || [])
   const [busy, setBusy] = useState(false)
@@ -602,6 +644,21 @@ function PersonRow({ person, row, sites, onSaved }) {
             ))}
           </div>
         )}
+      </td>
+      {/* Saved the moment it is ticked, not on the row's Save button: it is one
+          switch with nothing to get wrong, and leaving it half-set while the
+          rest of the row is dirty would be its own trap. */}
+      <td>
+        <label className="flex items-start gap-2 text-[13px] text-foreground">
+          <input
+            id={`auto-present-${person.id}`}
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 rounded border-border accent-primary"
+            checked={!!autoPresent}
+            onChange={(e) => onAutoPresent(e.target.checked)}
+          />
+          <span className="text-muted-foreground">Present on every working day without punching</span>
+        </label>
       </td>
       <td className="text-right">
         <Button size="sm" variant={dirty ? "primary" : "outline"} disabled={!dirty || busy} onClick={save}>

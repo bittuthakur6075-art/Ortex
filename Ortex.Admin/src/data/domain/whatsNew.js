@@ -10,6 +10,49 @@
 
 export const RELEASES = [
   {
+    id: "1.53.0",
+    version: "1.53.0",
+    date: "2026-09-30",
+    title: "Attendance timing, overtime and an Excel register",
+    items: [
+      {
+        kind: "improved",
+        title: "Check in from 8:30 AM, counted from the shift start",
+        detail:
+          "The gate opens earlier, at 8:30 AM. Coming in before the shift starts no longer adds to the hours: the day counts from the shift start, so nobody banks time by arriving early. The punch is still recorded at the minute it happened.",
+      },
+      {
+        kind: "improved",
+        title: "Forgetting to check out is an absence",
+        detail:
+          "A day that was never checked out used to sit in the register as a missed punch. It is now marked Absent, with the check-in time kept and \"Did not check out\" against it, and a correction is the way to fix it. There is no automatic clock-out any more: midnight is the only thing that closes a day.",
+      },
+      {
+        kind: "improved",
+        title: "Five corrections a month",
+        detail: "Everyone may ask for up to five days to be corrected in a calendar month, up from three. The Super Admin can change the figure under Attendance, Settings.",
+      },
+      {
+        kind: "new",
+        title: "Always present, for people who do not punch",
+        detail:
+          "The Super Admin can tick someone as always present under Attendance, Settings, People. Their working days are marked P with the shift's hours, without scanning anything. Holidays and weekly offs are untouched.",
+      },
+      {
+        kind: "new",
+        title: "Overtime, for admins only",
+        detail:
+          "Time past the shift on a working day, and every minute worked on a holiday or a weekly off, is now recorded per day and totalled in the Register. Only admins can see it, on screen and in the exports.",
+      },
+      {
+        kind: "new",
+        title: "Attendance as an Excel workbook",
+        detail:
+          "Attendance, Register has two new buttons: this month as a formatted Excel file, or every month in one workbook with a sheet each. Both carry the summary, the day by day grid in colour and a legend.",
+      },
+    ],
+  },
+  {
     id: "1.52.0",
     version: "1.52.0",
     date: "2026-09-30",

@@ -62,3 +62,23 @@ export function openRow(onOpen) {
     className: "cursor-pointer focus-visible:bg-accent focus-visible:outline-none",
   }
 }
+
+/**
+ * Every month from `from` to `to` inclusive, oldest first, as "YYYY-MM". Used
+ * by the workbook that carries one sheet per month.
+ */
+export function monthsBetween(from, to) {
+  const out = []
+  let [y, m] = String(from).split("-").map(Number)
+  const [ty, tm] = String(to).split("-").map(Number)
+  // A guard, not a limit anyone should reach: a bad `from` would otherwise spin.
+  for (let n = 0; n < 600 && (y < ty || (y === ty && m <= tm)); n += 1) {
+    out.push(`${y}-${String(m).padStart(2, "0")}`)
+    m += 1
+    if (m > 12) {
+      m = 1
+      y += 1
+    }
+  }
+  return out
+}

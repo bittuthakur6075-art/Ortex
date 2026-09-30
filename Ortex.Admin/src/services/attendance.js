@@ -167,6 +167,31 @@ export function todayIST(now = Date.now()) {
 // ---- phase 2: days, corrections, holidays, the payroll lock (migration 0034) ----------------
 
 /** attendance_days between from and to (YYYY-MM-DD, inclusive), optionally one person. */
+/**
+ * Overtime minutes per person for a date range (0056). The table is readable by
+ * admins only, so anyone else gets an empty map rather than an error: the
+ * caller hides the column instead of showing a row of failures.
+ */
+export async function overtimeByUser({ from, to } = {}) {
+  if (!hasSupabase) return { byUser: {}, missing: true }
+  let q = supabase.from("attendance_overtime").select("user_id, day, minutes")
+  if (from) q = q.gte("day", from)
+  if (to) q = q.lte("day", to)
+  const { data, error } = await q
+  if (error) return { byUser: {}, ...fail(error) }
+  const byUser = {}
+  for (const r of data || []) byUser[r.user_id] = (byUser[r.user_id] || 0) + Number(r.minutes || 0)
+  return { byUser, missing: false }
+}
+
+/** "YYYY-MM" of the oldest attendance day on record, or null when there is none. */
+export async function firstAttendanceMonth() {
+  if (!hasSupabase) return null
+  const { data, error } = await supabase.from("attendance_days").select("day").order("day", { ascending: true }).limit(1)
+  if (error || !data?.length) return null
+  return String(data[0].day).slice(0, 7)
+}
+
 export async function listDays({ from, to, userId } = {}) {
   if (!hasSupabase) return { rows: [], missing: true }
   const rows = []
