@@ -10,6 +10,32 @@
 
 export const RELEASES = [
   {
+    id: "1.53.1",
+    version: "1.53.1",
+    date: "2026-09-30",
+    title: "The attendance Excel file is readable",
+    items: [
+      {
+        kind: "fixed",
+        title: "Every column in the Excel export fits again",
+        detail:
+          "The day by day grid was squeezing the summary columns down to four characters, so the headings read \"R\", \"Ho\" and \"ay\" and the hours showed as ###. The summary and the grid are now separate sheets in the same file, each sized for what it holds.",
+      },
+      {
+        kind: "improved",
+        title: "Columns say what they are",
+        detail:
+          "The summary is headed Present, Half day, Missed punch, Hours worked and so on, with the short letter underneath, instead of single letters you had to hover to understand. Hours read as \"161.0 h\" and days as \"27.5 d\".",
+      },
+      {
+        kind: "improved",
+        title: "The month is easier to read",
+        detail:
+          "The day by day sheet now has a weekday letter over every date, greys the weekly offs and holidays, carries a key under the grid, and shows the hours worked when you hover a square.",
+      },
+    ],
+  },
+  {
     id: "1.53.0",
     version: "1.53.0",
     date: "2026-09-30",

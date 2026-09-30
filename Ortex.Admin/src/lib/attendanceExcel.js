@@ -1,26 +1,33 @@
-// The attendance register as a workbook: one sheet per month, each with a
-// title block, a summary table per person and the people x days grid
-// underneath, then a legend sheet.
+// The attendance register as a workbook: per month a Summary sheet and a Days
+// sheet, then one Legend at the end.
+//
+// TWO SHEETS PER MONTH, not one. A column has a single width for its whole
+// sheet, and the two tables want opposite things: the summary needs sixteen
+// readable columns, the grid needs thirty-one narrow ones. Putting them on one
+// sheet squashed every summary column to 4 characters, so the headers read
+// "R", "Ho", "ay" and the hours showed as ###. Splitting them is the only fix
+// that keeps both legible.
 //
 // ExcelJS, not the `xlsx` package the imports use: SheetJS's community build
 // writes values but cannot write cell formats, and a register with no type
 // hierarchy, no rules and no frozen panes is a CSV with a different extension.
-// The library is ~800 KB, so it is imported only when someone asks for a file.
+// The library is ~900 KB, so it is imported only when someone asks for a file.
 //
 // The look is the console's, carried into a spreadsheet: white paper with the
-// worksheet gridlines turned OFF, one dark ink for text, hairline rules instead
+// worksheet gridlines turned off, one dark ink for text, hairline rules instead
 // of boxed cells, and space doing the work that borders used to. No fills
-// except the pale status tints in the grid, which carry meaning rather than
-// decoration. Nothing here is shaded, outlined twice or graduated.
+// except the pale status tints, which carry meaning rather than decoration.
 //
-// Everything is pure: the caller gathers the months and hands them over, which
-// keeps this file testable and off the page's critical path.
+// `buildAttendanceWorkbook` is pure and returns the workbook, so the tests
+// build a real file and read it back. `downloadAttendanceWorkbook` is the thin
+// browser wrapper.
 
 import { STATUS_LABEL, STATUS_TONE } from "./attendance"
 
 // One palette for the whole workbook. ARGB, as ExcelJS wants it.
 const INK = "FF11161F"
 const MUTED = "FF79818F"
+const FAINT = "FFAAB1BC"
 const RULE = "FFE6E9EF"
 const STRONG_RULE = "FFB9C0CC"
 // Aptos Narrow is Excel's own default from 2024 and falls back cleanly to
@@ -29,15 +36,12 @@ const STRONG_RULE = "FFB9C0CC"
 const FONT = "Aptos Narrow"
 
 /**
- * A status's colour is NOT written out here status by status. It comes from
- * STATUS_TONE, the same map the console tints its badges with, so P is the same
- * green on screen and in the file, and a status added later arrives with its
- * colour already decided instead of printing grey until someone remembers this
- * file. Only the tone names need a spreadsheet-safe pair.
- *
- * The tints are deliberately pale: the letter must stay legible in print and on
- * a photocopy, and thirty saturated squares a row is a heat map nobody asked
- * for. `text` is the AA-contrast ink for a letter sitting on `fill`.
+ * A status's colour comes from STATUS_TONE, the same map the console tints its
+ * badges with, so P is the same green on screen and in the file and a status
+ * added later arrives with its colour already decided. The tints are pale on
+ * purpose: the letter must stay legible in print and on a photocopy, and thirty
+ * saturated squares a row is a heat map nobody asked for. `text` is the
+ * AA-contrast ink for a letter sitting on `fill`.
  */
 const TONE = {
   emerald: { fill: "FFEAF5EE", text: "FF1B6B41" },
@@ -56,6 +60,7 @@ const hair = { style: "thin", color: { argb: RULE } }
 const underline = { bottom: { style: "thin", color: { argb: STRONG_RULE } } }
 
 const MONTH_WORDS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+const WEEKDAY_LETTER = ["S", "M", "T", "W", "T", "F", "S"]
 
 /** "2026-09" → "September 2026". */
 export function monthTitle(month) {
@@ -74,55 +79,66 @@ const hoursOf = (min) => Math.round((Number(min) || 0) / 6) / 10
 // A zero prints as an en dash. A column of noughts is noise; the eye should
 // land on the days that actually happened.
 const COUNT = '0;-0;"–"'
-const DECIMAL = '0.0;-0.0;"–"'
+const DAYS = '0.0" d";-0.0" d";"–"'
+const HOURS = '0.0" h";-0.0" h";"–"'
 
-// The summary columns, in the order an accountant reads them: who, then the
-// days that make up the month, then the hours, then what is payable.
+/**
+ * The summary columns. Headers are WORDS, not the one and two letter codes the
+ * grid uses: a column headed "MP" means nothing to someone opening the file for
+ * the first time, and the note that explained it was invisible until hovered.
+ * `code` is shown under the word, small, so the header also teaches the letter
+ * used in the grid.
+ */
 const COLUMNS = [
-  { key: "name", header: "Person", width: 28, align: "left" },
-  { key: "role", header: "Role", width: 15, align: "left" },
-  { key: "present", header: "P", width: 5.6, hint: "Present", numFmt: COUNT },
-  { key: "field", header: "OD", width: 5.6, hint: "On duty (field)", numFmt: COUNT },
-  { key: "half_days", header: "HD", width: 5.6, hint: "Half day", numFmt: COUNT },
-  { key: "absent", header: "A", width: 5.6, hint: "Absent", numFmt: COUNT },
-  { key: "missed", header: "MP", width: 5.6, hint: "Missed punch", numFmt: COUNT },
-  { key: "weekly_off", header: "WO", width: 5.6, hint: "Weekly off", numFmt: COUNT },
-  { key: "holidays", header: "H", width: 5.6, hint: "Holiday", numFmt: COUNT },
-  { key: "leave", header: "L", width: 5.6, hint: "Leave", numFmt: COUNT },
-  { key: "lop", header: "LOP", width: 6.4, hint: "Loss of pay", numFmt: COUNT },
-  { key: "lates", header: "Lates", width: 8, numFmt: COUNT },
-  { key: "late_penalty", header: "Penalty", width: 9, numFmt: DECIMAL },
-  { key: "hours", header: "Hours", width: 9, numFmt: DECIMAL },
-  { key: "overtime", header: "Overtime", width: 10, numFmt: DECIMAL },
-  { key: "payable", header: "Payable", width: 11, numFmt: DECIMAL },
+  // NEVER exactly 9: that is ExcelJS's default width, and a column set to the
+  // default is not written to the file at all, so it reopens as whatever the
+  // reader's Excel decides.
+  { key: "name", header: "Person", width: 26, align: "left" },
+  { key: "role", header: "Role", width: 13, align: "left" },
+  { key: "present", header: "Present", code: "P", width: 10.5, numFmt: COUNT },
+  { key: "field", header: "On duty", code: "OD", width: 10.5, numFmt: COUNT },
+  { key: "half_days", header: "Half day", code: "HD", width: 10.5, numFmt: COUNT },
+  { key: "absent", header: "Absent", code: "A", width: 10.5, numFmt: COUNT },
+  { key: "missed", header: "Missed punch", code: "MP", width: 12, numFmt: COUNT },
+  { key: "weekly_off", header: "Weekly off", code: "WO", width: 11.5, numFmt: COUNT },
+  { key: "holidays", header: "Holiday", code: "H", width: 10.5, numFmt: COUNT },
+  { key: "leave", header: "Leave", code: "L", width: 10.5, numFmt: COUNT },
+  { key: "lop", header: "Loss of pay", code: "LOP", width: 11.5, numFmt: COUNT },
+  { key: "lates", header: "Lates", width: 10.5, numFmt: COUNT },
+  { key: "late_penalty", header: "Late penalty", width: 12, numFmt: DAYS },
+  { key: "hours", header: "Hours worked", width: 13, numFmt: HOURS },
+  { key: "overtime", header: "Overtime", width: 11.5, numFmt: HOURS },
+  { key: "payable", header: "Payable days", width: 12.5, numFmt: DAYS },
 ]
 
 /**
- * Build and download the workbook.
+ * Build the workbook.
  *
  * `months` is [{ month, summary, days, dayList, holidays, weeklyOff, overtime }]
  * in the order the sheets should appear. `withOvertime` false drops that column
  * entirely, so a file made by someone who may not see overtime does not carry
  * an empty column hinting that it exists.
  */
-export async function downloadAttendanceWorkbook({
-  filename,
-  company = "Ortex Industries",
-  months,
-  withOvertime = false,
-  roleLabel = (r) => r,
-}) {
-  const mod = await import("exceljs")
-  const ExcelJS = mod.default || mod
+export function buildAttendanceWorkbook(ExcelJS, { company = "Ortex Industries", months, withOvertime = false, roleLabel = (r) => r }) {
   const wb = new ExcelJS.Workbook()
   wb.creator = company
   wb.created = new Date()
 
   const columns = COLUMNS.filter((c) => c.key !== "overtime" || withOvertime)
 
-  for (const m of months) sheetFor(wb, { ...m, company, columns, roleLabel })
+  for (const m of months) {
+    summarySheet(wb, { ...m, company, columns, roleLabel })
+    if (m.dayList?.length && (m.summary || []).length) daysSheet(wb, { ...m, company })
+  }
   legendSheet(wb, withOvertime)
+  return wb
+}
 
+/** Build and save. The browser half, kept apart so the builder stays testable. */
+export async function downloadAttendanceWorkbook({ filename, ...opts }) {
+  const mod = await import("exceljs")
+  const ExcelJS = mod.default || mod
+  const wb = buildAttendanceWorkbook(ExcelJS, opts)
   const buf = await wb.xlsx.writeBuffer()
   const url = URL.createObjectURL(
     new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
@@ -134,12 +150,38 @@ export async function downloadAttendanceWorkbook({
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-function sheetFor(wb, { month, summary, days, dayList, holidays, weeklyOff, overtime, locked, company, columns, roleLabel }) {
+/** The title block both sheets carry. Returns the next free row. */
+function titleBlock(ws, { company, line2, line3, span }) {
+  ws.mergeCells(2, 1, 2, span)
+  const t1 = ws.getCell(2, 1)
+  t1.value = company
+  t1.font = { name: FONT, size: 18, bold: true, color: { argb: INK } }
+  t1.alignment = { vertical: "middle", horizontal: "left" }
+  ws.getRow(2).height = 28
+
+  ws.mergeCells(3, 1, 3, span)
+  const t2 = ws.getCell(3, 1)
+  t2.value = line2
+  t2.font = { name: FONT, size: 12, color: { argb: INK } }
+  t2.alignment = { vertical: "middle", horizontal: "left" }
+  ws.getRow(3).height = 19
+
+  ws.mergeCells(4, 1, 4, span)
+  const t3 = ws.getCell(4, 1)
+  t3.value = line3
+  t3.font = { name: FONT, size: 9, color: { argb: MUTED } }
+  t3.alignment = { vertical: "middle", horizontal: "left" }
+  ws.getRow(4).height = 16
+  ws.getRow(5).height = 8
+  return 6
+}
+
+const stamp = () => new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+
+function summarySheet(wb, { month, summary, overtime, locked, company, columns, roleLabel }) {
   const rows = summary || []
   const headRow = 6
   const ws = wb.addWorksheet(monthTab(month), {
-    // Gridlines off is most of the difference between a spreadsheet and a
-    // document. What is left is only the rules this file draws on purpose.
     views: [{ state: "frozen", xSplit: 1, ySplit: headRow, showGridLines: false }],
     pageSetup: {
       orientation: "landscape",
@@ -152,40 +194,26 @@ function sheetFor(wb, { month, summary, days, dayList, holidays, weeklyOff, over
   ws.properties.defaultRowHeight = 20
 
   const span = columns.length
+  titleBlock(ws, {
+    company,
+    line2: `Attendance summary  ·  ${monthTitle(month)}${locked ? "  ·  Locked for payroll" : ""}`,
+    line3: `${rows.length} ${rows.length === 1 ? "person" : "people"}  ·  each figure is a count of days unless it says hours  ·  generated ${stamp()}`,
+    span,
+  })
 
-  // ---- title block. Type, not a coloured band. ----
-  ws.mergeCells(2, 1, 2, span)
-  const t1 = ws.getCell(2, 1)
-  t1.value = company
-  t1.font = { name: FONT, size: 20, bold: true, color: { argb: INK } }
-  t1.alignment = { vertical: "middle", horizontal: "left" }
-  ws.getRow(2).height = 30
-
-  ws.mergeCells(3, 1, 3, span)
-  const t2 = ws.getCell(3, 1)
-  t2.value = `Attendance register  ·  ${monthTitle(month)}${locked ? "  ·  Locked for payroll" : ""}`
-  t2.font = { name: FONT, size: 12, color: { argb: INK } }
-  t2.alignment = { vertical: "middle", horizontal: "left" }
-  ws.getRow(3).height = 20
-
-  ws.mergeCells(4, 1, 4, span)
-  const t3 = ws.getCell(4, 1)
-  t3.value = `${rows.length} ${rows.length === 1 ? "person" : "people"}  ·  generated ${new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`
-  t3.font = { name: FONT, size: 9, color: { argb: MUTED } }
-  t3.alignment = { vertical: "middle", horizontal: "left" }
-  ws.getRow(5).height = 10
-
-  // ---- summary table ----
+  // The header carries the word AND the grid's letter underneath it, so this
+  // sheet explains the other one without anybody opening the Legend.
   columns.forEach((c, i) => {
     ws.getColumn(i + 1).width = c.width
     const cell = ws.getCell(headRow, i + 1)
-    cell.value = c.header
-    cell.font = { name: FONT, size: 9, bold: true, color: { argb: MUTED } }
-    cell.alignment = { vertical: "bottom", horizontal: c.align === "left" ? "left" : "center" }
+    cell.value = c.code
+      ? { richText: [{ text: c.header, font: { name: FONT, size: 10, bold: true, color: { argb: INK } } }, { text: `\n${c.code}`, font: { name: FONT, size: 8, color: { argb: MUTED } } }] }
+      : c.header
+    if (!c.code) cell.font = { name: FONT, size: 10, bold: true, color: { argb: INK } }
+    cell.alignment = { vertical: "bottom", horizontal: c.align === "left" ? "left" : "center", wrapText: true }
     cell.border = underline
-    if (c.hint) cell.note = `${c.hint} (${c.header})`
   })
-  ws.getRow(headRow).height = 22
+  ws.getRow(headRow).height = 32
 
   rows.forEach((r, n) => {
     const rowIndex = headRow + 1 + n
@@ -202,12 +230,10 @@ function sheetFor(wb, { month, summary, days, dayList, holidays, weeklyOff, over
       const cell = ws.getCell(rowIndex, i + 1)
       const v = values[c.key]
       cell.value = c.align === "left" ? (v ?? "") : Number(v) || 0
-      // The name anchors the row, the payable figure closes it. Everything
+      // The name anchors the row and the payable figure closes it. Everything
       // between is regular weight, so two things stand out instead of sixteen.
       const strong = c.key === "name" || c.key === "payable"
       let colour = c.align === "left" && c.key !== "name" ? MUTED : INK
-      // The two counts that start a conversation wear their own status colour,
-      // taken from the same tone map as everything else.
       if (c.key === "absent" && Number(v) > 0) colour = toneOf("A").text
       if (c.key === "missed" && Number(v) > 0) colour = toneOf("MP").text
       cell.font = { name: FONT, size: 10, bold: strong, color: { argb: colour } }
@@ -217,8 +243,7 @@ function sheetFor(wb, { month, summary, days, dayList, holidays, weeklyOff, over
     })
   })
 
-  // Totals. SUM formulas rather than numbers: the file stays alive if somebody
-  // filters or edits a row.
+  // Totals as live SUM formulas, so the row survives a filter or an edit.
   if (rows.length) {
     const first = headRow + 1
     const last = headRow + rows.length
@@ -227,8 +252,21 @@ function sheetFor(wb, { month, summary, days, dayList, holidays, weeklyOff, over
     columns.forEach((c, i) => {
       const cell = ws.getCell(totalRow, i + 1)
       const letter = ws.getColumn(i + 1).letter
-      if (i === 0) cell.value = "Total"
-      else if (c.align !== "left") cell.value = { formula: `SUM(${letter}${first}:${letter}${last})` }
+      if (i === 0) cell.value = `Total · ${rows.length} people`
+      else if (c.align !== "left") {
+        // `result` matters: without it Excel shows a blank until it recalculates,
+        // and LibreOffice and most viewers show nothing at all.
+        const sum = rows.reduce((t, r) => {
+          const v =
+            c.key === "hours"
+              ? hoursOf(r.worked_min)
+              : c.key === "overtime"
+                ? hoursOf(overtime?.[r.user_id] || 0)
+                : Number(r[c.key]) || 0
+          return t + v
+        }, 0)
+        cell.value = { formula: `SUM(${letter}${first}:${letter}${last})`, result: Math.round(sum * 10) / 10 }
+      }
       cell.font = { name: FONT, size: 10, bold: true, color: { argb: INK } }
       cell.alignment = { vertical: "middle", horizontal: c.align === "left" ? "left" : "center" }
       cell.border = { top: { style: "thin", color: { argb: STRONG_RULE } } }
@@ -236,95 +274,152 @@ function sheetFor(wb, { month, summary, days, dayList, holidays, weeklyOff, over
     })
     ws.autoFilter = { from: { row: headRow, column: 1 }, to: { row: last, column: span } }
   }
+  return ws
+}
 
-  // ---- the day grid ----
-  if (dayList?.length && rows.length) {
-    const title = headRow + rows.length + 4
-    ws.mergeCells(title, 1, title, Math.min(span, 6))
-    const g = ws.getCell(title, 1)
-    g.value = "Day by day"
-    g.font = { name: FONT, size: 13, bold: true, color: { argb: INK } }
-    g.alignment = { vertical: "middle" }
-    ws.getRow(title).height = 26
+function daysSheet(wb, { month, summary, days, dayList, holidays, weeklyOff, company }) {
+  const rows = summary || []
+  const nameCol = 1
+  const firstDayCol = 2
+  const weekdayRow = 6
+  const dateRow = 7
+  const ws = wb.addWorksheet(`${monthTab(month)} days`, {
+    views: [{ state: "frozen", xSplit: 1, ySplit: dateRow, showGridLines: false }],
+    pageSetup: {
+      orientation: "landscape",
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      margins: { left: 0.3, right: 0.3, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 },
+    },
+  })
+  ws.properties.defaultRowHeight = 20
+  ws.getColumn(nameCol).width = 26
 
-    const gridHead = title + 1
-    const nameCell = ws.getCell(gridHead, 1)
-    nameCell.value = "Person"
-    nameCell.font = { name: FONT, size: 9, bold: true, color: { argb: MUTED } }
-    nameCell.alignment = { vertical: "bottom", horizontal: "left" }
-    nameCell.border = underline
-    ws.getRow(gridHead).height = 20
+  const span = dayList.length + 1
+  titleBlock(ws, {
+    company,
+    line2: `Day by day  ·  ${monthTitle(month)}`,
+    line3: "A blank square is a day with nothing recorded. Grey dates are weekly offs and holidays. Hover a square for the late minutes. The letters are explained on the Legend sheet.",
+    span,
+  })
 
+  // A weekday letter over every date. Without it nobody can tell which columns
+  // are the weekends, and a month of thirty letters is unreadable.
+  const wd = ws.getCell(weekdayRow, nameCol)
+  wd.value = ""
+  wd.border = { bottom: hair }
+  ws.getRow(weekdayRow).height = 16
+
+  const nameCell = ws.getCell(dateRow, nameCol)
+  nameCell.value = "Person"
+  nameCell.font = { name: FONT, size: 10, bold: true, color: { argb: INK } }
+  nameCell.alignment = { vertical: "bottom", horizontal: "left" }
+  nameCell.border = underline
+  ws.getRow(dateRow).height = 20
+
+  dayList.forEach((d, i) => {
+    const col = firstDayCol + i
+    const dow = new Date(`${d}T00:00:00Z`).getUTCDay()
+    const off = holidays?.has?.(d) || weeklyOff?.has?.(dow)
+    ws.getColumn(col).width = 4.3
+
+    const w = ws.getCell(weekdayRow, col)
+    w.value = WEEKDAY_LETTER[dow]
+    w.font = { name: FONT, size: 8, color: { argb: off ? FAINT : MUTED } }
+    w.alignment = { vertical: "bottom", horizontal: "center" }
+    w.border = { bottom: hair }
+
+    const cell = ws.getCell(dateRow, col)
+    cell.value = Number(d.slice(8, 10))
+    cell.font = { name: FONT, size: 10, bold: !off, color: { argb: off ? FAINT : INK } }
+    cell.alignment = { vertical: "bottom", horizontal: "center" }
+    cell.border = underline
+  })
+
+  const byCell = new Map()
+  for (const d of days || []) byCell.set(`${d.user_id}|${d.day}`, d)
+
+  rows.forEach((r, n) => {
+    const rowIndex = dateRow + 1 + n
+    ws.getRow(rowIndex).height = 20
+    const who = ws.getCell(rowIndex, nameCol)
+    who.value = r.name
+    who.font = { name: FONT, size: 10, color: { argb: INK } }
+    who.alignment = { vertical: "middle", horizontal: "left" }
+    who.border = { bottom: hair }
     dayList.forEach((d, i) => {
-      const col = i + 2
-      const cell = ws.getCell(gridHead, col)
-      const dow = new Date(`${d}T00:00:00Z`).getUTCDay()
-      const off = holidays?.has?.(d) || weeklyOff?.has?.(dow)
-      cell.value = Number(d.slice(8, 10))
-      // A day off is greyed in the header instead of shaded down the column:
-      // the tint in each cell already says what the day was.
-      cell.font = { name: FONT, size: 9, bold: !off, color: { argb: off ? MUTED : INK } }
-      cell.alignment = { vertical: "bottom", horizontal: "center" }
-      cell.border = underline
-      const column = ws.getColumn(col)
-      if (!column.width || column.width > 4) column.width = 4
+      const e = byCell.get(`${r.user_id}|${d}`)
+      const status = e ? e.override_status || e.status : ""
+      const cell = ws.getCell(rowIndex, firstDayCol + i)
+      cell.value = status
+      // No colour is painted on the cell: the conditional formatting below
+      // colours it from its VALUE, so correcting a letter in Excel recolours
+      // the square instead of leaving a green cell reading A.
+      cell.font = { name: FONT, size: 9, bold: true, color: { argb: MUTED } }
+      cell.alignment = { vertical: "middle", horizontal: "center" }
+      cell.border = { bottom: hair }
+      const note = []
+      if (e?.late) note.push(`Late by ${e.late_min} min`)
+      if (e?.worked_min) note.push(`${hoursOf(e.worked_min)} h worked`)
+      if (note.length) cell.note = note.join("\n")
     })
+  })
 
-    const byCell = new Map()
-    for (const d of days || []) byCell.set(`${d.user_id}|${d.day}`, d)
+  const from = ws.getColumn(firstDayCol).letter
+  const to = ws.getColumn(firstDayCol + dayList.length - 1).letter
+  ws.addConditionalFormatting({
+    ref: `${from}${dateRow + 1}:${to}${dateRow + rows.length}`,
+    rules: STATUS_CODES.map((code, i) => ({
+      type: "cellIs",
+      operator: "equal",
+      formulae: [`"${code}"`],
+      priority: i + 1,
+      style: {
+        fill: { type: "pattern", pattern: "solid", bgColor: { argb: toneOf(code).fill } },
+        font: { color: { argb: toneOf(code).text }, bold: true },
+      },
+    })),
+  })
 
-    rows.forEach((r, n) => {
-      const rowIndex = gridHead + 1 + n
-      ws.getRow(rowIndex).height = 20
-      const who = ws.getCell(rowIndex, 1)
-      who.value = r.name
-      who.font = { name: FONT, size: 10, color: { argb: INK } }
-      who.alignment = { vertical: "middle", horizontal: "left" }
-      who.border = { bottom: hair }
-      dayList.forEach((d, i) => {
-        const e = byCell.get(`${r.user_id}|${d}`)
-        const status = e ? e.override_status || e.status : ""
-        const cell = ws.getCell(rowIndex, i + 2)
-        cell.value = status
-        // No colour is painted on the cell: the conditional formatting below
-        // colours it from its VALUE, so correcting a letter in Excel recolours
-        // the square instead of leaving a green cell reading A.
-        cell.font = { name: FONT, size: 9, bold: true, color: { argb: MUTED } }
-        cell.alignment = { vertical: "middle", horizontal: "center" }
-        cell.border = { bottom: hair }
-        if (e?.late) cell.note = `Late by ${e.late_min} min`
-      })
-    })
-
-    const firstCol = ws.getColumn(2).letter
-    const lastCol = ws.getColumn(dayList.length + 1).letter
-    const range = `${firstCol}${gridHead + 1}:${lastCol}${gridHead + rows.length}`
-    ws.addConditionalFormatting({
-      ref: range,
-      rules: STATUS_CODES.map((code, i) => ({
-        type: "cellIs",
-        operator: "equal",
-        formulae: [`"${code}"`],
-        priority: i + 1,
-        style: {
-          fill: { type: "pattern", pattern: "solid", bgColor: { argb: toneOf(code).fill } },
-          font: { color: { argb: toneOf(code).text }, bold: true },
-        },
-      })),
-    })
-  }
+  // A compact legend right under the grid, so nobody has to leave the sheet to
+  // read it. The full explanations stay on the Legend sheet.
+  const legendRow = dateRow + rows.length + 2
+  const key = ws.getCell(legendRow, nameCol)
+  key.value = "Key"
+  key.font = { name: FONT, size: 9, bold: true, color: { argb: MUTED } }
+  STATUS_CODES.forEach((code, i) => {
+    const cell = ws.getCell(legendRow, firstDayCol + i * 3)
+    cell.value = code
+    cell.font = { name: FONT, size: 9, bold: true, color: { argb: toneOf(code).text } }
+    cell.alignment = { horizontal: "center", vertical: "middle" }
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: toneOf(code).fill } }
+    const label = ws.getCell(legendRow, firstDayCol + i * 3 + 1)
+    label.value = STATUS_LABEL[code]
+    label.font = { name: FONT, size: 9, color: { argb: MUTED } }
+    label.alignment = { horizontal: "left", vertical: "middle" }
+  })
+  return ws
 }
 
 function legendSheet(wb, withOvertime) {
   const ws = wb.addWorksheet("Legend", { views: [{ showGridLines: false }] })
   ws.getColumn(1).width = 8
   ws.getColumn(2).width = 24
-  ws.getColumn(3).width = 78
+  ws.getColumn(3).width = 86
   ws.properties.defaultRowHeight = 20
 
-  ws.getCell(2, 1).value = "What the letters mean"
-  ws.getCell(2, 1).font = { name: FONT, size: 18, bold: true, color: { argb: INK } }
-  ws.getRow(2).height = 28
+  ws.getCell(2, 1).value = "How to read this workbook"
+  ws.getCell(2, 1).font = { name: FONT, size: 16, bold: true, color: { argb: INK } }
+  ws.getRow(2).height = 26
+
+  ws.mergeCells(3, 1, 3, 3)
+  ws.getCell(3, 1).value =
+    "Every month has two sheets: a Summary of each person's days and hours, and a Days sheet showing the month square by square."
+  ws.getCell(3, 1).font = { name: FONT, size: 10, color: { argb: MUTED } }
+
+  ws.getCell(5, 1).value = "What the letters mean"
+  ws.getCell(5, 1).font = { name: FONT, size: 12, bold: true, color: { argb: INK } }
 
   const notes = {
     P: "A full day worked.",
@@ -338,9 +433,9 @@ function legendSheet(wb, withOvertime) {
     LOP: "Leave without pay.",
   }
 
-  let row = 4
+  let row = 6
   for (const [code, label] of Object.entries(STATUS_LABEL)) {
-    ws.getRow(row).height = 22
+    ws.getRow(row).height = 21
     const a = ws.getCell(row, 1)
     a.value = code
     a.font = { name: FONT, size: 10, bold: true, color: { argb: toneOf(code).text } }
@@ -359,21 +454,29 @@ function legendSheet(wb, withOvertime) {
     row += 1
   }
 
-  row += 2
+  row += 1
+  ws.getCell(row, 1).value = "How the figures are worked out"
+  ws.getCell(row, 1).font = { name: FONT, size: 12, bold: true, color: { argb: INK } }
+  row += 1
+
   const lines = [
-    "Hours are the minutes worked, rounded to one decimal.",
-    "A check-in before the shift starts counts from the shift start, so an early arrival does not bank time.",
+    "Hours worked are the minutes between each check-in and check-out, shown to one decimal.",
+    "A check-in before the shift starts counts FROM the shift start, so arriving early does not bank time.",
+    "A day that was never checked out is an absence, with the check-in kept on the record. A correction is the way to fix it.",
     "Payable days = P + OD + WO + H + L, half of each HD and MP, less the late penalty.",
     withOvertime
       ? "Overtime is the time past the shift on a working day, and every worked minute on a holiday or a weekly off."
-      : "Overtime is recorded, and appears only in a file exported by an admin.",
+      : "Overtime is recorded but not shown here: it appears only in a file exported by an admin.",
+    "A dash means nothing to count. A blank square on the Days sheet means no record for that day.",
   ]
   for (const line of lines) {
-    const cell = ws.getCell(row, 1)
     ws.mergeCells(row, 1, row, 3)
+    const cell = ws.getCell(row, 1)
     cell.value = line
     cell.font = { name: FONT, size: 10, color: { argb: MUTED } }
     cell.alignment = { vertical: "middle", horizontal: "left" }
+    ws.getRow(row).height = 19
     row += 1
   }
+  return ws
 }
