@@ -220,10 +220,13 @@ export default function OneUiTabBar({ state: navState, descriptors, navigation }
     ]).start()
   }, [navState.index, slide, travel])
 
+  // interpolate() throws on an inputRange of fewer than two points, and clamp does
+  // not prevent it. Staff and Accounts reach only Home, so a one-tab bar gets a
+  // flat two-point range: the chip simply stays put.
+  const single = navState.routes.length < 2
   const translateX = slide.interpolate({
-    inputRange: navState.routes.map((_, i) => i),
-    outputRange: navState.routes.map((_, i) => i * slotPitch),
-    // A single-tab bar would give interpolate a degenerate range.
+    inputRange: single ? [0, 1] : navState.routes.map((_, i) => i),
+    outputRange: single ? [0, 0] : navState.routes.map((_, i) => i * slotPitch),
     extrapolate: "clamp",
   })
   // Volume is conserved: what it gains along the travel it gives up across it.
