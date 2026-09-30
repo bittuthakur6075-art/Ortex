@@ -10,6 +10,20 @@
 
 export const RELEASES = [
   {
+    id: "1.55.2",
+    version: "1.55.2",
+    date: "2026-09-30",
+    title: "Roles and People open again",
+    items: [
+      {
+        kind: "fixed",
+        title: "The Roles and People tabs in Modules & roles",
+        detail:
+          "Pressing Roles or People in the Control centre threw you back to Company instead of opening the tab. Moving Modules into the Control centre put two menus on the same address, and the tab was wiping the section out of it.",
+      },
+    ],
+  },
+  {
     id: "1.55.1",
     version: "1.55.1",
     date: "2026-09-30",
