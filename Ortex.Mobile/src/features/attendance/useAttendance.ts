@@ -15,7 +15,7 @@ import {
 } from "@/domain/attendance"
 import { isAdmin } from "@/domain/modules"
 import { daysFromPunches } from "@/features/attendance/days"
-import { punchWindowClosed, weekStart } from "@/features/attendance/progress"
+import { countFromFor, punchWindowClosed, weekStart } from "@/features/attendance/progress"
 import {
   flaggedPunches,
   holidays,
@@ -82,8 +82,8 @@ export function useAttendanceToday() {
   const today = dayKey(now)
   const since = onDutySince(punches, now)
   const summary: DaySummary = React.useMemo(
-    () => summarizeDay(today, punches.filter((p) => (p.day || dayKey(p.at)) === today), now),
-    [punches, today, now],
+    () => summarizeDay(today, punches.filter((p) => (p.day || dayKey(p.at)) === today), now, countFromFor(settings, today)),
+    [punches, today, now, settings],
   )
 
   return { settings, punches, summary, onDutySince: since, loading, error, reload, now }

@@ -7,6 +7,7 @@ import { clockIST, dayKey } from "@/domain/attendance"
 import { ActionAdvisory, DayDone } from "@/features/attendance/attendanceUi"
 import { LiveTimer, ShiftBar } from "@/features/attendance/LiveProgress"
 import {
+  countFromFor,
   progressWords,
   punchWindow,
   punchWindowLabel,
@@ -59,7 +60,7 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
 
   const today = dayKey(now)
   const shiftMin = shiftMinutes(settings, today)
-  const worked = workedMs(today, punches, now)
+  const worked = workedMs(today, punches, now, countFromFor(settings, today))
 
   // THIS WEEK, from the same hook as the Attendance page, so the two strips
   // can never disagree.

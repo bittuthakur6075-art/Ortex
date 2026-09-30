@@ -45,16 +45,25 @@ export const istMs = (day: string, hhmm: string) => new Date(`${day}T${hhmm.padS
  * to `now`. The same pairing as summarizeDay, to the millisecond, because the
  * live timer shows seconds.
  */
-export function workedMs(day: string, punches: Punch[], now: number): { ms: number; openSince: number | null } {
+export function workedMs(
+  day: string,
+  punches: Punch[],
+  now: number,
+  countFrom?: string,
+): { ms: number; openSince: number | null } {
   const list = counted(punches.filter((p) => (p.day || dayKey(p.at)) === day)).sort(
     (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime(),
   )
+  // The same floor as summarizeDay and the server: an early in counts from the
+  // shift start (0056), so the live timer cannot promise minutes the register
+  // will not pay.
+  const floor = countFrom ? istMs(day, countFrom) : null
   let ms = 0
   let openAt: number | null = null
   for (const p of list) {
     const t = new Date(p.at).getTime()
     if (p.kind === "in") {
-      if (openAt === null) openAt = t
+      if (openAt === null) openAt = floor !== null && t < floor ? floor : t
     } else if (openAt !== null) {
       ms += Math.max(0, t - openAt)
       openAt = null
@@ -65,17 +74,29 @@ export function workedMs(day: string, punches: Punch[], now: number): { ms: numb
 }
 
 /**
- * The check-in window, IST: from checkInFrom (08:50) to closeAt (21:00). A
+ * The check-in window, IST: from checkInFrom (08:30) to closeAt (21:00). A
  * check-out has no window, and an unclosed day resets at midnight
  * (onDutySince). Mirrors attendance_punch (migration 0049), which has the
  * final say.
  */
 type WindowSettings = ShiftSettings & { checkInFrom?: string; closeAt?: string }
 
+/**
+ * The shift start to count a day's hours from, or undefined on a day with no
+ * shift to be early for. Passed to workedMs and summarizeDay so both agree with
+ * attendance_recompute_day (0056).
+ */
+export function countFromFor(s: WindowSettings & { weeklyOff?: number[] }, day: string, holiday = false): string | undefined {
+  if (holiday) return undefined
+  const off = s.weeklyOff?.length ? s.weeklyOff : [0]
+  if (off.includes(istWeekday(day))) return undefined
+  return hhmmOk(s.shift?.start) ? s.shift!.start! : undefined
+}
+
 /** Today's check-in window in epoch ms, IST. */
 export function punchWindow(s: WindowSettings, now: number): { open: number; close: number } {
   const day = dayKey(now)
-  const open = istMs(day, hhmmOk(s.checkInFrom) ? s.checkInFrom! : "08:50")
+  const open = istMs(day, hhmmOk(s.checkInFrom) ? s.checkInFrom! : "08:30")
   const close = istMs(day, hhmmOk(s.closeAt) ? s.closeAt! : "21:00")
   return { open, close }
 }

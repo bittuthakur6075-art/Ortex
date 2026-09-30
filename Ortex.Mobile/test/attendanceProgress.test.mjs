@@ -75,18 +75,18 @@ test("week strip: Monday to Sunday, today live, the future marked", () => {
   assert.equal(cols[5].future, true)
 })
 
-test("check-in window: 8:50 AM to 9 PM, IST; check-out any time (0049)", () => {
+test("check-in window: 8:30 AM to 9 PM, IST; check-out any time (0049, 0056)", () => {
   const at = (hh, mm) => new Date(ist("2026-09-18", hh, mm)).getTime()
-  assert.equal(p.punchWindowClosed(S, at(8, 50)), null)
+  assert.equal(p.punchWindowClosed(S, at(8, 30)), null)
   assert.equal(p.punchWindowClosed(S, at(21, 0)), null)
-  assert.equal(p.punchWindowClosed(S, at(8, 49)), "Check-in opens at 8:50 AM.")
+  assert.equal(p.punchWindowClosed(S, at(8, 29)), "Check-in opens at 8:30 AM.")
   assert.equal(p.punchWindowClosed(S, at(21, 1)), "Check-in closed at 9:00 PM. Ask an admin for a correction.")
   assert.equal(p.punchWindowClosed({ ...S, checkInFrom: "08:00", closeAt: "22:00" }, at(8, 5)), null)
   // Check-out has no window: early, late, any time the same day.
   assert.equal(p.punchWindowClosed(S, at(8, 0), "out"), null)
   assert.equal(p.punchWindowClosed(S, at(23, 30), "out"), null)
-  assert.equal(p.punchWindowLabel(S, at(8, 49), "in"), "Check-in opens at 8:50 AM")
-  assert.equal(p.punchWindowLabel(S, at(8, 50), "in"), null)
+  assert.equal(p.punchWindowLabel(S, at(8, 29), "in"), "Check-in opens at 8:30 AM")
+  assert.equal(p.punchWindowLabel(S, at(8, 30), "in"), null)
   assert.equal(p.punchWindowLabel(S, at(21, 1), "in"), "Check-in closed at 9:00 PM")
   assert.equal(p.punchWindowLabel(S, at(23, 30), "out"), null)
 })

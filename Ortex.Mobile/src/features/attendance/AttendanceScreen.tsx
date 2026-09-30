@@ -11,6 +11,7 @@ import { DayTimelineBar, LiveTimer, ShiftBar } from "@/features/attendance/LiveP
 import MonthAttendance from "@/features/attendance/MonthAttendance"
 import {
   dayTimeline,
+  countFromFor,
   progressWords,
   shiftEnded,
   shiftMinutes,
@@ -67,7 +68,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
 
   const today = dayKey(now)
   const shiftMin = shiftMinutes(settings, today)
-  const worked = workedMs(today, punches, now)
+  const worked = workedMs(today, punches, now, countFromFor(settings, today))
   const timeline = dayTimeline(today, punches, settings, now)
   const holiday = nextHolidayDay
   const liveMin = Math.round(worked.ms / 60000)

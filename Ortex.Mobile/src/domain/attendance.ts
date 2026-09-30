@@ -122,18 +122,27 @@ export type DaySummary = {
   site: string | null
 }
 
-/** One day's punches (any order) → what the day looked like. */
-export function summarizeDay(day: string, punches: Punch[], now = Date.now()): DaySummary {
+/**
+ * One day's punches (any order) → what the day looked like.
+ *
+ * `countFrom` is an IST wall time ("09:30"): coming in before it counts FROM
+ * it, so nobody banks an hour by arriving early (migration 0056). The punch
+ * keeps its own time in firstIn and on the row; only the total moves. Leave it
+ * out on a holiday or a weekly off, where there is no shift to be early for.
+ */
+export function summarizeDay(day: string, punches: Punch[], now = Date.now(), countFrom?: string): DaySummary {
   const all = [...punches].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
   const valid = counted(all)
+  const floor = countFrom ? new Date(`${day}T${countFrom.padStart(5, "0")}:00+05:30`).getTime() : null
   let worked = 0
   let openAt: number | null = null
   for (const p of valid) {
     const t = new Date(p.at).getTime()
     if (p.kind === "in") {
-      if (openAt === null) openAt = t
+      if (openAt === null) openAt = floor !== null && t < floor ? floor : t
     } else if (openAt !== null) {
-      worked += (t - openAt) / MINUTE
+      // Never negative: with a floor, an out before it would otherwise subtract.
+      worked += Math.max(0, (t - openAt) / MINUTE)
       openAt = null
     }
   }
@@ -188,6 +197,8 @@ export const FLAG_LABEL: Record<string, string> = {
   low_accuracy: "Weak location",
   mock_location: "Fake location detected",
   no_code: "Marked without scanning a code",
+  no_checkout: "Did not check out",
+  auto_present: "Marked present automatically",
   regularised: "Corrected on request",
   short_hours: "Too few hours",
   worked_off_day: "Worked on a day off",
