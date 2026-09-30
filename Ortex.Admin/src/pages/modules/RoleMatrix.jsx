@@ -20,7 +20,7 @@ const ADMIN_ONLY = MODULES.filter((m) => m.adminOnly).map((m) => m.label)
 const SUPER_ONLY = [
   ...MODULES.filter((m) => m.superAdminOnly).map((m) => m.label),
   "Add and manage Admins",
-  "Attendance rules, leave policy and holidays",
+  "Attendance rules and leave policy",
   "Unlock a locked month, override a day",
 ]
 

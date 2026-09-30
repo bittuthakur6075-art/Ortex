@@ -238,7 +238,10 @@ export async function decideCorrection(id, approve, note) {
   if (error) throw new Error(error.message)
 }
 
-// ---- holidays (Super Admin) ----------------------------------------------------------------
+// ---- holidays (the attendance-holidays module, 0057) ----------------------------------------------------------------
+
+// RLS refuses a write by returning no rows rather than an error.
+const NO_HOLIDAY_ACCESS = "You do not have access to manage holidays. The Super Admin can give it on the Modules page."
 
 export async function listHolidays({ from, to } = {}) {
   if (!hasSupabase) return { rows: [], missing: true }
@@ -257,19 +260,19 @@ export async function saveHoliday({ id, day, name, kind, active }) {
     : supabase.from("holidays").insert(row).select("id")
   const { data, error } = await q
   if (error) throw new Error(/duplicate|unique/i.test(error.message) ? "There is already a holiday on that date" : error.message)
-  if (!data?.length) throw new Error("Only the Super Admin can change holidays")
+  if (!data?.length) throw new Error(NO_HOLIDAY_ACCESS)
 }
 
 export async function toggleHoliday(id, active) {
   const { data, error } = await supabase.from("holidays").update({ active }).eq("id", id).select("id")
   if (error) throw new Error(error.message)
-  if (!data?.length) throw new Error("Only the Super Admin can change holidays")
+  if (!data?.length) throw new Error(NO_HOLIDAY_ACCESS)
 }
 
 export async function deleteHoliday(id) {
   const { data, error } = await supabase.from("holidays").delete().eq("id", id).select("id")
   if (error) throw new Error(error.message)
-  if (!data?.length) throw new Error("Only the Super Admin can remove a holiday")
+  if (!data?.length) throw new Error(NO_HOLIDAY_ACCESS)
 }
 
 // ---- maintenance ------------------------------------------------------------------------------

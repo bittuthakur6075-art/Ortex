@@ -10,6 +10,36 @@
 
 export const RELEASES = [
   {
+    id: "1.52.0",
+    version: "1.52.0",
+    date: "2026-09-30",
+    title: "Holidays, leave balances and Sunday work",
+    items: [
+      {
+        kind: "new",
+        title: "Holidays under Attendance, Team",
+        detail: "Admins can now add, edit, switch off and remove holidays from Attendance, Team, Holidays. Before, only the Super Admin could.",
+      },
+      {
+        kind: "improved",
+        title: "Choose who manages holidays",
+        detail: "Manage holidays is a module on the Modules page, so the Super Admin can take it off Admins, give it to a role or to one person, or hide it from someone.",
+      },
+      {
+        kind: "new",
+        title: "Choose who manages leave balances",
+        detail:
+          "Manage leave balances is a new module. Only the Super Admin has it until they tick the Admins who may. Balances can be added to, reduced or set to an exact figure, and any adjustment can be undone from the ledger, always with a note.",
+      },
+      {
+        kind: "improved",
+        title: "Working on a Sunday or holiday is extra time",
+        detail:
+          "Sunday stays the weekend. If someone comes in on a Sunday or a holiday, their check-in, check-out and hours are recorded, but the day stays a weekly off or holiday and is never marked absent or half day for leaving early.",
+      },
+    ],
+  },
+  {
     id: "1.51.0",
     version: "1.51.0",
     date: "2026-09-30",

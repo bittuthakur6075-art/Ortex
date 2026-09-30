@@ -7,7 +7,7 @@ import { cn } from "../../../lib/cn"
 import { LEDGER_REASON_LABEL } from "../../../lib/attendance"
 import { relativeTime } from "../../../lib/format"
 import { todayIST } from "../../../services/attendance"
-import { cancelLeave, leaveBalances, listLeaveRequests, listLedger } from "../../../services/leave"
+import { cancelLeave, leaveBalances, listLeaveRequests, listLedger, undoLeaveAdjust } from "../../../services/leave"
 import { dayLabel } from "../format"
 import ApplyLeaveModal from "./ApplyLeaveModal"
 import { datesText, nameOf, num } from "./common"
@@ -159,9 +159,15 @@ export default function MyLeave({ ctx }) {
   )
 }
 
-/** Every row behind one balance, newest first, with a running total. */
-export function LedgerDrawer({ balance, userId, onClose, personName }) {
+/**
+ * Every row behind one balance, newest first, with a running total. With
+ * `canUndo` (the leave-balances module, 0059), a manual adjustment or grant
+ * that has not been undone carries an Undo, which writes a reversal row.
+ */
+export function LedgerDrawer({ balance, userId, onClose, personName, canUndo = false, onChanged }) {
   const [rows, setRows] = useState(null)
+  const [tick, setTick] = useState(0)
+  const [undoing, setUndoing] = useState(null)
   useEffect(() => {
     if (!balance) return
     let alive = true
@@ -170,7 +176,23 @@ export function LedgerDrawer({ balance, userId, onClose, personName }) {
     return () => {
       alive = false
     }
-  }, [balance, userId])
+  }, [balance, userId, tick])
+
+  const undone = new Set((rows || []).filter((r) => r.reason === "reversal" && r.ref_id).map((r) => r.ref_id))
+  const undo = async (r) => {
+    const why = window.prompt(`Undo ${r.delta > 0 ? "+" : ""}${num(r.delta)} (${r.note || "adjustment"})? Say why:`, "")
+    if (why === null) return
+    setUndoing(r.id)
+    try {
+      await undoLeaveAdjust(r.id, why.trim())
+      toast.success("Adjustment undone")
+      setTick((n) => n + 1)
+      onChanged?.()
+    } catch (e) {
+      toast.error(e.message)
+    }
+    setUndoing(null)
+  }
 
   // Running balance, oldest to newest, shown newest first.
   let running = 0
@@ -211,6 +233,20 @@ export function LedgerDrawer({ balance, userId, onClose, personName }) {
                   {num(r.delta)}
                 </div>
                 <div className="text-[12px] text-muted-foreground">{num(r.after)} after</div>
+                {canUndo && (r.reason === "adjust" || r.reason === "grant") && (
+                  undone.has(r.id) ? (
+                    <div className="text-[11px] text-muted-foreground">Undone</div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="text-[12px] font-medium text-primary hover:underline disabled:opacity-50"
+                      onClick={() => undo(r)}
+                      disabled={undoing === r.id}
+                    >
+                      {undoing === r.id ? "Undoing…" : "Undo"}
+                    </button>
+                  )
+                )}
               </div>
             </li>
           ))}

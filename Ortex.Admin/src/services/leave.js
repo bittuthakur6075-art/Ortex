@@ -151,6 +151,12 @@ export async function adjustLeave(userId, type, delta, note) {
   if (error) raise(error)
 }
 
+/** Undo one manual adjustment or grant (0059): a reversal row pointing at it. */
+export async function undoLeaveAdjust(entryId, note) {
+  const { error } = await supabase.rpc("leave_undo_adjust", { p_entry: entryId, p_note: note || null })
+  if (error) raise(error)
+}
+
 // ---- certificates -----------------------------------------------------------------------------------
 
 /** Upload into the caller's own folder of the private bucket; returns the path. */

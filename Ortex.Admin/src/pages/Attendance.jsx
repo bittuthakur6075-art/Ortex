@@ -30,6 +30,7 @@ import AttendanceSettings from "./attendance/Settings"
 import Leave from "./attendance/Leave"
 import QrCodeDisplay from "./attendance/QrCodeDisplay"
 import { canShowGateCode } from "./attendance/gate"
+import { Holidays } from "./attendance/SettingsExtra"
 import MyPayslips from "./MyPayslips"
 import PayrollDashboard from "./payroll/Dashboard"
 import PayRuns from "./payroll/PayRuns"
@@ -76,8 +77,9 @@ const PAGES = [
   { section: "team", value: "corrections", label: "Corrections", icon: FileText, render: () => <Corrections />, allow: (p) => isAdmin(p), count: "corrections" },
   { section: "team", value: "leave-requests", label: "Leave requests", icon: Sun, render: () => <Leave view="requests" />, allow: team, count: "leave" },
   { section: "team", value: "leave-calendar", label: "Leave calendar", icon: Calendar, render: () => <Leave view="calendar" />, allow: team },
-  { section: "team", value: "leave-balances", label: "Leave balances", icon: Wallet, render: () => <Leave view="balances" />, allow: team },
+  { section: "team", value: "leave-balances", label: "Leave balances", icon: Wallet, render: () => <Leave view="balances" />, allow: (p) => team(p) || canAccess(p, "leave-balances") },
   // canShowGateCode, which the Dashboard's gate card also checks.
+  { section: "team", value: "holidays", label: "Holidays", icon: Calendar, render: () => <Holidays />, allow: (p) => canAccess(p, "attendance-holidays") },
   { section: "team", value: "qr", label: "QR code", icon: QrCode, render: () => <QrCodeDisplay />, allow: canShowGateCode },
 
   { section: "me", value: "mine", label: "My attendance", icon: CalendarClock, render: () => <Mine />, allow: () => true },

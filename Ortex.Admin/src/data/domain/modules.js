@@ -41,6 +41,11 @@ export const MODULES = [
   // Granting it to someone who is not an admin does nothing: the database's
   // attendance_qr_issuer() wants the Super Admin, or an admin holding this key.
   { key: "attendance-qr", path: "/attendance?tab=qr", label: "Attendance · Show the QR code", section: "People" },
+  // Add, change and remove holidays (migration 0057). Every Admin by default.
+  { key: "attendance-holidays", path: "/attendance?tab=holidays", label: "Attendance · Manage holidays", section: "People" },
+  // Add, remove, set and undo leave balance changes (migration 0059). Starts
+  // with the Admin role OFF: the Super Admin picks which Admins get it.
+  { key: "leave-balances", path: "/attendance?tab=leave-balances", label: "Attendance · Manage leave balances", section: "People" },
   // Payroll (docs/pm/PAYROLL_PLAN.md, modelled on Zoho Payroll).
   { key: "payroll", path: "/attendance?tab=payroll", label: "Payroll", section: "People", payrollOnly: true },
   { key: "payslips", path: "/attendance?tab=payslips", label: "My payslips", section: "People", always: true },

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { Minus, Plus } from "../../../components/ui/Icons"
-import { Avatar, Banner, Button, Card, CardHeader, ExportButton, Field, Input, Modal, PageLoader, SearchInput, Select, Textarea } from "../../../components/ui/Ui"
+import { Avatar, Banner, Button, Card, CardHeader, ExportButton, Field, Input, Modal, PageLoader, SearchInput, Segmented, Select, Textarea } from "../../../components/ui/Ui"
 import { exportCsv } from "../../../lib/csv"
 import { todayIST } from "../../../services/attendance"
 import { adjustLeave, balancesFor } from "../../../services/leave"
@@ -11,10 +11,13 @@ import { TypeChip } from "./leaveUi"
 
 // Leave → Balances (Employment Hero's Balances view): every person × every
 // leave type with a balance, as available / taken this year / waiting. A cell
-// opens its ledger. The Super Admin can adjust a balance (opening balances,
-// comp-off, corrections), always with a note that lands in the ledger.
+// opens its ledger. Whoever holds the leave-balances module (the Super Admin,
+// and the Admins the Super Admin picks on the Modules page, 0059) adds,
+// removes or sets a balance and undoes an adjustment from the ledger, always
+// with a note that lands in the ledger. `ownId` is the viewer when they may not
+// touch their own balance (everyone but the Super Admin).
 
-export default function Balances({ ctx, canAdjust }) {
+export default function Balances({ ctx, canAdjust, ownId = null }) {
   const [state, setState] = useState({ loading: true })
   const [q, setQ] = useState("")
   const [adjusting, setAdjusting] = useState(null) // { userId, code }
@@ -63,7 +66,7 @@ export default function Balances({ ctx, canAdjust }) {
           <p className="text-[13px] text-muted-foreground">
             {canAdjust
               ? "Use Adjust for opening balances and comp-off. Every change is kept in the ledger with your note."
-              : "Only the Super Admin can adjust a balance."}
+              : "Managing balances is given by the Super Admin on the Modules page."}
           </p>
           <div className="ml-auto flex flex-wrap items-center gap-[10px]">
             <SearchInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a name" />
@@ -123,9 +126,13 @@ export default function Balances({ ctx, canAdjust }) {
                     })}
                     {canAdjust && (
                       <td className="text-right">
-                        <Button size="sm" variant="outline" onClick={() => setAdjusting({ userId: id, code: types[0]?.code })}>
-                          Adjust
-                        </Button>
+                        {id === ownId ? (
+                          <span className="text-xs text-muted-foreground" title="Only the Super Admin changes your own balance">Your own</span>
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={() => setAdjusting({ userId: id, code: types[0]?.code })}>
+                            Adjust
+                          </Button>
+                        )}
                       </td>
                     )}
                   </tr>
@@ -140,6 +147,7 @@ export default function Balances({ ctx, canAdjust }) {
         target={adjusting}
         ctx={ctx}
         types={types}
+        availableOf={(code) => (adjusting ? bal(adjusting.userId, code)?.available ?? 0 : 0)}
         onClose={() => setAdjusting(null)}
         onDone={() => {
           setAdjusting(null)
@@ -150,15 +158,23 @@ export default function Balances({ ctx, canAdjust }) {
         balance={ledger?.balance || null}
         userId={ledger?.userId}
         personName={ledger ? nameOf(ctx, ledger.userId) : ""}
+        canUndo={canAdjust && ledger?.userId !== ownId}
+        onChanged={() => void load()}
         onClose={() => setLedger(null)}
       />
     </div>
   )
 }
 
-function AdjustModal({ target, ctx, types, onClose, onDone }) {
+function AdjustModal({ target, ctx, types, availableOf, onClose, onDone }) {
   const [code, setCode] = useState("")
-  const [delta, setDelta] = useState(1)
+  // "change": add or remove days. "set": type the balance it should be, and
+  // the difference goes into the ledger as one adjustment.
+  const [mode, setMode] = useState("change")
+  const [setTo, setSetTo] = useState("")
+  const [changeBy, setDelta] = useState(1)
+  const current = code ? availableOf(code) : 0
+  const delta = mode === "set" ? Math.round(((Number(setTo) || 0) - current) * 2) / 2 : changeBy
   const [note, setNote] = useState("")
   const [busy, setBusy] = useState(false)
 
@@ -166,6 +182,8 @@ function AdjustModal({ target, ctx, types, onClose, onDone }) {
     if (target) {
       setCode(target.code || types[0]?.code || "")
       setDelta(1)
+      setMode("change")
+      setSetTo("")
       setNote("")
     }
   }, [target, types])
@@ -193,13 +211,21 @@ function AdjustModal({ target, ctx, types, onClose, onDone }) {
       footer={
         <div className="flex w-full justify-end gap-2">
           <Button size="sm" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button size="sm" onClick={save} disabled={busy || !code || delta === 0 || note.trim().length < 3}>
+          <Button size="sm" onClick={save} disabled={busy || !code || delta === 0 || note.trim().length < 3 || (mode === "set" && !String(setTo).trim())}>
             {delta >= 0 ? `Add ${num(Math.abs(delta))}` : `Remove ${num(Math.abs(delta))}`}
           </Button>
         </div>
       }
     >
       <div className="space-y-4">
+        <Segmented
+          items={[
+            { value: "change", label: "Add or remove" },
+            { value: "set", label: "Set balance" },
+          ]}
+          value={mode}
+          onChange={setMode}
+        />
         <Field label="Leave type" required>
           <Select id="adjust-type" value={code} onChange={(e) => setCode(e.target.value)}>
             {types.map((t) => (
@@ -207,6 +233,18 @@ function AdjustModal({ target, ctx, types, onClose, onDone }) {
             ))}
           </Select>
         </Field>
+        {mode === "set" ? (
+          <Field label="New balance" required hint={`Available now: ${num(current)}. The difference, ${delta > 0 ? "+" : ""}${num(delta)}, is written to the ledger.`}>
+            <Input
+              id="adjust-set-to"
+              inputMode="decimal"
+              className="w-24 text-center tabular"
+              value={setTo}
+              onChange={(e) => setSetTo(e.target.value)}
+              placeholder={num(current)}
+            />
+          </Field>
+        ) : (
         <Field label="Days" required hint="In half days. Use minus to take days off the balance.">
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" icon aria-label="Half a day less" onClick={() => step(-0.5)}>
@@ -216,7 +254,7 @@ function AdjustModal({ target, ctx, types, onClose, onDone }) {
               id="adjust-days"
               inputMode="decimal"
               className="w-24 text-center tabular"
-              value={delta}
+              value={changeBy}
               onChange={(e) => setDelta(Number(e.target.value) || 0)}
             />
             <Button size="sm" variant="outline" icon aria-label="Half a day more" onClick={() => step(0.5)}>
@@ -224,6 +262,7 @@ function AdjustModal({ target, ctx, types, onClose, onDone }) {
             </Button>
           </div>
         </Field>
+        )}
         <Field label="Note" required hint="Kept in the ledger. For example: Opening balance · Comp-off for working 2 Oct">
           <Textarea id="adjust-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Opening balance" />
         </Field>

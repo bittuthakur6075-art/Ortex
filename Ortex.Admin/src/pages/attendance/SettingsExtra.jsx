@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
-import { Calendar, Plus, RefreshCw, Trash2 } from "../../components/ui/Icons"
+import { Calendar, Pencil, Plus, RefreshCw, Trash2 } from "../../components/ui/Icons"
 import { Badge, Banner, Button, Card, CardHeader, EmptyState, Field, Input, Modal, PageLoader, Select } from "../../components/ui/Ui"
 import {
   deleteHoliday,
@@ -14,9 +14,12 @@ import {
 } from "../../services/attendance"
 import { dayLabel, daysOf } from "./format"
 
-// The Super Admin's Holidays and Maintenance sections of Attendance → Settings
-// (migration 0034). Holidays change what a day with no clock-in counts as (H,
-// not A); Maintenance runs by hand what the nightly jobs run anyway.
+// Holidays (migration 0034) and the Super Admin's Maintenance section of
+// Attendance → Settings. Holidays change what a day with no clock-in counts as
+// (H, not A). They are managed by whoever holds the `attendance-holidays`
+// module (0057: every Admin by default, set on the Modules page), on Attendance
+// → Team → Holidays; the Super Admin also sees them under Settings.
+// Maintenance runs by hand what the nightly jobs run anyway.
 
 const KIND_LABEL = { national: "National", festival: "Festival", optional: "Optional" }
 const KIND_TONE = { national: "violet", festival: "blue", optional: "slate" }
@@ -24,7 +27,8 @@ const KIND_TONE = { national: "violet", festival: "blue", optional: "slate" }
 export function Holidays() {
   const year = Number(todayIST().slice(0, 4))
   const [state, setState] = useState({ loading: true })
-  const [adding, setAdding] = useState(false)
+  // null = closed, {} = a new holiday, a row = editing that holiday.
+  const [editing, setEditing] = useState(null)
 
   const load = useCallback(async () => {
     setState({ loading: false, ...(await listHolidays({ from: `${year}-01-01`, to: `${year + 1}-12-31` })) })
@@ -52,7 +56,7 @@ export function Holidays() {
       <CardHeader
         title="Holidays"
         description={`${year} and ${year + 1}. A holiday with no clock-in counts as H, not absent. Optional holidays are listed but not given to everyone.`}
-        action={<Button size="sm" onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> Add holiday</Button>}
+        action={<Button size="sm" onClick={() => setEditing({})}><Plus className="h-4 w-4" /> Add holiday</Button>}
       />
       <div className="px-5 pb-4">
         <Banner tone="info">Republic Day, Independence Day and Gandhi Jayanti are filled in for you. Add Diwali, Holi and your other festival days.</Banner>
@@ -69,7 +73,7 @@ export function Holidays() {
                 <th>Holiday</th>
                 <th>Kind</th>
                 <th>Given</th>
-                <th className="w-16" />
+                <th className="w-24" />
               </tr>
             </thead>
             <tbody className="mt-body">
@@ -90,7 +94,10 @@ export function Holidays() {
                       {h.active ? "Yes" : "No"}
                     </label>
                   </td>
-                  <td>
+                  <td className="whitespace-nowrap">
+                    <Button size="sm" variant="ghost" icon aria-label={`Edit ${h.name}`} onClick={() => setEditing(h)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"
@@ -109,20 +116,23 @@ export function Holidays() {
           </table>
         </div>
       )}
-      <HolidayEditor
-        open={adding}
-        onClose={() => setAdding(false)}
-        onSaved={() => {
-          setAdding(false)
-          void load()
-        }}
-      />
+      {editing && (
+        <HolidayEditor
+          holiday={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null)
+            void load()
+          }}
+        />
+      )}
     </Card>
   )
 }
 
-function HolidayEditor({ open, onClose, onSaved }) {
-  const [form, setForm] = useState({ day: "", name: "", kind: "festival" })
+function HolidayEditor({ holiday, onClose, onSaved }) {
+  const isEdit = Boolean(holiday.id)
+  const [form, setForm] = useState({ day: "", name: "", kind: "festival", ...holiday })
   const [busy, setBusy] = useState(false)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const save = async () => {
@@ -131,8 +141,7 @@ function HolidayEditor({ open, onClose, onSaved }) {
     setBusy(true)
     try {
       await saveHoliday(form)
-      toast.success("Holiday added")
-      setForm({ day: "", name: "", kind: "festival" })
+      toast.success(isEdit ? "Holiday updated" : "Holiday added")
       onSaved()
     } catch (e) {
       toast.error(e.message)
@@ -141,14 +150,14 @@ function HolidayEditor({ open, onClose, onSaved }) {
   }
   return (
     <Modal
-      open={open}
+      open
       onClose={onClose}
       width="max-w-md"
-      title="Add holiday"
+      title={isEdit ? "Edit holiday" : "Add holiday"}
       footer={
         <div className="flex w-full justify-end gap-2">
           <Button size="sm" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button size="sm" onClick={save} disabled={busy}>{busy ? "Saving…" : "Add holiday"}</Button>
+          <Button size="sm" onClick={save} disabled={busy}>{busy ? "Saving…" : isEdit ? "Save changes" : "Add holiday"}</Button>
         </div>
       }
     >

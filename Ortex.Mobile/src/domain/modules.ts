@@ -53,6 +53,8 @@ export type ModuleKey =
   | "attendance-team"
   | "attendance-register"
   | "attendance-qr"
+  | "attendance-holidays"
+  | "leave-balances"
   | "payroll"
   | "payslips"
   | "voice-leads"
@@ -95,6 +97,9 @@ export const MODULES: ModuleDef[] = [
   // Shown on the console only (the QR display is a web screen), but the key
   // lives here too because this file mirrors the console registry.
   { key: "attendance-qr", label: "Attendance · Show the QR code" },
+  // Managing holidays is a console screen (migration 0057); the key mirrors the registry.
+  { key: "attendance-holidays", label: "Attendance · Manage holidays" },
+  { key: "leave-balances", label: "Attendance · Manage leave balances" },
   { key: "payroll", label: "Payroll", payrollOnly: true },
   { key: "payslips", label: "My payslips", always: true },
   { key: "voice-leads", label: "Voice calls" },
