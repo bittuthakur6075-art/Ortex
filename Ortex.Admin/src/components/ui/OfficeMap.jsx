@@ -163,18 +163,11 @@ export default function OfficeMap({ lat, lng, radius, onPick, others = [], onOth
     group.clearLayers()
     for (const s of others) {
       if (!Number.isFinite(s.lat) || !Number.isFinite(s.lng)) continue
-      const c = Lf.circle([s.lat, s.lng], {
-        radius: s.radius_m,
-        className: s.active === false ? "ortex-fence-off" : "ortex-fence-other",
-        weight: 1.5,
-      })
+      // No fence circle: the geofence stopped being checked when the QR code
+      // replaced it (0043), and a circle on a map reads as a rule.
       const mk = Lf.marker([s.lat, s.lng], { icon: pinIcon(Lf, s.active === false ? "off" : "other"), title: s.name })
       mk.bindTooltip(s.name, { direction: "top", offset: [0, -26] })
-      if (onOtherClick) {
-        mk.on("click", () => onOtherClick(s))
-        c.on("click", () => onOtherClick(s))
-      }
-      group.addLayer(c)
+      if (onOtherClick) mk.on("click", () => onOtherClick(s))
       group.addLayer(mk)
     }
     // An overview with no pin of its own frames everything it shows.

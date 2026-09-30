@@ -8,10 +8,8 @@ import { repo } from "../../data/store/repository"
 import { clockIST, durationWords, flagWords, onDutySince, summarizeDay } from "../../lib/attendance"
 import { listDays, listFlagged, listPunches, todayIST } from "../../services/attendance"
 import { listProfiles } from "../../services/users"
-import { DayDrawer, FlagBadges, ReviewButtons, Selfie, StatStrip } from "./parts"
+import { DayDrawer, FlagBadges, ReviewButtons, StatStrip } from "./parts"
 import { dayLabel, openRow } from "./format"
-import { useSelfieUrls } from "./useSelfieUrls"
-import { ImageViewer } from "../../components/ui/ImageViewer"
 
 // Attendance → Today: who is in, who is not yet, and what needs a look. For
 // admins and anyone granted "attendance-team" (Accounts by default). Nothing
@@ -24,7 +22,6 @@ export default function Today() {
   const [state, setState] = useState({ loading: true })
   const [open, setOpen] = useState(null) // user id
   const [now, setNow] = useState(Date.now())
-  const [viewerUrl, setViewerUrl] = useState(null)
 
   const load = useCallback(async () => {
     const today = todayIST()
@@ -109,7 +106,6 @@ export default function Today() {
     return state.profiles.filter((p) => p.active && !seen.has(p.id))
   }, [state.profiles, people])
 
-  const flaggedUrls = useSelfieUrls((state.flagged || []).map((p) => p.selfie_path))
 
   if (state.loading) return <PageLoader />
   if (state.missing) {
@@ -204,8 +200,6 @@ export default function Today() {
               const d = state.directory[p.user_id] || {}
               return (
                 <li key={p.id} className="flex items-start gap-3 px-5 py-4">
-                  {/* Only pre-QR punches carry a selfie; a camera placeholder on every row is noise. */}
-                  {p.selfie_path && <Selfie url={flaggedUrls[p.selfie_path]} size="h-14 w-14" onOpen={() => setViewerUrl(flaggedUrls[p.selfie_path])} />}
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-foreground">{d.name || "Unknown"}</span>
@@ -238,12 +232,6 @@ export default function Today() {
         selfId={selfId}
         canReview={admin}
         onReviewed={load}
-      />
-      <ImageViewer
-        open={Boolean(viewerUrl)}
-        images={viewerUrl ? [viewerUrl] : []}
-        alt="Attendance selfie"
-        onClose={() => setViewerUrl(null)}
       />
     </div>
   )

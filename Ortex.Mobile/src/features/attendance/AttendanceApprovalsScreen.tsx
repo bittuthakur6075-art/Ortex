@@ -28,7 +28,6 @@ import {
   Button,
   DataNotice,
   EmptyState,
-  ImageViewer,
   ListRefreshControl,
   Panel,
   Sheet,
@@ -304,7 +303,7 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
                     onApprove={() => void act(p.id, () => reviewPunch(p.id, "accepted"), "Punch accepted.")}
                   >
                     <View style={styles.punch}>
-                      <PunchRow punch={p} last onOpenPhoto={setPhoto} />
+                      <PunchRow punch={p} last />
                     </View>
                   </RequestCard>
                 )
@@ -338,7 +337,6 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
           />
         </View>
       </Sheet>
-      <ImageViewer visible={!!photo} images={photo ? [photo] : []} onClose={() => setPhoto(null)} />
     </AppScreen>
   )
 }

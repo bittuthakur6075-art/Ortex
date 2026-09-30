@@ -10,6 +10,26 @@
 
 export const RELEASES = [
   {
+    id: "1.54.0",
+    version: "1.54.0",
+    date: "2026-09-30",
+    title: "Selfie attendance removed",
+    items: [
+      {
+        kind: "improved",
+        title: "No more empty camera boxes on attendance",
+        detail:
+          "Selfies stopped being taken in September, when scanning the code on the office screen replaced them. The console kept drawing an empty camera box on every punch and kept a setting for deleting old photos. All of it is gone, along with the last four photos on record.",
+      },
+      {
+        kind: "improved",
+        title: "Stations show where they are, not a fence",
+        detail:
+          "The radius slider and the blue circles on the station map are gone. Nobody has been measured against a location since codes replaced the geofence, so a circle on a map only looked like a rule that was still being enforced.",
+      },
+    ],
+  },
+  {
     id: "1.53.1",
     version: "1.53.1",
     date: "2026-09-30",

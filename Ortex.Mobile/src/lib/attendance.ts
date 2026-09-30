@@ -23,11 +23,11 @@ import { loadDirectory } from "@/hooks/useRecordHistory"
  * Nothing here reads a location, and nothing here uploads a photo. Since
  * 2026-09-20 attendance is proved by the rotating code on the office screen,
  * which means this file cannot leak a coordinate or a face even by mistake:
- * there is no code left that asks for either. `selfieUrl` survives only so the
- * history screens can still show the photos taken before that date.
+ * there is no code left that asks for either. The last photos taken before that
+ * date, and the code that displayed them, were deleted on 2026-09-30
+ * (Ortex.Admin migration 0060).
  */
 
-const BUCKET = "attendance-selfies"
 const TTL_SECONDS = 3600
 
 /** A v4 uuid for a punch: made once per attempt so a retry never punches twice. */
@@ -147,14 +147,6 @@ export async function loadSettings(): Promise<AttendanceSettings> {
   const { data, error } = await supabase.from("attendance_settings").select("doc").maybeSingle()
   if (error || !data) return {}
   return (data.doc || {}) as AttendanceSettings
-}
-
-/** A 1-hour URL for a selfie, or null when it is gone (retention) or refused. */
-export async function selfieUrl(path?: string | null): Promise<string | null> {
-  if (!hasSupabase || !path) return null
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, TTL_SECONDS)
-  if (error) return null
-  return data?.signedUrl || null
 }
 
 /** 09:30 → 9:30 AM, for the shift line. */

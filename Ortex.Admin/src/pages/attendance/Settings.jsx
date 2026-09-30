@@ -105,7 +105,7 @@ function Sites() {
     <Card className="overflow-hidden">
       <CardHeader
         title="Stations"
-        description="Each station is a screen that shows the attendance code, and the name a scan is recorded against. Since codes replaced the geofence, the coordinates and radius below are kept but no longer checked."
+        description="Each station is a screen that shows the attendance code, and the name a scan is recorded against. The map is for finding a station, not for checking anyone: since codes replaced the geofence nobody is measured against a location."
         action={<Button size="sm" onClick={() => setEditing("new")}><Plus className="h-4 w-4" /> Add location</Button>}
       />
       {state.error && <Banner tone="danger" className="mx-5 mb-4">{state.error}</Banner>}
@@ -128,7 +128,6 @@ function Sites() {
               <tr className="text-left">
                 <th>Name</th>
                 <th>Address</th>
-                <th>Radius</th>
                 <th>Status</th>
                 <th className="w-28" />
               </tr>
@@ -138,7 +137,6 @@ function Sites() {
                 <tr key={s.id}>
                   <td className="font-medium text-foreground">{s.name}</td>
                   <td className="text-muted-foreground">{s.address || `${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}`}</td>
-                  <td className="tabular">{s.radius_m} m</td>
                   <td><Badge tone={s.active ? "emerald" : "slate"}>{s.active ? "Active" : "Off"}</Badge></td>
                   <td>
                     <div className="flex justify-end gap-1">
@@ -315,13 +313,12 @@ function SiteEditor({ site, onClose, onSaved }) {
           <OfficeMap
             lat={coordsOk ? lat : null}
             lng={coordsOk ? lng : null}
-            radius={form.radius_m}
             onPick={placePin}
             className="h-80"
           />
           <p className="text-xs text-muted-foreground">
-            Click the map or drag the pin onto the building. Switch to Satellite to see the roof. The blue circle is the
-            area staff must be inside to clock in, drawn to scale.
+            Click the map or drag the pin onto the building. Switch to Satellite to see the roof. The pin only records where
+            this station is; nobody is checked against it.
           </p>
         </div>
         <Field label="Or paste a Google Maps link" hint="Drop a pin in Google Maps, share it, and paste the link here. Coordinates also work: 28.6219, 77.0550">
@@ -335,18 +332,6 @@ function SiteEditor({ site, onClose, onSaved }) {
             <Input id="site-lng" inputMode="decimal" value={form.lng} onChange={(e) => set("lng", e.target.value)} placeholder="77.05500" />
           </Field>
         </div>
-        <Field label={`Radius: ${form.radius_m} m`} hint="150 m suits most buildings. Inside a metal-roofed shed, phones are often 50 to 100 m out.">
-          <input
-            id="site-radius"
-            type="range"
-            min={30}
-            max={2000}
-            step={10}
-            value={form.radius_m}
-            onChange={(e) => set("radius_m", Number(e.target.value))}
-            className="w-full accent-primary"
-          />
-        </Field>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="flex items-center gap-2 text-sm text-foreground">
             <input
@@ -485,9 +470,6 @@ function Rules() {
             value={num("qrRotateSec", 30)}
             onChange={(e) => set("qrRotateSec", Number(e.target.value))}
           />
-        </Field>
-        <Field label="Keep selfies for (days)" hint="Selfies are no longer taken. This still purges the ones recorded before 20 September 2026.">
-          <Input id="rule-retention" type="number" min={7} max={730} value={num("selfieRetentionDays", 90)} onChange={(e) => set("selfieRetentionDays", Number(e.target.value))} />
         </Field>
         <label className="flex items-start gap-2.5 self-center text-sm text-foreground">
           <input

@@ -11,7 +11,6 @@
 
 import { supabase, hasSupabase } from "../data/store/supabaseClient"
 
-const BUCKET = "attendance-selfies"
 const PAGE = 1000
 
 /** 0033 not applied: the relation (or the function) is not there. */
@@ -62,14 +61,6 @@ export async function listFlagged(days = 30) {
     .limit(500)
   if (error) return { rows: [], ...fail(error) }
   return { rows: data || [], missing: false }
-}
-
-/** Short-lived view URL for a selfie, or null when it is gone (purged). */
-export async function selfieUrl(path) {
-  if (!supabase || !path) return null
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600)
-  if (error) return null
-  return data?.signedUrl || null
 }
 
 export async function reviewPunch(id, decision, note) {
@@ -166,7 +157,6 @@ export function todayIST(now = Date.now()) {
 
 // ---- phase 2: days, corrections, holidays, the payroll lock (migration 0034) ----------------
 
-/** attendance_days between from and to (YYYY-MM-DD, inclusive), optionally one person. */
 /**
  * Overtime minutes per person for a date range (0056). The table is readable by
  * admins only, so anyone else gets an empty map rather than an error: the
@@ -307,23 +297,6 @@ export async function recalculate(from, to) {
   const { data, error } = await supabase.rpc("attendance_recompute_range", { p_from: from, p_to: to })
   if (error) throw new Error(error.message)
   return data || 0
-}
-
-/** Delete selfies older than the retention setting now (Super Admin). */
-export async function purgeSelfies() {
-  const { data, error } = await supabase.functions.invoke("attendance-housekeeping", { body: { job: "purge-selfies" } })
-  if (error) {
-    let message = error.message
-    try {
-      const body = await error.context?.json?.()
-      if (body?.error) message = body.error
-    } catch {
-      /* keep the generic message */
-    }
-    if (/not found|404|Failed to send/i.test(message)) message = "The clean-up function is not deployed yet"
-    throw new Error(message)
-  }
-  return { removed: data?.removed || 0, failed: data?.failed || 0 }
 }
 
 /** "YYYY-MM" helpers shared by the month switchers. */

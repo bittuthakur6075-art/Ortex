@@ -8,9 +8,10 @@
 // Everything takes `now` so a test is not a race with the clock.
 //
 // Attendance is marked by SCANNING the rotating code on the office screen
-// (0043). The selfie and the geofence of 0033 are gone from the flow; the
-// fields they wrote are still on Punch, because every row made before
-// 2026-09-20 still carries them and the history screens still draw them.
+// (0043). The selfie and the geofence of 0033 are gone from the flow. The
+// selfie went entirely on 2026-09-30 (Admin migration 0060): the column, the
+// photos and the screens that drew them. The location fields stay on Punch,
+// because rows made before 2026-09-20 still carry them.
 
 export type PunchKind = "in" | "out"
 export type PunchReview = "ok" | "flagged" | "accepted" | "rejected"
@@ -30,7 +31,6 @@ export type Punch = {
   distance_m?: number | null
   inside?: boolean | null
   note?: string | null
-  selfie_path?: string | null
   /** The station whose code was scanned (0043). Null for a field punch. */
   qr_site_id?: string | null
   qr_at?: string | null

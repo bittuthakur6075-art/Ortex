@@ -8,7 +8,7 @@ import { DayDrawer } from "./parts"
 import { STATUS_ORDER, toneFor } from "./format"
 
 // The day drawer for the Register and the My attendance calendar: the day's
-// punches (with selfies) under what the day COUNTS as. The Super Admin can
+// punches under what the day COUNTS as. The Super Admin can
 // override the status with a reason while the month is unlocked; that override
 // is logged in the database and wins until cleared.
 

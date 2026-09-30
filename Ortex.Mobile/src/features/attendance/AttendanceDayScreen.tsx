@@ -34,7 +34,7 @@ import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { AppScreen, Badge, Button, DataNotice, ImageViewer, Panel, ProgressBar, SkeletonPanel, useToast } from "@/ui"
+import { AppScreen, Badge, Button, DataNotice, Panel, ProgressBar, SkeletonPanel, useToast } from "@/ui"
 import Icon from "@/ui/Icon"
 
 const TITLE = new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })
@@ -241,7 +241,6 @@ export default function AttendanceDayScreen({ navigation, route }: StackScreenPr
                           key={p.id}
                           punch={p}
                           last={j === punches.length - 1 && lastSession}
-                          onOpenPhoto={setPhoto}
                         />
                       ))}
                     </View>
@@ -324,7 +323,6 @@ export default function AttendanceDayScreen({ navigation, route }: StackScreenPr
           </Text>
         </>
       )}
-      <ImageViewer visible={!!photo} images={photo ? [photo] : []} onClose={() => setPhoto(null)} />
     </AppScreen>
   )
 }

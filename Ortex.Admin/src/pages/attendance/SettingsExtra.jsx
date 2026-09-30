@@ -4,9 +4,7 @@ import { Calendar, Pencil, Plus, RefreshCw, Trash2 } from "../../components/ui/I
 import { Badge, Banner, Button, Card, CardHeader, EmptyState, Field, Input, Modal, PageLoader, Select } from "../../components/ui/Ui"
 import {
   deleteHoliday,
-  getSettings,
   listHolidays,
-  purgeSelfies,
   recalculate,
   saveHoliday,
   toggleHoliday,
@@ -182,14 +180,7 @@ function HolidayEditor({ holiday, onClose, onSaved }) {
 
 export function Maintenance() {
   const month = todayIST().slice(0, 7)
-  const [retention, setRetention] = useState(90)
   const [busy, setBusy] = useState(null)
-
-  useEffect(() => {
-    getSettings().then((r) => {
-      if (r.doc?.selfieRetentionDays) setRetention(r.doc.selfieRetentionDays)
-    })
-  }, [])
 
   const recalc = async () => {
     const days = daysOf(month)
@@ -203,23 +194,10 @@ export function Maintenance() {
     setBusy(null)
   }
 
-  const purge = async () => {
-    if (!window.confirm(`Delete every clock-in selfie older than ${retention} days? This cannot be undone.`)) return
-    setBusy("purge")
-    try {
-      const { removed, failed } = await purgeSelfies()
-      if (failed) toast.warning(`Deleted ${removed} selfies; ${failed} could not be deleted and will be tried again tonight`)
-      else toast.success(removed ? `Deleted ${removed} selfies` : "No selfies were old enough to delete")
-    } catch (e) {
-      toast.error(e.message)
-    }
-    setBusy(null)
-  }
-
   return (
     <Card>
-      <CardHeader title="Maintenance" description="Both of these also run automatically every night." />
-      <div className="grid grid-cols-1 gap-4 px-5 pb-5 md:grid-cols-2">
+      <CardHeader title="Maintenance" description="This also runs automatically every night." />
+      <div className="grid grid-cols-1 gap-4 px-5 pb-5">
         <div className="space-y-2 rounded-xl border border-border p-4">
           <h4 className="font-semibold text-foreground">Recalculate this month</h4>
           <p className="text-[13px] text-muted-foreground">
@@ -228,16 +206,6 @@ export function Maintenance() {
           </p>
           <Button size="sm" variant="outline" onClick={recalc} disabled={busy !== null}>
             <RefreshCw className="h-4 w-4" /> {busy === "recalc" ? "Recalculating…" : "Recalculate"}
-          </Button>
-        </div>
-        <div className="space-y-2 rounded-xl border border-border p-4">
-          <h4 className="font-semibold text-foreground">Delete old selfies now</h4>
-          <p className="text-[13px] text-muted-foreground">
-            Deletes clock-in selfies older than {retention} days (the retention in Rules). The attendance records stay; only the
-            photos go.
-          </p>
-          <Button size="sm" variant="outline" onClick={purge} disabled={busy !== null}>
-            <Trash2 className="h-4 w-4" /> {busy === "purge" ? "Deleting…" : `Delete selfies older than ${retention} days`}
           </Button>
         </div>
       </div>

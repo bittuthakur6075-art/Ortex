@@ -1,39 +1,21 @@
 import { useState } from "react"
 import { toast } from "sonner"
-import { Camera, CheckCircle2, MapPin, X } from "../../components/ui/Icons"
+import { CheckCircle2, MapPin, X } from "../../components/ui/Icons"
 import { Avatar, Badge, Button, Drawer, Field, Modal, Textarea } from "../../components/ui/Ui"
-import { ImageViewer } from "../../components/ui/ImageViewer"
 import { clockIST, durationWords, flagWords, REVIEW_LABEL } from "../../lib/attendance"
 import { reviewPunch } from "../../services/attendance"
-import { useSelfieUrls } from "./useSelfieUrls"
 import { cn } from "../../lib/cn"
 import { dayLabel } from "./format"
 
-// Pieces shared by the Today and My attendance tabs: the selfie thumbnail, the
-// flag badges and the day drawer (every punch of one person's day, with its
-// selfie, place, distance, accuracy and review state).
+// Pieces shared by the Today and My attendance tabs: the flag badges and the
+// day drawer (every punch of one person's day, with its place, distance,
+// accuracy and review state).
+//
+// Selfies are gone (2026-09-30). They stopped being taken when the rotating QR
+// code replaced the geofence in migration 0043, so every screen that drew one
+// was showing a thumbnail that could only ever be empty.
 
 const REVIEW_TONE = { ok: "emerald", flagged: "amber", accepted: "emerald", rejected: "rose" }
-
-export function Selfie({ url, size = "h-10 w-10", onOpen, label }) {
-  if (!url) {
-    return (
-      <span className={cn("inline-grid flex-none place-items-center rounded-lg bg-muted text-subtle-foreground", size)} title="No selfie. Attendance has been marked by code since 20 September 2026.">
-        <Camera className="h-4 w-4" />
-      </span>
-    )
-  }
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label={label || "View selfie"}
-      className={cn("flex-none overflow-hidden rounded-lg border border-border", size)}
-    >
-      <img src={url} alt="" className="h-full w-full object-cover" />
-    </button>
-  )
-}
 
 export function FlagBadges({ flags, field }) {
   const words = flagWords(flags)
@@ -51,9 +33,6 @@ export function FlagBadges({ flags, field }) {
 /** One person's day. `summary` is a DaySummary from lib/attendance. */
 export function DayDrawer({ open, onClose, person, summary, selfId, canReview, onReviewed, extra }) {
   const punches = summary?.punches || []
-  const urls = useSelfieUrls(punches.map((p) => p.selfie_path))
-  const [viewer, setViewer] = useState(null)
-  const images = punches.map((p) => urls[p.selfie_path]).filter(Boolean)
 
   return (
     <Drawer
@@ -98,17 +77,9 @@ export function DayDrawer({ open, onClose, person, summary, selfId, canReview, o
 
           <ol className="space-y-3">
             {punches.map((p) => {
-              const url = urls[p.selfie_path]
-              const imgIndex = images.indexOf(url)
               return (
                 <li key={p.id} className="rounded-xl border border-border p-3">
                   <div className="flex items-start gap-3">
-                    <Selfie
-                      url={url}
-                      size="h-14 w-14"
-                      label={`Selfie for the ${p.kind === "in" ? "clock in" : "clock out"} at ${clockIST(p.at)}`}
-                      onOpen={() => setViewer(imgIndex)}
-                    />
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-semibold text-foreground">
@@ -137,14 +108,6 @@ export function DayDrawer({ open, onClose, person, summary, selfId, canReview, o
           </ol>
         </div>
       )}
-      <ImageViewer
-        open={viewer !== null && viewer >= 0}
-        images={images}
-        index={Math.max(0, viewer ?? 0)}
-        alt="Attendance selfie"
-        onClose={() => setViewer(null)}
-        onIndexChange={setViewer}
-      />
     </Drawer>
   )
 }
