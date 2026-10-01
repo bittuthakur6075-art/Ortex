@@ -7,6 +7,7 @@ import PasswordCard from "../components/ui/PasswordCard"
 import { useProfile, refreshProfile } from "../hooks/useProfile"
 import AvatarUploader from "./profile/AvatarUploader"
 import QuotationDefaultsCard from "./profile/QuotationDefaultsCard"
+import SessionsCard from "./profile/SessionsCard"
 import { updateMyProfile } from "../services/users"
 import { currentEmail, currentUserId } from "../lib/auth"
 import { hasSupabase } from "../data/store/supabaseClient"
@@ -25,6 +26,9 @@ export default function Profile() {
       </div>
       <div className="mt-4">
         <QuotationDefaultsCard profile={profile} />
+      </div>
+      <div className="mt-4">
+        {hasSupabase && <SessionsCard />}
       </div>
     </div>
   )

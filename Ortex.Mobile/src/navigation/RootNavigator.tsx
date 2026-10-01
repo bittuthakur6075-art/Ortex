@@ -22,6 +22,7 @@ import WorkEditorScreen from "@/features/work/WorkEditorScreen"
 import ProductEditorScreen from "@/features/products/ProductEditorScreen"
 import AccountDetailsScreen from "@/features/profile/AccountDetailsScreen"
 import ChangePasswordScreen from "@/features/profile/ChangePasswordScreen"
+import LoginSessionsScreen from "@/features/profile/LoginSessionsScreen"
 import LegalScreen from "@/features/profile/LegalScreen"
 import ProfileScreen from "@/features/profile/ProfileScreen"
 import QuotationDefaultsScreen from "@/features/profile/QuotationDefaultsScreen"
@@ -189,6 +190,7 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="Team" component={TeamScreen} />
         <Stack.Screen name="UserDetail" component={UserDetailScreen} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={SHEET} />
+        <Stack.Screen name="LoginSessions" component={LoginSessionsScreen} options={SHEET} />
         {/* A full page, not a sheet: three long text fields and a keyboard need
             the whole screen. */}
         <Stack.Screen name="QuotationDefaults" component={QuotationDefaultsScreen} />

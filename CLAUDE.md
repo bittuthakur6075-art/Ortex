@@ -37,6 +37,7 @@ Never run destructive SQL, a test write or a bulk import against it casually.
 | `Ortex.Admin/src/lib/attendance.js` | Nothing: it is GENERATED from `Ortex.Mobile/src/domain/attendance.ts` (tsc + prettier --no-semi); parity test `Ortex.Mobile/test/attendance.test.mjs` |
 | `Ortex.Admin/src/lib/roles.js` | `Ortex.Mobile/src/domain/modules.ts` |
 | `Ortex.Admin/src/lib/enquiryImport.js` (Excel import of enquiries) | `Ortex.Mobile/src/domain/enquiryImport.ts` (parity test `test/enquiryImport.test.mjs`) |
+| `Ortex.Admin/src/lib/sessions.js` (Login sessions device names) | `Ortex.Mobile/src/domain/sessions.ts` (parity test `test/sessions.test.mjs`) |
 | `Ortex.Web/src/pages/Privacy.jsx`, `Terms.jsx` | `Ortex.Mobile/src/features/profile/legal.ts` (verbatim mirror) |
 | Anu's portrait `Ortex.Web/public/img/anu.jpg` | `Ortex.Admin/public/img/anu.jpg`, `Ortex.Mobile/assets/anu.jpg` |
 | Anu's filler names `PLACEHOLDER_NAMES` in `Ortex.Mobile/src/domain/voice.ts` | The copy inside migration 0029's `upsert_customer_from()` |

@@ -16,10 +16,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { emailProblem } from "@/features/contacts/validateContact"
 import {
   finishPasswordReset,
-  sendEmailOtp,
   sendResetCode,
-  verifyEmailOtp,
-  verifyPassword,
+  signIn,
   verifyResetCode,
   type PasswordReset,
 } from "@/lib/auth"
@@ -102,7 +100,7 @@ const REPEATS = 4
  * Sign-in is password → code. Forgot password is its own three steps on the same
  * page: the email, the code mailed to it, then the new password.
  */
-type Step = "password" | "code" | "reset-email" | "reset-code" | "reset-password"
+type Step = "password" | "reset-email" | "reset-code" | "reset-password"
 
 /** Supabase's own floor, as on ChangePasswordScreen. */
 const MIN_PASSWORD_LENGTH = 6
@@ -240,55 +238,20 @@ export default function LoginScreen() {
     Keyboard.dismiss()
     setBusy(true)
     setError("")
-    const checked = await verifyPassword(email, password)
-    if ("error" in checked) {
-      setBusy(false)
-      setError(checked.error)
-      feedback.error()
-      return
-    }
-    const sent = await sendEmailOtp(email)
-    setBusy(false)
-    if ("error" in sent) {
-      setError(sent.error)
-      feedback.error()
-      return
-    }
-    feedback.tap()
-    setStep("code")
-  }
-
-  // Takes the code explicitly when OtpField completes it: `code` in this closure
-  // is still the render before the last digit landed.
-  const submitCode = async (typed?: string) => {
-    const digits = (typed ?? code).replace(/[^0-9]/g, "")
-    const problem = !digits
-      ? "Enter the code from your email"
-      : digits.length !== OTP_LENGTH
-        ? `The code is ${OTP_LENGTH} digits`
-        : undefined
-    setFieldErrors({ code: problem })
-    if (problem) {
-      feedback.error()
-      return
-    }
-    setBusy(true)
-    setError("")
-    const result = await verifyEmailOtp(email, digits)
+    const result = await signIn(email, password)
     setBusy(false)
     if ("error" in result) {
       setError(result.error)
       feedback.error()
       return
     }
-    // No navigation: verifyOtp establishes the session and RootNavigator swaps
-    // this screen for the tabs.
+    // No navigation: the session flips RootNavigator over to the tabs.
     feedback.unlocked()
   }
 
   const resend = async () => {
     setBusy(true)
-    const sent = step === "reset-code" ? await sendResetCode(email) : await sendEmailOtp(email)
+    const sent = await sendResetCode(email)
     setBusy(false)
     setError("error" in sent ? sent.error : "")
     if (!("error" in sent)) {
@@ -401,12 +364,6 @@ export default function LoginScreen() {
       subtitle: "Sign in with your Ortex console account.",
       action: "Login",
       onSubmit: submitPassword,
-    },
-    code: {
-      title: "Check your email",
-      subtitle: `We sent a ${OTP_LENGTH}-digit code to ${email.trim()}. It expires in a few minutes.`,
-      action: "Sign in",
-      onSubmit: () => void submitCode(),
     },
     "reset-email": {
       title: "Reset your password",
@@ -531,7 +488,6 @@ export default function LoginScreen() {
               </>
             )}
 
-            {step === "code" && codeField((v) => void submitCode(v))}
 
             {step === "reset-email" && emailField}
 
@@ -587,15 +543,13 @@ export default function LoginScreen() {
 
           {step !== "password" && (
             <Animated.View style={[styles.secondary, arrive[3]]}>
-              {(step === "code" || step === "reset-code") && (
+              {step === "reset-code" && (
                 <>
                   {link("Send another code", resend)}
                   <Text style={{ color: c.textTertiary }}>·</Text>
                 </>
               )}
-              {step === "code"
-                ? link("Use a different email", () => goTo("password"), false)
-                : link("Back to sign in", backToSignIn, false)}
+              {link("Back to sign in", backToSignIn, false)}
             </Animated.View>
           )}
         </View>

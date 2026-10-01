@@ -2,9 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { Lock, Mail, ShieldCheck,Database, LayoutGrid, Eye, EyeOff } from "../components/ui/Icons"
 import {
-  verifyPassword,
-  sendEmailOtp,
-  verifyEmailOtp,
+  signIn,
   isAuthed,
   sendResetCode,
   verifyResetCode,
@@ -19,7 +17,7 @@ const RESEND_SECONDS = 60
 // Supabase's own floor, as on the password card in Settings/Profile.
 const MIN_PASSWORD_LENGTH = 6
 
-// Steps: "password" → "code" signs in; "reset-email" → "reset-code" →
+// Steps: "password" signs in; "reset-email" → "reset-code" →
 // "reset-password" is Forgot password, on the same card.
 
 export default function Login() {
@@ -47,59 +45,25 @@ export default function Login() {
     return () => clearTimeout(t)
   }, [cooldown])
 
-  // Step 1 → check the password, then mail a code. The password alone never
-  // signs anyone in here; only verifyEmailOtp below creates a session.
   const handlePassword = async (e) => {
     e.preventDefault()
     setBusy(true)
     setError("")
 
-    const res = await verifyPassword(email, password)
+    const res = await signIn(email, password)
+    setBusy(false)
     if (!res.ok) {
-      setBusy(false)
       setError(res.error || "Those credentials did not match. Check your email and password, then try again.")
       setPassword("")
       return
     }
-
-    // Legacy passphrase mode has no email to send to; verifyPassword already
-    // opened the local session, so go straight in.
-    if (!hasSupabase) {
-      setBusy(false)
-      navigate("/", { replace: true })
-      return
-    }
-
-    const sent = await sendEmailOtp(email)
-    setBusy(false)
-    if (!sent.ok) {
-      setError(sent.error || "We could not send your code. Try again in a moment.")
-      return
-    }
-    setStep("code")
-    setCooldown(RESEND_SECONDS)
-  }
-
-  // Step 2 → the code is what actually signs the user in.
-  const handleCode = async (e) => {
-    e.preventDefault()
-    setBusy(true)
-    setError("")
-
-    const res = await verifyEmailOtp(email, code)
-    setBusy(false)
-    if (res.ok) {
-      navigate("/", { replace: true })
-    } else {
-      setError(res.error || "That code was not accepted. Check it and try again.")
-      setCode("")
-    }
+    navigate("/", { replace: true })
   }
 
   const handleResend = async () => {
     setBusy(true)
     setError("")
-    const sent = step === "reset-code" ? await sendResetCode(email) : await sendEmailOtp(email)
+    const sent = await sendResetCode(email)
     setBusy(false)
     if (sent.ok) setCooldown(RESEND_SECONDS)
     else setError(sent.error || "We could not resend your code.")
@@ -185,17 +149,15 @@ export default function Login() {
     setError(res.error)
   }
 
-  const onCodeStep = step === "code" || step === "reset-code"
+  const onCodeStep = step === "reset-code"
   const heading = {
     password: "Operations Console",
-    code: "Check your email",
     "reset-email": "Reset your password",
     "reset-code": "Check your email",
     "reset-password": "Choose a new password",
   }[step]
   const subheading = {
-    password: "Sign in to run every order from quote to payment.",
-    code: <>We sent a 6-digit code to <strong className="font-medium text-foreground">{email}</strong>.</>,
+    password: "Sign in to run sales, billing and your team from one place.",
     "reset-email": "Enter the email you sign in with. We will send a 6-digit code to it.",
     "reset-code": <>If <strong className="font-medium text-foreground">{email}</strong> has a console account, a 6-digit code is on its way.</>,
     "reset-password": <>For <strong className="font-medium text-foreground">{email}</strong>. Use at least {MIN_PASSWORD_LENGTH} characters.</>,
@@ -211,7 +173,7 @@ export default function Login() {
         <section className="lgn-left">
           <div className="lgn-body">
             <a href="/" className="lgn-brand lgn-brand-top" aria-label="Ortex Industries home">
-              <img src="/img/logo.svg" alt="Ortex Industries" className="h-10 w-auto" />
+              <img src="/img/logo.svg" alt="Ortex Industries" className="h-[52px] w-auto" />
             </a>
             <h1 className="lgn-title">{heading}</h1>
             <p className="lgn-sub">{subheading}</p>
@@ -302,7 +264,7 @@ export default function Login() {
                 </div>
               </form>
             ) : onCodeStep ? (
-              <form onSubmit={step === "reset-code" ? handleResetCode : handleCode} noValidate className="lgn-form">
+              <form onSubmit={handleResetCode} noValidate className="lgn-form">
                 <label htmlFor="code" className="mb-1.5 block text-sm font-medium text-foreground">
                   Verification Code
                 </label>
@@ -325,7 +287,7 @@ export default function Login() {
                 {error && <p className="mt-2 text-sm text-destructive" role="alert">{error}</p>}
 
                 <Button type="submit" className="mt-8 w-full justify-center" disabled={busy || code.length < 6}>
-                  {busy ? "Verifying…" : step === "reset-code" ? "Verify code" : "Verify and sign in"}
+                  {busy ? "Verifying…" : "Verify code"}
                 </Button>
 
                 <div className="lgn-tophelp lgn-help-below">
@@ -335,7 +297,7 @@ export default function Login() {
                 </div>
                 <div className="lgn-tophelp lgn-help-alt">
                   <button type="button" onClick={backToPassword}>
-                    {step === "reset-code" ? "Back to sign in" : "Use a different account"}
+                    Back to sign in
                   </button>
                 </div>
               </form>
@@ -429,16 +391,16 @@ export default function Login() {
               <div className="lgn-trust">
                 <div className="lgn-trust-head"><span className="lgn-trust-ic"><ShieldCheck size={22} /></span> Secure by default</div>
                 <ul className="lgn-trust-list">
-                  <li><Lock size={16} /> Every session encrypted</li>
+                  <li><Lock size={16} /> Invite-only accounts</li>
                   <li><LayoutGrid size={16} /> Access scoped to your role</li>
-                  <li><Database size={16} /> Records stay in your own database</li>
+                  <li><Database size={16} /> Every change logged with who made it</li>
                 </ul>
               </div>
             </div>
 
             <div className="lgn-caption">
-              <h2>From first enquiry to final payment</h2>
-              <p>Quote it, invoice it, reconcile it. Every job stays on one thread, so nothing slips between the floor and the books.</p>
+              <h2>One console for the whole business</h2>
+              <p>Leads, quotations, invoices and payments, alongside attendance, payroll and team chat. Anu keeps an eye on the day, so nothing slips between the floor and the books.</p>
             </div>
 
           </div>

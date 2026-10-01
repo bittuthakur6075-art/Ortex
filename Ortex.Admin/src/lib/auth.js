@@ -52,7 +52,7 @@ export function authReady() {
 export async function login(email, password) {
   if (hasSupabase) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return error ? { error: error.message } : { ok: true }
+    return error ? fail(error) : { ok: true }
   }
   // Offline demo mode. The default passphrase is always accepted, alongside any
   // custom one set earlier through changePassword. That is deliberate: this data
@@ -69,48 +69,24 @@ export async function login(email, password) {
   return { error: `Incorrect password. In offline demo mode the passphrase is "${DEFAULT_PASSWORD}".` }
 }
 
-// ---- Two-step sign-in: password, then a code emailed to the same address ----
+// Supabase sometimes returns an empty body ("{}") or a server phrase no person
+// should read; turn those into a sentence they can act on.
+const fail = (error) => {
+  const msg = error?.message || ""
+  if (/sending (magic link|recovery|confirmation) email/i.test(msg)) return { error: "We could not email your code right now. Try again in a few minutes, or tell your admin." }
+  if (!msg || msg === "{}") return { error: "The sign-in service did not answer. Try again in a moment." }
+  return { error: msg }
+}
+
+// ---- Sign-in: email and password ----
 //
-// NOTE ON WHAT THIS DOES AND DOESN'T BUY YOU. This is a UI-level second step,
-// not a cryptographic second factor. Supabase issues a session the moment the
-// password is accepted, so someone holding a valid password can obtain a token
-// from their own client without ever seeing the emailed code. What this flow
-// does give you: the code check happens off a throwaway client (see
-// createEphemeralClient), so the *console* never holds a session until the code
-// is verified, and a stolen password alone will not sign anyone in through this
-// UI. For an enforceable factor that RLS can check, use Supabase MFA (TOTP).
-
-// Step 1. Check the password without letting the session reach the app.
-export async function verifyPassword(email, password) {
+// The emailed code step was removed (owner's decision, 2026-10-01): it was a
+// UI-level step, not a real second factor, and it locked everyone out whenever
+// the mail server failed. For an enforceable factor use Supabase MFA (TOTP).
+export async function signIn(email, password) {
   if (!hasSupabase) return login(email, password)
-
-  const client = createEphemeralClient()
-  const { error } = await client.auth.signInWithPassword({ email, password })
-  // Drop the token immediately; nothing downstream should ever see it.
-  await client.auth.signOut({ scope: "local" })
-  return error ? { error: error.message } : { ok: true }
-}
-
-// Step 2. Mail a one-time code. shouldCreateUser:false keeps the console
-// invite-only, without it, any typed address would be created and emailed a
-// working code against the public anon key.
-export async function sendEmailOtp(email) {
-  if (!hasSupabase) return { error: "Email codes require Supabase to be configured." }
-
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: false },
-  })
-  return error ? { error: error.message } : { ok: true }
-}
-
-// Step 3. Exchange the code for the real session. This is what actually signs
-// the user in: onAuthStateChange fires and useAuth() flips the app over.
-export async function verifyEmailOtp(email, token) {
-  if (!hasSupabase) return { error: "Email codes require Supabase to be configured." }
-
-  const { error } = await supabase.auth.verifyOtp({ email, token: token.trim(), type: "email" })
-  return error ? { error: error.message } : { ok: true }
+  const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+  return error ? fail(error) : { ok: true }
 }
 
 // ---- Forgot password, by emailed code ----
@@ -133,7 +109,7 @@ export async function sendResetCode(email) {
     options: { shouldCreateUser: false },
   })
   if (error && /signups? not allowed|user not found/i.test(error.message)) return { ok: true }
-  return error ? { error: error.message } : { ok: true }
+  return error ? fail(error) : { ok: true }
 }
 
 // Reset step 2. Returns { ok, reset } where `reset` is handed back to step 3.
@@ -171,11 +147,29 @@ export async function logout() {
   window.dispatchEvent(new Event(AUTH_EVENT))
 }
 
+// ---- Login sessions (migration 0063) ----
+// Every device signed in to this account, newest activity first, this one on top.
+export async function listSessions() {
+  if (!hasSupabase) return { sessions: [] }
+  const { data, error } = await supabase.rpc("my_sessions")
+  return error ? fail(error) : { sessions: data || [] }
+}
+
+export async function revokeSession(id) {
+  const { error } = await supabase.rpc("revoke_my_session", { p_id: id })
+  return error ? fail(error) : { ok: true }
+}
+
+export async function logoutOtherDevices() {
+  const { error } = await supabase.auth.signOut({ scope: "others" })
+  return error ? fail(error) : { ok: true }
+}
+
 // Change the signed-in user's password. Returns { ok } | { error }.
 export async function changePassword(next) {
   if (hasSupabase) {
     const { error } = await supabase.auth.updateUser({ password: next })
-    return error ? { error: error.message } : { ok: true }
+    return error ? fail(error) : { ok: true }
   }
   localStorage.setItem(PASSWORD_KEY, next)
   return { ok: true }

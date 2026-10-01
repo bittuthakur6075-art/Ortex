@@ -133,7 +133,7 @@ export default function ChangePasswordScreen({ navigation }: StackScreenProps<"C
       </View>
 
       <Text style={[textVariants.caption, styles.pageText, { color: t.textTertiary }]}>
-        Signing in still needs the code emailed to you afterwards. Other devices stay signed in.
+        Other devices stay signed in. Sign them out from Login sessions on your profile.
       </Text>
     </AppScreen>
   )

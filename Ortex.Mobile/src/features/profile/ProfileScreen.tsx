@@ -234,6 +234,12 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
               subtitle="Set a new sign-in password"
               onPress={() => navigation.navigate("ChangePassword")}
             />
+            <CardRow
+              icon="mobile"
+              title="Login Sessions"
+              subtitle="Devices signed in to your account"
+              onPress={() => navigation.navigate("LoginSessions")}
+            />
             {/* Always shown. The gate is `profiles_self_read` (migration 0002):
                 an admin gets everyone, anyone else gets their own row. */}
             <CardRow

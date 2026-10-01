@@ -36,6 +36,8 @@ import InfoCircle from "iconsax-react-native/dist/esm/InfoCircle"
 import Location from "iconsax-react-native/dist/esm/Location"
 import Lock from "iconsax-react-native/dist/esm/Lock"
 import Logout from "iconsax-react-native/dist/esm/Logout"
+import Mobile from "iconsax-react-native/dist/esm/Mobile"
+import Monitor from "iconsax-react-native/dist/esm/Monitor"
 import Microphone2 from "iconsax-react-native/dist/esm/Microphone2"
 import MicrophoneSlash1 from "iconsax-react-native/dist/esm/MicrophoneSlash1"
 import MagicStar from "iconsax-react-native/dist/esm/MagicStar"
@@ -158,6 +160,8 @@ const GLYPHS = {
   lock: Lock,
   fingerprint: FingerScan,
   logout: Logout,
+  mobile: Mobile,
+  monitor: Monitor,
   userEdit: UserEdit,
   password: PasswordCheck,
   team: People,
