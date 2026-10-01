@@ -307,3 +307,24 @@ export function newLine(overrides: Partial<Line> = {}): Line {
     ...overrides,
   }
 }
+
+// ---- payments --------------------------------------------------------------
+// Mirror of PAYMENT_METHODS in Ortex.Admin/src/data/domain/schema.js and the
+// doc that the console's recordPayment() writes: keep both in step.
+export const PAYMENT_METHODS = ["UPI", "Bank transfer / NEFT", "RTGS", "Cheque", "Cash", "Card", "Razorpay", "Other"] as const
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number]
+
+export type Payment = Row & {
+  number: string
+  /** inflow = money received from a customer; payout = money paid to a vendor. */
+  type: "inflow" | "payout"
+  amount: number
+  method: string
+  date: string
+  reference: string
+  note: string
+  invoiceId: string | null
+  invoiceNumber: string
+  party: string
+  customer: Customer | null
+}

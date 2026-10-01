@@ -54,6 +54,8 @@ import LeaveLedgerScreen from "@/features/leave/LeaveLedgerScreen"
 import LeaveRequestScreen from "@/features/leave/LeaveRequestScreen"
 import LeaveScreen from "@/features/leave/LeaveScreen"
 import PayClaimNewScreen from "@/features/pay/PayClaimNewScreen"
+import PaymentNewScreen from "@/features/payments/PaymentNewScreen"
+import PaymentsScreen from "@/features/payments/PaymentsScreen"
 import PayClaimsScreen from "@/features/pay/PayClaimsScreen"
 import PayScreen from "@/features/pay/PayScreen"
 import PaySalaryScreen from "@/features/pay/PaySalaryScreen"
@@ -216,6 +218,8 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="PaySalary" component={PaySalaryScreen} />
         <Stack.Screen name="PayClaims" component={PayClaimsScreen} />
         <Stack.Screen name="PayClaimNew" component={PayClaimNewScreen} />
+        <Stack.Screen name="Payments" component={PaymentsScreen} />
+        <Stack.Screen name="PaymentNew" component={PaymentNewScreen} />
         <Stack.Screen
           name="AttendanceNotice"
           component={AttendanceNoticeScreen}

@@ -3,6 +3,14 @@ import React from "react"
 // Deep imports (not the barrel `iconsax-react-native`) — the barrel re-exports all
 // 995 icons and Metro cannot tree-shake it, which added ~4 MB to the bundle.
 import Add from "iconsax-react-native/dist/esm/Add"
+import Bank from "iconsax-react-native/dist/esm/Bank"
+import Card from "iconsax-react-native/dist/esm/Card"
+import CardPos from "iconsax-react-native/dist/esm/CardPos"
+import ExportSquare from "iconsax-react-native/dist/esm/ExportSquare"
+import ImportSquare from "iconsax-react-native/dist/esm/ImportSquare"
+import Moneys from "iconsax-react-native/dist/esm/Moneys"
+import Receipt2 from "iconsax-react-native/dist/esm/Receipt2"
+import WalletMoney from "iconsax-react-native/dist/esm/WalletMoney"
 import Additem from "iconsax-react-native/dist/esm/Additem"
 import DocumentUpload from "iconsax-react-native/dist/esm/DocumentUpload"
 import ArrowDown2 from "iconsax-react-native/dist/esm/ArrowDown2"
@@ -136,6 +144,15 @@ const GLYPHS = {
   pause: Pause,
   gst: Personalcard,
   money: Money,
+  // payments: money in and out, and how it moved (the console uses the same glyphs)
+  moneyIn: ImportSquare,
+  moneyOut: ExportSquare,
+  wallet: WalletMoney,
+  bank: Bank,
+  card: Card,
+  cardPos: CardPos,
+  cash: Moneys,
+  cheque: Receipt2,
   discount: DiscountShape,
   percent: PercentageSquare,
   // contact actions
