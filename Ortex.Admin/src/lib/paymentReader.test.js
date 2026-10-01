@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { parseAmount, referenceKind, pickReference, methodFor, parsePaidAt, normalizeReading, findDuplicate, matchInvoice, nameScore, parseReceiptText, parseReceiptDate, fixDigits, otsuThreshold, headlineAmount, mergeReadings, readingScore } from "./paymentReader"
+import { parseAmount, referenceKind, pickReference, methodFor, parsePaidAt, normalizeReading, findDuplicate, matchInvoice, nameScore, parseReceiptText, parseReceiptDate, fixDigits, otsuThreshold, headlineAmount, mergeReadings, readingScore, pickHeadline, evenPolarity } from "./paymentReader"
 
 const now = new Date("2026-10-01T12:00:00+05:30").getTime()
 
@@ -69,10 +69,10 @@ describe("normalizeReading", () => {
 
   it("warns on a failed, unreadable or non-payment screenshot", () => {
     const d = normalizeReading({ isPaymentProof: false, status: "failed", confidence: 0.3 }, { now })
-    expect(d.warnings.join(" ")).toMatch(/does not look like/)
-    expect(d.warnings.join(" ")).toMatch(/FAILED/)
-    expect(d.warnings.join(" ")).toMatch(/No amount/)
-    expect(d.warnings.join(" ")).toMatch(/hard to read/)
+    expect(d.warnings.join(" ")).toMatch(/Not a payment/)
+    expect(d.warnings.join(" ")).toMatch(/payment failed/)
+    expect(d.warnings.join(" ")).toMatch(/Amount not found/)
+    expect(d.warnings.join(" ")).toMatch(/Hard to read/)
   })
 })
 
@@ -184,14 +184,14 @@ Remarks: PO 7781`)
   it("a failed payment and a blurry image are both called out", () => {
     const d = read(`Payment failed\n₹ 1,200\nUPI Ref No 427100000001`, 45)
     expect(d.status).toBe("failed")
-    expect(d.warnings.join(" ")).toMatch(/FAILED/)
-    expect(d.warnings.join(" ")).toMatch(/hard to read/)
+    expect(d.warnings.join(" ")).toMatch(/payment failed/)
+    expect(d.warnings.join(" ")).toMatch(/Hard to read/)
   })
 
   it("a photo of anything else is not a payment", () => {
     const d = read(`Lanyards 500 pcs\nBlue with logo`)
     expect(d.amount).toBe(null)
-    expect(d.warnings.join(" ")).toMatch(/does not look like/)
+    expect(d.warnings.join(" ")).toMatch(/Not a payment/)
   })
 
   it("dates in the other shapes apps print", () => {
@@ -255,5 +255,80 @@ describe("real-world fixes", () => {
     const m = mergeReadings(a, b)
     expect(m).toMatchObject({ amount: 11800, reference: "427134567890", payerName: "RAHUL", status: "success", isPaymentProof: true, confidence: 0.8 })
     expect(readingScore(m)).toBe(3)
+  })
+})
+
+describe("real screenshots and every UPI app", () => {
+  it("the amount is the number in the largest font, even a bare ₹453", () => {
+    const lines = [
+      { text: "To Mr Prem Kumar Aggarwal", height: 22 },
+      { text: "R453", height: 70 },
+      { text: "110001", height: 20 },
+      { text: "3 Sept 2026, 10:17am", height: 20 },
+    ]
+    expect(pickHeadline(lines)).toBe("R453")
+    expect(headlineAmount("R453", 90, true)).toEqual({ amount: 453, alt: null })
+    // A pincode in body text is never the headline.
+    expect(pickHeadline([{ text: "110001", height: 20 }, { text: "Paid to", height: 20 }])).toBe("")
+  })
+
+  it("the user's Google Pay screenshot, as the browser reads it", () => {
+    const text = `To Mr Prem Kumar Aggarwal
+R453
+Lift and cleaning
+© Completed
+3 Sept 2026, 10:17am
+§? iciciBank 1912 v
+UPI transaction ID
+624605623703
+To: Mr Prem Kumar Aggarwal
+PhonePe « ++++:<6609@ibl
+From: RAMSHANKAR PRASAD THAKUR (ICICI
+Bank)
+Google Pay + ++++37-3@okicici
+Google transaction ID
+CICAgPjgoq7Bcw`
+    const d = normalizeReading(parseReceiptText(text, 84, {}, "R453"), { now })
+    expect(d).toMatchObject({ amount: 453, method: "UPI", reference: "624605623703", party: "RAMSHANKAR PRASAD THAKUR", status: "success" })
+    expect(d.date).toBe("2026-09-03T04:47:00.000Z")
+    expect(d.note).toMatch(/Google Pay/)
+    expect(d.warnings).toEqual([])
+  })
+
+  it("knows the app by name, else by the sender's UPI handle", () => {
+    const app = (t) => parseReceiptText(t).app
+    expect(app("Paid Successfully to\nORTEX\npaytm")).toBe("Paytm")
+    expect(app("Payment successful\namazon pay")).toBe("Amazon Pay")
+    expect(app("From: Arjun Pillai\narjun@naviaxis")).toBe("Navi")
+    expect(app("From: Karan\nkaran@axisb")).toBe("CRED")
+    expect(app("From: Sunita\nsunita@waicici")).toBe("WhatsApp Pay")
+    expect(app("From: Ravi\nravi@ybl")).toBe("PhonePe")
+    expect(app("SBI YONO\nTransaction Successful")).toBe("SBI YONO")
+  })
+
+  it("reads each app's own labels", () => {
+    expect(parseReceiptText("Paid Successfully to\nORTEX INDUSTRIES").payeeName).toBe("ORTEX INDUSTRIES")
+    expect(parseReceiptText("Payer\nAMIT VERMA\nPayee\nOrtex").payerName).toBe("AMIT VERMA")
+    expect(parseReceiptText("Paid from: Rohit Mehra").payerName).toBe("Rohit Mehra")
+    expect(parseReceiptText("Paid by: Vikas Jain").payerName).toBe("Vikas Jain")
+    expect(parseReceiptText("Bank Reference ID\n427133344455").reference).toBe("427133344455")
+    // A bank and a masked account are not a payer.
+    expect(parseReceiptText("Debited from\nHDFC Bank XXXX1234").payerName).toBe("")
+    expect(parseReceiptText("Money will be refunded if debited").status).toBe("failed")
+  })
+})
+
+describe("evenPolarity", () => {
+  // 4 pixels per row: a white row with dark text, a purple band with white text, a grey card row.
+  const grey = Uint8ClampedArray.from([255, 255, 255, 20, 68, 68, 68, 255, 230, 230, 230, 40])
+  it("inverts a dark band and whitens every row's background", () => {
+    const out = [...evenPolarity(grey, 4)]
+    expect(out.slice(0, 4)).toEqual([255, 255, 255, 20]) // untouched
+    expect(out.slice(4, 8)).toEqual([255, 255, 255, 0]) // band: text now black on white
+    expect(out.slice(8, 12)).toEqual([255, 255, 255, 44]) // grey card stretched to white
+  })
+  it("flips a dark-mode screen as a whole", () => {
+    const dark = Uint8ClampedArray.from([30, 30, 30, 240])
+    expect([...evenPolarity(dark, 4)]).toEqual([255, 255, 255, 17])
   })
 })

@@ -96,16 +96,16 @@ export function normalizeReading(raw, { type = "inflow", now = Date.now() } = {}
   const confidence = Math.min(Math.max(Number(r.confidence) || 0, 0), 1)
 
   const warnings = []
-  if (r.isPaymentProof === false) warnings.push("This does not look like a payment confirmation.")
-  if (status === "failed") warnings.push("The screenshot shows a FAILED payment.")
-  if (status === "pending") warnings.push("The screenshot shows the payment as pending, not completed.")
-  if (!amount) warnings.push("No amount could be read. Enter it from the screenshot.")
+  if (r.isPaymentProof === false) warnings.push("Not a payment screenshot.")
+  if (status === "failed") warnings.push("This payment failed.")
+  if (status === "pending") warnings.push("This payment is still pending.")
+  if (!amount) warnings.push("Amount not found. Enter it.")
   const amountAlt = amount ? parseAmount(r.amountAlt) : null
-  if (amountAlt) warnings.push(`The ₹ sign may have been read as a digit. Check the amount: ₹${amount.toLocaleString("en-IN")} or ₹${amountAlt.toLocaleString("en-IN")}?`)
-  if (!reference) warnings.push("No transaction reference (UTR / UPI ref) could be read.")
-  if (r.paidAt && !date) warnings.push("The date on the screenshot could not be trusted. Check it.")
-  if (r.currency && String(r.currency).toUpperCase() !== "INR") warnings.push(`The amount is in ${r.currency}, not rupees.`)
-  if (confidence && confidence < 0.6) warnings.push("The screenshot was hard to read. Check every field.")
+  if (amountAlt) warnings.push(`Check the amount: ₹${amount.toLocaleString("en-IN")} or ₹${amountAlt.toLocaleString("en-IN")}?`)
+  if (!reference) warnings.push("No UTR or reference found.")
+  if (r.paidAt && !date) warnings.push("Date unclear. Check it.")
+  if (r.currency && String(r.currency).toUpperCase() !== "INR") warnings.push(`Amount is in ${r.currency}, not ₹.`)
+  if (confidence && confidence < 0.6) warnings.push("Hard to read. Check every field.")
 
   const note = [r.app && `Paid by ${r.app}`, r.note && `remark "${String(r.note).trim()}"`].filter(Boolean).join(", ")
 
@@ -121,6 +121,8 @@ export function normalizeReading(raw, { type = "inflow", now = Date.now() } = {}
     status,
     confidence,
     warnings,
+    // Failed, or not a payment at all: shown in red, and saving asks first.
+    serious: status === "failed" || r.isPaymentProof === false,
   }
 }
 
@@ -293,13 +295,14 @@ const INDIAN = /^(?:\d{1,3}|\d{1,2}(?:,\d{2})*,\d{3}|\d{1,7})(?:\.\d{1,2})?$/
  *  - "31,200": both 31,200 and 1,200 are valid. Tesseract's confidence in the
  *    word decides (a misread glyph pulls it down), and `alt` keeps the other
  *    reading for the person to pick with one click.
- * `wordConf` is Tesseract's 0..100 for this word.
+ * `wordConf` is Tesseract's 0..100 for this word. `bare` accepts a number with no comma
+ * or decimals ("453"): only for the line printed in the largest font, since
+ * elsewhere a bare number is as likely a phone number or a pincode.
  */
-export function headlineAmount(line, wordConf = 100) {
+export function headlineAmount(line, wordConf = 100, bare = false) {
   const s = String(line || "").replace(/\s+/g, "")
   if (!/^[^\d,.]?[0-9,.]+$/.test(s)) return null
-  // A bare number with no comma or decimals (a phone number, a pincode) is not a headline amount.
-  const money = (v) => /[,.]/.test(v) && INDIAN.test(v)
+  const money = (v) => (bare || /[,.]/.test(v)) && INDIAN.test(v)
   const symbol = /^[^\d,.]/.test(s)
   const read = s.replace(/^[^\d,.]/, "")
   const glyph = /^[2378]/.test(read) && money(read.slice(1)) ? read.slice(1) : ""
@@ -322,28 +325,74 @@ function labelled(lines, re) {
   return ""
 }
 
-const REF_LABEL = /\b(?:utr|rrn|upi\s*ref(?:erence)?|ref(?:erence)?\s*(?:no|number|id)|transaction\s*(?:id|ref(?:erence)?|no|number)|txn\s*(?:id|no))\b\.?(?:\s*(?:no|number|id)\b\.?)?/i
-const PAYEE_LABEL = /^(?:paid\s+to|sent\s+to|money\s+sent\s+to|transferred\s+to|to|beneficiary(?:\s+name)?|payee(?:\s+name)?)\b/i
-const PAYER_LABEL = /^(?:from|received\s+from|paid\s+by|sender(?:\s+name)?|remitter(?:\s+name)?)\b/i
+const REF_LABEL = /\b(?:utr|rrn|upi\s*ref(?:erence)?|bank\s*ref(?:erence)?|ref(?:erence)?\s*(?:no|number|id)|transaction\s*(?:id|ref(?:erence)?|no|number)|txn\s*(?:id|no))\b\.?(?:\s*(?:no|number|id)\b\.?)?/i
+// The wording of Google Pay, PhonePe, Paytm, BHIM, Amazon Pay, CRED, WhatsApp, MobiKwik and the bank apps.
+const PAYEE_LABEL = /^(?:paid\s+(?:successfully\s+)?to|(?:money\s+)?sent\s+(?:successfully\s+)?to|transferred\s+to|payment\s+to|to|beneficiary(?:\s+name)?|payee(?:\s+name)?|receiver(?:\s+name)?|recipient)\b/i
+const PAYER_LABEL = /^(?:from|received\s+from|paid\s+(?:by|from)|sent\s+by|payer(?:\s+name)?|sender(?:\s+name)?|remitter(?:\s+name)?)\b/i
 const NOTE_LABEL = /^(?:message|remarks?|note|purpose|description|narration)\b/i
 const AMOUNT_NOISE = /balance|cashback|reward|fee|charge|limit|avl|available/i
 // ₹ often comes out of OCR as %, & or ¥.
 const AMOUNT = /(?:₹|rs\.?|inr|[%&¥](?=\s?\d))\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i
 
+// The app a screenshot came from: its name on screen first (the branding),
+// then the sender's UPI handle (`@ybl` is PhonePe, `@okicici` Google Pay).
 const APPS = [
-  [/google\s*pay|g\s?pay/i, "Google Pay"],
-  [/phonepe/i, "PhonePe"],
+  [/google\s*pay|\bg\s?pay\b/i, "Google Pay"],
+  [/phone\s?pe/i, "PhonePe"],
   [/paytm/i, "Paytm"],
   [/amazon\s*pay/i, "Amazon Pay"],
   [/\bbhim\b/i, "BHIM"],
   [/\bcred\b/i, "CRED"],
   [/whatsapp/i, "WhatsApp Pay"],
+  [/mobikwik/i, "MobiKwik"],
+  [/freecharge/i, "Freecharge"],
+  [/super\.?\s?money/i, "super.money"],
+  [/\bnavi\b/i, "Navi"],
+  [/jupiter/i, "Jupiter"],
+  [/\bfi\s+money\b|\bfi\.money/i, "Fi"],
+  [/\bslice\b/i, "slice"],
+  [/\bpop\s+upi\b|\bpopclub\b/i, "POP"],
+  [/\bkiwi\b/i, "Kiwi"],
+  [/groww/i, "Groww"],
+  [/airtel/i, "Airtel Thanks"],
+  [/jio\s*(?:finance|pay)/i, "JioFinance"],
+  [/payzapp/i, "HDFC PayZapp"],
+  [/imobile/i, "ICICI iMobile"],
+  [/\byono\b/i, "SBI YONO"],
   [/hdfc/i, "HDFC Bank"],
   [/icici/i, "ICICI Bank"],
   [/\bsbi\b|state bank/i, "SBI"],
   [/axis/i, "Axis Bank"],
   [/kotak/i, "Kotak Bank"],
 ]
+const HANDLES = [
+  [/@ok(?:icici|sbi|hdfcbank|axis)\b/i, "Google Pay"],
+  [/@(?:ybl|ibl|axl)\b/i, "PhonePe"],
+  [/@(?:paytm|pt(?:yes|axis|hdfc|sbi))\b/i, "Paytm"],
+  [/@(?:apl|yapl|rapl)\b/i, "Amazon Pay"],
+  [/@upi\b/i, "BHIM"],
+  [/@axisb\b/i, "CRED"],
+  [/@wa(?:icici|hdfcbank|sbi|axis)\b/i, "WhatsApp Pay"],
+  [/@ikwik\b/i, "MobiKwik"],
+  [/@freecharge\b/i, "Freecharge"],
+  [/@superyes\b/i, "super.money"],
+  [/@naviaxis\b/i, "Navi"],
+  [/@jupiteraxis\b/i, "Jupiter"],
+  [/@fifederal\b/i, "Fi"],
+  [/@sliceaxis\b/i, "slice"],
+  [/@yespop\b/i, "POP"],
+]
+
+/** The app, by name on screen, else by the handle on the sender's line(s). */
+function appFor(all, lines) {
+  // Not inside a UPI handle: "arjun@naviaxis" is Navi, not Axis Bank.
+  const shown = all.replace(/\S+@\S+/g, " ")
+  const named = APPS.find(([re]) => re.test(shown))?.[1]
+  if (named) return named
+  const i = lines.findIndex((l) => PAYER_LABEL.test(l))
+  const near = i < 0 ? all : lines.slice(i, i + 3).join(" ")
+  return HANDLES.find(([re]) => re.test(near))?.[1] || HANDLES.find(([re]) => re.test(all))?.[1] || ""
+}
 
 /** A person or business name: no UPI id, masked account, bank in brackets or stray symbols. */
 function cleanName(s) {
@@ -359,7 +408,7 @@ function cleanName(s) {
 }
 
 // Apps print the payer's bank after the name ("RAMSHANKAR THAKUR ICICI Bank"); it is not part of it.
-const BANK_TAIL = /\s(?:icici|hdfc|sbi|axis|kotak|pnb|bob|canara|idfc|indusind|federal|union|yes|au|rbl|paytm|airtel|jio|state|bank)(?:\s+(?:bank|payments?|ltd|limited|of india))*\s*$/i
+const BANK_TAIL = /(?:^|\s)(?:icici|hdfc|sbi|axis|kotak|pnb|bob|canara|idfc|indusind|federal|union|yes|au|rbl|paytm|airtel|jio|state|bank)(?:\s+(?:bank|payments?|ltd|limited|of india))*\s*$/i
 
 /**
  * Two readings of the same screenshot (greyscale, then thresholded) -> one:
@@ -387,11 +436,11 @@ export function readingScore(r) {
  * OCR text of a payment screenshot -> the raw reading normalizeReading() takes.
  * `ocrConfidence` is Tesseract's 0..100 for the whole image.
  */
-export function parseReceiptText(text, ocrConfidence = 100, wordConf = {}) {
+export function parseReceiptText(text, ocrConfidence = 100, wordConf = {}, headline = "") {
   const lines = String(text || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
   const all = lines.join("\n")
 
-  const status = /\b(failed|declined|unsuccessful|rejected)\b/i.test(all)
+  const status = /\b(failed|declined|unsuccessful|rejected)\b|will be refunded|refunded if debited/i.test(all)
     ? "failed"
     : /\b(pending|processing|in progress)\b/i.test(all)
       ? "pending"
@@ -408,6 +457,11 @@ export function parseReceiptText(text, ocrConfidence = 100, wordConf = {}) {
   if (!amount) amount = parseAmount(labelled(lines, /^amount(?:\s+paid)?\b/i)) || null
   // Last resort: the headline figure on a line of its own ("11,800", "₹11,800" read as "311,800").
   let amountAlt = null
+  // The figure in the largest font, from the recogniser's line boxes.
+  if (!amount && headline) {
+    const hit = headlineAmount(headline, wordConf[headline.replace(/\s+/g, "")] ?? 100, true)
+    if (hit) ({ amount, alt: amountAlt } = hit)
+  }
   if (!amount) {
     for (const l of lines) {
       const hit = headlineAmount(l, wordConf[l.replace(/\s+/g, "")] ?? 100)
@@ -435,7 +489,7 @@ export function parseReceiptText(text, ocrConfidence = 100, wordConf = {}) {
     currency: "INR",
     paidAt: parseReceiptDate(all),
     method,
-    app: APPS.find(([re]) => re.test(all))?.[1] || "",
+    app: appFor(all, lines),
     reference: labelledRef,
     otherRefs: scanned,
     payerName: cleanName(labelled(lines, PAYER_LABEL)),
@@ -443,4 +497,57 @@ export function parseReceiptText(text, ocrConfidence = 100, wordConf = {}) {
     note: labelled(lines, NOTE_LABEL).slice(0, 120),
     confidence: Math.round((Math.min(Math.max(ocrConfidence, 0), 100) / 100) * (amount ? 1 : 0.5) * (reference ? 1 : 0.7) * 100) / 100,
   }
+}
+
+/**
+ * The headline amount's line: the tallest line that is only a number (with at
+ * most one stray glyph where the ₹ was), and clearly taller than the text
+ * around it (1.5 times the median line), so a pincode in body text never wins.
+ * `lines` are [{ text, height }] from the recogniser's line boxes.
+ */
+export function pickHeadline(lines = []) {
+  const heights = lines.map((l) => l.height).filter((h) => h > 0).sort((a, b) => a - b)
+  if (!heights.length) return ""
+  const median = heights[Math.floor(heights.length / 2)]
+  const numeric = lines
+    .filter((l) => /^[^\d\s]?\s?[0-9][0-9,.]*$/.test(String(l.text).trim()) && l.height >= 1.5 * median)
+    .sort((a, b) => b.height - a.height)
+  return numeric[0] ? String(numeric[0].text).trim() : ""
+}
+
+/**
+ * Dark text on light, everywhere. Apps print white text on coloured bands (a
+ * purple header, a red "Payment failed", a blue button) on an otherwise light
+ * screen, and the recogniser drops such a band as a picture. `grey` is the
+ * image's luminance (0..255, row by row, `width` per row); a dark-mode screen
+ * is flipped first, then every row that is still mostly dark (a band) is
+ * inverted on its own. Returns a new array.
+ */
+// ponytail: per full row; a dark card beside light text on the same rows stays as it is, go to per-block if that shows up.
+export function evenPolarity(grey, width) {
+  const out = new Uint8ClampedArray(grey.length)
+  let total = 0
+  for (let i = 0; i < grey.length; i++) total += grey[i]
+  const flip = total / grey.length < 110
+  const hist = new Uint32Array(256)
+  for (let y = 0; y < grey.length / width; y++) {
+    const start = y * width
+    // The row's MEDIAN is its background: text never covers half a row, so a
+    // band's rows all agree and no letter is cut in two (a mean would flip the
+    // rows through thick white text back and forth).
+    hist.fill(0)
+    for (let x = 0; x < width; x++) hist[flip ? 255 - grey[start + x] : grey[start + x]]++
+    let seen = 0
+    let median = 0
+    while ((seen += hist[median]) < width / 2) median++
+    const band = median < 110
+    // Then stretch the row so its background is white: a grey band or card
+    // left grey is still dropped as a picture.
+    const bg = Math.max(band ? 255 - median : median, 1)
+    for (let x = 0; x < width; x++) {
+      const g = flip ? 255 - grey[start + x] : grey[start + x]
+      out[start + x] = Math.min(255, Math.round(((band ? 255 - g : g) * 255) / bg))
+    }
+  }
+  return out
 }

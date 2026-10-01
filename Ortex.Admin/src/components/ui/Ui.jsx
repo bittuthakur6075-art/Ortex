@@ -170,7 +170,8 @@ export function StatusBadge({ list, status, className }) {
 // ---- StatCard --------------------------------------------------------------
 
 // Metronic stat tile: icon top-left, big number, muted label underneath.
-export function StatCard({ icon: Icon, label, value, accent = "bg-primary/10 text-primary", className }) {
+// `hint` is an optional line under the value ("3 payments").
+export function StatCard({ icon: Icon, label, value, hint, accent = "bg-primary/10 text-primary", className }) {
   return (
     <Card className={cn("flex-row items-center gap-2.5 rounded-[24px]! squircle p-5", className)}>
       {Icon && (
@@ -181,6 +182,7 @@ export function StatCard({ icon: Icon, label, value, accent = "bg-primary/10 tex
       <div className="flex min-w-0 flex-col gap-1.5">
         <span className="text-xs font-medium uppercase leading-none tracking-wide text-muted-foreground">{label}</span>
         <span className="text-base font-semibold leading-none tracking-tight text-foreground tabular">{value}</span>
+        {hint && <span className="text-xs leading-none text-muted-foreground">{hint}</span>}
       </div>
     </Card>
   )

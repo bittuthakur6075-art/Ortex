@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
-import { Sparkles, ImageIcon, X } from "../../components/ui/Icons"
-import { Button } from "../../components/ui/Ui"
-import { mergeReadings, otsuThreshold, parseReceiptText, readingScore } from "../../lib/paymentReader"
+import { ImageIcon, X } from "../../components/ui/Icons"
+import { cn } from "../../lib/cn"
+import { evenPolarity, mergeReadings, otsuThreshold, parseReceiptText, pickHeadline, readingScore } from "../../lib/paymentReader"
 
 // Drop, paste or pick a UPI / bank-transfer screenshot. It is read IN THE
 // BROWSER: the image is cleaned for recognition, Tesseract's LSTM network turns
@@ -13,15 +13,19 @@ import { mergeReadings, otsuThreshold, parseReceiptText, readingScore } from "..
 // there, small crops are scaled up, huge ones down.
 const MIN_WIDTH = 1200
 const MAX_WIDTH = 2400
+// The recogniser skips very large text, which is exactly how apps print the
+// amount ("₹453" at 70px). A pass at this width brings it down to body size.
+const HEADLINE_WIDTH = 400
 
 /**
  * Image file -> dark text on light, scaled for recognition. Greyscale by default
  * (Tesseract binarises it itself, locally); `threshold` forces one Otsu cut,
- * which rescues low-contrast text but can wash out coloured text.
+ * which rescues low-contrast text but can wash out coloured text. `width`
+ * forces the scale (the headline pass).
  */
-async function prepare(file, threshold = false) {
+async function prepare(file, threshold = false, width = 0) {
   const bitmap = await createImageBitmap(file)
-  const scale = Math.min(Math.max(MIN_WIDTH / bitmap.width, 1), MAX_WIDTH / bitmap.width)
+  const scale = width ? width / bitmap.width : Math.min(Math.max(MIN_WIDTH / bitmap.width, 1), MAX_WIDTH / bitmap.width)
   const canvas = document.createElement("canvas")
   canvas.width = Math.round(bitmap.width * scale)
   canvas.height = Math.round(bitmap.height * scale)
@@ -31,20 +35,18 @@ async function prepare(file, threshold = false) {
 
   const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
   const px = img.data
-  const grey = new Uint8ClampedArray(px.length / 4)
-  const hist = new Array(256).fill(0)
-  let total = 0
-  for (let i = 0, j = 0; i < px.length; i += 4, j++) {
-    const g = Math.round(0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2])
-    grey[j] = g
-    hist[g]++
-    total += g
+  const raw = new Uint8ClampedArray(px.length / 4)
+  for (let i = 0, j = 0; i < px.length; i += 4, j++) raw[j] = Math.round(0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2])
+  // Dark text on light everywhere: dark mode flipped, coloured bands inverted.
+  const grey = evenPolarity(raw, canvas.width)
+  let cut = -1
+  if (threshold) {
+    const hist = new Array(256).fill(0)
+    for (const g of grey) hist[g]++
+    cut = otsuThreshold(hist)
   }
-  // A dark-mode screenshot is light text on dark: flip it so text is dark.
-  const dark = total / grey.length < 110
-  const cut = threshold ? otsuThreshold(dark ? [...hist].reverse() : hist) : -1
   for (let i = 0, j = 0; i < px.length; i += 4, j++) {
-    const g = dark ? 255 - grey[j] : grey[j]
+    const g = grey[j]
     const v = cut < 0 ? g : g > cut ? 255 : 0
     px[i] = px[i + 1] = px[i + 2] = v
     px[i + 3] = 255
@@ -58,9 +60,13 @@ async function prepare(file, threshold = false) {
 let worker = null
 let onProgress = () => {}
 function recogniser() {
-  worker ||= import("tesseract.js").then(({ createWorker }) =>
-    createWorker("eng", 1, { logger: (m) => m.status === "recognizing text" && onProgress(m.progress) }),
-  )
+  worker ||= import("tesseract.js").then(async ({ createWorker }) => {
+    const w = await createWorker("eng", 1, { logger: (m) => m.status === "recognizing text" && onProgress(m.progress) })
+    // Automatic page layout. tesseract.js defaults to "one uniform block",
+    // which throws away an app's big headline amount as a picture.
+    await w.setParameters({ tessedit_pageseg_mode: "3" })
+    return w
+  })
   return worker
 }
 
@@ -73,7 +79,7 @@ export default function ScreenshotReader({ onRead }) {
   const [progress, setProgress] = useState(0)
 
   const read = async (file) => {
-    if (!file || !file.type.startsWith("image/")) return setError("Choose an image of the payment.")
+    if (!file || !file.type.startsWith("image/")) return setError("Choose an image.")
     setBusy(true)
     setError("")
     setProgress(0)
@@ -83,24 +89,30 @@ export default function ScreenshotReader({ onRead }) {
     })
     try {
       const ocr = await recogniser()
-      const pass = async (threshold, from, span) => {
-        onProgress = (p) => setProgress(from + p * span)
-        const { data } = await ocr.recognize(await prepare(file, threshold), {}, { blocks: true })
+      const pass = async (threshold, width = 0) => {
+        onProgress = setProgress
+        const { data } = await ocr.recognize(await prepare(file, threshold, width), {}, { blocks: true })
+        const lines = (data.blocks || []).flatMap((b) => b.paragraphs.flatMap((p) => p.lines))
         // Confidence per line (its weakest word), so the parser can doubt a misread ₹.
         const lineConf = {}
-        for (const line of (data.blocks || []).flatMap((b) => b.paragraphs.flatMap((p) => p.lines))) {
-          lineConf[line.text.replace(/\s+/g, "")] = Math.min(...line.words.map((w) => w.confidence))
-        }
-        return parseReceiptText(data.text, data.confidence, lineConf)
+        for (const line of lines) lineConf[line.text.replace(/\s+/g, "")] = Math.min(...line.words.map((w) => w.confidence))
+        const headline = pickHeadline(lines.map((l) => ({ text: l.text, height: l.bbox.y1 - l.bbox.y0 })))
+        return { ...parseReceiptText(data.text, data.confidence, lineConf, headline), text: data.text }
       }
-      // Greyscale first; only if a field is still missing, a thresholded second
-      // pass fills the gaps (about twice the time, only when it is needed).
-      const first = await pass(false, 0, 1)
-      onRead(readingScore(first) >= 4 ? first : mergeReadings(first, await pass(true, 0.5, 0.5)))
+      // Greyscale first. Only for what is still missing: a thresholded pass,
+      // then a small one for a headline amount too large to be recognised.
+      const passes = [await pass(false)]
+      if (readingScore(passes[0]) < 4) passes.push(await pass(true))
+      let reading = passes.reduce(mergeReadings)
+      if (!reading.amount) {
+        passes.push(await pass(false, HEADLINE_WIDTH))
+        reading = mergeReadings(reading, passes.at(-1))
+      }
+      onRead({ ...reading, text: passes.map((p) => p.text.trim()).join("\n\n--- next pass ---\n\n") })
     } catch (e) {
       console.error("screenshot reader", e)
       worker = null
-      setError("That image could not be read. Try a clearer screenshot, or enter the payment by hand.")
+      setError("Could not read that image. Try a clearer one, or type it in.")
     }
     setBusy(false)
   }
@@ -118,49 +130,56 @@ export default function ScreenshotReader({ onRead }) {
     return () => window.removeEventListener("paste", onPaste)
   })
 
+  // One target: click, drop or paste. The text says only what to do next.
+  const title = busy ? "Reading…" : preview ? "Screenshot read" : "Add a payment screenshot"
+  const sub = busy ? "On this device, nothing is uploaded" : preview ? "Click to use another" : "Drop, paste or click. UPI or bank transfer."
+
   return (
     <div>
-      <div
-        onDragOver={(e) => { e.preventDefault(); setOver(true) }}
-        onDragLeave={() => setOver(false)}
-        onDrop={(e) => { e.preventDefault(); setOver(false); read(e.dataTransfer.files?.[0]) }}
-        className={`squircle flex items-center gap-3 rounded-lg border border-dashed p-3 ${over ? "border-primary bg-primary/5" : "border-border bg-muted/30"}`}
-      >
-        {preview ? (
-          <div className="relative shrink-0">
-            <img src={preview} alt="Payment screenshot" className="h-14 w-10 rounded object-cover" />
-            {!busy && (
-              <button
-                type="button"
-                onClick={() => { setPreview(""); setError("") }}
-                aria-label="Remove screenshot"
-                className="absolute -right-1.5 -top-1.5 rounded-full bg-card text-muted-foreground hover:text-foreground"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        ) : (
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <ImageIcon size={20} />
+      <div className="relative">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => input.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setOver(true) }}
+          onDragLeave={() => setOver(false)}
+          onDrop={(e) => { e.preventDefault(); setOver(false); read(e.dataTransfer.files?.[0]) }}
+          className={cn(
+            "squircle relative flex w-full items-center gap-3 overflow-hidden rounded-xl border border-dashed p-3 text-left transition-colors",
+            over ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-subtle",
+          )}
+        >
+          {preview ? (
+            <img src={preview} alt="" className="h-12 w-9 shrink-0 rounded-md border border-border object-cover" />
+          ) : (
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <ImageIcon size={20} />
+            </span>
+          )}
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-foreground">{title}</span>
+            <span className="block text-xs text-muted-foreground">{sub}</span>
           </span>
+          {busy && <span className="text-xs font-medium tabular text-muted-foreground">{Math.round(progress * 100)}%</span>}
+          {busy && (
+            <span className="absolute inset-x-0 bottom-0 h-0.5 bg-primary/15">
+              <span className="block h-full bg-primary transition-[width] duration-200" style={{ width: `${Math.round(progress * 100)}%` }} />
+            </span>
+          )}
+        </button>
+        {preview && !busy && (
+          <button
+            type="button"
+            onClick={() => { setPreview(""); setError("") }}
+            aria-label="Remove screenshot"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X size={16} />
+          </button>
         )}
-        <div className="min-w-0 flex-1 text-xs text-muted-foreground">
-          <div className="text-sm font-medium text-foreground">{busy ? `Reading the screenshot… ${Math.round(progress * 100)}%` : "Fill from a screenshot"}</div>
-          UPI, NEFT, RTGS or IMPS receipt. Drop, paste or choose one. Read on this computer.
-        </div>
-        <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => input.current?.click()}>
-          <Sparkles className="h-4 w-4" /> {preview ? "Another" : "Choose"}
-        </Button>
-        <input
-          ref={input}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => { read(e.target.files?.[0]); e.target.value = "" }}
-        />
       </div>
-      {error && <p className="mt-1.5 text-xs text-destructive" role="alert">{error}</p>}
+      <input ref={input} type="file" accept="image/*" className="hidden" onChange={(e) => { read(e.target.files?.[0]); e.target.value = "" }} />
+      {error && <p className="mt-1.5 text-xs text-destructive-text" role="alert">{error}</p>}
     </div>
   )
 }

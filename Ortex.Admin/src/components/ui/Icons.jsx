@@ -8,6 +8,14 @@
 
 import {
   ImportCurve,
+  ImportSquare,
+  ExportSquare,
+  WalletMoney as WalletMoneyIcon,
+  Bank as BankIcon,
+  Card,
+  CardPos as CardPosIcon,
+  Moneys,
+  Receipt2,
   ExportCurve,
   RecordCircle as RecordCircleIcon,
   Notification as NotificationIcon,
@@ -203,3 +211,13 @@ export function LinkedIn({ size = 24, className = "", ...props }) {
 export function Loader2({ className = "" }) {
   return <span className={`inline-block animate-spin rounded-full border-2 border-current border-t-transparent ${className}`} aria-hidden="true" />
 }
+
+// Payments: money in and out, and how it moved.
+export const MoneyIn = wrap(ImportSquare)
+export const MoneyOut = wrap(ExportSquare)
+export const WalletMoney = wrap(WalletMoneyIcon)
+export const Bank = wrap(BankIcon)
+export const CreditCard = wrap(Card)
+export const CardPos = wrap(CardPosIcon)
+export const Cash = wrap(Moneys)
+export const Cheque = wrap(Receipt2)
