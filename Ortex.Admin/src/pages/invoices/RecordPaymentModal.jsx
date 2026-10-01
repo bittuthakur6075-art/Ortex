@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { AlertTriangle } from "../../components/ui/Icons"
+import { AlertTriangle, Sparkles } from "../../components/ui/Icons"
 import { recordPayment, invoiceBalance } from "../../data/domain/domain"
 import { PAYMENT_METHODS } from "../../data/domain/schema"
-import { toDateInput, formatCurrency } from "../../lib/format"
-import { Button, Input, Select, Field, Textarea, Modal } from "../../components/ui/Ui"
+import { toDateInput, formatCurrency, formatDate } from "../../lib/format"
+import { normalizeReading, findDuplicate, matchInvoice } from "../../lib/paymentReader"
+import ScreenshotReader from "./ScreenshotReader"
+import { Button, Input, Select, Field, Textarea, Drawer } from "../../components/ui/Ui"
 
 // One payment form for both entry points:
 //  - Invoice editor: pass `invoice` (+ `balance`). The receipt is pinned to it.
@@ -34,6 +36,29 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
   const [reference, setReference] = useState("")
   const [party, setParty] = useState("")
   const [note, setNote] = useState("")
+  // What the last screenshot said: its warnings, and the fields it filled.
+  const [reading, setReading] = useState(null)
+
+  const applyReading = (raw) => {
+    const d = normalizeReading(raw, { type })
+    const filled = []
+    if (d.amount) { setAmount(d.amount); filled.push("amount") }
+    if (d.date) { setDate(toDateInput(d.date)); filled.push("date") }
+    if (d.method !== "Other") { setMethod(d.method); filled.push("method") }
+    if (d.reference) { setReference(d.reference); filled.push("reference") }
+    if (d.party && !pinned) { setParty(d.party); filled.push("party") }
+    if (d.note && !pinned) setNote(d.note)
+    // A confident invoice match links it, unless one was already chosen.
+    const match = !pinned && !isPayout && !invoiceId ? matchInvoice(d, openInvoices) : null
+    if (match) setInvoiceId(match.inv.id)
+    setReading({ ...d, filled, match })
+  }
+
+  const duplicate = useMemo(
+    () => findDuplicate({ type, amount: Number(amount) || null, date: date ? new Date(date).toISOString() : null, reference, party: party || linked?.customer?.name }, payments),
+    [type, amount, date, reference, party, linked, payments],
+  )
+  const wasFilled = (f) => reading?.filled.includes(f) ? "Read from the screenshot. Check it." : undefined
 
   const pickInvoice = (id) => {
     setInvoiceId(id)
@@ -44,11 +69,14 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
     }
   }
 
-  const submit = async () => {
+  // `close` is the drawer's animated close: the panel slides out, then onDone runs.
+  const submit = async (close) => {
     const amt = Number(amount)
     if (!amt || amt <= 0) return toast.error("Enter a valid amount")
     const partyName = party.trim()
     if (!pinned && !linked && !partyName) return toast.error(isPayout ? "Enter the payee" : "Enter the payer")
+    if (duplicate?.sure && !window.confirm(`${duplicate.payment.number || "A payment"} already has this reference. Record it again?`)) return
+    if (reading?.status === "failed" && !window.confirm("The screenshot shows a failed payment. Record it anyway?")) return
     await recordPayment({
       type,
       amount: amt,
@@ -62,27 +90,58 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
       customer: linked?.customer,
     })
     toast.success(isPayout ? "Payout recorded" : "Payment recorded")
-    onDone()
+    close(onDone)
   }
 
   return (
-    <Modal
+    <Drawer
       open
       onClose={onClose}
       title={isPayout ? "Record payout" : "Record payment"}
-      width="max-w-sm"
-      footer={
-        <>
-          <Button variant="outline" size="sm" onClick={onClose}>
+      subtitle={pinned ? `Against ${invoice.number}` : "Fill it from a screenshot, or type it in"}
+      width="max-w-md"
+      footer={(close) => (
+        <div className="flex justify-end gap-2.5">
+          <Button variant="outline" size="sm" onClick={() => close()}>
             Cancel
           </Button>
-          <Button size="sm" onClick={submit}>
+          <Button size="sm" onClick={() => submit(close)}>
             {isPayout ? "Save" : "Save payment"}
           </Button>
-        </>
-      }
+        </div>
+      )}
     >
       <div className="space-y-4">
+        <ScreenshotReader onRead={applyReading} />
+        {reading && (
+          <div className="space-y-1 rounded-lg bg-muted/40 px-3 py-2 text-xs">
+            <p className="flex items-center gap-1.5 font-medium text-foreground">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              {reading.filled.length ? "Filled from the screenshot. Check every value before saving." : "Nothing usable could be read."}
+            </p>
+            {reading.match && (
+              <p className="text-muted-foreground">
+                Linked to {reading.match.inv.number}: {reading.match.why.join(", ")}.
+              </p>
+            )}
+            {reading.warnings.map((w) => (
+              <p key={w} className="flex items-start gap-1.5 text-warning-text">
+                <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" /> {w}
+              </p>
+            ))}
+            {reading.amountAlt && Number(amount) !== reading.amountAlt && (
+              <Button type="button" variant="outline" size="sm" className="mt-1" onClick={() => setAmount(reading.amountAlt)}>
+                Use {formatCurrency(reading.amountAlt)} instead
+              </Button>
+            )}
+          </div>
+        )}
+        {duplicate && (
+          <p className="flex items-start gap-1.5 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive-text">
+            <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
+            {duplicate.sure ? "Already recorded" : "Possibly already recorded"}: {duplicate.payment.number || "a payment"}, {formatCurrency(duplicate.payment.amount)} on {formatDate(duplicate.payment.date)}.
+          </p>
+        )}
         {!pinned && !isPayout && (
           <Field label="Invoice" hint={openInvoices.length ? undefined : "No open invoices"}>
             <Select value={invoiceId} onChange={(e) => pickInvoice(e.target.value)} autoFocus>
@@ -96,7 +155,7 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
           </Field>
         )}
         {!pinned && (
-          <Field label={isPayout ? "Paid To (Vendor / Party)" : "Received From"} required={!linked}>
+          <Field label={isPayout ? "Paid To (Vendor / Party)" : "Received From"} required={!linked} hint={wasFilled("party")}>
             <Input
               value={party}
               onChange={(e) => setParty(e.target.value)}
@@ -112,10 +171,10 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
           </div>
         )}
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Amount (₹)" required>
+          <Field label="Amount (₹)" required hint={wasFilled("amount")}>
             <Input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus={pinned} />
           </Field>
-          <Field label="Date">
+          <Field label="Date" hint={wasFilled("date")}>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
         </div>
@@ -128,7 +187,7 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
             ))}
           </Select>
         </Field>
-        <Field label="Reference / Txn ID">
+        <Field label="Reference / Txn ID" hint={wasFilled("reference")}>
           <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Enter reference or transaction ID" />
         </Field>
         {!pinned && (
@@ -159,6 +218,6 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
           </p>
         )}
       </div>
-    </Modal>
+    </Drawer>
   )
 }
