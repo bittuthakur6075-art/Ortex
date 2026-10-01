@@ -738,29 +738,47 @@ export function CloseButton({ onClick, className, label = "Close" }) {
 }
 
 // Dimmed scrim shared by overlays.
-function Scrim({ onClick }) {
-  return <div className="absolute inset-0 bg-black/50 animate-fade-in" onClick={onClick} />
+function Scrim({ onClick, leaving }) {
+  return <div className={cn("absolute inset-0 bg-black/50", leaving ? "animate-fade-out" : "animate-fade-in")} onClick={onClick} />
 }
+
+// Matches --animate-drawer-out, so the panel is gone before it unmounts.
+const DRAWER_OUT_MS = 200
 
 // `bodyClassName` overrides the scrolling area's padding. A full-bleed drawer
 // wants "p-0": with the default p-5 a sticky child positioned at top-0 sticks to
 // the padding edge, leaving a 20px strip above it where the list scrolls through.
+//
+// Closing slides the panel back out before `onClose` runs. `footer` may be a
+// function of that animated close, `(close) => ...`, and `close(then)` runs
+// `then` instead of `onClose` once the panel is out (a save that calls onDone).
 export function Drawer({ open, onClose, title, subtitle, children, footer, width = "max-w-lg", bodyClassName }) {
-  useEscape(onClose, open)
+  const [leaving, setLeaving] = useState(false)
+  const close = useCallback(
+    (then) => {
+      setLeaving(true)
+      setTimeout(() => {
+        setLeaving(false)
+        ;(typeof then === "function" ? then : onClose)?.()
+      }, DRAWER_OUT_MS)
+    },
+    [onClose],
+  )
+  useEscape(close, open && !leaving)
   if (!open) return null
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
-      <Scrim onClick={onClose} />
-      <div className={cn("relative flex h-full w-full flex-col border-l border-border bg-card shadow-xl animate-drawer-in", width)}>
+      <Scrim onClick={() => close()} leaving={leaving} />
+      <div className={cn("relative flex h-full w-full flex-col border-l border-border bg-card shadow-xl", leaving ? "animate-drawer-out" : "animate-drawer-in", width)}>
         <div className="flex min-h-14 items-start justify-between gap-3 border-b border-border px-5 py-3.5">
           <div className="min-w-0">
             {typeof title === "string" ? <h2 className="truncate text-base font-semibold tracking-tight text-foreground">{title}</h2> : title}
             {subtitle && <p className="mt-0.5 text-[13px] text-muted-foreground">{subtitle}</p>}
           </div>
-          <CloseButton onClick={onClose} />
+          <CloseButton onClick={() => close()} />
         </div>
         <div className={cn("scroll-thin flex-1 overflow-y-auto p-5", bodyClassName)}>{children}</div>
-        {footer && <div className="border-t border-border px-5 py-3.5">{footer}</div>}
+        {footer && <div className="border-t border-border px-5 py-3.5">{typeof footer === "function" ? footer(close) : footer}</div>}
       </div>
     </div>,
     document.body,

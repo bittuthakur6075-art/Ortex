@@ -101,12 +101,16 @@
   --animate-pop-in: ks-pop-in 0.16s cubic-bezier(0.32, 0.72, 0, 1) both;
   --animate-drawer-in: ks-drawer-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   --animate-fade-in: ks-fade-in 0.18s ease both;
+  --animate-drawer-out: ks-drawer-out 0.2s cubic-bezier(0.4, 0, 1, 1) both;
+  --animate-fade-out: ks-fade-out 0.2s ease both;
 
   @keyframes ks-card-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
   @keyframes ks-row-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
   @keyframes ks-pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
   @keyframes ks-drawer-in { from { transform: translateX(100%); } to { transform: none; } }
   @keyframes ks-fade-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes ks-drawer-out { from { transform: none; } to { transform: translateX(100%); } }
+  @keyframes ks-fade-out { from { opacity: 1; } to { opacity: 0; } }
 }
 
 /* Light (default), Metronic 9 Demo 1: zinc neutrals, blue-500 primary,
