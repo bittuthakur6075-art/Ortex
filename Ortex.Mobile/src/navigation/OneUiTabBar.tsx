@@ -5,6 +5,7 @@ import React from "react"
 import { Animated, Pressable, StyleSheet, View, useWindowDimensions } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
+import { useChatInbox } from "@/features/chat/useChat"
 import { useNotifications } from "@/features/notifications/useNotifications"
 import { feedback } from "@/lib/feedback"
 import { blurTargetRef } from "@/navigation/blurTarget"
@@ -99,6 +100,8 @@ const ICONS: Record<string, IconName> = {
   Leads: "leads",
   Products: "product",
   Contacts: "customer",
+  TeamTab: "team",
+  ChatTab: "chat",
 }
 
 /** The tab each notification target opens under. */
@@ -154,7 +157,17 @@ const GLASS = {
   },
 }
 
-export default function OneUiTabBar({ state: navState, descriptors, navigation }: BottomTabBarProps) {
+/**
+ * A screen hides the bar with `tabBarStyle: { display: "none" }` (Customers
+ * does while rows are selected, so its selection bar owns the bottom edge).
+ */
+export default function OneUiTabBar(props: BottomTabBarProps) {
+  const { options } = props.descriptors[props.state.routes[props.state.index].key]
+  if ((StyleSheet.flatten(options.tabBarStyle) as { display?: string } | undefined)?.display === "none") return null
+  return <TabBar {...props} />
+}
+
+function TabBar({ state: navState, descriptors, navigation }: BottomTabBarProps) {
   const c = useTheme()
   const isDark = useIsDark()
   const { width: windowWidth } = useWindowDimensions()
@@ -168,14 +181,15 @@ export default function OneUiTabBar({ state: navState, descriptors, navigation }
   // (so a tab dot and the bell dot can never disagree). A notification belongs
   // to the tab that opens its record; tabs no notification leads to never dot.
   const { unread } = useNotifications()
+  const chatUnread = useChatInbox().unread
   const dotted = React.useMemo(() => {
-    const out = new Set<string>()
+    const out = new Set<string>(chatUnread ? ["ChatTab"] : [])
     for (const n of unread) {
       const tab = TAB_FOR_SCREEN[n.target.screen]
       if (tab) out.add(tab)
     }
     return out
-  }, [unread])
+  }, [unread, chatUnread])
 
   const press = React.useRef<Animated.Value[]>([]).current
   navState.routes.forEach((_, i) => {

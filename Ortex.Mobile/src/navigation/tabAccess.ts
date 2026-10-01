@@ -14,7 +14,13 @@ export const TAB_REQUIRES: Record<keyof TabParamList, ModuleKey[]> = {
   Leads: ["enquiries", "voice-leads"],
   Products: ["products"],
   Contacts: ["customers"],
+  TeamTab: ["dashboard"],
+  ChatTab: ["chat"],
 }
+
+// The Staff role gets exactly Home, Team and Chat, whatever modules it holds;
+// every other role keeps the sales tabs and opens chat from the app bar.
+const STAFF_TABS: (keyof TabParamList)[] = ["Home", "TeamTab", "ChatTab"]
 
 // Home COUNTS. It used to be left out on the grounds that Home alone is a page
 // of nothing, but since the Staff role (migration 0032) a factory or office
@@ -24,6 +30,8 @@ export const TAB_REQUIRES: Record<keyof TabParamList, ModuleKey[]> = {
 const TAB_NAMES = Object.keys(TAB_REQUIRES) as (keyof TabParamList)[]
 
 export function tabAllowed(profile: Profile | null, name: keyof TabParamList): boolean {
+  const staffTab = STAFF_TABS.includes(name)
+  if (profile?.role === "staff" ? !staffTab : staffTab && name !== "Home") return false
   return TAB_REQUIRES[name].some((k) => canAccess(profile, k))
 }
 

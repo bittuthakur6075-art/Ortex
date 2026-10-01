@@ -13,6 +13,9 @@ export type TabParamList = {
   Leads: undefined
   Products: undefined
   Contacts: undefined
+  // Staff only (tabAccess.ts): colleagues' contacts, and Team chat as a tab.
+  TeamTab: undefined
+  ChatTab: undefined
 }
 
 /** What a "create a quotation" entry point can hand the editor. */
@@ -86,6 +89,9 @@ export type RootStackParamList = {
   PaySalary: undefined
   PayClaims: undefined
   PayClaimNew: undefined
+  // Payments (Super Admin and Admins): the console's Billing -> Payments.
+  Payments: undefined
+  PaymentNew: { type?: "inflow" | "payout" } | undefined
 }
 
 export type TabScreenProps<T extends keyof TabParamList> = CompositeScreenProps<

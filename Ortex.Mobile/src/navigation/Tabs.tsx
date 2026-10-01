@@ -5,10 +5,12 @@ import {
 import { BlurTargetView } from "expo-blur"
 import React from "react"
 
+import ChatScreen from "@/features/chat/ChatScreen"
 import ContactsScreen from "@/features/contacts/ContactsScreen"
 import HomeScreen from "@/features/home/HomeScreen"
 import LeadsScreen from "@/features/leads/LeadsScreen"
 import ProductsScreen from "@/features/products/ProductsScreen"
+import TeamContactsScreen from "@/features/profile/TeamContactsScreen"
 import QuotationsScreen from "@/features/quotations/QuotationsScreen"
 import { blurTargetRef } from "@/navigation/blurTarget"
 import OneUiTabBar from "@/navigation/OneUiTabBar"
@@ -83,6 +85,8 @@ export default function Tabs() {
         {allowed("Contacts") && (
           <Tab.Screen name="Contacts" component={ContactsScreen} options={{ title: "Customers" }} />
         )}
+        {allowed("TeamTab") && <Tab.Screen name="TeamTab" component={TeamContactsScreen} options={{ title: "Team" }} />}
+        {allowed("ChatTab") && <Tab.Screen name="ChatTab" component={ChatScreen} options={{ title: "Chat" }} />}
       </Tab.Navigator>
     </BlurTargetView>
   )

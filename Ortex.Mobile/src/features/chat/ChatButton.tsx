@@ -5,6 +5,7 @@ import { Animated, StyleSheet, View } from "react-native"
 import { useChatInbox } from "@/features/chat/useChat"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
+import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import IconButton from "@/ui/IconButton"
 
@@ -17,10 +18,13 @@ export default function ChatButton() {
   const t = useTheme()
   const navigation = useNavigation<StackScreenProps<"Tabs">["navigation"]>()
   const { unread } = useChatInbox()
+  const { profile } = useAuth()
   const dot = React.useRef(new Animated.Value(unread ? 1 : 0)).current
   React.useEffect(() => {
     Animated.spring(dot, { toValue: unread ? 1 : 0, stiffness: 320, damping: 24, mass: 0.6, useNativeDriver: true }).start()
   }, [unread, dot])
+  // Staff have Chat as a tab (navigation/tabAccess.ts).
+  if (profile?.role === "staff") return null
 
   return (
     <View>

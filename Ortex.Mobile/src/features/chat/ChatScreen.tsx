@@ -14,7 +14,7 @@ import NewChatSheet from "@/features/chat/NewChatSheet"
 import { reloadInbox, useChatInbox, useMyId } from "@/features/chat/useChat"
 import { chat } from "@/lib/chat"
 import { feedback } from "@/lib/feedback"
-import type { StackScreenProps } from "@/navigation/types"
+import type { StackScreenProps, TabScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { SubHeader } from "@/ui/OneUi"
 import { gutter } from "@/theme/tokens"
@@ -48,7 +48,10 @@ const ANU_ASKS = ["Aaj kya pending hai?", "Kaun absent hai?", "Is mahine ki sale
 
 type ChatSection = { key: string; title: string; data: Conversation[] }
 
-export default function ChatScreen({ navigation }: StackScreenProps<"Chat">) {
+export default function ChatScreen({ navigation: nav, route }: StackScreenProps<"Chat"> | TabScreenProps<"ChatTab">) {
+  // A stack page from the app bar, or the Staff role's Chat tab (no back arrow).
+  const asTab = route.name === "ChatTab"
+  const navigation = nav as StackScreenProps<"Chat">["navigation"]
   const t = useTheme()
   const meId = useMyId()
   const inbox = useChatInbox()
@@ -103,10 +106,10 @@ export default function ChatScreen({ navigation }: StackScreenProps<"Chat">) {
     <AppScreen
       title="Chat"
       subtitle={inbox.unread ? `${inbox.unread} unread` : "Your team, and Anu"}
-      back
+      back={!asTab}
       onBack={() => navigation.goBack()}
-      inTabs={false}
-      overlay={<Fab icon="add" inTabs={false} onPress={() => setCreating(true)} accessibilityLabel="New chat or group" />}
+      inTabs={asTab}
+      overlay={<Fab icon="add" inTabs={asTab} onPress={() => setCreating(true)} accessibilityLabel="New chat or group" />}
       sections={{
         sections: inbox.loading && !inbox.list.length ? [] : sections,
         refreshControl: <ListRefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />,
