@@ -29,6 +29,45 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.9.0",
+    version: "1.9.0",
+    date: "2026-10-02",
+    title: "Payments, a Team tab and cleaner lists",
+    summary: "A required update. Sign in with your email and password, no code.",
+    items: [
+      {
+        kind: "new",
+        title: "Payments for Admins",
+        detail: "Admins see every payment received and paid out, and can record one from the phone. Open it from Team and pay on Home.",
+      },
+      {
+        kind: "new",
+        title: "Team and Chat tabs for Staff",
+        detail: "Staff now have Home, Team and Chat at the bottom. Team lists your colleagues with Call and WhatsApp.",
+      },
+      {
+        kind: "improved",
+        title: "Sign in without a code",
+        detail: "Your email and password are enough. Profile shows where you are signed in, and you can sign a phone out.",
+      },
+      {
+        kind: "improved",
+        title: "Cleaner lists",
+        detail: "Leads, Quotations, Customers, Attendance and Leave are easier to scan, with filters and counts at the top.",
+      },
+      {
+        kind: "improved",
+        title: "Check-in from 8:30",
+        detail: "Check-in opens at 8:30 AM, and time before the shift starts is not counted.",
+      },
+      {
+        kind: "fixed",
+        title: "PDFs always print on A4",
+        detail: "Quotations and payslips are one A4 page, upright, on every phone.",
+      },
+    ],
+  },
+  {
     id: "1.8.1",
     version: "1.8.1",
     date: "2026-09-30",
