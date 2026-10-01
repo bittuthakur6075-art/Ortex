@@ -1,7 +1,7 @@
 <!--
   Supabase email template: Magic Link (used by signInWithOtp).
 
-  Paste into Dashboard -> Authentication -> Emails -> Magic Link.
+  Pushed by `npm run push:emails` (scripts/push-email-templates.mjs).
   Subject: Your Ortex sign-in code
 
   WHY THIS SENDS A CODE AND NOT A LINK
@@ -16,135 +16,118 @@
   credential sitting in an inbox for as long as the code lives.
 
   THE LOGO
-  public/img/logo-email.png (450x133, transparent, generated from logo.svg) is
-  the file to use -- PNG because Gmail will not render SVG, and 3x because most
-  people read email on a retina screen. It needs a PUBLIC URL: email clients
-  fetch it over the internet with no session, so anything behind auth shows as
-  a broken image. Supabase Storage in a public bucket is the simplest host and
-  gives a permanent CDN URL; the app's two existing buckets are both private,
-  so make a new public one rather than opening those up.
-
-  Set the src below to that URL. Note that data: URIs are not an alternative --
-  Gmail and Outlook block those too -- and neither is a relative path.
+  public/img/logo-email.png (450x133, transparent, 3x for retina), served
+  publicly by the console's Vercel deployment at
+  https://ortex-admin.vercel.app/img/logo-email.png. PNG because Gmail will not
+  render SVG; data: URIs and relative paths are blocked too. Same URL as
+  LOGO_URL in supabase/functions/_shared/emails.ts, whose invite and reset
+  emails share this design: change one, change the other.
 
   The styled alt text matters more than it looks: most clients block remote
   images until the reader clicks "show images", so on a first open the alt is
   what people actually see.
 
+  FONT
+  Inter loads where the client allows web fonts (Apple Mail, iOS, Outlook for
+  Mac); Gmail and Outlook for Windows fall back down the system stack.
+
   Variables available: .Token, .TokenHash, .ConfirmationURL, .SiteURL, .Email,
   .RedirectTo, .Data
 
-  This file is the source of truth; the dashboard is a copy. Supabase does not
-  deploy templates from the repo, so edit here too whenever you change it there.
+  This file is the source of truth; the dashboard is a copy.
 
   Tables + inline styles on purpose: Outlook and several webmail clients strip
   <style> blocks and understand little modern CSS.
 -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0">
-  Your Ortex sign-in code is {{ .Token }} - it expires shortly and can only be used once.
+  Your Ortex sign-in code is {{ .Token }}. It can be used once and expires shortly.
 </div>
 
 <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
-       style="background:#f4f4f5;margin:0;padding:40px 12px;
-              font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+       style="background:#F4F6FA;margin:0;padding:40px 12px;
+              font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
   <tr>
     <td align="center">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
-             style="max-width:480px;background:#ffffff;border:1px solid #e8e8ea;border-radius:14px;overflow:hidden">
 
-        <!-- Accent rule. Carries the brand colour even when everything else is
-             greyscale, and costs nothing to render. -->
+      <!-- Logo, above the card. width/height attributes because Outlook
+           ignores CSS sizes on images. -->
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="max-width:480px">
         <tr>
-          <td style="height:3px;background:#2F50E4;font-size:0;line-height:0">&nbsp;</td>
-        </tr>
-
-        <!-- Logo.
-             PNG, not SVG: Gmail strips SVG entirely. Rendered at 3x (450x133)
-             from public/img/logo.svg so it stays sharp on retina screens, and
-             sized down with width/height attributes -- Outlook ignores CSS
-             dimensions on images, so the attributes have to be there too.
-
-             REPLACE THE src BELOW with the public URL of logo-email.png. Until
-             it points somewhere real, readers see the styled alt text, which is
-             why the alt is "Ortex Industries" and carries brand colour: most
-             clients block remote images on first open anyway, so the fallback
-             is not an edge case, it is the common case. -->
-        <tr>
-          <td style="padding:30px 36px 0 36px">
-            <img src="https://REPLACE-WITH-PUBLIC-URL/logo-email.png"
-                 alt="Ortex Industries"
-                 width="150" height="44"
-                 style="display:block;width:150px;height:44px;border:0;outline:none;
-                        text-decoration:none;font-size:17px;font-weight:700;color:#2F50E4;
-                        letter-spacing:-0.3px">
+          <td align="center" style="padding:0 0 24px 0">
+            <img src="https://ortex-admin.vercel.app/img/logo-email.png"
+                 alt="Ortex Industries" width="150" height="44"
+                 style="display:block;width:150px;height:44px;border:0;outline:none;text-decoration:none;
+                        font-family:Inter,Arial,sans-serif;font-size:18px;font-weight:700;color:#2F50E4">
           </td>
         </tr>
+      </table>
+
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
+             style="max-width:480px;background:#ffffff;border:1px solid #E6E9F0;border-radius:16px;overflow:hidden">
 
         <!-- Heading -->
         <tr>
-          <td style="padding:28px 36px 0 36px">
-            <h1 style="margin:0;font-size:21px;line-height:28px;font-weight:600;color:#010101;letter-spacing:-0.3px">
+          <td align="center" style="padding:36px 40px 0 40px;font-family:Inter,-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
+            <h1 style="margin:0;font-size:24px;line-height:32px;font-weight:600;color:#071437;letter-spacing:-0.4px">
               Your sign-in code
             </h1>
-            <p style="margin:9px 0 0 0;font-size:14px;line-height:22px;color:#5b5b66">
-              Enter this code in the Ortex operations console to finish signing in.
+            <p style="margin:10px 0 0 0;font-size:15px;line-height:24px;color:#252F4A">
+              Enter this code in the Ortex Operations Console to finish signing in.
             </p>
           </td>
         </tr>
 
-        <!-- The code. The point of the whole email, so it gets the brand tint,
-             a real border, and type large enough to read from a phone at arm's
-             length without zooming. -->
+        <!-- The code: the point of the whole email, large enough to read on a
+             phone at arm's length without zooming. -->
         <tr>
-          <td style="padding:26px 36px 0 36px">
+          <td style="padding:28px 40px 0 40px">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
-                   style="background:#f3f5ff;border:1px solid #d7ddfb;border-radius:12px">
+                   style="background:#F3F5FF;border:1px solid #D7DDFB;border-radius:14px">
               <tr>
-                <td align="center" style="padding:22px 16px 18px 16px">
-                  <div style="font-size:10.5px;font-weight:700;color:#2F50E4;letter-spacing:1.6px;
+                <td align="center" style="padding:24px 16px 22px 16px;font-family:Inter,-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
+                  <div style="font-size:11px;font-weight:600;color:#2F50E4;letter-spacing:1.4px;
                               text-transform:uppercase;margin-bottom:12px">Verification code</div>
-                  <div style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,Courier,monospace;
-                              font-size:36px;font-weight:700;letter-spacing:11px;color:#101223;
-                              line-height:44px;text-indent:11px">{{ .Token }}</div>
+                  <div style="font-size:40px;font-weight:700;letter-spacing:12px;color:#071437;
+                              line-height:48px;text-indent:12px;font-variant-numeric:tabular-nums">{{ .Token }}</div>
                 </td>
               </tr>
             </table>
-            <p style="margin:12px 0 0 0;font-size:12px;line-height:18px;color:#8a8a94;text-align:center">
-              Single use, and it expires shortly.
+            <p style="margin:14px 0 0 0;font-family:Inter,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+                      font-size:13px;line-height:20px;color:#78829D;text-align:center">
+              Single use. It expires shortly.
             </p>
           </td>
         </tr>
 
         <!-- Security note -->
         <tr>
-          <td style="padding:26px 36px 0 36px">
+          <td style="padding:24px 40px 36px 40px">
             <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
               <tr>
-                <td style="border-top:1px solid #eeeeef;padding-top:18px">
-                  <p style="margin:0;font-size:12px;line-height:19px;color:#8a8a94">
-                    Didn't try to sign in? Ignore this email and the code expires on its own.
-                    Nobody at Ortex Industries will ever ask you for it.
-                  </p>
+                <td style="border-top:1px solid #E6E9F0;padding-top:18px;
+                           font-family:Inter,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+                           font-size:13px;line-height:20px;color:#4B5675">
+                  <strong style="color:#071437;font-weight:600">Didn't try to sign in?</strong>
+                  Ignore this email and the code expires on its own. Nobody at Ortex Industries will ever ask you for it.
                 </td>
               </tr>
             </table>
           </td>
         </tr>
 
-        <!-- Footer -->
-        <tr>
-          <td style="padding:20px 36px 30px 36px">
-            <p style="margin:0;font-size:11px;line-height:17px;color:#a8a8b2">
-              Ortex Industries &nbsp;&middot;&nbsp; sent to {{ .Email }}
-            </p>
-          </td>
-        </tr>
-
       </table>
 
-      <p style="max-width:480px;margin:18px auto 0 auto;font-size:11px;line-height:17px;color:#a8a8b2;text-align:center">
-        Custom MDF &amp; acrylic manufacturing, lanyards and corporate gifting.
-      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="max-width:480px">
+        <tr>
+          <td align="center" style="padding:22px 24px 0 24px;font-family:Inter,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+                                    font-size:12px;line-height:19px;color:#78829D">
+            Sent to {{ .Email }} &middot; Ortex Industries<br>
+            Custom MDF and acrylic manufacturing, lanyards and corporate gifting.
+          </td>
+        </tr>
+      </table>
+
     </td>
   </tr>
 </table>

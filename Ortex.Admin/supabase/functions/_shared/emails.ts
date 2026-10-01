@@ -1,48 +1,119 @@
 // HTML for the emails this app sends itself (as opposed to Supabase Auth's
 // templates, which live in supabase/templates/ and are pushed with
-// `npm run push:emails`).
+// `npm run push:emails`). supabase/templates/magic-link.html uses the same
+// design by hand: change one, change the other.
 //
-// Same visual language as the sign-in code email: tables and inline styles,
-// because Outlook and several webmail clients strip <style> blocks; a text
-// wordmark rather than an image, because most clients block remote images until
-// the reader clicks "show images" and this is the first mail a new colleague
-// receives from us.
+// Tables and inline styles, because Outlook and several webmail clients strip
+// <style> blocks. Inter loads where the client allows web fonts (Apple Mail,
+// iOS, Outlook for Mac); Gmail and Outlook for Windows fall back down the stack.
+// The logo is a PNG on the console's own deployment (Gmail will not render
+// SVG); its alt text is styled because most clients block remote images on a
+// first open, so the alt is what many people see.
 
 const BLUE = "#2F50E4"
-const INK = "#010101"
-const MUTED = "#5b5b66"
-const FAINT = "#8a8a94"
+const INK = "#071437"
+const TEXT2 = "#252F4A"
+const MUTED = "#4B5675"
+const FAINT = "#78829D"
+const LINE = "#E6E9F0"
+const TINT = "#F3F5FF"
+const FONT = "Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
+const MONO = "'SFMono-Regular',Consolas,'Liberation Mono',Menlo,Courier,monospace"
+export const LOGO_URL = "https://ortex-admin.vercel.app/img/logo-email.png"
 
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 
-const shell = (inner: string) => `
+const firstName = (name?: string) => (name?.trim() ? esc(name.trim().split(/\s+/)[0]) : "")
+
+const shell = (preheader: string, inner: string) => `
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0">${preheader}</div>
 <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
-       style="background:#f4f4f5;margin:0;padding:40px 12px;
-              font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+       style="background:#F4F6FA;margin:0;padding:40px 12px;font-family:${FONT}">
   <tr><td align="center">
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
-           style="max-width:520px;background:#ffffff;border:1px solid #e8e8ea;border-radius:14px;overflow:hidden">
-      <tr><td style="height:3px;background:${BLUE};font-size:0;line-height:0">&nbsp;</td></tr>
-      <tr><td style="padding:30px 36px 0 36px">
-        <table cellpadding="0" cellspacing="0" border="0" role="presentation"><tr>
-          <td style="width:34px;height:34px;background:${BLUE};border-radius:9px;text-align:center;
-                     vertical-align:middle;font-size:19px;font-weight:700;color:#ffffff;line-height:34px">O</td>
-          <td style="padding-left:11px;vertical-align:middle">
-            <div style="font-size:17px;font-weight:700;color:${INK};letter-spacing:-0.3px;line-height:19px">Ortex</div>
-            <div style="font-size:9.5px;font-weight:600;color:${FAINT};letter-spacing:2.4px;line-height:13px">INDUSTRIES</div>
-          </td>
-        </tr></table>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="max-width:520px">
+      <tr><td align="center" style="padding:0 0 24px 0">
+        <img src="${LOGO_URL}" alt="Ortex Industries" width="150" height="44"
+             style="display:block;width:150px;height:44px;border:0;outline:none;text-decoration:none;
+                    font-family:${FONT};font-size:18px;font-weight:700;color:${BLUE}">
       </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
+           style="max-width:520px;background:#ffffff;border:1px solid ${LINE};border-radius:16px;overflow:hidden">
       ${inner}
-      <tr><td style="padding:20px 36px 30px 36px">
-        <p style="margin:0;font-size:11px;line-height:17px;color:#a8a8b2">
-          Ortex Industries &nbsp;&middot;&nbsp; operations console
-        </p>
+      <tr><td style="height:36px;font-size:0;line-height:0">&nbsp;</td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="max-width:520px">
+      <tr><td align="center" style="padding:22px 24px 0 24px;font-family:${FONT};font-size:12px;line-height:19px;color:${FAINT}">
+        Ortex Industries &middot; Operations Console<br>
+        Custom MDF and acrylic manufacturing, lanyards and corporate gifting.
       </td></tr>
     </table>
   </td></tr>
 </table>`
+
+const heading = (title: string, sub: string) => `
+  <tr><td style="padding:36px 40px 0 40px;font-family:${FONT}">
+    <h1 style="margin:0;font-size:24px;line-height:32px;font-weight:600;color:${INK};letter-spacing:-0.4px">${title}</h1>
+    <p style="margin:10px 0 0 0;font-size:15px;line-height:24px;color:${TEXT2}">${sub}</p>
+  </td></tr>`
+
+// Label / value rows inside the tinted credentials card.
+const details = (rows: [string, string][]) => `
+  <tr><td style="padding:24px 40px 0 40px">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
+           style="background:${TINT};border:1px solid #D7DDFB;border-radius:12px">
+      <tr><td style="padding:8px 20px">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+          ${rows.map(([label, value], i) => `
+          <tr>
+            <td style="padding:12px 0;${i ? "border-top:1px solid #E3E7FB;" : ""}font-family:${FONT};font-size:12px;
+                       font-weight:500;color:${FAINT};width:140px;vertical-align:top;line-height:20px">${label}</td>
+            <td style="padding:12px 0;${i ? "border-top:1px solid #E3E7FB;" : ""}font-family:${MONO};font-size:14px;
+                       font-weight:600;color:${INK};word-break:break-all;line-height:20px">${value}</td>
+          </tr>`).join("")}
+        </table>
+      </td></tr>
+    </table>
+  </td></tr>`
+
+// Bulletproof button: a table cell carries the colour, so it survives Outlook.
+const button = (label: string, url: string) => `
+  <tr><td style="padding:24px 40px 0 40px">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+      <tr><td align="center" bgcolor="${BLUE}" style="border-radius:12px;background:${BLUE}">
+        <a href="${esc(url)}" target="_blank"
+           style="display:block;padding:15px 24px;font-family:${FONT};font-size:15px;font-weight:600;
+                  line-height:20px;color:#ffffff;text-decoration:none;border-radius:12px">${label}</a>
+      </td></tr>
+    </table>
+  </td></tr>`
+
+const steps = (title: string, items: string[]) => `
+  <tr><td style="padding:28px 40px 0 40px;font-family:${FONT}">
+    <div style="font-size:11px;font-weight:600;color:${BLUE};letter-spacing:1.4px;text-transform:uppercase;
+                margin:0 0 12px 0">${title}</div>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+      ${items.map((text, i) => `
+      <tr>
+        <td width="34" style="padding:0 0 12px 0;vertical-align:top">
+          <div style="width:24px;height:24px;border-radius:12px;background:${TINT};color:${BLUE};font-family:${FONT};
+                      font-size:12px;font-weight:600;line-height:24px;text-align:center">${i + 1}</div>
+        </td>
+        <td style="padding:2px 0 12px 0;font-family:${FONT};font-size:14px;line-height:21px;color:${TEXT2};
+                   vertical-align:top">${text}</td>
+      </tr>`).join("")}
+    </table>
+  </td></tr>`
+
+const note = (html: string) => `
+  <tr><td style="padding:12px 40px 0 40px">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+      <tr><td style="border-top:1px solid ${LINE};padding-top:18px;font-family:${FONT};font-size:13px;
+                     line-height:20px;color:${MUTED}">${html}</td></tr>
+    </table>
+  </td></tr>`
 
 /**
  * The email a new colleague receives when an admin creates their login.
@@ -59,69 +130,42 @@ export function inviteEmail(opts: {
   modules: string[]
   url: string
 }) {
-  const greeting = opts.name?.trim() ? `Hi ${esc(opts.name.trim().split(/\s+/)[0])},` : "Hi,"
-  const access = opts.modules.length
-    ? opts.modules.map(esc).join(" &middot; ")
-    : "Dashboard only for now — an admin can grant more."
+  const name = firstName(opts.name)
+  const role = esc(opts.roleLabel)
+  const chips = opts.modules.length
+    ? opts.modules.map((m) => `<span style="display:inline-block;margin:0 6px 8px 0;padding:5px 11px;border-radius:999px;
+        background:#F4F6FA;border:1px solid ${LINE};font-family:${FONT};font-size:12px;font-weight:500;
+        line-height:16px;color:${TEXT2}">${esc(m)}</span>`).join("")
+    : `<span style="font-size:13px;color:${MUTED}">Dashboard only for now. An admin can give you more pages.</span>`
 
-  const row = (label: string, value: string) => `
-    <tr>
-      <td style="padding:9px 0;font-size:12px;color:${FAINT};width:150px;vertical-align:top">${label}</td>
-      <td style="padding:9px 0;font-size:14px;color:${INK};font-weight:600;
-                 font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,Courier,monospace;
-                 word-break:break-all">${value}</td>
-    </tr>`
-
-  return shell(`
-    <tr><td style="padding:28px 36px 0 36px">
-      <h1 style="margin:0;font-size:21px;line-height:28px;font-weight:600;color:${INK};letter-spacing:-0.3px">
-        You've been added to the Ortex console
-      </h1>
-      <p style="margin:9px 0 0 0;font-size:14px;line-height:22px;color:${MUTED}">
-        ${greeting} an admin has created an account for you as
-        <strong style="color:${INK}">${esc(opts.roleLabel)}</strong>. Here are your sign-in details.
-      </p>
+  return shell(
+    `${name ? `${name}, your` : "Your"} Ortex console account is ready. Sign in details inside.`,
+    `
+    ${heading(
+      `Welcome to Ortex${name ? `, ${name}` : ""}`,
+      `An admin has created your Operations Console account as
+       <strong style="color:${INK};font-weight:600">${role}</strong>. Your sign-in details are below.`,
+    )}
+    ${details([
+      ["Email", esc(opts.email)],
+      ["Temporary password", esc(opts.password)],
+    ])}
+    ${button("Sign in to the console", opts.url)}
+    <tr><td align="center" style="padding:10px 40px 0 40px;font-family:${FONT};font-size:12px;line-height:18px;color:${FAINT}">
+      Or open <a href="${esc(opts.url)}" style="color:${BLUE};text-decoration:none">${esc(opts.url.replace(/^https?:\/\//, ""))}</a>
     </td></tr>
-
-    <tr><td style="padding:22px 36px 0 36px">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
-             style="background:#f3f5ff;border:1px solid #d7ddfb;border-radius:12px">
-        <tr><td style="padding:6px 20px">
-          <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
-            ${row("Console", `<a href="${esc(opts.url)}" style="color:${BLUE};text-decoration:none">${esc(opts.url)}</a>`)}
-            ${row("Email", esc(opts.email))}
-            ${row("Temporary password", esc(opts.password))}
-          </table>
-        </td></tr>
-      </table>
+    ${steps("Getting started", [
+      "Sign in with your email and the temporary password above.",
+      "Enter the 6-digit code we email you to finish signing in.",
+      `<strong style="color:${INK};font-weight:600">Change your password</strong> in Settings, then Password. Never reuse it anywhere else.`,
+    ])}
+    <tr><td style="padding:8px 40px 0 40px;font-family:${FONT}">
+      <div style="font-size:11px;font-weight:600;color:${BLUE};letter-spacing:1.4px;text-transform:uppercase;
+                  margin:0 0 12px 0">Your access</div>
+      <div style="line-height:0">${chips}</div>
     </td></tr>
-
-    <tr><td style="padding:20px 36px 0 36px">
-      <p style="margin:0;font-size:14px;line-height:22px;color:${MUTED}">
-        <strong style="color:${INK}">Change this password once you're in</strong> — Settings → Password.
-        It was sent by email, so treat it as temporary and never reuse it anywhere else.
-      </p>
-      <p style="margin:12px 0 0 0;font-size:14px;line-height:22px;color:${MUTED}">
-        You can also sign in without it: enter your email on the sign-in screen and we'll send
-        you a 6-digit code.
-      </p>
-    </td></tr>
-
-    <tr><td style="padding:22px 36px 0 36px">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
-        <tr><td style="border-top:1px solid #eeeeef;padding-top:18px">
-          <div style="font-size:10.5px;font-weight:700;color:${BLUE};letter-spacing:1.6px;
-                      text-transform:uppercase;margin-bottom:8px">Your access</div>
-          <p style="margin:0;font-size:13px;line-height:21px;color:${MUTED}">${access}</p>
-        </td></tr>
-      </table>
-    </td></tr>
-
-    <tr><td style="padding:18px 36px 0 36px">
-      <p style="margin:0;font-size:12px;line-height:19px;color:${FAINT}">
-        Not expecting this? Tell whoever runs your Ortex console — the account can be removed.
-      </p>
-    </td></tr>`)
+    ${note("Not expecting this email? Tell whoever runs your Ortex console and the account can be removed.")}`,
+  )
 }
 
 /**
@@ -138,50 +182,25 @@ export function passwordResetEmail(opts: {
   name?: string
   url: string
 }) {
-  const greeting = opts.name?.trim() ? `Hi ${esc(opts.name.trim().split(/\s+/)[0])},` : "Hi,"
+  const name = firstName(opts.name)
 
-  const row = (label: string, value: string) => `
-    <tr>
-      <td style="padding:9px 0;font-size:12px;color:${FAINT};width:150px;vertical-align:top">${label}</td>
-      <td style="padding:9px 0;font-size:14px;color:${INK};font-weight:600;
-                 font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,Courier,monospace;
-                 word-break:break-all">${value}</td>
-    </tr>`
-
-  return shell(`
-    <tr><td style="padding:28px 36px 0 36px">
-      <h1 style="margin:0;font-size:21px;line-height:28px;font-weight:600;color:${INK};letter-spacing:-0.3px">
-        Your Ortex console password was reset
-      </h1>
-      <p style="margin:9px 0 0 0;font-size:14px;line-height:22px;color:${MUTED}">
-        ${greeting} an admin has set a new temporary password on your account.
-        Your old password no longer works.
-      </p>
-    </td></tr>
-
-    <tr><td style="padding:22px 36px 0 36px">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation"
-             style="background:#f3f5ff;border:1px solid #d7ddfb;border-radius:12px">
-        <tr><td style="padding:6px 20px">
-          <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
-            ${row("Console", `<a href="${esc(opts.url)}" style="color:${BLUE};text-decoration:none">${esc(opts.url)}</a>`)}
-            ${row("Email", esc(opts.email))}
-            ${row("New password", esc(opts.password))}
-          </table>
-        </td></tr>
-      </table>
-    </td></tr>
-
-    <tr><td style="padding:20px 36px 0 36px">
-      <p style="margin:0;font-size:14px;line-height:22px;color:${MUTED}">
-        <strong style="color:${INK}">Change it as soon as you sign in</strong> — Settings &rarr; Password.
-        A password sent by email stays in that inbox for as long as the inbox does.
-      </p>
-    </td></tr>
-
-    <tr><td style="padding:18px 36px 0 36px">
-      <p style="margin:0;font-size:12px;line-height:19px;color:${FAINT}">
-        Didn't ask for this? Tell whoever runs your Ortex console straight away.
-      </p>
-    </td></tr>`)
+  return shell(
+    "An admin set a new temporary password on your Ortex console account.",
+    `
+    ${heading(
+      "Your password was reset",
+      `${name ? `Hi ${name}, an` : "An"} admin has set a new temporary password on your Operations Console
+       account. Your old password no longer works.`,
+    )}
+    ${details([
+      ["Email", esc(opts.email)],
+      ["New password", esc(opts.password)],
+    ])}
+    ${button("Sign in to the console", opts.url)}
+    ${steps("Next", [
+      `<strong style="color:${INK};font-weight:600">Change it as soon as you sign in</strong>: Settings, then Password.
+       A password sent by email stays in that inbox for as long as the inbox does.`,
+    ])}
+    ${note(`<strong style="color:${INK};font-weight:600">Didn't ask for this?</strong> Tell whoever runs your Ortex console straight away.`)}`,
+  )
 }
