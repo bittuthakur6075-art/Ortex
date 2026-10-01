@@ -2,7 +2,7 @@ import { Printer, X, CheckCircle2, Download } from "../ui/Icons"
 import { formatCurrency, formatDate, amountInWords } from "../../lib/format"
 import { Button } from "../ui/Ui"
 import { useRef } from "react"
-import html2pdf from "html2pdf.js"
+import { buildSheetPdf } from "./documentPdf"
 
 // Printable payment acknowledgement. Auto-titles itself:
 //   • "Receipt Voucher" , advance received before an invoice exists (GST Rule 50)
@@ -23,19 +23,16 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
   const isPartial = allocation && allocation.balance > 0.5
 
 
-  const handleDownloadPDF = () => {
+  // The same A4 path as quotations, invoices and payslips. It used its own
+  // html2pdf call with 10 mm margins around a sheet already 297 mm tall, so
+  // every receipt spilled onto a near-blank second page, and it captured the
+  // sheet at the window width.
+  const handleDownloadPDF = async () => {
     const element = receiptRef.current
     if (!element) return
-
-    const opt = {
-      margin:       [10, 10, 10, 10],
-      filename:     `receipt-${payment.number}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    }
-
-    html2pdf().set(opt).from(element).save()
+    const stem = `receipt-${payment.number}`
+    const pdf = await buildSheetPdf(element, stem)
+    pdf.save(`${stem}.pdf`)
   }
 
   return (

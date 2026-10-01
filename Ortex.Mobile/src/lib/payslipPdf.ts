@@ -2,6 +2,7 @@ import { File, Paths } from "expo-file-system"
 import * as Print from "expo-print"
 import * as Sharing from "expo-sharing"
 
+import { A4 } from "@/documents/a4"
 import { payslipHtml } from "@/documents/payslipHtml"
 import type { Settings } from "@/domain/settings"
 import { monthKey, monthLabel, type Payslip } from "@/features/pay/payFormat"
@@ -13,8 +14,6 @@ import { feedback } from "@/lib/feedback"
 // is also how it is saved to Files or Drive: Android has no "download" for an
 // app's private cache).
 
-/** A4 at 72dpi, the unit expo-print measures in. */
-const A4 = { width: 595, height: 842 }
 
 async function renderPayslip(slip: Payslip, settings: Settings | null): Promise<string> {
   const { uri } = await Print.printToFileAsync({

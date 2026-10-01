@@ -5,6 +5,7 @@ import * as Sharing from "expo-sharing"
 import { NativeModules, Platform } from "react-native"
 import Share, { Social, type ShareSingleOptions } from "react-native-share"
 
+import { A4 } from "@/documents/a4"
 import { quotationHtml } from "@/documents/quotationHtml"
 import type { Quotation } from "@/domain/schema"
 import type { Settings } from "@/domain/settings"
@@ -17,8 +18,6 @@ import { feedback } from "@/lib/feedback"
 // Android's PrintDocumentAdapter), so the output is real, selectable text at A4
 // rather than the rasterised canvas the console produces with html2canvas.
 
-/** A4 at 72dpi, the unit expo-print measures in. */
-const A4 = { width: 595, height: 842 }
 
 async function renderPdf(doc: Quotation, settings: Settings): Promise<string> {
   const { uri } = await Print.printToFileAsync({

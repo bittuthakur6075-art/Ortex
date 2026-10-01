@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client"
 import { flushSync } from "react-dom"
 import PayslipSheet from "./PayslipSheet"
+import { A4_JSPDF, A4_SHEET } from "../../lib/a4"
 import { buildSheetPdf } from "./documentPdf"
 
 // Payslip PDFs, on the quotation's path (documentPdf.jsx): the sheet is
@@ -83,7 +84,7 @@ export async function downloadPayslipsPdf(items, org, fileStem) {
   const html2pdf = (await import("html2pdf.js")).default
   await withSheets(items, org, async (els) => {
     const prev = els.map((el) => ({ width: el.style.width, minHeight: el.style.minHeight, margin: el.style.margin }))
-    for (const el of els) Object.assign(el.style, { width: "794px", minHeight: "1123px", margin: "0" })
+    for (const el of els) Object.assign(el.style, { ...A4_SHEET, margin: "0" })
     try {
       let worker = html2pdf()
         .set({
@@ -91,7 +92,7 @@ export async function downloadPayslipsPdf(items, org, fileStem) {
           filename: `${fileStem}.pdf`,
           image: { type: "jpeg", quality: 0.95 },
           html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", letterRendering: false },
-          jsPDF: { unit: "pt", format: "a4", orientation: "portrait" },
+          jsPDF: A4_JSPDF,
         })
         .from(els[0])
         .toPdf()

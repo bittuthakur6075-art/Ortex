@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client"
 import { flushSync } from "react-dom"
 import DocumentSheet from "./DocumentSheet"
+import { A4_JSPDF, A4_SHEET } from "../../lib/a4"
 import { quotationFileName } from "../../lib/quotationShare"
 
 // The PDF path shared by DocumentView's "Download PDF" and the WhatsApp share.
@@ -12,11 +13,15 @@ import { quotationFileName } from "../../lib/quotationShare"
 // to do with it (save, or turn it into a File for the share sheet).
 export async function buildSheetPdf(el, fileStem) {
   const html2pdf = (await import("html2pdf.js")).default
-  const prev = { width: el.style.width, minHeight: el.style.minHeight, margin: el.style.margin, boxShadow: el.style.boxShadow }
-  el.style.width = "794px"
-  el.style.minHeight = "1123px"
-  el.style.margin = "0"
-  el.style.boxShadow = "none"
+  const prev = {
+    width: el.style.width,
+    minHeight: el.style.minHeight,
+    margin: el.style.margin,
+    boxShadow: el.style.boxShadow,
+    borderRadius: el.style.borderRadius,
+  }
+  // A paper sheet: full A4, square corners, no on-screen shadow.
+  Object.assign(el.style, { ...A4_SHEET, margin: "0", boxShadow: "none", borderRadius: "0" })
   try {
     // Build the PDF, then drop any trailing page the content does not reach.
     // The sheet is exactly one A4 tall, so a fraction of a point of rounding
@@ -27,7 +32,7 @@ export async function buildSheetPdf(el, fileStem) {
         filename: `${fileStem}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", letterRendering: false },
-        jsPDF: { unit: "pt", format: "a4", orientation: "portrait" },
+        jsPDF: A4_JSPDF,
         pagebreak: { mode: ["css", "legacy"] },
       })
       .from(el)
