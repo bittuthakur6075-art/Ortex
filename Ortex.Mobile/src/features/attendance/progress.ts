@@ -257,3 +257,30 @@ export function weekColumns(days: Pick<AttendanceDay, "day" | "worked_min">[], t
     }
   })
 }
+
+/**
+ * Present by default (migration 0056) with no punch of their own: the day runs
+ * by the clock, in at the shift start and out at its end. Display only; the
+ * server already credits the shift. Null when the person is not on the list or
+ * today is a holiday or weekly off.
+ */
+export function autoPresentClock(
+  s: ShiftSettings & { autoPresent?: string[]; weeklyOff?: number[] },
+  uid: string | undefined,
+  day: string,
+  holiday: boolean,
+  now: number,
+): { ms: number; running: boolean; started: boolean; ended: boolean; from: number; to: number } | null {
+  if (!uid || !s.autoPresent?.includes(uid) || countFromFor(s, day, holiday) === undefined) return null
+  const from = Date.parse(`${day}T${s.shift!.start!.padStart(5, "0")}:00+05:30`)
+  const to = hhmmOk(s.shift?.end) ? Date.parse(`${day}T${s.shift!.end!.padStart(5, "0")}:00+05:30`) : NaN
+  if (!(to > from)) return { ms: 0, running: false, started: false, ended: false, from, to }
+  return {
+    ms: Math.min(Math.max(now - from, 0), to - from),
+    running: now >= from && now < to,
+    started: now >= from,
+    ended: now >= to,
+    from,
+    to,
+  }
+}

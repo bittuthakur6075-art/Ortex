@@ -6,10 +6,11 @@ import { ActionAdvisory, InfoChip, DayDone } from "@/features/attendance/attenda
 import { DialHeroSkeleton, WeekSkeleton } from "@/features/attendance/AttendanceSkeletons"
 import CheckButton from "@/features/attendance/CheckButton"
 import { weekCells } from "@/features/attendance/days"
-import { dayLabel, hoursShort } from "@/features/attendance/format"
+import { dayLabel, hoursShort, SECTION_TITLE } from "@/features/attendance/format"
 import { DayTimelineBar, LiveTimer, ShiftBar } from "@/features/attendance/LiveProgress"
 import MonthAttendance from "@/features/attendance/MonthAttendance"
 import {
+  autoPresentClock,
   dayTimeline,
   countFromFor,
   progressWords,
@@ -30,12 +31,14 @@ import WeekStatusStrip, { StatusLegend } from "@/features/attendance/WeekStatusS
 import { feedback } from "@/lib/feedback"
 import { shiftClock } from "@/lib/attendance"
 import type { StackScreenProps } from "@/navigation/types"
+import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
-import { spacing } from "@/theme/tokens"
+import { gutter, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
 import { AppScreen, DataNotice, ListRefreshControl } from "@/ui"
 import { SquircleBackground } from "@/ui/Squircle"
-import { Card, CardPanel as Panel, CardRow, CardRows, SubHeader, Tag } from "@/ui/OneUi"
+import { CardRow, CardRows, SubHeader, Tag } from "@/ui/OneUi"
+import Panel from "@/ui/Panel"
 
 const TODAY = new Intl.DateTimeFormat("en-IN", {
   weekday: "long",
@@ -59,6 +62,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
   const startClock = useStartClock()
   const { settings, punches, summary, onDutySince, loading, error, reload, now } = useAttendanceToday()
   const notices = useAttendanceNotices()
+  const { session } = useAuth()
   const [monthKey, setMonthKey] = React.useState(0)
   const [refreshing, setRefreshing] = React.useState(false)
 
@@ -103,7 +107,25 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
     : summary.lastOut
     ? { label: "Checked out", tone: "neutral" as const }
     : { label: "Not checked in", tone: "warning" as const }
-  const progress = summary.firstIn
+  // Present by default (0056) with no punch: the day runs by the shift clock, as on Home.
+  const auto = autoPresentClock(settings, session?.user?.id, today, holiday === today, now)
+  const autoDay = !!auto && !onDutySince && !dayDone && auto.to > auto.from
+  const shownMs = autoDay ? auto.ms : worked.ms
+  const running = !!onDutySince || (autoDay && auto.running)
+  const shiftFrom = settings.shift?.start ? Date.parse(`${today}T${settings.shift.start}:00+05:30`) : NaN
+  const shiftTo = settings.shift?.end ? Date.parse(`${today}T${settings.shift.end}:00+05:30`) : NaN
+  // Where now falls in the shift, the bar's tick (as on the Home card); none once the day is done.
+  const elapsed = dayDone || !(shiftTo > shiftFrom) ? undefined : (now - shiftFrom) / (shiftTo - shiftFrom)
+  const autoState = autoDay
+    ? auto.ended
+      ? { label: "Day complete", tone: "neutral" as const }
+      : { label: "Present", tone: "success" as const }
+    : null
+  const progress = autoDay
+    ? auto.started
+      ? progressWords(shownMs / 60000, shiftMin, auto.ended)
+      : `Starts automatically at ${shiftClock(settings.shift!.start)}`
+    : summary.firstIn
     ? progressWords(workedMin, shiftMin, !onDutySince && shiftEnded(settings, today, now))
     : `${hoursShort(shiftMin)} shift`
 
@@ -114,7 +136,6 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
       back
       onBack={() => navigation.goBack()}
       inTabs={false}
-      inset
       list={{
         data: [],
         renderItem: () => null,
@@ -154,8 +175,12 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
           <Panel>
             <View style={styles.hero}>
               <View style={styles.headRow}>
-                <InfoChip icon={onDutySince ? "tick" : "clock"} tone={state.tone} align="start">
-                  {state.label}
+                <InfoChip
+                  icon={onDutySince || autoState ? "tick" : "clock"}
+                  tone={(autoState || state).tone}
+                  align="start"
+                >
+                  {(autoState || state).label}
                 </InfoChip>
                 <Text
                   style={[textVariants.caption, styles.shift, { color: t.textTertiary }]}
@@ -167,17 +192,27 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
 
               <View style={styles.ringWrap}>
                 <LiveTimer
-                  baseMs={worked.ms}
+                  baseMs={shownMs}
                   baseAt={now}
-                  running={!!onDutySince}
+                  running={running}
                   style={[styles.bigTime, { color: t.text }]}
                 />
                 <View style={styles.barWide}>
                   <ShiftBar
-                    fraction={shiftMin > 0 ? worked.ms / 60000 / shiftMin : 0}
-                    color={onDutySince || dayDone ? t.success : t.primary}
-                    height={12}
+                    fraction={shiftMin > 0 ? shownMs / 60000 / shiftMin : 0}
+                    color={running || dayDone || autoDay ? t.success : t.primary}
+                    elapsed={elapsed}
                   />
+                  {settings.shift?.start && settings.shift?.end ? (
+                    <View style={styles.ticks}>
+                      <Text style={[styles.tick, { color: t.textTertiary }]}>
+                        {shiftClock(settings.shift.start)}
+                      </Text>
+                      <Text style={[styles.tick, { color: t.textTertiary }]}>
+                        {shiftClock(settings.shift.end)}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
                 <Text style={[textVariants.small, { color: t.textTertiary }]}>{progress}</Text>
               </View>
@@ -185,15 +220,33 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
               <View style={styles.stamps}>
                 <Stamp
                   label="Check-in"
-                  value={summary.firstIn ? clockIST(summary.firstIn) : "Not yet"}
-                  sub={summary.firstIn ? where : `From ${clockIST(win.open)}`}
-                  dot={summary.firstIn ? t.success : t.textFaint}
+                  value={
+                    summary.firstIn
+                      ? clockIST(summary.firstIn)
+                      : autoDay && auto.started
+                      ? clockIST(auto.from)
+                      : "Not yet"
+                  }
+                  sub={summary.firstIn ? where : autoDay ? "Automatic" : `From ${clockIST(win.open)}`}
+                  dot={summary.firstIn || (autoDay && auto.started) ? t.success : t.textFaint}
                 />
                 <Stamp
                   label="Check-out"
-                  value={dayDone ? clockIST(summary.lastOut!) : "Not yet"}
-                  sub={dayDone ? "Day complete" : "Any time before midnight"}
-                  dot={dayDone ? t.success : t.textFaint}
+                  value={
+                    dayDone
+                      ? clockIST(summary.lastOut!)
+                      : autoDay && auto.ended
+                      ? clockIST(auto.to)
+                      : "Not yet"
+                  }
+                  sub={
+                    dayDone || (autoDay && auto.ended)
+                      ? "Day complete"
+                      : autoDay
+                      ? "At the shift end"
+                      : "Any time before midnight"
+                  }
+                  dot={dayDone || (autoDay && auto.ended) ? t.success : t.textFaint}
                 />
               </View>
 
@@ -211,7 +264,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
                     })
                   }
                 />
-              ) : (
+              ) : autoDay ? null : (
                 <CheckButton
                   kind={kind}
                   disabled={loading}
@@ -230,6 +283,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
 
           <Panel
             title="This Week"
+            titleStyle={SECTION_TITLE}
             meta={`${hoursShort(weekMin)} worked · target ${hoursShort(shiftMin)} a day`}
           >
             <View style={styles.week}>
@@ -244,8 +298,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
             onOpen={(day) => navigation.navigate("AttendanceDay", { day })}
           />
 
-          <SubHeader title="More" />
-          <Card>
+          <Panel title="More" titleStyle={SECTION_TITLE}>
             <CardRows>
               <CardRow
                 icon="calendar"
@@ -279,21 +332,20 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
                 />
               ) : null}
             </CardRows>
-          </Card>
+          </Panel>
 
+          {/* The last section: its own title, no band under it (nothing follows). */}
           {notices.nextHoliday && (
-            <ActionAdvisory tone="info" icon="calendar">
-              {`Next holiday: ${notices.nextHoliday.name}, ${dayLabel(notices.nextHoliday.day)}`}
-            </ActionAdvisory>
+            <View style={styles.holiday}>
+              <SubHeader flush title="Next Holiday" titleStyle={SECTION_TITLE} />
+              <CardRow
+                icon="calendar"
+                tone="violet"
+                title={notices.nextHoliday.name}
+                subtitle={dayLabel(notices.nextHoliday.day)}
+              />
+            </View>
           )}
-
-          <View style={styles.note}>
-            <Text style={[textVariants.caption, styles.center, { color: t.textTertiary }]}>
-              {`Shift ${shift || "not set"}${
-                settings.graceMin ? `, ${settings.graceMin} min grace` : ""
-              }. Attendance is marked only in this app, by scanning the code on the office screen. No selfie is taken and your location is not read.`}
-            </Text>
-          </View>
         </>
       )}
     </AppScreen>
@@ -319,7 +371,7 @@ function Stamp({ label, value, sub, dot }: { label: string; value: string; sub: 
 }
 
 const styles = StyleSheet.create({
-  hero: { paddingHorizontal: 18, gap: spacing.md },
+  hero: { paddingHorizontal: gutter, paddingVertical: spacing.lg, gap: spacing.md },
   headRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   shift: { flex: 1, textAlign: "right" },
   bigTime: {
@@ -329,7 +381,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     fontVariant: ["tabular-nums"],
   },
-  barWide: { alignSelf: "stretch" },
+  barWide: { alignSelf: "stretch", gap: 6 },
+  ticks: { flexDirection: "row", justifyContent: "space-between" },
+  tick: { fontFamily: font.medium, fontSize: 11, lineHeight: 14, fontVariant: ["tabular-nums"] },
   ringWrap: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs },
   stamps: { flexDirection: "row", gap: spacing.sm },
   stamp: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, gap: 2 },
@@ -337,6 +391,6 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4 },
   stampValue: { fontFamily: font.semibold, fontSize: 20, lineHeight: 26, fontVariant: ["tabular-nums"] },
   center: { textAlign: "center" },
-  week: { paddingHorizontal: 12 },
-  note: { paddingHorizontal: 28, paddingTop: spacing.sm, paddingBottom: spacing.lg },
+  week: { paddingHorizontal: gutter - 8, paddingBottom: spacing.md },
+  holiday: { paddingTop: spacing.md, paddingBottom: spacing.lg },
 })

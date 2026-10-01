@@ -16,8 +16,10 @@ import { SummaryTiles, type SummaryTileData } from "@/features/attendance/attend
 import { DayRowsSkeleton, TilesSkeleton } from "@/features/attendance/AttendanceSkeletons"
 import DayListRow from "@/features/attendance/DayListRow"
 import { daysFromPunches } from "@/features/attendance/days"
-import { dayLabel, hoursShort, statusColors, statusHue } from "@/features/attendance/format"
+import { dayLabel, hoursShort, SECTION_TITLE, statusColors, statusHue } from "@/features/attendance/format"
 import { monthEntries } from "@/features/attendance/month"
+import { istWeekday, shiftMinutes } from "@/features/attendance/progress"
+import { StatusLegend } from "@/features/attendance/WeekStatusStrip"
 import { addDays } from "@/features/leave/leaveFormat"
 import {
   holidays as loadHolidays,
@@ -31,22 +33,12 @@ import {
 import { feedback } from "@/lib/feedback"
 import { myRequests } from "@/lib/leave"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, radius, spacing } from "@/theme/tokens"
+import { gutter, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { EmptyState, IconButton, RowSeparator, SegmentedControl } from "@/ui"
-import { CardPanel as Panel } from "@/ui/OneUi"
+import { EmptyState, IconButton, RowRule, SegmentedControl } from "@/ui"
+import Panel from "@/ui/Panel"
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"]
-
-/** Zoho People's legend: the six things a day can be, in its colours. */
-const LEGEND: { status: DayStatus; label: string }[] = [
-  { status: "P", label: "Present" },
-  { status: "A", label: "Absent" },
-  { status: "WO", label: "Weekend" },
-  { status: "H", label: "Holiday" },
-  { status: "L", label: "Leave" },
-  { status: "MP", label: "Late / missed" },
-]
 
 type ViewMode = "list" | "calendar"
 
@@ -145,12 +137,19 @@ export default function MonthAttendance({
     void loadRef.current().finally(() => onLoadedRef.current?.())
   }, [refreshKey])
 
+  const weeklyOff = React.useMemo(() => (settings.weeklyOff?.length ? settings.weeklyOff : [0]), [settings.weeklyOff])
   const entries = React.useMemo(
-    () => monthEntries(monthBounds(ym.y, ym.m), days || [], hols, today),
-    [ym, days, hols, today],
+    () => monthEntries(monthBounds(ym.y, ym.m), days || [], hols, today, weeklyOff),
+    [ym, days, hols, today, weeklyOff],
   )
   const weeks = React.useMemo(() => monthGrid(ym.y, ym.m, days || []), [ym, days])
   const totals = React.useMemo(() => monthTotals(days || [], settings.lateRule), [days, settings.lateRule])
+  const seen = React.useMemo(() => {
+    const set = new Set<DayStatus>((days || []).map((d) => effectiveStatus(d)))
+    for (const e of entries) if (e.kind !== "empty") set.add(e.status)
+    if (futureLeave.size) set.add("L")
+    return [...set]
+  }, [days, entries, futureLeave])
   const holidayByDay = React.useMemo(() => new Map(hols.map((h) => [h.day, h.name])), [hols])
 
   const shiftMonth = (delta: number) => {
@@ -169,21 +168,20 @@ export default function MonthAttendance({
   // Zoho's month counts. The rarer statuses appear only when they happened.
   const c = totals.counts
   const tiles: SummaryTileData[] = [
-    { label: "Payable days", value: `${totals.payable}`, emphasis: true },
+    { label: "Payable Days", value: `${totals.payable}`, emphasis: true },
     { label: "Present", value: `${c.P + c.OD}`, status: "P" },
     { label: "Absent", value: `${c.A}`, status: "A" },
     { label: "Leave", value: `${c.L}`, status: "L" },
     { label: "Holidays", value: `${c.H || hols.filter((h) => h.day <= today).length}`, status: "H" },
     {
-      label: "Late marks",
+      label: "Late Marks",
       value: `${totals.lates}`,
-      status: "MP",
       note: totals.latePenalty ? `Less ${totals.latePenalty} day` : undefined,
     },
-    ...(c.HD ? [{ label: "Half days", value: `${c.HD}`, status: "HD" as DayStatus }] : []),
-    ...(c.MP ? [{ label: "Missed punch", value: `${c.MP}`, status: "MP" as DayStatus }] : []),
-    ...(c.LOP ? [{ label: "Loss of pay", value: `${c.LOP}`, status: "LOP" as DayStatus }] : []),
-    { label: "Total hours", value: hoursShort(totals.workedMin) },
+    ...(c.HD ? [{ label: "Half Days", value: `${c.HD}`, status: "HD" as DayStatus }] : []),
+    ...(c.MP ? [{ label: "Missed Punch", value: `${c.MP}`, status: "MP" as DayStatus }] : []),
+    ...(c.LOP ? [{ label: "Loss Of Pay", value: `${c.LOP}`, status: "LOP" as DayStatus }] : []),
+    { label: "Total Hours", value: hoursShort(totals.workedMin) },
   ]
 
   return (
@@ -220,15 +218,7 @@ export default function MonthAttendance({
           />
         </View>
         <View style={styles.legend}>
-          {LEGEND.map((l) => {
-            const tint = statusColors(t, l.status)
-            return (
-              <View key={l.label} style={[styles.legendChip, { backgroundColor: tint.bg }]}>
-                <View style={[styles.legendDot, { backgroundColor: statusHue(t, l.status) }]} />
-                <Text style={[styles.legendText, { color: tint.fg }]}>{l.label}</Text>
-              </View>
-            )
-          })}
+          <StatusLegend statuses={seen} late={totals.lates > 0} />
         </View>
       </Panel>
 
@@ -259,7 +249,7 @@ export default function MonthAttendance({
                         rowStatus ??
                         (cell.inMonth && holidayByDay.has(cell.day)
                           ? "H"
-                          : cell.inMonth && !future && new Date(`${cell.day}T00:00:00Z`).getUTCDay() === 0
+                          : cell.inMonth && !future && weeklyOff.includes(istWeekday(cell.day))
                           ? "WO"
                           : null)
                       const tint = status ? statusColors(t, status) : null
@@ -305,20 +295,39 @@ export default function MonthAttendance({
                             >
                               {cell.date}
                             </Text>
+                            {cell.inMonth && cell.entry?.late ? (
+                              <View style={[styles.lateDot, { backgroundColor: t.warning, borderColor: t.surface }]} />
+                            ) : null}
                           </View>
-                          <View
-                            style={[
-                              styles.dot,
-                              {
-                                backgroundColor: status
-                                  ? statusHue(t, status)
-                                  : planned
-                                  ? statusHue(t, "L")
-                                  : "transparent",
-                                opacity: planned ? 0.5 : 1,
-                              },
-                            ]}
-                          />
+                          {/* A worked day shows its hours against the shift, the Home card's bar in small. */}
+                          {cell.inMonth && cell.entry?.worked_min ? (
+                            <View style={[styles.miniTrack, { backgroundColor: t.fieldBg }]}>
+                              <View
+                                style={[
+                                  styles.miniFill,
+                                  {
+                                    width: `${Math.min(
+                                      100,
+                                      (cell.entry.worked_min / (shiftMinutes(settings, cell.day) || 540)) *
+                                        100,
+                                    )}%`,
+                                    backgroundColor: status ? statusHue(t, status) : t.success,
+                                  },
+                                ]}
+                              />
+                            </View>
+                          ) : status || planned ? (
+                            <Text
+                              style={[
+                                styles.code,
+                                { color: status ? statusColors(t, status).fg : leaveTint.fg, opacity: planned ? 0.6 : 1 },
+                              ]}
+                            >
+                              {status || "L"}
+                            </Text>
+                          ) : (
+                            <View style={styles.codeSpace} />
+                          )}
                         </Pressable>
                       )
                     })}
@@ -327,7 +336,11 @@ export default function MonthAttendance({
               </View>
             </Panel>
           ) : (
-            <Panel title="Days" meta={entries.length ? `${entries.length}` : undefined}>
+            <Panel
+              title="Days"
+              titleStyle={SECTION_TITLE}
+              meta={entries.length ? `${entries.length}` : undefined}
+            >
               {entries.length === 0 ? (
                 <EmptyState
                   icon="calendar"
@@ -338,7 +351,7 @@ export default function MonthAttendance({
                 <View style={{ paddingBottom: spacing.sm }}>
                   {entries.map((e, i) => (
                     <React.Fragment key={e.day}>
-                      {i > 0 && <RowSeparator />}
+                      {i > 0 && <RowRule />}
                       <DayListRow
                         entry={e}
                         settings={settings}
@@ -353,7 +366,7 @@ export default function MonthAttendance({
             </Panel>
           )}
 
-          <Panel title="Summary" meta={bounds.label}>
+          <Panel title="Summary" titleStyle={SECTION_TITLE} meta={bounds.label}>
             <SummaryTiles tiles={tiles} />
             {!!notice && (
               <Text style={[textVariants.caption, styles.notice, { color: t.textTertiary }]}>{notice}</Text>
@@ -377,24 +390,7 @@ const styles = StyleSheet.create({
   },
   monthWords: { alignItems: "center", gap: 2 },
   segment: { paddingHorizontal: gutter, paddingTop: spacing.md },
-  legend: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    paddingHorizontal: gutter,
-    paddingTop: spacing.md,
-    paddingBottom: gutter,
-  },
-  legendChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-  },
-  legendDot: { width: 7, height: 7, borderRadius: 3.5 },
-  legendText: { fontFamily: font.semibold, fontSize: 11, lineHeight: 14 },
+  legend: { paddingHorizontal: gutter - 6, paddingBottom: gutter },
   notice: { paddingHorizontal: gutter, paddingBottom: spacing.md },
   calendar: { paddingHorizontal: gutter - 4, paddingTop: spacing.md, paddingBottom: gutter, gap: 4 },
   weekRow: { flexDirection: "row" },
@@ -415,5 +411,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   date: { fontFamily: font.semibold, fontSize: 13, lineHeight: 16, fontVariant: ["tabular-nums"] },
-  dot: { width: 5, height: 5, borderRadius: 2.5 },
+  code: { fontFamily: font.semibold, fontSize: 9.5, lineHeight: 12, letterSpacing: 0.2 },
+  codeSpace: { height: 12 },
+  lateDot: { position: "absolute", top: 0, right: 0, width: 9, height: 9, borderRadius: 4.5, borderWidth: 1.5 },
+  miniTrack: { width: 22, height: 4, borderRadius: 2, overflow: "hidden" },
+  miniFill: { height: 4, borderRadius: 2 },
 })

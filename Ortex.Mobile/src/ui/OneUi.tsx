@@ -1,5 +1,5 @@
 import React from "react"
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native"
+import { Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native"
 
 import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
@@ -70,6 +70,7 @@ export function SubHeader({
   onAction,
   right,
   flush,
+  titleStyle,
 }: {
   title: string
   action?: string
@@ -78,11 +79,13 @@ export function SubHeader({
   right?: React.ReactNode
   /** On an edge-to-edge page: the label sits on the 20 page gutter, not over a card. */
   flush?: boolean
+  /** Overrides the title type on a page that sets its own (Attendance: 14 / 500). */
+  titleStyle?: StyleProp<TextStyle>
 }) {
   const t = useTheme()
   return (
     <View style={[styles.sub, flush && styles.subFlush]}>
-      <Text accessibilityRole="header" style={[styles.subText, { color: t.textTertiary }]}>
+      <Text accessibilityRole="header" style={[styles.subText, { color: t.textTertiary }, titleStyle]}>
         {title.toUpperCase()}
       </Text>
       {action && onAction ? (

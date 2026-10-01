@@ -4,24 +4,30 @@
 
 import type { DayStatus } from "@/domain/attendance"
 import type { Colors, StatusTone } from "@/theme/theme"
+import { font } from "@/theme/typography"
 
 /**
- * Zoho People's status colours, onto the theme: Present (and field duty) green,
- * Absent and loss of pay red, Weekend amber, Holiday blue, Leave in the brand
- * violet, and a half day or missed punch in the warning hue. `tone` names the
+ * A day code's colour, by what the day MEANS for pay: worked (Present, On duty
+ * in the field) green; partly worked (Half day, Missed punch) amber; unpaid
+ * (Absent, Loss of pay) red; paid leave violet; a holiday blue; the weekly off
+ * grey, as the console draws it. Codes that share a colour are told apart by
+ * their letters (the calendar and the legend print them). `tone` names the
  * theme's status tone (its tinted well and readable ink).
  */
 const ZOHO_TONE: Record<DayStatus, StatusTone> = {
   P: "emerald",
   OD: "emerald",
-  A: "rose",
-  LOP: "rose",
-  WO: "amber",
-  H: "blue",
-  L: "violet",
   HD: "amber",
   MP: "amber",
+  A: "rose",
+  LOP: "rose",
+  L: "violet",
+  H: "blue",
+  WO: "slate",
 }
+
+/** The codes in legend order: worked, partly worked, unpaid, then the paid days off. */
+export const STATUS_ORDER: DayStatus[] = ["P", "OD", "HD", "MP", "A", "LOP", "L", "H", "WO"]
 
 /** A status's tinted well and readable ink, in Zoho People's colours. */
 export function statusColors(t: Colors, s: DayStatus) {
@@ -92,3 +98,6 @@ export function hoursShort(minutes: number): string {
   if (!h) return `${r}m`
   return r ? `${h}h ${r}m` : `${h}h`
 }
+
+/** Section titles on the Attendance and Team pages: 14 / 500. */
+export const SECTION_TITLE = { fontFamily: font.medium, fontSize: 14, lineHeight: 18, letterSpacing: 0.3 } as const

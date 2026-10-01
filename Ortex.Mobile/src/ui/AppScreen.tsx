@@ -191,13 +191,21 @@ export default function AppScreen({
   // The shell holds the list itself, because it owns the scroll and so owns
   // putting it back (`stickyKey`); a screen's `listRef` is a proxy onto it.
   const innerListRef = React.useRef<ScrollableList | null>(null)
+  // A SectionList has no scrollToOffset, so it goes through its ScrollView.
+  const scrollInnerTo = React.useCallback((opts: { offset: number; animated?: boolean }) => {
+    const inner = innerListRef.current as
+      | (ScrollableList & { getScrollResponder?: () => { scrollTo?: (o: { x: number; y: number; animated?: boolean }) => void } | null })
+      | null
+    if (inner?.scrollToOffset) inner.scrollToOffset(opts)
+    else inner?.getScrollResponder?.()?.scrollTo?.({ x: 0, y: opts.offset, animated: opts.animated })
+  }, [])
   React.useImperativeHandle(
     listRef,
     () => ({
       scrollToLocation: (opts) => innerListRef.current?.scrollToLocation?.(opts),
-      scrollToOffset: (opts) => innerListRef.current?.scrollToOffset?.(opts),
+      scrollToOffset: scrollInnerTo,
     }),
-    [],
+    [scrollInnerTo],
   )
   const offsetY = React.useRef(0)
   const [viewportHeight, setViewportHeight] = React.useState(0)
@@ -277,10 +285,10 @@ export default function AppScreen({
     if (lastStickyKey.current === stickyKey) return
     lastStickyKey.current = stickyKey
     if (!stickyBar || stickyThreshold <= 0 || offsetY.current <= stickyThreshold) return
-    innerListRef.current?.scrollToOffset?.({ offset: stickyThreshold, animated: false })
+    scrollInnerTo({ offset: stickyThreshold, animated: false })
     scrollY.setValue(stickyThreshold)
     trackOffset(stickyThreshold)
-  }, [stickyKey, stickyBar, stickyThreshold, scrollY, trackOffset])
+  }, [stickyKey, stickyBar, stickyThreshold, scrollY, trackOffset, scrollInnerTo])
 
   const appBar = (
     <View style={[styles.bar, { height: sizes.appBar, backgroundColor: c.appBar }]}>

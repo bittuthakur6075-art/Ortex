@@ -2,8 +2,9 @@ import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { formatCurrency, formatNumber, shortAge } from "@/domain/format"
-import { initials, quoteDaysLeft, quoteSections, quoteSummary, statusCounts, isExpiring, type ListSection } from "@/domain/lists"
+import { quoteDaysLeft, quoteSections, quoteSummary, statusCounts, isExpiring, type ListSection } from "@/domain/lists"
 import { QUOTATION_STATUS, type Quotation } from "@/domain/schema"
+import { SECTION_TITLE } from "@/features/attendance/format"
 import ChatButton from "@/features/chat/ChatButton"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { useCollection } from "@/hooks/useCollection"
@@ -11,15 +12,17 @@ import { feedback } from "@/lib/feedback"
 import type { TabScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { fontFamily } from "@/theme/typography"
-import { AppScreen, DataNotice, EmptyState, Fab, IconButton, ListRefreshControl, ProfileAvatarButton, RowRule, RowSeparator, SkeletonList, StatusBadge } from "@/ui"
+import { AppScreen, Avatar, DataNotice, EmptyState, Fab, IconButton, ListRefreshControl, ProfileAvatarButton, RowRule, RowSeparator, SkeletonList, StatusBadge } from "@/ui"
 import CountChips from "@/ui/CountChips"
 import { SubHeader, Tag } from "@/ui/OneUi"
 import { gutter } from "@/theme/tokens"
 
-// The tab the app exists for (Figma "Quotations and Leads · One UI lists"):
-// three numbers first (open value, expiring, won this month), chips with
-// counts, then the quotes grouped by urgency: Expiring Soon, This Week,
-// Earlier. The grouping rules live in domain/lists.ts, shared with Home.
+// The tab the app exists for, minimal and compact like Leads: the status
+// pills (the open, expiring and won figures are on Home), then the
+// quotes grouped by urgency (Expiring Soon, This Week, Earlier) in two-line
+// rows: customer and amount; number, size and age with the status, led by the
+// days left when a quote is about to lapse, which also dots the avatar. The
+// grouping rules live in domain/lists.ts, shared with Home.
 
 const compact = (n: number) => (n ? formatCurrency(n, { compact: true }) : "₹0")
 
@@ -28,7 +31,6 @@ function expiryWords(left: number) {
 }
 
 export default function QuotationsScreen({ navigation }: TabScreenProps<"Quotes">) {
-  const t = useTheme()
   const { items, loading, refreshing, error, fromCache, cachedAt, reload } = useCollection<Quotation>("quotations")
   const [filter, setFilter] = React.useState("all")
 
@@ -78,7 +80,8 @@ export default function QuotationsScreen({ navigation }: TabScreenProps<"Quotes"
           const s = section as ListSection<Quotation>
           return (
             <SubHeader
-                flush
+              flush
+              titleStyle={SECTION_TITLE}
               title={s.title}
               right={s.key === "first" ? <Tag label={String(s.data.length)} tone="warning" dot /> : undefined}
             />
@@ -88,7 +91,7 @@ export default function QuotationsScreen({ navigation }: TabScreenProps<"Quotes"
         renderSectionFooter: () => <RowSeparator />,
         ListFooterComponent: <View style={styles.fabClear} />,
         ListEmptyComponent: loading ? (
-          <SkeletonList count={6} leading="well" value />
+          <SkeletonList count={6} leading="avatar" value />
         ) : error && !items.length ? (
           <EmptyState icon="warning" title="Could not load quotations" hint={error} actionLabel="Try again" onAction={() => void reload()} />
         ) : (
@@ -105,36 +108,13 @@ export default function QuotationsScreen({ navigation }: TabScreenProps<"Quotes"
       }}
     >
       <DataNotice error={error} fromCache={fromCache} cachedAt={cachedAt} onRetry={() => void reload()} />
-      {!loading && items.length ? (
-        <View style={styles.summary}>
-          <View style={styles.tiles}>
-            <Tile label="Open" value={compact(summary.openValue)} note={`${summary.openCount} ${summary.openCount === 1 ? "quote" : "quotes"}`} bg={t.surfaceInset} fg={t.text} sub={t.textTertiary} />
-            <Tile label="Expiring" value={String(summary.expiring)} note="Within 3 days" bg={t.warningBg} fg={t.warningText} sub={t.warningText} />
-            <Tile label="Won" value={compact(summary.wonValue)} note={`${summary.wonCount} this month`} bg={t.successBg} fg={t.successText} sub={t.successText} />
-          </View>
-        </View>
-      ) : null}
       {!loading && items.length ? <CountChips options={chips} value={filter} onChange={setFilter} /> : null}
       {!loading && sections.length ? <RowSeparator /> : null}
     </AppScreen>
   )
 }
 
-function Tile({ label, value, note, bg, fg, sub }: { label: string; value: string; note: string; bg: string; fg: string; sub: string }) {
-  return (
-    <View style={[styles.tile, { backgroundColor: bg }]} accessibilityLabel={`${label}: ${value}, ${note}`}>
-      <Text style={[styles.tileLabel, { color: sub }]}>{label}</Text>
-      <Text style={[styles.tileValue, { color: fg }]} numberOfLines={1} adjustsFontSizeToFit>
-        {value}
-      </Text>
-      <Text style={[styles.tileNote, { color: sub }]} numberOfLines={1}>
-        {note}
-      </Text>
-    </View>
-  )
-}
-
-/** Customer and amount on top; number, size and age below, status on the right. */
+/** Customer and amount on top; number, size and age below with the status, led by the days left when it is lapsing. */
 function QuoteRow({ q, now, onPress }: { q: Quotation; now: number; onPress: () => void }) {
   const t = useTheme()
   const name = q.customer?.company || q.customer?.name || "No customer"
@@ -143,8 +123,9 @@ function QuoteRow({ q, now, onPress }: { q: Quotation; now: number; onPress: () 
   const lines = q.lines?.length || 0
   return (
     <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.row, { opacity: pressed ? 0.6 : 1 }]}>
-      <View style={[styles.well, { backgroundColor: expiring ? t.warningBg : t.primary10 }]}>
-        <Text style={[styles.wellText, { color: expiring ? t.warningText : t.primary }]}>{initials(name)}</Text>
+      <View>
+        <Avatar name={name} size="md" />
+        {expiring ? <View style={[styles.dot, { backgroundColor: t.warning, borderColor: t.background }]} /> : null}
       </View>
       <View style={styles.body}>
         <View style={styles.line}>
@@ -156,12 +137,10 @@ function QuoteRow({ q, now, onPress }: { q: Quotation; now: number; onPress: () 
         </View>
         <View style={styles.line}>
           <Text style={[styles.meta, { color: t.textTertiary }]} numberOfLines={1}>
-            {`${q.number} · `}
             {expiring && left !== null ? (
-              <Text style={[styles.metaStrong, { color: t.warningText }]}>{expiryWords(left)}</Text>
-            ) : (
-              `${lines} ${lines === 1 ? "item" : "items"} · ${shortAge(q.createdAt)}`
-            )}
+              <Text style={[styles.metaStrong, { color: t.warningText }]}>{`${expiryWords(left)} · `}</Text>
+            ) : null}
+            {`${q.number} · ${lines} ${lines === 1 ? "item" : "items"} · ${shortAge(q.createdAt)}`}
           </Text>
           <StatusBadge list={QUOTATION_STATUS} id={q.status} small />
         </View>
@@ -171,20 +150,13 @@ function QuoteRow({ q, now, onPress }: { q: Quotation; now: number; onPress: () 
 }
 
 const styles = StyleSheet.create({
-  summary: { paddingHorizontal: gutter, paddingBottom: 14 },
-  tiles: { flexDirection: "row", gap: 8 },
-  tile: { flex: 1, borderRadius: 18, padding: 12, gap: 2 },
-  tileLabel: { fontFamily: fontFamily.medium, fontSize: 12, lineHeight: 16 },
-  tileValue: { fontFamily: fontFamily.semibold, fontSize: 22, lineHeight: 28, fontVariant: ["tabular-nums"] },
-  tileNote: { fontFamily: fontFamily.regular, fontSize: 12, lineHeight: 16 },
   fabClear: { height: 80 },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: gutter, paddingVertical: 14 },
-  well: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  wellText: { fontFamily: fontFamily.semibold, fontSize: 14 },
+  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: gutter, paddingVertical: 12 },
+  dot: { position: "absolute", right: -1, bottom: -1, width: 13, height: 13, borderRadius: 7, borderWidth: 2 },
   body: { flex: 1, minWidth: 0, gap: 4 },
   line: { flexDirection: "row", alignItems: "center", gap: 8 },
-  title: { flex: 1, fontFamily: fontFamily.semibold, fontSize: 15.5, lineHeight: 20 },
-  amount: { fontFamily: fontFamily.semibold, fontSize: 15.5, lineHeight: 20, fontVariant: ["tabular-nums"] },
+  title: { flex: 1, fontFamily: fontFamily.semibold, fontSize: 15, lineHeight: 20 },
+  amount: { fontFamily: fontFamily.semibold, fontSize: 15, lineHeight: 20, fontVariant: ["tabular-nums"] },
   meta: { flex: 1, fontFamily: fontFamily.regular, fontSize: 13, lineHeight: 17 },
   metaStrong: { fontFamily: fontFamily.semibold },
 })

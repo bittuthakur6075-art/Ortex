@@ -1,5 +1,5 @@
 import React from "react"
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native"
+import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native"
 
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
@@ -45,6 +45,8 @@ export default function Panel({
   /** Padding for content that is not already full-bleed rows. */
   padded = false,
   style,
+  /** Overrides the title type on a page that sets its own (Attendance: 14 / 500). */
+  titleStyle,
 }: {
   title?: string
   meta?: string
@@ -52,6 +54,7 @@ export default function Panel({
   children: React.ReactNode
   padded?: boolean
   style?: StyleProp<ViewStyle>
+  titleStyle?: StyleProp<TextStyle>
 }) {
   const t = useTheme()
   const hasHead = !!title || !!action
@@ -62,7 +65,7 @@ export default function Panel({
         {hasHead && (
           <View style={styles.head}>
             {!!title && (
-              <Text style={[textVariants.sectionLabel, { color: t.textTertiary }]}>
+              <Text style={[textVariants.sectionLabel, { color: t.textTertiary }, titleStyle]}>
                 {title.toUpperCase()}
               </Text>
             )}

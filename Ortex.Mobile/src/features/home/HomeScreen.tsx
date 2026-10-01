@@ -2,7 +2,7 @@ import { useFocusEffect } from "@react-navigation/native"
 import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
-import { delhiWeather, type Weather } from "@/lib/weather"
+import { delhiWeather, weatherTint, type Weather } from "@/lib/weather"
 import Icon from "@/ui/Icon"
 
 import { RANGES, delta, rangeFor, type AttentionItem, type Delta, type RangeKey } from "@/domain/dashboard"
@@ -14,7 +14,7 @@ import ChatButton from "@/features/chat/ChatButton"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { feedback } from "@/lib/feedback"
 import type { TabScreenProps } from "@/navigation/types"
-import { useTheme } from "@/store/ThemeContext"
+import { useIsDark, useTheme } from "@/store/ThemeContext"
 import { fontFamily } from "@/theme/typography"
 import AppScreen from "@/ui/AppScreen"
 import DataNotice from "@/ui/DataNotice"
@@ -37,6 +37,7 @@ import {
   NeedsYouCard,
   PayCard,
   QuickActionsCard,
+  QuotesCard,
   RequestsCard,
   Widget,
   WidgetGrid,
@@ -107,7 +108,10 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
   const staff = !access.leads && !access.quotes
   const admin = access.admin
   const today = new Date(now)
-  const firstName = (profile?.name || "").trim().split(/\s+/)[0]
+  const fullName = (profile?.name || "").trim().replace(/\s+/g, " ")
+  // An initial ("S L Thakur") is no name to greet: show the whole name instead.
+  const first = fullName.split(" ")[0]
+  const firstName = first.replace(/\./g, "").length <= 1 ? fullName : first
   const title = `${greeting(today)}${firstName ? `, ${firstName}` : ""}`
   const dateLine = `${WEEKDAYS[today.getDay()].slice(0, 3)}, ${today.getDate()} ${MONTHS[
     today.getMonth()
@@ -165,7 +169,7 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
         subtitle={dateLine}
         titleSize={24}
         titleTop={20}
-        barSubtitle={dateLine}
+        barSubtitle={firstName || dateLine}
         subtitleStrong
         barTitle={greeting(today)}
         titleRight={<WeatherNow />}
@@ -228,6 +232,8 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
         ) : null}
 
         <QuickActionsCard items={actions} />
+
+        {!staff && access.quotes ? <QuotesCard onAll={() => navigation.navigate("Quotes")} /> : null}
 
         {staff ? (
           <>
@@ -401,6 +407,13 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
                   onPress={() => navigation.navigate("TeamAttendance")}
                 />
                 <CardRow
+                  icon="wallet"
+                  tone="primary"
+                  title="Payments"
+                  subtitle="Received and paid out, record one"
+                  onPress={() => navigation.navigate("Payments")}
+                />
+                <CardRow
                   icon="money"
                   tone="success"
                   title="My Payslips"
@@ -421,23 +434,30 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
 /** One UI Weather's widget in miniature: glyph and temperature, then city and the day's range.
  *  Compact (the scrolled bar): glyph and temperature only. */
 function WeatherNow({ compact = false }: { compact?: boolean }) {
+  const dark = useIsDark()
   const t = useTheme()
   const [w, setW] = React.useState<Weather | null>(null)
   useFocusEffect(
     React.useCallback(() => {
       let alive = true
-      void delhiWeather().then((x) => alive && setW(x))
+      const load = () => void delhiWeather().then((x) => alive && x && setW(x))
+      load()
+      // Open-Meteo's "current" moves every 15 minutes; follow it while Home is open.
+      const timer = setInterval(load, 10 * 60000)
       return () => {
         alive = false
+        clearInterval(timer)
       }
     }, []),
   )
   if (!w) return null
-  const tint =
-    w.icon === "sun" ? t.warning : w.icon === "rain" || w.icon === "storm" ? t.primary : t.textSecondary
+  const tint = weatherTint(w, dark)
   if (compact)
     return (
-      <View style={styles.weatherTop} accessibilityLabel={`Delhi, ${w.label}, ${w.temp} degrees`}>
+      <View
+        style={[styles.weatherTop, styles.weatherPill, { backgroundColor: t.surfaceInset }]}
+        accessibilityLabel={`Delhi, ${w.label}, ${w.temp} degrees`}
+      >
         <Icon name={w.icon} size={18} color={tint} variant="Bulk" />
         <Text style={[styles.weatherTempSmall, { color: t.text }]}>{`${w.temp}°`}</Text>
       </View>
@@ -458,6 +478,7 @@ function WeatherNow({ compact = false }: { compact?: boolean }) {
 const styles = StyleSheet.create({
   weather: { alignItems: "flex-end", gap: 2 },
   weatherTop: { flexDirection: "row", alignItems: "center", gap: 6 },
+  weatherPill: { paddingVertical: 4, paddingLeft: 8, paddingRight: 10, borderRadius: 999 },
   weatherTemp: {
     fontFamily: fontFamily.display,
     fontSize: 24,

@@ -4,9 +4,12 @@ import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import type { AttentionItem, Delta } from "@/domain/dashboard"
 import { formatCurrency } from "@/domain/format"
+import { quoteSummary } from "@/domain/lists"
+import type { Quotation } from "@/domain/schema"
 import { dayLabel } from "@/features/attendance/format"
 import { money as payMoney, monthLabel, type Claim, type Payslip } from "@/features/pay/payFormat"
 import { decideCorrection, pendingCorrections } from "@/lib/attendance"
+import { useCollection } from "@/hooks/useCollection"
 import { callNumber } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
 import * as leaveLib from "@/lib/leave"
@@ -77,6 +80,51 @@ export function CardHead({
         </Text>
       ) : null}
     </View>
+  )
+}
+
+/**
+ * Quotations at a glance (moved here from the Quotations list): the open
+ * value, how many lapse within three days, and what was won this month, as
+ * compact pills. "All" opens the list.
+ */
+export function QuotesCard({ onAll }: { onAll: () => void }) {
+  const t = useTheme()
+  const { items, loading } = useCollection<Quotation>("quotations")
+  // The clock is read when the quotes change, not per render.
+  const [now, setNow] = React.useState(() => Date.now())
+  React.useEffect(() => {
+    setNow(Date.now())
+  }, [items])
+  const s = React.useMemo(() => quoteSummary(items, now), [items, now])
+  if (loading || !items.length) return null
+  const pills = [
+    { label: `Open · ${s.openCount}`, value: money(s.openValue), bg: t.surfaceInset, fg: t.text, sub: t.textSecondary },
+    {
+      label: "Expiring",
+      value: String(s.expiring),
+      bg: s.expiring ? t.warningBg : t.surfaceInset,
+      fg: s.expiring ? t.warningText : t.text,
+      sub: s.expiring ? t.warningText : t.textSecondary,
+    },
+    { label: `Won · ${s.wonCount}`, value: money(s.wonValue), bg: t.successBg, fg: t.successText, sub: t.successText },
+  ]
+  return (
+    <Card style={styles.headed}>
+      <CardHead icon="quote" tone="primary" title="Quotations" action="All" onAction={onAll} />
+      <View style={styles.quotePills}>
+        {pills.map((p) => (
+          <View key={p.label} style={[styles.quotePill, { backgroundColor: p.bg }]} accessibilityLabel={`${p.label}: ${p.value}`}>
+            <Text style={[styles.quoteValue, { color: p.fg }]} numberOfLines={1}>
+              {p.value}
+            </Text>
+            <Text style={[styles.quoteLabel, { color: p.sub }]} numberOfLines={1}>
+              {p.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </Card>
   )
 }
 
@@ -681,6 +729,10 @@ export function ComingUpCard({ holiday }: { holiday: { name: string; day: string
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   headed: { paddingTop: 18 },
+  quotePills: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingBottom: 16 },
+  quotePill: { flex: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, alignItems: "flex-start" },
+  quoteValue: { fontFamily: fontFamily.semibold, fontSize: 15, lineHeight: 20, fontVariant: ["tabular-nums"] },
+  quoteLabel: { fontFamily: fontFamily.medium, fontSize: 11.5, lineHeight: 15 },
   needsSummary: { fontFamily: fontFamily.regular, fontSize: 13.5, lineHeight: 18, paddingHorizontal: 20, paddingBottom: 8 },
   head: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, paddingBottom: 8 },
   headTitle: { fontFamily: fontFamily.semibold, fontSize: 17, lineHeight: 22 },

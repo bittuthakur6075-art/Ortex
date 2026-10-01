@@ -2,7 +2,7 @@ import React from "react"
 import { StyleSheet, View } from "react-native"
 
 import { useTheme } from "@/store/ThemeContext"
-import { gutter, radius, spacing } from "@/theme/tokens"
+import { gutter, spacing } from "@/theme/tokens"
 import Skeleton from "@/ui/Skeleton"
 
 /**
@@ -58,18 +58,16 @@ export function WeekSkeleton() {
   )
 }
 
-/** The month's tiles, three to a row. */
+/** The month's figures, pills that wrap. */
 export function TilesSkeleton({ count = 6 }: { count?: number }) {
   const t = useTheme()
   return (
     <>
-      <View style={[styles.panel, { backgroundColor: t.surface, paddingHorizontal: gutter - 4 }]}>
-        <Skeleton width={96} height={11} radius={5} style={{ marginBottom: spacing.md, marginLeft: 4 }} />
+      <View style={[styles.panel, { backgroundColor: t.surface }]}>
+        <Skeleton width={96} height={11} radius={5} style={{ marginBottom: spacing.md }} />
         <View style={styles.tiles}>
           {Array.from({ length: count }, (_, i) => (
-            <View key={i} style={styles.tileSlot}>
-              <Skeleton height={72} radius={radius.card} />
-            </View>
+            <Skeleton key={i} width={[104, 88, 96, 80, 92, 112][i % 6]} height={36} radius={18} />
           ))}
         </View>
       </View>
@@ -111,7 +109,6 @@ const styles = StyleSheet.create({
   panel: { paddingHorizontal: gutter, paddingTop: gutter, paddingBottom: gutter },
   week: { flexDirection: "row" },
   col: { flex: 1, alignItems: "center", gap: 8 },
-  tiles: { flexDirection: "row", flexWrap: "wrap" },
-  tileSlot: { width: "33.333%", padding: 4 },
+  tiles: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingHorizontal: gutter, paddingVertical: 10 },
 })

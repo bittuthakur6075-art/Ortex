@@ -7,12 +7,13 @@ import {
   onDutySince,
   summarizeDay,
   type AttendanceDay,
-  type DaySummary,
   type Punch,
   type PunchKind,
   type PunchResult,
 } from "@/domain/attendance"
 import type { StaffDirectory } from "@/data/repo"
+import { istWeekday } from "@/features/attendance/progress"
+import type { TeamPerson } from "@/features/attendance/teamBoard"
 import { loadDirectory } from "@/hooks/useRecordHistory"
 
 /**
@@ -140,6 +141,9 @@ export type AttendanceSettings = {
   lateRule?: { count?: number; deductDays?: number }
   correctionsPerMonth?: number
   saturday?: "full" | "half"
+  /** People present on every working day without punching (0056). */
+  autoPresent?: string[]
+  weeklyOff?: number[]
 }
 
 /** The Super Admin's attendance settings (readable by all staff). */
@@ -331,18 +335,29 @@ export async function flaggedPunches(): Promise<FlaggedPunch[]> {
   }))
 }
 
-export type TeamMember = { userId: string; name: string; avatarUrl: string; summary: DaySummary; onDuty: boolean }
+export type TeamMember = TeamPerson
+
+export type TeamDay = {
+  people: TeamMember[]
+  settings: AttendanceSettings & { weeklyOff?: number[] }
+  /** Why nobody is expected today ("Weekly off", a holiday's name), or null. */
+  off: string | null
+}
 
 /**
- * Admins: today's team as the console's Attendance → Today reads it. Everyone
- * who punched today, first in first, and the active accounts with no check-in.
+ * Admins: today's team as the console's Attendance → Today reads it. Every
+ * active account (and anyone who punched), with today's punches, approved
+ * leave and the "present by default" list, plus whether today is a day off.
  */
-export async function teamToday(now = Date.now()): Promise<{ people: TeamMember[]; notIn: TeamMember[] }> {
+export async function teamToday(now = Date.now()): Promise<TeamDay> {
   const today = dayKey(now)
-  const [punches, profiles, dir] = await Promise.all([
+  const [punches, profiles, dir, leave, settings, hols] = await Promise.all([
     supabase.from("attendance_punches").select("*").eq("day", today).limit(1000),
-    supabase.from("profiles").select("id, name, email, avatar_url, active"),
+    supabase.from("profiles").select("id, name, email, avatar_url, active, phone"),
     loadDirectory(),
+    supabase.from("leave_requests").select("*").eq("status", "approved").lte("from_day", today).gte("to_day", today),
+    loadSettings(),
+    holidays({ from: today, to: today }).catch(() => [] as Holiday[]),
   ])
   if (punches.error) throw fail(punches.error, "Could not load today's attendance.")
   const by = new Map<string, Punch[]>()
@@ -350,28 +365,33 @@ export async function teamToday(now = Date.now()): Promise<{ people: TeamMember[
     if (!by.has(p.user_id)) by.set(p.user_id, [])
     by.get(p.user_id)!.push(p)
   }
-  const people = [...by.entries()]
-    .map(([userId, list]) => ({
+  type Leave = { user_id: string; type_code: string; from_day: string; to_day: string; from_half: string; to_half: string }
+  const onLeave = new Map<string, Leave>()
+  for (const l of (leave.data || []) as Leave[]) onLeave.set(l.user_id, l)
+  type Row = { id: string; name: string | null; email: string | null; avatar_url: string | null; active: boolean; phone?: string | null }
+  const rows = (profiles.data || []) as Row[]
+  const ids = new Set([...rows.filter((p) => p.active).map((p) => p.id), ...by.keys()])
+  const auto = new Set(settings.autoPresent || [])
+  const people = [...ids].map((userId): TeamMember => {
+    const prof = rows.find((p) => p.id === userId)
+    const list = by.get(userId) || []
+    const l = onLeave.get(userId)
+    return {
       userId,
-      name: nameOf(dir, userId),
-      avatarUrl: dir[userId]?.avatarUrl || "",
+      name: prof?.name?.trim() || dir[userId]?.name || prof?.email || "A colleague",
+      avatarUrl: prof?.avatar_url || dir[userId]?.avatarUrl || "",
+      phone: prof?.phone || "",
       summary: summarizeDay(today, list, now),
       onDuty: Boolean(onDutySince(list, now)),
-    }))
-    .sort((a, b) => (a.summary.firstIn || "~").localeCompare(b.summary.firstIn || "~"))
-  const seen = new Set(people.filter((p) => p.summary.firstIn).map((p) => p.userId))
-  type Row = { id: string; name: string | null; email: string | null; avatar_url: string | null; active: boolean }
-  const notIn = ((profiles.data || []) as Row[])
-    .filter((p) => p.active && !seen.has(p.id))
-    .map((p) => ({
-      userId: p.id,
-      name: p.name?.trim() || p.email || "A colleague",
-      avatarUrl: p.avatar_url || "",
-      summary: summarizeDay(today, [], now),
-      onDuty: false,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name))
-  return { people, notIn }
+      leave: l
+        ? { code: l.type_code, half: (l.from_day === today && l.from_half === "second") || (l.to_day === today && l.to_half === "first") }
+        : null,
+      autoPresent: auto.has(userId),
+    }
+  })
+  const weeklyOff = settings.weeklyOff?.length ? settings.weeklyOff : [0]
+  const off = hols[0]?.name || (weeklyOff.includes(istWeekday(today)) ? "Weekly off" : null)
+  return { people, settings, off }
 }
 
 export async function reviewPunch(id: string, decision: "accepted" | "rejected", note?: string): Promise<void> {

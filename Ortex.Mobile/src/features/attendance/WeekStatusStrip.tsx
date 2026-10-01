@@ -2,7 +2,7 @@ import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { STATUS_LABEL, type DayStatus } from "@/domain/attendance"
-import { dateOf, dayLabel, hoursShort, statusColors, statusHue } from "@/features/attendance/format"
+import { dateOf, dayLabel, hoursShort, STATUS_ORDER, statusColors, statusHue } from "@/features/attendance/format"
 import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
 import { spacing } from "@/theme/tokens"
@@ -138,17 +138,29 @@ export default function WeekStatusStrip({
 }
 
 /** The week strip's legend: only the statuses the strip actually shows. */
-export function StatusLegend({ statuses }: { statuses: DayStatus[] }) {
+export function StatusLegend({ statuses, late = false }: { statuses: DayStatus[]; late?: boolean }) {
   const t = useTheme()
-  if (!statuses.length) return null
+  if (!statuses.length && !late) return null
+  const shown = STATUS_ORDER.filter((s) => statuses.includes(s))
   return (
     <View style={styles.legend}>
-      {statuses.map((s) => (
-        <View key={s} style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: statusHue(t, s) }]} />
-          <Text style={[styles.legendText, { color: t.textTertiary }]}>{STATUS_LABEL[s]}</Text>
+      {shown.map((s) => {
+        const tint = statusColors(t, s)
+        return (
+          <View key={s} style={styles.legendItem} accessibilityLabel={`${s}: ${STATUS_LABEL[s]}`}>
+            <View style={[styles.legendCode, { backgroundColor: tint.bg }]}>
+              <Text style={[styles.legendCodeText, { color: tint.fg }]}>{s}</Text>
+            </View>
+            <Text style={[styles.legendText, { color: t.textSecondary }]}>{STATUS_LABEL[s]}</Text>
+          </View>
+        )
+      })}
+      {late ? (
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: t.warning }]} />
+          <Text style={[styles.legendText, { color: t.textSecondary }]}>Late check-in</Text>
         </View>
-      ))}
+      ) : null}
     </View>
   )
 }
@@ -174,5 +186,7 @@ const styles = StyleSheet.create({
   },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendCode: { minWidth: 26, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: "center", justifyContent: "center" },
+  legendCodeText: { fontFamily: font.semibold, fontSize: 10, lineHeight: 13, letterSpacing: 0.2 },
   legendText: { fontFamily: font.regular, fontSize: 12, lineHeight: 16 },
 })

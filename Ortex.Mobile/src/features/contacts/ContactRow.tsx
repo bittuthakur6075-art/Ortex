@@ -6,6 +6,7 @@ import { useTheme } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 import { Avatar, Icon } from "@/ui"
+import { Tag } from "@/ui/OneUi"
 
 /**
  * One person in the directory.
@@ -35,6 +36,10 @@ export type ContactRowData = {
   secondary?: string
   phone?: string
   favourite?: boolean
+  /** A short business tag on the right, e.g. "Open quote". */
+  tag?: string
+  /** A quiet trailing note, e.g. when they were last in touch. */
+  meta?: string
 }
 
 function ContactRow({
@@ -94,7 +99,7 @@ function ContactRow({
   return (
     <View style={styles.clip}>
       <Animated.View style={[styles.rail, styles.railLeft, { opacity: callOpacity }]}>
-        <View style={[styles.railBadge, { backgroundColor: t.success }]}>
+        <View style={[styles.railBadge, { backgroundColor: t.primary }]}>
           <Icon name="call" size={20} color="#FFFFFF" variant="Bulk" />
         </View>
       </Animated.View>
@@ -111,7 +116,7 @@ function ContactRow({
           delayLongPress={280}
           accessibilityRole="button"
           accessibilityState={selecting ? { checked: selected } : undefined}
-          accessibilityLabel={contact.name}
+          accessibilityLabel={[contact.name, contact.secondary, contact.tag].filter(Boolean).join(", ")}
           android_ripple={{ color: t.accentTint }}
           style={({ pressed }) => [
             styles.row,
@@ -132,7 +137,11 @@ function ContactRow({
             </View>
           )}
 
-          <Avatar name={contact.name} size="md" />
+          {/* The face is tinted primary10, the same as a selected row: a surface
+              disc under it keeps the circle visible while selected. */}
+          <View style={selected ? [styles.disc, { backgroundColor: t.surface }] : undefined}>
+            <Avatar name={contact.name} size="md" />
+          </View>
 
           <View style={styles.body}>
             <Text numberOfLines={1} style={[styles.name, { color: t.text }]}>
@@ -145,8 +154,12 @@ function ContactRow({
             )}
           </View>
 
-          {contact.favourite && !selecting && (
-            <Icon name="star" size={16} color={t.warning} variant="Bold" />
+          {!selecting && (!!contact.tag || !!contact.meta || contact.favourite) && (
+            <View style={styles.end}>
+              {!!contact.meta && <Text style={[styles.meta, { color: t.textTertiary }]}>{contact.meta}</Text>}
+              {!!contact.tag && <Tag label={contact.tag} tone="primary" />}
+              {contact.favourite && <Icon name="star" size={16} color={t.warning} variant="Bold" />}
+            </View>
           )}
         </Pressable>
       </Animated.View>
@@ -164,8 +177,11 @@ const styles = StyleSheet.create({
     height: CONTACT_ROW_HEIGHT,
     paddingHorizontal: gutter,
   },
+  disc: { borderRadius: 999 },
   check: { marginRight: spacing.sm, marginLeft: -2 },
   body: { flex: 1, minWidth: 0, marginLeft: 14 },
+  end: { flexDirection: "row", alignItems: "center", gap: 8, marginLeft: spacing.sm },
+  meta: { fontSize: 12, lineHeight: 16, fontFamily: font.medium },
   name: { fontSize: 17, lineHeight: 22, fontFamily: font.medium },
   secondary: { marginTop: 1, fontSize: 13, lineHeight: 17, fontFamily: font.regular },
   rail: {

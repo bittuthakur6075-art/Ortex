@@ -1,27 +1,36 @@
 import React from "react"
-import { PanResponder, StyleSheet, Text, View } from "react-native"
+import { Animated, PanResponder, StyleSheet, Text, View } from "react-native"
 
-import { useTheme } from "@/store/ThemeContext"
 import { feedback } from "@/lib/feedback"
+import { useTheme } from "@/store/ThemeContext"
 import { font } from "@/theme/typography"
+import { SPRING, useReducedMotion } from "@/ui/motion"
 
 /**
- * The alphabet rail down the right edge, and the magnified bubble that follows
- * your thumb — Samsung Contacts' fast scroller.
+ * The alphabet rail down the right edge, and the bubble that follows your thumb:
+ * One UI Contacts' fast scroller.
  *
- * It is the reason an A–Z directory is usable at all on a phone: without it,
- * reaching "S" in four hundred contacts is a flick marathon. Dragging is
- * continuous (the list follows the thumb rather than waiting for a lift), and
- * each new letter ticks a selection haptic, which is what makes the rail feel
- * like a physical detent strip.
+ * Touch down anywhere on the rail and the list is already at that letter; drag
+ * and it follows letter by letter, a selection tick on each, with no animation
+ * on the list itself (One UI jumps, it does not glide, so the thumb and the list
+ * never disagree). What moves smoothly is the chrome: a track fades in behind
+ * the letters, and the bubble springs in and glides between letters.
  *
- * PanResponder, not a gesture-handler Swipeable: this is a single vertical drag
- * on a fixed strip, and claiming the responder on touch start is exactly the
- * behaviour we want — the list underneath must NOT get the gesture.
+ * TWO THINGS MADE THE OLD RAIL MISS. `locationY` is measured from the view the
+ * finger is over, and with tappable letter views inside, that was the LETTER, so
+ * every touch read as "near the top of a 13dp box". The rail is now `box-only`,
+ * so it is always the touch target and `locationY` is along the rail. And the
+ * jump itself is an exact offset (ContactsScreen `jumpTo`), not scrollToLocation
+ * into rows the list has never measured.
+ *
+ * The letters sit as a compact column centred on the rail rather than spread
+ * over its whole height, so eight letters do not turn into a sparse ladder; a
+ * touch above or below the column clamps to the first or last letter.
  */
 
-const LETTER_MIN_HEIGHT = 13
-const RAIL_WIDTH = 26
+const LETTER_MAX = 18
+const RAIL_WIDTH = 30
+const BUBBLE = 64
 
 export default function ContactIndexBar({
   letters,
@@ -38,34 +47,54 @@ export default function ContactIndexBar({
   bottom: number
 }) {
   const t = useTheme()
+  const reduce = useReducedMotion()
   const [height, setHeight] = React.useState(0)
   const [active, setActive] = React.useState<number | null>(null)
+  // What the bubble shows. Kept after release so it does not blank while fading.
+  const [shown, setShown] = React.useState(0)
 
-  // Refs, because the PanResponder is created once and would otherwise close
-  // over the first render's letters and height.
-  const lettersRef = React.useRef(letters)
-  const heightRef = React.useRef(0)
-  const activeRef = React.useRef<number | null>(null)
-  const onPickRef = React.useRef(onPick)
-  lettersRef.current = letters
-  onPickRef.current = onPick
+  const presence = React.useRef(new Animated.Value(0)).current
+  const bubbleY = React.useRef(new Animated.Value(0)).current
 
-  const resolve = React.useCallback((y: number) => {
-    const count = lettersRef.current.length
-    if (!count || !heightRef.current) return
-    const step = heightRef.current / count
-    const index = Math.min(count - 1, Math.max(0, Math.floor(y / step)))
-    if (index === activeRef.current) return
-    activeRef.current = index
-    setActive(index)
-    feedback.select()
-    onPickRef.current(index)
-  }, [])
+  const count = letters.length
+  const letterH = height && count ? Math.min(LETTER_MAX, height / count) : LETTER_MAX
+  const blockTop = Math.max(0, (height - letterH * count) / 2)
+
+  // The responder is built once; it reads everything current through this ref.
+  const live = React.useRef({ count, letterH, blockTop, onPick, reduce, index: -1 })
+  live.current = { ...live.current, count, letterH, blockTop, onPick, reduce }
+
+  const show = React.useCallback(
+    (on: boolean) => {
+      if (live.current.reduce) presence.setValue(on ? 1 : 0)
+      else Animated.spring(presence, { toValue: on ? 1 : 0, ...SPRING.pop, useNativeDriver: true }).start()
+    },
+    [presence],
+  )
+
+  const resolve = React.useCallback(
+    (y: number, first: boolean) => {
+      const { count: n, letterH: h, blockTop: b } = live.current
+      if (!n) return
+      const index = Math.min(n - 1, Math.max(0, Math.floor((y - b) / h)))
+      if (index === live.current.index) return
+      live.current.index = index
+      setActive(index)
+      setShown(index)
+      const centre = b + index * h + h / 2 - BUBBLE / 2
+      if (first || live.current.reduce) bubbleY.setValue(centre)
+      else Animated.spring(bubbleY, { toValue: centre, ...SPRING.follow, useNativeDriver: true }).start()
+      feedback.select()
+      live.current.onPick(index)
+    },
+    [bubbleY],
+  )
 
   const release = React.useCallback(() => {
-    activeRef.current = null
+    live.current.index = -1
     setActive(null)
-  }, [])
+    show(false)
+  }, [show])
 
   const responder = React.useMemo(
     () =>
@@ -74,61 +103,71 @@ export default function ContactIndexBar({
         onMoveShouldSetPanResponder: () => true,
         // The list must never steal a drag that began on the rail.
         onPanResponderTerminationRequest: () => false,
-        onPanResponderGrant: (e) => resolve(e.nativeEvent.locationY),
-        onPanResponderMove: (e) => resolve(e.nativeEvent.locationY),
+        onShouldBlockNativeResponder: () => true,
+        onPanResponderGrant: (e) => {
+          show(true)
+          resolve(e.nativeEvent.locationY, true)
+        },
+        onPanResponderMove: (e) => resolve(e.nativeEvent.locationY, false),
         onPanResponderRelease: release,
         onPanResponderTerminate: release,
       }),
-    [resolve, release],
+    [resolve, release, show],
   )
 
-  if (letters.length < 2) return null
+  if (count < 2) return null
 
-  const step = height ? height / letters.length : 0
-  const letterHeight = Math.max(LETTER_MIN_HEIGHT, step)
+  const scale = presence.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] })
 
   return (
     <>
-      {active !== null && (
-        <View
-          pointerEvents="none"
-          style={[
-            styles.bubble,
-            {
-              backgroundColor: t.primary,
-              top: top + Math.max(0, active * step + step / 2 - 34),
-            },
-          ]}
-        >
-          <Text style={[styles.bubbleText, { color: t.textOnPrimary }]}>{letters[active]}</Text>
-        </View>
-      )}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.bubble,
+          {
+            top,
+            backgroundColor: t.primary,
+            opacity: presence,
+            transform: [{ translateY: bubbleY }, { scale }],
+          },
+        ]}
+      >
+        <Text style={[styles.bubbleText, { color: t.textOnPrimary }]}>{letters[shown] ?? ""}</Text>
+      </Animated.View>
 
       <View
         {...responder.panHandlers}
-        onLayout={(e) => {
-          heightRef.current = e.nativeEvent.layout.height
-          setHeight(e.nativeEvent.layout.height)
-        }}
+        // The rail, never a letter, is the touch target: see the note above.
+        pointerEvents="box-only"
+        onLayout={(e) => setHeight(e.nativeEvent.layout.height)}
         // The rail is chrome for a sighted thumb; a screen reader user scrolls
         // the list itself, so it stays out of the accessibility tree.
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
         style={[styles.rail, { top, bottom }]}
       >
-        {letters.map((letter, i) => (
-          <View key={letter} style={{ height: letterHeight, justifyContent: "center" }}>
-            <Text
-              style={[
-                styles.letter,
-                { color: i === active ? t.primary : t.textTertiary },
-                i === active && styles.letterActive,
-              ]}
-            >
-              {letter}
-            </Text>
-          </View>
-        ))}
+        <Animated.View
+          style={[
+            styles.track,
+            { top: blockTop - 6, height: letterH * count + 12, backgroundColor: t.surfaceInset, opacity: presence },
+          ]}
+        />
+        <View style={{ marginTop: blockTop }}>
+          {letters.map((letter, i) => (
+            <View key={letter} style={[styles.cell, { height: letterH }]}>
+              <Text
+                style={[
+                  styles.letter,
+                  { color: i === active ? t.primary : t.textTertiary },
+                  i === active && styles.letterActive,
+                ]}
+              >
+                {letter}
+              </Text>
+            </View>
+          ))}
+        </View>
       </View>
     </>
   )
@@ -137,27 +176,32 @@ export default function ContactIndexBar({
 const styles = StyleSheet.create({
   rail: {
     position: "absolute",
-    right: 0,
+    right: 2,
     width: RAIL_WIDTH,
-    alignItems: "center",
-    justifyContent: "center",
   },
+  track: {
+    position: "absolute",
+    left: 5,
+    right: 5,
+    borderRadius: 10,
+  },
+  cell: { alignItems: "center", justifyContent: "center" },
   letter: {
-    fontSize: 10.5,
-    lineHeight: 12,
+    fontSize: 11,
+    lineHeight: 13,
     textAlign: "center",
     fontFamily: font.semibold,
   },
-  letterActive: { fontSize: 12 },
+  letterActive: { fontFamily: font.bold },
   bubble: {
     position: "absolute",
-    right: RAIL_WIDTH + 10,
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    right: RAIL_WIDTH + 14,
+    width: BUBBLE,
+    height: BUBBLE,
+    borderRadius: BUBBLE / 2,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 20,
   },
-  bubbleText: { fontSize: 30, fontFamily: font.bold },
+  bubbleText: { fontSize: 28, lineHeight: 34, fontFamily: font.bold },
 })

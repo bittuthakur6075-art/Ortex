@@ -125,43 +125,35 @@ export type SummaryTileData = {
 }
 
 /**
- * A month's figures as counted tiles, three to a row (Zoho People's month
- * summary). A tile nested inside a panel stays rounded: that is the one place a
- * card shape still belongs.
+ * A month's figures as compact pills that wrap (the Team page's stat pills):
+ * the count, the status dot and the label on one line, a note such as a late
+ * penalty after it in the warning colour.
  */
 export function SummaryTiles({ tiles }: { tiles: SummaryTileData[] }) {
   const t = useTheme()
   return (
     <View style={styles.tiles}>
       {tiles.map((tile) => (
-        <View key={tile.label} style={styles.tileSlot}>
-          <View
-            accessibilityLabel={`${tile.label}: ${tile.value}${tile.note ? `, ${tile.note}` : ""}`}
-            style={[styles.tile, { backgroundColor: tile.emphasis ? t.primary10 : t.surfaceInset }]}
+        <View
+          key={tile.label}
+          accessibilityLabel={`${tile.label}: ${tile.value}${tile.note ? `, ${tile.note}` : ""}`}
+          style={[styles.tile, { backgroundColor: tile.emphasis ? t.primary10 : t.surfaceInset }]}
+        >
+          <Text style={[styles.tileValue, { color: tile.emphasis ? t.primary : t.text }]}>{tile.value}</Text>
+          {tile.status ? (
+            <View style={[styles.tileDot, { backgroundColor: statusHue(t, tile.status) }]} />
+          ) : null}
+          <Text
+            style={[styles.tileText, { color: tile.emphasis ? t.primary : t.textSecondary }]}
+            numberOfLines={1}
           >
-            <Text style={[styles.tileValue, { color: tile.emphasis ? t.primary : t.text }]}>
-              {tile.value}
+            {tile.label}
+          </Text>
+          {tile.note ? (
+            <Text style={[styles.tileText, { color: t.warningText }]} numberOfLines={1}>
+              {`· ${tile.note}`}
             </Text>
-            <View style={styles.tileLabel}>
-              {tile.status ? (
-                <View style={[styles.tileDot, { backgroundColor: statusHue(t, tile.status) }]} />
-              ) : null}
-              <Text
-                style={[
-                  textVariants.caption,
-                  { color: tile.emphasis ? t.primary : t.textTertiary, flexShrink: 1 },
-                ]}
-                numberOfLines={1}
-              >
-                {tile.label}
-              </Text>
-            </View>
-            {tile.note ? (
-              <Text style={[textVariants.caption, { color: t.warningText }]} numberOfLines={1}>
-                {tile.note}
-              </Text>
-            ) : null}
-          </View>
+          ) : null}
         </View>
       ))}
     </View>
@@ -289,12 +281,18 @@ const styles = StyleSheet.create({
   date: { width: 48, height: 52, borderRadius: radius.card, alignItems: "center", justifyContent: "center" },
   dateNum: { fontFamily: font.bold, fontSize: 18, lineHeight: 22, fontVariant: ["tabular-nums"] },
   dateDow: { fontFamily: font.semibold, fontSize: 10, lineHeight: 13, letterSpacing: 0.4 },
-  tiles: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: gutter - 4, paddingBottom: gutter - 4 },
-  tileSlot: { width: "33.333%", padding: 4 },
-  tile: { borderRadius: radius.card, paddingHorizontal: 12, paddingVertical: 12, gap: 2, minHeight: 72 },
-  tileValue: { fontFamily: font.bold, fontSize: 20, lineHeight: 26, fontVariant: ["tabular-nums"] },
-  tileLabel: { flexDirection: "row", alignItems: "center", gap: 6 },
+  tiles: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: gutter, paddingBottom: gutter },
+  tile: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  tileValue: { fontFamily: font.semibold, fontSize: 15, lineHeight: 20, fontVariant: ["tabular-nums"] },
   tileDot: { width: 7, height: 7, borderRadius: 3.5 },
+  tileText: { fontFamily: font.medium, fontSize: 12.5, lineHeight: 16 },
   advisory: {
     flexDirection: "row",
     alignItems: "center",

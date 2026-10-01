@@ -5,7 +5,7 @@
 // Phone-only; domain/attendance.ts is mirrored to the console and stays as is.
 
 import { effectiveStatus, type AttendanceDay, type DayStatus } from "@/domain/attendance"
-import { istMs, istWeekday, type ShiftSettings } from "@/features/attendance/progress"
+import { istWeekday } from "@/features/attendance/progress"
 
 export type MonthEntry =
   | { day: string; kind: "worked"; status: DayStatus; row: AttendanceDay }
@@ -13,7 +13,7 @@ export type MonthEntry =
   | { day: string; kind: "empty"; row: null }
 
 const BAND_WORDS: Partial<Record<DayStatus, string>> = {
-  WO: "Weekend",
+  WO: "Weekly off",
   H: "Holiday",
   L: "Leave",
   A: "Absent",
@@ -32,6 +32,8 @@ export function monthEntries(
   rows: AttendanceDay[],
   holidays: { day: string; name: string }[],
   today: string,
+  /** IST weekdays off (0 = Sunday), the Super Admin's setting. */
+  weeklyOff: number[] = [0],
 ): MonthEntry[] {
   const byDay = new Map(rows.map((r) => [r.day, r]))
   const hol = new Map(holidays.map((h) => [h.day, h.name]))
@@ -43,47 +45,22 @@ export function monthEntries(
     if (row) {
       const s = effectiveStatus(row)
       const words = BAND_WORDS[s]
-      if (words && !row.first_in) {
+      // Present by default (0056): no punches to draw, so it reads as what it is.
+      if (!row.first_in && row.flags?.includes("auto_present")) {
+        out.push({ day: d, kind: "band", status: s, row, label: "Present by default" })
+      } else if (words && !row.first_in) {
         out.push({ day: d, kind: "band", status: s, row, label: s === "H" && holidayName ? `Holiday: ${holidayName}` : words })
       } else {
         out.push({ day: d, kind: "worked", status: s, row })
       }
     } else if (holidayName) {
       out.push({ day: d, kind: "band", status: "H", label: `Holiday: ${holidayName}`, row: null })
-    } else if (istWeekday(d) === 0) {
-      out.push({ day: d, kind: "band", status: "WO", label: "Weekend", row: null })
+    } else if (weeklyOff.includes(istWeekday(d))) {
+      out.push({ day: d, kind: "band", status: "WO", label: "Weekly off", row: null })
     } else {
       out.push({ day: d, kind: "empty", row: null })
     }
     if (d === bounds.from) break
   }
   return out
-}
-
-/**
- * Where a worked day sits on the shift axis, as fractions: the axis runs from the
- * shift start to its end, widened to take in a clock-in before or a clock-out
- * after it, so every row of the month shares one scale only when their shifts
- * match (Zoho draws each row on its own day's shift).
- */
-export function spanOnShift(
-  day: string,
-  firstIn: string | null | undefined,
-  lastOut: string | null | undefined,
-  s: ShiftSettings,
-  now: number,
-): { left: number; width: number; open: boolean } | null {
-  if (!firstIn) return null
-  const ok = (v?: string) => !!v && /^\d{1,2}:\d{2}$/.test(v)
-  const start = istMs(day, ok(s.shift?.start) ? s.shift!.start! : "09:30")
-  let end = istMs(day, ok(s.shift?.end) ? s.shift!.end! : "18:30")
-  if (end <= start) end += 86400000
-  const from = new Date(firstIn).getTime()
-  const open = !lastOut
-  const to = lastOut ? new Date(lastOut).getTime() : Math.max(from, Math.min(now, end))
-  const a = Math.min(start, from)
-  const b = Math.max(end, to)
-  const span = Math.max(1, b - a)
-  const left = (from - a) / span
-  return { left, width: Math.max(0.02, (to - from) / span), open }
 }

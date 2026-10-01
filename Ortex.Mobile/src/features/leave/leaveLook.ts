@@ -2,20 +2,13 @@ import type { LeaveStatus } from "@/domain/attendance"
 import type { StatusTone } from "@/theme/theme"
 import type { IconName } from "@/ui/Icon"
 
-// The leave screens' visual vocabulary (Zoho People's Leave Tracker, in this
-// app's flat One UI dress): every leave type has ONE colour and ONE glyph, used
-// on its balance tile, its date badge, its request row and its ledger, so the
-// eye learns "green is casual leave" once and reads it everywhere after.
-// Presentation only, so it lives here rather than in domain/attendance.ts.
-
-const TYPE_TONE: Record<string, StatusTone> = {
-  EL: "blue",
-  CL: "emerald",
-  SL: "rose",
-  CO: "amber",
-  LOP: "slate",
-}
-const FALLBACK_TONES: StatusTone[] = ["cyan", "violet", "blue", "emerald", "amber", "rose"]
+// The leave screens' visual vocabulary, mapped onto the attendance codes so a
+// day reads the same on every page: paid leave is the calendar's "L" (violet),
+// unpaid leave its "LOP" (red). Types are told apart by their CODE letters
+// (CL, EL, SL, CO) in the well and on the date leaf, never by a colour of their
+// own, because green, red and amber already mean Approved, Rejected and Pending
+// on the same rows. Presentation only, so it lives here rather than in
+// domain/attendance.ts.
 
 const TYPE_ICON: Record<string, IconName> = {
   EL: "star",
@@ -25,13 +18,8 @@ const TYPE_ICON: Record<string, IconName> = {
   LOP: "money",
 }
 
-/** A leave type's tone, stable for a code the seed does not know. */
-export function leaveTone(code: string): StatusTone {
-  if (TYPE_TONE[code]) return TYPE_TONE[code]
-  let h = 0
-  for (let i = 0; i < code.length; i++) h = (h * 31 + code.charCodeAt(i)) >>> 0
-  return FALLBACK_TONES[h % FALLBACK_TONES.length]
-}
+/** A leave type's tone: the attendance calendar's L, or LOP for unpaid leave. */
+export const leaveTone = (code: string): StatusTone => (code === "LOP" ? "rose" : "violet")
 
 export const leaveIcon = (code: string): IconName => TYPE_ICON[code] || "calendar"
 
@@ -58,6 +46,3 @@ export const STATUS_TONE: Record<LeaveStatus, StatusTone> = {
 
 /** The date leaf's size, shared by the row and its skeleton. */
 export const DATE_BADGE = { width: 48, height: 56 }
-
-/** A balance tile's size, shared by the rail's snap interval and the skeleton. */
-export const TILE = { width: 156, height: 170 }

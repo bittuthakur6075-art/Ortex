@@ -4,8 +4,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { formatCurrency, relativeTime } from "@/domain/format"
 import { stateLabel } from "@/domain/gstStates"
+import { sameCustomer } from "@/domain/quotations"
 import { ENQUIRY_STATUS, QUOTATION_STATUS, type Enquiry, type Quotation } from "@/domain/schema"
-import type { CustomerRow } from "@/features/contacts/ContactsScreen"
+import { VOICE_SOURCE, voiceCallsFrom } from "@/domain/voice"
+import type { CustomerRow } from "@/features/contacts/directory"
 import CustomerEditSheet from "@/features/contacts/CustomerEditSheet"
 import { useCollection } from "@/hooks/useCollection"
 import { callNumber, copy, email as sendEmail, prettyPhone, whatsapp } from "@/lib/contact"
@@ -43,11 +45,11 @@ import type { IconName } from "@/ui/Icon"
 /** The distance the name takes to hand over to the app bar title. */
 const COLLAPSE = 96
 
-/** Digits-only comparison, so a `+91` prefix does not hide someone's history. */
-const digits = (v?: string) =>
-  String(v || "")
-    .replace(/\D/g, "")
-    .slice(-10)
+/** Quotations shown before "Show all": the latest few are what a call is about. */
+const RECENT_QUOTES = 5
+
+const digits = (v?: string) => String(v || "").replace(/\D/g, "")
+const when = (d: { issueDate?: string; createdAt?: string }) => Date.parse(d.issueDate || d.createdAt || "") || 0
 
 export default function CustomerDetailScreen({ route, navigation }: StackScreenProps<"CustomerDetail">) {
   const t = useTheme()
@@ -59,31 +61,31 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
   const { items: enquiries } = useCollection<Enquiry>("enquiries")
   const scrollY = React.useRef(new Animated.Value(0)).current
   const [editing, setEditing] = React.useState(false)
+  const [allQuotes, setAllQuotes] = React.useState(false)
 
   const customer = customers.find((c) => c.id === route.params.id)
 
   // A quotation snapshots the customer rather than referencing the master row,
-  // so history is matched the same way the console's `sameCustomer` does it:
-  // email first, then phone digits. Never by name.
-  const belongs = React.useCallback(
-    (snapshot?: { email?: string; phone?: string }) => {
-      if (!customer) return false
-      const mail = (customer.email || "").trim().toLowerCase()
-      const phone = digits(customer.phone)
-      if (mail && (snapshot?.email || "").trim().toLowerCase() === mail) return true
-      if (phone && digits(snapshot?.phone) === phone) return true
-      return false
-    },
-    [customer],
-  )
-
+  // so history is matched by the console's `sameCustomer`: email first, then
+  // national phone digits. Never by name. Newest first.
   const theirQuotes = React.useMemo(
-    () => quotations.filter((q) => belongs(q.customer)),
-    [quotations, belongs],
+    () => (customer ? quotations.filter((q) => sameCustomer(customer, q.customer)).sort((a, b) => when(b) - when(a)) : []),
+    [quotations, customer],
   )
   const theirEnquiries = React.useMemo(
-    () => enquiries.filter((e) => belongs(e.customer)),
-    [enquiries, belongs],
+    () =>
+      customer
+        ? enquiries
+            .filter((e) => e.source !== VOICE_SOURCE && sameCustomer(customer, e.customer))
+            .sort((a, b) => when(b) - when(a))
+        : [],
+    [enquiries, customer],
+  )
+  // Voice calls are folded per conversation, as on the Leads tab, so one call
+  // with three captures is one row that opens the call.
+  const theirCalls = React.useMemo(
+    () => (customer ? voiceCallsFrom(enquiries).filter((c) => sameCustomer(customer, c.customer)) : []),
+    [enquiries, customer],
   )
 
   if (!customer && loading) {
@@ -110,6 +112,16 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
   const starred = favourites.has(customer.id)
   const won = theirQuotes.filter((q) => q.status === "accepted" || q.status === "invoiced")
   const lifetime = won.reduce((s, q) => s + (q.totals?.grandTotal || 0), 0)
+  const open = theirQuotes.filter((q) => q.status === "draft" || q.status === "sent").length
+  const lastAt = Math.max(
+    0,
+    ...theirQuotes.map(when),
+    ...theirEnquiries.map(when),
+    ...theirCalls.map((c) => Date.parse(c.endedAt || c.startedAt || "") || 0),
+  )
+  const shownQuotes = allQuotes ? theirQuotes : theirQuotes.slice(0, RECENT_QUOTES)
+  const where = [customer.city?.trim(), customer.stateCode ? stateLabel(customer.stateCode) : ""].filter(Boolean).join(", ")
+  const edit = () => setEditing(true)
 
   const barTitleOpacity = scrollY.interpolate({
     inputRange: [COLLAPSE * 0.6, COLLAPSE],
@@ -191,12 +203,10 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
             {!!customer.company && customer.company !== name && (
               <Text style={[styles.company, { color: t.textSecondary }]}>{customer.company}</Text>
             )}
-            {!!customer.stateCode && (
-              <View style={[styles.place, { backgroundColor: t.surface }]}>
+            {!!where && (
+              <View style={[styles.place, { backgroundColor: t.surfaceInset }]}>
                 <Icon name="address" size={13} color={t.textTertiary} variant="Bulk" />
-                <Text style={[styles.placeText, { color: t.textSecondary }]}>
-                  {stateLabel(customer.stateCode)}
-                </Text>
+                <Text style={[styles.placeText, { color: t.textSecondary }]}>{where}</Text>
               </View>
             )}
           </View>
@@ -243,8 +253,9 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
           <InfoRow
             icon="call"
             label="Mobile"
-            value={hasPhone ? prettyPhone(customer.phone) : "Not set"}
-            onPress={hasPhone ? () => void callNumber(customer.phone) : undefined}
+            value={hasPhone ? prettyPhone(customer.phone) : "Add a number"}
+            missing={!hasPhone}
+            onPress={hasPhone ? () => void callNumber(customer.phone) : edit}
             onLongPress={hasPhone ? () => void copyValue(customer.phone || "", "Number") : undefined}
             action={hasPhone ? { icon: "whatsapp", onPress: () => void whatsapp(customer.phone) } : undefined}
           />
@@ -252,8 +263,9 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
           <InfoRow
             icon="mail"
             label="Email"
-            value={customer.email || "Not set"}
-            onPress={customer.email ? () => void sendEmail(customer.email) : undefined}
+            value={customer.email || "Add an email"}
+            missing={!customer.email}
+            onPress={customer.email ? () => void sendEmail(customer.email) : edit}
             onLongPress={customer.email ? () => void copyValue(customer.email || "", "Email") : undefined}
           />
           {!!customer.address && (
@@ -268,14 +280,18 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
           <InfoRow
             icon="gst"
             label="GSTIN"
-            value={customer.gstin || "Not set"}
+            value={customer.gstin || "Add a GSTIN"}
+            missing={!customer.gstin}
+            onPress={customer.gstin ? undefined : edit}
             onLongPress={customer.gstin ? () => void copyValue(customer.gstin || "", "GSTIN") : undefined}
           />
           <Divider inset={56} />
           <InfoRow
             icon="address"
             label="Place of supply"
-            value={customer.stateCode ? stateLabel(customer.stateCode) : "Not set"}
+            value={customer.stateCode ? stateLabel(customer.stateCode) : "Set the state"}
+            missing={!customer.stateCode}
+            onPress={customer.stateCode ? undefined : edit}
           />
         </Panel>
 
@@ -287,16 +303,16 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
 
         <Panel>
           <View style={styles.statRow}>
-            <Stat label="Quotations" value={String(theirQuotes.length)} />
-            <Stat label="Accepted" value={String(won.length)} />
-            <Stat label="Won value" value={formatCurrency(lifetime, { compact: true })} />
+            <Stat label={open === 1 ? "Open quote" : "Open quotes"} value={String(open)} />
+            <Stat label={`Won, ${won.length} of ${theirQuotes.length}`} value={formatCurrency(lifetime, { compact: true })} />
+            <Stat label="Last contact" value={lastAt ? relativeTime(lastAt) : "None"} />
           </View>
         </Panel>
 
         {theirQuotes.length > 0 && (
           <>
-            <Panel title="Quotations">
-              {theirQuotes.map((q, i) => (
+            <Panel title={`Quotations · ${theirQuotes.length}`}>
+              {shownQuotes.map((q, i) => (
                 <View key={q.id}>
                   {i > 0 && <Divider inset={68} />}
                   <Pressable
@@ -310,7 +326,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
                     <View style={styles.historyBody}>
                       <Text style={[styles.historyTitle, { color: t.text }]}>{q.number}</Text>
                       <Text style={[styles.historySub, { color: t.textTertiary }]}>
-                        {relativeTime(q.createdAt)}
+                        {relativeTime(q.issueDate || q.createdAt)}
                       </Text>
                     </View>
                     <View style={styles.historyEnd}>
@@ -322,17 +338,39 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
                   </Pressable>
                 </View>
               ))}
+              {theirQuotes.length > RECENT_QUOTES && (
+                <>
+                  <Divider inset={20} />
+                  <Pressable
+                    onPress={() => setAllQuotes(!allQuotes)}
+                    accessibilityRole="button"
+                    android_ripple={{ color: t.accentTint }}
+                    style={styles.more}
+                  >
+                    <Text style={[styles.moreText, { color: t.primary }]}>
+                      {allQuotes ? "Show fewer" : `Show all ${theirQuotes.length}`}
+                    </Text>
+                  </Pressable>
+                </>
+              )}
             </Panel>
           </>
         )}
 
         {theirEnquiries.length > 0 && (
           <>
-            <Panel title="Enquiries">
+            <Panel title={`Enquiries · ${theirEnquiries.length}`}>
               {theirEnquiries.map((e, i) => (
                 <View key={e.id}>
-                  {i > 0 && <Divider inset={20} />}
-                  <View style={styles.historyRow}>
+                  {i > 0 && <Divider inset={68} />}
+                  <Pressable
+                    onPress={() => navigation.navigate("EnquiryDetail", { id: e.id })}
+                    android_ripple={{ color: t.accentTint }}
+                    style={styles.historyRow}
+                  >
+                    <View style={[styles.historyWell, { backgroundColor: t.iconWell }]}>
+                      <Icon name="leads" size={18} color={t.primary} variant="Bulk" />
+                    </View>
                     <View style={styles.historyBody}>
                       <Text numberOfLines={1} style={[styles.historyTitle, { color: t.text }]}>
                         {e.productInterest || e.source || "Enquiry"}
@@ -342,11 +380,39 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
                       </Text>
                     </View>
                     <StatusBadge list={ENQUIRY_STATUS} id={e.status} small />
-                  </View>
+                  </Pressable>
                 </View>
               ))}
             </Panel>
           </>
+        )}
+
+        {theirCalls.length > 0 && (
+          <Panel title={`Calls with Anu · ${theirCalls.length}`}>
+            {theirCalls.map((c, i) => (
+              <View key={c.id}>
+                {i > 0 && <Divider inset={68} />}
+                <Pressable
+                  onPress={() => navigation.navigate("VoiceCallDetail", { id: c.id })}
+                  android_ripple={{ color: t.accentTint }}
+                  style={styles.historyRow}
+                >
+                  <View style={[styles.historyWell, { backgroundColor: t.iconWell }]}>
+                    <Icon name="call" size={18} color={t.primary} variant="Bulk" />
+                  </View>
+                  <View style={styles.historyBody}>
+                    <Text numberOfLines={1} style={[styles.historyTitle, { color: t.text }]}>
+                      {c.productInterest || c.summary || "Voice call"}
+                    </Text>
+                    <Text style={[styles.historySub, { color: t.textTertiary }]}>
+                      {relativeTime(c.endedAt || c.startedAt)}
+                    </Text>
+                  </View>
+                  <StatusBadge list={ENQUIRY_STATUS} id={c.status} small />
+                </Pressable>
+              </View>
+            ))}
+          </Panel>
         )}
 
         {/* Who created this contact and who has edited it since — a changed
@@ -389,10 +455,13 @@ function InfoRow({
   onPress,
   onLongPress,
   action,
+  missing,
 }: {
   icon: IconName
   label: string
   value: string
+  /** The value is a prompt to fill the field in, drawn in the brand colour. */
+  missing?: boolean
   onPress?: () => void
   onLongPress?: () => void
   action?: { icon: IconName; onPress: () => void }
@@ -409,8 +478,9 @@ function InfoRow({
       <Icon name={icon} size={20} color={t.textTertiary} variant="Bulk" />
       <View style={styles.infoBody}>
         <Text style={[styles.infoLabel, { color: t.textTertiary }]}>{label}</Text>
-        <Text style={[styles.infoValue, { color: t.text }]}>{value}</Text>
+        <Text style={[styles.infoValue, { color: missing ? t.primary : t.text }]}>{value}</Text>
       </View>
+      {missing && <Icon name="add" size={18} color={t.primary} />}
       {action && (
         <Pressable
           onPress={action.onPress}
@@ -433,8 +503,8 @@ function Stat({ label, value }: { label: string; value: string }) {
   const t = useTheme()
   return (
     <Card padding={0} squircle squircleRadius={16} style={styles.stat}>
-      <Text style={[styles.statValue, { color: t.text }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: t.textTertiary }]}>{label}</Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, { color: t.text }]}>{value}</Text>
+      <Text numberOfLines={1} style={[styles.statLabel, { color: t.textTertiary }]}>{label}</Text>
     </Card>
   )
 }
@@ -508,9 +578,11 @@ const styles = StyleSheet.create({
   },
 
   statRow: { flexDirection: "row", gap: 10, paddingHorizontal: gutter, paddingVertical: spacing.md },
-  stat: { flex: 1, paddingVertical: 16, alignItems: "center" },
+  stat: { flex: 1, paddingVertical: 16, paddingHorizontal: 6, alignItems: "center" },
   statValue: { fontSize: 18, fontFamily: font.bold },
   statLabel: { marginTop: 3, fontSize: 11.5, fontFamily: font.regular },
+  more: { paddingHorizontal: gutter, paddingVertical: 14, alignItems: "center" },
+  moreText: { fontSize: 14, fontFamily: font.semibold },
 
   historyRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: gutter, paddingVertical: 14 },
   historyWell: {

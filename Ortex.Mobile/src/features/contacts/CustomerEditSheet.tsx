@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native"
 import { repo } from "@/data/repo"
 import { errorMessage } from "@/data/supabase"
 import { stateLabel } from "@/domain/gstStates"
-import type { CustomerRow } from "@/features/contacts/ContactsScreen"
+import type { CustomerRow } from "@/features/contacts/directory"
 import {
   normaliseContact,
   validateContact,

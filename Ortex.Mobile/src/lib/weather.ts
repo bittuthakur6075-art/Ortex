@@ -11,7 +11,7 @@ const URL =
   "https://api.open-meteo.com/v1/forecast?latitude=28.6139&longitude=77.209" +
   "&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min" +
   "&timezone=Asia%2FKolkata&forecast_days=1"
-const FRESH_MS = 30 * 60000
+const FRESH_MS = 10 * 60000
 
 let cached: { at: number; w: Weather } | null = null
 
@@ -51,4 +51,22 @@ export async function delhiWeather(): Promise<Weather | null> {
   } finally {
     clearTimeout(timer)
   }
+}
+
+// [light, dark]: deeper on the white bar, brighter on black.
+const TINT: Record<string, [string, string]> = {
+  moon: ["#6E5BE8", "#A89BFF"],
+  cloud: ["#6B7FA3", "#9AAACB"],
+  fog: ["#8792A8", "#A9B3C7"],
+  rain: ["#1E7BEA", "#4FA3FF"],
+  storm: ["#6A4BF0", "#9C86FF"],
+  snow: ["#0EA5E9", "#67D3FF"],
+}
+
+/** The glyph's colour: by sky, and the sun warms from amber to red-orange with the heat. */
+export function weatherTint(w: Weather, dark: boolean): string {
+  const sun: [string, string] =
+    w.temp >= 38 ? ["#E8590C", "#FF7A3D"] : w.temp >= 30 ? ["#F08A00", "#FFA62B"] : ["#E8A100", "#FFC21A"]
+  const pair = w.icon === "sun" || w.icon === "cloudSun" ? sun : TINT[w.icon] ?? TINT.cloud
+  return pair[dark ? 1 : 0]
 }

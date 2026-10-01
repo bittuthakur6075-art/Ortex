@@ -7,6 +7,7 @@ import { clockIST, dayKey } from "@/domain/attendance"
 import { ActionAdvisory, DayDone } from "@/features/attendance/attendanceUi"
 import { LiveTimer, ShiftBar } from "@/features/attendance/LiveProgress"
 import {
+  autoPresentClock,
   countFromFor,
   progressWords,
   punchWindow,
@@ -27,6 +28,7 @@ import {
 import { feedback } from "@/lib/feedback"
 import { shiftClock } from "@/lib/attendance"
 import type { RootStackParamList } from "@/navigation/types"
+import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import { spacing } from "@/theme/tokens"
 import { fontFamily, textVariants } from "@/theme/typography"
@@ -56,6 +58,7 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
   const startClock = useStartClock()
   const { settings, punches, summary, onDutySince, loading, now } = useAttendanceToday()
   const notices = useAttendanceNotices()
+  const { session } = useAuth()
   const [expanded, setExpanded] = React.useState(false)
 
   const today = dayKey(now)
@@ -86,7 +89,6 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
   // "Office", not the check-in station's name: the person was at work, not at a door.
   const where = summary.field ? "Field visit" : "Office"
   const hours = `of ${Math.round(shiftMin / 60)} h shift`
-  const fraction = shiftMin > 0 ? worked.ms / MINUTE / shiftMin : 0
   const shiftStart = settings.shift?.start ? shiftClock(settings.shift.start) : ""
   const shiftEnd = settings.shift?.end ? shiftClock(settings.shift.end) : ""
   // The bar's end labels already show the shift, so the lines never repeat it.
@@ -95,6 +97,15 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
   const shiftTo = settings.shift?.end ? Date.parse(`${today}T${settings.shift.end}:00+05:30`) : NaN
   // Where now falls in the shift, for the bar's tick; none once the day is done.
   const elapsed = dayDone || !(shiftTo > shiftFrom) ? undefined : (now - shiftFrom) / (shiftTo - shiftFrom)
+  // Marked present by the Super Admin (0056): the server counts every working
+  // day as P, so a day with no check-in is not "Missed", and with no punch of
+  // their own the day runs by the shift clock (autoPresentClock).
+  const auto = autoPresentClock(settings, session?.user?.id, today, notices.nextHoliday?.day === today, now)
+  const autoPresent = !!auto
+  const autoDay = !!auto && !loading && !onDutySince && !dayDone && auto.to > auto.from
+  const autoRunning = autoDay && auto.running
+  const shownMs = autoDay ? auto.ms : worked.ms
+  const fraction = shiftMin > 0 ? shownMs / MINUTE / shiftMin : 0
   const shiftBegun = !!settings.shift?.start && now >= Date.parse(`${today}T${settings.shift.start}:00+05:30`)
 
   // The state: a pill, the bar's colour, and at most two lines that say the
@@ -120,6 +131,21 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
       summary.lastOut!,
     )}`
     line2 = progressWords(worked.ms / MINUTE, shiftMin, shiftEnded(settings, today, now))
+  } else if (autoRunning) {
+    pill = { label: "On duty", tone: "success" }
+    ring = t.success
+    line1 = `In at ${shiftStart}`
+    line2 = progressWords(shownMs / MINUTE, shiftMin, false)
+  } else if (autoDay && auto.ended) {
+    pill = { label: "Done", tone: "neutral" }
+    ring = t.success
+    line1 = `In ${shiftStart} · out ${shiftEnd}`
+    line2 = progressWords(shownMs / MINUTE, shiftMin, true)
+  } else if (autoPresent) {
+    pill = { label: "Present", tone: "success" }
+    ring = t.success
+    line1 = shiftStart ? `Starts automatically at ${shiftStart}` : "Marked present for today"
+    line2 = null
   } else if (now < win.open) {
     pill = { label: `Opens ${clockIST(win.open)}`, tone: "neutral" }
     ring = t.primary
@@ -201,9 +227,9 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
         <View style={styles.facts}>
           <View style={styles.timeRow}>
             <LiveTimer
-              baseMs={worked.ms}
+              baseMs={shownMs}
               baseAt={now}
-              running={!!onDutySince}
+              running={!!onDutySince || autoRunning}
               short
               style={[styles.bigTime, { color: t.text }]}
             />
@@ -264,7 +290,7 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
               }),
             )}
           />
-        ) : shut ? null : (
+        ) : shut || (autoPresent && !onDutySince) ? null : (
           // Outside the window the lines above say when it opens; a disabled
           // slider still read as one to slide (phone, 2026-09-27).
           <SlideToConfirm

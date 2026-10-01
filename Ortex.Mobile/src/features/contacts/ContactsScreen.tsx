@@ -1,11 +1,24 @@
 import React from "react"
-import { Pressable, Share, StyleSheet, Text, View } from "react-native"
+import { BackHandler, Pressable, Share, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import type { Customer, Row } from "@/domain/schema"
-import ContactIndexBar from "@/features/contacts/ContactIndexBar"
-import ContactRow from "@/features/contacts/ContactRow"
+import { relativeTime } from "@/domain/format"
+import type { Enquiry, Quotation } from "@/domain/schema"
 import ChatButton from "@/features/chat/ChatButton"
+import ContactIndexBar from "@/features/contacts/ContactIndexBar"
+import ContactRow, { CONTACT_ROW_HEIGHT } from "@/features/contacts/ContactRow"
+import {
+  FAVOURITES,
+  activityIndex,
+  buildSections,
+  displayName,
+  passes,
+  prefillFromQuery,
+  type ContactSection,
+  type CustomerRow,
+  type Filter,
+  type SortMode,
+} from "@/features/contacts/directory"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { useCollection } from "@/hooks/useCollection"
 import { prettyPhone } from "@/lib/contact"
@@ -30,108 +43,97 @@ import {
   useToast,
 } from "@/ui"
 import type { ScrollableList } from "@/ui/AppScreen"
+import CountChips from "@/ui/CountChips"
 import { TAB_BAR_HEIGHT } from "@/ui/Fab"
 
-export type CustomerRow = Customer & Row
-
 /**
- * The directory, built the way Samsung Contacts is built.
+ * The directory, built the way Samsung Contacts is built, with the business
+ * behind each person on top.
  *
- * A `customers` document holds exactly one person — name, company, one phone, one
- * email — and the console matches records on email-then-phone rather than on
+ * A `customers` document holds exactly one person (name, company, one phone, one
+ * email) and the console matches records on email-then-phone rather than on
  * company, so one firm legitimately has several rows. Samsung's answer to a long
- * list of people is not to group them: it is A–Z sections, a fast-scroll alphabet
- * rail, a pinned Favourites group, and search. That is what this is, with the
- * company carried on the row's second line so a B2B name still reads.
+ * list of people is A-Z sections, a fast-scroll alphabet rail, a pinned
+ * Favourites group, and search. That is what this is, with the company and city
+ * on the row's second line so a B2B name still reads.
  *
- * The Samsung behaviours that are load-bearing, and are all here:
- *   · a sticky letter header per section, and an index rail you can drag
- *   · Favourites (★) pinned above "A" — local to the phone, see lib/favourites
- *   · swipe a row right to call, left to message (ContactRow)
- *   · long-press for multi-select, with a bottom action bar
- *   · the contact count at the very end of the list
+ * What a salesperson needs that Samsung does not: who has an OPEN quotation (the
+ * row's tag, and a chip), who was in touch lately (Recent, newest first) and
+ * whose record cannot be rung at all (No phone). Every chip carries its count
+ * and is shown only when it is not empty. The rules are features/contacts/
+ * directory.ts, tested.
  *
- * Sorting flips between the person and the company from the overflow menu, which
- * is Samsung's "Sort by" — and here it doubles as the old group-by-company view,
- * because the letter headers follow whatever you sort on.
+ *   · swipe a row right to call, left to WhatsApp (ContactRow)
+ *   · long-press for multi-select: the tab bar gives the bottom of the screen to
+ *     the selection bar, and Back ends the selection rather than leaving the tab
+ *   · Sort by name or company from the overflow menu; the letters follow it
  */
-
-type SortMode = "name" | "company"
-
-type ContactSection = { letter: string; data: CustomerRow[] }
-
-const FAVOURITES = "★"
-
-const displayName = (c: CustomerRow) => c.name || c.company || "Unnamed customer"
-
-/** What a row sorts and letters under, given the current Sort by choice. */
-const sortKey = (c: CustomerRow, mode: SortMode) =>
-  (mode === "company" ? c.company || c.name : c.name || c.company || "").trim()
-
-/** Letters only; digits and symbols land in "#", exactly as One UI does it. */
-function letterFor(value: string): string {
-  const first = value.trim().charAt(0).toUpperCase()
-  return first >= "A" && first <= "Z" ? first : "#"
-}
-
-function matches(c: CustomerRow, needle: string): boolean {
-  const haystack = [c.name, c.company, c.email].filter(Boolean).join(" ").toLowerCase()
-  if (haystack.includes(needle)) return true
-  const digits = needle.replace(/\D/g, "")
-  return digits.length >= 3 && String(c.phone || "").replace(/\D/g, "").includes(digits)
-}
 
 export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts">) {
   const t = useTheme()
   const insets = useSafeAreaInsets()
   const toast = useToast()
   const { items, loading, refreshing, error, fromCache, cachedAt, reload } = useCollection<CustomerRow>("customers")
+  const { items: quotations } = useCollection<Quotation>("quotations")
+  const { items: enquiries } = useCollection<Enquiry>("enquiries")
   const favourites = useFavourites()
 
   const [query, setQuery] = React.useState("")
   const [sort, setSort] = React.useState<SortMode>("name")
+  const [filter, setFilter] = React.useState<Filter>("all")
   const [menuOpen, setMenuOpen] = React.useState(false)
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
   const [selecting, setSelecting] = React.useState(false)
   const listRef = React.useRef<ScrollableList>(null)
+  /** Where the list header (title, search, chips) ends: section 0 starts here. */
+  const headerEnd = React.useRef(0)
+  // "Recent" is judged against when the tab opened, not a clock read mid-render.
+  const [now] = React.useState(Date.now)
 
   const needle = query.trim().toLowerCase()
 
-  const { sections, total } = React.useMemo(() => {
-    const pool = needle ? items.filter((c) => matches(c, needle)) : items
-    const byLetter = new Map<string, CustomerRow[]>()
-    const starred: CustomerRow[] = []
+  const activity = React.useMemo(() => activityIndex(items, quotations, enquiries), [items, quotations, enquiries])
 
-    const collate = (a: CustomerRow, b: CustomerRow) =>
-      sortKey(a, sort).localeCompare(sortKey(b, sort), undefined, { sensitivity: "base" })
+  const counts = React.useMemo(() => {
+    const n = (f: Filter) => items.filter((c) => passes(c, f, favourites, activity, now)).length
+    return { all: items.length, favourites: n("favourites"), open: n("open"), recent: n("recent"), nophone: n("nophone") }
+  }, [items, favourites, activity, now])
 
-    for (const c of pool) {
-      // The Favourites group is a COPY of the row, not a move: Samsung shows a
-      // starred contact both in ★ and under its own letter, and losing someone
-      // from the alphabet the moment you star them is disorienting.
-      if (!needle && favourites.has(c.id)) starred.push(c)
-      const letter = letterFor(sortKey(c, sort))
-      if (!byLetter.has(letter)) byLetter.set(letter, [])
-      byLetter.get(letter)!.push(c)
-    }
+  // A chip that empties (the last favourite unstarred) must not strand the list
+  // on a filter that is no longer offered.
+  const active: Filter = filter !== "all" && !counts[filter] ? "all" : filter
 
-    const lettered = [...byLetter.entries()]
-      .map(([letter, data]) => ({ letter, data: data.sort(collate) }))
-      // "#" sorts last: a number is not a letter, and putting it at the head of
-      // the rail would push A off the first screen.
-      .sort((a, b) => (a.letter === "#" ? 1 : b.letter === "#" ? -1 : a.letter.localeCompare(b.letter)))
+  const { sections, total } = React.useMemo(
+    () => buildSections(items, { needle, sort, filter: active, favourites, activity, now }),
+    [items, needle, sort, active, favourites, activity, now],
+  )
 
-    const all: ContactSection[] = starred.length
-      ? [{ letter: FAVOURITES, data: starred.sort(collate) }, ...lettered]
-      : lettered
-
-    return { sections: all, total: pool.length }
-  }, [items, needle, sort, favourites])
+  const chips = (
+    [
+      { key: "all", label: "All", count: counts.all },
+      { key: "favourites", label: "Favourites", count: counts.favourites },
+      { key: "open", label: "Open quotes", count: counts.open },
+      { key: "recent", label: "Recent", count: counts.recent },
+      { key: "nophone", label: "No phone", count: counts.nophone },
+    ] as { key: Filter; label: string; count: number }[]
+  ).filter((c) => c.key === "all" || c.count > 0)
 
   const endSelecting = React.useCallback(() => {
     setSelecting(false)
     setSelected(new Set())
   }, [])
+
+  // While selecting, the bottom of the screen belongs to the selection bar, and
+  // Back means "stop selecting", as it does in Samsung Contacts.
+  React.useEffect(() => {
+    navigation.setOptions({ tabBarStyle: selecting ? { display: "none" } : undefined })
+    if (!selecting) return
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      endSelecting()
+      return true
+    })
+    return () => sub.remove()
+  }, [selecting, navigation, endSelecting])
 
   const toggleSelected = React.useCallback((id: string) => {
     setSelected((prev) => {
@@ -144,12 +146,22 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
 
   const selectedContacts = React.useMemo(() => items.filter((c) => selected.has(c.id)), [items, selected])
   const allSelected = total > 0 && selected.size === total
+  // Mixed selections star rather than unstar: the safer read of an ambiguous tap.
+  const starring = selectedContacts.length === 0 || selectedContacts.some((c) => !favourites.has(c.id))
 
-  const jumpTo = React.useCallback((index: number) => {
-    // itemIndex 0 is the section header, so the LETTER lands under the app bar
-    // rather than the first row doing so.
-    listRef.current?.scrollToLocation?.({ sectionIndex: index, itemIndex: 0, animated: false })
-  }, [])
+  // An exact offset, not scrollToLocation: every row is CONTACT_ROW_HEIGHT and
+  // every letter band SECTION_HEAD_HEIGHT, so the arithmetic is the truth, and
+  // it lands on rows the list has never measured, first time, every time. No
+  // animation, as in One UI: the list is where the thumb is, the moment it is.
+  const jumpTo = React.useCallback(
+    (index: number) => {
+      let y = headerEnd.current
+      for (let i = 0; i < index && i < sections.length; i++)
+        y += SECTION_HEAD_HEIGHT + sections[i].data.length * CONTACT_ROW_HEIGHT
+      listRef.current?.scrollToOffset?.({ offset: y, animated: false })
+    },
+    [sections],
+  )
 
   const shareSelection = React.useCallback(async () => {
     if (!selectedContacts.length) return
@@ -167,25 +179,32 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
 
   const starSelection = React.useCallback(() => {
     const ids = [...selected]
-    // Mixed selections star rather than unstar — the safer read of an ambiguous
-    // tap, and it matches how a "select all then favourite" sweep is meant to go.
-    const adding = ids.some((id) => !favourites.has(id))
-    setFavourites(ids, adding)
-    feedback.toggle(adding)
+    setFavourites(ids, starring)
+    feedback.toggle(starring)
     toast.show({
-      message: adding ? `Added ${ids.length} to favourites` : `Removed ${ids.length} from favourites`,
+      message: starring ? `Added ${ids.length} to favourites` : `Removed ${ids.length} from favourites`,
       tone: "success",
     })
     endSelecting()
-  }, [selected, favourites, toast, endSelecting])
+  }, [selected, starring, toast, endSelecting])
+
+  const addCustomer = () =>
+    // A search that found nobody is the commonest moment for this: carry what
+    // they typed into the field it looks like (name, phone or email).
+    navigation.navigate("ContactEditor", needle ? { prefill: prefillFromQuery(query) } : undefined)
 
   const indexTop = insets.top + sizes.appBar + spacing.sm
   const indexBottom = insets.bottom + TAB_BAR_HEIGHT + spacing.xl
+  const showRail = !selecting && !needle && active !== "recent" && sections.length > 1
+
+  const people = `${counts.all} ${counts.all === 1 ? "customer" : "customers"}`
+  const subtitle = loading ? "Loading…" : counts.open ? `${people} · ${counts.open} with open quotes` : people
 
   return (
     <View style={{ flex: 1, backgroundColor: t.background }}>
       <AppScreen
         title={selecting ? `${selected.size} selected` : "Customers"}
+        subtitle={selecting ? undefined : subtitle}
         headerLeft={
           selecting ? (
             <IconButton name="close" onPress={endSelecting} accessibilityLabel="Cancel selection" />
@@ -216,15 +235,20 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
         listRef={listRef}
         overlay={
           selecting ? (
-            <SelectionBar count={selected.size} onShare={() => void shareSelection()} onStar={starSelection} />
-          ) : needle ? null : (
+            <SelectionBar
+              count={selected.size}
+              starring={starring}
+              onShare={() => void shareSelection()}
+              onStar={starSelection}
+            />
+          ) : showRail ? (
             <ContactIndexBar
               letters={sections.map((s) => s.letter)}
               onPick={jumpTo}
               top={indexTop}
               bottom={indexBottom}
             />
-          )
+          ) : null
         }
         sections={{
           sections: loading ? [] : sections,
@@ -232,16 +256,26 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
           keyExtractor: (c: unknown) => (c as CustomerRow).id,
           stickySectionHeadersEnabled: true,
           initialNumToRender: 20,
-          // A jump into a stretch of list that has never been measured can miss;
-          // the retry lands it once the rows in between have laid out.
-          onScrollToIndexFailed: (info: { index: number }) => {
-            setTimeout(() => jumpTo(Math.max(0, info.index)), 60)
+          // Fixed heights, so a rail jump far down renders its rows at once
+          // instead of estimating. Flattened per section: header, rows, footer.
+          getItemLayout: (data: unknown, index: number) => {
+            const list = (data as ContactSection[]) || []
+            let offset = headerEnd.current
+            let i = index
+            for (const section of list) {
+              const cells = section.data.length + 2
+              if (i < cells) {
+                const length = i === 0 ? SECTION_HEAD_HEIGHT : i === cells - 1 ? 0 : CONTACT_ROW_HEIGHT
+                return { length, offset: offset + (i === 0 ? 0 : SECTION_HEAD_HEIGHT + (i - 1) * CONTACT_ROW_HEIGHT), index }
+              }
+              offset += SECTION_HEAD_HEIGHT + section.data.length * CONTACT_ROW_HEIGHT
+              i -= cells
+            }
+            return { length: 0, offset, index }
           },
           renderSectionHeader: ({ section }: { section: unknown }) => (
             <SectionHeader letter={(section as ContactSection).letter} />
           ),
-          // A contact leads with a round 38dp initials avatar and carries no
-          // figure — name over company, nothing on the right.
           ListEmptyComponent: loading ? (
             <SkeletonList count={8} leading="avatar" leadingSize={38} />
           ) : error && !items.length ? (
@@ -250,9 +284,13 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
             <EmptyState
               icon="search"
               title="No matches"
-              hint={`Nothing here matches “${query.trim()}”.`}
-              actionLabel="Add them as a customer"
-              onAction={() => navigation.navigate("ContactEditor", { prefill: { name: query.trim() } })}
+              hint={
+                active === "all"
+                  ? `Nothing here matches “${query.trim()}”.`
+                  : `No one in this filter matches “${query.trim()}”.`
+              }
+              actionLabel={active === "all" ? "Add them as a customer" : "Search all customers"}
+              onAction={() => (active === "all" ? addCustomer() : setFilter("all"))}
             />
           ) : (
             <EmptyState
@@ -260,33 +298,38 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
               title="No customers yet"
               hint="Add someone here, or one appears the first time you quote them."
               actionLabel="Add a customer"
-              onAction={() => navigation.navigate("ContactEditor")}
+              onAction={addCustomer}
             />
           ),
           ListFooterComponent:
             loading || !total ? null : (
               <Text style={[styles.count, { color: t.textTertiary }]}>
                 {total} {total === 1 ? "customer" : "customers"}
+                {active === "all" && !needle ? "" : ` of ${counts.all}`}
               </Text>
             ),
           renderItem: ({ item }: { item: unknown }) => {
             const customer = item as CustomerRow
             const name = displayName(customer)
             const company = (customer.company || "").trim()
+            const city = (customer.city || "").trim()
+            const did = activity.get(customer.id)
+            const byCompany = sort === "company" && !!company
+            // The second line says who they are: the other half of name and
+            // company, then the city. A bare name falls back to how to reach them.
+            const other = byCompany ? (customer.name || "").trim() : company !== name ? company : ""
             const secondary =
-              sort === "company"
-                ? customer.name || prettyPhone(customer.phone)
-                : company && company !== name
-                  ? company
-                  : prettyPhone(customer.phone) || customer.email || ""
+              [other, city].filter(Boolean).join(" · ") || prettyPhone(customer.phone) || customer.email || ""
             return (
               <ContactRow
                 contact={{
                   id: customer.id,
-                  name: sort === "company" && company ? company : name,
+                  name: byCompany ? company : name,
                   secondary,
                   phone: customer.phone,
                   favourite: favourites.has(customer.id),
+                  tag: did?.open ? (did.open === 1 ? "Open quote" : `${did.open} open`) : undefined,
+                  meta: active === "recent" && did?.lastAt ? relativeTime(did.lastAt) : undefined,
                 }}
                 selecting={selecting}
                 selected={selected.has(customer.id)}
@@ -308,23 +351,23 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
         }}
       >
         <DataNotice error={error} fromCache={fromCache} cachedAt={cachedAt} onRetry={() => void reload()} />
-        {!selecting && <SearchField value={query} onChangeText={setQuery} placeholder="Search customers" />}
+        {!selecting && (
+          <>
+            <SearchField value={query} onChangeText={setQuery} placeholder="Search name, company, city or phone" />
+            {!loading && items.length > 0 && chips.length > 1 && (
+              <View style={styles.chips}>
+                <CountChips options={chips} value={active} onChange={setFilter} />
+              </View>
+            )}
+          </>
+        )}
+        {/* Measures where the header ends, so the rail can land on a letter exactly. */}
+        <View onLayout={(e) => (headerEnd.current = e.nativeEvent.layout.y)} />
       </AppScreen>
 
       {/* Samsung's "+" on the directory. Hidden while selecting, where the
           bottom of the screen belongs to the selection bar. */}
-      {!selecting && (
-        <Fab
-          icon="add"
-          accessibilityLabel="Add a customer"
-          onPress={() =>
-            // A search that found nobody is the commonest moment for this: carry
-            // what they typed into the name field rather than making them type
-            // it twice.
-            navigation.navigate("ContactEditor", needle ? { prefill: { name: query.trim() } } : undefined)
-          }
-        />
-      )}
+      {!selecting && <Fab icon="add" accessibilityLabel="Add a customer" onPress={addCustomer} />}
 
       <PopupMenu
         visible={menuOpen}
@@ -342,6 +385,15 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
             },
           },
           {
+            key: "select",
+            label: "Select customers",
+            icon: "tick",
+            onPress: () => {
+              setMenuOpen(false)
+              setSelecting(true)
+            },
+          },
+          {
             key: "search",
             label: "Search everything",
             icon: "search",
@@ -356,16 +408,22 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
   )
 }
 
+/** Fixed, because the rail computes its jumps from it (see jumpTo). */
+const SECTION_HEAD_HEIGHT = 30
+
 /**
  * The sticky letter. A filled band rather than a floating label, so a row
- * scrolling under it is covered instead of showing through.
+ * scrolling under it is covered instead of showing through. The ★ group says
+ * its name in words; a bare star read as a stray glyph.
  */
 function SectionHeader({ letter }: { letter: string }) {
   const t = useTheme()
+  const star = letter === FAVOURITES
   return (
     <View style={[styles.sectionHead, { backgroundColor: t.background }]}>
-      <Text style={[styles.sectionLetter, { color: letter === FAVOURITES ? t.warning : t.primary }]}>
-        {letter}
+      {star && <Icon name="star" size={13} color={t.warning} variant="Bold" />}
+      <Text style={[styles.sectionLetter, { color: star ? t.warningText : t.primary }]}>
+        {star ? "Favourites" : letter}
       </Text>
     </View>
   )
@@ -374,10 +432,12 @@ function SectionHeader({ letter }: { letter: string }) {
 /** The bar that takes over the bottom of the screen while rows are selected. */
 function SelectionBar({
   count,
+  starring,
   onShare,
   onStar,
 }: {
   count: number
+  starring: boolean
   onShare: () => void
   onStar: () => void
 }) {
@@ -396,7 +456,7 @@ function SelectionBar({
         },
       ]}
     >
-      <SelectionAction icon="star" label="Favourite" onPress={onStar} disabled={disabled} />
+      <SelectionAction icon="star" label={starring ? "Favourite" : "Unfavourite"} onPress={onStar} disabled={disabled} />
       <SelectionAction icon="share" label="Share" onPress={onShare} disabled={disabled} />
     </View>
   )
@@ -429,10 +489,13 @@ function SelectionAction({
 }
 
 const styles = StyleSheet.create({
+  chips: { paddingTop: spacing.md },
   sectionHead: {
+    height: SECTION_HEAD_HEIGHT,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     paddingHorizontal: gutter,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
   },
   sectionLetter: { fontSize: 13, lineHeight: 18, letterSpacing: 0.4, fontFamily: font.bold },
   count: {

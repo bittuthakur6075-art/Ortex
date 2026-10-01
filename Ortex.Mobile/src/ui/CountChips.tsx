@@ -9,7 +9,7 @@ import { fontFamily } from "@/theme/typography"
 /**
  * Filter chips that carry their counts ("Sent 12"), so a filter never opens
  * onto an empty list (Figma "Quotations and Leads · One UI lists"). One row that
- * scrolls sideways; the chosen chip is filled with the heading navy.
+ * scrolls sideways; the chosen chip is filled with the brand primary.
  */
 export default function CountChips<K extends string>({
   options,
@@ -35,10 +35,10 @@ export default function CountChips<K extends string>({
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
             accessibilityLabel={`${o.label}, ${o.count}`}
-            style={[styles.chip, { backgroundColor: on ? t.text : t.surfaceInset }]}
+            style={[styles.chip, { backgroundColor: on ? t.primary : t.surfaceInset }]}
           >
-            <Text style={[styles.label, { color: on ? t.surfaceRaised : t.text }]}>{o.label}</Text>
-            <Text style={[styles.count, { color: on ? t.textHint : t.textTertiary }]}>{o.count}</Text>
+            <Text style={[styles.label, { color: on ? t.textOnPrimary : t.text }]}>{o.label}</Text>
+            <Text style={[styles.count, { color: on ? t.textOnPrimary : t.textTertiary, opacity: on ? 0.8 : 1 }]}>{o.count}</Text>
           </Pressable>
         )
       })}

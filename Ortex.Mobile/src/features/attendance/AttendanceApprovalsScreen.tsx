@@ -3,9 +3,10 @@ import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
 import { clockIST, daysWords, flagWords, type LeaveBalance } from "@/domain/attendance"
-import { clock12, dayLabel, istHHMM } from "@/features/attendance/format"
+import { clock12, dayLabel, istHHMM, SECTION_TITLE } from "@/features/attendance/format"
 import PunchRow from "@/features/attendance/PunchRow"
 import { leaveDatesWords, todayIST } from "@/features/leave/leaveFormat"
+import { leaveTone } from "@/features/leave/leaveLook"
 import { balances as leaveBalances, decideLeave, pendingLeave, whoIsOut, type NamedLeave } from "@/lib/leave"
 import { feedback } from "@/lib/feedback"
 import {
@@ -164,23 +165,6 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
       }}
     >
       <DataNotice error={error} onRetry={() => void load()} />
-      {out.length > 0 && (
-        <View style={[styles.outStrip, { backgroundColor: t.tones.violet.bg }]}>
-          <View style={styles.faces}>
-            {out.slice(0, 4).map((r, i) => (
-              <View key={r.id} style={[styles.face, i > 0 && styles.faceOverlap, { borderColor: t.tones.violet.bg }]}>
-                <Avatar name={r.person} uri={r.avatarUrl || undefined} size="sm" />
-              </View>
-            ))}
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[textVariants.smallStrong, { color: t.tones.violet.fg }]}>{`Out today · ${out.length}`}</Text>
-            <Text style={[textVariants.caption, { color: t.tones.violet.fg }]} numberOfLines={2}>
-              {out.map((r) => r.person).join(", ")}
-            </Text>
-          </View>
-        </View>
-      )}
       {loading ? (
         <>
           <SkeletonPanel lines={1} head={false} />
@@ -200,14 +184,19 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
                   style={[styles.count, { backgroundColor: c.value ? t.tones[c.tone].bg : t.surfaceInset }]}
                 >
                   <Text style={[styles.countValue, { color: c.value ? t.tones[c.tone].fg : t.textTertiary }]}>{c.value}</Text>
-                  <Text style={[textVariants.caption, { color: c.value ? t.tones[c.tone].fg : t.textTertiary }]}>{c.label}</Text>
+                  <Text
+                    style={[styles.countLabel, { color: c.value ? t.tones[c.tone].fg : t.textTertiary }]}
+                    numberOfLines={1}
+                  >
+                    {c.label}
+                  </Text>
                 </View>
               ))}
             </View>
           </Panel>
 
           {leave.length > 0 && (
-            <Panel title="Leave Requests" meta={`${leave.length}`}>
+            <Panel titleStyle={SECTION_TITLE} title="Leave Requests" meta={`${leave.length}`}>
               {leave.map((r, i) => {
                 const mine = r.user_id === me
                 const b = (leaveBal[r.user_id] || []).find((x) => x.code === r.type_code)
@@ -224,7 +213,7 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
                     avatarUrl={r.avatarUrl}
                     kind={b?.name || r.type_code}
                     kindIcon="calendar"
-                    tone="violet"
+                    tone={leaveTone(r.type_code) === "rose" ? "rose" : "violet"}
                     when={`${leaveDatesWords(r)} · ${daysWords(r.days)}`}
                     reason={r.reason}
                     notes={[
@@ -246,7 +235,7 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
           )}
 
           {corrections!.length > 0 && (
-            <Panel title="Corrections" meta={`${corrections!.length}`}>
+            <Panel titleStyle={SECTION_TITLE} title="Corrections" meta={`${corrections!.length}`}>
               {corrections!.map((c, i) => {
                 const mine = c.user_id === me
                 const times = [
@@ -281,7 +270,7 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
           )}
 
           {punches!.length > 0 && (
-            <Panel title="Punches to Review" meta={`${punches!.length}`}>
+            <Panel titleStyle={SECTION_TITLE} title="Punches to Review" meta={`${punches!.length}`}>
               {punches!.map((p, i) => {
                 const mine = p.user_id === me
                 return (
@@ -311,6 +300,23 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
             </Panel>
           )}
         </>
+      )}
+
+      {!loading && out.length > 0 && (
+        <Panel titleStyle={SECTION_TITLE} title="Out Today" meta={`${out.length}`}>
+          <View style={styles.outRow}>
+            <View style={styles.faces}>
+              {out.slice(0, 4).map((r, i) => (
+                <View key={r.id} style={[styles.face, i > 0 && styles.faceOverlap, { borderColor: t.surface }]}>
+                  <Avatar name={r.person} uri={r.avatarUrl || undefined} size="sm" />
+                </View>
+              ))}
+            </View>
+            <Text style={[textVariants.small, { color: t.textSecondary, flex: 1 }]} numberOfLines={2}>
+              {out.map((r) => r.person).join(", ")}
+            </Text>
+          </View>
+        </Panel>
       )}
 
       <Sheet
@@ -439,8 +445,17 @@ function RequestCard({
 
 const styles = StyleSheet.create({
   counts: { flexDirection: "row", gap: spacing.sm, padding: gutter },
-  count: { flex: 1, borderRadius: radius.card, paddingVertical: 12, paddingHorizontal: 12, gap: 2 },
-  countValue: { fontFamily: font.bold, fontSize: 22, lineHeight: 28, fontVariant: ["tabular-nums"] },
+  count: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  countValue: { fontFamily: font.semibold, fontSize: 17, lineHeight: 22, fontVariant: ["tabular-nums"] },
+  countLabel: { flexShrink: 1, fontFamily: font.medium, fontSize: 12.5, lineHeight: 16 },
   card: { paddingHorizontal: gutter, paddingVertical: spacing.md, gap: spacing.sm },
   cardHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   kind: {
@@ -459,15 +474,7 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: spacing.sm, paddingTop: spacing.xs },
   action: { flex: 1 },
   sheet: { gap: spacing.md, paddingBottom: spacing.md },
-  outStrip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    marginHorizontal: gutter,
-    marginBottom: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.card,
-  },
+  outRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingHorizontal: gutter, paddingBottom: spacing.md },
   faces: { flexDirection: "row" },
   face: { borderWidth: 2, borderRadius: 999 },
   faceOverlap: { marginLeft: -10 },

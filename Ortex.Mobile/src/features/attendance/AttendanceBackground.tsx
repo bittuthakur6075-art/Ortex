@@ -51,6 +51,8 @@ export function AttendanceReminderPlanner() {
           myRequests().catch(() => []),
         ])
         if (!alive) return
+        // Present without punching (0056): nothing to remind them of.
+        if (cfg.autoPresent?.includes(uid)) return void cancelAttendanceReminders()
         const doc = cfg as typeof cfg & { weeklyOff?: number[] }
         await planAttendanceReminders({
           shiftStart: cfg.shift?.start,

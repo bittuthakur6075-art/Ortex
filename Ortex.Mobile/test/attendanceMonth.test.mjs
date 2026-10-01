@@ -7,7 +7,7 @@ import test from "node:test"
 
 import { loadTs } from "./loadTs.mjs"
 
-const { monthEntries, spanOnShift } = await loadTs("features/attendance/month.ts")
+const { monthEntries } = await loadTs("features/attendance/month.ts")
 
 const bounds = { from: "2026-09-01", to: "2026-09-30" }
 const row = (day, status, extra = {}) => ({ user_id: "u", day, status, worked_min: 0, ...extra })
@@ -42,21 +42,22 @@ test("a Sunday and a listed holiday read as what they are even without a row", (
   const e = monthEntries(bounds, [], [{ day: "2026-09-07", name: "Test Day" }], "2026-09-08")
   const by = Object.fromEntries(e.map((x) => [x.day, x]))
   assert.equal(by["2026-09-06"].kind, "band")
-  assert.equal(by["2026-09-06"].label, "Weekend")
+  assert.equal(by["2026-09-06"].label, "Weekly off")
   assert.equal(by["2026-09-07"].label, "Holiday: Test Day")
   assert.equal(by["2026-09-08"].kind, "empty")
 })
 
-test("a worked span sits on the shift axis, widened for a late check-out", () => {
-  const s = { shift: { start: "09:30", end: "18:30" } }
-  // 10:30 to 18:30 IST on a 9:30 to 18:30 shift: starts 1/9 in, runs to the end.
-  const a = spanOnShift("2026-09-03", "2026-09-03T05:00:00Z", "2026-09-03T13:00:00Z", s, 0)
-  assert.ok(Math.abs(a.left - 1 / 9) < 1e-9)
-  assert.ok(Math.abs(a.left + a.width - 1) < 1e-9)
-  assert.equal(a.open, false)
-  // Out at 20:30 IST: the axis stretches to 11 h and the span ends at its edge.
-  const b = spanOnShift("2026-09-03", "2026-09-03T04:00:00Z", "2026-09-03T15:00:00Z", s, 0)
-  assert.equal(b.left, 0)
-  assert.ok(Math.abs(b.width - 1) < 1e-9)
-  assert.equal(spanOnShift("2026-09-03", null, null, s, 0), null)
+test("a present-by-default day with no punch is a band, not an empty timeline", () => {
+  const row = { user_id: "u", day: "2026-09-03", status: "P", worked_min: 540, flags: ["auto_present"] }
+  const e = monthEntries(bounds, [row], [], "2026-09-03")
+  assert.equal(e[0].kind, "band")
+  assert.equal(e[0].label, "Present by default")
+})
+
+test("the weekly off follows the setting, not every Sunday", () => {
+  // 2026-09-05 is a Saturday, 2026-09-06 a Sunday.
+  const e = monthEntries(bounds, [], [], "2026-09-06", [6])
+  const by = Object.fromEntries(e.map((x) => [x.day, x]))
+  assert.equal(by["2026-09-05"].label, "Weekly off")
+  assert.equal(by["2026-09-06"].kind, "empty")
 })

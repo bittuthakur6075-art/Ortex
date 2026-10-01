@@ -7,17 +7,14 @@ import {
   DATE_BADGE,
   dayUnit,
   daysFigure,
-  leaveIcon,
   leaveTone,
   SHORT_STATUS,
   STATUS_TONE,
-  TILE,
 } from "@/features/leave/leaveLook"
 import { useTheme } from "@/store/ThemeContext"
 import type { StatusTone } from "@/theme/theme"
 import { gutter, radius, size as sizes, spacing, state } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import Icon from "@/ui/Icon"
 import { AnimatedPressable, usePressMotion } from "@/ui/motion"
 import Skeleton from "@/ui/Skeleton"
 
@@ -39,13 +36,13 @@ export function LeaveStatusPill({ status }: { status: LeaveStatus }) {
 
 // ---- small marks -------------------------------------------------------------------------
 
-/** The round, tinted well a leave type's glyph sits in. */
+/** The round, tinted well that names a leave type by its code ("CL"), as the attendance legend does. */
 export function TypeWell({ code, size = 38 }: { code: string; size?: number }) {
   const t = useTheme()
   const c = t.tones[leaveTone(code)]
   return (
     <View style={[styles.well, { width: size, height: size, backgroundColor: c.bg }]}>
-      <Icon name={leaveIcon(code)} size={Math.round(size * 0.47)} color={c.fg} variant="Bulk" />
+      <Text style={[styles.wellCode, { color: c.fg, fontSize: Math.round(size * 0.32) }]}>{code}</Text>
     </View>
   )
 }
@@ -80,53 +77,36 @@ export function DateBadge({ day, code, tone }: { day: string; code?: string; ton
 
 
 /**
- * One leave type's balance, Zoho's way: the glyph in its colour, the name, how
- * many days are AVAILABLE as the big figure, and what is already booked under it.
+ * One leave type's balance as a compact pill (the Attendance page's month
+ * pills): the code, what is AVAILABLE, and anything pending in the warning ink.
+ * Tapping opens that type's ledger, the history that makes the figure.
  */
 export function BalanceTile({ b, onPress }: { b: LeaveBalance; onPress?: () => void }) {
   const t = useTheme()
   const press = usePressMotion({ scale: 0.97, dim: state.pressedOpacity })
   const unpaid = b.accrual === "none"
-  const booked = `Booked ${daysFigure(b.taken_year)}${b.pending ? ` · ${daysFigure(b.pending)} pending` : ""}`
-
+  const c = t.tones[leaveTone(b.code)]
+  const label = unpaid
+    ? `${b.name}, unpaid, loss of pay`
+    : `${b.name}, ${daysFigure(b.available)} ${dayUnit(b.available)} available${b.pending ? `, ${daysFigure(b.pending)} pending` : ""}`
   const body = (
     <>
-      <View style={styles.tileHead}>
-        <TypeWell code={b.code} size={36} />
-        {onPress ? <Icon name="forward" size={16} color={t.textTertiary} /> : null}
+      <View style={[styles.code, { backgroundColor: c.bg }]}>
+        <Text style={[styles.codeText, { color: c.fg }]}>{b.code}</Text>
       </View>
-      <Text numberOfLines={1} style={[textVariants.smallStrong, { color: t.textSecondary, marginTop: spacing.sm }]}>
-        {b.name}
-      </Text>
       {unpaid ? (
-        <>
-          <Text style={[textVariants.stat, { color: t.textSecondary }]}>Unpaid</Text>
-          <Text numberOfLines={1} style={[textVariants.caption, { color: t.textTertiary }]}>
-            No balance, loss of pay
-          </Text>
-        </>
+        <Text style={[styles.pillText, { color: t.textSecondary }]}>Unpaid</Text>
       ) : (
-        <>
-          <Text style={[textVariants.stat, { color: b.available > 0 ? t.text : t.textTertiary }]}>
-            {daysFigure(b.available)}
-            <Text style={[textVariants.small, { color: t.textTertiary }]}>{` ${dayUnit(b.available)}`}</Text>
-          </Text>
-          <Text numberOfLines={1} style={[textVariants.caption, { color: t.textTertiary }]}>
-            available
-          </Text>
-        </>
+        <Text style={[styles.pillValue, { color: b.available > 0 ? t.text : t.textTertiary }]}>
+          {daysFigure(b.available)}
+          <Text style={[styles.pillText, { color: t.textSecondary }]}>{` ${b.name}`}</Text>
+        </Text>
       )}
-      <View style={[styles.tileRule, { backgroundColor: t.border }]} />
-      <Text numberOfLines={1} style={[textVariants.captionStrong, { color: t.textSecondary }]}>
-        {booked}
-      </Text>
+      {b.pending ? (
+        <Text style={[styles.pillText, { color: t.warningText }]}>{`· ${daysFigure(b.pending)} pending`}</Text>
+      ) : null}
     </>
   )
-
-  const label = unpaid
-    ? `${b.name}, unpaid. ${booked}`
-    : `${b.name}, ${daysFigure(b.available)} ${dayUnit(b.available)} available. ${booked}`
-
   if (!onPress) {
     return (
       <View style={[styles.tile, { backgroundColor: t.surfaceInset }]} accessible accessibilityLabel={label}>
@@ -148,17 +128,8 @@ export function BalanceTile({ b, onPress }: { b: LeaveBalance; onPress?: () => v
   )
 }
 
-export function BalanceTileSkeleton() {
-  const t = useTheme()
-  return (
-    <View style={[styles.tile, { backgroundColor: t.surfaceInset }]}>
-      <Skeleton width={36} height={36} radius={18} />
-      <Skeleton width="62%" height={12} radius={6} style={{ marginTop: spacing.sm + 4 }} />
-      <Skeleton width={56} height={26} radius={8} style={{ marginTop: spacing.sm }} />
-      <Skeleton width="44%" height={11} radius={5} style={{ marginTop: spacing.sm }} />
-      <Skeleton width="70%" height={11} radius={5} style={{ marginTop: spacing.md + 4 }} />
-    </View>
-  )
+export function BalanceTileSkeleton({ width = 132 }: { width?: number }) {
+  return <Skeleton width={width} height={38} radius={19} />
 }
 
 // ---- request row -------------------------------------------------------------------------
@@ -234,14 +205,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   badgeDate: { fontFamily: font.bold, fontSize: 19, lineHeight: 22, fontVariant: ["tabular-nums"] },
+  wellCode: { fontFamily: font.semibold, letterSpacing: 0.2 },
   tile: {
-    width: TILE.width,
-    minHeight: TILE.height,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 999,
+    paddingLeft: 6,
+    paddingRight: 14,
+    paddingVertical: 6,
   },
-  tileHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
-  tileRule: { height: 1, marginVertical: spacing.sm },
+  code: { minWidth: 32, height: 26, borderRadius: 13, paddingHorizontal: 6, alignItems: "center", justifyContent: "center" },
+  codeText: { fontFamily: font.semibold, fontSize: 11, lineHeight: 14, letterSpacing: 0.2 },
+  pillValue: { fontFamily: font.semibold, fontSize: 15, lineHeight: 20, fontVariant: ["tabular-nums"] },
+  pillText: { fontFamily: font.medium, fontSize: 12.5, lineHeight: 16 },
   row: {
     flexDirection: "row",
     alignItems: "center",

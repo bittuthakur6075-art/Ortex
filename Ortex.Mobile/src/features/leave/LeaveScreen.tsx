@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { type LeaveBalance, type LeaveRequest } from "@/domain/attendance"
-import { dayLabel } from "@/features/attendance/format"
+import { dayLabel, SECTION_TITLE } from "@/features/attendance/format"
 import { addDays, todayIST } from "@/features/leave/leaveFormat"
 import {
   BalanceTile,
@@ -13,7 +13,6 @@ import {
   LeaveRow,
   LeaveRowSkeleton,
 } from "@/features/leave/leaveUi"
-import { TILE } from "@/features/leave/leaveLook"
 import { feedback } from "@/lib/feedback"
 import { holidays as loadHolidays, type Holiday } from "@/lib/attendance"
 import { balances as loadBalances, myRequests, whoIsOut, type NamedLeave } from "@/lib/leave"
@@ -30,7 +29,7 @@ import {
   EmptyState,
   ListRefreshControl,
   Panel,
-  RowSeparator,
+  RowRule,
   SegmentedControl,
   Skeleton,
 } from "@/ui"
@@ -154,20 +153,20 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
       <DataNotice error={error} onRetry={() => void load()} />
       {loading ? (
         <>
-          <Panel title="Leave Balance">
+          <Panel titleStyle={SECTION_TITLE} title="Leave Balance">
             <View style={styles.railSkeleton}>
               <BalanceTileSkeleton />
-              <BalanceTileSkeleton />
-              <BalanceTileSkeleton />
+              <BalanceTileSkeleton width={112} />
+              <BalanceTileSkeleton width={124} />
             </View>
           </Panel>
-          <Panel title="My Leave">
+          <Panel titleStyle={SECTION_TITLE} title="My Leave">
             <View style={styles.switchWrap}>
               <Skeleton height={44} radius={22} />
             </View>
             {[0, 1, 2].map((i) => (
               <React.Fragment key={i}>
-                {i > 0 && <RowSeparator />}
+                {i > 0 && <RowRule />}
                 <LeaveRowSkeleton index={i} />
               </React.Fragment>
             ))}
@@ -175,19 +174,13 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
         </>
       ) : (
         <>
-          <Panel title="Leave Balance" meta={bal!.length ? "This year" : undefined}>
+          <Panel titleStyle={SECTION_TITLE} title="Leave Balance" meta={bal!.length ? "This year" : undefined}>
             {bal!.length === 0 ? (
               <Text style={[textVariants.small, styles.pad, { color: t.textTertiary }]}>
                 No leave types are set up yet.
               </Text>
             ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                decelerationRate="fast"
-                snapToInterval={TILE.width + spacing.sm}
-                contentContainerStyle={styles.rail}
-              >
+              <View style={styles.rail}>
                 {bal!.map((b) => (
                   <BalanceTile
                     key={b.code}
@@ -202,12 +195,12 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
                     }
                   />
                 ))}
-              </ScrollView>
+              </View>
             )}
           </Panel>
 
           {out.length > 0 && (
-            <Panel title="On Leave This Week" meta={outToday ? `${outToday} out today` : `${out.length}`}>
+            <Panel titleStyle={SECTION_TITLE} title="On Leave This Week" meta={outToday ? `${outToday} out today` : `${out.length}`}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.team}>
                 {out.map((r) => {
                   const now = r.from_day <= today
@@ -232,7 +225,7 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
             </Panel>
           )}
 
-          <Panel title="My Leave" meta={requests!.length ? `${requests!.length}` : undefined}>
+          <Panel titleStyle={SECTION_TITLE} title="My Leave" meta={requests!.length ? `${requests!.length}` : undefined}>
             <View style={styles.switchWrap}>
               <SegmentedControl<Tab>
                 options={[
@@ -259,7 +252,7 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
             ) : (
               shown.map((r, i) => (
                 <React.Fragment key={r.id}>
-                  {i > 0 && <RowSeparator />}
+                  {i > 0 && <RowRule />}
                   <LeaveRow
                     r={r}
                     typeName={typeName(r.type_code)}
@@ -273,7 +266,7 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
             )}
           </Panel>
 
-          <Panel title="Holidays" meta={hols.length ? `${hols.length}` : undefined}>
+          <Panel titleStyle={SECTION_TITLE} title="Holidays" meta={hols.length ? `${hols.length}` : undefined}>
             {hols.length === 0 ? (
               <Text style={[textVariants.small, styles.pad, { color: t.textTertiary }]}>
                 No holidays in the next year yet. The Super Admin adds them.
@@ -282,9 +275,9 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
               <>
                 {visibleHols.map((h, i) => (
                   <React.Fragment key={h.id}>
-                    {i > 0 && <RowSeparator />}
+                    {i > 0 && <RowRule />}
                     <View style={styles.holiday}>
-                      <DateBadge day={h.day} tone={h.kind === "optional" ? "slate" : "violet"} />
+                      <DateBadge day={h.day} tone={h.kind === "optional" ? "slate" : "blue"} />
                       <View style={styles.holidayBody}>
                         <Text numberOfLines={2} style={[textVariants.listTitle, { color: t.text }]}>
                           {h.name}
@@ -320,8 +313,8 @@ export default function LeaveScreen({ navigation }: StackScreenProps<"Leave">) {
 
 const styles = StyleSheet.create({
   pad: { paddingHorizontal: gutter, paddingBottom: spacing.md },
-  rail: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.sm },
-  railSkeleton: { flexDirection: "row", paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.sm, overflow: "hidden" },
+  rail: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.sm },
+  railSkeleton: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.sm },
   team: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.md },
   person: { width: 72, alignItems: "center" },
   switchWrap: { paddingHorizontal: gutter, paddingBottom: spacing.sm },

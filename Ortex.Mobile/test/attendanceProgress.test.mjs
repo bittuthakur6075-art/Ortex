@@ -90,3 +90,18 @@ test("check-in window: 8:30 AM to 9 PM, IST; check-out any time (0049, 0056)", (
   assert.equal(p.punchWindowLabel(S, at(21, 1), "in"), "Check-in closed at 9:00 PM")
   assert.equal(p.punchWindowLabel(S, at(23, 30), "out"), null)
 })
+
+test("present by default: the day runs by the shift clock, not on a day off", () => {
+  const s = { ...S, autoPresent: ["u"] }
+  const at = (hh, mm) => Date.parse(ist("2026-09-18", hh, mm))
+  assert.equal(p.autoPresentClock(s, "x", "2026-09-18", false, at(11, 0)), null)
+  assert.equal(p.autoPresentClock(s, "u", "2026-09-20", false, at(11, 0)), null) // Sunday
+  assert.equal(p.autoPresentClock(s, "u", "2026-09-18", true, at(11, 0)), null) // holiday
+  const mid = p.autoPresentClock(s, "u", "2026-09-18", false, at(11, 0))
+  assert.equal(mid.ms, 90 * 60000)
+  assert.equal(mid.running, true)
+  const late = p.autoPresentClock(s, "u", "2026-09-18", false, at(20, 0))
+  assert.equal(late.ms, 540 * 60000)
+  assert.equal(late.ended, true)
+  assert.equal(p.autoPresentClock(s, "u", "2026-09-18", false, at(8, 0)).started, false)
+})
