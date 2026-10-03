@@ -94,7 +94,8 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
         <div className="flex items-start justify-between border-b-2 border-[#0b1220] pb-4">
           <div>
             <CompanyMark companyId={payment?.companyId} company={c} className="mb-2 h-10 w-auto" />
-            {c.name && <div className="text-sm font-semibold">{c.name}</div>}
+            {/* An uploaded logo already spells the name; the monogram needs it written. */}
+            {c.name && !c.logoUrl && <div className="text-sm font-semibold">{c.name}</div>}
             <div className="mt-2 text-xs leading-relaxed text-[#4b5563]">
               {registeredLines(c).map((line, i) => (
                 <div key={i}>{line}</div>

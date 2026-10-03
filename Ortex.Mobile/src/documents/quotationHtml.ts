@@ -224,7 +224,6 @@ export function quotationHtml(doc: Quotation, settings: Settings, logo?: string 
   .doc-title { align-self: flex-end; font-size: 18pt; font-weight: 600; line-height: 1.2; text-transform: uppercase; }
   .doc-brand { display: flex; align-items: center; gap: 8pt; flex: none; max-width: 60%; }
   .doc-logo { height: 24pt; width: auto; max-width: 160pt; object-fit: contain; flex: none; }
-  .doc-brand-name { font-size: 11pt; font-weight: 600; line-height: 1.2; }
 
   /* Meta: 85pt label column, value takes the rest. */
   .doc-keys { margin-top: 17pt; display: grid; grid-template-columns: 85pt 1fr; font-size: 9pt; font-weight: 500; max-width: 340pt; }
@@ -284,7 +283,6 @@ export function quotationHtml(doc: Quotation, settings: Settings, logo?: string 
       <div class="doc-title">Quotation</div>
       <div class="doc-brand">
         <img class="doc-logo" src="${mastheadLogo(doc, c, logo)}" alt="${esc(c.name)}" />
-        ${c.name ? `<div class="doc-brand-name">${esc(c.name)}</div>` : ""}
       </div>
     </div>
 

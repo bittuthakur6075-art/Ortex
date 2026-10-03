@@ -647,7 +647,6 @@ input[type="search"]::-webkit-search-decoration {
 .doc-logo { height: 24pt; width: auto; max-width: 140pt; object-fit: contain; flex: none; }
 /* The issuing company (0075): logo with its full name under it, right-aligned. */
 .doc-brand { display: flex; flex-direction: column; align-items: flex-end; gap: 3pt; flex: none; max-width: 200pt; }
-.doc-brand-name { font-size: 9pt; font-weight: 600; line-height: 1.25; text-align: right; color: var(--ink); }
 
 /* Meta: 85pt label column, value takes the rest; lead row semibold, rest medium. */
 .doc-keys { margin-top: 17pt; display: grid; grid-template-columns: 85pt 1fr; column-gap: 0; row-gap: 0; font-size: 9pt; font-weight: 500; max-width: 340pt; }

@@ -66,7 +66,7 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
         {/* The issuing company: its logo, and its full name under it. */}
         <div className="doc-brand">
           <CompanyMark companyId={doc.companyId} company={c} className="doc-logo" />
-          {c.name && <div className="doc-brand-name">{c.name}</div>}
+          {/* The name prints once, in the seller block below: the logo is the brand here. */}
         </div>
       </div>
 
