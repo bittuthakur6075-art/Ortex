@@ -22,6 +22,8 @@ export type CompanySettings = {
   upi: string
   paymentAliases: string[]
   logoText: string
+  /** A public storage URL of the company's logo, uploaded on the console's Companies page (Admin 0075); "" for none. */
+  logoUrl: string
 }
 
 export type Settings = {
@@ -49,6 +51,7 @@ export const DEFAULT_SETTINGS: Settings = {
     upi: "",
     paymentAliases: [],
     logoText: "Ortex",
+    logoUrl: "",
   },
   tax: {
     defaultGstRate: 18,
@@ -90,4 +93,46 @@ export function mergeSettings(saved: unknown): Settings {
   }
   if (!isPlainObject(saved)) return DEFAULT_SETTINGS
   return merge(DEFAULT_SETTINGS as unknown as Dict, saved) as unknown as Settings
+}
+
+const BLANK_COMPANY: CompanySettings = {
+  name: "",
+  tagline: "",
+  email: "",
+  phone: "",
+  website: "",
+  gstin: "",
+  stateCode: "",
+  address: "",
+  bankName: "",
+  bankBranch: "",
+  bankAccount: "",
+  bankIfsc: "",
+  upi: "",
+  paymentAliases: [],
+  logoText: "",
+  logoUrl: "",
+}
+
+/**
+ * One company's settings (Admin migration 0075): the `companies.doc` blocks over
+ * the global shape `settings_staff` gives. tax, numbering, quotation and
+ * documents fall back to the global block, as the view does; the company block
+ * NEVER does, and never takes the demo defaults either, so another company can
+ * never print Ortex's (or a placeholder) GSTIN. No company doc: the global
+ * settings as before.
+ */
+export function settingsFor(globalSettings: unknown, companyDoc: unknown): Settings {
+  const g: Dict = isPlainObject(globalSettings) ? globalSettings : {}
+  if (!isPlainObject(companyDoc)) return mergeSettings(g)
+  const block = (k: string) => (isPlainObject(companyDoc[k]) ? companyDoc[k] : g[k])
+  const merged = mergeSettings({
+    tax: block("tax"),
+    numbering: block("numbering"),
+    quotation: block("quotation"),
+    documents: block("documents"),
+  })
+  const company = isPlainObject(companyDoc.company) ? companyDoc.company : {}
+  const set = Object.fromEntries(Object.entries(company).filter(([, v]) => v != null)) as Partial<CompanySettings>
+  return { ...merged, company: { ...BLANK_COMPANY, ...set } }
 }

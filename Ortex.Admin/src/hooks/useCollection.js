@@ -1,9 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef, useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { onAutoRefresh } from "../data/store/autoRefresh"
 import { PRODUCT_CATEGORIES } from "../data/domain/schema"
-import { DEFAULT_SETTINGS } from "../data/domain/settingsDefaults"
+import { DEFAULT_SETTINGS, settingsFor } from "../data/domain/settingsDefaults"
+import { companyState, isCompanyTable } from "../data/store/company"
+import { inCompanies } from "../lib/roles"
+
+// The company scope lists show (0075): ids, or null for every row. Switching
+// company filters what is already loaded; nothing is fetched again.
+const useCompanyScope = () => useSyncExternalStore(companyState.subscribe, () => companyState.get().scope)
 
 // Billing and the tab inside it both ask for invoices and payments on the same
 // change: requests for one collection started within SHARE_MS share one fetch.
@@ -89,7 +95,9 @@ export function useCollection(name) {
   useStoreRefresh(load, [name])
 
   const reload = useCallback(() => load(true), [load])
-  return { items, loading, error, reload }
+  const scope = useCompanyScope()
+  const scoped = useMemo(() => (isCompanyTable(name) ? inCompanies(items, scope) : items), [items, scope, name])
+  return { items: scoped, loading, error, reload }
 }
 
 // Load many collections at once (dashboard/analytics). `names` must be stable.
@@ -127,7 +135,13 @@ export function useCollections(names) {
   useStoreRefresh(load, names)
 
   const reload = useCallback(() => load(true), [load])
-  return { data, loading, reload }
+  const scope = useCompanyScope()
+  const scoped = useMemo(() => {
+    const out = {}
+    for (const [n, rows] of Object.entries(data)) out[n] = isCompanyTable(n) ? inCompanies(rows, scope) : rows
+    return out
+  }, [data, scope])
+  return { data: scoped, loading, reload }
 }
 
 // Category master with a built-in fallback so category dropdowns are never
@@ -138,13 +152,15 @@ export function useCategories() {
   return PRODUCT_CATEGORIES.map((name) => ({ id: name, name, hsn: "", gstRate: 18, _fallback: true }))
 }
 
-export function useSettings() {
+// useSettings(companyId): that company's settings (settingsFor over the global
+// row); with no id, the global settings as before.
+export function useSettings(companyId) {
   const [settings, setSettings] = useState(null)
   const mounted = useRef(true)
 
   const load = useCallback(async () => {
     try {
-      const s = await repo.getSettings()
+      const s = await repo.getSettings(companyId || undefined)
       if (mounted.current) setSettings(s)
     } catch (e) {
       // Fall back to defaults so the Settings page renders instead of hanging
@@ -157,15 +173,15 @@ export function useSettings() {
       const fallback = Object.defineProperty(structuredClone(DEFAULT_SETTINGS), "loadFailed", { value: true })
       if (mounted.current) setSettings((prev) => (prev && !prev.loadFailed ? prev : fallback))
     }
-  }, [])
+  }, [companyId])
 
   useEffect(() => {
     mounted.current = true
     load()
-    // Only a change to settings itself; apiStore names the table, localStore
+    // Only a change to settings (or companies) itself; apiStore names the table, localStore
     // passes an Event (no name), which still reloads.
     const unsub = repo.subscribe((table) => {
-      if (typeof table === "string" && table !== "settings") return
+      if (typeof table === "string" && table !== "settings" && table !== "companies") return
       load()
     })
     const unsubAuto = onAutoRefresh(load)
@@ -177,6 +193,20 @@ export function useSettings() {
   }, [load])
 
   return settings
+}
+
+// (companyId) => that company's settings, from the global settings and the
+// companies already loaded (no fetch per record). A record with no company, or
+// a database before 0075, gets the global settings. null until loaded. For
+// lists that print or share records of several companies.
+export function useSettingsFor() {
+  const global = useSettings()
+  const all = useSyncExternalStore(companyState.subscribe, () => companyState.get().all)
+  return useMemo(() => {
+    if (!global) return null
+    const byId = new Map(all.map((c) => [c.id, settingsFor(global, c.doc)]))
+    return (companyId) => byId.get(companyId) || global
+  }, [global, all])
 }
 
 export function useSorting(defaultKey, defaultDesc = false) {

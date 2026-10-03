@@ -10,7 +10,7 @@ import { enquiryAdvisories } from "../../lib/advisories"
 import { rfqToQuotationLines } from "../../lib/quoteRfq"
 import { dueLabel, rupees } from "../../lib/salesWork"
 import { prettyPhone } from "../voice-leads/helpers"
-import { useCollection, useSettings } from "../../hooks/useCollection"
+import { useCollection, useSettingsFor } from "../../hooks/useCollection"
 import { Initials, Tag } from "../../components/sales/ListParts"
 import { Dot } from "../dashboard/parts"
 import { cn } from "../../lib/cn"
@@ -25,7 +25,7 @@ const NEXT_STATUS = { new: "contacted", contacted: "qualified", quoted: "won" }
 // list. The full page is "Open full lead".
 export default function LeadPreview({ lead: l, now, products, quotations, actions, linkState, position, onMove, onClose }) {
   const navigate = useNavigate()
-  const settings = useSettings()
+  const settings = useSettingsFor()?.(l?.companyId) ?? null
   const { items: invoices } = useCollection("invoices")
   const { items: customers } = useCollection("customers")
 

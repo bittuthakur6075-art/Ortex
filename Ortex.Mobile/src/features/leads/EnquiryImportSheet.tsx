@@ -9,6 +9,7 @@ import { sheetToEnquiries, type SheetResult } from "@/domain/enquiryImport"
 import { formatDate, formatNumber } from "@/domain/format"
 import { ENQUIRY_STATUS, LEAD_SOURCES, type Enquiry } from "@/domain/schema"
 import { feedback } from "@/lib/feedback"
+import { useCompany } from "@/store/CompanyContext"
 import { useTheme } from "@/store/ThemeContext"
 import { radius, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
@@ -25,6 +26,10 @@ import { useToast } from "@/ui/Toast"
 // skipped, so importing the same file from both places adds nothing twice. A row
 // whose mobile is already a lead (another product or day) is left out unless
 // the person includes them.
+//
+// The file goes into ONE company (Admin migration 0075): the one being worked
+// in, or, in the All companies view, the one picked here. Rows already in are
+// looked for in that company only.
 
 const CHUNK = 200
 const TYPES = [
@@ -46,10 +51,21 @@ export default function EnquiryImportSheet({ visible, onClose, existing, onImpor
   const [done, setDone] = React.useState(0)
   const [error, setError] = React.useState("")
   const [withRepeats, setWithRepeats] = React.useState(false)
+  const company = useCompany()
+  const [picked, setPicked] = React.useState("")
+  const companyId = company.defaultCompany || picked
+  const needsCompany = company.multi && !companyId
 
   const result: SheetResult | null = React.useMemo(
-    () => (rows ? sheetToEnquiries(rows as never, { source, fileName, existing: existing as never }) : null),
-    [rows, source, fileName, existing],
+    () =>
+      rows
+        ? sheetToEnquiries(rows as never, {
+            source,
+            fileName,
+            existing: (companyId ? existing.filter((e) => e.companyId === companyId) : existing) as never,
+          })
+        : null,
+    [rows, source, fileName, existing, companyId],
   )
 
   const reset = () => {
@@ -87,13 +103,13 @@ export default function EnquiryImportSheet({ visible, onClose, existing, onImpor
   }
 
   const importAll = async () => {
-    if (!list.length) return
+    if (!list.length || needsCompany) return
     let saved = 0
     setBusy(true)
     setDone(0)
     try {
       for (let i = 0; i < list.length; i += CHUNK) {
-        await repo.bulkCreate("enquiries", list.slice(i, i + CHUNK))
+        await repo.bulkCreate("enquiries", list.slice(i, i + CHUNK).map((e) => ({ ...e, companyId })))
         saved = Math.min(list.length, i + CHUNK)
         setDone(saved)
       }
@@ -164,6 +180,17 @@ export default function EnquiryImportSheet({ visible, onClose, existing, onImpor
             {counts.map(([label, n]) => `${label} ${formatNumber(n)}`).join(" · ")}
           </Text>
 
+          {company.choice === "all" ? (
+            <>
+              <Text style={[textVariants.label, { color: t.text, marginBottom: spacing.sm }]}>Company</Text>
+              <View style={styles.chips}>
+                {company.companies.map((c) => (
+                  <Chip key={c.id} label={c.name} active={picked === c.id} onPress={() => setPicked(c.id)} />
+                ))}
+              </View>
+            </>
+          ) : null}
+
           <Text style={[textVariants.label, { color: t.text, marginBottom: spacing.sm }]}>Source</Text>
           <View style={styles.chips}>
             {["Phone", "WhatsApp", "Referral", "Trade show", "Email", "Other"]
@@ -191,11 +218,17 @@ export default function EnquiryImportSheet({ visible, onClose, existing, onImpor
         <View style={styles.actions}>
           <Button label="Other file" variant="secondary" onPress={reset} disabled={busy} />
           <Button
-            label={busy && done ? `${formatNumber(done)} of ${formatNumber(list.length)}` : `Import ${formatNumber(list.length)}`}
+            label={
+              needsCompany
+                ? "Choose a company"
+                : busy && done
+                ? `${formatNumber(done)} of ${formatNumber(list.length)}`
+                : `Import ${formatNumber(list.length)}`
+            }
             icon="upload"
             onPress={() => void importAll()}
             loading={busy}
-            disabled={!list.length}
+            disabled={!list.length || needsCompany}
             style={styles.grow}
           />
         </View>

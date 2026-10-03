@@ -1,6 +1,7 @@
 import { Fragment, forwardRef } from "react"
 import { formatCurrency, formatDate, amountInWords, daysUntil } from "../../lib/format"
 import { stateLabel } from "../../lib/gstStates"
+import CompanyMark from "./CompanyMark"
 
 // The A4 sheet for a quotation or tax invoice, the printable document
 // itself, without any overlay chrome. A one-to-one port of Keystone's
@@ -56,7 +57,11 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
       <div className="doc-head">
         {/* GST Rule 46 asks for the words "Tax Invoice" on the invoice itself. */}
         <div className="doc-title">{isInvoice ? "Tax Invoice" : "Quotation"}</div>
-        <img src="/logo.svg" alt={c.name} className="doc-logo" />
+        {/* The issuing company: its logo, and its full name under it. */}
+        <div className="doc-brand">
+          <CompanyMark companyId={doc.companyId} company={c} className="doc-logo" />
+          {c.name && <div className="doc-brand-name">{c.name}</div>}
+        </div>
       </div>
 
       {/* Meta: label / value stack. Lead row semibold, the rest medium. */}

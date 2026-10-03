@@ -15,6 +15,7 @@ import { useTheme } from "@/store/ThemeContext"
 import { border, gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
 import { Button, Icon, IconButton, OptionSheet, Panel, PanelBand, RecordActivityPanel, DetailSkeleton, StatusBadge, useToast } from "@/ui"
+import CompanyChip from "@/ui/CompanyChip"
 import { Advisory, Fact, ItemRow, QuickAction, StatusStepper } from "@/features/leads/leadUi"
 import CallRecordings from "@/features/leads/CallRecordings"
 import CallOutcomeSheet from "@/features/leads/CallOutcomeSheet"
@@ -42,8 +43,8 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
   const t = useTheme()
   const insets = useSafeAreaInsets()
   const toast = useToast()
-  const { items, loading } = useCollection<Enquiry>("enquiries")
-  const { items: quotations } = useCollection<Quotation>("quotations")
+  const { items, loading } = useCollection<Enquiry>("enquiries", { everyCompany: true })
+  const { items: quotations } = useCollection<Quotation>("quotations", { everyCompany: true })
   const scrollY = React.useRef(new Animated.Value(0)).current
   const [saving, setSaving] = React.useState(false)
   const [lostOpen, setLostOpen] = React.useState(false)
@@ -105,7 +106,9 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
 
   const createQuotation = () => {
     feedback.tap()
-    navigation.navigate("QuotationEditor", { prefill: buildQuotationPrefill(call) })
+    navigation.navigate("QuotationEditor", {
+      prefill: { ...buildQuotationPrefill(call), companyId: call.rows[0]?.companyId },
+    })
   }
 
   const biggest = Math.max(0, ...call.itemsList.map((i) => parseQuantity(i.quantity) || 0))
@@ -143,6 +146,7 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
           </Text>
           <View style={styles.metaLine}>
             <StatusBadge list={ENQUIRY_STATUS} id={call.status} />
+            <CompanyChip companyId={call.rows[0]?.companyId} style={styles.companyChip} />
             <Text style={[textVariants.caption, { color: t.textTertiary }]}>
               {relativeTime(call.endedAt)}
               {call.callTotal > 1 ? ` · call ${call.callIndex} of ${call.callTotal}` : ""}
@@ -415,6 +419,7 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
 
 
 const styles = StyleSheet.create({
+  companyChip: { alignSelf: "center" },
   root: { flex: 1 },
   centre: { alignItems: "center", justifyContent: "center" },
 

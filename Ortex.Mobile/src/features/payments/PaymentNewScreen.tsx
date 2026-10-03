@@ -31,6 +31,8 @@ import { feedback } from "@/lib/feedback"
 import { recordPayment, updatePayment } from "@/lib/payments"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
+import { useCompany } from "@/store/CompanyContext"
+import { ChipGroup } from "@/ui/Chips"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
@@ -94,7 +96,7 @@ export default function PaymentNewScreen(props: StackScreenProps<"PaymentNew">) 
 /** Finds the payment, then opens the form on it; one in Tally stays shut to all but the Super Admin. */
 function PaymentEdit(props: StackScreenProps<"PaymentNew"> & { id: string }) {
   const { profile } = useAuth()
-  const { items, loading } = useCollection<Payment>("payments")
+  const { items, loading } = useCollection<Payment>("payments", { everyCompany: true })
   const found = items.find((p) => p.id === props.id) || null
   // Taken once: a realtime refresh must not reset what is being typed.
   const [payment, setPayment] = React.useState<Payment | null>(null)
@@ -128,7 +130,13 @@ function PaymentForm({ navigation, route, editing }: StackScreenProps<"PaymentNe
   const t = useTheme()
   const toast = useToast()
   const insets = useSafeAreaInsets()
-  const { settings, loading: settingsLoading, error: settingsError } = useSettings()
+  // The company it is recorded for (Admin migration 0075): an edited payment's
+  // own, else the one being worked in; in the All companies view, picked here.
+  // Its settings give the number prefix.
+  const company = useCompany()
+  const [picked, setPicked] = React.useState("")
+  const companyId = editing?.companyId || company.defaultCompany || picked
+  const { settings, loading: settingsLoading, error: settingsError } = useSettings(companyId)
   const { items, loading } = useCollection<Payment>("payments")
   const [today, setToday] = React.useState(todayIST)
   const [initial] = React.useState<PaymentDraft>(() =>
@@ -197,7 +205,9 @@ function PaymentForm({ navigation, route, editing }: StackScreenProps<"PaymentNe
   // An edit keeps its number, so it does not need the company settings.
   const settingsBlocker = editing
     ? null
-    : settingsLoading
+    : company.multi && !companyId
+      ? "Choose the company first."
+      : settingsLoading
       ? "Loading the company settings."
       : settingsError
         ? `${settingsError}. The payment number needs them; try again.`
@@ -279,7 +289,7 @@ function PaymentForm({ navigation, route, editing }: StackScreenProps<"PaymentNe
 
     // What was there before this save, so a look-alike older row never counts.
     const before = new Set(getCollectionSnapshot<Payment>("payments").items.map((p) => p.id))
-    const pending = editing ? updatePayment(editing, d) : recordPayment(d, settings)
+    const pending = editing ? updatePayment(editing, d) : recordPayment(d, settings, companyId)
     let timer: ReturnType<typeof setTimeout> | undefined
     try {
       const saved = await Promise.race([
@@ -397,6 +407,21 @@ function PaymentForm({ navigation, route, editing }: StackScreenProps<"PaymentNe
           </Text>
         ) : null}
       </View>
+
+      {company.choice === "all" && !editing ? (
+        <Panel title="Company">
+          <View style={styles.pad}>
+            <ChipGroup
+              options={company.companies.map((c) => ({ key: c.id, label: c.name }))}
+              value={picked}
+              onChange={(key: string) => {
+                feedback.select()
+                setPicked(key)
+              }}
+            />
+          </View>
+        </Panel>
+      ) : null}
 
       <Panel title="Amount">
         <View style={styles.pad}>

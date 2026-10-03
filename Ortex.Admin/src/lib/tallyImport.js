@@ -14,6 +14,13 @@ import { sameCustomer, paymentDateIso } from "../data/domain/domain"
 
 // ---- reading the file -------------------------------------------------------------
 
+// The company the export came from (Tally's SVCURRENTCOMPANY), or "" when the
+// file does not say. Compared with the console company's Tally name (0075).
+export function xmlCompanyName(text) {
+  const m = /<SVCURRENTCOMPANY[^>]*>([^<]*)<\/SVCURRENTCOMPANY>/i.exec(String(text || ""))
+  return m ? m[1].replace(/&amp;/g, "&").trim() : ""
+}
+
 // Tally writes UTF-16 LE with a BOM by default, UTF-8 when asked (or a plain
 // ASCII file). The BOM decides; without one a "<" followed by a zero byte is
 // UTF-16 too.

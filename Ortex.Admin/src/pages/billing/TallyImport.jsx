@@ -7,7 +7,9 @@ import { syncInvoicePaid } from "../../data/domain/domain"
 import { hasSupabase } from "../../data/store/supabaseClient"
 import { Button, Badge, Banner, Drawer } from "../../components/ui/Ui"
 import { formatCurrency, formatDate } from "../../lib/format"
-import { decodeXmlBytes, parseTallyFiles, planTallyImport, countByStatus, STATUS } from "../../lib/tallyImport"
+import { useCompany } from "../../hooks/useCompany"
+import { isCompanyTable } from "../../data/store/company"
+import { decodeXmlBytes, xmlCompanyName, parseTallyFiles, planTallyImport, countByStatus, STATUS } from "../../lib/tallyImport"
 
 // Billing -> Import from Tally (admins only). Manual: a person exports XML from
 // TallyPrime and drops the files here; nothing connects to Tally. Step 1 how to
@@ -127,6 +129,15 @@ export default function TallyImport({ open, onClose }) {
   const [busy, setBusy] = useState("")
   const [summary, setSummary] = useState(null)
   const fileInput = useRef(null)
+  // One Tally company per console company (0075): an import needs one company
+  // in view, writes into it and matches only its records.
+  const { current, on: companiesOn, all: companies } = useCompany()
+  const blocked = companiesOn && current === "all"
+  const company = companies.find((c) => c.id === current)
+  const tallyName = (company?.doc?.tallyCompany || company?.name || "").trim()
+  const xmlNames = [...new Set(files.map((f) => f.company).filter(Boolean))]
+  const otherBooks = tallyName ? xmlNames.filter((n) => n.toLowerCase() !== tallyName.toLowerCase()) : []
+  const ours = (name, rows) => (companiesOn && isCompanyTable(name) ? rows.filter((r) => r.companyId === current) : rows)
 
   const reset = () => {
     setFiles([])
@@ -138,17 +149,23 @@ export default function TallyImport({ open, onClose }) {
 
   const addFiles = async (list) => {
     const picked = [...(list || [])].filter((f) => /\.xml$/i.test(f.name) || f.type.includes("xml"))
+    if (blocked) return toast.error("Choose one company in the header first")
     if (!picked.length) return toast.error("Choose the .xml files exported from TallyPrime.")
     const big = picked.find((f) => f.size > MAX_BYTES)
     if (big) return toast.error(`${big.name} is over 60 MB. Export a shorter period at a time.`)
     setBusy("Reading the files")
     try {
-      const read = await Promise.all(picked.map(async (f) => ({ name: f.name, text: decodeXmlBytes(await f.arrayBuffer()) })))
+      const read = await Promise.all(
+        picked.map(async (f) => {
+          const text = decodeXmlBytes(await f.arrayBuffer())
+          return { name: f.name, text, company: xmlCompanyName(text.slice(0, 20000)) }
+        }),
+      )
       const all = [...files.filter((f) => !read.some((r) => r.name === f.name)), ...read]
       const p = parseTallyFiles(all, { masters: loadMasters() })
       saveMasters(p.masters)
       const [customers, products, invoices, payments, categories] = await Promise.all(
-        ["customers", "products", "invoices", "payments", "categories"].map((c) => repo.list(c)),
+        ["customers", "products", "invoices", "payments", "categories"].map((c) => repo.list(c).then((rows) => ours(c, rows))),
       )
       setFiles(all)
       setParsed(p)
@@ -194,7 +211,7 @@ export default function TallyImport({ open, onClose }) {
             }
           }
           if (r.action === "create") {
-            const row = await repo.create(kind.collection, data)
+            const row = await repo.create(kind.collection, companiesOn && isCompanyTable(kind.collection) ? { ...data, companyId: current } : data)
             if (kind.key === "invoices") invoiceIds.set(r.key, row.id)
             res.created++
           } else {
@@ -222,7 +239,8 @@ export default function TallyImport({ open, onClose }) {
   const start = () => {
     // These are the live books: imported payments are frozen and invoices with
     // payments cannot be deleted, so a stray click must not start it.
-    if (!window.confirm(`Write ${toWrite} record${toWrite === 1 ? "" : "s"} to ${hasSupabase ? "the live books" : "this demo console"}? Imported payments can then be changed only by the Super Admin.`)) return
+    if (blocked) return toast.error("Choose one company in the header first")
+    if (!window.confirm(`Write ${toWrite} record${toWrite === 1 ? "" : "s"} to ${company ? `${company.name}'s ` : ""}${hasSupabase ? "live books" : "demo console"}? Imported payments can then be changed only by the Super Admin.`)) return
     setBusy("Starting")
     runImport().catch((e) => {
       setBusy("")
@@ -246,7 +264,7 @@ export default function TallyImport({ open, onClose }) {
       <span className="text-[13px] text-muted-foreground">{busy || (plan ? `${toWrite} record(s) to create, update or link` : "No files yet")}</span>
       <div className="flex gap-2.5">
         <Button variant="outline" size="sm" onClick={reset} disabled={!files.length || !!busy}>Clear</Button>
-        <Button size="sm" onClick={start} disabled={!toWrite || !!busy}>Import {toWrite || ""}</Button>
+        <Button size="sm" onClick={start} disabled={!toWrite || !!busy || blocked}>Import {toWrite || ""}</Button>
       </div>
     </div>
   )
@@ -276,6 +294,22 @@ export default function TallyImport({ open, onClose }) {
         </div>
       ) : (
         <div className="space-y-5">
+          {blocked ? (
+            <Banner tone="warning">
+              <AlertTriangle className="h-4 w-4" />
+              Choose one company in the header first. Each company has its own Tally books, and an import goes into the company in view.
+            </Banner>
+          ) : company ? (
+            <p className="text-[13px] text-muted-foreground">
+              Importing into <span className="font-medium text-foreground">{company.name}</span>{tallyName ? `, Tally company "${tallyName}"` : ""}.
+            </p>
+          ) : null}
+          {otherBooks.length > 0 && (
+            <Banner tone="danger">
+              <AlertTriangle className="h-4 w-4" />
+              These files are from {otherBooks.map((n) => `"${n}"`).join(", ")} in Tally, not "{tallyName}". Check you are importing into the right company.
+            </Banner>
+          )}
           <section className="space-y-3">
             <h3 className="text-sm font-semibold text-foreground">1. Export from TallyPrime</h3>
             <HowToExport />
@@ -290,7 +324,7 @@ export default function TallyImport({ open, onClose }) {
               <Upload className="h-6 w-6 text-primary" />
               <span className="text-sm font-medium text-foreground">Drop the XML files here, or choose them</span>
               <span className="text-xs text-muted-foreground">One or more .xml files. Day Book and masters can go together.</span>
-              <Button variant="outline" size="sm" disabled={!!busy} onClick={() => fileInput.current?.click()}>
+              <Button variant="outline" size="sm" disabled={!!busy || blocked} onClick={() => fileInput.current?.click()}>
                 Choose files
               </Button>
               <input ref={fileInput} type="file" accept=".xml,text/xml" multiple className="hidden" disabled={!!busy} onChange={(e) => { addFiles(e.target.files); e.target.value = "" }} />

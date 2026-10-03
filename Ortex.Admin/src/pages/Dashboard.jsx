@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { FileText, Sparkles, TrendingUp, Wallet } from "../components/ui/Icons"
 import { useCollections, useSettings } from "../hooks/useCollection"
+import { useCompany } from "../hooks/useCompany"
 import { useProfile } from "../hooks/useProfile"
 import { canAccess } from "../data/domain/modules"
 import { paymentsOrStored } from "../lib/invoiceMoney"
@@ -93,13 +94,14 @@ export default function Dashboard() {
     [raw, access.payments],
   )
   const settings = useSettings()
+  const { scope } = useCompany()
 
   // ---- the reads outside quote-to-cash, kept live like the collections ----
   const [ops, setOps] = useState(null)
   const refreshOps = useCallback(async () => {
     if (!profile) return
-    setOps(await loadOps({ attendance: access.attendance, people: admin, decide: admin, payroll: access.payroll, bot: admin, locks: superAdmin }))
-  }, [profile, access.attendance, access.payroll, admin, superAdmin])
+    setOps(await loadOps({ attendance: access.attendance, people: admin, decide: admin, payroll: access.payroll, bot: admin, locks: superAdmin, companies: scope }))
+  }, [profile, access.attendance, access.payroll, admin, superAdmin, scope])
   useEffect(() => {
     void refreshOps()
     if (!repo.subscribe) return undefined

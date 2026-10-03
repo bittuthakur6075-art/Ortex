@@ -12,6 +12,17 @@ import { notifyInvoiceCreated } from "../../services/notify"
 import { nationalDigits } from "../../lib/validateCustomer"
 import { hasSupabase } from "../store/supabaseClient"
 import { paidForInvoice, resolveInvoiceStatus } from "../../lib/invoiceMoney"
+import { companyForCreate } from "../../lib/roles"
+import { companyState } from "../store/company"
+
+// The company a new record is raised for (0075): the one it names, else the
+// current company. "Choose a company" in All mode; undefined before 0075, so
+// the database default applies and nothing changes.
+export function companyForNew(companyId) {
+  const view = companyState.get()
+  return companyForCreate(companyId || view.defaultCompany, view.on)
+}
+const withCompany = (companyId) => (companyId ? { companyId } : {})
 
 export {
   SETTLE_TOLERANCE,
@@ -36,9 +47,9 @@ const FALLBACK_PREFIX = { quotation: "QTN", invoice: "INV", payment: "PAY" }
 
 // Reserve the next human-facing document number for a series and bump its
 // counter. Prefix comes from settings so the business can rebrand references.
-async function generateNumber(series) {
-  const settings = await repo.getSettings()
-  const seq = await repo.nextSequence(series)
+async function generateNumber(series, companyId) {
+  const settings = await repo.getSettings(companyId)
+  const seq = await repo.nextSequence(series, companyId)
   // A blank prefix falls back to the phone's (Ortex.Mobile/src/lib/payments.ts).
   const prefix = String(settings.numbering?.[`${series}Prefix`] ?? "").trim() || FALLBACK_PREFIX[series] || series.toUpperCase()
   return documentNumber(prefix, seq)
@@ -60,15 +71,17 @@ function totalsFor(lines, settings, customer, extraDiscountPercent = 0, shipTo =
 // ---- quotations ------------------------------------------------------------
 
 export async function createQuotation(draft) {
-  const settings = await repo.getSettings()
-  const number = await generateNumber("quotation")
+  const companyId = companyForNew(draft.companyId)
+  const settings = await repo.getSettings(companyId)
+  const number = await generateNumber("quotation", companyId)
   const issueDate = draft.issueDate || new Date().toISOString()
   const validityDays = draft.validityDays ?? settings.quotation.validityDays
   const validUntil = new Date(new Date(issueDate).getTime() + validityDays * 86400000).toISOString()
   const totals = totalsFor(draft.lines || [], settings, draft.customer, draft.extraDiscountPercent, draft.shipTo)
 
-  await upsertCustomer(draft.customer)
+  await upsertCustomer(draft.customer, companyId)
   return repo.create("quotations", {
+    ...withCompany(companyId),
     number,
     status: "draft",
     customer: draft.customer,
@@ -96,9 +109,9 @@ export async function createQuotation(draft) {
 }
 
 export async function updateQuotation(id, patch) {
-  const settings = await repo.getSettings()
   const existing = await repo.get("quotations", id)
   if (!existing) return null
+  const settings = await repo.getSettings(existing.companyId)
   const merged = { ...existing, ...patch }
   // Recompute totals whenever lines / discount / customer / ship-to change.
   const totals = totalsFor(merged.lines || [], settings, merged.customer, merged.extraDiscountPercent, merged.shipTo)
@@ -115,9 +128,11 @@ export async function updateQuotation(id, patch) {
 // ---- quotation -> invoice --------------------------------------------------
 
 export async function convertQuotationToInvoice(quotationId) {
-  const settings = await repo.getSettings()
   const q = await repo.get("quotations", quotationId)
   if (!q) return null
+  // The invoice belongs to the quotation's company, whatever the console shows.
+  const companyId = q.companyId || companyForNew()
+  const settings = await repo.getSettings(companyId)
 
   // Idempotency: if this quotation was already converted, return the existing
   // invoice instead of minting a second invoice number / duplicate invoice
@@ -127,12 +142,13 @@ export async function convertQuotationToInvoice(quotationId) {
     if (existing) return { ...existing, _notify: { skipped: true } }
   }
 
-  const number = await generateNumber("invoice")
+  const number = await generateNumber("invoice", companyId)
   const issueDate = new Date().toISOString()
   const dueDate = new Date(Date.now() + 15 * 86400000).toISOString()
   const totals = totalsFor(q.lines, settings, q.customer, q.extraDiscountPercent, q.shipTo)
 
   const invoice = await repo.create("invoices", {
+    ...withCompany(companyId),
     number,
     status: "sent",
     customer: q.customer,
@@ -159,13 +175,15 @@ export async function convertQuotationToInvoice(quotationId) {
 }
 
 export async function createInvoice(draft) {
-  const settings = await repo.getSettings()
-  const number = draft.number || await generateNumber("invoice")
+  const companyId = companyForNew(draft.companyId)
+  const settings = await repo.getSettings(companyId)
+  const number = draft.number || await generateNumber("invoice", companyId)
   const issueDate = draft.issueDate || new Date().toISOString()
   const dueDate = draft.dueDate || draft.dueDate === null ? draft.dueDate : new Date(Date.now() + 15 * 86400000).toISOString()
   const totals = draft.totals || totalsFor(draft.lines || [], settings, draft.customer, draft.extraDiscountPercent, draft.shipTo)
-  await upsertCustomer(draft.customer)
+  await upsertCustomer(draft.customer, companyId)
   const invoice = await repo.create("invoices", {
+    ...withCompany(companyId),
     number,
     status: draft.status || "draft",
     customer: draft.customer,
@@ -189,9 +207,9 @@ export async function createInvoice(draft) {
 
 // Manually (re)send the invoice email, used by the "Email copy" button.
 export async function emailInvoice(invoiceId) {
-  const settings = await repo.getSettings()
   const invoice = await repo.get("invoices", invoiceId)
   if (!invoice) return { error: "Invoice not found" }
+  const settings = await repo.getSettings(invoice.companyId)
   // Force-send even if the global toggle is off, since this is an explicit action.
   return notifyInvoiceCreated(invoice, { ...settings, notifications: { ...settings.notifications, invoiceEmailEnabled: true } })
 }
@@ -210,9 +228,9 @@ export function editableInvoicePatch(patch) {
 }
 
 export async function updateInvoice(id, patch) {
-  const settings = await repo.getSettings()
   const existing = await repo.get("invoices", id)
   if (!existing) return null
+  const settings = await repo.getSettings(existing.companyId)
   const safe = editableInvoicePatch(patch)
   const merged = { ...existing, ...safe }
   // Tally imports carry aggregate totals and no lines: keep those.
@@ -256,10 +274,13 @@ function sameNameOnly(a, b) {
 
 // Insert or update a customer in the master, matched on email then phone, so a
 // customer captured while making a quote/invoice appears in the Customers list
-// without manual re-entry. Returns the master record.
-export async function upsertCustomer(customer) {
+// without manual re-entry. Returns the master record. Customers belong to one
+// company (0076): the match looks only at companyId's customers and a new one
+// is created in it, as upsert_customer_from() does for leads. Mirrored in
+// Ortex.Mobile/src/domain/quotations.ts.
+export async function upsertCustomer(customer, companyId) {
   if (!customer || (!customer.name && !customer.company)) return null
-  const all = await repo.list("customers")
+  const all = (await repo.list("customers")).filter((c) => !companyId || c.companyId === companyId)
   const match = all.find((c) => sameCustomer(customer, c)) ?? all.find((c) => sameNameOnly(customer, c))
   if (match) {
     // Fill only blanks. Never clobber curated master data with a sparse doc.
@@ -273,7 +294,7 @@ export async function upsertCustomer(customer) {
     return match
   }
   // Stored as national digits, the shape the Customers page and the phone save.
-  return repo.create("customers", { ...customer, phone: nationalDigits(customer.phone) })
+  return repo.create("customers", { ...customer, phone: nationalDigits(customer.phone), ...withCompany(companyId) })
 }
 
 // ---- leads (CRM pipeline) --------------------------------------------------
@@ -310,7 +331,9 @@ export async function convertEnquiryToLead(enquiryId) {
   const e = await repo.get("enquiries", enquiryId)
   if (!e) return null
   if (e.leadId) return repo.get("leads", e.leadId) // already converted
+  // The lead stays in the enquiry's company.
   const lead = await repo.create("leads", {
+    ...withCompany(e.companyId),
     enquiryId,
     customer: { ...e.customer },
     source: e.source,
@@ -369,9 +392,14 @@ export function paymentDateIso(day) {
 }
 
 export async function recordPayment(draft) {
-  const number = await generateNumber("payment")
   const type = draft.type || "inflow"
+  // A payment belongs to its invoice's company (the database sets it too,
+  // 0075), so its number comes from that company's series.
+  const invoice = type !== "payout" && draft.invoiceId ? await repo.get("invoices", draft.invoiceId) : null
+  const companyId = invoice?.companyId || companyForNew(draft.companyId)
+  const number = await generateNumber("payment", companyId)
   const payment = await repo.create("payments", {
+    ...withCompany(companyId),
     number,
     type,
     amount: round2(draft.amount),

@@ -24,6 +24,7 @@
 // loads it in plain Node through test/loadTs.mjs.
 
 import { formatCurrency, formatNumber } from "@/domain/format"
+import { inCompanies } from "@/domain/modules"
 import { parseQuoteRfq, rfqUnits, type Rfq } from "@/domain/quoteRfq"
 import type { Enquiry, Quotation } from "@/domain/schema"
 import { VOICE_SOURCE, prettyPhone, voiceCallsFrom, type VoiceCall } from "@/domain/voice"
@@ -458,6 +459,11 @@ export type FeedInput = {
   /** Frozen "now", so a test is not a clock race. */
   now?: number
   prefs?: NotificationPrefs
+  /**
+   * The companies this person works in (Admin migration 0075): rows of any
+   * other company never alert. Null or absent: every row (before 0075).
+   */
+  companies?: string[] | null
 }
 
 /**
@@ -466,12 +472,15 @@ export type FeedInput = {
  * three-capture conversation is ONE notification rather than three.
  */
 export function buildNotifications({
-  enquiries = [],
-  quotations = [],
+  enquiries: allEnquiries = [],
+  quotations: allQuotations = [],
   now = Date.now(),
   prefs = DEFAULT_PREFS,
+  companies = null,
 }: FeedInput): AppNotification[] {
   if (!prefs.enabled) return []
+  const enquiries = inCompanies(allEnquiries, companies)
+  const quotations = inCompanies(allQuotations, companies)
 
   const webEnquiries = enquiries.filter((e) => e.source !== VOICE_SOURCE)
   const calls = prefs.voice ? voiceCallsFrom(enquiries) : []

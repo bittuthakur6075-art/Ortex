@@ -126,6 +126,15 @@ export async function setUserActive(id, active) {
   return res
 }
 
+/**
+ * The companies someone works in (0075), their default first. The Super
+ * Admin's alone: admin-manage-user refuses anyone else (403), and the database
+ * trigger refuses a direct profiles write. Returns { ok, companies } | { error }.
+ */
+export function setUserCompanies(id, companies) {
+  return manageUser({ action: "set-companies", id, companies })
+}
+
 /** Set a new password, sign the user out everywhere, and optionally email it. */
 export function resetUserPassword(id, password, notify = true) {
   return manageUser({ action: "reset-password", id, password, notify })

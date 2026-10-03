@@ -11,10 +11,12 @@ import { useCollection } from "@/hooks/useCollection"
 import { useFocusChain } from "@/features/contacts/useFocusChain"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
+import { useCompany } from "@/store/CompanyContext"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
 import { AppScreen, Button, Dialog, Icon, Section, TextField, useToast } from "@/ui"
+import OptionSheet from "@/ui/OptionSheet"
 import { SquircleBackground } from "@/ui/Squircle"
 
 /**
@@ -33,11 +35,22 @@ import { SquircleBackground } from "@/ui/Squircle"
  *
  * The validation lives in validateContact.ts, pure and tested — see that file for
  * why each rule is there.
+ *
+ * A customer belongs to one company (Admin migration 0076): the one being worked
+ * in, or, in the All companies view, the one picked on the form. Duplicates are
+ * looked for in that company only, as the database matches leads.
  */
 export default function ContactEditorScreen({ route, navigation }: StackScreenProps<"ContactEditor">) {
   const t = useTheme()
   const toast = useToast()
-  const { items: customers } = useCollection<Customer & Row>("customers")
+  const { items: everyCustomer } = useCollection<Customer & Row>("customers", { everyCompany: true })
+  const company = useCompany()
+  const [companyId, setCompanyId] = React.useState(company.defaultCompany)
+  const [companyOpen, setCompanyOpen] = React.useState(false)
+  const customers = React.useMemo(
+    () => (companyId ? everyCustomer.filter((c) => c.companyId === companyId) : everyCustomer),
+    [everyCustomer, companyId],
+  )
 
   const [draft, setDraft] = React.useState<Customer>(() => newCustomer(route.params?.prefill))
   const [initial] = React.useState(() => JSON.stringify(draft))
@@ -63,6 +76,11 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
   }
 
   const save = async () => {
+    if (company.multi && !companyId) {
+      feedback.warn()
+      setErrors({ form: "Choose a company first." })
+      return
+    }
     const found = validateContact(draft, customers)
     setErrors(found)
     if (Object.values(found).some(Boolean)) {
@@ -72,7 +90,7 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
 
     setSaving(true)
     try {
-      const row = await repo.create<Customer & Row>("customers", normaliseContact(draft))
+      const row = await repo.create<Customer & Row>("customers", { ...normaliseContact(draft), companyId })
       feedback.created()
       toast.show({ message: "Customer saved", tone: "success" })
       // Replace rather than push: coming back to a half-filled form you have
@@ -105,6 +123,19 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
             <Icon name="warning" size={18} color={t.dangerText} variant="Bulk" />
             <Text style={[textVariants.small, styles.bannerText, { color: t.dangerText }]}>{errors.form}</Text>
           </View>
+        )}
+
+        {company.multi && (
+          <Section title="Company" style={styles.section} bodyStyle={styles.form}>
+            <FieldButton
+              label="Customer of"
+              value={company.nameOf(companyId) || "Choose a company"}
+              onPress={() => {
+                feedback.tap()
+                setCompanyOpen(true)
+              }}
+            />
+          </Section>
         )}
 
         <Section title="Who They Are" style={styles.section} bodyStyle={styles.form}>
@@ -217,6 +248,20 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
             },
           },
         ]}
+      />
+
+      <OptionSheet
+        visible={companyOpen}
+        title="Company"
+        options={company.companies.map((c) => c.name)}
+        value={company.nameOf(companyId)}
+        onClose={() => setCompanyOpen(false)}
+        onPick={(name) => {
+          const picked = company.companies.find((c) => c.name === name)
+          if (picked) setCompanyId(picked.id)
+          setErrors((e) => ({ ...e, form: undefined }))
+          setCompanyOpen(false)
+        }}
       />
 
       <StatePickerSheet

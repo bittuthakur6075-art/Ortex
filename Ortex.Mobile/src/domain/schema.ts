@@ -83,7 +83,13 @@ export function statusMeta(list: StatusOption[], id?: string): StatusOption {
 // ---- record shapes ---------------------------------------------------------
 
 /** Server columns every row carries alongside its `doc`. */
-export type Row = { id: string; createdAt?: string; updatedAt?: string }
+export type Row = {
+  id: string
+  createdAt?: string
+  updatedAt?: string
+  /** The row's company_id column (Admin migration 0075): enquiries, customers, quotations, payments. */
+  companyId?: string
+}
 
 export type Customer = {
   name: string

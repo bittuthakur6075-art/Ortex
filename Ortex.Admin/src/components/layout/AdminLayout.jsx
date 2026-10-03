@@ -24,7 +24,9 @@ import {
   ArrowDownLeft,
   Wallet,
   UserCheck,
+  Building2,
 } from "../ui/Icons"
+import { useCompany, useCompanySync } from "../../hooks/useCompany"
 import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
 import { useProfile } from "../../hooks/useProfile"
 import { NotificationsDrawer } from "./NotificationsDrawer"
@@ -297,6 +299,56 @@ function NewMenu() {
   )
 }
 
+// Which company the console shows (0075): only for someone in more than one.
+// "All companies" only for admins; every list then tags its rows with a chip.
+function CompanySwitcher() {
+  const { companies, current, set, canAll, multi } = useCompany()
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useDismiss(open, setOpen, ref)
+  if (!multi) return null
+  const options = [...(canAll ? [{ id: "all", name: "All companies" }] : []), ...companies]
+  const label = options.find((c) => c.id === current)?.name || "Company"
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-label={`Company: ${label}`}
+        className="squircle flex h-9 max-w-[220px] items-center gap-1.5 rounded-xl border border-border bg-card pl-2.5 pr-2 text-[13.5px] font-semibold text-foreground transition-colors hover:bg-accent"
+      >
+        <Building2 variant="Linear" className="h-4 w-4 flex-none text-primary" />
+        <span className="hidden truncate sm:inline">{label}</span>
+        <ArrowDownLeft className={cn("h-3.5 w-3.5 flex-none transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div role="listbox" aria-label="Company" className="squircle absolute right-0 z-30 mt-2 w-60 rounded-xl border border-border bg-card p-1.5 shadow-overlay-lg animate-pop-in">
+          {options.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              role="option"
+              aria-selected={c.id === current}
+              onClick={() => {
+                set(c.id)
+                setOpen(false)
+              }}
+              className={cn(
+                "squircle flex h-[38px] w-full items-center gap-[11px] rounded-[10px] px-2.5 text-left text-[13.5px] font-medium hover:bg-accent",
+                c.id === current ? "text-primary" : "text-foreground",
+              )}
+            >
+              <span className="flex-1 truncate">{c.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // The account card at the foot of the sidebar, with its popover (profile,
 // what's new, sign out) opening upwards.
 function AccountMenu({ onSignOut, onNavigate }) {
@@ -364,6 +416,7 @@ export default function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const nav = useAllowedNav()
+  useCompanySync(useProfile())
   const ready = useAuthReady()
   // Anu lives in the shell, so a conversation survives every route change.
   const anu = useAnuController()
@@ -485,6 +538,7 @@ export default function AdminLayout() {
             </button>
 
             <div className="ml-auto flex items-center gap-1.5">
+              <CompanySwitcher />
               <NewMenu />
               <AnuHeaderButton />
               <NotificationsDrawer />

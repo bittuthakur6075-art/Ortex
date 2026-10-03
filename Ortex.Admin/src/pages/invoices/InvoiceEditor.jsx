@@ -25,6 +25,8 @@ import { RecordActivity } from "../../components/ui/RecordActivity"
 import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../../components/editors/DocumentEditorShell"
 import ReceiptView from "../../components/documents/ReceiptView"
 import { Button, Input, Textarea, Field, StatusBadge, Chip } from "../../components/ui/Ui"
+import { CompanyField } from "../../components/ui/CompanyChip"
+import { useCompany } from "../../hooks/useCompany"
 import { cn } from "../../lib/cn"
 import PaymentHistory from "./PaymentHistory"
 import RecordPaymentModal from "./RecordPaymentModal"
@@ -35,7 +37,7 @@ import RecordPaymentModal from "./RecordPaymentModal"
 // `canPay`: may this person open payments? Without it `payments` holds stand-ins
 // built from each invoice's stored amountPaid (paymentsOrStored) and Record
 // payment is hidden.
-export default function InvoiceEditor({ draft, products, customers, payments, canPay = true, settings, onClose, onPreview }) {
+export default function InvoiceEditor({ draft, products, customers: allCustomers, payments, canPay = true, settingsOf, onClose, onPreview }) {
   const isEdit = !!draft.id
   const [form, setForm] = useState(draft)
   const [payOpen, setPayOpen] = useState(false)
@@ -54,6 +56,15 @@ export default function InvoiceEditor({ draft, products, customers, payments, ca
     onClose()
   }
 
+  // Everything company-specific (GST state, terms, the printed header) follows
+  // the company the invoice is for; its customers are that company's.
+  const settings = settingsOf(form.companyId)
+  const { on: companiesOn } = useCompany()
+  const customers = useMemo(() => (form.companyId ? allCustomers.filter((m) => !m.companyId || m.companyId === form.companyId) : allCustomers), [allCustomers, form.companyId])
+  const pickCompany = (companyId) => {
+    const next = settingsOf(companyId)
+    setForm((f) => ({ ...f, companyId, ...(f.terms === settings.documents.invoiceTerms ? { terms: next.documents.invoiceTerms } : {}) }))
+  }
   const interState = isInterState(settings.company.stateCode, form.shipTo?.stateCode || form.customer.stateCode)
   const hasState = Boolean(form.shipTo?.stateCode || form.customer.stateCode)
 
@@ -77,6 +88,7 @@ export default function InvoiceEditor({ draft, products, customers, payments, ca
   const save = async () => {
     if (!form.customer.name.trim() && !form.customer.company?.trim()) return toast.error("Choose or add a customer")
     if (!form.lines.length) return toast.error("Add at least one line item")
+    if (!isEdit && companiesOn && !form.companyId) return toast.error("Choose a company")
     // The editor's line items are the source of truth. Drop any aggregate
     // `totals` carried in from a Tally import so createInvoice recomputes them.
     // updateInvoice never writes status, amountPaid, paidAt, tally or `_` view fields.
@@ -205,6 +217,7 @@ export default function InvoiceEditor({ draft, products, customers, payments, ca
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_460px]">
         <div className="min-w-0 space-y-4">
+          {!isEdit && <CompanyField value={form.companyId} onChange={pickCompany} className="rounded-card bg-card p-5" />}
           <Section title="Customer" description="Who this invoice bills">
             <CustomerPicker value={form.customer} onChange={(customer) => set({ customer })} customers={customers} />
             {hasState ? (

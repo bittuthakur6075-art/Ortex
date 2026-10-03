@@ -9,24 +9,18 @@
 // --no-verify-jwt and instead guarded by a shared secret — the configured push
 // URL must include ?key=<INDIAMART_PUSH_KEY> (set as a function secret).
 //
+// One IndiaMART account per company (migration 0075): each account's push URL
+// names its company, ?company=<id>, which must be a row in `companies`. The
+// old URL without it files into Ortex, as before.
+//   .../functions/v1/indiamart-lead?company=aman&key=<INDIAMART_PUSH_KEY>
+//
 // Deploy:
 //   supabase functions deploy indiamart-lead --no-verify-jwt
 //   supabase secrets set INDIAMART_PUSH_KEY=<random-secret>
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { json } from "../_shared/http.ts"
-
-// Length-independent, constant-time-ish string comparison so the shared-secret
-// check doesn't leak the key one byte at a time via response timing.
-function secretsMatch(a: string, b: string): boolean {
-  const enc = new TextEncoder()
-  const ab = enc.encode(a)
-  const bb = enc.encode(b)
-  if (ab.length !== bb.length) return false
-  let diff = 0
-  for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i]
-  return diff === 0
-}
+import { secretsMatch } from "../_shared/guard.ts"
 
 // Pull the fields we care about out of one IndiaMART lead object.
 function toEnquiry(q: Record<string, string>) {
@@ -83,6 +77,10 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   })
 
+  const company = (url.searchParams.get("company") || "ortex").trim().toLowerCase()
+  const { data: known } = await db.from("companies").select("id").eq("id", company).maybeSingle()
+  if (!known) return json({ error: `Unknown company "${company}"` }, 400)
+
   let inserted = 0
   let duplicates = 0
   for (const lead of leads) {
@@ -95,7 +93,7 @@ Deno.serve(async (req) => {
         continue
       }
     }
-    const { error } = await db.from("enquiries").insert({ doc })
+    const { error } = await db.from("enquiries").insert({ company_id: company, doc })
     if (error) return json({ error: error.message }, 500)
     inserted++
   }

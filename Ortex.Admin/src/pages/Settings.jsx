@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import {
   AlertTriangle,
@@ -35,6 +35,11 @@ import Modules from "./Modules"
 import { Banner, Button, Input, Select, Switch, Textarea, PageLoader } from "../components/ui/Ui"
 import { UnsavedContext } from "../hooks/useUnsaved"
 import { cn } from "../lib/cn"
+import { useCompany, reloadCompanies } from "../hooks/useCompany"
+import { settingsFor } from "../data/domain/settingsDefaults"
+import CompanyMark from "../components/documents/CompanyMark"
+import { companySlug } from "../lib/roles"
+import { uploadCompanyLogo, removeCompanyLogo, LOGO_TYPES } from "../services/companyLogos"
 
 // Settings (Figma "V3 · Settings"): a section menu on the left, one section at
 // a time, every setting as a row (label and why on the left, control on the
@@ -54,6 +59,7 @@ import { cn } from "../lib/cn"
 // changing your own password, which belongs in Profile and was invisible here
 // to everyone who is not the Super Admin.
 const SECTIONS = [
+  { id: "companies", group: "Business", label: "Companies", icon: Building2 },
   { id: "company", group: "Business", label: "Company", icon: Building2 },
   { id: "documents", group: "Business", label: "Documents", icon: FileText },
   { id: "attendance", group: "People", label: "Attendance & leave", icon: CalendarClock },
@@ -132,6 +138,22 @@ const PATH_LABEL = {
   "notifications.sender": "Sender",
   "integrations.indiamart.enabled": "IndiaMART sync",
   "integrations.indiamart.crmKey": "IndiaMART key",
+  "company.logoText": "Short name",
+  "tax.pricesIncludeTax": "Prices include tax",
+  tallyCompany: "Tally company name",
+}
+
+// One company's editable settings (0075): its companies.doc blocks over the
+// global settings (settingsFor), plus the Tally company name.
+const companyShape = (settings, row) => ({ ...settingsFor(settings, row?.doc), tallyCompany: row?.doc?.tallyCompany || "" })
+
+// The webhook IndiaMART pushes a company's leads to (the key is a function secret).
+const indiamartHook = (companyId) =>
+  `${import.meta.env.VITE_SUPABASE_URL || "https://<project>.supabase.co"}/functions/v1/indiamart-lead?company=${companyId}&key=<INDIAMART_PUSH_KEY>`
+
+// { a: { b: v } } from "a.b", for mergePaths.
+function pathObject(path, v) {
+  return path.split(".").reduceRight((acc, k) => ({ [k]: acc }), v)
 }
 
 // The financial year as the document numbers write it: Sep 2026 → "2627".
@@ -154,6 +176,21 @@ export default function Settings() {
   const report = useCallback((id, dirty) => setUnsaved((u) => (!!u[id] === dirty ? u : { ...u, [id]: dirty })), [])
   const section = SECTIONS.some((s) => s.id === params.get("section")) ? params.get("section") : "company"
 
+  // Companies (0075): with a companies table, the Company and Documents sections
+  // edit ONE company's companies.doc (picked at the top of each); the rest of
+  // the page stays global. Before 0075 they edit the global settings, as always.
+  const { all: companies } = useCompany()
+  const companiesOn = companies.length > 0
+  const [companyId, setCompanyId] = useState("")
+  const chosen = companies.find((c) => c.id === companyId) || companies[0] || null
+  const [cedit, setCedit] = useState(null)
+  useEffect(() => {
+    if (!settings || !chosen) return
+    const fresh = companyShape(settings, chosen)
+    setCedit((e) => (e && e.id === chosen.id && changedPaths(e.base, e.draft).length ? e : { id: chosen.id, base: fresh, draft: structuredClone(fresh) }))
+  }, [settings, chosen])
+  const cchanges = useMemo(() => (companiesOn && cedit ? changedPaths(cedit.base, cedit.draft) : []), [companiesOn, cedit])
+
   useEffect(() => {
     if (settings) setEdit((e) => (e && changedPaths(e.base, e.draft).length ? e : { base: settings, draft: structuredClone(settings) }))
   }, [settings])
@@ -161,7 +198,8 @@ export default function Settings() {
   const draft = edit?.draft
   const changes = useMemo(() => (edit ? changedPaths(edit.base, edit.draft) : []), [edit])
   const embeddedDirty = Object.values(unsaved).some(Boolean)
-  const dirty = changes.length > 0 || embeddedDirty
+  const allChanges = [...changes, ...cchanges]
+  const dirty = allChanges.length > 0 || embeddedDirty
 
   useEffect(() => {
     if (!dirty) return
@@ -181,7 +219,29 @@ export default function Settings() {
   const setDraft = (fn) => setEdit((e) => ({ ...e, draft: fn(e.draft) }))
   const set = (group, key, v) => setDraft((d) => ({ ...d, [group]: { ...d[group], [key]: v } }))
   const setEmailjs = (key, v) => setDraft((d) => ({ ...d, notifications: { ...d.notifications, emailjs: { ...d.notifications.emailjs, [key]: v } } }))
-  const setIndiamart = (key, v) => setDraft((d) => ({ ...d, integrations: { ...d.integrations, indiamart: { ...d.integrations.indiamart, [key]: v } } }))
+  // A key anywhere in the draft, by path ("integrations.indiamartByCompany.aman.crmKey").
+  const setPath = (path, v) => setDraft((d) => mergePaths(d, { ...pathObject(path, v) }, [path]))
+  const setC = (group, key, v) => setCedit((e) => ({ ...e, draft: group ? { ...e.draft, [group]: { ...e.draft[group], [key]: v } } : { ...e.draft, [key]: v } }))
+  const pickCompanyToEdit = (id) => {
+    if (id === chosen?.id) return
+    if (cchanges.length && !window.confirm(`Discard the unsaved changes to ${chosen?.name}?`)) return
+    setCedit(null)
+    setCompanyId(id)
+  }
+
+  // One company's changed paths, merged into its LIVE doc, so a logo uploaded
+  // meanwhile (or another block) is not overwritten with this page's copy.
+  const saveCompanyPaths = async (paths) => {
+    const row = companies.find((c) => c.id === cedit.id)
+    if (!row) throw new Error("That company no longer exists.")
+    const merged = mergePaths(companyShape(settings, row), cedit.draft, paths)
+    const doc = { ...row.doc }
+    for (const block of new Set(paths.map((p) => p.split(".")[0]))) doc[block] = merged[block]
+    if (doc.company?.paymentAliases) doc.company = { ...doc.company, paymentAliases: doc.company.paymentAliases.map((a) => a.trim()).filter(Boolean) }
+    await repo.saveCompany({ ...row, name: String(doc.company?.name || "").trim() || row.name, doc })
+    await reloadCompanies()
+    setCedit((e) => ({ id: e.id, base: mergePaths(e.base, e.draft, paths), draft: e.draft }))
+  }
 
   // Saves the given changed paths, merged into the LIVE settings, so a key
   // someone else changed meanwhile is not overwritten with this page's copy.
@@ -195,7 +255,8 @@ export default function Settings() {
   const save = async () => {
     setSaving(true)
     try {
-      await savePaths(changes)
+      if (changes.length) await savePaths(changes)
+      if (cchanges.length) await saveCompanyPaths(cchanges)
       toast.success("Settings saved")
     } catch (e) {
       toast.error(e.message || "Could not save the settings")
@@ -203,12 +264,15 @@ export default function Settings() {
       setSaving(false)
     }
   }
-  const discard = () => setEdit({ base: settings, draft: structuredClone(settings) })
+  const discard = () => {
+    setEdit({ base: settings, draft: structuredClone(settings) })
+    setCedit(null)
+  }
   const go = (id) => {
     if (id === section) return
     // Embedded sections lose their edits when they unmount; the shared draft
     // follows only to the other draft sections, where its bar is shown.
-    const losing = embeddedDirty || (changes.length > 0 && !DRAFT_SECTIONS.includes(id))
+    const losing = embeddedDirty || (allChanges.length > 0 && !DRAFT_SECTIONS.includes(id))
     if (losing && !window.confirm("You have unsaved changes. Leave this section and discard them?")) return
     if (losing) {
       setUnsaved({})
@@ -217,9 +281,13 @@ export default function Settings() {
     setParams(id === "company" ? {} : { section: id }, { replace: true })
   }
   // A list changes by index (company.paymentAliases.2): name the list.
-  const changedWords = changes.map((p) => PATH_LABEL[p] || PATH_LABEL[p.replace(/\.\d+$/, "")] || p.split(".").pop()).filter((v, i, a) => a.indexOf(v) === i)
+  const changedWords = allChanges.map((p) => PATH_LABEL[p] || PATH_LABEL[p.replace(/\.\d+$/, "")] || p.split(".").pop()).filter((v, i, a) => a.indexOf(v) === i)
 
   const indiamartOn = !!draft.integrations.indiamart.enabled && !!draft.integrations.indiamart.crmKey
+  const editing = companiesOn && cedit ? { draft: cedit.draft, set: setC } : { draft, set }
+  const picker = companiesOn && chosen && (
+    <CompanyPicker companies={companies} value={chosen.id} onChange={pickCompanyToEdit} />
+  )
   const emailOn = !!draft.notifications.invoiceEmailEnabled
 
   return (
@@ -272,11 +340,12 @@ export default function Settings() {
             </Banner>
           )}
           <UnsavedContext.Provider value={report}>
-          {section === "company" && <CompanySection draft={draft} set={set} />}
-          {section === "documents" && <DocumentsSection draft={draft} set={set} />}
+          {section === "companies" && <CompaniesSection companies={companies} onEdit={(id) => (pickCompanyToEdit(id), go("company"))} />}
+          {section === "company" && <CompanySection draft={editing.draft} set={editing.set} picker={picker} perCompany={companiesOn} companyId={chosen?.id} />}
+          {section === "documents" && <DocumentsSection draft={editing.draft} set={editing.set} picker={picker} perCompany={companiesOn} />}
           {section === "notifications" && <NotificationsSection draft={draft} set={set} setEmailjs={setEmailjs} />}
           {section === "integrations" && (
-            <IntegrationsSection draft={draft} settings={settings} setIndiamart={setIndiamart} changes={changes} savePaths={savePaths} loadFailed={loadFailed} />
+            <IntegrationsSection draft={draft} settings={settings} setPath={setPath} changes={changes} savePaths={savePaths} loadFailed={loadFailed} companies={companies} />
           )}
           {/* These three were whole pages of their own. They keep their own
               cards and their own save buttons; only their address changed. */}
@@ -301,11 +370,11 @@ export default function Settings() {
       </div>
 
       {/* ---- unsaved changes: only where this bar is what saves them ---- */}
-      {changes.length > 0 && DRAFT_SECTIONS.includes(section) && (
+      {allChanges.length > 0 && DRAFT_SECTIONS.includes(section) && (
         <div className="squircle fixed bottom-5 left-1/2 z-30 flex w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 items-center gap-3 rounded-2xl bg-foreground py-2.5 pl-[18px] pr-2.5 text-primary-foreground animate-pop-in lg:left-[calc(50%+116px)]">
           <span className="h-2 w-2 flex-none rounded-full bg-warning" />
           <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
-            {changes.length === 1 ? "1 unsaved change" : `${changes.length} unsaved changes`}
+            {allChanges.length === 1 ? "1 unsaved change" : `${allChanges.length} unsaved changes`}
             <span className="opacity-60"> · {changedWords.slice(0, 3).join(", ")}{changedWords.length > 3 ? "…" : ""}</span>
           </span>
           <Button variant="dark" size="sm" onClick={discard}>
@@ -372,7 +441,7 @@ function Row({ label, hint, children }) {
 
 // ---- Company ---------------------------------------------------------------------------
 
-function CompanySection({ draft, set }) {
+function CompanySection({ draft, set, picker, perCompany, companyId }) {
   const c = draft.company
   const [showAcct, setShowAcct] = useState(false)
   const gstin = String(c.gstin || "").trim().toUpperCase()
@@ -382,18 +451,32 @@ function CompanySection({ draft, set }) {
   const acct = String(c.bankAccount || "")
 
   return (
-    <SectionHead title="Company" description="How your business appears on quotations and invoices.">
+    <SectionHead title="Company" description={perCompany ? "How this company appears on its quotations, invoices and receipts." : "How your business appears on quotations and invoices."}>
+      {picker}
       <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-5">
           <Group title="Business details" description="Printed at the top of every document.">
             <Row label="Company name">
               <Input value={c.name} onChange={(e) => set("company", "name", e.target.value)} />
             </Row>
+            {perCompany && (
+              <Row label="Short name" hint="On the company tag in lists, and the logo text">
+                <Input value={c.logoText || ""} onChange={(e) => set("company", "logoText", e.target.value)} className="max-w-[220px]" />
+              </Row>
+            )}
             <Row label="Tagline" hint="Optional, under the name">
               <Input value={c.tagline} onChange={(e) => set("company", "tagline", e.target.value)} />
             </Row>
             <Row label="GSTIN" hint="15 characters">
-              <Input value={c.gstin} onChange={(e) => set("company", "gstin", e.target.value.toUpperCase())} />
+              <Input
+                value={c.gstin}
+                onChange={(e) => {
+                  const v = e.target.value.toUpperCase()
+                  set("company", "gstin", v)
+                  // The state follows a valid GSTIN: its first two digits are the state code.
+                  if (GSTIN_RE.test(v.trim())) set("company", "stateCode", v.trim().slice(0, 2))
+                }}
+              />
               {gstin && (
                 <p className={cn("mt-1.5 flex items-center gap-1.5 text-xs font-medium", gstOk && !stateMismatch ? "text-success-text" : "text-warning-text")}>
                   {gstOk && !stateMismatch ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
@@ -420,6 +503,14 @@ function CompanySection({ draft, set }) {
             <Row label="Address">
               <Textarea value={c.address} onChange={(e) => set("company", "address", e.target.value)} className="min-h-[76px]" />
             </Row>
+            <Row label="Website" hint="Optional">
+              <Input value={c.website || ""} onChange={(e) => set("company", "website", e.target.value)} />
+            </Row>
+            {perCompany && (
+              <Row label="Tally company name" hint="As it is named in TallyPrime. An import warns when the files come from another company">
+                <Input value={draft.tallyCompany || ""} onChange={(e) => set(null, "tallyCompany", e.target.value)} />
+              </Row>
+            )}
           </Group>
 
           <Group title="Bank details" description="Shown on quotations and invoices so customers can pay.">
@@ -471,10 +562,10 @@ function CompanySection({ draft, set }) {
         </div>
 
         <aside className="flex flex-col gap-3 xl:sticky xl:top-20 xl:w-[312px] xl:flex-none">
-          <DocumentPreview company={c} prefix={draft.numbering.quotationPrefix} />
+          <DocumentPreview company={c} companyId={companyId} prefix={draft.numbering.quotationPrefix} />
           <p className="squircle flex items-start gap-2.5 rounded-xl bg-primary/10 px-3.5 py-3 text-[12.5px] font-medium text-primary">
             <ShieldCheck className="mt-0.5 h-[18px] w-[18px] flex-none" />
-            Only the Super Admin can change these. Admins can read them.
+            Only the Super Admin can change these. {perCompany ? "Everyone who works in this company can read them." : "Admins can read them."}
           </p>
         </aside>
       </div>
@@ -482,7 +573,7 @@ function CompanySection({ draft, set }) {
   )
 }
 
-function DocumentPreview({ company: c, prefix }) {
+function DocumentPreview({ company: c, companyId, prefix }) {
   const acct = String(c.bankAccount || "")
   const lines = [c.address, [c.gstin && `GSTIN ${c.gstin}`, c.phone].filter(Boolean).join(" · ")].filter(Boolean)
   return (
@@ -494,9 +585,7 @@ function DocumentPreview({ company: c, prefix }) {
       </div>
       <div className="squircle flex flex-col gap-2.5 rounded-xl border border-border p-4">
         <div className="flex gap-2.5">
-          <span className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[9px] bg-primary text-sm font-bold text-primary-foreground">
-            {(c.name || "?").slice(0, 1).toUpperCase()}
-          </span>
+          <CompanyMark companyId={companyId} company={c} className="h-[34px] w-auto max-w-[96px] flex-none object-contain" />
           <div className="min-w-0 flex-1">
             <div className="truncate text-[13px] font-bold text-foreground">{c.name || "Company name"}</div>
             {c.tagline && <div className="text-[10px] leading-snug text-subtle-foreground">{c.tagline}</div>}
@@ -531,13 +620,200 @@ function DocumentPreview({ company: c, prefix }) {
   )
 }
 
+// ---- Companies -------------------------------------------------------------------------
+
+// Which company the Company and Documents sections edit.
+function CompanyPicker({ companies, value, onChange }) {
+  return (
+    <div className="squircle flex flex-col gap-2 rounded-card bg-card px-6 py-4 sm:flex-row sm:items-center sm:gap-5">
+      <div className="sm:w-[170px] sm:flex-none">
+        <div className="text-[13.5px] font-medium text-foreground">Company</div>
+        <div className="mt-0.5 text-xs text-subtle-foreground">Whose details you are editing</div>
+      </div>
+      <Select value={value} onChange={(e) => onChange(e.target.value)} className="sm:max-w-[320px]">
+        {companies.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.active === false ? `${c.name} (switched off)` : c.name}
+          </option>
+        ))}
+      </Select>
+    </div>
+  )
+}
+
+// The companies run from this console (0075): add one, switch one off, order
+// them, give each its logo (0078). Saved at once, one company at a time; each
+// company's details are edited in Company and Documents.
+function CompaniesSection({ companies, onEdit }) {
+  const [name, setName] = useState("")
+  const [busy, setBusy] = useState("")
+  const [logoFor, setLogoFor] = useState(null)
+  const fileRef = useRef(null)
+  const sorted = [...companies].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.id.localeCompare(b.id))
+  const newId = name.trim() ? companySlug(name, companies.map((c) => c.id)) : ""
+
+  const write = async (key, row, done) => {
+    setBusy(key)
+    try {
+      await repo.saveCompany(row)
+      await reloadCompanies()
+      if (done) toast.success(done)
+      return true
+    } catch (e) {
+      toast.error(e?.message || "Could not save the company")
+      return false
+    } finally {
+      setBusy("")
+    }
+  }
+
+  const add = async () => {
+    const n = name.trim()
+    if (!n) return toast.error("Enter the company's name")
+    const sort = Math.max(-1, ...companies.map((c) => c.sort ?? 0)) + 1
+    if (await write("add", { id: newId, name: n, doc: { company: { name: n } }, active: true, sort }, `${n} added. Fill in its details in Company and Documents.`)) setName("")
+  }
+
+  const move = async (row, dir) => {
+    const i = sorted.findIndex((c) => c.id === row.id)
+    const other = sorted[i + dir]
+    if (!other) return
+    setBusy(`move-${row.id}`)
+    try {
+      // Positions, not the old sort values, so two equal sorts still swap.
+      await repo.saveCompany({ ...row, sort: i + dir })
+      await repo.saveCompany({ ...other, sort: i })
+      await reloadCompanies()
+    } catch (e) {
+      toast.error(e?.message || "Could not reorder")
+    } finally {
+      setBusy("")
+    }
+  }
+
+  const pickLogo = (row) => {
+    setLogoFor(row)
+    fileRef.current?.click()
+  }
+
+  const setLogo = async (file) => {
+    const row = logoFor
+    if (!row || !file) return
+    setBusy(`logo-${row.id}`)
+    try {
+      const url = await uploadCompanyLogo(file, row.id)
+      const old = row.doc?.company?.logoUrl
+      await repo.saveCompany({ ...row, doc: { ...row.doc, company: { ...row.doc?.company, logoUrl: url } } })
+      await reloadCompanies()
+      if (old) void removeCompanyLogo(old)
+      toast.success("Logo saved")
+    } catch (e) {
+      toast.error(e?.message || "Could not upload the logo")
+    } finally {
+      setBusy("")
+    }
+  }
+
+  const removeLogo = async (row) => {
+    const old = row.doc?.company?.logoUrl
+    const company = { ...row.doc?.company }
+    delete company.logoUrl
+    if (await write(`logo-${row.id}`, { ...row, doc: { ...row.doc, company } }, "Logo removed")) {
+      if (old) void removeCompanyLogo(old)
+    }
+  }
+
+  if (!companies.length) {
+    return (
+      <SectionHead title="Companies" description="The companies run from this console.">
+        <Banner tone="info">This database has no companies table yet (migration 0075). Until it is applied the console runs as one company.</Banner>
+      </SectionHead>
+    )
+  }
+
+  return (
+    <SectionHead
+      title="Companies"
+      description="Each company keeps its own enquiries, customers, quotations, invoices, payments and document settings. The catalogue, staff, attendance, payroll and chat are shared."
+    >
+      <input
+        ref={fileRef}
+        type="file"
+        accept={Object.keys(LOGO_TYPES).join(",")}
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          e.target.value = ""
+          void setLogo(f)
+        }}
+      />
+      <Group title="Companies" description="Who works in which company is set on each person's page under Users. A company switched off is hidden from everyone but the Super Admin.">
+        {sorted.map((row, i) => {
+          const logo = row.doc?.company?.logoUrl
+          return (
+            <div key={row.id} className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center">
+              <CompanyMark companyId={row.id} company={{ ...row.doc?.company, name: row.name }} className="h-11 w-auto max-w-[120px] flex-none object-contain" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-[14px] font-semibold text-foreground">{row.name}</span>
+                  {row.active === false && <Pill>Off</Pill>}
+                </div>
+                <div className="text-xs text-subtle-foreground">
+                  {row.id} · {logo ? "Own logo" : row.id === "ortex" ? "Ortex logo" : "Initials until a logo is added"}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" variant="outline" disabled={!!busy} onClick={() => pickLogo(row)}>
+                  {busy === `logo-${row.id}` ? "Uploading…" : logo ? "Change logo" : "Add logo"}
+                </Button>
+                {logo && (
+                  <Button size="sm" variant="outline" disabled={!!busy} onClick={() => removeLogo(row)}>
+                    Remove
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" disabled={!!busy || i === 0} onClick={() => move(row, -1)} aria-label={`Move ${row.name} up`}>
+                  Up
+                </Button>
+                <Button size="sm" variant="outline" disabled={!!busy || i === sorted.length - 1} onClick={() => move(row, 1)} aria-label={`Move ${row.name} down`}>
+                  Down
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => onEdit(row.id)}>
+                  Edit details
+                </Button>
+                <Switch
+                  checked={row.active !== false}
+                  disabled={!!busy || row.id === "ortex"}
+                  onChange={(v) => write(`active-${row.id}`, { ...row, active: v }, v ? `${row.name} switched on` : `${row.name} switched off`)}
+                  label={`${row.name} is in use`}
+                />
+              </div>
+            </div>
+          )
+        })}
+      </Group>
+      <Group title="Add a company" description="It starts with a name only: fill in its GSTIN, address, bank and wording before raising documents.">
+        <Row label="Name" hint={newId ? `Its id will be ${newId}, which never changes` : "The registered name"}>
+          <div className="flex gap-2.5">
+            <Input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="Aman Enterprise" />
+            <Button onClick={add} disabled={!!busy || !name.trim()}>
+              {busy === "add" ? "Adding…" : "Add"}
+            </Button>
+          </div>
+        </Row>
+      </Group>
+      <p className="text-xs text-subtle-foreground">Logos: PNG, JPG, SVG or WebP, square or wide, up to 1 MB. They print on every quotation, invoice and receipt of that company.</p>
+    </SectionHead>
+  )
+}
+
 // ---- Documents -------------------------------------------------------------------------
 
-function DocumentsSection({ draft, set }) {
+function DocumentsSection({ draft, set, picker, perCompany }) {
   const n = draft.numbering
   const fy = fyCode()
   return (
-    <SectionHead title="Documents" description="Defaults and printed wording for quotations, invoices and receipts.">
+    <SectionHead title="Documents" description={perCompany ? "This company's defaults and printed wording for quotations, invoices and receipts." : "Defaults and printed wording for quotations, invoices and receipts."}>
+      {picker}
       <Group title="Tax">
         <Row label="Default GST" hint="For new lines; each line can change it">
           <Select value={draft.tax.defaultGstRate} onChange={(e) => set("tax", "defaultGstRate", Number(e.target.value))}>
@@ -547,6 +823,9 @@ function DocumentsSection({ draft, set }) {
               </option>
             ))}
           </Select>
+        </Row>
+        <Row label="Prices include tax" hint="Rates typed on a line already include GST">
+          <Switch checked={!!draft.tax.pricesIncludeTax} onChange={(v) => set("tax", "pricesIncludeTax", v)} label="Prices include tax" />
         </Row>
       </Group>
       <Group title="Numbering" description={`Numbers restart every financial year: PREFIX-${fy}-0001.`}>
@@ -573,7 +852,7 @@ function DocumentsSection({ draft, set }) {
           <Textarea
             ai={{
               purpose:
-                "Default terms and conditions pre-filled on every new sales quotation from Ortex Industries: validity, payment, artwork approval, production time and delivery, one term per line",
+                `Default terms and conditions pre-filled on every new sales quotation from ${draft.company.name || "the company"}: validity, payment, artwork approval, production time and delivery, one term per line`,
               context: () => ({ validityDays: draft.quotation.validityDays }),
               format: "lines",
               maxChars: 900,
@@ -592,7 +871,7 @@ function DocumentsSection({ draft, set }) {
           <Textarea
             ai={{
               purpose:
-                "Default terms and conditions printed on every GST tax invoice from Ortex Industries: payment due date, quoting the invoice number, reporting shortage or damage, returns and jurisdiction, one term per line. Never quotation conditions such as artwork approval or taxes as applicable",
+                `Default terms and conditions printed on every GST tax invoice from ${draft.company.name || "the company"}: payment due date, quoting the invoice number, reporting shortage or damage, returns and jurisdiction, one term per line. Never quotation conditions such as artwork approval or taxes as applicable`,
               context: () => ({ jurisdiction: draft.company.address }),
               format: "lines",
               maxChars: 900,
@@ -679,15 +958,90 @@ function IntegrationCard({ icon: Icon, tone, title, description, status, facts, 
   )
 }
 
-function IntegrationsSection({ draft, settings, setIndiamart, changes, savePaths, loadFailed }) {
-  const im = draft.integrations.indiamart
+// IndiaMART, one account per company (0075). The keys stay in the admin-only
+// settings row, at integrations.indiamartByCompany[company id]; the old single
+// block is Ortex's while indiamartByCompany.ortex does not exist (the
+// indiamart-pull function reads it the same way). Before 0075: one card.
+function indiamartPath(settings, companyId) {
+  if (!companyId) return "integrations.indiamart"
+  if (companyId === "ortex" && !settings.integrations?.indiamartByCompany?.ortex) return "integrations.indiamart"
+  return `integrations.indiamartByCompany.${companyId}`
+}
+const atPath = (obj, path) => path.split(".").reduce((o, k) => o?.[k], obj)
+
+function IndiaMartCard({ company, path, draft, settings, setPath, changes, savePaths, loadFailed }) {
+  const im = { crmKey: "", enabled: false, ...atPath(draft, path) }
   // What the server last wrote (lastPull, lastResult), not the draft's copy.
-  const imLive = settings.integrations?.indiamart || {}
+  const imLive = atPath(settings, path) || {}
   const [syncing, setSyncing] = useState(false)
   const [editingKey, setEditingKey] = useState(!im.crmKey)
+  const imPaths = changes.filter((p) => p === path || p.startsWith(`${path}.`))
+  const imOn = !!im.enabled && !!im.crmKey
+
+  // Saves ONLY this account's changes, merged into the saved settings: anything
+  // else still unsaved on this page stays a draft.
+  const syncNow = async () => {
+    setSyncing(true)
+    try {
+      if (imPaths.length) await savePaths(imPaths) // the server pulls with the saved key
+      const res = await syncIndiaMart(company?.id)
+      if (res.error) toast.error(res.error)
+      else if (res.skipped) toast.message(res.reason || "IndiaMART sync is off")
+      else toast.success(`IndiaMART: ${res.inserted} new lead(s) imported${res.duplicates ? `, ${res.duplicates} already had` : ""}`)
+    } catch (e) {
+      toast.error(e.message || "Could not save the IndiaMART settings")
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  return (
+    <IntegrationCard
+      icon={Inbox}
+      tone="blue"
+      title={company ? `IndiaMART, ${company.name}` : "IndiaMART leads"}
+      description={company ? `Imports buyer enquiries from ${company.name}'s IndiaMART account into its own Leads.` : "Imports buyer enquiries into Enquiries."}
+      status={imOn ? ["On", "green"] : im.crmKey ? ["Off", "slate"] : ["No key", "amber"]}
+      facts={[
+        ["Last sync", imLive.lastPull ? new Date(imLive.lastPull).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "Never"],
+        ["Result", imLive.lastResult || "No sync yet"],
+      ]}
+    >
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5">
+        <span className="text-[13px] font-medium text-foreground">Sync new leads</span>
+        <Switch checked={!!im.enabled} onChange={(v) => setPath(`${path}.enabled`, v)} label={`Enable IndiaMART lead sync${company ? ` for ${company.name}` : ""}`} />
+      </div>
+      {editingKey ? (
+        <Input
+          type="password"
+          value={im.crmKey}
+          onChange={(e) => setPath(`${path}.crmKey`, e.target.value)}
+          placeholder="CRM / Pull API key (Lead Manager → CRM Integration)"
+        />
+      ) : null}
+      {company && (
+        <div className="text-xs text-subtle-foreground">
+          Push webhook for this account:
+          <code className="mt-1 block break-all rounded-lg bg-subtle px-2.5 py-2 text-[11.5px] text-foreground">{indiamartHook(company.id)}</code>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" onClick={syncNow} disabled={syncing || !im.crmKey || (loadFailed && imPaths.length > 0)}>
+          <RefreshCw className="h-4 w-4" /> {syncing ? "Syncing…" : imPaths.length ? "Save IndiaMART and sync now" : "Sync now"}
+        </Button>
+        {!editingKey && (
+          <Button size="sm" variant="outline" onClick={() => setEditingKey(true)}>
+            Change key
+          </Button>
+        )}
+      </div>
+    </IntegrationCard>
+  )
+}
+
+function IntegrationsSection({ draft, settings, setPath, changes, savePaths, loadFailed, companies }) {
   const { items: usage, error: usageError, loading: usageLoading } = useCollection("ai_usage")
   const provider = settings.telecaller?.provider || "simulate"
-  const imPaths = changes.filter((p) => p.startsWith("integrations.indiamart"))
 
   // Only successful calls are logged (logAiUsage), so recent rows show it
   // works; no rows, or rows that cannot be read, prove nothing either way.
@@ -704,64 +1058,15 @@ function IntegrationsSection({ draft, settings, setIndiamart, changes, savePaths
   }, [usage])
   const recent = ai.last && Date.now() - new Date(ai.last).getTime() < 7 * 86400000
   const aiStatus = usageError || usageLoading || !ai.last ? ["Not checked", "slate"] : recent ? ["Working", "green"] : ["Idle", "amber"]
-
-  // Saves ONLY the IndiaMART changes, merged into the saved settings: anything
-  // else still unsaved on this page stays a draft.
-  const syncNow = async () => {
-    setSyncing(true)
-    try {
-      if (imPaths.length) await savePaths(imPaths) // the server pulls with the saved key
-      const res = await syncIndiaMart()
-      if (res.error) toast.error(res.error)
-      else if (res.skipped) toast.message(res.reason || "IndiaMART sync is off")
-      else toast.success(`IndiaMART: ${res.inserted} new lead(s) imported${res.duplicates ? `, ${res.duplicates} already had` : ""}`)
-    } catch (e) {
-      toast.error(e.message || "Could not save the IndiaMART settings")
-    } finally {
-      setSyncing(false)
-    }
-  }
-
-  const imOn = !!im.enabled && !!im.crmKey
   const nf = (n) => (Number(n) || 0).toLocaleString("en-IN")
+  const cards = companies.length ? companies.map((c) => ({ company: c, path: indiamartPath(settings, c.id) })) : [{ company: null, path: "integrations.indiamart" }]
 
   return (
     <SectionHead title="Integrations" description="What the console is connected to, and whether each connection is working.">
       <div className="grid gap-5 lg:grid-cols-2">
-        <IntegrationCard
-          icon={Inbox}
-          tone="blue"
-          title="IndiaMART leads"
-          description="Imports buyer enquiries into Enquiries."
-          status={imOn ? ["On", "green"] : im.crmKey ? ["Off", "slate"] : ["No key", "amber"]}
-          facts={[
-            ["Last sync", imLive.lastPull ? new Date(imLive.lastPull).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "Never"],
-            ["Result", imLive.lastResult || "No sync yet"],
-          ]}
-        >
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5">
-            <span className="text-[13px] font-medium text-foreground">Sync new leads</span>
-            <Switch checked={!!im.enabled} onChange={(v) => setIndiamart("enabled", v)} label="Enable IndiaMART lead sync" />
-          </div>
-          {editingKey ? (
-            <Input
-              type="password"
-              value={im.crmKey}
-              onChange={(e) => setIndiamart("crmKey", e.target.value)}
-              placeholder="CRM / Pull API key (Lead Manager → CRM Integration)"
-            />
-          ) : null}
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={syncNow} disabled={syncing || !im.crmKey || (loadFailed && imPaths.length > 0)}>
-              <RefreshCw className="h-4 w-4" /> {syncing ? "Syncing…" : imPaths.length ? "Save IndiaMART and sync now" : "Sync now"}
-            </Button>
-            {!editingKey && (
-              <Button size="sm" variant="outline" onClick={() => setEditingKey(true)}>
-                Change key
-              </Button>
-            )}
-          </div>
-        </IntegrationCard>
+        {cards.map(({ company, path }) => (
+          <IndiaMartCard key={company?.id || "one"} company={company} path={path} draft={draft} settings={settings} setPath={setPath} changes={changes} savePaths={savePaths} loadFailed={loadFailed} />
+        ))}
 
         <IntegrationCard
           icon={Sparkles}

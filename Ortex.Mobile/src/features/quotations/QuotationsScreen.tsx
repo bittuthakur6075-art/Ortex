@@ -11,6 +11,7 @@ import { useCollection } from "@/hooks/useCollection"
 import { feedback } from "@/lib/feedback"
 import type { TabScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
+import CompanyChip from "@/ui/CompanyChip"
 import { fontFamily } from "@/theme/typography"
 import { AppScreen, Avatar, DataNotice, EmptyState, Fab, IconButton, ListRefreshControl, ProfileAvatarButton, RowRule, RowSeparator, SkeletonList, StatusBadge } from "@/ui"
 import CountChips from "@/ui/CountChips"
@@ -142,6 +143,7 @@ function QuoteRow({ q, now, onPress }: { q: Quotation; now: number; onPress: () 
             ) : null}
             {`${q.number} · ${lines} ${lines === 1 ? "item" : "items"} · ${shortAge(q.createdAt)}`}
           </Text>
+          <CompanyChip list companyId={q.companyId} />
           <StatusBadge list={QUOTATION_STATUS} id={q.status} small />
         </View>
       </View>

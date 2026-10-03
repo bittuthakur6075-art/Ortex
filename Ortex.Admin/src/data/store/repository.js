@@ -9,7 +9,10 @@
 //   list(collection, { limit }) / count(collection) / get(collection, id)
 //   create(collection, data) / bulkCreate(collection, items)
 //   update(collection, id, patch) / remove(collection, id)
-//   getSettings() / saveSettings(next) / nextSequence(series)
+//   getSettings(companyId?) / getGlobalSettings() / saveSettings(next) / nextSequence(series, companyId?)
+//   listCompanies() / saveCompany({ id, name, doc, active, sort })
+//   The six company tables (lib/roles.js COMPANY_TABLES) read companyId and
+//   stamp it on create from data.companyId, else the current company (store/company.js).
 //   history(collection, id, { limit }) / actorHistory(actorId, { limit }) / staffDirectory()
 //   clearAll() / exportAll()
 

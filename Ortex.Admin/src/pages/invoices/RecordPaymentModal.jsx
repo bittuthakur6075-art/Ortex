@@ -8,6 +8,8 @@ import { formatCurrency, formatDate, toDateInput, round2 } from "../../lib/forma
 import { cn } from "../../lib/cn"
 import { normalizeReading, findDuplicate, matchInvoice, paymentDirection, parseAmount } from "../../lib/paymentReader"
 import { useSettings } from "../../hooks/useCollection"
+import { useCompany } from "../../hooks/useCompany"
+import { CompanyField } from "../../components/ui/CompanyChip"
 import ScreenshotReader from "./ScreenshotReader"
 import { Button, Input, Select, Field, Textarea, Drawer, Switch } from "../../components/ui/Ui"
 
@@ -34,7 +36,10 @@ export default function RecordPaymentModal({ type: initialType = "inflow", invoi
   // screenshot that clearly says otherwise offers to switch it.
   const [type, setType] = useState(payment?.type || initialType)
   const isPayout = type === "payout"
-  const settings = useSettings()
+  // The company the money belongs to (0075): a linked invoice's, else the one
+  // chosen here (the current company; "" in All mode until chosen).
+  const { defaultCompany } = useCompany()
+  const [companyId, setCompanyId] = useState(invoice?.companyId || payment?.companyId || defaultCompany)
   const lastRaw = useRef(null)
   const pinned = !!invoice
   // The ledger without the payment being edited: its own amount must not count
@@ -44,13 +49,17 @@ export default function RecordPaymentModal({ type: initialType = "inflow", invoi
   const openInvoices = useMemo(() => {
     if (pinned || isPayout) return []
     return invoices
+      .filter((inv) => !companyId || !inv.companyId || inv.companyId === companyId)
       .map((inv) => ({ inv, balance: outstandingBalance(inv, others) }))
       .filter((r) => r.balance > 0 || r.inv.id === payment?.invoiceId)
       .sort((a, b) => (a.inv.number || "").localeCompare(b.inv.number || ""))
-  }, [invoices, others, pinned, isPayout, payment])
+  }, [invoices, others, pinned, isPayout, payment, companyId])
 
   const [invoiceId, setInvoiceId] = useState(invoice?.id || payment?.invoiceId || "")
   const linked = pinned ? invoice : openInvoices.find((r) => r.inv.id === invoiceId)?.inv || null
+  const company = linked?.companyId || companyId
+  // Which way the money went is judged against THIS company's name, UPI and accounts.
+  const settings = useSettings(company)
   const due = pinned ? balance : linked ? outstandingBalance(linked, others) : null
 
   const blank = editing
@@ -218,6 +227,7 @@ export default function RecordPaymentModal({ type: initialType = "inflow", invoi
         reference,
         note,
         party: partyName,
+        companyId: company,
         invoiceId: linked?.id,
         invoiceNumber: linked?.number,
         customer: linked?.customer,
@@ -278,6 +288,7 @@ export default function RecordPaymentModal({ type: initialType = "inflow", invoi
         {editing && payment.tally?.status === "synced" && (
           <Notice tone="danger">This payment is already in Tally. Change it in Tally too, or the books will not match.</Notice>
         )}
+        {!editing && !pinned && <CompanyField value={company} onChange={(id) => (setCompanyId(id), setInvoiceId(""))} />}
         <ScreenshotReader onRead={applyReading} onClear={clearReading} />
 
         {reading && <ReadingNotes reading={reading} amount={amt} onUseAlt={() => setAmount(reading.amountAlt)} />}

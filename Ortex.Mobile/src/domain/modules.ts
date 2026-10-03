@@ -27,6 +27,8 @@ export type Profile = {
    * on, and every Admin reaches it.
    */
   moduleControls?: Record<string, ModuleControl>
+  /** The companies this person works in (Admin migration 0075), their default first. Only a Super Admin changes it. */
+  companies?: string[]
   /** Modules the Super Admin hid from this person, whatever their role gives (migration 0055). */
   modules_hidden?: string[]
   /** The Owner (migration 0067): one Super Admin, permanent. Written only by the database. */
@@ -233,4 +235,81 @@ export const roleLabel = (who?: Profile | string | null) => {
   if (isOwner(who)) return "Super Admin · Owner"
   const role = roleOf(who)
   return role ? ROLE_LABEL[role] || role : ""
+}
+
+// ---- companies (Admin migrations 0075 and 0076) ----------------------------
+//
+// Enquiries (voice calls included), customers, quotations and payments belong
+// to ONE company each; the catalogue, staff, attendance, leave, pay and chat are
+// shared. The names are the console's (companiesOf, hasCompany), and the rule is
+// the database's has_company_access().
+
+/** A row of the `companies` table. `doc` holds that company's settings blocks. */
+export type Company = { id: string; name: string; active?: boolean; sort?: number; doc?: Record<string, unknown> }
+
+/** What lists show: one company's id, or "all" of the person's companies (admins with more than one). */
+export type CompanyChoice = string
+
+/** May this person read and write the company's records? has_company_access() in SQL. */
+export function hasCompany(profile: Profile | null | undefined, companyId: string | null | undefined): boolean {
+  if (!profile || profile.active === false || !companyId) return false
+  if (isSuperAdmin(profile)) return true
+  return (profile.companies || []).includes(companyId)
+}
+
+/**
+ * The companies this person works in, their default first. A Super Admin works
+ * in every company that is switched on, in the table's order. `companies` is the
+ * table as RLS lets this person read it.
+ */
+export function companiesOf(profile: Profile | null | undefined, companies: Company[]): Company[] {
+  if (!profile || profile.active === false) return []
+  if (isSuperAdmin(profile)) return companies.filter((c) => c.active !== false)
+  return (profile.companies || [])
+    .map((id) => companies.find((c) => c.id === id))
+    .filter((c): c is Company => !!c)
+}
+
+/** The "All companies" view: admins who work in more than one company. */
+export const canSeeAllCompanies = (profile: Profile | null | undefined, mine: Company[]) =>
+  isAdmin(profile) && mine.length > 1
+
+/** A saved choice if it still holds, else the person's first company; "" when there are none (before 0075). */
+export function pickCompany(
+  saved: string | null | undefined,
+  profile: Profile | null | undefined,
+  mine: Company[],
+): CompanyChoice {
+  if (saved === "all" && canSeeAllCompanies(profile, mine)) return "all"
+  if (saved && saved !== "all" && mine.some((c) => c.id === saved)) return saved
+  return mine[0]?.id ?? ""
+}
+
+/**
+ * The company ids a list keeps, or null for "keep everything": a database with
+ * no companies yet (before 0075) behaves exactly as it always did.
+ */
+export function companyScope(choice: CompanyChoice, mine: Company[]): string[] | null {
+  if (!mine.length || !choice) return null
+  return choice === "all" ? mine.map((c) => c.id) : [choice]
+}
+
+/** The rows of the companies in `scope`; with no scope, every row. */
+export function inCompanies<T>(rows: T[], scope: string[] | null): T[] {
+  if (!scope) return rows
+  return rows.filter((r) => {
+    const id = (r as { companyId?: unknown }).companyId
+    return typeof id === "string" && scope.includes(id)
+  })
+}
+
+/**
+ * The company_id a new record is written with. Undefined when the database has
+ * no companies yet (its default then applies, as before 0075); otherwise a real
+ * company is required.
+ */
+export function companyForCreate(companyId: unknown, companiesOn: boolean): string | undefined {
+  if (!companiesOn) return undefined
+  if (typeof companyId !== "string" || !companyId || companyId === "all") throw new Error("Choose a company")
+  return companyId
 }

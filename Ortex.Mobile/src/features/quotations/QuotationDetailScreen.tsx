@@ -8,6 +8,7 @@ import { daysUntil, formatCurrency, formatDate } from "@/domain/format"
 import { stateLabel } from "@/domain/gstStates"
 import { LOST_REASONS, QUOTATION_STATUS, statusMeta, type Quotation } from "@/domain/schema"
 import { useSettings } from "@/hooks/useSettings"
+import CompanyChip from "@/ui/CompanyChip"
 import { callNumber, prettyPhone, whatsapp } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
 import {
@@ -69,7 +70,6 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
   const t = useTheme()
   const insets = useSafeAreaInsets()
   const toast = useToast()
-  const { settings } = useSettings()
   // Deleting is ADMIN ONLY, and the DATABASE enforces it:
   // Ortex.Admin/supabase/migrations/0022_admin_only_quotation_delete.sql splits
   // 0007's `staff_quotations` `for all` policy into read/insert/update on
@@ -81,6 +81,10 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
   const canDelete = isAdmin(profile)
   const [doc, setDoc] = React.useState<Quotation | null>(null)
   const [loading, setLoading] = React.useState(true)
+  // The quotation's own company prints on it (Admin migration 0075): its GSTIN,
+  // address, bank and wording, whatever company the lists are showing. The page
+  // waits for them so a PDF never goes out on another company's details.
+  const { settings, loading: settingsLoading } = useSettings(doc?.companyId)
   const [statusOpen, setStatusOpen] = React.useState(false)
   const [lostOpen, setLostOpen] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
@@ -192,7 +196,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
 
   // The bar loader, not a skeleton (the owner's call, 2026-09-13). The back arrow
   // stays live above it so a slow load never strands anyone on this page.
-  if (loading) {
+  if (loading || (doc && settingsLoading)) {
     return (
       <View style={[styles.root, { backgroundColor: t.surface }]}>
         <View style={[styles.head, { paddingTop: insets.top, height: insets.top + sizes.appBar }]}>
@@ -279,6 +283,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
           <Text style={[styles.eyebrow, { color: t.textTertiary }]}>
             {doc.number} · Issued {formatDate(doc.issueDate)}
           </Text>
+          <CompanyChip companyId={doc.companyId} style={styles.companyChip} />
           <Text style={[styles.who, { color: t.text }]}>{who}</Text>
           {!!(doc.customer?.company && doc.customer?.name) && (
             <Text style={[styles.whoSub, { color: t.textSecondary }]}>{doc.customer.name}</Text>
@@ -700,6 +705,7 @@ const RULE = StyleSheet.hairlineWidth
 
 
 const styles = StyleSheet.create({
+  companyChip: { marginTop: 6 },
   root: { flex: 1 },
   centre: { alignItems: "center", justifyContent: "center" },
 

@@ -8,7 +8,8 @@
 // other rows' ids, exactly as they did in localStore.
 
 import { supabase } from "./supabaseClient"
-import { mergeSettings } from "../domain/settingsDefaults"
+import { mergeSettings, settingsFor } from "../domain/settingsDefaults"
+import { companyIdForCreate } from "./company"
 
 const SETTINGS_ROW_ID = true // single-row settings table (id boolean primary key)
 
@@ -17,10 +18,12 @@ const SETTINGS_ROW_ID = true // single-row settings table (id boolean primary ke
 // trigger), so they ride alongside the timestamps and are never part of `doc`.
 function fromRow(row) {
   if (!row) return null
-  const { id, doc, created_at, updated_at, created_by, updated_by } = row
+  const { id, doc, created_at, updated_at, created_by, updated_by, company_id } = row
   return {
     ...doc,
     id,
+    // The six company tables (0075) carry company_id as a column, never in doc.
+    ...(company_id !== undefined ? { companyId: company_id } : {}),
     createdAt: created_at,
     updatedAt: updated_at,
     createdBy: created_by ?? null,
@@ -35,11 +38,11 @@ function fromRow(row) {
 function toDoc(data) {
   const {
     id, createdAt, updatedAt, created_at, updated_at,
-    createdBy, updatedBy, created_by, updated_by,
+    createdBy, updatedBy, created_by, updated_by, companyId, company_id,
     ...doc
   } = data || {}
   void id; void createdAt; void updatedAt; void created_at; void updated_at
-  void createdBy; void updatedBy; void created_by; void updated_by
+  void createdBy; void updatedBy; void created_by; void updated_by; void companyId; void company_id
   return doc
 }
 
@@ -144,6 +147,9 @@ export const apiStore = {
   async create(name, data) {
     const row = { doc: toDoc(data) }
     if (isUuid(data?.id)) row.id = data.id // preserve a caller-supplied uuid
+    // data.companyId (an undo keeps the original) else the current company.
+    const companyId = companyIdForCreate(name, data)
+    if (companyId) row.company_id = companyId
     const { data: created, error } = await supabase.from(name).insert(row).select("*").single()
     if (error) throw error
     return fromRow(created)
@@ -151,11 +157,15 @@ export const apiStore = {
 
   async bulkCreate(name, items) {
     // An import may carry the date the record really began (createdAt), as localStore keeps it.
-    const rows = items.map((d) => ({
-      ...(isUuid(d?.id) ? { id: d.id } : {}),
-      ...(d?.createdAt ? { created_at: d.createdAt } : {}),
-      doc: toDoc(d),
-    }))
+    const rows = items.map((d) => {
+      const companyId = companyIdForCreate(name, d)
+      return {
+        ...(isUuid(d?.id) ? { id: d.id } : {}),
+        ...(d?.createdAt ? { created_at: d.createdAt } : {}),
+        ...(companyId ? { company_id: companyId } : {}),
+        doc: toDoc(d),
+      }
+    })
     const { data, error } = await supabase.from(name).insert(rows).select("*")
     if (error) throw error
     return data.map(fromRow)
@@ -165,6 +175,7 @@ export const apiStore = {
   async update(name, id, patch) {
     const existing = await this.get(name, id)
     if (!existing) return null
+    // Never company_id: only a create stamps it (both clients).
     const { data, error } = await supabase
       .from(name)
       .update({ doc: { ...toDoc(existing), ...toDoc(patch) } })
@@ -245,7 +256,18 @@ export const apiStore = {
   // company, tax, numbering and quotation blocks only), as the phone does. An
   // empty read from both is an ERROR: merged over the defaults it once printed
   // the placeholder GSTIN on real invoices.
-  async getSettings() {
+  // With a company (0075): settingsFor(global, that company's doc), the shape
+  // every document reads. Without: the global settings, as before.
+  async getSettings(companyId) {
+    const global = await this.getGlobalSettings()
+    if (!companyId) return global
+    const { data, error } = await supabase.from("companies").select("doc").eq("id", companyId).maybeSingle()
+    // Before 0075 (no table) or a company this person cannot read: the global blocks.
+    if (error || !data) return global
+    return settingsFor(global, data.doc)
+  },
+
+  async getGlobalSettings() {
     let { data, error } = await supabase.from("settings").select("doc").eq("id", SETTINGS_ROW_ID).maybeSingle()
     if (error) throw error
     if (!data?.doc) {
@@ -271,8 +293,31 @@ export const apiStore = {
   },
 
   // Atomic server-side counter, delegates to the next_sequence() SQL function.
-  async nextSequence(series) {
-    const { data, error } = await supabase.rpc("next_sequence", { p_series: series })
+  // With a company (0075): that company's own series; without, the caller's default company.
+  async nextSequence(series, companyId) {
+    const args = companyId ? { p_series: series, p_company: companyId } : { p_series: series }
+    const { data, error } = await supabase.rpc("next_sequence", args)
+    if (error) throw error
+    return data
+  },
+
+  // The companies this person may read (0075), in the table's order. [] before 0075.
+  async listCompanies() {
+    const { data, error } = await supabase.from("companies").select("*").order("sort").order("id")
+    if (error) {
+      if (isMissingRelation(error)) return []
+      throw error
+    }
+    return data || []
+  },
+
+  // Super Admin only (RLS). { id, name, doc, active, sort }.
+  async saveCompany({ id, name, doc, active, sort }) {
+    const { data, error } = await supabase
+      .from("companies")
+      .upsert({ id, name, doc: doc || {}, active: active !== false, sort: sort ?? 0 }, { onConflict: "id" })
+      .select("*")
+      .single()
     if (error) throw error
     return data
   },
@@ -294,6 +339,7 @@ export const apiStore = {
     const out = {}
     for (const t of tables) out[t] = await this.list(t)
     out.settings = await this.getSettings()
+    out.companies = await this.listCompanies()
     return out
   },
 }

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest"
 import { readFileSync } from "node:fs"
 import { round2 } from "./format"
 import {
-  decodeXmlBytes, cleanXml, parseXml, tallyNumber, tallyDate, financialYear,
+  decodeXmlBytes, xmlCompanyName, cleanXml, parseXml, tallyNumber, tallyDate, financialYear,
   parseTallyFiles, planTallyImport, countByStatus, invoiceDoc,
 } from "./tallyImport"
 
@@ -620,5 +620,12 @@ describe("problem messages (fix 9)", () => {
   it("a sales voucher with no party says so", () => {
     const plan = planTallyImport(one(vch("Sales", "s-x", { body: entry("Sales", "100.00") })), none(), { syncedAt: SYNCED })
     expect(plan.invoices[0]).toMatchObject({ status: "problem", reason: "No customer: the voucher names no party and has no debit line" })
+  })
+})
+
+describe("xmlCompanyName", () => {
+  it("reads the company the export came from", () => {
+    expect(xmlCompanyName("<ENVELOPE><STATICVARIABLES><SVCURRENTCOMPANY>Aman &amp; Co</SVCURRENTCOMPANY></STATICVARIABLES></ENVELOPE>")).toBe("Aman & Co")
+    expect(xmlCompanyName("<ENVELOPE/>")).toBe("")
   })
 })

@@ -105,6 +105,7 @@ export function useLeadActions({ products = [], staff = [], me = "" } = {}) {
       state: {
         fromEnquiry: {
           id: e.id,
+          companyId: e.companyId,
           customer: e.customer,
           message: e.reference || "",
           lines: e.rfqItems?.length ? rfqToQuotationLines(e.rfqItems, products) : [],

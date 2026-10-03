@@ -10,6 +10,9 @@
 // An edit writes only the fields that changed (paymentPatch), as the console's
 // RecordPaymentModal does, and keeps the number. The database refuses a change
 // to a payment already in Tally from anyone but the Super Admin (0066).
+//
+// A payment belongs to one company (Admin migration 0075) and takes its number
+// from that company's own series. An edit never moves it.
 
 import { repo } from "@/data/repo"
 import { documentNumber } from "@/domain/id"
@@ -24,15 +27,16 @@ import {
 } from "@/features/payments/payments"
 
 /** Save to the live ledger. Midday IST keeps the day the same in every time zone. */
-export async function recordPayment(d: PaymentDraft, settings: Settings): Promise<Payment> {
+export async function recordPayment(d: PaymentDraft, settings: Settings, companyId?: string): Promise<Payment> {
   // Refused here too, before a number is taken: the database refuses it anyway.
   const blocker = paymentBlocker(d)
   if (blocker) throw new Error(blocker)
-  const seq = await repo.nextSequence("payment")
+  const seq = await repo.nextSequence("payment", companyId)
   // The company's own prefix; "PAY" only when it left the field blank. The
   // caller must pass the settings actually read, never DEFAULT_SETTINGS.
   const prefix = String(settings.numbering?.paymentPrefix ?? "").trim() || "PAY"
   return repo.create<Payment>("payments", {
+    companyId,
     number: documentNumber(prefix, seq),
     type: d.type,
     amount: amountOf(d.amount),

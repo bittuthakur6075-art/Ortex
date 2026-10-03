@@ -17,7 +17,8 @@ import { ROW_LINK, monthWords, rowOpens, rupees } from "./payroll/run/shared"
 
 export default function MyPayslips() {
   const profile = useProfile()
-  const company = useSettings()?.company
+  // Payslips carry Ortex's details whatever company is in view (owner's decision, 0075).
+  const company = useSettings("ortex")?.company
   const [state, setState] = useState({ loading: true, slips: [] })
   const [fy, setFy] = useState(null)
   const [open, setOpen] = useState(null)

@@ -34,6 +34,8 @@ import { biometricAvailable } from "@/features/auth/useAppLock"
 import ProfileMe from "@/features/profile/ProfileMe"
 import Icon from "@/ui/Icon"
 import { Card, CardRow, CardRows, ONE_UI, SubHeader, Tag } from "@/ui/OneUi"
+import { CompanyRow } from "@/features/company/CompanySwitcher"
+import { useCompany } from "@/store/CompanyContext"
 import { SquircleBackground } from "@/ui/Squircle"
 import { MAX_AVATAR_MB, base64Bytes, removeAvatar, uploadAvatar } from "@/lib/avatarUpload"
 import { feedback } from "@/lib/feedback"
@@ -66,6 +68,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
   const t = theme.colors
   const toast = useToast()
   const { profile, session, biometricEnabled, setBiometricEnabled, refreshProfile, signOut } = useAuth()
+  const multiCompany = useCompany().multi
   const { prefs: notificationPrefs } = useNotificationStore()
   const { defaults: quoteDefaults } = useQuotationDefaults()
 
@@ -257,6 +260,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
               subtitle={admin ? "Who can sign in, and what they reach" : "What your role lets you open"}
               onPress={() => navigation.navigate("Team")}
             />
+            {multiCompany ? <CompanyRow /> : null}
           </CardRows>
         </Card>
 

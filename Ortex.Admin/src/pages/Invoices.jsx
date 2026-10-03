@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { ReceiptIndianRupee, Plus, Search } from "../components/ui/Icons"
-import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
+import { useCollection, useSettingsFor, useSorting } from "../hooks/useCollection"
+import { useCompany } from "../hooks/useCompany"
 import DocumentView from "../components/documents/DocumentView"
 import { Button, ExportButton, EmptyState, PageLoader } from "../components/ui/Ui"
 import { emptyDraft, exportInvoicesCsv } from "./invoices/helpers"
@@ -19,7 +20,10 @@ export default function Invoices() {
   const { items: products } = useCollection("products")
   const { items: customers } = useCollection("customers")
   const { items: readPayments } = useCollection("payments")
-  const settings = useSettings()
+  const settingsOf = useSettingsFor()
+  const { defaultCompany } = useCompany()
+  const settings = settingsOf?.(defaultCompany) ?? null
+  const blank = () => emptyDraft(settings, defaultCompany)
   const profile = useProfile()
   // Without the payments module RLS returns none: use each invoice's stored amountPaid.
   const canPay = canAccess(profile, "payments")
@@ -37,9 +41,9 @@ export default function Invoices() {
   // tax defaults) are in.
   useEffect(() => {
     if (!location.state?.create || !settings) return
-    setEditing(emptyDraft(settings))
+    setEditing(emptyDraft(settings, defaultCompany))
     navigate(location.pathname + location.search, { replace: true })
-  }, [location.state, settings, navigate, location.pathname, location.search])
+  }, [location.state, settings, defaultCompany, navigate, location.pathname, location.search])
 
   // Arriving from a customer / product link that names an invoice to open.
   useEffect(() => {
@@ -70,11 +74,11 @@ export default function Invoices() {
           customers={customers}
           payments={payments}
           canPay={canPay}
-          settings={settings}
+          settingsOf={settingsOf}
           onClose={() => setEditing(null)}
           onPreview={(inv) => setPreview(inv)}
         />
-        <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settings} type="invoice" />
+        <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settingsOf(preview?.companyId)} type="invoice" />
       </div>
     )
   }
@@ -97,7 +101,7 @@ export default function Invoices() {
           title="No invoices yet"
           description="Generate an invoice from an accepted quotation, or create one directly."
           action={
-            <Button onClick={() => setEditing(emptyDraft(settings))}>
+            <Button onClick={() => setEditing(blank())}>
               <Plus className="h-4 w-4" /> New invoice
             </Button>
           }
@@ -112,13 +116,11 @@ export default function Invoices() {
           onEdit={setEditing}
           onPreview={setPreview}
           title="Invoices"
-          action={<Button onClick={() => setEditing(emptyDraft(settings))}>New invoice</Button>}
+          action={<Button onClick={() => setEditing(blank())}>New invoice</Button>}
         />
       )}
 
-
-
-      <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settings} type="invoice" />
+      <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settingsOf(preview?.companyId)} type="invoice" />
     </div>
   )
 }

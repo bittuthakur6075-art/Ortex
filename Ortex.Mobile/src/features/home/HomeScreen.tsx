@@ -20,6 +20,7 @@ import { useIsDark, useTheme } from "@/store/ThemeContext"
 import { gutter } from "@/theme/tokens"
 import { fontFamily } from "@/theme/typography"
 import AppScreen from "@/ui/AppScreen"
+import { CompanyBarButton } from "@/features/company/CompanySwitcher"
 import DataNotice from "@/ui/DataNotice"
 import IconButton from "@/ui/IconButton"
 import ListRefreshControl from "@/ui/ListRefreshControl"
@@ -214,6 +215,7 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
           headerLeft={<ProfileAvatarButton />}
           headerRight={
             <>
+              <CompanyBarButton />
               <IconButton
                 name="search"
                 onPress={() => navigation.navigate("Search")}

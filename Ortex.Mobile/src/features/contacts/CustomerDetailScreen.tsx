@@ -19,6 +19,7 @@ import { border, gutter, radius, size as sizes, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
 import { Avatar, Button, Card, Divider, Icon, IconButton, RecordActivityPanel, DetailSkeleton, StatusBadge, useToast } from "@/ui"
 import ActionButton from "@/ui/ActionButton"
+import CompanyChip from "@/ui/CompanyChip"
 import type { IconName } from "@/ui/Icon"
 
 /**
@@ -56,36 +57,42 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
   const insets = useSafeAreaInsets()
   const toast = useToast()
   const favourites = useFavourites()
-  const { items: customers, loading } = useCollection<CustomerRow>("customers")
-  const { items: quotations } = useCollection<Quotation>("quotations")
-  const { items: enquiries } = useCollection<Enquiry>("enquiries")
+  const { items: customers, loading } = useCollection<CustomerRow>("customers", { everyCompany: true })
+  const { items: quotations } = useCollection<Quotation>("quotations", { everyCompany: true })
+  const { items: enquiries } = useCollection<Enquiry>("enquiries", { everyCompany: true })
   const scrollY = React.useRef(new Animated.Value(0)).current
   const [editing, setEditing] = React.useState(false)
   const [allQuotes, setAllQuotes] = React.useState(false)
 
   const customer = customers.find((c) => c.id === route.params.id)
+  // A customer belongs to one company (Admin migration 0076): the same person
+  // with another company is another record, with its own history.
+  const ofCompany = React.useCallback(
+    (r: { companyId?: string }) => !customer?.companyId || r.companyId === customer.companyId,
+    [customer],
+  )
 
   // A quotation snapshots the customer rather than referencing the master row,
   // so history is matched by the console's `sameCustomer`: email first, then
   // national phone digits. Never by name. Newest first.
   const theirQuotes = React.useMemo(
-    () => (customer ? quotations.filter((q) => sameCustomer(customer, q.customer)).sort((a, b) => when(b) - when(a)) : []),
-    [quotations, customer],
+    () => (customer ? quotations.filter((q) => ofCompany(q) && sameCustomer(customer, q.customer)).sort((a, b) => when(b) - when(a)) : []),
+    [quotations, customer, ofCompany],
   )
   const theirEnquiries = React.useMemo(
     () =>
       customer
         ? enquiries
-            .filter((e) => e.source !== VOICE_SOURCE && sameCustomer(customer, e.customer))
+            .filter((e) => e.source !== VOICE_SOURCE && ofCompany(e) && sameCustomer(customer, e.customer))
             .sort((a, b) => when(b) - when(a))
         : [],
-    [enquiries, customer],
+    [enquiries, customer, ofCompany],
   )
   // Voice calls are folded per conversation, as on the Leads tab, so one call
   // with three captures is one row that opens the call.
   const theirCalls = React.useMemo(
-    () => (customer ? voiceCallsFrom(enquiries).filter((c) => sameCustomer(customer, c.customer)) : []),
-    [enquiries, customer],
+    () => (customer ? voiceCallsFrom(enquiries.filter(ofCompany)).filter((c) => sameCustomer(customer, c.customer)) : []),
+    [enquiries, customer, ofCompany],
   )
 
   if (!customer && loading) {
@@ -209,6 +216,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
                 <Text style={[styles.placeText, { color: t.textSecondary }]}>{where}</Text>
               </View>
             )}
+            <CompanyChip companyId={customer.companyId} style={styles.companyChip} />
           </View>
         </Panel>
 
@@ -243,7 +251,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
               tone="primary"
               onPress={() => {
                 feedback.tap()
-                navigation.navigate("QuotationEditor", { prefill: { customer } })
+                navigation.navigate("QuotationEditor", { prefill: { customer, companyId: customer.companyId } })
               }}
             />
           </View>
@@ -532,6 +540,7 @@ const styles = StyleSheet.create({
   content: { paddingTop: 0 },
   band: { height: 2 },
 
+  companyChip: { alignSelf: "center", marginTop: spacing.sm },
   identity: {
     alignItems: "center",
     paddingTop: spacing.md,

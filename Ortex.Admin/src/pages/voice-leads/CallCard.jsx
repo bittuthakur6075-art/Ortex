@@ -4,6 +4,7 @@ import { ENQUIRY_STATUS } from "../../data/domain/schema"
 import { relativeTime, formatDateTime } from "../../lib/format"
 import { cn } from "../../lib/cn"
 import CallBadges from "./CallBadges"
+import { CompanyChip } from "../../components/ui/CompanyChip"
 import ContactRow from "./ContactRow"
 import Detail from "./Detail"
 import ItemsList from "./ItemsList"
@@ -29,6 +30,7 @@ export default function CallCard({ call, onOpen }) {
               {call.name}
             </span>
             <StatusBadge list={ENQUIRY_STATUS} status={call.status} />
+            <CompanyChip companyId={call.rows?.[0]?.companyId} />
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
             <CallBadges call={call} flags={f} />

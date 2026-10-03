@@ -50,7 +50,13 @@ export default function CustomerEditSheet({
   // The master list, for the duplicate check — the same one ContactEditorScreen
   // runs. Editing a phone number into another contact's number is exactly how a
   // duplicate gets made, and this sheet is where numbers actually get corrected.
-  const { items: customers } = useCollection<CustomerRow>("customers")
+  // Within the customer's own company (Admin migration 0076): the same number at
+  // another company is another company's customer, not a duplicate.
+  const { items: everyCustomer } = useCollection<CustomerRow>("customers", { everyCompany: true })
+  const customers = React.useMemo(
+    () => everyCustomer.filter((c) => !customer.companyId || c.companyId === customer.companyId),
+    [everyCustomer, customer.companyId],
+  )
 
   // Reopening on a different contact — or after someone else edited this one —
   // has to start from the row as it now stands, not the last draft in memory.

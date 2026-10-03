@@ -4,7 +4,7 @@ import { Animated, AppState } from "react-native"
 import type { WebViewMessageEvent } from "react-native-webview"
 
 import { getCollectionSnapshot, loadCollection } from "@/data/collectionStore"
-import { repo, type Collection } from "@/data/repo"
+import { isCompanyTable, repo, type Collection } from "@/data/repo"
 import { supabase } from "@/data/supabase"
 import {
   briefing,
@@ -41,6 +41,7 @@ import { canAccess, type Profile } from "@/domain/modules"
 import { ENQUIRY_STATUS, newCustomer } from "@/domain/schema"
 import { VOICE_SOURCE, voiceCallsFrom } from "@/domain/voice"
 import { staffInstruction } from "@/features/anu/prompt"
+import { companyNote, companyNow, inCurrentCompanies } from "@/store/CompanyContext"
 import { ANU_TOOLS } from "@/features/anu/tools"
 import type { RootStackParamList } from "@/navigation/types"
 
@@ -98,7 +99,10 @@ async function read<T>(name: Collection): Promise<{ items: T[]; stale: boolean }
   } catch {
     stale = true // the snapshot still holds the cached copy, which is better than nothing
   }
-  return { items: getCollectionSnapshot<T>(name).items, stale }
+  // Company records of the company being worked in, or all of the person's in
+  // the All companies view (Admin migration 0075).
+  const items = getCollectionSnapshot<T>(name).items
+  return { items: isCompanyTable(name) ? inCurrentCompanies(items) : items, stale }
 }
 
 /** A short-lived Live token from the staff-only function. A 429 says why when its body can. */
@@ -371,7 +375,9 @@ export function useAnuSession(profile: Profile | null) {
             })
           : newCustomer({ name: String(args.customer_name || "") })
         const { lines, unmatched } = draftLines(products, (args.items as { product: string; quantity?: string }[]) || [])
-        setPending({ name: "QuotationEditor", params: { prefill: { customer, lines, notes: "" } } })
+        // The picked customer's company, else the one being worked in.
+        const companyId = (picked as { companyId?: string } | null)?.companyId || companyNow().defaultCompany || undefined
+        setPending({ name: "QuotationEditor", params: { prefill: { customer, lines, notes: "", companyId } } })
         return {
           response: {
           ok: true,
@@ -566,7 +572,7 @@ export function useAnuSession(profile: Profile | null) {
               // hi-IN, as on the website: the voice that carries Hinglish naturally.
               speechConfig: { languageCode: "hi-IN", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } },
             },
-            systemInstruction: { parts: [{ text: staffInstruction(profile) }] },
+            systemInstruction: { parts: [{ text: staffInstruction(profile, new Date(), companyNote()) }] },
             tools: ANU_TOOLS,
             realtimeInputConfig: { automaticActivityDetection: { silenceDurationMs: SILENCE_MS } },
             // A long call slides its oldest turns out instead of hitting the context limit.

@@ -21,8 +21,12 @@ const safe = (p, pick = (x) => x) =>
     .then((r) => (r?.missing ? null : pick(r)))
     .catch(() => null)
 
-async function recentActivity(limit) {
-  const { data, error } = await supabase.from("audit_log").select("*").order("at", { ascending: false }).limit(limit)
+// companies: the ids in view (0075), or null for everything. Shared records
+// (catalogue, people) have no company and always show.
+async function recentActivity(limit, companies) {
+  let q = supabase.from("audit_log").select("*").order("at", { ascending: false }).limit(limit)
+  if (companies?.length) q = q.or(`company_id.is.null,company_id.in.(${companies.join(",")})`)
+  const { data, error } = await q
   if (error) throw error
   return (data || []).map((r) => ({ id: r.id, collection: r.table_name, recordId: r.row_id, action: r.action, actor: r.actor, at: r.at, label: r.label || "" }))
 }
@@ -55,6 +59,7 @@ export async function loadExpectations(day) {
  *   payroll: is_payroll(),
  *   bot: read the team bot's runs (admins),
  *   locks: the payroll month lock (Super Admin),
+ *   companies: the company ids in view, or null (recent activity only),
  * }
  */
 export async function loadOps(access) {
@@ -74,7 +79,7 @@ export async function loadOps(access) {
     access.payroll ? safe(getPayrollSettings()) : null,
     access.bot ? safe(botRunsToday(today)) : null,
     access.locks ? safe(lockedMonths(), (r) => r.rows) : null,
-    safe(recentActivity(6)),
+    safe(recentActivity(6, access.companies)),
     access.attendance ? loadExpectations(today).catch(() => null) : null,
   ])
   return { today, yesterday, names: names || {}, punches, days, flagged, profiles, leave, leaveTypes: leaveTypes || {}, corrections, runs, payroll, bot, locks, activity, expect }

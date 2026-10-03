@@ -3,6 +3,7 @@ import { stateLabel } from "@/domain/gstStates"
 import type { Customer, Quotation } from "@/domain/schema"
 import type { Settings } from "@/domain/settings"
 import { DOCUMENT_FONT_WOFF2_BASE64 } from "@/documents/documentFont"
+import { companyMarkSvg } from "@/domain/companyMark"
 import { ORTEX_WORDMARK_DATA_URI } from "@/theme/logo"
 
 // The printable A4 quotation.
@@ -71,7 +72,24 @@ function bankBox(c: Settings["company"]): string {
   return `<div class="doc-bank"><h4>To Pay</h4><dl>${rows}</dl></div>`
 }
 
-export function quotationHtml(doc: Quotation, settings: Settings): string {
+/**
+ * The masthead mark of the company that issued it (Admin migration 0075): its
+ * uploaded logo, else Ortex's own wordmark for Ortex (and for a record from
+ * before companies), else a monogram in the company's colour
+ * (domain/companyMark.ts, the console's twin).
+ *
+ * `logo`: a data URI of the uploaded logo, embedded by lib/pdf.ts so expo-print
+ * never renders before a remote image arrives; null when it could not be
+ * fetched; undefined to use the URL as it is (the on-screen preview).
+ */
+export function mastheadLogo(doc: Quotation, c: Settings["company"], logo?: string | null): string {
+  const src = logo === undefined ? c.logoUrl : logo
+  if (src) return src
+  if (!doc.companyId || doc.companyId === "ortex") return ORTEX_WORDMARK_DATA_URI
+  return `data:image/svg+xml;utf8,${encodeURIComponent(companyMarkSvg(doc.companyId, c.name))}`
+}
+
+export function quotationHtml(doc: Quotation, settings: Settings, logo?: string | null): string {
   const c = settings.company
   const t = doc.totals || ({} as Quotation["totals"])
   const lines = doc.lines || []
@@ -205,7 +223,9 @@ export function quotationHtml(doc: Quotation, settings: Settings): string {
   /* Masthead: title bottom-aligned left, 24pt-high brand mark top-right. */
   .doc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24pt; }
   .doc-title { align-self: flex-end; font-size: 18pt; font-weight: 600; line-height: 1.2; text-transform: uppercase; }
-  .doc-logo { height: 24pt; width: auto; flex: none; }
+  .doc-brand { display: flex; align-items: center; gap: 8pt; flex: none; max-width: 60%; }
+  .doc-logo { height: 24pt; width: auto; max-width: 160pt; object-fit: contain; flex: none; }
+  .doc-brand-name { font-size: 11pt; font-weight: 600; line-height: 1.2; }
 
   /* Meta: 85pt label column, value takes the rest. */
   .doc-keys { margin-top: 17pt; display: grid; grid-template-columns: 85pt 1fr; font-size: 9pt; font-weight: 500; max-width: 340pt; }
@@ -262,7 +282,10 @@ export function quotationHtml(doc: Quotation, settings: Settings): string {
   <div class="doc-sheet">
     <div class="doc-head">
       <div class="doc-title">Quotation</div>
-      <img class="doc-logo" src="${ORTEX_WORDMARK_DATA_URI}" alt="${esc(c.name)}" />
+      <div class="doc-brand">
+        <img class="doc-logo" src="${mastheadLogo(doc, c, logo)}" alt="${esc(c.name)}" />
+        ${c.name ? `<div class="doc-brand-name">${esc(c.name)}</div>` : ""}
+      </div>
     </div>
 
     <div class="doc-keys">

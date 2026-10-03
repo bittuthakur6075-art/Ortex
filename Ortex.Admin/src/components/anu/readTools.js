@@ -1,4 +1,5 @@
 import { repo } from "../../data/store/repository"
+import { scopeRows } from "../../data/store/company"
 import {
   briefing, findCustomers, findEnquiries, findProducts, findQuotations, quotationDetail, salesSummary,
 } from "../../lib/anu"
@@ -27,7 +28,8 @@ export const accessFor = (canAccess, profile) => ({
 
 export const denied = (what) => ({ ok: false, error: `${what} is not in this person's access. Tell them the Super Admin can turn it on for them in Control centre, Modules & roles.` })
 
-const rows = (name) => repo.list(name)
+// Only the companies in view (0075), as the lists show.
+const rows = (name) => repo.list(name).then((r) => scopeRows(name, r))
 
 /**
  * Runs one read tool. Returns `{ response, results, stats }`: `response` goes

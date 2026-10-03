@@ -7,7 +7,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context"
 import { fontAssets } from "@/theme/typography"
 import UpdateGate from "@/features/update/UpdateGate"
 import RootNavigator from "@/navigation/RootNavigator"
-import { AuthProvider } from "@/store/AuthContext"
+import { AuthProvider, useAuth } from "@/store/AuthContext"
+import { CompanyProvider } from "@/store/CompanyContext"
 import { ThemeProvider, useIsDark, useTheme } from "@/store/ThemeContext"
 import { ToastProvider } from "@/ui"
 import ErrorBoundary from "@/ui/ErrorBoundary"
@@ -50,15 +51,27 @@ function Root() {
   )
 }
 
+// The company lists show, for the signed-in person (store/CompanyContext.tsx).
+function Companies({ children }: { children: React.ReactNode }) {
+  const { profile, session } = useAuth()
+  return (
+    <CompanyProvider profile={profile} userId={session?.user?.id}>
+      {children}
+    </CompanyProvider>
+  )
+}
+
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
           <AuthProvider>
-            <ToastProvider>
-              <Root />
-            </ToastProvider>
+            <Companies>
+              <ToastProvider>
+                <Root />
+              </ToastProvider>
+            </Companies>
           </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>

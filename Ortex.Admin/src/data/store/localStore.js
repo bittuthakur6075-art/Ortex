@@ -1,5 +1,6 @@
 import { uid } from "../../lib/id"
-import { DEFAULT_SETTINGS, mergeSettings } from "../domain/settingsDefaults"
+import { COMPANY_BLOCKS, DEFAULT_SETTINGS, mergeSettings, settingsFor } from "../domain/settingsDefaults"
+import { companyIdForCreate, isCompanyTable } from "./company"
 
 // LocalStore, the browser-backed implementation of the repository contract.
 //
@@ -41,6 +42,38 @@ function emit() {
 
 const nowIso = () => new Date().toISOString()
 
+const COMPANIES_KEY = "ortex_admin_companies"
+
+// Demo mode mirrors migration 0075: Ortex (seeded from the demo settings) and
+// two companies switched off. A demo row from before companies is Ortex's.
+function readCompanies() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(COMPANIES_KEY) || "null")
+    if (Array.isArray(raw) && raw.length) return raw
+  } catch {
+    // a broken copy is replaced by the seed below
+  }
+  let saved = null
+  try {
+    saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null")
+  } catch {
+    saved = null
+  }
+  const g = mergeSettings(saved)
+  const doc = Object.fromEntries(COMPANY_BLOCKS.map((k) => [k, g[k]]))
+  return [
+    { id: "ortex", name: g.company.name || "Ortex Industries", doc: { ...doc, tallyCompany: "Ortex Industries" }, active: true, sort: 0 },
+    { id: "aman", name: "Aman Enterprise", doc: { company: { name: "Aman Enterprise" } }, active: false, sort: 1 },
+    { id: "nidhi", name: "Nidhi Industries", doc: { company: { name: "Nidhi Industries" } }, active: false, sort: 2 },
+  ]
+}
+
+const withCompany = (name, r) => (isCompanyTable(name) && !r.companyId ? { ...r, companyId: "ortex" } : r)
+const stamp = (name, data) => {
+  const companyId = companyIdForCreate(name, data)
+  return companyId ? { companyId } : {}
+}
+
 export const localStore = {
   kind: "local",
 
@@ -57,7 +90,7 @@ export const localStore = {
   },
 
   async list(name, { limit = Infinity } = {}) {
-    const rows = readCollection(name)
+    const rows = readCollection(name).map((r) => withCompany(name, r))
     return limit === Infinity ? rows : rows.slice(0, limit)
   },
 
@@ -66,12 +99,13 @@ export const localStore = {
   },
 
   async get(name, id) {
-    return readCollection(name).find((r) => r.id === id) || null
+    const row = readCollection(name).find((r) => r.id === id)
+    return row ? withCompany(name, row) : null
   },
 
   async create(name, data) {
     const rows = readCollection(name)
-    const record = { ...data, id: data.id || uid(name.slice(0, 3)), createdAt: nowIso(), updatedAt: nowIso() }
+    const record = { ...data, ...stamp(name, data), id: data.id || uid(name.slice(0, 3)), createdAt: nowIso(), updatedAt: nowIso() }
     rows.push(record)
     writeCollection(name, rows)
     return record
@@ -81,6 +115,7 @@ export const localStore = {
     const rows = readCollection(name)
     const created = items.map((data) => ({
       ...data,
+      ...stamp(name, data),
       id: data.id || uid(name.slice(0, 3)),
       createdAt: data.createdAt || nowIso(),
       updatedAt: nowIso(),
@@ -93,7 +128,8 @@ export const localStore = {
     const rows = readCollection(name)
     const idx = rows.findIndex((r) => r.id === id)
     if (idx === -1) return null
-    rows[idx] = { ...rows[idx], ...patch, id, updatedAt: nowIso() }
+    // Never the company: only a create stamps it (as on Supabase).
+    rows[idx] = { ...rows[idx], ...patch, id, ...(rows[idx].companyId ? { companyId: rows[idx].companyId } : {}), updatedAt: nowIso() }
     writeCollection(name, rows)
     return rows[idx]
   },
@@ -119,7 +155,13 @@ export const localStore = {
     return {}
   },
 
-  async getSettings() {
+  async getSettings(companyId) {
+    const global = await this.getGlobalSettings()
+    const company = companyId && readCompanies().find((c) => c.id === companyId)
+    return company ? settingsFor(global, company.doc) : global
+  },
+
+  async getGlobalSettings() {
     try {
       // Deep-merge saved over defaults so new default keys appear for old data.
       return mergeSettings(JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null"))
@@ -135,9 +177,30 @@ export const localStore = {
   },
 
   // Atomically read + bump a numbering series, returning the value just used.
-  async nextSequence(series) {
-    const settings = await this.getSettings()
+  async listCompanies() {
+    return [...readCompanies()].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.id.localeCompare(b.id))
+  },
+
+  async saveCompany(company) {
+    const all = readCompanies()
+    const next = { ...all.find((c) => c.id === company.id), ...company, updated_at: nowIso() }
+    localStorage.setItem(COMPANIES_KEY, JSON.stringify([...all.filter((c) => c.id !== company.id), next]))
+    emit()
+    return next
+  },
+
+  // Ortex (and no company) counts in the demo settings, as before; another
+  // company in its own doc, as each company has its own series on Supabase.
+  async nextSequence(series, companyId) {
     const key = `${series}Seq`
+    if (companyId && companyId !== "ortex") {
+      const company = readCompanies().find((c) => c.id === companyId)
+      if (!company) throw new Error(`Unknown company "${companyId}".`)
+      const at = company.doc?.numbering?.[key] || 1
+      await this.saveCompany({ ...company, doc: { ...company.doc, numbering: { ...company.doc?.numbering, [key]: at + 1 } } })
+      return at
+    }
+    const settings = await this.getGlobalSettings()
     const current = settings.numbering[key] || 1
     await this.saveSettings({
       ...settings,
@@ -148,7 +211,7 @@ export const localStore = {
 
   async clearAll() {
     Object.keys(localStorage)
-      .filter((k) => k.startsWith(PREFIX) || k === SETTINGS_KEY)
+      .filter((k) => k.startsWith(PREFIX) || k === SETTINGS_KEY || k === COMPANIES_KEY)
       .forEach((k) => localStorage.removeItem(k))
     emit()
   },

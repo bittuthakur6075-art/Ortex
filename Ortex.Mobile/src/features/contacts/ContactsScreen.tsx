@@ -25,6 +25,7 @@ import { prettyPhone } from "@/lib/contact"
 import { setFavourites, useFavourites } from "@/lib/favourites"
 import { feedback } from "@/lib/feedback"
 import type { TabScreenProps } from "@/navigation/types"
+import { useCompany } from "@/store/CompanyContext"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, size as sizes, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
@@ -77,6 +78,9 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
   const { items: quotations } = useCollection<Quotation>("quotations")
   const { items: enquiries } = useCollection<Enquiry>("enquiries")
   const favourites = useFavourites()
+  // The All companies view names each customer's company where the row's quiet
+  // trailing note goes; the row height is fixed for the alphabet rail.
+  const companies = useCompany()
 
   const [query, setQuery] = React.useState("")
   const [sort, setSort] = React.useState<SortMode>("name")
@@ -329,7 +333,12 @@ export default function ContactsScreen({ navigation }: TabScreenProps<"Contacts"
                   phone: customer.phone,
                   favourite: favourites.has(customer.id),
                   tag: did?.open ? (did.open === 1 ? "Open quote" : `${did.open} open`) : undefined,
-                  meta: active === "recent" && did?.lastAt ? relativeTime(did.lastAt) : undefined,
+                  meta:
+                    active === "recent" && did?.lastAt
+                      ? relativeTime(did.lastAt)
+                      : companies.choice === "all"
+                      ? companies.nameOf(customer.companyId) || undefined
+                      : undefined,
                 }}
                 selecting={selecting}
                 selected={selected.has(customer.id)}

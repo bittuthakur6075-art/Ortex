@@ -7,7 +7,8 @@
 // Cross-references between records live inside `doc` and point at other rows'
 // ids, exactly as they do in the console.
 
-import { mergeSettings, type Settings } from "@/domain/settings"
+import { companyForCreate, type Company } from "@/domain/modules"
+import { mergeSettings, settingsFor, type Settings } from "@/domain/settings"
 import { cachedAt, readCache, writeCache } from "@/data/cache"
 import { supabase } from "@/data/supabase"
 
@@ -17,6 +18,8 @@ export type Collection = "products" | "categories" | "customers" | "enquiries" |
 
 type Row = {
   id: string
+  /** Admin migration 0075: enquiries, customers, quotations and payments (and the console's leads, invoices). */
+  company_id?: string
   doc: Record<string, unknown>
   created_at?: string
   updated_at?: string
@@ -45,10 +48,11 @@ export type StaffDirectory = Record<string, StaffMember>
 // either client sending anything.
 function fromRow<T>(row: Row | null): T | null {
   if (!row) return null
-  const { id, doc, created_at, updated_at, created_by, updated_by } = row
+  const { id, doc, created_at, updated_at, created_by, updated_by, company_id } = row
   return {
     ...doc,
     id,
+    ...(company_id ? { companyId: company_id } : {}),
     createdAt: created_at,
     updatedAt: updated_at,
     createdBy: created_by ?? null,
@@ -71,8 +75,12 @@ function toDoc(data: Record<string, unknown> | undefined | null): Record<string,
     updatedBy,
     created_by,
     updated_by,
+    companyId,
+    company_id,
     ...doc
   } = (data || {}) as Record<string, unknown>
+  void companyId
+  void company_id
   void id
   void createdAt
   void updatedAt
@@ -157,6 +165,24 @@ function listenerCount() {
   let n = 0
   listeners.forEach((set) => (n += set.size))
   return n
+}
+
+// The six company tables (Admin migration 0075); the phone reads four of them.
+const COMPANY_TABLES = new Set<Collection>(["customers", "enquiries", "quotations", "payments"])
+
+/** Does `name` belong to one company per row? */
+export const isCompanyTable = (name: Collection) => COMPANY_TABLES.has(name)
+
+// True once the `companies` table has been read with rows: the database has
+// 0075, so a new company record must say which company it belongs to. Before
+// that the phone writes exactly what it always did and the column is never sent.
+let companiesOn = false
+
+/** The company_id column for a new row of `name`, or nothing (not a company table, or no companies yet). */
+function companyColumn(name: Collection, data: Record<string, unknown>): { company_id?: string } {
+  if (!COMPANY_TABLES.has(name)) return {}
+  const id = companyForCreate(data.companyId, companiesOn)
+  return id ? { company_id: id } : {}
 }
 
 /** What `fetch` hands back: the rows plus where they came from. */
@@ -266,7 +292,7 @@ export const repo = {
   async create<T>(name: Collection, data: Record<string, unknown>): Promise<T> {
     const { data: created, error } = await supabase
       .from(name)
-      .insert({ doc: toDoc(data) })
+      .insert({ ...companyColumn(name, data), doc: toDoc(data) })
       .select("*")
       .single()
     if (error) throw error
@@ -276,13 +302,19 @@ export const repo = {
   // Mirrors the console apiStore.bulkCreate: an import may carry the date the
   // record really began (createdAt), which becomes the row created_at.
   async bulkCreate<T>(name: Collection, items: Record<string, unknown>[]): Promise<T[]> {
-    const rows = items.map((d) => ({ ...(d.createdAt ? { created_at: d.createdAt } : {}), doc: toDoc(d) }))
+    const rows = items.map((d) => ({
+      ...(d.createdAt ? { created_at: d.createdAt } : {}),
+      ...companyColumn(name, d),
+      doc: toDoc(d),
+    }))
     const { data, error } = await supabase.from(name).insert(rows).select("*")
     if (error) throw error
     return ((data || []) as Row[]).map((r) => fromRow<T>(r) as T)
   },
 
   // Top-level shallow merge, matching the console's {...existing, ...patch}.
+  // The company is never moved from the phone (zz_company_guard allows only the
+  // Super Admin, and only an unnumbered record), so company_id is not written.
   async update<T>(name: Collection, id: string, patch: Record<string, unknown>): Promise<T | null> {
     const existing = await this.get<Record<string, unknown>>(name, id)
     if (!existing) return null
@@ -414,7 +446,12 @@ export const repo = {
   // placeholder GSTIN and every quotation was taxed as if the company sat in
   // Delhi. An empty read is now an ERROR, so it falls to the cache or surfaces,
   // never to the demo company.
-  async getSettings(): Promise<Settings> {
+  //
+  // With a company (Admin migration 0075) that company's `companies.doc` blocks
+  // are laid over it by `settingsFor`, and the result is cached per company.
+  async getSettings(companyId?: string): Promise<Settings> {
+    const forCompany = companiesOn && !!companyId && companyId !== "all"
+    const key = forCompany ? `settings:${companyId}` : "settings"
     try {
       let { data, error } = await supabase.from("settings_staff").select("doc").maybeSingle()
       if (error && isMissingRelation(error)) {
@@ -424,21 +461,57 @@ export const repo = {
       if (error) throw error
       const doc = (data as { doc?: unknown } | null)?.doc
       if (!doc) throw new Error("Company settings are not readable by this account.")
-      const settings = mergeSettings(doc)
-      void writeCache("settings", settings)
+      let settings = mergeSettings(doc)
+      if (forCompany) {
+        const { data: row, error: rowError } = await supabase.from("companies").select("doc").eq("id", companyId).maybeSingle()
+        if (rowError) throw rowError
+        if (!row) throw new Error("This company's settings are not readable by this account.")
+        settings = settingsFor(doc, (row as { doc?: unknown }).doc)
+      }
+      void writeCache(key, settings)
       return settings
     } catch (error) {
-      const cached = await readCache<Settings>("settings")
-      if (cached) return mergeSettings(cached)
+      const cached = await readCache<Settings>(key)
+      if (cached) return forCompany ? cached : mergeSettings(cached)
       throw error
     }
+  },
+
+  // The companies this person may read (RLS: their own, or every one for a
+  // Super Admin), in the console's order. A database without 0075 answers with
+  // an empty list, and the phone works as one company, as it always did.
+  async listCompanies(): Promise<Company[]> {
+    let list: Company[]
+    try {
+      const { data, error } = await supabase.from("companies").select("id, name, doc, active, sort").order("sort").order("id")
+      if (error) {
+        if (isMissingRelation(error)) {
+          companiesOn = false
+          return []
+        }
+        throw error
+      }
+      list = (data || []) as Company[]
+      void writeCache("companies", list)
+    } catch (error) {
+      const cached = await readCache<Company[]>("companies")
+      if (!cached) throw error
+      list = cached
+    }
+    companiesOn = list.length > 0
+    return list
   },
 
   // Atomic server-side counter — delegates to the next_sequence() SQL function,
   // the same one the console uses, so a quotation raised on the phone can never
   // collide with one raised at a desk.
-  async nextSequence(series: string): Promise<number> {
-    const { data, error } = await supabase.rpc("next_sequence", { p_series: series })
+  //
+  // Each company numbers its own series (Admin migration 0075). Without a
+  // company, or before 0075, the one-argument form: the caller's default company.
+  async nextSequence(series: string, companyId?: string): Promise<number> {
+    const company = companyForCreate(companyId, companiesOn)
+    const args = company ? { p_series: series, p_company: company } : { p_series: series }
+    const { data, error } = await supabase.rpc("next_sequence", args)
     if (error) throw error
     return data as number
   },

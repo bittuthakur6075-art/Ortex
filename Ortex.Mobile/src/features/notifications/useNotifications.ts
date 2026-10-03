@@ -5,11 +5,12 @@ import {
   type AppNotification,
   type NotificationPrefs,
 } from "@/domain/notifications"
-import { canAccess } from "@/domain/modules"
+import { canAccess, companyScope } from "@/domain/modules"
 import type { Enquiry, Quotation } from "@/domain/schema"
 import { useCollection } from "@/hooks/useCollection"
 import { useNotificationStore } from "@/lib/notificationStore"
 import { useAuth } from "@/store/AuthContext"
+import { useCompany } from "@/store/CompanyContext"
 
 /**
  * The live feed, plus the unread split every caller needs.
@@ -66,8 +67,12 @@ function allowedPrefs(
 export function useNotifications(): NotificationFeed {
   const { profile } = useAuth()
   const { flags, prefs } = useNotificationStore()
-  const enquiries = useCollection<Enquiry>("enquiries")
-  const quotations = useCollection<Quotation>("quotations")
+  // Every company the person works in, whatever the lists show: a new lead at
+  // another of their companies still rings (Admin migration 0075).
+  const enquiries = useCollection<Enquiry>("enquiries", { everyCompany: true })
+  const quotations = useCollection<Quotation>("quotations", { everyCompany: true })
+  const company = useCompany()
+  const companies = React.useMemo(() => companyScope("all", company.companies), [company.companies])
 
   const effective = React.useMemo(() => allowedPrefs(prefs, profile), [prefs, profile])
   const now = useCoarseClock()
@@ -82,8 +87,9 @@ export function useNotifications(): NotificationFeed {
         quotations: quotations.items,
         prefs: effective,
         now,
+        companies,
       }),
-    [enquiries.items, quotations.items, effective, now],
+    [enquiries.items, quotations.items, effective, now, companies],
   )
 
   const isRead = React.useCallback((id: string) => Boolean(flags[id]?.read), [flags])

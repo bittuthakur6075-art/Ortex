@@ -20,6 +20,13 @@ export async function buildSheetPdf(el, fileStem) {
     boxShadow: el.style.boxShadow,
     borderRadius: el.style.borderRadius,
   }
+  // Every image (the company logo above all) must have loaded, or the capture
+  // prints an empty box.
+  await Promise.all(
+    [...el.querySelectorAll("img")].map((img) =>
+      img.complete ? null : new Promise((done) => (img.addEventListener("load", done, { once: true }), img.addEventListener("error", done, { once: true }))),
+    ),
+  )
   // A paper sheet: full A4, square corners, no on-screen shadow.
   Object.assign(el.style, { ...A4_SHEET, margin: "0", boxShadow: "none", borderRadius: "0" })
   try {

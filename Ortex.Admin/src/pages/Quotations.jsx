@@ -3,7 +3,9 @@ import { Link, useLocation, useNavigate } from "react-router-dom"
 import { ArrowLeft, FileText, Eye, FileCheck2, Trash2, AlertTriangle, Send, MessageCircle, Mail, Printer, MoreHorizontal, Clock, PhoneOutgoing, Calendar, Copy, CheckCircle2, ArrowRight } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
-import { useCollection, useSettings } from "../hooks/useCollection"
+import { useCollection, useSettingsFor } from "../hooks/useCollection"
+import { useCompany } from "../hooks/useCompany"
+import { CompanyField } from "../components/ui/CompanyChip"
 import { useProfile } from "../hooks/useProfile"
 import useQuotationDefaults from "../hooks/useQuotationDefaults"
 import { withDefaults } from "../lib/quotationDefaults"
@@ -32,8 +34,10 @@ import SendScreen from "./quotations/SendScreen"
 import { downloadPdf, duplicateDraft, extendValidity, setQuoteStatus, startWhatsAppShare } from "./quotations/actions"
 import { useConvertConfirm } from "./quotations/ConvertDialog"
 
-const emptyDraft = (settings) => ({
+const emptyDraft = (settings, companyId = "") => ({
   id: null,
+  // The company it is raised for (0075); "" in All mode until chosen. Fixed once created.
+  companyId,
   customer: newCustomer(),
   shipTo: null,
   lines: [newLine()],
@@ -62,13 +66,19 @@ export default function Quotations() {
   const { items: customers } = useCollection("customers")
   const { items: enquiries } = useCollection("enquiries")
   const { items: invoices } = useCollection("invoices")
-  const settings = useSettings()
+  const settingsOf = useSettingsFor()
+  const { defaultCompany } = useCompany()
+  // The list and a new draft use the company in view; a record, its own.
+  const settings = settingsOf?.(defaultCompany) ?? null
   const profile = useProfile()
   // The signed-in person's own payment terms / T&C / notes (Profile > Quotation
   // defaults), laid over the company's for a NEW quotation only. An existing
   // quotation always keeps the text it was saved with.
   const { defaults: quoteDefaults } = useQuotationDefaults(profile)
-  const newDraft = (patch = {}) => ({ ...withDefaults(emptyDraft(settings), quoteDefaults), ...patch })
+  const newDraft = (patch = {}) => {
+    const companyId = patch.companyId ?? defaultCompany
+    return { ...withDefaults(emptyDraft(settingsOf(companyId), companyId), quoteDefaults), ...patch }
+  }
   const location = useLocation()
   const navigate = useNavigate()
 
@@ -88,12 +98,14 @@ export default function Quotations() {
     // Wait for the profile too: it carries the quotation defaults to seed with.
     if (!settings || !profile) return
     const { fromEnquiry, fromLead, fromCustomer, openId, create, send } = location.state || {}
+    // A quotation from a lead or a customer belongs to THEIR company.
+    const fromCompany = location.state?.companyId || (fromEnquiry || fromLead)?.companyId
     if (create) {
       setEditing(newDraft())
       navigate(location.pathname, { replace: true })
     } else if (fromEnquiry || fromLead) {
       const src = fromEnquiry || fromLead
-      const base = newDraft()
+      const base = newDraft(fromCompany ? { companyId: fromCompany } : {})
       setEditing({
         ...base,
         customer: { ...newCustomer(), ...src.customer },
@@ -107,7 +119,7 @@ export default function Quotations() {
       })
       navigate(location.pathname, { replace: true })
     } else if (fromCustomer) {
-      setEditing(newDraft({ customer: { ...newCustomer(), ...fromCustomer } }))
+      setEditing(newDraft({ customer: { ...newCustomer(), ...fromCustomer }, ...(fromCompany ? { companyId: fromCompany } : {}) }))
       navigate(location.pathname, { replace: true })
     } else if (openId) {
       if (loading) return // wait for the collection, the effect re-runs when it lands
@@ -123,7 +135,7 @@ export default function Quotations() {
 
   if (!settings || !profile) return <PageLoader />
 
-  const sendScreen = sending && <SendScreen q={sending} settings={settings} onClose={() => setSendId(null)} onEdit={() => (setEditing({ ...sending }), setSendId(null))} />
+  const sendScreen = sending && <SendScreen q={sending} settings={settingsOf(sending.companyId)} onClose={() => setSendId(null)} onEdit={() => (setEditing({ ...sending }), setSendId(null))} />
 
   if (editing) {
     return (
@@ -136,14 +148,14 @@ export default function Quotations() {
           enquiries={enquiries}
           quotations={items}
           invoices={invoices}
-          settings={settings}
+          settingsOf={settingsOf}
           profile={profile}
           onClose={() => setEditing(null)}
           onOpen={(q) => setEditing(q)}
           onPreview={(q) => setPreview(q)}
           onSend={(q) => setSendId(q.id)}
         />
-        <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settings} type="quotation" />
+        <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settingsOf(preview?.companyId)} type="quotation" />
         {sendScreen}
       </div>
     )
@@ -154,7 +166,7 @@ export default function Quotations() {
       <QuotationList
         items={items}
         loading={loading}
-        settings={settings}
+        settingsOf={settingsOf}
         enquiries={enquiries}
         invoices={invoices}
         onOpen={(q) => setEditing(q.id ? { ...q } : newDraft(q))}
@@ -162,7 +174,7 @@ export default function Quotations() {
         onSend={(q) => setSendId(q.id)}
         onPreview={(q) => setPreview(q)}
       />
-      <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settings} type="quotation" onShareWhatsApp={(q) => startWhatsAppShare(q, settings)} />
+      <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settingsOf(preview?.companyId)} type="quotation" onShareWhatsApp={(q) => startWhatsAppShare(q, settingsOf(q.companyId))} />
       {sendScreen}
     </>
   )
@@ -187,7 +199,7 @@ const PICKABLE = QUOTATION_STATUS.filter((s) => !["expired", "invoiced"].include
 // left and sticky totals, send history, pre-send checks and the customer on the
 // right. Saving stays explicit (the sticky bar), because a quotation is a
 // document a customer receives, not a live record.
-function QuotationEditor({ draft, products, customers, enquiries, quotations, invoices, settings, profile, onClose, onOpen, onPreview, onSend }) {
+function QuotationEditor({ draft, products, customers: allCustomers, enquiries, quotations, invoices, settingsOf, profile, onClose, onOpen, onPreview, onSend }) {
   const isEdit = !!draft.id
   // Deleting a quotation is admin-only IN THE DATABASE as of migration 0022
   // (`admin_quotations_delete`). Without this check a Sales Executive still sees
@@ -285,6 +297,21 @@ function QuotationEditor({ draft, products, customers, enquiries, quotations, in
   }
   const [showLost, setShowLost] = useState(false)
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
+  // Everything company-specific (state for GST, terms, prefixes, the printed
+  // header) follows the company the quotation is for.
+  const settings = settingsOf(form.companyId)
+  const customers = useMemo(() => (form.companyId ? allCustomers.filter((m) => !m.companyId || m.companyId === form.companyId) : allCustomers), [allCustomers, form.companyId])
+  // A new quotation moved to another company takes that company's defaults,
+  // unless the text was already changed by hand.
+  const pickCompany = (companyId) => {
+    const next = settingsOf(companyId)
+    setForm((f) => ({
+      ...f,
+      companyId,
+      ...(f.terms === settings.quotation.terms ? { terms: next.quotation.terms } : {}),
+      ...(f.validityDays === settings.quotation.validityDays ? { validityDays: next.quotation.validityDays } : {}),
+    }))
+  }
   const interState = isInterState(settings.company.stateCode, form.shipTo?.stateCode || form.customer.stateCode)
   const supplyState = form.shipTo?.stateCode || form.customer.stateCode
   const status = isEdit ? quoteStatus(form) : form.status
@@ -312,7 +339,8 @@ function QuotationEditor({ draft, products, customers, enquiries, quotations, in
   }, [quotations, invoices, customers, form.customer])
 
   // Said beside the save button while it applies, not only as a toast after.
-  const blocker = saveBlocker(form)
+  const { on: companiesOn } = useCompany()
+  const blocker = saveBlocker(form) || (!isEdit && companiesOn && !form.companyId ? "Choose a company" : "")
 
   // Persist the form. Returns the saved quotation (or null on failure) and
   // never closes the editor; `save` below decides what happens next.
@@ -623,6 +651,7 @@ function QuotationEditor({ draft, products, customers, enquiries, quotations, in
             </Box>
           ) : (
             <>
+              <CompanyField value={form.companyId} onChange={pickCompany} disabled={isEdit} className={cn("rounded-card bg-card p-[18px]", isEdit && "hidden")} />
               <Box attached={isEdit} title="Customer and supply" action={<TextBtn onClick={() => toggle("customer")}>{open.customer ? "Done" : partyLabel ? "Change customer" : "Add customer"}</TextBtn>}>
                 {open.customer && (
                   <div className="mb-4">

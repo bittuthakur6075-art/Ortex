@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { Printer, X, CheckCircle2, Download } from "../ui/Icons"
 import { formatCurrency, formatDate, amountInWords } from "../../lib/format"
 import { buildSheetPdf } from "./documentPdf"
+import CompanyMark from "./CompanyMark"
 
 // Printable payment acknowledgement. Titles itself:
 //   • "Receipt Voucher": a payment recorded as an advance (`payment.advance`),
@@ -91,7 +92,8 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
         {/* Header */}
         <div className="flex items-start justify-between border-b-2 border-[#0b1220] pb-4">
           <div>
-            <img src="/logo.svg" alt={c.name} className="mb-2 h-10 w-auto" />
+            <CompanyMark companyId={payment?.companyId} company={c} className="mb-2 h-10 w-auto" />
+            {c.name && <div className="text-sm font-semibold">{c.name}</div>}
             <div className="mt-2 text-xs leading-relaxed text-[#4b5563]">
               {c.address}
               <br />

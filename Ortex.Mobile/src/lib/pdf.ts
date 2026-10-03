@@ -19,9 +19,41 @@ import { feedback } from "@/lib/feedback"
 // rather than the rasterised canvas the console produces with html2canvas.
 
 
+const LOGO_TYPES: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", svg: "image/svg+xml" }
+
+/**
+ * The company's uploaded logo (Admin migration 0075) as a data URI, so the PDF
+ * never renders before a remote image arrives. Kept in the cache directory
+ * under a name derived from the URL (a new upload is a new URL), so a
+ * quotation printed with no signal still carries the logo it had last time.
+ * Null when there is no logo or it cannot be had: the masthead then falls back
+ * (documents/quotationHtml.ts mastheadLogo).
+ */
+async function embeddedLogo(settings: Settings): Promise<string | null> {
+  const url = settings.company.logoUrl?.trim()
+  if (!url) return null
+  const ext = (url.split("?")[0].match(/\.([a-z0-9]+)$/i)?.[1] || "png").toLowerCase()
+  const type = LOGO_TYPES[ext]
+  if (!type) return null
+  let hash = 0
+  for (const ch of url) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0
+  try {
+    const file = new File(Paths.cache, `company-logo-${hash.toString(36)}.${ext}`)
+    if (!file.exists) await File.downloadFileAsync(url, file)
+    return `data:${type};base64,${await file.base64()}`
+  } catch {
+    return null
+  }
+}
+
+/** The quotation's HTML with its company's logo embedded. */
+async function documentHtml(doc: Quotation, settings: Settings): Promise<string> {
+  return quotationHtml(doc, settings, await embeddedLogo(settings))
+}
+
 async function renderPdf(doc: Quotation, settings: Settings): Promise<string> {
   const { uri } = await Print.printToFileAsync({
-    html: quotationHtml(doc, settings),
+    html: await documentHtml(doc, settings),
     width: A4.width,
     height: A4.height,
     base64: false,
@@ -170,5 +202,5 @@ export function sendQuotationMessage(phone: string, message: string): Promise<bo
 
 /** Hand the same document to the OS print dialog. */
 export async function printQuotation(doc: Quotation, settings: Settings): Promise<void> {
-  await Print.printAsync({ html: quotationHtml(doc, settings) })
+  await Print.printAsync({ html: await documentHtml(doc, settings) })
 }

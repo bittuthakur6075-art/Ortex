@@ -4,6 +4,7 @@ import { formatDate, formatCurrency } from "../../lib/format"
 import { isSettled, SETTLE_TOLERANCE } from "../../lib/invoiceMoney"
 import { Button, Card, CardHeader, StatusBadge, Money, SortTh } from "../../components/ui/Ui"
 import TallyBadge from "./TallyBadge"
+import { CompanyChip } from "../../components/ui/CompanyChip"
 
 // What the Balance column says: a draft or cancelled invoice asks for nothing
 // ("-"), an overpaid one is in credit, a settled one says so.
@@ -46,7 +47,9 @@ export default function InvoiceTable({ rows, sort, onSort, onEdit, onPreview, ti
                   onClick={open}
                   onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && open()}
                 >
-                  <td className="px-4 py-3 font-medium tabular text-foreground">{i.number}</td>
+                  <td className="px-4 py-3 font-medium tabular text-foreground">
+                    {i.number} <CompanyChip companyId={i.companyId} className="ml-1" />
+                  </td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-foreground">{i.customer?.company || i.customer?.name}</div>
                     <div className="text-xs text-muted-foreground">{i.customer?.name}</div>

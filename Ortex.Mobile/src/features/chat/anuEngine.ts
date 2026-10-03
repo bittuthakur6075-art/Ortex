@@ -11,7 +11,7 @@
 
 import { RELEASES } from "@/constants/whatsNew"
 import { getCollectionSnapshot, loadCollection } from "@/data/collectionStore"
-import type { Collection } from "@/data/repo"
+import { isCompanyTable, type Collection } from "@/data/repo"
 import {
   briefing,
   findCustomers,
@@ -45,6 +45,7 @@ import {
 } from "@/domain/anuReply"
 import { canAccess, type Profile } from "@/domain/modules"
 import { chat } from "@/lib/chat"
+import { companyNote, inCurrentCompanies } from "@/store/CompanyContext"
 
 export type AnuStat = { label: string; value: string }
 export type AnuAnswer = {
@@ -59,7 +60,24 @@ async function rows<T>(name: Collection): Promise<T[]> {
   } catch {
     /* the cached copy is better than nothing */
   }
-  return getCollectionSnapshot<T>(name).items
+  // Leads, quotations and customers of the company being worked in, or all of
+  // the person's in the All companies view (Admin migration 0075).
+  const items = getCollectionSnapshot<T>(name).items
+  return isCompanyTable(name) ? inCurrentCompanies(items) : items
+}
+
+// Answers read from company records say whose they are, for someone in more
+// than one company. The wording of the answer itself stays the console's.
+const COMPANY_INTENTS = new Set(["briefing", "sales_summary", "quotation", "enquiries", "customers", "search"])
+
+export async function answerAnu(text: string, profile: Profile | null, access: Access, now = Date.now()): Promise<AnuAnswer> {
+  const answer = await answerFromData(text, profile, access, now)
+  const note = companyNote()
+  const intent = parseIntent(text).intent
+  return note && COMPANY_INTENTS.has(intent) && answer.body !== NOT_ALLOWED
+    ? { ...answer, body: `${note}
+${answer.body}` }
+    : answer
 }
 
 // Phone help: what a rep does on THIS app, in its own words.
@@ -100,7 +118,7 @@ async function reportText(fn: () => Promise<string>): Promise<string> {
   }
 }
 
-export async function answerAnu(text: string, profile: Profile | null, access: Access, now = Date.now()): Promise<AnuAnswer> {
+async function answerFromData(text: string, profile: Profile | null, access: Access, now: number): Promise<AnuAnswer> {
   const it = parseIntent(text)
   const first = (profile?.name || "").trim().split(/\s+/)[0] || ""
   const denied = (what: string) => ({ ok: false, error: `${what} is not in your access. An admin can grant it in Users.` })

@@ -24,6 +24,8 @@ export type QuotationPrefill = {
   lines?: Line[]
   notes?: string
   enquiryId?: string
+  /** The company of the enquiry, call or customer it starts from (Admin migration 0075). */
+  companyId?: string
 }
 
 export type RootStackParamList = {

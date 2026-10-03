@@ -21,6 +21,7 @@ import {
   type QuotationDraft,
 } from "@/domain/quotations"
 import { newCustomer, type Line, type Quotation } from "@/domain/schema"
+import { DEFAULT_SETTINGS } from "@/domain/settings"
 import CustomerPickerSheet from "@/features/quotations/CustomerPickerSheet"
 import LineItemSheet from "@/features/quotations/LineItemSheet"
 import StatePickerSheet from "@/features/quotations/StatePickerSheet"
@@ -38,6 +39,7 @@ import { useFocusChain } from "@/features/contacts/useFocusChain"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
+import { useCompany } from "@/store/CompanyContext"
 import { useTheme } from "@/store/ThemeContext"
 import { border, gutter, radius, size as sizes, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
@@ -54,6 +56,7 @@ import {
   useToast,
 } from "@/ui"
 import ListTextField from "@/ui/ListTextField"
+import OptionSheet from "@/ui/OptionSheet"
 import KeyboardAwareScrollView from "@/ui/KeyboardAwareScrollView"
 import { SquircleBackground } from "@/ui/Squircle"
 
@@ -103,16 +106,23 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
   const t = useTheme()
   const insets = useSafeAreaInsets()
   const toast = useToast()
-  const { settings, loading: settingsLoading, error: settingsError } = useSettings()
+  const company = useCompany()
+  const editingId = route.params?.id
+  const prefill = route.params?.prefill
+  // The company it is raised for decides the numbering, GSTIN, home state and
+  // terms (Admin migration 0075): the enquiry's or customer's own, else the one
+  // being worked in; in All mode the rep picks it.
+  const [draft, setDraft] = React.useState<QuotationDraft>(() => ({
+    ...emptyDraft(DEFAULT_SETTINGS),
+    companyId: prefill?.companyId || company.defaultCompany,
+  }))
+  const { settings, loading: settingsLoading, error: settingsError } = useSettings(draft.companyId)
+  const [companyOpen, setCompanyOpen] = React.useState(false)
   const { profile } = useAuth()
   // The rep's own starting text (Profile > Quotation defaults), laid over the
   // company terms for a NEW quotation only; an edited one keeps its own text.
   const { defaults: quoteDefaults, loaded: defaultsLoaded } = useQuotationDefaults()
 
-  const editingId = route.params?.id
-  const prefill = route.params?.prefill
-
-  const [draft, setDraft] = React.useState<QuotationDraft>(() => emptyDraft(settings))
   const [seeded, setSeeded] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [customerOpen, setCustomerOpen] = React.useState(false)
@@ -165,6 +175,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
             // changes it in the field below.
             sellerName: existing.sellerName || "",
             showSeller: existing.showSeller !== false,
+            companyId: existing.companyId || "",
           })
         }
         setSeeded(true)
@@ -173,7 +184,11 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
 
       // A new quotation starts with the signed-in user's name as the seller,
       // editable like any other field (the console does the same).
-      const base = { ...withDefaults(emptyDraft(settings), quoteDefaults), sellerName: profile?.name?.trim() || "" }
+      const base = {
+        ...withDefaults(emptyDraft(settings), quoteDefaults),
+        sellerName: profile?.name?.trim() || "",
+        companyId: draft.companyId,
+      }
       if (prefill) {
         seed({
           ...base,
@@ -197,7 +212,23 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
     }
 
     void run()
+    // draft.companyId is read once, at seeding.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seeded, settingsLoading, settings, editingId, prefill, defaultsLoaded, quoteDefaults, profile])
+
+  // Another company picked on a new quotation: its validity and terms replace
+  // the last company's, unless the rep had already changed them.
+  const lastSettings = React.useRef(settings)
+  React.useEffect(() => {
+    const prev = lastSettings.current
+    lastSettings.current = settings
+    if (!seeded || editingId || prev === settings) return
+    setDraft((d) => ({
+      ...d,
+      terms: d.terms === prev.quotation.terms ? settings.quotation.terms : d.terms,
+      validityDays: d.validityDays === prev.quotation.validityDays ? settings.quotation.validityDays : d.validityDays,
+    }))
+  }, [settings, seeded, editingId])
 
   const dirty = seeded && !!original.current && JSON.stringify(draft) !== original.current
   // Only a new, unsaved quotation someone has touched is worth persisting locally.
@@ -227,10 +258,17 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
 
   const hasCustomer = !!(draft.customer.name.trim() || draft.customer.company.trim())
   const hasLines = draft.lines.length > 0
-  const canSave = hasCustomer && hasLines && !saving
+  const needsCompany = company.multi && !draft.companyId
+  const canSave = hasCustomer && hasLines && !needsCompany && !saving
   // Said in the footer, in place of the total, so the block is visible before the
   // button is ever pressed.
-  const blocker = !hasCustomer ? "Choose a customer" : !hasLines ? "Add at least one item" : null
+  const blocker = needsCompany
+    ? "Choose a company"
+    : !hasCustomer
+    ? "Choose a customer"
+    : !hasLines
+    ? "Add at least one item"
+    : null
 
   const save = async () => {
     if (blocker) {
@@ -340,6 +378,21 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         )}
         {/* ── WHO ────────────────────────────────────────────────────────── */}
         <Panel title="Customer">
+          {company.multi && (
+            <View style={styles.form}>
+              <PickerField
+                label="Company"
+                value={company.nameOf(draft.companyId) || "Choose a company"}
+                hint={editingId ? "A quotation stays with the company it was raised for" : "Numbering, GSTIN and terms follow it"}
+                warn={!draft.companyId}
+                onPress={() => {
+                  if (editingId) return
+                  feedback.tap()
+                  setCompanyOpen(true)
+                }}
+              />
+            </View>
+          )}
           {hasCustomer || customerFormOpen ? (
             <>
               <View style={styles.customerHead}>
@@ -790,7 +843,21 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         />
       </View>
 
+      <OptionSheet
+        visible={companyOpen}
+        title="Company"
+        options={company.companies.map((c) => c.name)}
+        value={company.nameOf(draft.companyId)}
+        onClose={() => setCompanyOpen(false)}
+        onPick={(name) => {
+          const picked = company.companies.find((c) => c.name === name)
+          if (picked) set({ companyId: picked.id })
+          setCompanyOpen(false)
+        }}
+      />
+
       <CustomerPickerSheet
+        companyId={draft.companyId || undefined}
         visible={customerOpen}
         onClose={() => setCustomerOpen(false)}
         onPick={(customer) => {
@@ -841,7 +908,12 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
             onPress: () => {
               // Merged over a fresh base so a draft persisted by an older build
               // still carries every field this one expects.
-              if (resumeOffer) setDraft({ ...withDefaults(emptyDraft(settings), quoteDefaults), ...resumeOffer })
+              if (resumeOffer)
+                setDraft({
+                  ...withDefaults(emptyDraft(settings), quoteDefaults),
+                  ...resumeOffer,
+                  companyId: resumeOffer.companyId || draft.companyId,
+                })
               setResumeOffer(null)
             },
           },

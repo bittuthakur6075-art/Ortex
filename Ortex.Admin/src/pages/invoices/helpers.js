@@ -3,8 +3,10 @@ import { newCustomer, newLine } from "../../data/domain/schema"
 import { formatDate } from "../../lib/format"
 import { exportCsv } from "../../lib/csv"
 
-export const emptyDraft = (settings) => ({
+export const emptyDraft = (settings, companyId = "") => ({
   id: null,
+  // The company it is raised for (0075); "" in All mode until chosen.
+  companyId,
   customer: newCustomer(),
   shipTo: null,
   lines: [newLine()],

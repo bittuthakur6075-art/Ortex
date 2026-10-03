@@ -1,6 +1,7 @@
 // Edge Function: admin-create-user
 //
-// Creates a new auth user (email + password + role + module access). Callable
+// Creates a new auth user (email + password + role + module access, and the
+// companies they work in: `companies`, Super Admin only, default ["ortex"]). Callable
 // ONLY by a signed-in admin — the caller's JWT is checked against their profile
 // role before the service-role key is used to create the user. This is the only
 // supported way to mint a console login; there is no public signup.
@@ -11,7 +12,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
-import { OWNER_ONLY, requireStaff } from "../_shared/auth.ts"
+import { checkCompanies, COMPANIES_SUPER_ADMIN_ONLY, OWNER_ONLY, requireStaff } from "../_shared/auth.ts"
 
 // What a new login can be given, and by whom (migrations 0032, 0067): any
 // Super Admin creates an Admin, only the Owner creates a Super Admin. Nobody is
@@ -39,7 +40,7 @@ Deno.serve(async (req) => {
     if (staff instanceof Response) return staff
 
     // 2) Validate input.
-    const { email, password, name, role, modules, notify = true, moduleLabels = [] } = await req.json()
+    const { email, password, name, role, modules, companies, notify = true, moduleLabels = [] } = await req.json()
     if (!email || !password) return json({ error: "Email and password are required" }, 400)
     if (String(password).length < 6) return json({ error: "Password must be at least 6 characters" }, 400)
     if (!CREATABLE.includes(role)) {
@@ -48,6 +49,14 @@ Deno.serve(async (req) => {
     if (role === "super_admin" && !staff.isOwner) return json({ error: OWNER_ONLY }, 403)
     if (role === "admin" && staff.role !== "super_admin") {
       return json({ error: "Only the Super Admin can create an Admin" }, 403)
+    }
+    // Which companies they work in (0075): the Super Admin's choice, else Ortex.
+    let companyList = ["ortex"]
+    if (companies !== undefined) {
+      if (staff.role !== "super_admin") return json({ error: COMPANIES_SUPER_ADMIN_ONLY }, 403)
+      const checked = await checkCompanies(staff.db, companies)
+      if (typeof checked === "string") return json({ error: checked }, 400)
+      companyList = checked
     }
 
     // 3) Create the user with the service-role key. The signup trigger seeds a
@@ -74,7 +83,7 @@ Deno.serve(async (req) => {
     //    error rather than a silently inactive login.
     const { data: granted, error: grantErr } = await admin
       .from("profiles")
-      .update({ role, modules: Array.isArray(modules) ? modules : [], active: true })
+      .update({ role, modules: Array.isArray(modules) ? modules : [], companies: companyList, active: true })
       .eq("id", id)
       .select("id")
     if (grantErr || !granted?.length) {
@@ -119,7 +128,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({ ok: true, id, emailed, emailError })
+    return json({ ok: true, id, companies: companyList, emailed, emailError })
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500)
   }

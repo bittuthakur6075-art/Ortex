@@ -100,7 +100,7 @@ export default function VoiceLeads() {
   // Anu captured seed the first line; the rate is left at zero because a voice
   // call never produces a price worth trusting.
   const toQuotation = (call) => {
-    navigate("/quotations", { state: { fromEnquiry: buildQuotationState(call) } })
+    navigate("/quotations", { state: { fromEnquiry: { ...buildQuotationState(call), companyId: call.rows?.[0]?.companyId } } })
   }
 
   const handleExport = () => {

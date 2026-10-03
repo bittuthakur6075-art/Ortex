@@ -24,6 +24,7 @@ import { gutter } from "@/theme/tokens"
 import { fontFamily } from "@/theme/typography"
 import { AppScreen, Avatar, DataNotice, EmptyState, IconButton, ListRefreshControl, ProfileAvatarButton, RowRule, RowSeparator, SkeletonList, StatusBadge } from "@/ui"
 import CountChips from "@/ui/CountChips"
+import CompanyChip from "@/ui/CompanyChip"
 import { SubHeader, Tag, useOneTone, type OneTone } from "@/ui/OneUi"
 
 // Enquiries and voice calls read the SAME `enquiries` collection: a voice lead
@@ -223,6 +224,7 @@ function EnquiryRow({ e, first, now, onPress, onCall }: { e: Enquiry; first: boo
             : null
       }
       status={<StatusBadge list={ENQUIRY_STATUS} id={e.status || "new"} small />}
+      companyId={e.companyId}
       onPress={onPress}
       onCall={first && e.customer?.phone ? onCall : undefined}
     />
@@ -248,6 +250,7 @@ function CallRow({ call, first, now, onPress, onCall }: { call: VoiceCall; first
               : null
       }
       status={<StatusBadge list={ENQUIRY_STATUS} id={call.status} small />}
+      companyId={call.rows[0]?.companyId}
       onPress={onPress}
       onCall={first && call.customer.phone ? onCall : undefined}
     />
@@ -261,10 +264,13 @@ function LeadRow({
   meta,
   flag,
   status,
+  companyId,
   onPress,
   onCall,
 }: {
   name: string
+  /** Tagged in the All companies view. */
+  companyId?: string
   what: string
   meta: (string | null | undefined)[]
   flag: { label: string; tone: OneTone } | null
@@ -286,6 +292,7 @@ function LeadRow({
           <Text style={[styles.what, { color: t.text }]} numberOfLines={1}>
             {what}
           </Text>
+          <CompanyChip list companyId={companyId} />
           {status}
         </View>
         <Text style={[styles.meta, { color: t.textTertiary }]} numberOfLines={1}>

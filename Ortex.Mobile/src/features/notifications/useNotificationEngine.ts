@@ -53,8 +53,8 @@ export function useNotificationEngine() {
   const { all, unreadCount, loading, refreshing, prefs } = useNotifications()
   const { profile } = useAuth()
   // The same shared in-memory collections the feed reads: no second fetch.
-  const enquiries = useCollection<Enquiry>("enquiries")
-  const quotations = useCollection<Quotation>("quotations")
+  const enquiries = useCollection<Enquiry>("enquiries", { everyCompany: true })
+  const quotations = useCollection<Quotation>("quotations", { everyCompany: true })
 
   // A ref, not state: the responder callbacks are registered once and must see
   // the current feed without re-registering on every refetch.

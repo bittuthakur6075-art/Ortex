@@ -8,6 +8,8 @@
 //   { action: "reset-password", id, password?, notify }  set a new password
 //   { action: "delete",         id }                     remove the account (409 while it
 //                                                         has attendance, leave or payroll rows)
+//   { action: "set-companies",  id, companies }          the companies they work in (0075),
+//                                                         Super Admin only; returns { companies }
 //
 // Callable ONLY by a signed-in, active admin. Two self-protection rules are
 // enforced here rather than only in the UI, because the UI is not the security
@@ -18,7 +20,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
-import { OWNER_ONLY, requireStaff } from "../_shared/auth.ts"
+import { checkCompanies, COMPANIES_SUPER_ADMIN_ONLY, OWNER_ONLY, requireStaff } from "../_shared/auth.ts"
 import { consoleUrl, isMailerConfigured, sendMail } from "../_shared/mailer.ts"
 import { passwordResetEmail } from "../_shared/emails.ts"
 
@@ -63,6 +65,17 @@ Deno.serve(async (req) => {
     }
     if (target.role === "admin" && staff.role !== "super_admin") {
       return json({ error: "Only the Super Admin can change an Admin's account" }, 403)
+    }
+
+    // ---- companies (0075) ---------------------------------------------------
+    if (action === "set-companies" || body?.companies !== undefined) {
+      if (staff.role !== "super_admin") return json({ error: COMPANIES_SUPER_ADMIN_ONLY }, 403)
+      if (action !== "set-companies") return json({ error: 'Send companies with action "set-companies"' }, 400)
+      const checked = await checkCompanies(admin, body?.companies)
+      if (typeof checked === "string") return json({ error: checked }, 400)
+      const { error } = await admin.from("profiles").update({ companies: checked }).eq("id", id)
+      if (error) return json({ error: error.message }, 400)
+      return json({ ok: true, id, companies: checked })
     }
 
     // ---- enable / disable ---------------------------------------------------

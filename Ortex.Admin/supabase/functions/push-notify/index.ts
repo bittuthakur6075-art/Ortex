@@ -11,7 +11,10 @@
 //
 // WHO: active staff whose profile grants the lead's module (the console's own
 // rule, has_module_access): `enquiries` for a website or IndiaMART lead,
-// `voice-leads` for one of Anu's calls; admins get both. WHAT: the same words
+// `voice-leads` for one of Anu's calls; admins get both; and since 0075 only
+// people whose profiles.companies holds the enquiry's company_id (the Super
+// Admin reaches every company). Leave, pay, chat and punch alerts are shared
+// across companies and go out as before. WHAT: the same words
 // and the same notification id the app builds itself (Ortex.Mobile
 // src/domain/notifications.ts: `enq-new-<id>`, `voice-new-<id>`), sent as the
 // Android tag, so when the app is alive and posts its own richer copy (with
@@ -114,7 +117,7 @@ Deno.serve(async (req) => {
     return json(await attendanceApproval(db, sa, table, id))
   }
 
-  const { data: row } = await db.from("enquiries").select("id, doc, created_at").eq("id", id).maybeSingle()
+  const { data: row } = await db.from("enquiries").select("id, doc, created_at, company_id").eq("id", id).maybeSingle()
   if (!row) return json({ skipped: "not found" })
   const doc = (row.doc || {}) as Doc
   if ((doc.status || "new") !== "new") return json({ skipped: "not new" })
@@ -128,6 +131,7 @@ Deno.serve(async (req) => {
     const { data: earlier } = await db
       .from("enquiries")
       .select("id, doc")
+      .eq("company_id", row.company_id)
       .gte("created_at", since)
       .lt("created_at", row.created_at)
       .limit(50)
@@ -143,7 +147,7 @@ Deno.serve(async (req) => {
   // module is switched on (migration 0053, module_controls), Admins reach it
   // unless it was taken off the Admin role, and everyone gets their role's
   // grants (migration 0032, role_permissions) plus their own extras.
-  const { data: people } = await db.from("profiles").select("id, role, modules, modules_hidden, active")
+  const { data: people } = await db.from("profiles").select("id, role, modules, modules_hidden, active, companies")
   const { data: grants } = await db.from("role_permissions").select("role, modules")
   // Missing table (0053 not pushed) or no row: on, Admins included.
   const { data: control } = await db
@@ -158,6 +162,8 @@ Deno.serve(async (req) => {
   )
   const allowed = (people || [])
     .filter((p: Doc) => p.active !== false)
+    // has_company_access() (migration 0075): the Super Admin, or the enquiry's company is in their list.
+    .filter((p: Doc) => p.role === "super_admin" || (Array.isArray(p.companies) && p.companies.includes(row.company_id)))
     .filter(
       (p: Doc) =>
         p.role === "super_admin" ||

@@ -24,6 +24,7 @@ import { useCollection } from "@/hooks/useCollection"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
+import { useCompany } from "@/store/CompanyContext"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
@@ -86,6 +87,7 @@ function PaymentsLedger({ navigation }: StackScreenProps<"Payments">) {
   const t = useTheme()
   const { profile } = useAuth()
   const { items, loading, error, fromCache, cachedAt, reload } = useCollection<Payment>("payments")
+  const company = useCompany()
   const [period, setPeriod] = React.useState<PaymentPeriod>("month")
   const [filter, setFilter] = React.useState<PaymentFilter>("all")
   const [query, setQuery] = React.useState("")
@@ -180,7 +182,9 @@ function PaymentsLedger({ navigation }: StackScreenProps<"Payments">) {
               <ListRow
                 leading={<MethodWell method={p.method} />}
                 title={p.party || p.customer?.name || "Unnamed"}
-                subtitle={[paymentDay(p.date), p.method, p.reference].filter(Boolean).join(" · ")}
+                subtitle={[company.choice === "all" ? company.nameOf(p.companyId) : "", paymentDay(p.date), p.method, p.reference]
+                  .filter(Boolean)
+                  .join(" · ")}
                 value={`${inflow ? "+" : "−"}${rupees(p.amount)}`}
                 valueSub={
                   <Text style={[textVariants.caption, { color: inflow ? t.successText : t.dangerText }]}>
@@ -292,6 +296,9 @@ function PaymentsLedger({ navigation }: StackScreenProps<"Payments">) {
               />
               <Fact label="Date" value={paymentDay(open.date)} />
               <Fact label="Method" value={open.method} />
+              {company.multi && company.nameOf(open.companyId) ? (
+                <Fact label="Company" value={company.nameOf(open.companyId)} />
+              ) : null}
               {open.reference ? <Fact label="Reference" value={open.reference} /> : null}
               {open.invoiceNumber ? <Fact label="Invoice" value={open.invoiceNumber} /> : null}
             </View>

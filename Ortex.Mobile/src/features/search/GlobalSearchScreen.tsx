@@ -145,7 +145,7 @@ export default function GlobalSearchScreen({ navigation }: StackScreenProps<"Sea
         break
       case "enquiry":
         navigation.replace("QuotationEditor", {
-          prefill: { customer: hit.doc.customer, enquiryId: hit.doc.id },
+          prefill: { customer: hit.doc.customer, enquiryId: hit.doc.id, companyId: hit.doc.companyId },
         })
         break
     }

@@ -13,6 +13,9 @@
 // writes a one-line objective + pitch angle per new job in a single batch call
 // (deterministic fallback when it is unavailable). The sweep dials by
 // priority, not by insertion time, and keeps a healthy mix per tick.
+//
+// Ortex only: sweep() hands it rows read through telecaller.ts `all()`, which
+// keeps leads, enquiries and invoices to company_id = TELECALLER_COMPANY.
 
 import { generateContent, extractText, logAiUsage } from "./gemini.ts"
 import type { Db } from "./auth.ts"

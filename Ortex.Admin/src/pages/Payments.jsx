@@ -4,7 +4,8 @@ import { toast } from "sonner"
 import {
   MoneyIn, MoneyOut, WalletMoney, Bank, Cash, CreditCard, CardPos, Cheque, Smartphone, Wallet, ReceiptText, Trash2, Search, Pencil,
 } from "../components/ui/Icons"
-import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
+import { useCollection, useSettingsFor, useSorting } from "../hooks/useCollection"
+import { CompanyChip } from "../components/ui/CompanyChip"
 import { removePayment, receiptAllocation } from "../data/domain/domain"
 import { useProfile } from "../hooks/useProfile"
 import { isSuperAdmin } from "../lib/roles"
@@ -34,7 +35,7 @@ const FILTERS = [
 export default function Payments() {
   const { items, loading } = useCollection("payments")
   const { items: invoices } = useCollection("invoices")
-  const settings = useSettings()
+  const settingsOf = useSettingsFor()
   const profile = useProfile()
   const superAdmin = isSuperAdmin(profile)
   const [query, setQuery] = useState("")
@@ -211,7 +212,9 @@ export default function Payments() {
                     >
                       <td className="whitespace-nowrap px-4 py-3">
                         <div className="text-foreground">{formatDate(p.date)}</div>
-                        <div className="text-xs tabular text-muted-foreground">{p.number}</div>
+                        <div className="flex items-center gap-1.5 text-xs tabular text-muted-foreground">
+                          {p.number} <CompanyChip companyId={p.companyId} />
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="font-medium text-foreground">{p.party || p.customer?.name || "-"}</div>
@@ -306,12 +309,12 @@ export default function Payments() {
         />
       )}
 
-      {settings && receiptFor && (
+      {settingsOf && receiptFor && (
         <ReceiptView
           open
           onClose={() => setReceiptFor(null)}
           payment={receiptFor}
-          settings={settings}
+          settings={settingsOf(receiptFor.companyId)}
           invoice={receiptInvoice}
           allocation={receiptAllocation(receiptFor, receiptInvoice, items)}
         />

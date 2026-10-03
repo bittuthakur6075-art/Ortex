@@ -33,6 +33,7 @@ import { useTheme } from "@/store/ThemeContext"
 import { border, gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
 import { Button, Icon, IconButton, OptionSheet, Panel, PanelBand, RecordActivityPanel, DetailSkeleton, SquircleBackground, StatusBadge, useToast } from "@/ui"
+import CompanyChip from "@/ui/CompanyChip"
 import CallOutcomeSheet from "@/features/leads/CallOutcomeSheet"
 import { useAfterContact, writeLeadStatus } from "@/features/leads/leadWrites"
 import { Advisory, Fact, ItemRow, QuickAction, StatusStepper } from "@/features/leads/leadUi"
@@ -61,9 +62,9 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
   const t = useTheme()
   const insets = useSafeAreaInsets()
   const toast = useToast()
-  const { items, loading } = useCollection<Enquiry>("enquiries")
+  const { items, loading } = useCollection<Enquiry>("enquiries", { everyCompany: true })
   const { items: products } = useCollection<Product>("products")
-  const { items: quotations } = useCollection<Quotation>("quotations")
+  const { items: quotations } = useCollection<Quotation>("quotations", { everyCompany: true })
   const scrollY = React.useRef(new Animated.Value(0)).current
   const [saving, setSaving] = React.useState(false)
   const [lostOpen, setLostOpen] = React.useState(false)
@@ -154,6 +155,7 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
           : undefined,
         notes: !rfq && message ? `Ref: ${message}` : undefined,
         enquiryId: enquiry.id,
+        companyId: enquiry.companyId,
       },
     })
   }
@@ -191,6 +193,7 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
           <Text style={[styles.name, { color: t.text }]}>{name}</Text>
           <View style={styles.metaLine}>
             <StatusBadge list={ENQUIRY_STATUS} id={enquiry.status} />
+            <CompanyChip companyId={enquiry.companyId} style={styles.companyChip} />
             <Text style={[textVariants.caption, { color: t.textTertiary }]}>
               {enquiry.source || "Unknown source"} · {age.label}
             </Text>
@@ -433,6 +436,7 @@ function Total({ label, value }: { label: string; value: string }) {
 
 
 const styles = StyleSheet.create({
+  companyChip: { alignSelf: "center" },
   root: { flex: 1 },
   centre: { alignItems: "center", justifyContent: "center" },
 

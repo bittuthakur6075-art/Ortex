@@ -17,18 +17,24 @@ import { Avatar, Icon, Sheet } from "@/ui"
  * Picking copies the seven fields onto the document. The quotation stores a
  * SNAPSHOT rather than a reference, exactly as the console does, so editing a
  * customer later never rewrites a quotation already sent.
+ *
+ * Customers belong to one company (Admin migration 0075): with `companyId`, only
+ * that company's master is offered.
  */
 export default function CustomerPickerSheet({
   visible,
   onClose,
   onPick,
+  companyId,
 }: {
+  companyId?: string
   visible: boolean
   onClose: () => void
   onPick: (customer: Customer) => void
 }) {
   const t = useTheme()
-  const { items } = useCollection<Customer & Row>("customers")
+  const { items: all } = useCollection<Customer & Row>("customers", { everyCompany: !!companyId })
+  const items = React.useMemo(() => (companyId ? all.filter((c) => c.companyId === companyId) : all), [all, companyId])
   const [query, setQuery] = React.useState("")
 
   const matches = React.useMemo(() => {

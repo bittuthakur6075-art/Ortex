@@ -115,7 +115,7 @@ export default function CustomerDetail() {
   const startQuotation = () => {
     const snapshot = { ...newCustomer() }
     for (const k of Object.keys(snapshot)) if (form[k] !== undefined) snapshot[k] = form[k]
-    navigate("/quotations", { state: { fromCustomer: snapshot } })
+    navigate("/quotations", { state: { fromCustomer: snapshot, companyId: record.companyId } })
   }
 
   const remove = async () => {

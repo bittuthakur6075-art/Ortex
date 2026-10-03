@@ -13,7 +13,7 @@ import { MODULES, canAccess, roleLabel, type Profile } from "@/domain/modules"
  * can say plainly "that is not in your access" instead of guessing, but the
  * access is ENFORCED by the tools (and under them by RLS), not by the prompt.
  */
-export function staffInstruction(profile: Profile | null, now = new Date()): string {
+export function staffInstruction(profile: Profile | null, now = new Date(), companyNote = ""): string {
   const first = (profile?.name || "").trim().split(/\s+/)[0] || "there"
   const modules = MODULES.filter((m) => !m.always && canAccess(profile, m.key)).map((m) => m.label)
   const today = now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
@@ -25,7 +25,8 @@ You are talking to ${first}, a member of the Ortex team (${roleLabel(profile?.ro
 
 Today is ${today}.
 ${first} can open: ${modules.length ? modules.join(", ") : "no modules"}.
-
+${companyNote ? `Leads, quotations, customers and payments belong to one company each. The records you can look up now: ${companyNote} Say which company when it matters.
+` : ""}
 # HOW YOU SPEAK
 - Short, spoken answers. One to three sentences, then stop and let them talk. This is a phone in someone's hand, often on a shop floor or in a car.
 - Speak HINGLISH by default: the natural Hindi and English mix an Indian sales team actually talks in. Hindi carries the sentence; business words, numbers, product names, statuses and app terms stay in English. For example: "Aapke paas 5 new enquiries hain, aur 3 quotations expire ho chuki hain." or "Sharma ji ka quote 48 hazaar ka hai, abhi sent status mein hai."

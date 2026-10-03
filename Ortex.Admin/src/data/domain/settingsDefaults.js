@@ -122,3 +122,51 @@ export function mergeSettings(saved) {
     },
   }
 }
+
+const isPlainObject = (v) => !!v && typeof v === "object" && !Array.isArray(v)
+
+const BLANK_COMPANY = {
+  name: "",
+  tagline: "",
+  email: "",
+  phone: "",
+  website: "",
+  gstin: "",
+  stateCode: "",
+  address: "",
+  bankName: "",
+  bankBranch: "",
+  bankAccount: "",
+  bankIfsc: "",
+  upi: "",
+  paymentAliases: [],
+  logoText: "",
+}
+
+/** The blocks that belong to one company (companies.doc, migration 0075); the rest of settings is global. */
+export const COMPANY_BLOCKS = ["company", "tax", "numbering", "quotation", "documents"]
+
+/**
+ * One company's settings (migration 0075): the `companies.doc` blocks over the
+ * global settings. tax, numbering, quotation and documents fall back to the
+ * global block, as settings_staff does; the company block NEVER does, and never
+ * takes the demo defaults either, so another company can never print Ortex's
+ * (or a placeholder) GSTIN. No company doc: the global settings as before.
+ * Global-only blocks (notifications, integrations, telecaller) pass through.
+ * Mirrored by Ortex.Mobile/src/domain/settings.ts (same name): edit both.
+ */
+export function settingsFor(globalSettings, companyDoc) {
+  const g = isPlainObject(globalSettings) ? globalSettings : {}
+  if (!isPlainObject(companyDoc)) return mergeSettings(g)
+  const block = (k) => (isPlainObject(companyDoc[k]) ? companyDoc[k] : g[k])
+  const merged = mergeSettings({
+    ...g,
+    tax: block("tax"),
+    numbering: block("numbering"),
+    quotation: block("quotation"),
+    documents: block("documents"),
+  })
+  const company = isPlainObject(companyDoc.company) ? companyDoc.company : {}
+  const set = Object.fromEntries(Object.entries(company).filter(([, v]) => v != null))
+  return { ...merged, company: { ...BLANK_COMPANY, ...set } }
+}

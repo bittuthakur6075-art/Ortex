@@ -102,7 +102,31 @@ export async function loadSettings(db: Db): Promise<{ telecaller: TelecallerSett
     doNotCall: Array.isArray(saved.doNotCall) ? saved.doNotCall.map(normalizePhone).filter(Boolean) : [],
     scripts: Object.fromEntries(Object.keys(DEFAULT_SCRIPTS).map((k) => [k, String(saved.scripts?.[k] || "").trim() || DEFAULT_SCRIPTS[k]])),
   }
-  return { telecaller, company: data?.doc?.company || {} }
+  // The agent speaks for Ortex: its own company row (0075), else the global copy.
+  const { data: ortex } = await db.from("companies").select("doc").eq("id", TELECALLER_COMPANY).maybeSingle()
+  return { telecaller, company: ortex?.doc?.company || data?.doc?.company || {} }
+}
+
+// ---- one company -------------------------------------------------------------
+// The Call agent works for Ortex only (owner's decision, multi-company phase 1):
+// every read of the per-company tables is limited to Ortex's rows and every row
+// it creates there is Ortex's. Calling for another company needs its own
+// settings, scripts and do-not-call list first.
+export const TELECALLER_COMPANY = "ortex"
+const COMPANY_TABLES = new Set(["enquiries", "leads", "customers", "quotations", "invoices", "payments"])
+
+/**
+ * True when a job or a dial target points at a lead, enquiry, invoice or
+ * customer of another company. A missing record is not "outside".
+ */
+export async function linksOutsideCompany(db: Db, ref: Doc): Promise<boolean> {
+  const links: [string, string][] = [["leadId", "leads"], ["enquiryId", "enquiries"], ["invoiceId", "invoices"], ["customerId", "customers"]]
+  for (const [key, table] of links) {
+    if (!ref?.[key]) continue
+    const { data } = await db.from(table).select("company_id").eq("id", ref[key]).maybeSingle()
+    if (data && data.company_id !== TELECALLER_COMPANY) return true
+  }
+  return false
 }
 
 // ---- phones & time ----------------------------------------------------------
@@ -150,13 +174,18 @@ const clip = (v: unknown, n: number) => String(v ?? "").slice(0, n)
 const rows = (r: Row[] | null | undefined) => (r || []).map((x) => ({ ...x.doc, id: x.id, createdAt: x.created_at }))
 
 async function all(db: Db, table: string, limit = 2000): Promise<Doc[]> {
-  const { data, error } = await db.from(table).select("*").order("created_at", { ascending: false }).limit(limit)
+  let q = db.from(table).select("*")
+  if (COMPANY_TABLES.has(table)) q = q.eq("company_id", TELECALLER_COMPANY)
+  const { data, error } = await q.order("created_at", { ascending: false }).limit(limit)
   if (error) throw new Error(`${table}: ${error.message}`)
   return rows(data as Row[])
 }
 
 export async function getDoc(db: Db, table: string, id: string): Promise<Doc | null> {
-  const { data } = await db.from(table).select("*").eq("id", id).maybeSingle()
+  let q = db.from(table).select("*").eq("id", id)
+  // Another company's record reads as missing, so it is never briefed or patched.
+  if (COMPANY_TABLES.has(table)) q = q.eq("company_id", TELECALLER_COMPANY)
+  const { data } = await q.maybeSingle()
   return data ? { ...(data as Row).doc, id: (data as Row).id, createdAt: (data as Row).created_at } : null
 }
 
@@ -180,7 +209,8 @@ export async function patchDoc(db: Db, table: string, id: string, patch: Doc): P
 }
 
 export async function insertDoc(db: Db, table: string, doc: Doc): Promise<Doc> {
-  const { data, error } = await db.from(table).insert({ doc }).select("*").single()
+  const row: Doc = COMPANY_TABLES.has(table) ? { company_id: TELECALLER_COMPANY, doc } : { doc }
+  const { data, error } = await db.from(table).insert(row).select("*").single()
   if (error) throw new Error(`${table} insert: ${error.message}`)
   return { ...(data as Row).doc, id: (data as Row).id, createdAt: (data as Row).created_at }
 }
@@ -576,6 +606,11 @@ export async function dialJob(db: Db, jobId: string, opts: { force?: boolean; pr
   if (!job) throw new Error("Job not found")
   if (!OPEN_JOB.includes(job.status) && !opts.force) throw new Error(`Job is ${job.status}`)
   if (!isIndianMobile(job.phone)) throw new Error("Phone is not a valid 10-digit Indian mobile")
+  // A job queued from the console for another company's record (engine sweeps included).
+  if (await linksOutsideCompany(db, job)) {
+    await patchDoc(db, "telecaller_jobs", jobId, { status: "skipped", result: { outcome: "failed", summary: "Belongs to another company; the Call agent calls for Ortex only." } })
+    throw new Error("The Call agent calls for Ortex Industries only")
+  }
 
   const { telecaller: settings, company } = await loadSettings(db)
   if (settings.doNotCall.includes(job.phone)) {

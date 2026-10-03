@@ -14,6 +14,8 @@ import { formatCurrency, formatDate } from "../lib/format"
 import { stateName } from "../lib/gstStates"
 import { exportCsv } from "../lib/csv"
 import { findDuplicate, normaliseCustomer, validateCustomer } from "../lib/validateCustomer"
+import { CompanyChip, CompanyField } from "../components/ui/CompanyChip"
+import { useCompany } from "../hooks/useCompany"
 import {
   Banner,
   Button,
@@ -188,6 +190,7 @@ export default function Customers({ embedded = false }) {
                           <Link to={`/customers/${c.id}`} onClick={(e) => e.stopPropagation()} className="block truncate font-medium text-foreground hover:underline">
                             {c.company || c.name || "Unnamed"}
                           </Link>
+                          <CompanyChip companyId={c.companyId} />
                           <div className="truncate text-xs text-muted-foreground">
                             {[c.company ? c.name : "", c.email].filter(Boolean).join(" · ") || "No contact details"}
                           </div>
@@ -243,8 +246,16 @@ export default function Customers({ embedded = false }) {
 // the customer's own page. The rules are lib/validateCustomer.js, the same ones
 // the phone's contact editor enforces, so a duplicate is refused before the
 // insert rather than discovered as two rows answering one quotation.
-function NewCustomerModal({ open, onClose, customers }) {
+function NewCustomerModal({ open, onClose, customers: allCustomers }) {
   const [form, setForm] = useState(newCustomer())
+  // The company (0075): the one in view; chosen here in All mode. A duplicate
+  // is judged within it, since one person may be a customer of two companies.
+  const { defaultCompany } = useCompany()
+  const [companyId, setCompanyId] = useState(defaultCompany)
+  const customers = useMemo(() => (companyId ? allCustomers.filter((c) => !c.companyId || c.companyId === companyId) : allCustomers), [allCustomers, companyId])
+  useEffect(() => {
+    if (open) setCompanyId((c) => c || defaultCompany)
+  }, [open, defaultCompany])
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
   const navigate = useNavigate()
@@ -266,11 +277,13 @@ function NewCustomerModal({ open, onClose, customers }) {
     if (Object.keys(found).length) return
     setSaving(true)
     try {
-      const created = await repo.create("customers", normaliseCustomer(form))
+      const created = await repo.create("customers", { ...normaliseCustomer(form), ...(companyId ? { companyId } : {}) })
       toast.success("Customer added")
       setForm(newCustomer())
       close()
       if (created?.id) navigate(`/customers/${created.id}`)
+    } catch (e) {
+      toast.error(e?.message || "Could not add the customer")
     } finally {
       setSaving(false)
     }
@@ -310,6 +323,7 @@ function NewCustomerModal({ open, onClose, customers }) {
           </span>
         </Banner>
       )}
+      <CompanyField value={companyId} onChange={setCompanyId} className="mb-4" />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Company">
           <Input value={form.company} onChange={(e) => set("company", e.target.value)} placeholder="Enter company name" />

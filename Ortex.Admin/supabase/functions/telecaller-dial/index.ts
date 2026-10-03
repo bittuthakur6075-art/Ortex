@@ -20,7 +20,7 @@
 import { cors, json } from "../_shared/http.ts"
 import { isAdminRole, requireStaff } from "../_shared/auth.ts"
 import { callerHasModule } from "../_shared/guard.ts"
-import { briefForJob, dialJob, insertDoc, isIndianMobile, loadSettings, newJob, normalizePhone, recordLiveCall, vapiConfigured } from "../_shared/telecaller.ts"
+import { briefForJob, dialJob, getDoc, insertDoc, isIndianMobile, linksOutsideCompany, loadSettings, newJob, normalizePhone, recordLiveCall, vapiConfigured } from "../_shared/telecaller.ts"
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors })
@@ -38,9 +38,15 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     const { telecaller } = await loadSettings(staff.db)
     let jobId: string = body.jobId
+    // The Call agent works for Ortex only (multi-company phase 1).
+    const outside = "The Call agent calls for Ortex Industries only. This record belongs to another company."
 
-    if (!jobId) {
+    if (jobId) {
+      const job = await getDoc(staff.db, "telecaller_jobs", jobId)
+      if (job && (await linksOutsideCompany(staff.db, job))) return json({ error: outside }, 400)
+    } else {
       const t = body.target || {}
+      if (await linksOutsideCompany(staff.db, t)) return json({ error: outside }, 400)
       const phone = normalizePhone(t.phone)
       if (!isIndianMobile(phone)) return json({ error: "A valid 10-digit Indian mobile number is required." }, 400)
       if (telecaller.doNotCall.includes(phone)) return json({ error: "This number is on the do-not-call list." }, 400)

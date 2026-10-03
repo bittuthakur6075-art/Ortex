@@ -2,12 +2,17 @@
 //
 // Pulls buyer enquiries from IndiaMART's Lead Manager Pull API (v2) and files
 // them into the `enquiries` table (source = "IndiaMART"), de-duplicated on
-// UNIQUE_QUERY_ID. The IndiaMART CRM key + enable flag + last-pull timestamp
-// live in the settings row (integrations.indiamart), edited from the admin's
-// Settings page — so the non-technical setup is just "paste your key".
+// UNIQUE_QUERY_ID. One IndiaMART account per company (migration 0075): the CRM
+// key, enable flag and last pull of each live in the admin-only settings row at
+// integrations.indiamartByCompany[<company id>] = { crmKey, enabled, lastPull,
+// lastResult }. The older single block, integrations.indiamart, is Ortex's
+// account until indiamartByCompany.ortex exists. Each company's enquiries are
+// filed under its own company_id.
 //
 // Callable by (a) an admin from the "Sync now" button, or (b) the scheduler
-// (pg_cron) which passes the service-role key. Deploy normally (verify_jwt on).
+// (pg_cron) which passes the service-role key. Every enabled account is pulled
+// unless the request names one: ?company=<id> or { "company": "<id>" } in the
+// body. Deploy normally (verify_jwt on).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { json } from "../_shared/http.ts"
@@ -62,30 +67,70 @@ Deno.serve(async (req) => {
   if (!authorized) return json({ error: "Admin access required" }, 403)
 
   const db = createClient(url, service, { auth: { persistSession: false } })
+  const body = await req.json().catch(() => ({}))
+  const only = String(new URL(req.url).searchParams.get("company") || body?.company || "").trim()
 
-  // Read the IndiaMART config out of settings.
   const { data: settingsRow } = await db.from("settings").select("doc").eq("id", true).maybeSingle()
-  const doc = settingsRow?.doc || {}
-  const im = doc.integrations?.indiamart || {}
-  if (!im.enabled || !im.crmKey) return json({ skipped: true, reason: "IndiaMART sync is disabled or the key is missing" })
+  const { data: companies } = await db.from("companies").select("id")
+  const known = new Set((companies || []).map((c: { id: string }) => c.id))
+  if (only && !known.has(only)) return json({ error: `Unknown company "${only}"` }, 400)
+
+  const due = accounts(settingsRow?.doc || {}).filter(
+    (a) => known.has(a.company) && (!only || a.company === only) && a.im.enabled && a.im.crmKey,
+  )
+  if (!due.length) {
+    return json({ skipped: true, reason: `IndiaMART sync is disabled or the key is missing${only ? ` for ${only}` : ""}` })
+  }
 
   const end = new Date()
-  const start = im.lastPull ? new Date(im.lastPull) : new Date(end.getTime() - 7 * 86400000)
-  const apiUrl = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${encodeURIComponent(im.crmKey)}&start_time=${encodeURIComponent(imTime(start))}&end_time=${encodeURIComponent(imTime(end))}`
+  const results: Record<string, PullResult> = {}
+  for (const a of due) results[a.company] = await pullOne(db, a, end)
+
+  const list = Object.values(results)
+  const sum = (k: "total" | "inserted" | "duplicates") => list.reduce((n, r) => n + (r[k] || 0), 0)
+  const errors = Object.entries(results).filter(([, r]) => r.error).map(([co, r]) => `${co}: ${r.error}`)
+  return json({
+    ok: errors.length < list.length,
+    total: sum("total"),
+    inserted: sum("inserted"),
+    duplicates: sum("duplicates"),
+    ...(errors.length ? { error: errors.join("; ") } : {}),
+    results,
+  })
+})
+
+type ImConfig = { crmKey?: string; enabled?: boolean; lastPull?: string; lastResult?: string }
+type Account = { company: string; im: ImConfig; legacy: boolean }
+type PullResult = { total?: number; inserted?: number; duplicates?: number; error?: string }
+
+// Every configured account. The legacy single block is Ortex's until
+// indiamartByCompany.ortex exists.
+// deno-lint-ignore no-explicit-any
+function accounts(doc: Record<string, any>): Account[] {
+  const integrations = doc.integrations || {}
+  const byCompany = (integrations.indiamartByCompany || {}) as Record<string, ImConfig>
+  const out: Account[] = Object.entries(byCompany).map(([company, im]) => ({ company, im: im || {}, legacy: false }))
+  if (!byCompany.ortex && integrations.indiamart) out.push({ company: "ortex", im: integrations.indiamart, legacy: true })
+  return out
+}
+
+async function pullOne(db: Db, a: Account, end: Date): Promise<PullResult> {
+  const start = a.im.lastPull ? new Date(a.im.lastPull) : new Date(end.getTime() - 7 * 86400000)
+  const apiUrl = `https://mapi.indiamart.com/wservce/crm/crmListing/v2/?glusr_crm_key=${encodeURIComponent(a.im.crmKey || "")}&start_time=${encodeURIComponent(imTime(start))}&end_time=${encodeURIComponent(imTime(end))}`
 
   let payload: Record<string, unknown>
   try {
-    const r = await fetch(apiUrl)
-    payload = await r.json()
+    payload = await (await fetch(apiUrl)).json()
   } catch (e) {
-    return json({ error: `IndiaMART request failed: ${(e as Error).message}` }, 502)
+    // Not saved: the next run retries the same window.
+    return { error: `IndiaMART request failed: ${(e as Error).message}` }
   }
 
   // IndiaMART returns CODE 200 on success; anything else is an error/no-data.
   if (Number(payload.CODE) !== 200) {
     const msg = String(payload.MESSAGE || payload.STATUS || "IndiaMART returned no data")
-    await saveResult(db, doc, end, `Error: ${msg}`)
-    return json({ error: msg, code: payload.CODE }, 200)
+    await saveResult(db, a, end, `Error: ${msg}`)
+    return { error: msg }
   }
 
   const leads = Array.isArray(payload.RESPONSE) ? (payload.RESPONSE as Record<string, string>[]) : []
@@ -100,21 +145,32 @@ Deno.serve(async (req) => {
         continue
       }
     }
-    const { error } = await db.from("enquiries").insert({ doc: toEnquiryDoc(lead) })
+    const { error } = await db.from("enquiries").insert({ company_id: a.company, doc: toEnquiryDoc(lead) })
     if (!error) inserted++
   }
 
-  await saveResult(db, doc, end, `Pulled ${leads.length}, added ${inserted}, ${duplicates} dup`)
-  return json({ ok: true, total: leads.length, inserted, duplicates })
-})
+  await saveResult(db, a, end, `Pulled ${leads.length}, added ${inserted}, ${duplicates} dup`)
+  return { total: leads.length, inserted, duplicates }
+}
 
-// Persist the last-pull timestamp + a short human result back into settings.
-async function saveResult(db: Db, doc: Record<string, unknown>, end: Date, result: string) {
-  const integrations = (doc.integrations as Record<string, unknown>) || {}
-  const indiamart = (integrations.indiamart as Record<string, unknown>) || {}
-  const nextDoc = {
-    ...doc,
-    integrations: { ...integrations, indiamart: { ...indiamart, lastPull: end.toISOString(), lastResult: result } },
-  }
-  await db.from("settings").update({ doc: nextDoc }).eq("id", true)
+// Persist this account's last pull and a short human result. Re-reads the row
+// first and replaces only this account's block, so other keys stay as they are.
+// ponytail: read-then-write, a settings save landing in the same instant can be
+// lost; a jsonb_set RPC on settings (like doc_merge) closes that gap.
+async function saveResult(db: Db, a: Account, end: Date, result: string) {
+  const { data } = await db.from("settings").select("doc").eq("id", true).maybeSingle()
+  if (!data) return
+  const doc = data.doc || {}
+  const integrations = doc.integrations || {}
+  const stamp = { lastPull: end.toISOString(), lastResult: result }
+  const nextIntegrations = a.legacy
+    ? { ...integrations, indiamart: { ...(integrations.indiamart || {}), ...stamp } }
+    : {
+        ...integrations,
+        indiamartByCompany: {
+          ...(integrations.indiamartByCompany || {}),
+          [a.company]: { ...(integrations.indiamartByCompany?.[a.company] || {}), ...stamp },
+        },
+      }
+  await db.from("settings").update({ doc: { ...doc, integrations: nextIntegrations } }).eq("id", true)
 }

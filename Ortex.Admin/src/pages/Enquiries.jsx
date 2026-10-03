@@ -13,6 +13,8 @@ import { cn } from "../lib/cn"
 import { LEAD_GROUPS, dueLabel, rupees } from "../lib/salesWork"
 import EnquiryImport from "../components/editors/EnquiryImport"
 import { Button, Drawer, EmptyState, Field, Input, PageLoader, Select } from "../components/ui/Ui"
+import { CompanyChip, CompanyField } from "../components/ui/CompanyChip"
+import { useCompany } from "../hooks/useCompany"
 import {
   ListHeader, SmartViews, ListSearch, ToolButton, FilterChip, InlineSelect, Check, CursorBar, GroupRow, StatusDot, Tag, Initials, RowAction, ActionMenu, Pager, useListKeys,
 } from "../components/sales/ListParts"
@@ -50,6 +52,8 @@ export default function Enquiries() {
   const { items: products } = useCollection("products")
   const { items: quotations } = useCollection("quotations")
   const profile = useProfile()
+  // An import goes into the company in view, its duplicates judged within it (0075).
+  const { current: companyNow, on: companiesOn } = useCompany()
   const staff = useStaffNames(profile)
   const actions = useLeadActions({ products, staff, me: profile?.name || "" })
   const navigate = useNavigate()
@@ -293,7 +297,7 @@ export default function Enquiries() {
         <Button variant="outline" onClick={() => setParams({ tab: "voice" })} title="Anu's calls, with recordings">
           <Mic className="h-4 w-4" /> Voice calls
         </Button>
-        <Button variant="outline" onClick={() => setImporting(true)} title="Import enquiries from an Excel sheet">
+        <Button variant="outline" onClick={() => (companiesOn && companyNow === "all" ? toast.error("Choose one company in the header to import into") : setImporting(true))} title="Import enquiries from an Excel sheet">
           <ImportFile className="h-4 w-4" /> Import
         </Button>
         <Button variant="outline" onClick={handleExport} disabled={!filtered.length} title="Download the leads in this view as CSV">
@@ -456,12 +460,15 @@ export default function Enquiries() {
 // "New lead": a phone enquiry typed in by hand. Nothing is written until Save,
 // so an abandoned form never leaves an empty lead behind.
 function NewLeadDrawer({ open, onClose, me, onCreated }) {
-  const blank = { name: "", phone: "", productInterest: "" }
+  const { defaultCompany } = useCompany()
+  // The company (0075): the one in view; chosen here in All mode.
+  const blank = { name: "", phone: "", productInterest: "", companyId: defaultCompany }
   const [form, setForm] = useState(blank)
   const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  const dirty = Object.values(form).some((v) => v.trim())
+  const dirty = [form.name, form.phone, form.productInterest].some((v) => v.trim())
   const close = () => (setForm(blank), onClose())
+  useEffect(() => setForm((f) => (f.companyId ? f : { ...f, companyId: defaultCompany })), [defaultCompany])
 
   const save = async () => {
     const name = form.name.trim()
@@ -471,7 +478,7 @@ function NewLeadDrawer({ open, onClose, me, onCreated }) {
     setSaving(true)
     try {
       const base = newEnquiry()
-      const row = await repo.create("enquiries", newEnquiry({ source: "Phone", owner: me, productInterest: form.productInterest, customer: { ...base.customer, name, phone } }))
+      const row = await repo.create("enquiries", newEnquiry({ ...(form.companyId ? { companyId: form.companyId } : {}), source: "Phone", owner: me, productInterest: form.productInterest, customer: { ...base.customer, name, phone } }))
       toast.success("Lead added")
       close()
       onCreated(row.id)
@@ -497,6 +504,7 @@ function NewLeadDrawer({ open, onClose, me, onCreated }) {
       }
     >
       <form className="space-y-4" onSubmit={(ev) => (ev.preventDefault(), save())}>
+        <CompanyField value={form.companyId} onChange={(id) => set("companyId", id)} />
         <Field label="Name">
           <Input autoFocus value={form.name} onChange={(ev) => set("name", ev.target.value)} placeholder="Who called" />
         </Field>
@@ -549,6 +557,7 @@ function LeadRow({ l, now, checked, onCheck, active, menuOpen, linkState, onOpen
                 {l.name || "Unnamed caller"}
               </Link>
               {e.starred && <span className="flex-none text-xs text-warning" aria-label="Starred">★</span>}
+              <CompanyChip companyId={e.companyId} className="flex-none" />
             </div>
             <div className="truncate text-xs text-muted-foreground">{c.company || ch.label}</div>
           </div>

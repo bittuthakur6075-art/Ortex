@@ -32,6 +32,26 @@ export const isAdminRole = (role: unknown) => role === "admin" || role === "supe
 /** The database's refusal for the same rule (0067, owner_only_message()). */
 export const OWNER_ONLY = "Only the Owner (Louis Sharma) can make or remove a Super Admin."
 
+/** The refusal when someone other than the Super Admin sends `companies` (0075, protect_profile_privileges). */
+export const COMPANIES_SUPER_ADMIN_ONLY = "Only the Super Admin can choose which companies someone works in."
+
+/**
+ * A profile's `companies` (migration 0075): a non-empty list of ids that exist
+ * in `companies`, de-duplicated, in the order given (the first is where their
+ * new records go). Returns the list, or the error text to send back.
+ */
+export async function checkCompanies(db: Db, value: unknown): Promise<string[] | string> {
+  if (!Array.isArray(value) || !value.length || value.some((c) => typeof c !== "string" || !c.trim())) {
+    return "Companies must be a list of at least one company id"
+  }
+  const ids = [...new Set((value as string[]).map((c) => c.trim()))]
+  const { data, error } = await db.from("companies").select("id").in("id", ids)
+  if (error) return `Could not check the companies: ${error.message}`
+  const found = new Set((data || []).map((c: { id: string }) => c.id))
+  const missing = ids.filter((c) => !found.has(c))
+  return missing.length ? `Unknown company: ${missing.join(", ")}` : ids
+}
+
 /**
  * Resolve the caller to an active staff profile with one of `roles`.
  * Returns a ready-to-send 401/403 `Response` on failure, so callers can write

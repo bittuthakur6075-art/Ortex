@@ -10,6 +10,7 @@ import { cardFor, draftLines, findCustomers, routeFor } from "../../lib/anu"
 import { accessFor, denied, runReadTool } from "./readTools"
 import { staffInstruction } from "./prompt"
 import { ANU_TOOLS } from "./tools"
+import { scopeRows } from "../../data/store/company"
 
 /* ============================================================
    useAnuSession: one conversation with Anu in the console.
@@ -216,7 +217,7 @@ export function useAnuSession({ profile, navigate }) {
     setSpeaking(false)
   }, [])
 
-  const rows = (name) => repo.list(name)
+  const rows = (name) => repo.list(name).then((r) => scopeRows(name, r))
 
   const surface = (results) => {
     const list = (Array.isArray(results) ? results : [results]).filter(Boolean)

@@ -2,7 +2,8 @@ import { useState, useMemo } from "react"
 import { toast } from "sonner"
 import { ShieldCheck } from "../../components/ui/Icons"
 import { Banner, Button, Input, Select, Field, Modal } from "../../components/ui/Ui"
-import { updateProfile, createUser, setUserActive } from "../../services/users"
+import { updateProfile, createUser, setUserActive, setUserCompanies } from "../../services/users"
+import { useCompany } from "../../hooks/useCompany"
 import { ASSIGNABLE_MODULES } from "../../data/domain/modules"
 import { assignableRoles, isAdmin, isOwner, isSuperAdmin, moduleLabel, ROLE_DESCRIPTION, roleLabel } from "../../lib/roles"
 import { useProfile } from "../../hooks/useProfile"
@@ -34,6 +35,16 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
   const roleGrants = isAdmin(role) ? [] : grants[role] || []
   // Minus what the Super Admin hid from this person on Modules → People (0055).
   const effective = [...new Set([...roleGrants, ...modules])].filter((k) => !(user?.modules_hidden || []).includes(k))
+  // The companies this person works in (0075), their default first. Only the
+  // Super Admin changes them; an Admin sees them. A Super Admin works in all.
+  const { all: companyRows } = useCompany()
+  const companiesOn = companyRows.length > 0
+  const canSetCompanies = isSuperAdmin(viewer) && !isSuperAdmin(role)
+  const [companies, setCompanies] = useState(user?.companies?.length ? user.companies : companyRows[0] ? [companyRows[0].id] : ["ortex"])
+  const companiesChanged = JSON.stringify(companies) !== JSON.stringify(user?.companies || [])
+  const toggleCompany = (id) => setCompanies((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))
+  const makeDefault = (id) => setCompanies((c) => [id, ...c.filter((x) => x !== id)])
+  const companyName = (id) => companyRows.find((c) => c.id === id)?.name || id
   const [active, setActive] = useState(user?.active ?? true)
   const [notify, setNotify] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -63,6 +74,7 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
     if (!isEdit && (!email.trim() || !password)) return toast.error("Email and password are required")
     if (isSelf && role !== user.role) return toast.error("You can't change your own role")
     if (isSelf && !active) return toast.error("You can't disable your own account")
+    if (companiesOn && canSetCompanies && !companies.length) return toast.error("Tick at least one company")
     setBusy(true)
     try {
       if (isEdit) {
@@ -72,6 +84,14 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
         // a re-enabled user reading "Active" here while every sign-in, password
         // or emailed code, was still refused by the ban nobody had lifted.
         await updateProfile(user.id, { name, role, modules })
+        if (companiesOn && canSetCompanies && companiesChanged) {
+          const res = await setUserCompanies(user.id, companies)
+          if (res.error) {
+            toast.error(res.error)
+            setBusy(false)
+            return
+          }
+        }
         if (Boolean(user.active) !== Boolean(active)) {
           const res = await setUserActive(user.id, active)
           if (res.error) {
@@ -88,6 +108,8 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
           name,
           role,
           modules,
+          // The Super Admin's alone; the function defaults everyone else to Ortex.
+          ...(companiesOn && canSetCompanies ? { companies } : {}),
           notify,
           // Sent so the email can list access in the same words the console
           // uses, without the function needing to know the module registry.
@@ -185,6 +207,38 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
             </Banner>
           )}
         </Field>
+
+        {companiesOn && (
+          <div>
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Companies</span>
+            {isSuperAdmin(role) ? (
+              <p className="rounded-lg bg-primary/5 px-3 py-2.5 text-sm text-muted-foreground">A Super Admin works in every company.</p>
+            ) : canSetCompanies ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {companyRows.map((c) => (
+                    <label key={c.id} className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-muted/50">
+                      <input type="checkbox" className="h-4 w-4 shrink-0 rounded border-border accent-primary" checked={companies.includes(c.id)} onChange={() => toggleCompany(c.id)} />
+                      <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                      {companies[0] === c.id ? (
+                        <span className="text-xs font-medium text-primary">Default</span>
+                      ) : companies.includes(c.id) ? (
+                        <button type="button" onClick={(e) => (e.preventDefault(), makeDefault(c.id))} className="text-xs font-medium text-primary hover:underline">
+                          Make default
+                        </button>
+                      ) : null}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">Their leads, customers, quotations, invoices and payments come from these companies. The default is where their new records go.</p>
+              </div>
+            ) : (
+              <p className="rounded-lg bg-subtle px-3 py-2.5 text-sm text-muted-foreground">
+                {(user?.companies || []).map(companyName).join(", ") || "Ortex Industries"}. Only the Super Admin changes this.
+              </p>
+            )}
+          </div>
+        )}
 
         <div>
           <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">

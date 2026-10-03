@@ -15,6 +15,7 @@ import { getProfile } from "../../services/users"
 import { useActorHistory } from "../../hooks/useActorHistory"
 import { ACTION_TONE, ACTION_VERB, AUDIT_COLLECTIONS, changedFields, collectionLabel } from "../../lib/auditWords"
 import RowActions from "./RowActions"
+import { useCompany } from "../../hooks/useCompany"
 import UserEditor from "./UserEditor"
 
 // One console account, end to end: who they are, what they can reach, and
@@ -72,6 +73,9 @@ export default function UserDetail() {
   const [user, setUser] = useState(undefined) // undefined = loading, null = gone
   const [editing, setEditing] = useState(false)
   const [visible, setVisible] = useState(PAGE)
+  // The companies they work in (0075), default first; "" before companies exist.
+  const { all: companyRows } = useCompany()
+  const companyNames = !companyRows.length || !user ? "" : isSuperAdmin(user) ? "All companies" : (user.companies || []).map((c) => companyRows.find((r) => r.id === c)?.name || c).join(", ")
   const { entries, loading: loadingActivity, error: activityError } = useActorHistory(id)
 
   const load = useCallback(async () => {
@@ -162,6 +166,12 @@ export default function UserDetail() {
               <dt className="text-muted-foreground">Role</dt>
               <dd><Badge tone={ROLE_TONE[user.role] || "blue"}>{roleLabel(user)}</Badge></dd>
             </div>
+            {companyNames && (
+              <div className="flex items-start justify-between gap-3">
+                <dt className="text-muted-foreground">Companies</dt>
+                <dd className="text-right text-foreground">{companyNames}</dd>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-3">
               <dt className="text-muted-foreground">Sign-in</dt>
               <dd className="text-foreground">{user.active ? "Allowed" : "Blocked"}</dd>

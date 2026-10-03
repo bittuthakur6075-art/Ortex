@@ -4,9 +4,10 @@ import { supabase, hasSupabase } from "../data/store/supabaseClient"
 
 // Kick off an IndiaMART lead pull now. Returns the function result:
 // { ok, total, inserted, duplicates } | { skipped, reason } | { error }.
-export async function syncIndiaMart() {
+// companyId (0075): pull that company's IndiaMART account; none = Ortex's.
+export async function syncIndiaMart(companyId) {
   if (!hasSupabase) return { error: "Backend not configured" }
-  const { data, error } = await supabase.functions.invoke("indiamart-pull", { body: {} })
+  const { data, error } = await supabase.functions.invoke("indiamart-pull", { body: companyId ? { company: companyId } : {} })
   if (error) {
     let message = error.message
     try {

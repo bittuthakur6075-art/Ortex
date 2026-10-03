@@ -6,7 +6,9 @@ import {
   subscribeCollection,
   type CollectionSnapshot,
 } from "@/data/collectionStore"
-import type { Collection } from "@/data/repo"
+import { isCompanyTable, type Collection } from "@/data/repo"
+import { inCompanies } from "@/domain/modules"
+import { useCompany } from "@/store/CompanyContext"
 
 // PORT OF Ortex.Admin/src/hooks/useCollection.js.
 //
@@ -23,11 +25,22 @@ export type CollectionState<T> = CollectionSnapshot<T> & {
   reload: () => Promise<void>
 }
 
-export function useCollection<T>(name: Collection): CollectionState<T> {
+// The four company tables (customers, enquiries, quotations, payments) are
+// filtered to the company the person has chosen, or all of theirs in All mode
+// (store/CompanyContext.tsx). The store underneath stays whole, so the cache and
+// realtime never depend on the choice. `everyCompany` keeps every row RLS gives:
+// a record page opened from a notification or a link must open whatever the
+// switcher says.
+export function useCollection<T>(name: Collection, { everyCompany = false }: { everyCompany?: boolean } = {}): CollectionState<T> {
+  const { scope } = useCompany()
   const subscribe = React.useCallback((listener: () => void) => subscribeCollection(name, listener), [name])
   const getSnapshot = React.useCallback(() => getCollectionSnapshot<T>(name), [name])
   const snapshot = React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
   const reload = React.useCallback(() => loadCollection(name), [name])
 
-  return React.useMemo(() => ({ ...snapshot, reload }), [snapshot, reload])
+  const filter = !everyCompany && isCompanyTable(name) ? scope : null
+  return React.useMemo(
+    () => ({ ...snapshot, items: filter ? inCompanies(snapshot.items, filter) : snapshot.items, reload }),
+    [snapshot, reload, filter],
+  )
 }

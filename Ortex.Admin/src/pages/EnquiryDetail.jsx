@@ -5,7 +5,7 @@ import {
   Inbox, ArrowLeft, PhoneOutgoing, MessageCircle, Mail, FileText, MoreHorizontal, Clock, UserCheck, Trash2, ImageIcon, ShieldCheck, Mic, Globe, ArrowRight, Calendar, Pencil, CheckCircle2, AlertTriangle,
 } from "../components/ui/Icons"
 import { repo } from "../data/store/repository"
-import { useCollection, useSettings } from "../hooks/useCollection"
+import { useCollection, useSettingsFor } from "../hooks/useCollection"
 import { useProfile } from "../hooks/useProfile"
 import { isAdmin } from "../lib/roles"
 import { ENQUIRY_STATUS, LEAD_SOURCES, PRODUCT_CATEGORIES, QUOTATION_STATUS, newEnquiry } from "../data/domain/schema"
@@ -45,7 +45,9 @@ export default function EnquiryDetail() {
   const { items: quotations } = useCollection("quotations")
   const { items: invoices } = useCollection("invoices")
   const { items: customers } = useCollection("customers")
-  const settings = useSettings()
+  const settingsOf = useSettingsFor()
+  // The GST check compares against the enquiry's own company.
+  const settings = settingsOf?.(items.find((x) => x.id === id)?.companyId) ?? null
   const profile = useProfile()
   const staff = useStaffNames(profile)
   const actions = useLeadActions({ products, staff, me: profile?.name || "" })

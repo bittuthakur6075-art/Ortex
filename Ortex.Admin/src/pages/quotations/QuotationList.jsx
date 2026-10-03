@@ -8,6 +8,7 @@ import { exportCsv } from "../../lib/csv"
 import { cn } from "../../lib/cn"
 import { QUOTE_GROUPS, QUOTE_TONE, rupees } from "../../lib/salesWork"
 import { Button, Chip, EmptyState, Modal, PageLoader } from "../../components/ui/Ui"
+import { CompanyChip } from "../../components/ui/CompanyChip"
 import {
   ListHeader, SmartViews, ListSearch, ToolButton, InlineSelect, Check, CursorBar, GroupRow, StatusDot, Initials, RowAction, ActionMenu, Pager, useListKeys,
 } from "../../components/sales/ListParts"
@@ -58,7 +59,7 @@ const monthKey = (t) => `${new Date(t).getFullYear()}-${new Date(t).getMonth()}`
 // Quotations (Figma "V2 · Quotations · List"): grouped by what each one needs
 // next, with its age since sending, validity countdown, source lead, owner and
 // the send / remind / invoice action on the row itself.
-export default function QuotationList({ items, loading, settings, enquiries = [], invoices = [], onOpen, onNew, onSend, onPreview }) {
+export default function QuotationList({ items, loading, settingsOf, enquiries = [], invoices = [], onOpen, onNew, onSend, onPreview }) {
   const navigate = useNavigate()
   const [view, setView] = useState("all")
   const [query, setQuery] = useState("")
@@ -176,7 +177,7 @@ export default function QuotationList({ items, loading, settings, enquiries = []
       Enter: () => active && onOpen(active.q),
       p: () => active && onPreview(active.q),
       s: () => active && onSend(active.q),
-      w: () => active && startWhatsAppShare(active.q, settings),
+      w: () => active && startWhatsAppShare(active.q, settingsOf(active.q.companyId)),
       i: () => active && active.st === "accepted" && convert.ask(active.q),
       "/": () => searchRef.current?.focus(),
     },
@@ -190,9 +191,9 @@ export default function QuotationList({ items, loading, settings, enquiries = []
         title: "Share",
         items: [
           { icon: Eye, label: "Preview", key: "P", onSelect: () => onPreview(q) },
-          { icon: Mail, label: r.st === "draft" ? "Send by email" : "Send reminder by email", key: "E", disabled: r.st === "invoiced", onSelect: () => sendQuotation(q, settings) },
-          { icon: MessageCircle, label: r.st === "draft" ? "Send on WhatsApp" : "Remind on WhatsApp", key: "W", tone: "green", onSelect: () => startWhatsAppShare(q, settings) },
-          { icon: Download, label: "Download PDF", key: "D", onSelect: () => downloadPdf(q, settings) },
+          { icon: Mail, label: r.st === "draft" ? "Send by email" : "Send reminder by email", key: "E", disabled: r.st === "invoiced", onSelect: () => sendQuotation(q, settingsOf(q.companyId)) },
+          { icon: MessageCircle, label: r.st === "draft" ? "Send on WhatsApp" : "Remind on WhatsApp", key: "W", tone: "green", onSelect: () => startWhatsAppShare(q, settingsOf(q.companyId)) },
+          { icon: Download, label: "Download PDF", key: "D", onSelect: () => downloadPdf(q, settingsOf(q.companyId)) },
         ],
       },
       {
@@ -212,7 +213,7 @@ export default function QuotationList({ items, loading, settings, enquiries = []
   const bulkSend = async () => {
     const list = rows.filter((r) => selected.has(r.id) && ["draft", "sent", "expired"].includes(r.st))
     let ok = 0
-    for (const r of list) if (await sendQuotation(r.q, settings)) ok++
+    for (const r of list) if (await sendQuotation(r.q, settingsOf(r.q.companyId))) ok++
     toast.success(`${ok} of ${list.length} sent by email`)
     setSelected(new Set())
   }
@@ -327,7 +328,7 @@ export default function QuotationList({ items, loading, settings, enquiries = []
                         menuOpen={menu?.id === r.id}
                         onOpen={() => onOpen({ ...r.q })}
                         onPrimary={() => primary(r)}
-                        onWhatsApp={() => startWhatsAppShare(r.q, settings)}
+                        onWhatsApp={() => startWhatsAppShare(r.q, settingsOf(r.q.companyId))}
                         onMenu={(anchor) => (setActiveId(r.id), setMenu({ id: r.id, anchor }))}
                       />
                     ))}
@@ -460,6 +461,7 @@ function QuoteRow({ r, checked, onCheck, active, menuOpen, onOpen, onPrimary, on
           {q.number || "Draft"}
         </button>
         <div className="mt-px truncate text-xs text-muted-foreground">
+          <CompanyChip companyId={q.companyId} className="mr-1" />
           {r.st === "draft" ? "Draft" : dm(q.issueDate)}
           {r.lead?.reference ? ` · from ${r.lead.reference}` : ""}
         </div>

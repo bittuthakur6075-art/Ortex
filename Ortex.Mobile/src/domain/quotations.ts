@@ -55,8 +55,8 @@ export function totalsFor(
  * atomic — this is why a quotation cannot be raised offline: two phones with no
  * signal would both believe they had the next number.
  */
-async function generateNumber(series: string, settings: Settings): Promise<string> {
-  const seq = await repo.nextSequence(series)
+async function generateNumber(series: string, settings: Settings, companyId?: string): Promise<string> {
+  const seq = await repo.nextSequence(series, companyId)
   const prefix = (settings.numbering as Record<string, string>)[`${series}Prefix`] || series.toUpperCase()
   return documentNumber(prefix, seq)
 }
@@ -102,10 +102,16 @@ function sameNameOnly(a: Partial<Customer>, b: Partial<Customer>): boolean {
 /**
  * Insert or update a customer in the master, so a customer captured while making
  * a quote appears in Contacts without manual re-entry.
+ *
+ * Customers belong to one company (Admin migration 0076): the match looks only
+ * at `companyId`'s customers, and a new one is created in it, as the
+ * database's upsert_customer_from() does for leads.
  */
-export async function upsertCustomer(customer: Customer): Promise<void> {
+export async function upsertCustomer(customer: Customer, companyId?: string): Promise<void> {
   if (!customer || (!customer.name && !customer.company)) return
-  const all = await repo.list<Customer & { id: string }>("customers")
+  const all = (await repo.list<Customer & { id: string; companyId?: string }>("customers")).filter(
+    (c) => !companyId || c.companyId === companyId,
+  )
   const match = all.find((c) => sameCustomer(customer, c)) ?? all.find((c) => sameNameOnly(customer, c))
   if (match) {
     // Fill only blanks — never clobber curated master data with a sparse doc.
@@ -119,7 +125,7 @@ export async function upsertCustomer(customer: Customer): Promise<void> {
     return
   }
   // Stored as national digits, the shape the contact editor saves.
-  await repo.create("customers", { ...customer, phone: nationalDigits(customer.phone) })
+  await repo.create("customers", { ...customer, phone: nationalDigits(customer.phone), companyId })
 }
 
 export type QuotationDraft = {
@@ -140,6 +146,8 @@ export type QuotationDraft = {
   /** Printed under the totals when `showSeller` is on — see schema.ts. */
   sellerName: string
   showSeller: boolean
+  /** The company it is raised for (Admin migration 0075); "" until chosen. Fixed once created. */
+  companyId: string
 }
 
 /** The console's `emptyDraft(settings)`, plus the two seller fields. */
@@ -166,6 +174,7 @@ export function emptyDraft(settings: Settings): QuotationDraft {
     // sheet the customer receives — it is who the customer rings back. The
     // checkbox is for the times it should go out as the company alone.
     showSeller: true,
+    companyId: "",
   }
 }
 
@@ -187,10 +196,10 @@ export async function createQuotation(
 ): Promise<Quotation> {
   if (attempt.number) {
     // A retry: the first insert may have landed after all.
-    const landed = await findQuotationByNumber(attempt.number)
+    const landed = await findQuotationByNumber(attempt.number, draft.companyId)
     if (landed) return landed
   }
-  const number = attempt.number || (await generateNumber("quotation", settings))
+  const number = attempt.number || (await generateNumber("quotation", settings, draft.companyId))
   attempt.number = number
   const issueDate = draft.issueDate || new Date().toISOString()
   const validityDays = draft.validityDays ?? settings.quotation.validityDays
@@ -203,8 +212,9 @@ export async function createQuotation(
     draft.shipTo,
   )
 
-  await upsertCustomer(draft.customer)
+  await upsertCustomer(draft.customer, draft.companyId)
   return repo.create<Quotation>("quotations", {
+    companyId: draft.companyId,
     number,
     status: "draft",
     customer: draft.customer,
@@ -233,10 +243,11 @@ export async function createQuotation(
  * A quotation by its number among the newest rows, or null. Throws when the
  * list could only be read from the phone's cache: then nobody knows.
  */
-export async function findQuotationByNumber(number: string): Promise<Quotation | null> {
+export async function findQuotationByNumber(number: string, companyId?: string): Promise<Quotation | null> {
   const { items, fromCache } = await repo.fetch<Quotation>("quotations", { limit: 50 })
   if (fromCache) throw new Error("No signal to check whether the quotation was saved")
-  return items.find((q) => q.number === number) || null
+  // Each company numbers its own quotations, so QTN-0001 can exist twice.
+  return items.find((q) => q.number === number && (!companyId || q.companyId === companyId)) || null
 }
 
 const SAVE_TIMEOUT = 20000
@@ -264,7 +275,7 @@ export async function createQuotationReliably(
     ])
   } catch (e) {
     if (attempt.number) {
-      const landed = await findQuotationByNumber(attempt.number).catch(() => null)
+      const landed = await findQuotationByNumber(attempt.number, draft.companyId).catch(() => null)
       if (landed) return landed
     }
     throw e
@@ -297,7 +308,7 @@ export async function updateQuotation(
     merged.issueDate && merged.validityDays != null
       ? validUntilFor(merged.issueDate, merged.validityDays)
       : merged.validUntil
-  if (patch.customer) await upsertCustomer(patch.customer)
+  if (patch.customer) await upsertCustomer(patch.customer, existing.companyId)
   return repo.update<Quotation>("quotations", id, { ...patch, totals, validUntil })
 }
 
