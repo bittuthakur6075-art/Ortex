@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { readFileSync } from "node:fs"
+import { round2 } from "./format"
 import {
   decodeXmlBytes, cleanXml, parseXml, tallyNumber, tallyDate, financialYear,
   parseTallyFiles, planTallyImport, countByStatus, invoiceDoc,
@@ -319,9 +320,9 @@ describe("planTallyImport", () => {
 
   it("a first import: everything new, console-made vouchers left out", () => {
     const plan = planTallyImport(parsed, empty, { syncedAt: SYNCED, categories: ["Acrylic products"] })
-    expect(countByStatus(plan.invoices)).toEqual({ new: 2, changed: 0, same: 0, console: 1, problem: 0 })
+    expect(countByStatus(plan.invoices)).toEqual({ new: 2, changed: 0, same: 0, console: 1, skipped: 0, problem: 0 })
     expect(plan.customers.map((r) => [r.title, r.status])).toEqual([
-      ["Acme Corp Ltd", "new"], ["Delhi Schools Trust", "new"], ["Tech Innovators Corp", "new"], ["Walk-in Buyer", "new"],
+      ["Acme Corp Ltd", "new"], ["Delhi Schools Trust", "new"], ["Tech Innovators Corp", "new"],
     ])
     const inv = plan.invoices[0].doc
     expect(inv.tally).toEqual({ status: "synced", source: "tally", syncedAt: SYNCED, voucherRef: "1", guid: "a1b2-0001", alterId: 101 })
@@ -335,8 +336,8 @@ describe("planTallyImport", () => {
     expect(plan.receipts[0].doc).toMatchObject({ number: "1", type: "inflow", amount: 11800, invoiceNumber: "1", date: "2025-04-25T06:30:00.000Z" })
     expect(plan.receipts[1].reason).toMatch(/On Account/)
     expect(plan.receipts[1].doc.invoiceId).toBe(null)
-    // Receipt 1 took number "1": payment voucher 1 becomes 1/2526.
-    expect(plan.payouts[0]).toMatchObject({ title: "1/2526", flagged: true })
+    // Receipt 1 took number "1": payment voucher 1 (another series, same year) becomes P-1.
+    expect(plan.payouts[0]).toMatchObject({ title: "P-1", flagged: true })
     expect(plan.payouts[0].doc).toMatchObject({ type: "payout", customer: null, invoiceId: null })
   })
 
@@ -411,5 +412,180 @@ describe("invoiceDoc", () => {
     const d = invoiceDoc(inv, { syncedAt: SYNCED })
     expect(Object.keys(d.totals).sort()).toEqual(["cgst", "docDiscount", "grandTotal", "gstTotal", "igst", "interState", "lineDiscount", "lines", "roundOff", "sgst", "subTotal", "taxByRate", "taxable", "totalDiscount"])
     expect([d.number, d.totals.subTotal, d.lines, d.dueDate]).toEqual(["2", 20000.4, [], "2025-05-05T06:30:00.000Z"])
+  })
+})
+
+// ---- the fixes from the test-file run (one small XML each) --------------------------
+
+const env = (body) => `<ENVELOPE><BODY><IMPORTDATA><REQUESTDATA>${body}</REQUESTDATA></IMPORTDATA></BODY></ENVELOPE>`
+const msg = (x) => `<TALLYMESSAGE>${x}</TALLYMESSAGE>`
+const led = (name, parent, extra = "") => msg(`<LEDGER NAME="${name}"><GUID>g-${name}</GUID><PARENT>${parent}</PARENT><ALTERID>1</ALTERID>${extra}</LEDGER>`)
+const entry = (name, amount, extra = "") => `<ALLLEDGERENTRIES.LIST><LEDGERNAME>${name}</LEDGERNAME><AMOUNT>${amount}</AMOUNT>${extra}</ALLLEDGERENTRIES.LIST>`
+const vch = (type, guid, { date = "20260410", number = "1", party = "", body = "" } = {}) =>
+  msg(`<VOUCHER VCHTYPE="${type}" ACTION="Create"><DATE>${date}</DATE><GUID>${guid}</GUID><VOUCHERTYPENAME>${type}</VOUCHERTYPENAME>${party ? `<PARTYLEDGERNAME>${party}</PARTYLEDGERNAME>` : ""}<VOUCHERNUMBER>${number}</VOUCHERNUMBER><ALTERID>5</ALTERID>${body}</VOUCHER>`)
+const newRef = (n, a) => `<BILLALLOCATIONS.LIST><NAME>${n}</NAME><BILLTYPE>New Ref</BILLTYPE><AMOUNT>${a}</AMOUNT></BILLALLOCATIONS.LIST>`
+const agstRef = (n, a) => `<BILLALLOCATIONS.LIST><NAME>${n}</NAME><BILLTYPE>Agst Ref</BILLTYPE><AMOUNT>${a}</AMOUNT></BILLALLOCATIONS.LIST>`
+const bankAlloc = (inner) => `<BANKALLOCATIONS.LIST>${inner}</BANKALLOCATIONS.LIST>`
+const item = (amount) => `<ALLINVENTORYENTRIES.LIST><STOCKITEMNAME>Badge</STOCKITEMNAME><AMOUNT>${amount}</AMOUNT><BILLEDQTY>10 pcs</BILLEDQTY></ALLINVENTORYENTRIES.LIST>`
+const one = (text, opts) => parseTallyFiles([{ name: "f.xml", text: env(text) }], opts)
+const none = () => ({ customers: [], products: [], invoices: [], payments: [] })
+const save = (plan) => {
+  let n = 0
+  const ids = (rows) => rows.filter((r) => r.doc).map((r) => ({ ...r.doc, id: `s-${++n}` }))
+  return { customers: ids(plan.customers), products: ids(plan.products), invoices: ids(plan.invoices), payments: [...ids(plan.receipts), ...ids(plan.payouts)] }
+}
+
+describe("custom voucher types (fix 1)", () => {
+  const taxInvoice = vch("Tax Invoice", "ti-1", { party: "Acme", body: item(1000) + entry("Acme", "-1180.00", newRef("TI/1", "-1180.00")) + entry("Revenue A", "1000.00") + entry("Output IGST", "180.00") })
+
+  it("reads an unknown type from its entries, and lists what is still unknown by type name", () => {
+    const p = one(
+      taxInvoice +
+        vch("Collections", "c-1", { party: "Acme", body: entry("Acme", "500.00", agstRef("TI/1", "500.00")) + entry("HDFC Bank", "-500.00", bankAlloc("<TRANSFERMODE>NEFT</TRANSFERMODE>")) }) +
+        vch("Outgo", "o-1", { party: "Vendor", body: entry("Vendor", "-200.00") + entry("Cash", "200.00") }) +
+        vch("Stock Shift", "s-1", { body: entry("Depreciation", "-10.00") + entry("Plant", "10.00") }),
+    )
+    expect(p.invoices.map((i) => [i.typeName, i.guessedType, i.totals.grandTotal, i.totals.igst])).toEqual([["Tax Invoice", true, 1180, 180]])
+    expect(p.receipts.map((r) => [r.typeName, r.amount, r.billRef])).toEqual([["Collections", 500, "TI/1"]])
+    expect(p.payouts.map((r) => [r.typeName, r.amount, r.method])).toEqual([["Outgo", 200, "Cash"]])
+    expect(p.others).toEqual({ "Stock Shift": 1 })
+  })
+
+  it("remembers voucher types, groups and ledgers from an earlier upload", () => {
+    const masters = one(msg(`<VOUCHERTYPE NAME="Tax Invoice"><PARENT>Sales</PARENT></VOUCHERTYPE>`) + msg(`<GROUP NAME="Corporate Clients" RESERVEDNAME=""><PARENT>Sundry Debtors</PARENT></GROUP>`) + led("Acme", "Corporate Clients")).masters
+    expect(masters).toMatchObject({ types: { "tax invoice": "Sales" }, groups: { "corporate clients": "Sundry Debtors" }, ledgers: { acme: "Corporate Clients" } })
+    // A totals-only voucher whose entries alone say nothing.
+    const bare = vch("Tax Invoice", "ti-2", { party: "Acme", body: entry("Acme", "-100.00") + entry("Revenue A", "100.00") })
+    expect(one(bare).others).toEqual({ "Tax Invoice": 1 })
+    const later = one(bare, { masters: JSON.parse(JSON.stringify(masters)) })
+    expect(later.invoices.map((i) => [i.kind, i.guessedType, i.partyRoot])).toEqual([["sales", false, "sundry debtors"]])
+  })
+})
+
+describe("who is a customer (fixes 2 and 7)", () => {
+  const masters =
+    msg(`<GROUP NAME="Sundry Debtors" RESERVEDNAME="Sundry Debtors"><PARENT>Current Assets</PARENT></GROUP>`) +
+    msg(`<GROUP NAME="Corporate Clients" RESERVEDNAME=""><PARENT>Sundry Debtors</PARENT></GROUP>`) +
+    msg(`<GROUP NAME="Key Accounts" RESERVEDNAME=""><PARENT>Corporate Clients</PARENT></GROUP>`) +
+    led("Orbit Events", "Key Accounts") + led("Director Capital A/c", "Capital Account") + led("HDFC Bank", "Bank Accounts")
+  const money = (type, guid, party, amount, bills = "") =>
+    vch(type, guid, { party, body: entry(party, type === "Receipt" ? amount : `-${amount}`, bills) + entry("HDFC Bank", type === "Receipt" ? `-${amount}` : amount) })
+
+  it("a ledger in a sub-group of a sub-group of Sundry Debtors is a customer", () => {
+    const p = one(masters)
+    expect(p.customers.map((c) => c.name)).toEqual(["Orbit Events"])
+    expect(p.otherLedgers).toBe(2)
+  })
+
+  it("money in from a ledger that is not a debtor is left out, and makes no customer", () => {
+    const p = one(masters + money("Receipt", "r-1", "Director Capital A/c", "100000.00") + money("Receipt", "r-2", "Orbit Events", "500.00") + money("Payment", "p-1", "Speedy Couriers", "300.00"))
+    const plan = planTallyImport(p, none(), { syncedAt: SYNCED })
+    expect(plan.receipts.map((r) => [r.title, r.status, r.reason, !!r.action])).toEqual([
+      ["1", "skipped", "Not from a customer: Capital Account", false],
+      ["1", "new", "On Account: saved unlinked.", true],
+    ])
+    expect(plan.customers.map((r) => r.title)).toEqual(["Orbit Events"])
+    expect(countByStatus(plan.receipts)).toMatchObject({ new: 1, skipped: 1 })
+  })
+
+  it("an unknown ledger becomes a customer only when it pays a bill; a payee never", () => {
+    const p = one(money("Receipt", "r-1", "Stranger A", "100.00") + money("Receipt", "r-2", "Stranger B", "100.00", agstRef("7", "100.00")) + money("Payment", "p-1", "Vendor C", "50.00"))
+    const plan = planTallyImport(p, none(), { syncedAt: SYNCED })
+    expect(plan.customers.map((r) => r.title)).toEqual(["Stranger B"])
+    expect(plan.receipts.map((r) => r.status)).toEqual(["new", "new"])
+  })
+})
+
+describe("tax ledgers (fix 3)", () => {
+  const sale = (salesLedger) => vch("Sales", "s-1", { party: "Sahyadri", body: entry("Sahyadri", "-47200.00", newRef("53", "-47200.00")) + entry(salesLedger, "40000.00") + entry("Output IGST", "7200.00") })
+  const adds = (t) => expect(round2(t.taxable + t.gstTotal + t.roundOff)).toBe(t.grandTotal)
+
+  it("a sales ledger with IGST in its name is not tax, with or without the masters", () => {
+    const masters = led("Sales Interstate IGST 18%", "Sales Accounts") + led("Output IGST", "Duties &amp; Taxes", "<TAXTYPE>GST</TAXTYPE><GSTDUTYHEAD>Integrated Tax</GSTDUTYHEAD>")
+    for (const text of [sale("Sales Interstate IGST 18%"), masters + sale("Sales Interstate IGST 18%")]) {
+      const t = one(text).invoices[0].totals
+      expect([t.taxable, t.igst, t.gstTotal, t.grandTotal, t.interState]).toEqual([40000, 7200, 7200, 47200, true])
+      adds(t)
+    }
+  })
+
+  it("the master's duty head decides a tax ledger whatever its name", () => {
+    const masters = led("Revenue", "Sales Accounts") + led("Tax A", "Duties &amp; Taxes", "<TAXTYPE>GST</TAXTYPE><GSTDUTYHEAD>Central Tax</GSTDUTYHEAD>") + led("Tax B", "Duties &amp; Taxes", "<TAXTYPE>GST</TAXTYPE><GSTDUTYHEAD>State Tax</GSTDUTYHEAD>")
+    const v = vch("Sales", "s-2", { party: "Bright", body: entry("Bright", "-1180.00") + entry("Revenue", "1000.00") + entry("Tax A", "90.00") + entry("Tax B", "90.00") })
+    const t = one(masters + v).invoices[0].totals
+    expect([t.taxable, t.cgst, t.sgst, t.igst]).toEqual([1000, 90, 90, 0])
+    adds(t)
+    // Without the masters "Tax A" says nothing: the 180 stays in the taxable value.
+    expect(one(v).invoices[0].totals).toMatchObject({ taxable: 1180, gstTotal: 0 })
+  })
+})
+
+describe("reference and method (fix 4)", () => {
+  const rcpt = (guid, bank) => vch("Receipt", guid, { party: "Acme", body: entry("Acme", "100.00") + entry("HDFC Bank", "-100.00", bankAlloc(bank)) })
+
+  it("the UTR or cheque number, never Tally's own key; RTGS, IMPS, UPI, cheque", () => {
+    const p = one(
+      rcpt("a", "<TRANSACTIONTYPE>e-Fund Transfer</TRANSACTIONTYPE><TRANSFERMODE>RTGS</TRANSFERMODE><INSTRUMENTNUMBER>HDFCR52026041012345</INSTRUMENTNUMBER><UNIQUEREFERENCENUMBER>JCfL5rSLN6SSLC3r</UNIQUEREFERENCENUMBER><PAYMENTMODE>Transacted</PAYMENTMODE>") +
+        rcpt("b", "<TRANSACTIONTYPE>e-Fund Transfer</TRANSACTIONTYPE><TRANSFERMODE>IMPS</TRANSFERMODE><UNIQUEREFERENCENUMBER>3vA8zdbrQhk3pdEJ</UNIQUEREFERENCENUMBER>") +
+        rcpt("c", "<TRANSACTIONTYPE>Others</TRANSACTIONTYPE><TRANSFERMODE>UPI</TRANSFERMODE><UNIQUEREFERENCENUMBER>412345678901</UNIQUEREFERENCENUMBER>") +
+        rcpt("d", "<TRANSACTIONTYPE>Cheque</TRANSACTIONTYPE><INSTRUMENTNUMBER>004512</INSTRUMENTNUMBER><UNIQUEREFERENCENUMBER>5vxfQmE5U85kUE34</UNIQUEREFERENCENUMBER>"),
+    )
+    expect(p.receipts.map((r) => [r.method, r.reference])).toEqual([
+      ["RTGS", "HDFCR52026041012345"],
+      ["Bank transfer / NEFT", ""],
+      ["UPI", "412345678901"],
+      ["Cheque", "004512"],
+    ])
+  })
+})
+
+describe("a receipt imported before its invoice (fix 5)", () => {
+  it("says it can link, and writes nothing until Tally's ALTERID grows", () => {
+    const receipt = vch("Receipt", "r-287", { date: "20260415", number: "6", party: "Shah", body: entry("Shah", "5000.00", agstRef("287", "5000.00")) + entry("HDFC Bank", "-5000.00") })
+    const invoice = vch("Sales", "s-287", { date: "20260320", number: "287", party: "Shah", body: entry("Shah", "-5000.00") + entry("Sales", "5000.00") })
+    const first = planTallyImport(one(receipt), none(), { syncedAt: SYNCED })
+    expect(first.receipts[0].reason).toMatch(/Bill 287 is not in the console/)
+    const existing = save(first)
+    const again = planTallyImport(one(invoice + receipt), existing, { syncedAt: SYNCED })
+    expect(again.invoices[0]).toMatchObject({ status: "new", title: "287" })
+    expect(again.receipts[0]).toMatchObject({ status: "same", flagged: true, reason: "Can link to invoice 287: open and save this receipt in Tally, then export it again." })
+    expect(again.receipts[0].action).toBeUndefined()
+    // Saved again in Tally: a normal change that carries the link.
+    const edited = planTallyImport(one(invoice + receipt.replace("<ALTERID>5</ALTERID>", "<ALTERID>9</ALTERID>")), existing, { syncedAt: SYNCED })
+    expect(edited.receipts[0]).toMatchObject({ status: "changed", action: "update", link: { invoiceKey: "s-287" } })
+  })
+})
+
+describe("stock items (fix 6)", () => {
+  const stock = (prices) =>
+    msg(`<STOCKITEM NAME="Polyester Lanyard"><GUID>st-1</GUID><BASEUNITS>pcs</BASEUNITS><ALTERID>3</ALTERID><OPENINGRATE>165.00/pcs</OPENINGRATE>
+    <GSTDETAILS.LIST><APPLICABLEFROM>20240401</APPLICABLEFROM><STATEWISEDETAILS.LIST><RATEDETAILS.LIST><GSTRATEDUTYHEAD>IGST</GSTRATEDUTYHEAD><GSTRATE> 12</GSTRATE></RATEDETAILS.LIST></STATEWISEDETAILS.LIST></GSTDETAILS.LIST>
+    <GSTDETAILS.LIST><APPLICABLEFROM>20250922</APPLICABLEFROM><STATEWISEDETAILS.LIST><RATEDETAILS.LIST><GSTRATEDUTYHEAD>IGST</GSTRATEDUTYHEAD><GSTRATE> 5</GSTRATE></RATEDETAILS.LIST></STATEWISEDETAILS.LIST></GSTDETAILS.LIST>
+    <STANDARDCOSTLIST.LIST><DATE>20250401</DATE><RATE>10.00/pcs</RATE></STANDARDCOSTLIST.LIST>${prices}</STOCKITEM>`)
+
+  it("takes the GST rate and selling price in force today, never the opening (cost) rate", () => {
+    const prices = "<STANDARDPRICELIST.LIST><DATE>20250401</DATE><RATE>22.00/pcs</RATE></STANDARDPRICELIST.LIST><STANDARDPRICELIST.LIST><DATE>20260101</DATE><RATE>24.00/pcs</RATE></STANDARDPRICELIST.LIST>"
+    expect(one(stock(prices), { today: "2026-10-03" }).products[0]).toMatchObject({ gstRate: 5, basePrice: 24 })
+    expect(one(stock(prices), { today: "2025-06-01" }).products[0]).toMatchObject({ gstRate: 12, basePrice: 22 })
+    expect(one(stock(""), { today: "2026-10-03" }).products[0]).toMatchObject({ gstRate: 5, basePrice: 0 })
+  })
+})
+
+describe("numbers (fix 8)", () => {
+  const money = (type, guid, number, date) =>
+    vch(type, guid, { date, number, party: "Acme", body: entry("Acme", type === "Receipt" ? "100.00" : "-100.00") + entry("Cash", type === "Receipt" ? "-100.00" : "100.00") })
+
+  it("the other series gets P- or R-, another year /FY, a same-year duplicate -2", () => {
+    const plan = planTallyImport(one(money("Receipt", "r1", "1", "20260410") + money("Payment", "p1", "1", "20260411") + money("Receipt", "r5", "5", "20260412") + money("Receipt", "r5b", "5", "20260413")), none(), { syncedAt: SYNCED })
+    expect([...plan.receipts, ...plan.payouts].map((r) => r.title)).toEqual(["1", "5", "5-2", "P-1"])
+    const later = planTallyImport(one(money("Payment", "p1-next", "1", "20270410") + money("Receipt", "r1-next", "1", "20270411")), save(plan), { syncedAt: SYNCED })
+    expect([later.payouts[0].title, later.receipts[0].title]).toEqual(["P-1/2728", "1/2728"])
+  })
+})
+
+describe("problem messages (fix 9)", () => {
+  it("a sales voucher with no party says so", () => {
+    const plan = planTallyImport(one(vch("Sales", "s-x", { body: entry("Sales", "100.00") })), none(), { syncedAt: SYNCED })
+    expect(plan.invoices[0]).toMatchObject({ status: "problem", reason: "No customer: the voucher names no party and has no debit line" })
   })
 })

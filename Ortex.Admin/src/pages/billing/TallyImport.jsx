@@ -2,6 +2,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { Upload, CheckCircle2, AlertTriangle } from "../../components/ui/Icons"
 import { repo } from "../../data/store/repository"
+import { currentUserId } from "../../lib/auth"
 import { syncInvoicePaid } from "../../data/domain/domain"
 import { Button, Badge, Banner, Drawer } from "../../components/ui/Ui"
 import { formatCurrency, formatDate } from "../../lib/format"
@@ -19,9 +20,28 @@ const KINDS = [
   { key: "receipts", label: "Receipts (money in)", collection: "payments" },
   { key: "payouts", label: "Payments out", collection: "payments" },
 ]
-const TONE = { new: "emerald", changed: "blue", same: "slate", console: "violet", problem: "rose" }
+const TONE = { new: "emerald", changed: "blue", same: "slate", console: "violet", skipped: "amber", problem: "rose" }
 const MAX_BYTES = 60 * 1024 * 1024
 const PARALLEL = 6
+
+// What the masters taught (voucher types, groups, ledgers), kept per signed-in
+// person in this browser so a later Day Book alone still reads them. Losing it
+// (private window, cleared storage) only means uploading the masters again.
+const mastersKey = () => `ortex.tallyMasters.${currentUserId() || "local"}`
+function loadMasters() {
+  try {
+    return JSON.parse(localStorage.getItem(mastersKey()) || "null") || undefined
+  } catch {
+    return undefined
+  }
+}
+function saveMasters(m) {
+  try {
+    localStorage.setItem(mastersKey(), JSON.stringify(m))
+  } catch {
+    // Storage full or blocked: the next upload just knows less.
+  }
+}
 
 async function inBatches(items, fn) {
   for (let i = 0; i < items.length; i += PARALLEL) await Promise.all(items.slice(i, i + PARALLEL).map((x, j) => fn(x, i + j)))
@@ -123,7 +143,8 @@ export default function TallyImport({ open, onClose }) {
     try {
       const read = await Promise.all(picked.map(async (f) => ({ name: f.name, text: decodeXmlBytes(await f.arrayBuffer()) })))
       const all = [...files.filter((f) => !read.some((r) => r.name === f.name)), ...read]
-      const p = parseTallyFiles(all)
+      const p = parseTallyFiles(all, { masters: loadMasters() })
+      saveMasters(p.masters)
       const [customers, products, invoices, payments, categories] = await Promise.all(
         ["customers", "products", "invoices", "payments", "categories"].map((c) => repo.list(c)),
       )
@@ -166,6 +187,7 @@ export default function TallyImport({ open, onClose }) {
             res.created++
           } else {
             await repo.update(kind.collection, r.id, data)
+            if (kind.key === "invoices") touched.add(r.id)
             res.updated++
           }
           if (data.invoiceId) touched.add(data.invoiceId)
@@ -178,6 +200,7 @@ export default function TallyImport({ open, onClose }) {
       result.push(res)
     }
     // Demo mode only: on Supabase the 0066 trigger has already settled them.
+    // Every invoice a payment points to, and every invoice whose total changed.
     for (const id of touched) await syncInvoicePaid(id).catch(() => {})
     setBusy("")
     setSummary(result)

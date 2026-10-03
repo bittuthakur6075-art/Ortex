@@ -143,24 +143,106 @@ function addressOf(el) {
   return lines.join(", ")
 }
 
+// ---- what the masters say ---------------------------------------------------------
+
+// What the masters (List of Accounts) say, learned from every upload and kept
+// by the page in the browser, so a later Day Book alone still knows them. All
+// keys lower case; values as Tally writes them.
+//   types: voucher type -> parent type   groups: group -> parent group
+//   ledgers: ledger -> its group         taxHeads: GST ledger -> duty head
+export const emptyMasters = () => ({ types: {}, groups: {}, ledgers: {}, taxHeads: {} })
+
+function learnMasters(root, m) {
+  const nameOf = (el) => el.attrs.NAME || deep(el, "NAME")
+  for (const t of all(root, "VOUCHERTYPE")) {
+    const n = nameOf(t)
+    if (n && val(t, "PARENT")) m.types[lower(n)] = val(t, "PARENT")
+  }
+  for (const g of all(root, "GROUP")) {
+    const n = nameOf(g)
+    // A renamed predefined group still carries its own name in RESERVEDNAME.
+    const reserved = g.attrs.RESERVEDNAME || ""
+    if (n) m.groups[lower(n)] = reserved && lower(reserved) !== lower(n) ? reserved : val(g, "PARENT")
+  }
+  for (const l of all(root, "LEDGER")) {
+    const n = nameOf(l)
+    if (!n || !val(l, "PARENT")) continue
+    m.ledgers[lower(n)] = val(l, "PARENT")
+    const head = val(l, "GSTDUTYHEAD")
+    if (/gst/i.test(val(l, "TAXTYPE")) && /tax|cess/i.test(head)) m.taxHeads[lower(n)] = head
+  }
+}
+
+// Tally's predefined groups. A ledger's group chain ends at one of them, and the
+// first one met says what the ledger is (a sub-group of Sundry Debtors is a debtor).
+const PREDEFINED = new Set([
+  "capital account", "reserves & surplus", "current assets", "bank accounts", "bank od a/c", "bank occ a/c", "cash-in-hand",
+  "deposits (asset)", "loans & advances (asset)", "stock-in-hand", "sundry debtors", "current liabilities", "duties & taxes",
+  "provisions", "sundry creditors", "loans (liability)", "secured loans", "unsecured loans", "fixed assets", "investments",
+  "branch / divisions", "misc. expenses (asset)", "suspense a/c", "sales accounts", "purchase accounts", "direct incomes",
+  "direct expenses", "indirect incomes", "indirect expenses",
+])
+const CASH_ROOTS = new Set(["cash-in-hand", "bank accounts", "bank od a/c", "bank occ a/c"])
+
+// The predefined group (lower case) a ledger sits under, or "" when the masters
+// seen so far do not say.
+function groupRoot(m, group) {
+  let g = group
+  for (let i = 0; g && i < 20; i++) {
+    if (PREDEFINED.has(lower(g))) return lower(g)
+    g = m.groups[lower(g)]
+  }
+  return ""
+}
+const rootGroup = (m, ledger) => groupRoot(m, m.ledgers[lower(ledger)])
+
+const TAX_HEADS = [[/igst|integrated/, "igst"], [/cgst|central/, "cgst"], [/sgst|utgst|state tax|ut tax|union territory/, "sgst"]]
+
+// "cgst" | "sgst" | "igst" | "" for a ledger on a sales voucher. The master
+// decides (a GST duty head, or a ledger under Duties & Taxes); the name only
+// when the masters do not know it, and never for a ledger named "sales...".
+function taxKind(m, name) {
+  const n = lower(name)
+  const root = rootGroup(m, name)
+  const text = m.taxHeads[n] ? lower(m.taxHeads[n]) : root === "duties & taxes" || (!root && !/sales/.test(n)) ? n : ""
+  return (text && TAX_HEADS.find(([re]) => re.test(text))?.[1]) || ""
+}
+
 // ---- voucher types ----------------------------------------------------------------
 
 const BASE_TYPES = { sales: "sales", receipt: "receipt", payment: "payment" }
 
-// Sales / Receipt / Payment, following a custom type's PARENT when the file
-// carries the VOUCHERTYPE masters; else a name like "GST Sales" is read as Sales.
-function voucherKind(name, parents) {
+// Sales / Receipt / Payment, following a custom type's PARENT (masters in this
+// upload or remembered); else a name like "GST Sales" is read as Sales; else the
+// entries decide (kindFromEntries). kind "" = left out.
+function voucherKind(name, m) {
   let n = lower(name)
   for (let i = 0; n && i < 10; i++) {
     if (BASE_TYPES[n]) return { kind: BASE_TYPES[n], guessed: false }
-    n = parents.get(n)
+    n = lower(m.types[n])
   }
   const s = lower(name)
-  if (/(return|order|note|quotation|journal|purchase|contra)/.test(s)) return { kind: "", guessed: false }
+  if (/(return|order|note|quotation|journal|purchase|contra)/.test(s)) return { kind: "", guessed: false, final: true }
   if (/\bsales\b/.test(s)) return { kind: "sales", guessed: true }
   if (/\breceipts?\b/.test(s)) return { kind: "receipt", guessed: true }
   if (/\bpayments?\b/.test(s) && !/request/.test(s)) return { kind: "payment", guessed: true }
   return { kind: "", guessed: false }
+}
+
+// A voucher of a type nobody explained, read from its entries: a credit to a
+// sales ledger, or goods going out with the party debited on a New Ref bill, is
+// Sales; cash or bank debited is a Receipt, credited a Payment.
+function kindFromEntries(v, m) {
+  const entries = ledgerEntries(v)
+  const stock = [...kids(v, "ALLINVENTORYENTRIES.LIST"), ...kids(v, "INVENTORYENTRIES.LIST")].reduce((s, e) => s + tallyNumber(val(e, "AMOUNT")), 0)
+  const salesCredit = entries.some((e) => e.amount > 0 && (rootGroup(m, e.name) === "sales accounts" || (!rootGroup(m, e.name) && /\bsales\b/i.test(e.name))))
+  const newRefDebit = entries.some((e) => e.amount < 0 && e.bills.some((b) => /new ref/i.test(b.type)))
+  if (salesCredit || (stock > 0 && newRefDebit)) return "sales"
+  if (stock) return ""
+  const cash = entries.filter((e) => CASH_ROOTS.has(rootGroup(m, e.name)) || e.bank.length > 0 || /^cash$/i.test(e.name))
+  if (!cash.length || cash.length === entries.length) return ""
+  const net = cash.reduce((s, e) => s + e.amount, 0)
+  return net < 0 ? "receipt" : net > 0 ? "payment" : ""
 }
 
 function ledgerEntries(v) {
@@ -196,21 +278,21 @@ function voucherBase(v, kind, typeName, guessed) {
   }
 }
 
-function salesVoucher(v, base) {
+function salesVoucher(v, base, m) {
   const entries = ledgerEntries(v)
   const partyEntry = entries.find((e) => e.isParty) || entries.find((e) => lower(e.name) === lower(base.party)) || entries.find((e) => e.amount < 0)
   const party = base.party || partyEntry?.name || ""
   const grandTotal = round2(Math.abs(partyEntry?.amount || 0))
-  let cgst = 0, sgst = 0, igst = 0, roundOff = 0
+  const tax = { cgst: 0, sgst: 0, igst: 0 }
+  let roundOff = 0
   for (const e of entries) {
-    if (e === partyEntry) continue
-    const n = lower(e.name)
+    if (e === partyEntry || lower(e.name) === lower(party)) continue
     // A credit (positive) adds to the bill, a debit takes away.
-    if (/igst|integrated tax/.test(n)) igst += e.amount
-    else if (/cgst|central tax/.test(n)) cgst += e.amount
-    else if (/sgst|utgst|state tax|ut tax/.test(n)) sgst += e.amount
-    else if (/round/.test(n)) roundOff += e.amount
+    const k = taxKind(m, e.name)
+    if (k) tax[k] += e.amount
+    else if (/round/i.test(e.name) && rootGroup(m, e.name) !== "sales accounts") roundOff += e.amount
   }
+  let { cgst, sgst, igst } = tax
   ;[cgst, sgst, igst, roundOff] = [cgst, sgst, igst, roundOff].map(round2)
   const gstTotal = round2(cgst + sgst + igst)
   const taxable = round2(grandTotal - gstTotal - roundOff)
@@ -231,6 +313,7 @@ function salesVoucher(v, base) {
   return {
     ...base,
     party,
+    partyRoot: rootGroup(m, party),
     customer: {
       name: party,
       company: party,
@@ -245,14 +328,22 @@ function salesVoucher(v, base) {
   }
 }
 
+// Read from TRANSFERMODE, TRANSACTIONTYPE and PAYMENTMODE together, first match
+// wins; IMPS and e-Fund Transfer are the console's "Bank transfer / NEFT".
 const BANK_METHODS = [
-  [/cheque|\bdd\b|demand draft/i, "Cheque"],
   [/rtgs/i, "RTGS"],
   [/upi/i, "UPI"],
   [/card/i, "Card"],
+  [/cheque|\bdd\b|demand draft/i, "Cheque"],
 ]
 
-function moneyVoucher(v, base) {
+// Tally's own UNIQUEREFERENCENUMBER is a 16-character mixed-case key it makes up
+// (e.g. "JCfL5rSLN6SSLC3r"); a bank's UTR is upper case and digits. The
+// reference is the UTR or the cheque / instrument number; UNIQUEREFERENCENUMBER
+// only when nothing else is there and it does not look like Tally's key.
+const tallyKey = (s) => /^[A-Za-z0-9]{16}$/.test(s) && /[a-z]/.test(s) && /[A-Z]/.test(s)
+
+function moneyVoucher(v, base, m) {
   const isReceipt = base.kind === "receipt"
   const entries = ledgerEntries(v)
   // Receipt: the cash / bank ledger is debited (negative); Payment: credited.
@@ -261,12 +352,19 @@ function moneyVoucher(v, base) {
   const amount = round2(Math.abs(cashSide.reduce((s, e) => s + e.amount, 0)) || Math.abs(partySide.reduce((s, e) => s + e.amount, 0)))
   const cashLedger = cashSide[0]?.name || ""
   const bank = cashSide.flatMap((e) => e.bank)
-  const txType = bank.map((b) => val(b, "TRANSACTIONTYPE")).find(Boolean) || ""
-  const method = /cash/i.test(cashLedger) ? "Cash" : BANK_METHODS.find(([re]) => re.test(txType))?.[1] || "Bank transfer / NEFT"
-  const reference = bank.map((b) => val(b, "UNIQUEREFERENCENUMBER") || val(b, "INSTRUMENTNUMBER")).find(Boolean) || ""
+  const mode = bank.flatMap((b) => ["TRANSFERMODE", "TRANSACTIONTYPE", "PAYMENTMODE"].map((t) => val(b, t))).join(" ")
+  const isCash = /cash/i.test(cashLedger) || rootGroup(m, cashLedger) === "cash-in-hand"
+  const method = isCash ? "Cash" : BANK_METHODS.find(([re]) => re.test(mode))?.[1] || "Bank transfer / NEFT"
+  const reference =
+    bank.map((b) => deep(b, "UTRNUMBER", "UTR", "INSTRUMENTNUMBER")).find(Boolean) ||
+    bank.map((b) => val(b, "UNIQUEREFERENCENUMBER")).find((s) => s && !tallyKey(s)) ||
+    ""
   const bills = partySide.flatMap((e) => e.bills).filter((b) => /agst/i.test(b.type) && b.name)
   const party = partySide[0]?.name || base.party
-  const one = { ...base, party, amount, method, reference, cashLedger, billRef: bills[0]?.name || "", billCount: bills.length }
+  const one = {
+    ...base, party, partyRoot: rootGroup(m, party), partyGroup: m.ledgers[lower(party)] || "",
+    amount, method, reference, cashLedger, billRef: bills[0]?.name || "", billCount: bills.length,
+  }
   // One receipt settling several bills becomes one payment per bill, as the
   // console links a payment to one invoice. Only when the bills add up to it.
   if (isReceipt && bills.length > 1 && Math.abs(bills.reduce((s, b) => s + b.amount, 0) - amount) <= 0.5) {
@@ -304,12 +402,24 @@ function ledgerMaster(l) {
   }
 }
 
-function stockMaster(s) {
+// The entry of a dated list in force on `today`: the latest `tag` date on or
+// before it (an undated entry counts as the oldest).
+function inForce(els, tag, today) {
+  const dated = els.map((e) => ({ e, d: tallyDate(val(e, tag)) })).filter((x) => x.d <= today)
+  return dated.sort((a, b) => b.d.localeCompare(a.d))[0]?.e
+}
+
+function stockMaster(s, today) {
   const name = s.attrs.NAME || deep(s, "NAME")
   const names = all(s, "NAME.LIST").flatMap((nl) => kids(nl, "NAME").map(txt)).filter(Boolean)
   const alias = names.find((n) => lower(n) !== lower(name)) || ""
-  const price = all(s, "STANDARDPRICELIST.LIST").map((p) => tallyNumber(val(p, "RATE"))).find((n) => n > 0) || tallyNumber(val(s, "OPENINGRATE"))
-  const rate = gstRateIn(s)
+  // The standard SELLING price in force (never OPENINGRATE or a cost list),
+  // else a price level's; blank when Tally has none.
+  const priceOf = (tag) => tallyNumber(deep(inForce(all(s, tag), "DATE", today), "RATE"))
+  const price = priceOf("STANDARDPRICELIST.LIST") || priceOf("FULLPRICELIST.LIST")
+  // The GST rate in force today, not the first one Tally lists.
+  const gst = all(s, "GSTDETAILS.LIST")
+  const rate = gstRateIn(inForce(gst, "APPLICABLEFROM", today) || gst[0] || s)
   return {
     name,
     sku: deep(s, "PARTNUMBER", "PARTNO") || alias,
@@ -325,16 +435,15 @@ function stockMaster(s) {
 
 // files: [{ name, text }]. Returns everything found across all of them, each
 // Tally object once (the highest ALTERID wins when periods overlap).
-export function parseTallyFiles(files) {
+// `masters` is what earlier uploads taught (emptyMasters() shape); the result's
+// `masters` adds this upload's, for the page to keep. `today` picks the GST
+// rate and price in force.
+export function parseTallyFiles(files, { masters: remembered, today = new Date().toISOString().slice(0, 10) } = {}) {
   const trees = files.map((f) => ({ name: f.name, root: parseXml(cleanXml(f.text)) }))
-  const parents = new Map()
-  for (const { root } of trees) {
-    for (const t of all(root, "VOUCHERTYPE")) {
-      const n = t.attrs.NAME || deep(t, "NAME")
-      if (n) parents.set(lower(n), lower(val(t, "PARENT")))
-    }
-  }
-  const out = { customers: [], products: [], invoices: [], receipts: [], payouts: [], others: {}, cancelled: 0, otherLedgers: 0, files: [] }
+  const m = emptyMasters()
+  for (const k of Object.keys(m)) if (remembered?.[k] && typeof remembered[k] === "object") Object.assign(m[k], remembered[k])
+  for (const { root } of trees) learnMasters(root, m)
+  const out = { customers: [], products: [], invoices: [], receipts: [], payouts: [], others: {}, cancelled: 0, otherLedgers: 0, files: [], masters: m }
   const seen = new Map()
   // The same Tally object twice (two overlapping Day Books): keep the newest.
   const keep = (list, rec) => {
@@ -355,7 +464,8 @@ export function parseTallyFiles(files) {
     out.files.push({ name, vouchers: vouchers.length, ledgers: ledgers.length, stockItems: items.length })
     for (const v of vouchers) {
       const typeName = v.attrs.VCHTYPE || val(v, "VOUCHERTYPENAME")
-      const { kind, guessed } = voucherKind(typeName, parents)
+      let { kind, guessed, final } = voucherKind(typeName, m)
+      if (!kind && !final && (kind = kindFromEntries(v, m))) guessed = true
       if (!kind) {
         const key = typeName || "Unknown"
         out.others[key] = (out.others[key] || 0) + 1
@@ -366,15 +476,15 @@ export function parseTallyFiles(files) {
         out.cancelled++
         continue
       }
-      if (kind === "sales") keep("invoices", salesVoucher(v, base))
-      else for (const r of moneyVoucher(v, base)) keep(kind === "receipt" ? "receipts" : "payouts", r)
+      if (kind === "sales") keep("invoices", salesVoucher(v, base, m))
+      else for (const r of moneyVoucher(v, base, m)) keep(kind === "receipt" ? "receipts" : "payouts", r)
     }
     for (const l of ledgers) {
-      const m = ledgerMaster(l)
-      if (/sundry debtors/i.test(m.parent)) keep("customers", m)
+      const led = ledgerMaster(l)
+      if (groupRoot(m, led.parent) === "sundry debtors") keep("customers", led)
       else out.otherLedgers++
     }
-    for (const s of items) keep("products", stockMaster(s))
+    for (const s of items) keep("products", stockMaster(s, today))
   }
   return out
 }
@@ -386,6 +496,7 @@ export const STATUS = {
   changed: "Changed in Tally",
   same: "Already imported",
   console: "Made in the console",
+  skipped: "Left out",
   problem: "Problems",
 }
 
@@ -399,15 +510,24 @@ function stampOf(t, syncedAt) {
 const byGuid = (list) => new Map(list.filter((x) => x.tally?.guid).map((x) => [x.tally.guid, x]))
 const newer = (rec, ex) => (Number(rec.tally.alterId) || 0) > (Number(ex.tally?.alterId) || 0)
 
-// Tally restarts numbering every financial year: a number already used gets
-// "/<FY>" (then "-2", "-3"). `taken` is lower-cased and grows as numbers are given.
-function uniqueNumber(number, day, taken) {
+// A free number for a new record. `taken`: Map lower(number) -> { fy, series },
+// growing as numbers are given. Receipts and payments out are two series in Tally
+// but share one number key in the console: a number held by the OTHER series
+// gets "R-" or "P-" first. Tally restarts numbering every financial year, so a
+// number held in another year gets "/<FY>" (then "/<FY>-2"); one held in the
+// same year (a true duplicate) gets "-2", "-3".
+function uniqueNumber(number, day, taken, series = "") {
   const fy = financialYear(day)
-  let n = number
-  for (let i = 1; taken.has(lower(n)); i++) n = i === 1 ? `${number}/${fy}` : `${number}/${fy}-${i}`
-  taken.add(lower(n))
+  const holder = taken.get(lower(number))
+  const base = holder && series && holder.series !== series ? `${series === "out" ? "P" : "R"}-${number}` : number
+  const h = taken.get(lower(base))
+  const otherYear = h && h.fy !== fy
+  let n = base
+  for (let i = 1; taken.has(lower(n)); i++) n = otherYear ? (i === 1 ? `${base}/${fy}` : `${base}/${fy}-${i}`) : `${base}-${i + 1}`
+  taken.set(lower(n), { fy, series })
   return n
 }
+const fyOf = (iso) => (iso ? financialYear(String(iso).slice(0, 10)) : "")
 
 function fillBlanks(ex, rec, keys) {
   const patch = {}
@@ -424,9 +544,12 @@ const PRODUCT_KEYS = ["sku", "hsn", "unit", "basePrice", "description"]
 function planCustomers(parsed, existing, syncedAt) {
   const masters = parsed.customers.map((m) => ({ ...m.customer, tally: m.tally }))
   const known = new Set(masters.map((c) => lower(c.company)))
-  // Parties seen only on vouchers (no List of Accounts in the upload).
+  // Parties seen only on vouchers (no List of Accounts in the upload): a ledger
+  // the masters place under Sundry Debtors, or one they do not know that is on a
+  // sales invoice or pays a bill. Capital, loans, banks and vendors never are.
   for (const v of [...parsed.invoices, ...parsed.receipts]) {
     if (!v.party || /^cash$/i.test(v.party) || known.has(lower(v.party))) continue
+    if (v.partyRoot ? v.partyRoot !== "sundry debtors" : v.kind === "receipt" && !v.billRef) continue
     known.add(lower(v.party))
     masters.push({ ...(v.customer || { name: v.party, company: v.party, email: "", phone: "", gstin: "", stateCode: "", address: "" }), tally: null })
   }
@@ -545,14 +668,14 @@ function voucherProblem(rec, amount) {
   if (!rec.tally.guid) return "No GUID in the file: export as XML (Data Interchange)"
   if (!rec.date) return "No date"
   if (!rec.number) return "No voucher number"
+  if (!rec.party) return rec.kind === "sales" ? "No customer: the voucher names no party and has no debit line" : "No party ledger"
   if (!(amount > 0)) return "Amount is 0"
-  if (!rec.party) return "No party ledger"
   return ""
 }
 
 function planInvoices(parsed, existing, syncedAt, snapshots) {
   const guids = byGuid(existing)
-  const taken = new Set(existing.map((i) => lower(i.number)).filter(Boolean))
+  const taken = new Map(existing.filter((i) => i.number).map((i) => [lower(i.number), { fy: fyOf(i.issueDate) }]))
   // Every invoice a receipt's Agst Ref may name: { ref, party, date, id | key }.
   const targets = existing.map((i) => ({ refs: [lower(i.number), lower(i.tally?.voucherRef)], party: lower(i.customer?.company || i.customer?.name), date: (i.issueDate || "").slice(0, 10), id: i.id, number: i.number }))
   const rows = [...parsed.invoices].sort(byDate).map((inv) => {
@@ -594,7 +717,7 @@ function findTarget(targets, rec) {
 
 function planPayments(parsed, existing, syncedAt, snapshots, targets) {
   const guids = byGuid(existing)
-  const taken = new Set(existing.map((p) => lower(p.number)).filter(Boolean))
+  const taken = new Map(existing.filter((p) => p.number).map((p) => [lower(p.number), { fy: fyOf(p.date), series: p.type === "payout" ? "out" : "in" }]))
   const all1 = [...parsed.receipts, ...parsed.payouts].sort(byDate)
   const rows = { receipts: [], payouts: [] }
   for (const rec of all1) {
@@ -604,6 +727,12 @@ function planPayments(parsed, existing, syncedAt, snapshots, targets) {
     if (problem) { list.push({ ...row, status: "problem", reason: problem }); continue }
     if (madeInConsole(rec.tally)) { list.push({ ...row, status: "console", reason: "Sent to Tally by the console's connector" }); continue }
     const inflow = rec.kind === "receipt"
+    // Money in from a ledger the masters place outside Sundry Debtors (capital,
+    // a loan, a bank transfer) is not a customer's payment.
+    if (inflow && rec.partyRoot && rec.partyRoot !== "sundry debtors") {
+      list.push({ ...row, status: "skipped", reason: `Not from a customer: ${rec.partyGroup}` })
+      continue
+    }
     const target = inflow ? findTarget(targets, rec) : null
     const notes = []
     if (rec.guessedType) notes.push(`Voucher type "${rec.typeName}" read as ${inflow ? "Receipt" : "Payment"}.`)
@@ -630,11 +759,19 @@ function planPayments(parsed, existing, syncedAt, snapshots, targets) {
     const link = target?.key ? { invoiceKey: target.key } : null
     const ex = guids.get(rec.tally.guid)
     if (ex) {
-      if (!newer(rec, ex)) { list.push({ ...row, title: ex.number, status: "same", id: ex.id }); continue }
+      if (!newer(rec, ex)) {
+        // Imported before its invoice. The database lets an admin change an
+        // imported payment only with a higher ALTERID (0070 payments_guard), so
+        // the link waits for the voucher to be saved again in Tally.
+        const canLink = target && !ex.invoiceId && ex.type !== "payout"
+        const reason = canLink ? `Can link to invoice ${target.number}: open and save this receipt in Tally, then export it again.` : ""
+        list.push({ ...row, title: ex.number, status: "same", id: ex.id, reason, flagged: !!canLink })
+        continue
+      }
       list.push({ ...row, title: ex.number, status: "changed", reason: ["Changed in Tally since the last import.", ...notes].join(" "), action: "update", id: ex.id, patch: fields, link })
       continue
     }
-    const number = uniqueNumber(rec.number, rec.date, taken)
+    const number = uniqueNumber(rec.number, rec.date, taken, inflow ? "in" : "out")
     if (number !== rec.number) notes.unshift(`Number ${rec.number} is already used, saved as ${number}.`)
     list.push({ ...row, title: number, status: "new", reason: notes.join(" "), flagged: number !== rec.number, action: "create", doc: { number, ...fields }, link })
   }
@@ -658,7 +795,7 @@ export function planTallyImport(parsed, existing, { syncedAt = new Date().toISOS
 }
 
 export function countByStatus(rows) {
-  const out = { new: 0, changed: 0, same: 0, console: 0, problem: 0 }
+  const out = { new: 0, changed: 0, same: 0, console: 0, skipped: 0, problem: 0 }
   for (const r of rows) out[r.status]++
   return out
 }
