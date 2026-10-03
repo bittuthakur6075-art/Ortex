@@ -82,6 +82,10 @@ for (const [side, a] of both) {
     assert.equal(a.missedCheckout({ status: "MP" }), true)
     assert.equal(a.missedCheckout({ status: "A", flags: ["short_hours"] }), false)
     assert.equal(a.missedCheckout({ status: "A", flags: ["no_checkout"], override_status: "P" }), false)
+    // autoPresent lifts an unclosed day to P: paid, so not a missed check-out.
+    assert.equal(a.missedCheckout({ status: "P", flags: ["no_checkout", "auto_present"] }), false)
+    assert.equal(a.missedCheckout({ status: "MP", override_status: "P" }), false)
+    assert.equal(a.missedCheckout({ status: "MP", override_status: "A" }), true)
   })
 
   test(`${side}: on duty since the latest counted in, until midnight IST (0049)`, () => {
@@ -149,6 +153,28 @@ for (const [side, a] of both) {
     assert.equal(t.latePenalty, 0.5)
     assert.equal(t.payable, 6.5)
     assert.equal(a.effectiveStatus({ status: "A", override_status: "P" }), "P")
+
+    // Lates that do not count (0068): overridden to A, autoPresent, A carrying late.
+    const more = [
+      ...days,
+      d("2026-09-10", "P", { late: true, override_status: "A" }),
+      d("2026-09-11", "P", { late: true, flags: ["auto_present"] }),
+      d("2026-09-12", "A", { late: true, worked_min: 0 }),
+    ]
+    assert.equal(a.monthTotals(more, { count: 3, deductDays: 0.5 }).lates, 3)
+  })
+
+  test(`${side}: a late counts only on a P, OD or HD day not marked present automatically (0068)`, () => {
+    assert.equal(a.countsAsLate({ status: "P", late: true }), true)
+    assert.equal(a.countsAsLate({ status: "OD", late: true }), true)
+    assert.equal(a.countsAsLate({ status: "HD", late: true }), true)
+    assert.equal(a.countsAsLate({ status: "A", late: true, override_status: "P" }), true)
+    assert.equal(a.countsAsLate({ status: "P", late: false }), false)
+    assert.equal(a.countsAsLate({ status: "P", late: true, override_status: "A" }), false)
+    assert.equal(a.countsAsLate({ status: "P", late: true, override_status: "L" }), false)
+    assert.equal(a.countsAsLate({ status: "P", late: true, flags: ["auto_present"] }), false)
+    assert.equal(a.countsAsLate({ status: "A", late: true }), false)
+    assert.equal(a.countsAsLate({ status: "MP", late: true }), false)
   })
 
   test(`${side}: month grid is Monday-first weeks of seven`, () => {

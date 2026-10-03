@@ -9,7 +9,8 @@
 
 import { supabase, hasSupabase } from "../data/store/supabaseClient"
 import { repo } from "../data/store/repository"
-import { listDays, listFlagged, listPunches, listCorrections, lockedMonths, todayIST } from "./attendance"
+import { getSettings, listDays, listFlagged, listHolidays, listPunches, listCorrections, lockedMonths, todayIST } from "./attendance"
+import { attendanceExpectations } from "../lib/attendanceToday"
 import { listLeaveRequests, listLeaveTypes } from "./leave"
 import { getPayrollSettings, listClaims, listRuns } from "./payroll"
 import { listProfiles } from "./users"
@@ -33,6 +34,20 @@ async function botRunsToday(day) {
 }
 
 /**
+ * Who is expected in on `day` (attendanceExpectations), from the three reads it
+ * needs. A read that fails counts as empty: no autoPresent list, no holiday,
+ * nobody on leave.
+ */
+export async function loadExpectations(day) {
+  const [settings, holidays, leave] = await Promise.all([
+    getSettings().catch(() => ({})),
+    listHolidays({ from: day, to: day }).catch(() => ({})),
+    listLeaveRequests({ status: "approved", from: day, to: day }).catch(() => ({})),
+  ])
+  return attendanceExpectations(day, { settings: settings.doc || {}, holidays: holidays.rows || [], leave: leave.rows || [] })
+}
+
+/**
  * @param access {
  *   attendance: see everyone's attendance today (admin or attendance-team),
  *   people: list every profile (admins only: it carries `active`),
@@ -46,7 +61,7 @@ export async function loadOps(access) {
   if (!hasSupabase) return { demo: true }
   const today = todayIST()
   const yesterday = todayIST(Date.now() - 86400000)
-  const [names, punches, days, flagged, profiles, leave, leaveTypes, corrections, runs, claims, payroll, bot, locks, activity] = await Promise.all([
+  const [names, punches, days, flagged, profiles, leave, leaveTypes, corrections, runs, claims, payroll, bot, locks, activity, expect] = await Promise.all([
     safe(repo.staffDirectory?.(), (x) => x || {}),
     access.attendance ? safe(listPunches({ from: today, to: today }), (r) => r.rows) : null,
     access.attendance ? safe(listDays({ from: yesterday, to: today }), (r) => r.rows) : null,
@@ -61,6 +76,7 @@ export async function loadOps(access) {
     access.bot ? safe(botRunsToday(today)) : null,
     access.locks ? safe(lockedMonths(), (r) => r.rows) : null,
     safe(recentActivity(6)),
+    access.attendance ? loadExpectations(today).catch(() => null) : null,
   ])
-  return { today, yesterday, names: names || {}, punches, days, flagged, profiles, leave, leaveTypes: leaveTypes || {}, corrections, runs, claims, payroll, bot, locks, activity }
+  return { today, yesterday, names: names || {}, punches, days, flagged, profiles, leave, leaveTypes: leaveTypes || {}, corrections, runs, claims, payroll, bot, locks, activity, expect }
 }

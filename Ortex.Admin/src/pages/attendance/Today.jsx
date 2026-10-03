@@ -5,8 +5,9 @@ import { useProfile } from "../../hooks/useProfile"
 import { isAdmin, roleLabel, ROLE_TONE } from "../../lib/roles"
 import { currentUserId } from "../../lib/auth"
 import { repo } from "../../data/store/repository"
-import { clockIST, countFromFor, durationWords, flagWords, missedCheckout, onDutySince, summarizeDay, weeklyOffOf } from "../../lib/attendance"
+import { clockIST, countFromFor, countsAsLate, durationWords, flagWords, missedCheckout, onDutySince, summarizeDay } from "../../lib/attendance"
 import { getSettings, listDays, listFlagged, listHolidays, listPunches, todayIST } from "../../services/attendance"
+import { attendanceExpectations } from "../../lib/attendanceToday"
 import { listLeaveRequests } from "../../services/leave"
 import { listProfiles } from "../../services/users"
 import { DayDrawer, FlagBadges, ReviewButtons, StatStrip } from "./parts"
@@ -44,7 +45,7 @@ export default function Today() {
       listLeaveRequests({ status: "approved", from: today, to: today }),
     ])
     const doc = settings?.doc || {}
-    const holidayToday = (holidays.rows || []).some((h) => h.active !== false && h.kind !== "optional")
+    const expect = attendanceExpectations(today, { settings: doc, holidays: holidays.rows || [], leave: leave.rows || [] })
     setState({
       loading: false,
       missing: punches.missing || flagged.missing,
@@ -53,19 +54,12 @@ export default function Today() {
       flagged: flagged.rows,
       directory: directory || {},
       profiles,
-      lateToday: days.missing ? null : days.rows.filter((d) => d.day === today && d.late).length,
+      lateToday: days.missing ? null : days.rows.filter((d) => d.day === today && countsAsLate(d)).length,
       missedYesterday: days.missing ? null : days.rows.filter((d) => d.day === yesterday && missedCheckout(d)).length,
       day: today,
-      countFrom: countFromFor(doc, today, holidayToday),
-      dayOff: holidayToday || weeklyOffOf(doc).includes(new Date(`${today}T00:00:00Z`).getUTCDay()),
-      // Half a day of leave still leaves a half day to come in for, as the
-      // phone's team board counts it.
-      notExpected: new Set([
-        ...(doc.autoPresent || []),
-        ...(leave.rows || [])
-          .filter((r) => !(r.from_day === today && r.from_half === "second") && !(r.to_day === today && r.to_half === "first"))
-          .map((r) => r.user_id),
-      ]),
+      countFrom: countFromFor(doc, today, expect.holiday),
+      dayOff: expect.dayOff,
+      expects: expect.expects,
     })
   }, [admin])
 
@@ -121,12 +115,13 @@ export default function Today() {
       .sort((a, b) => new Date(a.summary.firstIn || 0) - new Date(b.summary.firstIn || 0))
   }, [state, now])
 
+  const expects = state.expects
   const notInYet = useMemo(() => {
     if (!state.profiles) return null
     if (state.dayOff) return [] // a weekly off or a holiday: nobody is expected
     const seen = new Set(people.filter((p) => p.summary.firstIn).map((p) => p.userId))
-    return state.profiles.filter((p) => p.active && !seen.has(p.id) && !state.notExpected.has(p.id))
-  }, [state.profiles, state.dayOff, state.notExpected, people])
+    return state.profiles.filter((p) => p.active && !seen.has(p.id) && expects(p))
+  }, [state.profiles, state.dayOff, expects, people])
 
 
   if (state.loading) return <PageLoader />

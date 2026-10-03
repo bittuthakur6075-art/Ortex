@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { Button, Field, Select, Textarea } from "../../components/ui/Ui"
-import { effectiveStatus, FLAG_LABEL, STATUS_LABEL, summarizeDay } from "../../lib/attendance"
+import { countsAsLate, effectiveStatus, FLAG_LABEL, STATUS_LABEL } from "../../lib/attendance"
 import { listPunches, overrideDay } from "../../services/attendance"
 import { cn } from "../../lib/cn"
 import { DayDrawer } from "./parts"
-import { STATUS_ORDER, toneFor } from "./format"
+import { dayView, STATUS_ORDER, toneFor } from "./format"
 
 // The day drawer for the Register and the My attendance calendar: the day's
 // punches under what the day COUNTS as. The Super Admin can
@@ -42,7 +42,9 @@ export default function StatusDayDrawer({ open, onClose, person, userId, day, en
     setReason(entry?.override_reason || "")
   }
 
-  const summary = day ? summarizeDay(day, punches, Date.now(), countFrom) : null
+  // The server's hours when the day has a row (what the Register adds up);
+  // the punches' own count only for a day with no row yet or still running.
+  const summary = day ? dayView(day, punches, entry, countFrom) : null
   const shown = entry ? effectiveStatus(entry) : null
 
   const save = async (clear) => {
@@ -75,7 +77,7 @@ export default function StatusDayDrawer({ open, onClose, person, userId, day, en
           <span className="text-[13px] text-muted-foreground">Not worked out yet</span>
         )}
       </div>
-      {entry?.late && (
+      {entry && countsAsLate(entry) && (
         <p className="text-[13px] text-warning-text">Late by {entry.late_min} min</p>
       )}
       {(entry?.flags || []).length > 0 && (

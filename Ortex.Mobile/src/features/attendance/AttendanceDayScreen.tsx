@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from "react-native"
 
 import {
   clockIST,
+  countsAsLate,
   durationWords,
   effectiveStatus,
   flagWords,
@@ -156,7 +157,7 @@ export default function AttendanceDayScreen({ navigation, route }: StackScreenPr
                       {`Set by the Super Admin${row.override_reason ? `: ${row.override_reason}` : ""}`}
                     </Text>
                   ) : null}
-                  {row?.late ? (
+                  {row && countsAsLate(row) ? (
                     <Text style={[textVariants.small, { color: t.warningText }]}>
                       {`Late by ${durationWords(row.late_min || 0)}`}
                     </Text>

@@ -22,7 +22,7 @@
 // build a real file and read it back. `downloadAttendanceWorkbook` is the thin
 // browser wrapper.
 
-import { STATUS_LABEL, STATUS_TONE } from "./attendance"
+import { countsAsLate, STATUS_LABEL, STATUS_TONE } from "./attendance"
 
 // One palette for the whole workbook. ARGB, as ExcelJS wants it.
 const INK = "FF11161F"
@@ -362,7 +362,7 @@ function daysSheet(wb, { month, summary, days, dayList, holidays, weeklyOff, com
       cell.alignment = { vertical: "middle", horizontal: "center" }
       cell.border = { bottom: hair }
       const note = []
-      if (e?.late) note.push(`Late by ${e.late_min} min`)
+      if (e && countsAsLate(e)) note.push(`Late by ${e.late_min} min`)
       if (e?.worked_min) note.push(`${hoursOf(e.worked_min)} h worked`)
       if (note.length) cell.note = note.join("\n")
     })

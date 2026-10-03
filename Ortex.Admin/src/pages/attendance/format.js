@@ -1,4 +1,4 @@
-import { STATUS_TONE } from "../../lib/attendance"
+import { STATUS_TONE, summarizeDay } from "../../lib/attendance"
 
 // Date words for the attendance pages, in IST whatever the browser's zone.
 
@@ -81,4 +81,22 @@ export function monthsBetween(from, to) {
     }
   }
   return out
+}
+
+/**
+ * One day as the attendance pages show it: the punches' summary (for the
+ * clock-ins and their times) with the server's attendance_days row laid over
+ * it, so the hours are the worked_min payroll reads and an autoPresent day
+ * with no punch still shows its hours. With no row yet, or while the day is
+ * still running (on duty now), the punches' own live count stands.
+ */
+export function dayView(day, punches, entry, countFrom, now = Date.now()) {
+  const s = summarizeDay(day, punches || [], now, countFrom)
+  if (!entry || s.open) return s
+  return {
+    ...s,
+    firstIn: entry.first_in || s.firstIn,
+    lastOut: entry.last_out || s.lastOut,
+    workedMin: entry.worked_min || 0,
+  }
 }

@@ -13,6 +13,12 @@
 import { supabase, hasSupabase } from "../data/store/supabaseClient"
 import { isMissing } from "./attendance"
 
+// A dropped connection reaches us as "TypeError: Failed to fetch": say it in
+// words and keep the browser's text as `errorDetail` for a tooltip.
+const OFFLINE = /failed to fetch|networkerror|load failed|network request failed/i
+const failed = (error, offline, fallback) =>
+  OFFLINE.test(error.message || "") ? { error: offline, errorDetail: error.message } : { error: error.message || fallback }
+
 /** The code that should be on screen right now, for one station. */
 export async function showCode(siteId) {
   if (!hasSupabase) return { missing: true }
@@ -26,7 +32,7 @@ export async function showCode(siteId) {
     // a migration that was sitting right there in the database. Carry the
     // server's own words so the next one is diagnosed in seconds, not an hour.
     if (isMissing(error)) return { missing: true, detail: error.message }
-    return { error: error.message || "The code could not be shown." }
+    return failed(error, "Could not reach the server. Retrying.", "The code could not be shown.")
   }
   return { code: data }
 }
@@ -37,7 +43,7 @@ export async function listStations() {
   const { data, error } = await supabase.rpc("attendance_qr_sites")
   if (error) {
     if (isMissing(error)) return { rows: [], missing: true, detail: error.message }
-    return { rows: [], error: error.message || "The stations could not be read." }
+    return { rows: [], ...failed(error, "Could not reach the server. Reload the page to try again.", "The stations could not be read.") }
   }
   return { rows: data || [], missing: false }
 }

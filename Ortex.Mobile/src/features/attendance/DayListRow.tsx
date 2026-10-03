@@ -1,7 +1,7 @@
 import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
-import { clockIST, STATUS_LABEL } from "@/domain/attendance"
+import { clockIST, countsAsLate, STATUS_LABEL } from "@/domain/attendance"
 import { dateOf, dayLabel, hoursShort, statusColors, statusHue, weekdayShort } from "@/features/attendance/format"
 import { ShiftBar } from "@/features/attendance/LiveProgress"
 import type { MonthEntry } from "@/features/attendance/month"
@@ -55,7 +55,7 @@ export default function DayListRow({
           <Text style={[styles.time, { color: t.textSecondary }]} numberOfLines={1}>
             {inAt}
           </Text>
-          {row?.late ? (
+          {row && countsAsLate(row) ? (
             <Text style={[styles.time, { color: t.warningText }]} numberOfLines={1}>
               {`Late ${hoursShort(row.late_min || 0)}`}
             </Text>

@@ -40,6 +40,8 @@ describe("attendance rate", () => {
       row("2026-09-18", "MP", { worked_min: 0 }),
       row("2026-09-19", "A", { worked_min: 0, flags: ["no_checkout"], override_status: "P" }),
       row("2026-09-20", "A", { worked_min: 0 }),
+      // autoPresent lifted this unclosed day to P: paid, so not missed.
+      row("2026-09-21", "P", { worked_min: 540, flags: ["no_checkout", "auto_present"] }),
     ])
     expect(s.missed).toBe(2)
     expect(s.absent).toBe(2)
@@ -126,6 +128,17 @@ describe("the smaller figures", () => {
   it("counts lates Monday to Saturday", () => {
     const l = latesByWeekday([row("2026-09-14", "P", { late: true }), row("2026-09-19", "P", { late: true }), row("2026-09-20", "P", { late: true })])
     expect(l.map((x) => x.count)).toEqual([1, 0, 0, 0, 0, 1]) // Sunday 20 not shown
+  })
+
+  it("counts a late only where the database does (0068): not overridden to A, not autoPresent", () => {
+    const rows = [
+      row("2026-09-15", "P", { late: true, override_status: "A" }),
+      row("2026-09-16", "P", { late: true, flags: ["auto_present"] }),
+      row("2026-09-17", "A", { late: true, worked_min: 0 }),
+      row("2026-09-18", "HD", { late: true, worked_min: 240 }),
+    ]
+    expect(summarise(rows).lates).toBe(1)
+    expect(latesByWeekday(rows).map((x) => x.count)).toEqual([0, 0, 0, 0, 1, 0])
   })
 
   it("sums leave by type inside the window, half days included", () => {

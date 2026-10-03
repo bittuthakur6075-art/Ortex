@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { Link } from "react-router-dom"
 import { Phone, ShieldCheck } from "../../components/ui/Icons"
-import { missedCheckout, summarizeDay } from "../../lib/attendance"
+import { countsAsLate, missedCheckout, summarizeDay } from "../../lib/attendance"
 import { upcomingDeadlines, dueWords, shortDate } from "../../lib/payrollDeadlines"
 import { monthWords, nextAction, thisMonthIST } from "../payroll/run/shared"
 import { ROLES, roleLabel } from "../../lib/roles"
@@ -25,13 +25,17 @@ export function TeamToday({ ops, pendingLeave, pendingCorrections }) {
     const today = (ops.days || []).filter((d) => d.day === ops.today)
     const status = (d) => d.override_status || d.status
     const onLeave = new Set(today.filter((d) => status(d) === "L").map((d) => d.user_id))
-    const late = today.filter((d) => d.late && inIds.has(d.user_id)).length
+    const late = today.filter((d) => countsAsLate(d) && inIds.has(d.user_id)).length
     const field = summaries.filter((x) => x.s.field).length
     const active = ops.profiles ? ops.profiles.filter((p) => p.active !== false) : null
-    const notIn = active ? active.filter((p) => !inIds.has(p.id) && !onLeave.has(p.id)) : null
+    // Not in = expected and not here: never the autoPresent list, people on
+    // leave, or anyone on a weekly off or a holiday (attendanceExpectations,
+    // the same rule as Attendance → Today and the gate screen).
+    const notIn = active ? active.filter((p) => !inIds.has(p.id) && !onLeave.has(p.id) && (!ops.expect || ops.expect.expects(p))) : null
     return {
       in: inIds.size,
-      total: active ? active.length : null,
+      // Everyone expected today, plus anyone who came in anyway.
+      total: notIn ? inIds.size + notIn.length : null,
       late,
       field,
       present: Math.max(0, inIds.size - late - field),
@@ -54,7 +58,7 @@ export function TeamToday({ ops, pendingLeave, pendingCorrections }) {
     <Panel title="Team today" description="From the phone app, live" action={<PanelLink to="/attendance?tab=today">Register</PanelLink>}>
       <div className="flex items-baseline gap-2">
         <span className="text-[34px] font-semibold leading-none tracking-[-0.02em] text-foreground tabular">{v.in}</span>
-        <span className="text-sm font-medium leading-[17px] text-muted-foreground">{v.total != null ? `of ${v.total} in` : "clocked in"}</span>
+        <span className="text-sm font-medium leading-[17px] text-muted-foreground">{v.total ? `of ${v.total} in` : "clocked in"}</span>
       </div>
       <SplitBar parts={parts} />
       <div className="flex flex-wrap gap-x-3 gap-y-1.5">

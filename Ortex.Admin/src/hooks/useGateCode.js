@@ -16,6 +16,10 @@ import { listStations, showCode, watchStation } from "../services/attendanceQr"
  *   3. The token only ever arrives from attendance_qr_show(): the table has no
  *      select policy, so realtime carries the FACT of a change, never the code.
  *
+ * `live: false` reads only the stations (attendance_qr_sites, read-only) and
+ * never calls attendance_qr_show(), which rotates the token and records who
+ * viewed it: the Dashboard card starts the code only when someone asks.
+ *
  * `justScanned` is the last scan when it arrived while the screen was open, for
  * a few seconds, so the gate can say "you are in" to the person in front of it.
  */
@@ -32,12 +36,14 @@ const readSite = () => {
   }
 }
 
-export function useGateCode({ enabled = true } = {}) {
+export function useGateCode({ enabled = true, live = true } = {}) {
   const [stations, setStations] = useState([])
   const [siteId, setSiteId] = useState(readSite)
   const [code, setCode] = useState(null)
   const [state, setState] = useState("loading")
   const [error, setError] = useState("")
+  // The browser's own words behind `error` (a dropped connection), for a tooltip only.
+  const [errorDetail, setErrorDetail] = useState("")
   const [missing, setMissing] = useState(false)
   // The server's own words behind a "not set up". See services/attendanceQr.js.
   const [detail, setDetail] = useState("")
@@ -59,6 +65,7 @@ export function useGateCode({ enabled = true } = {}) {
       setDetail(r.detail || "")
     } else if (r.error) {
       setError(r.error)
+      setErrorDetail(r.errorDetail || "")
       return current
     }
     const rows = r.rows || []
@@ -97,6 +104,7 @@ export function useGateCode({ enabled = true } = {}) {
     }
     if (r.error) {
       setError(r.error)
+      setErrorDetail(r.errorDetail || "")
       // Keep the last code on screen but dimmed: see the header note.
       setState("stale")
       return
@@ -113,6 +121,7 @@ export function useGateCode({ enabled = true } = {}) {
       return
     }
     setError("")
+    setErrorDetail("")
     setCode(r.code)
     setState("ok")
     setLeft(r.code.secondsLeft ?? 0)
@@ -121,21 +130,21 @@ export function useGateCode({ enabled = true } = {}) {
   // Re-ask when this code runs out, using the server's own countdown.
   useEffect(() => {
     clearTimeout(timer.current)
-    if (state !== "ok" || !code) return undefined
+    if (!live || state !== "ok" || !code) return undefined
     const ms = Math.max(REFRESH_FLOOR_MS, (code.secondsLeft ?? 0) * 1000)
     timer.current = setTimeout(() => void load(), ms)
     return () => clearTimeout(timer.current)
-  }, [code, state, load])
+  }, [live, code, state, load])
 
   // A failed refresh should not abandon the screen; try again shortly.
   useEffect(() => {
-    if (state !== "stale") return undefined
+    if (!live || state !== "stale") return undefined
     const t = setTimeout(() => void load(), 4000)
     return () => clearTimeout(t)
-  }, [state, load])
+  }, [live, state, load])
 
   useEffect(() => {
-    if (!enabled || !siteId) return undefined
+    if (!enabled || !live || !siteId) return undefined
     setState("loading")
     lastScanAt.current = undefined
     void load()
@@ -148,15 +157,15 @@ export function useGateCode({ enabled = true } = {}) {
       clearTimeout(debounce)
       off()
     }
-  }, [enabled, siteId, load])
+  }, [enabled, live, siteId, load])
 
   // The visible countdown. Local, and only ever cosmetic: what actually decides
   // is the server, which is why a reaching-zero counter triggers nothing.
   useEffect(() => {
-    if (!enabled) return undefined
+    if (!enabled || !live) return undefined
     const t = setInterval(() => setLeft((n) => (n > 0 ? n - 1 : 0)), 1000)
     return () => clearInterval(t)
-  }, [enabled])
+  }, [enabled, live])
 
   // A scan that lands while the screen is up. The first code read only records
   // where we are, so opening the page never greets an old scan. The 6s clear
@@ -185,6 +194,7 @@ export function useGateCode({ enabled = true } = {}) {
     code,
     state,
     error,
+    errorDetail,
     missing,
     detail,
     left,

@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ArrowDownLeft, Maximize, QrCode, RefreshCw, ShieldCheck } from "../../components/ui/Icons"
 import { useGateCode } from "../../hooks/useGateCode"
@@ -5,16 +6,28 @@ import { Countdown, QrImage, scanTime } from "../attendance/gate"
 import { cn } from "../../lib/cn"
 import { initials } from "../../lib/format"
 
-// The live gate code on the Dashboard, for the people who issue it (see
-// canShowGateCode). The same code the gate shows: useGateCode keeps it live, and
-// a scan at the gate redraws it here too.
+// The gate code on the Dashboard, for the people who issue it (see
+// canShowGateCode). Opening the Dashboard does NOT fetch the code: every
+// attendance_qr_show() rotates the token and records the viewer (0065
+// own_code), so the card shows the station, today's count and the last scan
+// from the Dashboard's own reads, and starts the live code only on "Show gate
+// code". From then on it is the same code the gate shows: useGateCode keeps it
+// live, and a scan at the gate redraws it here too.
 
-export default function GateCard({ inToday, total }) {
+export default function GateCard({ inToday, total, punches = [], names = {} }) {
   const navigate = useNavigate()
-  const gate = useGateCode()
+  const [showing, setShowing] = useState(false)
+  const gate = useGateCode({ live: showing })
   if (gate.missing) return null
   const live = gate.state === "ok"
-  const scan = gate.justScanned || gate.code?.lastScan
+  // Before the code is shown, the last scan at this station from today's punches.
+  const lastHere = punches
+    .filter((p) => p.qr_site_id && p.qr_site_id === gate.siteId && p.review !== "rejected")
+    .reduce((a, p) => (!a || new Date(p.at) > new Date(a.at) ? p : a), null)
+  const scan =
+    gate.justScanned ||
+    gate.code?.lastScan ||
+    (lastHere && { name: names[lastHere.user_id]?.name || "Someone", kind: lastHere.kind, at: lastHere.at })
 
   return (
     <section className="squircle flex flex-col gap-4 rounded-card bg-linear-to-br from-kiosk-2 to-primary p-5 text-primary-foreground">
@@ -44,38 +57,56 @@ export default function GateCard({ inToday, total }) {
             <p className="truncate text-[12.5px] font-medium text-primary-foreground/80">{gate.station?.name || gate.code?.siteName || "Attendance"}</p>
           )}
         </div>
-        <span className={cn("squircle inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold leading-[15px]", live ? "bg-success/20" : "bg-warning/25")}>
-          <span className={cn("h-2 w-2 rounded-full", live ? "bg-success" : "bg-warning")} />
-          {live ? "Live" : gate.state === "loading" ? "Starting" : "Reconnecting"}
-        </span>
+        {showing && (
+          <span className={cn("squircle inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold leading-[15px]", live ? "bg-success/20" : "bg-warning/25")}>
+            <span className={cn("h-2 w-2 rounded-full", live ? "bg-success" : "bg-warning")} />
+            {live ? "Live" : gate.state === "loading" ? "Starting" : "Reconnecting"}
+          </span>
+        )}
       </header>
 
-      <div className="squircle flex flex-col items-center gap-3.5 rounded-xl bg-card px-4 pb-3.5 pt-4 text-foreground">
-        {gate.error && !gate.code ? (
-          <p className="py-10 text-center text-[13px] text-muted-foreground">{gate.error}</p>
-        ) : (
-          <QrImage payload={gate.code?.payload} size={212} dim={!live} />
-        )}
-        <Countdown left={gate.left} total={gate.rotateSec} tone={live ? "primary" : "warning"} className="justify-center" segmentClassName="w-1.5 flex-none" />
-        <div className="flex w-full items-center justify-between text-[12.5px] leading-[15px]">
-          <span className="text-muted-foreground">
-            {gate.state === "stale" ? (
-              <span className="font-medium text-warning-text">Could not refresh, retrying</span>
-            ) : (
-              <>
-                New code in <span className="font-semibold text-primary tabular">{gate.left} s</span>
-              </>
-            )}
-          </span>
-          <span className="text-xs font-medium text-subtle-foreground">Works once</span>
+      {!showing ? (
+        <div className="squircle flex flex-col items-center gap-3 rounded-xl bg-card px-4 py-5 text-center text-foreground">
+          <p className="text-[13px] text-muted-foreground">
+            {gate.error ? <span title={gate.errorDetail || undefined}>{gate.error}</span> : "The code starts when you ask for it."}
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowing(true)}
+            disabled={!gate.siteId}
+            className="squircle inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            <QrCode className="h-[18px] w-[18px]" /> Show gate code
+          </button>
         </div>
-      </div>
+      ) : (
+        <div className="squircle flex flex-col items-center gap-3.5 rounded-xl bg-card px-4 pb-3.5 pt-4 text-foreground">
+          {gate.error && !gate.code ? (
+            <p className="py-10 text-center text-[13px] text-muted-foreground" title={gate.errorDetail || undefined}>{gate.error}</p>
+          ) : (
+            <QrImage payload={gate.code?.payload} size={212} dim={!live} />
+          )}
+          <Countdown left={gate.left} total={gate.rotateSec} tone={live ? "primary" : "warning"} className="justify-center" segmentClassName="w-1.5 flex-none" />
+          <div className="flex w-full items-center justify-between text-[12.5px] leading-[15px]">
+            <span className="text-muted-foreground">
+              {gate.state === "stale" ? (
+                <span className="font-medium text-warning-text">Could not refresh, retrying</span>
+              ) : (
+                <>
+                  New code in <span className="font-semibold text-primary tabular">{gate.left} s</span>
+                </>
+              )}
+            </span>
+            <span className="text-xs font-medium text-subtle-foreground">Works once</span>
+          </div>
+        </div>
+      )}
 
       <div className="squircle flex items-center gap-3.5 rounded-xl bg-primary-foreground/10 px-3.5 py-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-end gap-1.5">
             <span className="text-lg font-semibold leading-none tabular">{inToday}</span>
-            <span className="text-xs font-medium text-primary-foreground/75">{total != null ? `of ${total} in` : "in today"}</span>
+            <span className="text-xs font-medium text-primary-foreground/75">{total ? `of ${total} in` : "in today"}</span>
           </div>
           {total ? (
             <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-primary-foreground/20">
@@ -107,15 +138,17 @@ export default function GateCard({ inToday, total }) {
         >
           <Maximize className="h-[18px] w-[18px]" /> Open full screen
         </button>
-        <button
-          type="button"
-          onClick={() => void gate.reload()}
-          title="New code now"
-          aria-label="New code now"
-          className="squircle grid h-11 w-11 flex-none place-items-center rounded-xl bg-primary-foreground/15 transition-colors hover:bg-primary-foreground/25"
-        >
-          <RefreshCw className="h-[18px] w-[18px]" />
-        </button>
+        {showing && (
+          <button
+            type="button"
+            onClick={() => void gate.reload()}
+            title="New code now"
+            aria-label="New code now"
+            className="squircle grid h-11 w-11 flex-none place-items-center rounded-xl bg-primary-foreground/15 transition-colors hover:bg-primary-foreground/25"
+          >
+            <RefreshCw className="h-[18px] w-[18px]" />
+          </button>
+        )}
       </div>
 
       <p className="flex items-center gap-2 text-[11.5px] text-primary-foreground/70">

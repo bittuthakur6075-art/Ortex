@@ -25,7 +25,7 @@ import { isSuperAdmin, roleLabel, ROLE_TONE } from "../../lib/roles"
 import { currentUserId } from "../../lib/auth"
 import { repo } from "../../data/store/repository"
 import { exportCsv } from "../../lib/csv"
-import { countFromFor, durationWords, effectiveStatus, flagWords, missedCheckout, STATUS_LABEL, weeklyOffOf } from "../../lib/attendance"
+import { countFromFor, countsAsLate, durationWords, effectiveStatus, flagWords, missedCheckout, STATUS_LABEL, weeklyOffOf } from "../../lib/attendance"
 import {
   getSettings,
   overtimeByUser,
@@ -282,7 +282,7 @@ export default function Register() {
           header: d,
           value: (r) => {
             const e = byCell.get(`${r.user_id}|${d}`)
-            return e ? effectiveStatus(e) + (e.late ? " (late)" : "") : ""
+            return e ? effectiveStatus(e) + (countsAsLate(e) ? " (late)" : "") : ""
           },
         })),
       ],
@@ -461,14 +461,14 @@ export default function Register() {
                           <button
                             type="button"
                             onClick={() => setCell({ userId: r.user_id, day })}
-                            title={`${r.name}, ${dayLabel(day, true)}: ${s ? STATUS_LABEL[s] : "no record"}${e?.late ? `, late by ${e.late_min} min` : ""}${e?.flags?.length ? `, ${flagWords(e.flags).join(", ").toLowerCase()}` : ""}`}
+                            title={`${r.name}, ${dayLabel(day, true)}: ${s ? STATUS_LABEL[s] : "no record"}${e && countsAsLate(e) ? `, late by ${e.late_min} min` : ""}${e?.flags?.length ? `, ${flagWords(e.flags).join(", ").toLowerCase()}` : ""}`}
                             className={cn(
                               "relative grid h-8 w-8 place-items-center rounded text-[11px] font-semibold transition-opacity hover:opacity-80",
                               s ? toneFor(s) : "text-subtle-foreground",
                             )}
                           >
                             {s || "·"}
-                            {e?.late && <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-warning" />}
+                            {e && countsAsLate(e) && <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-warning" />}
                             {e?.override_status && <span className="absolute bottom-0.5 left-0.5 h-1.5 w-1.5 rounded-full bg-primary" />}
                           </button>
                         </td>

@@ -2,6 +2,7 @@ import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import {
+  countsAsLate,
   dayKey,
   durationWords,
   effectiveStatus,
@@ -312,7 +313,7 @@ export default function MonthAttendance({
                             >
                               {cell.date}
                             </Text>
-                            {cell.inMonth && cell.entry?.late ? (
+                            {cell.inMonth && cell.entry && countsAsLate(cell.entry) ? (
                               <View style={[styles.lateDot, { backgroundColor: t.warning, borderColor: t.surface }]} />
                             ) : null}
                           </View>

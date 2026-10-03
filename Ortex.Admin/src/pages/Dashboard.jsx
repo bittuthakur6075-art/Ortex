@@ -160,8 +160,12 @@ export default function Dashboard() {
   const firstName = (profile?.name || "").split(" ")[0]
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })
   const approvals = items.filter((i) => i.group === "approvals").length
-  const inToday = new Set((ops?.punches || []).filter((p) => p.kind === "in").map((p) => p.user_id)).size
-  const activeLogins = ops?.profiles ? ops.profiles.filter((p) => p.active !== false).length : null
+  const inIds = new Set((ops?.punches || []).filter((p) => p.kind === "in").map((p) => p.user_id))
+  const inToday = inIds.size
+  // "Of N": everyone expected in today (attendanceExpectations), plus anyone who came in anyway.
+  const expectedToday = ops?.profiles
+    ? new Set([...ops.profiles.filter(ops.expect ? ops.expect.expects : (p) => p.active !== false).map((p) => p.id), ...inIds]).size
+    : null
 
   const actions = [
     access.insights && { label: "Insights", to: "/insights", icon: TrendingUp },
@@ -221,7 +225,7 @@ export default function Dashboard() {
         </div>
 
         <aside className="min-w-0 space-y-6">
-          {access.gate && <GateCard inToday={inToday} total={activeLogins} />}
+          {access.gate && <GateCard inToday={inToday} total={expectedToday} punches={ops?.punches || []} names={ops?.names || {}} />}
           {access.attendance && ops?.punches && <TeamToday ops={ops} pendingLeave={(ops.leave || []).length} pendingCorrections={(ops.corrections || []).length} />}
           {access.invoices && <Receivables t={t} invoices={data.invoices || []} payments={data.payments || []} />}
           {(access.enquiries || access.voice) && <LeadSources data={data} range={range} />}

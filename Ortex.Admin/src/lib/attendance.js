@@ -175,11 +175,24 @@ export const canRescan = (status) =>
 /** The Super Admin's override wins over the computed status. */
 export const effectiveStatus = (d) => d.override_status || d.status
 /**
- * A day left open: checked in, never out. Since 0056 the server writes it as A
- * flagged no_checkout (MP before that, still on older rows). An override means
- * someone has already dealt with it.
+ * A late mark that counts, the rule attendance_month_summary() applies (0068):
+ * the row is late, its EFFECTIVE status is P, OD or HD, and it was not marked
+ * present automatically. A day overridden to A or L after it was computed can
+ * still carry late = true; it is not a late.
  */
-export const missedCheckout = (d) => !d.override_status && (d.status === "MP" || !!d.flags?.includes("no_checkout"))
+export const countsAsLate = (d) =>
+  !!d.late && ["P", "OD", "HD"].includes(effectiveStatus(d)) && !d.flags?.includes("auto_present")
+/**
+ * A day left open and still held against the person: checked in, never out.
+ * Since 0056 the server writes it as A flagged no_checkout (MP before that,
+ * still on older rows). Only a day whose EFFECTIVE status is still A or MP
+ * counts: an override to a paid status, or autoPresent lifting it to P (flags
+ * no_checkout + auto_present), means payroll pays it and nobody needs to chase it.
+ */
+export const missedCheckout = (d) => {
+  const s = effectiveStatus(d)
+  return (s === "A" || s === "MP") && (d.status === "MP" || !!d.flags?.includes("no_checkout"))
+}
 export const STATUS_LABEL = {
   P: "Present",
   HD: "Half day",
@@ -214,7 +227,7 @@ export function monthTotals(days, lateRule = {}) {
   let workedMin = 0
   for (const d of days) {
     counts[effectiveStatus(d)] += 1
-    if (d.late) lates += 1
+    if (countsAsLate(d)) lates += 1
     workedMin += d.worked_min || 0
   }
   const per = Math.max(1, lateRule.count ?? 3)

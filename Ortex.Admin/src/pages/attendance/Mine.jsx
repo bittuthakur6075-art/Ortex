@@ -7,18 +7,18 @@ import { repo } from "../../data/store/repository"
 import {
   clockIST,
   countFromFor,
+  countsAsLate,
   dayKey,
   durationWords,
   effectiveStatus,
   monthGrid,
   monthTotals,
   STATUS_LABEL,
-  summarizeDay,
 } from "../../lib/attendance"
 import { getSettings, listDays, listHolidays, listPunches, todayIST } from "../../services/attendance"
 import { cn } from "../../lib/cn"
 import { FlagBadges, StatStrip } from "./parts"
-import { dayLabel, daysOf, toneFor, openRow } from "./format"
+import { dayLabel, daysOf, dayView, toneFor, openRow } from "./format"
 import { MonthSwitcher, StatusLegend } from "./status"
 import StatusDayDrawer from "./StatusDayDrawer"
 import TodayCard from "./TodayCard"
@@ -84,8 +84,11 @@ export default function Mine() {
     }
   }, [load])
 
-  // One summary per day, newest first, each counted from that day's shift
-  // start (none on a weekly off or a holiday), as the server counts it.
+  const byDay = useMemo(() => new Map((state.days || []).map((d) => [d.day, d])), [state.days])
+  // One line per day the server has a row for (its status and hours, which the
+  // totals add up), plus any day with punches and no row yet (today), newest
+  // first. Punches give the clock-in times; a day without a row counts from
+  // that day's shift start (none on a weekly off or a holiday), as the server does.
   const summaries = useMemo(() => {
     const by = new Map()
     for (const p of state.rows || []) {
@@ -94,16 +97,15 @@ export default function Mine() {
       by.get(k).push(p)
     }
     const now = Date.now()
-    return [...by.entries()]
-      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-      .map(([day, list]) => summarizeDay(day, list, now, countFromFor(state.settings || {}, day, state.holidays?.has(day))))
-  }, [state.rows, state.settings, state.holidays])
+    return [...new Set([...by.keys(), ...byDay.keys()])]
+      .sort((a, b) => (a < b ? 1 : -1))
+      .map((day) => dayView(day, by.get(day), byDay.get(day), countFromFor(state.settings || {}, day, state.holidays?.has(day)), now))
+  }, [state.rows, state.settings, state.holidays, byDay])
   const totals = useMemo(() => monthTotals(state.days || [], state.settings?.lateRule || {}), [state.days, state.settings])
   const weeks = useMemo(() => {
     const [y, m] = month.split("-").map(Number)
     return monthGrid(y, m, state.days || [])
   }, [month, state.days])
-  const byDay = useMemo(() => new Map((state.days || []).map((d) => [d.day, d])), [state.days])
 
   if (state.loading && !state.rows) return <PageLoader />
   if (state.missing) {
@@ -163,7 +165,7 @@ export default function Mine() {
                     disabled={!c.inMonth}
                     onClick={() => setOpenDay(c.day)}
                     title={c.inMonth ? `${dayLabel(c.day, true)}: ${s ? STATUS_LABEL[s] : "no record"}` : undefined}
-                    aria-label={c.inMonth ? `${dayLabel(c.day, true)}: ${s ? STATUS_LABEL[s] : "no record"}${c.entry?.late ? ", late" : ""}` : undefined}
+                    aria-label={c.inMonth ? `${dayLabel(c.day, true)}: ${s ? STATUS_LABEL[s] : "no record"}${c.entry && countsAsLate(c.entry) ? ", late" : ""}` : undefined}
                     aria-current={isToday ? "date" : undefined}
                     className={cn(
                       "relative flex h-14 flex-col items-center justify-center gap-0.5 rounded-lg text-[13px] transition-opacity",
@@ -175,7 +177,7 @@ export default function Mine() {
                   >
                     <span className="font-semibold tabular">{c.date}</span>
                     {s && <span className="text-[10px] font-semibold">{s}</span>}
-                    {c.entry?.late && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-warning" />}
+                    {c.entry && countsAsLate(c.entry) && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-warning" />}
                   </button>
                 )
               })}
@@ -222,7 +224,7 @@ export default function Mine() {
                       <td className="tabular">{d.open ? "On duty" : d.lastOut ? clockIST(d.lastOut) : "-"}</td>
                       <td className="tabular">{durationWords(d.workedMin)}</td>
                       <td>
-                        <FlagBadges flags={[...new Set(d.punches.flatMap((p) => p.flags || []))]} field={d.field} />
+                        <FlagBadges flags={[...new Set([...(e?.flags || []), ...d.punches.flatMap((p) => p.flags || [])])]} field={d.field} />
                       </td>
                     </tr>
                   )

@@ -5,6 +5,7 @@
 import "./clock.mjs"
 import { buildDb, SUPER_ID } from "./db.mjs"
 import { randomUUID } from "node:crypto"
+import { readFileSync } from "node:fs"
 
 const t0 = Date.now()
 const { db, applied, failed, patched } = await buildDb()
@@ -400,7 +401,7 @@ await scenario("Payroll summary + transitions after lock", async () => {
   const s1 = rows.find((r) => r.user_id === U.STAFF1)
   const days = (await run(null, "select coalesce(override_status, status) s, late, flags from attendance_days where user_id = $1 and day >= '2026-09-01' and day < '2026-10-01'", [U.STAFF1])).rows
   const c = (x) => days.filter((d) => d.s === x).length
-  const lates = days.filter((d) => d.late).length
+  const lates = days.filter((d) => d.late && ["P", "OD", "HD"].includes(d.s) && !d.flags.includes("auto_present")).length
   const payable = Math.max(0, c("P") + c("OD") + c("WO") + c("H") + c("L") + 0.5 * (c("HD") + c("MP")) - Math.floor(lates / 3) * 0.5)
   const missed = c("MP") + days.filter((d) => d.s === "A" && d.flags.includes("no_checkout")).length
   eq("STAFF1 payable matches P+OD+WO+H+L+0.5*(HD+MP)-late penalty", Number(s1.payable), payable)
@@ -973,6 +974,56 @@ await scenario("Owner and Super Admins (0067)", async () => {
   await run(U.SUPER, "update profiles set role = 'sales', active = false where id = $1", [CO])
   await run(null, "delete from auth.users where id = any($1)", [[CO, CO2, NEW]])
   eq("one Super Admin again after tidy", await val(null, "select count(*)::int from profiles where role = 'super_admin'"), 1)
+})
+
+// ---- 0068 late marks and the September recalculation ------------------------------------
+await scenario("0068 late marks", async () => {
+  const Q = "00000000-0000-4000-8000-0000000000c1"
+  await run(null, "insert into auth.users (id, email, raw_user_meta_data) values ($1, 'qa68@test.local', '{\"name\":\"QA68\"}')", [Q])
+  await run("service", "update profiles set role = 'staff', active = true, name = 'QA68', created_at = '2026-01-01' where id = $1", [Q])
+  await run(U.SUPER, "select attendance_unlock_month('2026-09-01', 'qa 0068 late marks')")
+  const day = async (d) => { const r = await dayRow(Q, d); return [r.status, r.late, r.late_min] }
+  const latePunch = async (d) => { await rawPunch(Q, "in", ist(d, "10:30")); await rawPunch(Q, "out", ist(d, "19:30")) }
+
+  await latePunch("2026-09-15")
+  eq("late on a P day: late, 60 min", await day("2026-09-15"), ["P", true, 60])
+  await rawPunch(Q, "in", ist("2026-09-17", "11:00")); await rawPunch(Q, "out", ist("2026-09-17", "12:00"))
+  eq("checked in late, 1 hour worked: A short_hours, not late", [...await day("2026-09-17"), (await dayRow(Q, "2026-09-17")).flags], ["A", false, 0, ["short_hours"]])
+  await setCfg({ autoPresent: [Q] })
+  await rawPunch(Q, "in", ist("2026-09-16", "11:00")); await rawPunch(Q, "out", ist("2026-09-16", "12:00"))
+  eq("autoPresent lift: P, not late", [...await day("2026-09-16"), (await dayRow(Q, "2026-09-16")).flags], ["P", false, 0, ["short_hours", "auto_present"]])
+  await dropCfg("autoPresent")
+  for (const [d, s] of [["2026-09-18", "L"], ["2026-09-21", "A"], ["2026-09-22", "WO"], ["2026-09-23", "P"]]) {
+    await latePunch(d)
+    await run(U.SUPER, "select attendance_override_day($1, $2, $3, 'qa 0068')", [Q, d, s])
+  }
+  await latePunch("2026-09-24")
+  // A row computed before 0068: an absence still carrying a late mark, and a lifted day too.
+  await run(null, `insert into attendance_days (user_id, day, status, late, late_min, flags) values
+    ($1, '2026-09-25', 'A', true, 568, '{}'), ($1, '2026-09-28', 'P', true, 657, '{auto_present}')`, [Q])
+
+  const s = (await run(U.PAY, "select * from attendance_month_summary('2026-09-01')")).rows.find((r) => r.user_id === Q)
+  // Lates: 15, 23 (overridden to P), 24. Not 17 (A), 16 (lifted), 18/21/22 (overridden to L/A/WO), 25 (A), 28 (lifted).
+  eq("summary: 3 lates, penalty 0.5", [s.lates, Number(s.late_penalty)], [3, 0.5])
+  // P 15, 16, 23, 24, 28 + L 18 + WO 22 = 7, less 0.5.
+  eq("summary: payable 6.5", Number(s.payable), 6.5)
+  eq("summary: missed 0 (no A with no_checkout, no MP)", s.missed, 0)
+
+  // The recalculation section of 0068, run as written in the migration.
+  await rawPunch(Q, "in", ist("2026-09-29", "09:00")); await rawPunch(Q, "out", ist("2026-09-29", "19:00"))
+  eq("(today's rule gives 570 for 09:00-19:00)", (await dayRow(Q, "2026-09-29")).worked_min, 570)
+  await run(null, "update attendance_days set worked_min = 600 where user_id = $1 and day = '2026-09-29'", [Q])
+  const mig = readFileSync(new URL("../migrations/0068_attendance_late_and_recompute.sql", import.meta.url), "utf8")
+  const section = mig.slice(mig.indexOf("-- ---- 3. recalculate"))
+  check("found the recalculation section", section.includes("attendance_close_day_all"), "section", section.slice(0, 60))
+  await run(null, section)
+  eq("pre-0056 row recalculated: 600 -> 570", (await dayRow(Q, "2026-09-29")).worked_min, 570)
+  eq("old late-on-A row cleared (25 Sep: A, no punches)", await day("2026-09-25"), ["A", false, 0])
+  eq("old lifted row recomputed (28 Sep: A, no punches, not autoPresent now)", await day("2026-09-28"), ["A", false, 0])
+  eq("a day with no row yet is filled (14 Sep: A)", (await dayRow(Q, "2026-09-14"))?.status, "A")
+  eq("overrides survive the recalculation", (await one(null, "select override_status from attendance_days where user_id = $1 and day = '2026-09-18'", [Q])).override_status, "L")
+  eq("October filled up to yesterday (2 Oct)", !!(await dayRow(Q, "2026-10-02")), true)
+
 })
 
 // ---- report -----------------------------------------------------------------------------

@@ -13,7 +13,7 @@
 //   · a WORKED day is P, OD or HD with hours on it; average hours are over those.
 // A day's status is the Super Admin's override when there is one.
 
-import { missedCheckout } from "../attendance"
+import { countsAsLate, missedCheckout } from "../attendance"
 
 export const RANGE_DAYS = { "7d": 7, "30d": 30, "90d": 90 }
 
@@ -64,7 +64,7 @@ export function summarise(rows) {
       workedDays += 1
       workedMin += d.worked_min || 0
     }
-    if (d.late) lates += 1
+    if (countsAsLate(d)) lates += 1
     if (missedCheckout(d)) missed += 1
     if (s === "A") absent += 1
     leave += leaveOn(d)
@@ -121,7 +121,7 @@ export function dailyTrend(rows, from, to) {
 export function latesByWeekday(rows) {
   const counts = [0, 0, 0, 0, 0, 0]
   for (const r of rows) {
-    if (!r.late) continue
+    if (!countsAsLate(r)) continue
     const dow = new Date(`${r.day}T00:00:00Z`).getUTCDay() // 0 Sun
     if (dow >= 1 && dow <= 6) counts[dow - 1] += 1
   }

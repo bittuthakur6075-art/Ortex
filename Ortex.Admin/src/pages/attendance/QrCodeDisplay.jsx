@@ -6,6 +6,7 @@ import { useGateCode } from "../../hooks/useGateCode"
 import { listPunches, todayIST } from "../../services/attendance"
 import { listProfiles } from "../../services/users"
 import { repo } from "../../data/store/repository"
+import { loadExpectations } from "../../services/dashboard"
 import { cn } from "../../lib/cn"
 import { initials } from "../../lib/format"
 import { Countdown, QrImage, scanTime } from "./gate"
@@ -103,7 +104,7 @@ function GateTab({ gate, onFull }) {
               <Spinner />
             </div>
           ) : gate.error && !gate.code ? (
-            <EmptyState icon={QrCode} title="No code to show" description={gate.error} />
+            <EmptyState icon={QrCode} title="No code to show" description={<span title={gate.errorDetail || undefined}>{gate.error}</span>} />
           ) : (
             <>
               <div className={cn("squircle rounded-card bg-card p-4 ring-1 transition-shadow", gate.justScanned ? "ring-4 ring-success" : stale ? "ring-2 ring-warning" : "ring-border")}>
@@ -139,7 +140,11 @@ function GateTab({ gate, onFull }) {
             </Field>
           </Card>
         )}
-        {gate.error && gate.code ? <Banner tone="warning">{gate.error}</Banner> : null}
+        {gate.error && gate.code ? (
+          <Banner tone="warning">
+            <span title={gate.errorDetail || undefined}>{gate.error}</span>
+          </Banner>
+        ) : null}
 
         <Card className="overflow-hidden">
           <CardHeader title="Today at the gate" />
@@ -200,11 +205,13 @@ function LastScan({ scan, fresh }) {
 
 /**
  * Today's scans AT THIS STATION (qr_site_id) for the "Just now" feed and the
- * "in today" count, leaving out punches an admin did not accept. The IST day
+ * "in today" count, leaving out punches an admin did not accept. "Of N" is
+ * everyone expected in today (attendanceExpectations: not autoPresent, not on
+ * leave, nobody on a day off), plus anyone who scanned here anyway. The IST day
  * is re-read every 30s, so a screen left up overnight starts again at midnight.
  */
 function useScansToday(siteId, lastScanAt) {
-  const [state, setState] = useState({ rows: [], names: {}, total: null })
+  const [state, setState] = useState({ rows: [], names: {}, expected: null })
   const [day, setDay] = useState(todayIST)
   useEffect(() => {
     const t = setInterval(() => setDay(todayIST()), 30000)
@@ -216,10 +223,11 @@ function useScansToday(siteId, lastScanAt) {
       listPunches({ from: day, to: day }).catch(() => ({ rows: [] })),
       repo.staffDirectory ? repo.staffDirectory().catch(() => ({})) : {},
       listProfiles().catch(() => null),
-    ]).then(([punches, names, profiles]) => {
+      loadExpectations(day),
+    ]).then(([punches, names, profiles, expect]) => {
       if (!alive) return
       const rows = (punches.rows || []).filter((p) => p.qr_site_id === siteId && p.review !== "rejected")
-      setState({ rows, names: names || {}, total: profiles ? profiles.filter((p) => p.active !== false).length : null })
+      setState({ rows, names: names || {}, expected: profiles ? profiles.filter(expect.expects).map((p) => p.id) : null })
     })
     return () => {
       alive = false
@@ -227,8 +235,10 @@ function useScansToday(siteId, lastScanAt) {
   }, [siteId, lastScanAt, day])
   return useMemo(() => {
     const recent = [...state.rows].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 5)
-    const inToday = new Set(state.rows.filter((p) => p.kind === "in").map((p) => p.user_id)).size
-    return { recent: recent.map((p) => ({ ...p, name: state.names[p.user_id]?.name || "Someone" })), inToday, total: state.total }
+    const inIds = new Set(state.rows.filter((p) => p.kind === "in").map((p) => p.user_id))
+    // No total at all on a day nobody is expected and nobody came.
+    const total = state.expected ? new Set([...state.expected, ...inIds]).size || null : null
+    return { recent: recent.map((p) => ({ ...p, name: state.names[p.user_id]?.name || "Someone" })), inToday: inIds.size, total }
   }, [state])
 }
 
