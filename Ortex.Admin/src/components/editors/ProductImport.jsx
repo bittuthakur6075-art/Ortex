@@ -3,7 +3,7 @@ import { Download, Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, Sparkle
 import { toast } from "sonner"
 import { repo } from "../../data/store/repository"
 import { newProduct, GST_RATES, UNITS, autoDetectCategory } from "../../data/domain/schema"
-import { useCategories } from "../../hooks/useCollection"
+import { useCategories, useCollection } from "../../hooks/useCollection"
 import { downloadCsvRaw, parseCsv } from "../../lib/csv"
 import { extractSheetImages, sheetRowForDataIndex } from "../../lib/xlsxImages"
 import { uploadImage } from "../../lib/imageUpload"
@@ -159,6 +159,7 @@ function validateRow(raw, categories = [], embedded = []) {
 
 export default function ProductImport({ open, onClose }) {
   const categories = useCategories()
+  const { items: existing } = useCollection("products")
   const [rows, setRows] = useState(null) // parsed+validated
   const [fileName, setFileName] = useState("")
   const [busy, setBusy] = useState(false)
@@ -244,7 +245,19 @@ export default function ProductImport({ open, onClose }) {
         setRows([])
         return
       }
-      setRows(parsed.map((row, i) => validateRow(row, categories, imagesByRow.get(sheetRowForDataIndex(i)) || [])))
+      // A row whose SKU (else name) is already in the catalogue starts unticked:
+      // importing it again would make a second copy, not update the first.
+      const key = (v) => String(v || "").trim().toLowerCase()
+      const skus = new Set(existing.map((p) => key(p.sku)).filter(Boolean))
+      const names = new Set(existing.map((p) => key(p.name)).filter(Boolean))
+      setRows(
+        parsed.map((row, i) => {
+          const r = validateRow(row, categories, imagesByRow.get(sheetRowForDataIndex(i)) || [])
+          const sku = key(r.product.sku)
+          const already = sku ? skus.has(sku) : names.has(key(r.product.name))
+          return { ...r, already, include: r.valid && !already }
+        }),
+      )
     } catch (err) {
       console.error("Import parse failed:", err)
       toast.error("Could not read that file. Is it a .xlsx or .csv?")
@@ -254,8 +267,10 @@ export default function ProductImport({ open, onClose }) {
     }
   }
 
-  const validRows = rows?.filter((r) => r.valid) || []
-  const invalidCount = (rows?.length || 0) - validRows.length
+  const validRows = rows?.filter((r) => r.valid && r.include) || []
+  const invalidCount = rows?.filter((r) => !r.valid).length || 0
+  const alreadyCount = rows?.filter((r) => r.valid && r.already).length || 0
+  const toggle = (i) => setRows((list) => list.map((r, j) => (j === i ? { ...r, include: !r.include } : r)))
   const photoCount = (r) => (r.product.images?.length || 0) + r.embedded.length
   const withImages = validRows.filter((r) => photoCount(r) > 0).length
   const embeddedTotal = validRows.reduce((n, r) => n + r.embedded.length, 0)
@@ -344,8 +359,8 @@ export default function ProductImport({ open, onClose }) {
             <span className="font-semibold text-foreground">1. Get the template</span>
             <span className="text-xs text-muted-foreground">Columns, sample rows and a "How to fill" sheet.</span>
             <div className="mt-1 flex flex-wrap gap-1.5">
-              <Button size="xs" onClick={downloadExcel} disabled={busy}>Excel</Button>
-              <Button size="xs" variant="outline" onClick={downloadTemplate}>CSV</Button>
+              <Button size="sm" onClick={downloadExcel} disabled={busy}>Excel</Button>
+              <Button size="sm" variant="outline" onClick={downloadTemplate}>CSV</Button>
             </div>
           </div>
 
@@ -357,12 +372,12 @@ export default function ProductImport({ open, onClose }) {
             <span className="text-xs text-muted-foreground">
               By hand or with an AI. Paste product photos straight into the sheet, on the product's row.
             </span>
-            <Button size="xs" variant="outline" className="mt-1" onClick={copyPrompt}>
-              <Sparkles className="h-3.5 w-3.5" /> Copy AI prompt
+            <Button size="sm" variant="outline" className="mt-1" onClick={copyPrompt}>
+              <Sparkles className="h-4 w-4" /> Copy AI prompt
             </Button>
           </div>
 
-          <label className="squircle flex cursor-pointer flex-col items-start gap-2 rounded-[16px] border border-border p-4 transition-colors hover:bg-subtle">
+          <label className="squircle flex cursor-pointer flex-col items-start gap-2 rounded-[16px] border border-border p-4 transition-colors hover:bg-subtle focus-within:ring-2 focus-within:ring-ring">
             <span className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-primary">
               <Upload className="h-[18px] w-[18px]" />
             </span>
@@ -372,7 +387,7 @@ export default function ProductImport({ open, onClose }) {
               type="file"
               accept=".xlsx,.xlsm,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               onChange={onFile}
-              className="hidden"
+              className="sr-only"
             />
           </label>
         </div>
@@ -384,6 +399,7 @@ export default function ProductImport({ open, onClose }) {
               <span className="font-semibold text-foreground">Preview</span>
               <Badge tone="emerald">{validRows.length} ready</Badge>
               {invalidCount > 0 && <Badge tone="rose">{invalidCount} with errors</Badge>}
+              {alreadyCount > 0 && <Badge tone="amber">{alreadyCount} already in catalogue</Badge>}
               {withImages > 0 && <Badge tone="blue">{withImages} with photos</Badge>}
               {embeddedTotal > 0 && <Badge tone="violet">{embeddedTotal} pasted, uploaded on import</Badge>}
             </div>
@@ -391,12 +407,12 @@ export default function ProductImport({ open, onClose }) {
               <table className="w-full text-left text-sm">
                 <thead className="mt-head sticky top-0 z-10">
                   <tr>
-                    <th className="px-3 py-2 font-medium" />
-                    <th className="px-3 py-2 font-medium">Name</th>
-                    <th className="px-3 py-2 font-medium">Category</th>
-                    <th className="px-3 py-2 text-right font-medium">Price</th>
-                    <th className="px-3 py-2 text-right font-medium">GST</th>
-                    <th className="px-3 py-2 font-medium">Photos</th>
+                    <th><span className="sr-only">Import</span></th>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th className="text-right">Price</th>
+                    <th className="text-right">GST</th>
+                    <th>Photos</th>
                   </tr>
                 </thead>
                 <tbody className="mt-body">
@@ -404,7 +420,13 @@ export default function ProductImport({ open, onClose }) {
                     <tr key={i} className={r.valid ? "" : "bg-destructive/5"}>
                       <td className="px-3 py-2 text-muted-foreground">
                         {r.valid ? (
-                          <CheckCircle2 className="h-4 w-4 text-success-text" />
+                          <input
+                            type="checkbox"
+                            checked={r.include}
+                            onChange={() => toggle(i)}
+                            aria-label={`Import ${r.product.name}`}
+                            className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
+                          />
                         ) : (
                           <AlertTriangle className="h-4 w-4 text-destructive-text" title={r.errors.join(", ")} />
                         )}
@@ -412,6 +434,7 @@ export default function ProductImport({ open, onClose }) {
                       <td className="px-3 py-2">
                         <div className="font-medium text-foreground">{r.product.name}</div>
                         {!r.valid && <div className="text-xs text-destructive-text">{r.errors.join(", ")}</div>}
+                        {r.valid && r.already && <div className="text-xs text-warning-text">Already in catalogue. Tick it to add a second copy.</div>}
                         {r.valid && r.droppedImages && (
                           <div className="text-xs text-warning-text">Image links ignored. They must start with http(s)://</div>
                         )}

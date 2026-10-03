@@ -99,16 +99,29 @@ export async function extendValidity(q, days = 15) {
   toast.success(`Validity extended by ${days} days`)
 }
 
+// One conversion per quotation at a time: a second click (or the I key) while
+// the first is still minting a number does nothing. Callers confirm first
+// (ConvertDialog.jsx).
+const converting = new Set()
 export async function convertToInvoice(q) {
-  const inv = await convertQuotationToInvoice(q.id)
-  if (!inv) {
-    toast.error("Could not convert this quotation to an invoice.")
+  if (!q?.id || converting.has(q.id)) return null
+  converting.add(q.id)
+  try {
+    const inv = await convertQuotationToInvoice(q.id)
+    if (!inv) {
+      toast.error("Could not convert this quotation to an invoice.")
+      return null
+    }
+    toast.success(`Invoice ${inv.number} generated`)
+    const m = notifyMessage(inv._notify)
+    if (m) toast[m.tone === "error" ? "error" : "message"](m.text)
+    return inv
+  } catch (err) {
+    toast.error(err?.message || "Could not convert this quotation to an invoice.")
     return null
+  } finally {
+    converting.delete(q.id)
   }
-  toast.success(`Invoice ${inv.number} generated`)
-  const m = notifyMessage(inv._notify)
-  if (m) toast[m.tone === "error" ? "error" : "message"](m.text)
-  return inv
 }
 
 // A copy as a fresh draft: same customer, lines and terms, today's date, no

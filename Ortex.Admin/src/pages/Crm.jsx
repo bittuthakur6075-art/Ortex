@@ -10,12 +10,10 @@ import { Tabs } from "../components/ui/Ui"
 import Enquiries from "./Enquiries"
 import VoiceLeads from "./VoiceLeads"
 
-// One CRM workspace. The three tabs are the former Leads, Enquiries and Voice
-// Leads pages, embedded unchanged. Enquiries and Voice calls read the same
-// `enquiries` collection (voice calls are Anu's rows folded per caller);
-// Pipeline is the separate `leads` collection that enquiries convert into.
-// Access is still granted per tab through the original module keys, so a
-// user's permissions carry over without migration.
+// The Leads hub (/crm): two tabs over the same `enquiries` collection. Leads
+// is the V2 list (pages/Enquiries.jsx); Voice calls folds Anu's captures per
+// caller (pages/VoiceLeads.jsx). Each tab is granted by its own module key
+// ("enquiries", "voice-leads").
 const TABS = [
   { value: "enquiries", moduleKey: "enquiries", label: "Leads", icon: Inbox, Page: Enquiries },
   { value: "voice", moduleKey: "voice-leads", label: "Voice calls", icon: Mic, Page: VoiceLeads },

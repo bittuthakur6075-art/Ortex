@@ -9,17 +9,23 @@ import ReactApexChart from "react-apexcharts"
    MutationObserver on <html class> re-renders on theme toggle.
    ============================================================ */
 
-// Tailwind palette hexes for the semantic accents the dashboards use.
-export const CHART_COLORS = {
-  emerald: "#10b981",
-  amber: "#f59e0b",
-  blue: "#3b82f6",
-  violet: "#8b5cf6",
-  orange: "#f97316",
-  rose: "#f43f5e",
-  red: "#ef4444",
-  slate: "#64748b",
+// The accents the dashboards use, each a theme token. ApexCharts needs a real
+// colour string (it shades and blends them), so each one is read from the CSS
+// variable when a chart renders; useTheme re-renders charts on a theme switch.
+const CHART_TOKENS = {
+  emerald: "--success",
+  amber: "--warning",
+  blue: "--primary",
+  violet: "--info",
+  orange: "--warning-text",
+  rose: "--destructive",
+  red: "--destructive-strong",
+  slate: "--muted-foreground",
 }
+export const CHART_COLORS = Object.defineProperties(
+  {},
+  Object.fromEntries(Object.entries(CHART_TOKENS).map(([k, v]) => [k, { enumerable: true, get: () => cssHsl(v) }])),
+)
 
 function cssHsl(name, alpha) {
   if (typeof window === "undefined") return ""

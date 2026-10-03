@@ -59,7 +59,7 @@ export default function Work({ embedded = false }) {
 
   return (
     <div>
-      <Header title="Work showcase" subtitle="Photos shown on the website /work page - add, caption, and reorder">
+      <Header title="Work showcase" subtitle="Photos shown on the website /work page: add, caption and reorder">
         {items.length > 0 && (
           <Button size="sm" onClick={() => setEditing("new")}>
             <Plus className="h-4 w-4" /> New work item
@@ -189,7 +189,7 @@ function WorkForm({ open, work, onClose }) {
         title: data.title?.trim() || f.title,
         alt: data.alt?.trim() || f.alt,
       }))
-      toast.success("AI copy generated - review before saving")
+      toast.success("AI copy generated. Review before saving")
     } catch (err) {
       console.error("Work AI copy failed:", err)
       toast.error(err?.message || "AI generation failed")
@@ -218,11 +218,14 @@ function WorkForm({ open, work, onClose }) {
   }
 
   const remove = async () => {
-    if (window.confirm(`Delete work item "${work.title || "Untitled"}"?`)) {
+    if (!window.confirm(`Delete work item "${work.title || "Untitled"}"?`)) return
+    try {
       await repo.remove("work", work.id)
       toast.success("Work item deleted")
       triggerSiteRebuild()
       onClose()
+    } catch (err) {
+      toast.error(err?.message || "Could not delete the work item")
     }
   }
 
@@ -273,7 +276,7 @@ function WorkForm({ open, work, onClose }) {
           <Field label="Title" required error={error && form.image && !form.title.trim() ? error : ""} hint="Caption shown on the photo">
             <Input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="Enter title" autoFocus />
           </Field>
-          <Field label="Category" hint="Filter bucket on /work - matches catalogue categories">
+          <Field label="Category" hint="Filter bucket on /work, matches catalogue categories">
             <div className="space-y-2">
               <Select value={isCustom ? OTHER : form.category} onChange={(e) => onCategorySelect(e.target.value)}>
                 <option value="">- Select -</option>
@@ -291,7 +294,7 @@ function WorkForm({ open, work, onClose }) {
           </Field>
         </div>
 
-        <Field label="Alt Text" hint="Read aloud by screen readers and used by Google Images; falls back to the title">
+        <Field label="Alt text" hint="Read aloud by screen readers and used by Google Images; falls back to the title">
           <Textarea
             ai={{
               purpose: "Accessibility alt text for a photo in the Ortex website's Our work gallery: one plain sentence of 12 to 20 words describing the product, material and setting shown",
@@ -309,7 +312,7 @@ function WorkForm({ open, work, onClose }) {
 
         <Group title="Placement">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Sort Order" hint="Lower shows first">
+            <Field label="Sort order" hint="Lower shows first">
               <Input type="number" value={form.sortOrder} onChange={(e) => set("sortOrder", e.target.value)} placeholder="Enter sort order" />
             </Field>
             <Field label="Visibility">

@@ -155,23 +155,23 @@ function QueueRow({ it, tone, onApprove }) {
   }
 
   return (
-    <div className="squircle flex items-center gap-3.5 rounded-xl bg-subtle p-3">
+    <div className="squircle flex flex-wrap items-center gap-x-3.5 gap-y-2 rounded-xl bg-subtle p-3">
       <span className={cn("squircle grid h-10 w-10 flex-none place-items-center rounded-xl", t.soft, t.text)}>
         <Icon className="h-5 w-5" />
       </span>
-      <Link to={it.to} state={it.state} className="flex min-w-0 flex-1 flex-col gap-[3px]">
+      <Link to={it.to} state={it.state} className="flex min-w-0 flex-[1_1_160px] flex-col gap-[3px]">
         <span className="truncate text-sm font-medium leading-[17px] text-foreground hover:underline">{it.title}</span>
         <span className="truncate text-[12.5px] leading-[15px] text-subtle-foreground">{it.detail}</span>
       </Link>
       {it.amount > 0 && <span className="flex-none text-sm font-semibold text-foreground tabular">{money(it.amount)}</span>}
-      <div className="flex flex-none items-center gap-2">
+      <div className="ml-auto flex flex-none items-center gap-2">
         {leave ? (
           <>
             <Button size="sm" variant="outline" onClick={open}>
-              Decline
+              Decline…
             </Button>
             <Button size="sm" onClick={approve} disabled={busy}>
-              {busy ? "Approving" : "Approve"}
+              {busy ? "Approving…" : "Approve"}
             </Button>
           </>
         ) : label === "Call" && it.phone ? (

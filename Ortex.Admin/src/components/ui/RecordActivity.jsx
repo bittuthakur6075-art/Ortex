@@ -196,7 +196,7 @@ export function RecordActivity({ collection, record, className = "", title = "Ac
             <Clock className="mt-0.5 h-4 w-4 flex-none text-subtle-foreground" />
             <span>
               No change history. Records created before the audit trail was switched on carry none, and it cannot be
-              reconstructed — every edit from now on is logged here.
+              reconstructed. Every edit from now on is logged here.
             </span>
           </p>
         ) : (

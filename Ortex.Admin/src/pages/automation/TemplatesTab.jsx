@@ -41,8 +41,10 @@ export default function TemplatesTab({ templates, onEdit, onDelete }) {
               <Button
                 variant="dangerGhost"
                 size="sm"
+                icon
                 onClick={() => onDelete(tmpl.id)}
-                className="p-1"
+                aria-label={`Delete ${tmpl.name}`}
+                title="Delete template"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>

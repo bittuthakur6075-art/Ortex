@@ -1,23 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
-import { Inbox, Search, Plus, PhoneOutgoing, MessageCircle, MoreHorizontal, ImportFile, ExportFile, Mic, Star } from "../components/ui/Icons"
+import { Inbox, Search, Plus, PhoneOutgoing, MessageCircle, MoreHorizontal, ImportFile, ExportFile, Mic, UserCheck, RefreshCw, Trash2 } from "../components/ui/Icons"
 import { useCollection } from "../hooks/useCollection"
 import { useProfile } from "../hooks/useProfile"
 import { repo } from "../data/store/repository"
-import { ENQUIRY_STATUS, newEnquiry } from "../data/domain/schema"
+import { ENQUIRY_STATUS, PRODUCT_CATEGORIES, newEnquiry } from "../data/domain/schema"
+import { isAdmin } from "../lib/roles"
 import { formatDateTime } from "../lib/format"
 import { exportCsv } from "../lib/csv"
 import { cn } from "../lib/cn"
 import { LEAD_GROUPS, dueLabel, rupees } from "../lib/salesWork"
 import EnquiryImport from "../components/editors/EnquiryImport"
-import { Button, EmptyState, PageLoader } from "../components/ui/Ui"
+import { Button, Drawer, EmptyState, Field, Input, PageLoader, Select } from "../components/ui/Ui"
 import {
-  ListHeader, SmartViews, ListSearch, ToolButton, FilterChip, InlineSelect, Check, GroupRow, StatusDot, Tag, Initials, RowAction, ActionMenu, Pager, useListKeys,
+  ListHeader, SmartViews, ListSearch, ToolButton, FilterChip, InlineSelect, Check, CursorBar, GroupRow, StatusDot, Tag, Initials, RowAction, ActionMenu, Pager, useListKeys,
 } from "../components/sales/ListParts"
 import { prettyPhone } from "./voice-leads/helpers"
 import { CHANNELS, channelMeta, STATUS_TONE, buildLead, leadTags } from "./leads/model"
-import { useLeadActions, useStaffNames, telHref, waHref, firstName, contactOf } from "./leads/actions"
+import { useLeadActions, useStaffNames, telHref, waHref, mailHref, firstName, contactOf } from "./leads/actions"
 import { callContact } from "../components/sales/ContactCard"
 import LeadPreview from "./leads/LeadPreview"
 
@@ -41,8 +42,9 @@ const monthKey = (t) => {
 
 // Leads (Figma "V2 · Leads · List"): every enquiry, from the website, Anu's
 // calls, IndiaMART, WhatsApp and imports, in one table grouped by when the next
-// step is due. A row click opens the preview panel; the full page is one more
-// click (or Enter) away.
+// step is due. A row click (or Enter) opens the lead's page; P opens the quick
+// preview. The view, search, filters and page live in the URL, so Back from a
+// lead returns to the same list.
 export default function Enquiries() {
   const { items, loading } = useCollection("enquiries")
   const { items: products } = useCollection("products")
@@ -53,13 +55,35 @@ export default function Enquiries() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
 
-  const [view, setView] = useState("open")
-  const [query, setQuery] = useState("")
-  const [channels, setChannels] = useState([])
-  const [owner, setOwner] = useState("") // "" | "me" | "none"
+  const view = params.get("view") || "open"
+  const query = params.get("q") || ""
+  const chParam = params.get("ch") || ""
+  const channels = useMemo(() => chParam.split(",").filter(Boolean), [chParam])
+  const owner = params.get("owner") || "" // "" | "me" | "none"
+  const page = Math.max(1, Number(params.get("page")) || 1)
+  // A change to what the list shows starts again at page 1 with nothing ticked.
+  const setUrl = (changes) => {
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p)
+        for (const [k, v] of Object.entries(changes)) {
+          if (v) n.set(k, v)
+          else n.delete(k)
+        }
+        if (!("page" in changes)) n.delete("page")
+        return n
+      },
+      { replace: true },
+    )
+    if (!("page" in changes)) setSelected(new Set())
+  }
+  const setView = (v) => setUrl({ view: v === "open" ? "" : v })
+  const setChannels = (fn) => setUrl({ ch: fn(channels).join(",") })
+  const setOwner = (fn) => setUrl({ owner: typeof fn === "function" ? fn(owner) : fn })
+  const setPage = (p) => setUrl({ page: p > 1 ? String(p) : "" })
   const [groupBy, setGroupBy] = useState("none")
   const [sortBy, setSortBy] = useState("newest")
-  const [page, setPage] = useState(1)
+  const [creating, setCreating] = useState(false)
   const [pageSize, setPageSize] = useState(() => {
     try {
       return Number(localStorage.getItem("ortex.leads.pageSize")) || 25
@@ -131,8 +155,6 @@ export default function Enquiries() {
     return [...rows].sort(sorters[sortBy])
   }, [leads, views, view, query, channels, owner, me, sortBy])
 
-  // Back to page 1 whenever the set changes under the pager.
-  useEffect(() => setPage(1), [view, query, channels, owner, sortBy, pageSize])
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
   const shown = filtered.slice((Math.min(page, pageCount) - 1) * pageSize, Math.min(page, pageCount) * pageSize)
 
@@ -147,6 +169,9 @@ export default function Enquiries() {
   const flat = useMemo(() => groups.flatMap((g) => g.rows), [groups])
   const byId = (id) => leads.find((l) => l.id === id) || null
   const preview = previewId ? byId(previewId) : null
+  // The lead page walks this list's order with its "Next lead" arrow.
+  const linkState = useMemo(() => ({ ids: filtered.map((l) => l.id) }), [filtered])
+  const openLead = (id) => navigate(`/enquiries/${id}`, { state: linkState })
 
   // A link from elsewhere (the Dashboard, a notification) may name one lead.
   useEffect(() => {
@@ -173,10 +198,12 @@ export default function Enquiries() {
     {
       j: () => move(1),
       k: () => move(-1),
-      Enter: () => active && navigate(`/enquiries/${active.id}`),
+      Enter: () => active && openLead(active.id),
       c: () => active && callContact({ currentTarget: document.querySelector(`#lead-${active.id} [data-call] button`) }, contactOf(active.e)),
       w: () => active && waHref(active.e.customer?.phone) && window.open(waHref(active.e.customer.phone), "_blank", "noopener"),
-      q: () => active && actions.quote({ ...active.e, rfqItems: active.items }),
+      e: () => active?.e.customer?.email && (window.location.href = mailHref(active.e.customer.email)),
+      q: () => active && !active.quote && actions.quote({ ...active.e, rfqItems: active.items }),
+      r: () => active?.quote && actions.openQuote(active.quote),
       p: () => active && setPreviewId((id) => (id === active.id ? null : active.id)),
       "/": () => searchRef.current?.focus(),
     },
@@ -192,24 +219,22 @@ export default function Enquiries() {
     })
   const allOn = shown.length > 0 && shown.every((l) => selected.has(l.id))
 
-  const bulk = async (changes, message) => {
-    const ids = [...selected]
+  const picked = () => items.filter((e) => selected.has(e.id))
+  const assignPicked = async (name) => {
+    const rows = picked()
     try {
-      await Promise.all(ids.map((id) => repo.update("enquiries", id, changes)))
-      toast.success(`${message} · ${ids.length} lead${ids.length === 1 ? "" : "s"}`)
+      await Promise.all(rows.map((e) => repo.update("enquiries", e.id, { owner: name })))
+      toast.success(`${name ? `Assigned to ${firstName(name)}` : "Unassigned"} · ${rows.length} lead${rows.length === 1 ? "" : "s"}`)
       setSelected(new Set())
     } catch (err) {
       toast.error(err?.message || "Could not update every lead")
     }
   }
-
-  const newLead = async () => {
-    try {
-      const row = await repo.create("enquiries", newEnquiry({ source: "Phone", owner: me }))
-      navigate(`/enquiries/${row.id}`)
-    } catch (err) {
-      toast.error(err?.message || "Could not add the lead")
-    }
+  // Won and lost leads are closed; "Mark contacted" leaves them alone.
+  const markContacted = async () => {
+    const rows = picked().filter((e) => !["won", "lost"].includes(e.status))
+    if (!rows.length) return toast.message("Every selected lead is already won or lost")
+    if (await actions.setStatus(rows[0], "contacted", rows)) setSelected(new Set())
   }
 
   const handleExport = () =>
@@ -247,15 +272,17 @@ export default function Enquiries() {
       title: "Channel",
       items: CHANNELS.map((c) => ({
         icon: c.icon,
-        label: `${channels.includes(c.key) ? "✓ " : ""}${c.label}`,
+        label: c.label,
+        checked: channels.includes(c.key),
+        keepOpen: true,
         onSelect: () => setChannels((cs) => (cs.includes(c.key) ? cs.filter((k) => k !== c.key) : [...cs, c.key])),
       })),
     },
     {
       title: "Owner",
       items: [
-        { icon: Star, label: `${owner === "me" ? "✓ " : ""}Me`, onSelect: () => setOwner((o) => (o === "me" ? "" : "me")) },
-        { icon: Star, label: `${owner === "none" ? "✓ " : ""}Unassigned`, onSelect: () => setOwner((o) => (o === "none" ? "" : "none")) },
+        { icon: UserCheck, label: "Me", checked: owner === "me", keepOpen: true, onSelect: () => setOwner((o) => (o === "me" ? "" : "me")) },
+        { icon: UserCheck, label: "Unassigned", checked: owner === "none", keepOpen: true, onSelect: () => setOwner((o) => (o === "none" ? "" : "none")) },
       ],
     },
   ]
@@ -272,7 +299,7 @@ export default function Enquiries() {
         <Button variant="outline" onClick={handleExport} disabled={!filtered.length} title="Download the leads in this view as CSV">
           <ExportFile className="h-4 w-4" /> Export
         </Button>
-        <Button onClick={newLead}>
+        <Button onClick={() => setCreating(true)}>
           <Plus className="h-4 w-4" /> New lead
         </Button>
       </ListHeader>
@@ -282,15 +309,15 @@ export default function Enquiries() {
       <div id="leads-table" className="squircle scroll-mt-4 overflow-hidden rounded-card bg-card">
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
-          <ListSearch inputRef={searchRef} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search leads" />
+          <ListSearch inputRef={searchRef} value={query} onChange={(e) => setUrl({ q: e.target.value })} placeholder="Search leads" aria-label="Search leads" />
           <ToolButton count={filterCount} onClick={(e) => setFilterMenu(e.currentTarget)}>
             Filters
           </ToolButton>
-          {channels.length > 0 && <FilterChip onClear={() => setChannels([])}>Channel: {channels.map((k) => channelMeta(k).label).join(", ")}</FilterChip>}
+          {channels.length > 0 && <FilterChip onClear={() => setChannels(() => [])}>Channel: {channels.map((k) => channelMeta(k).label).join(", ")}</FilterChip>}
           {owner && <FilterChip onClear={() => setOwner("")}>Owner: {owner === "me" ? "Me" : "Unassigned"}</FilterChip>}
           <div className="ml-auto flex items-center gap-2">
             <InlineSelect label="Group" value={groupBy} onChange={setGroupBy} options={GROUP_BY} />
-            <InlineSelect label="Sort" value={sortBy} onChange={setSortBy} options={SORT_BY} />
+            <InlineSelect label="Sort" value={sortBy} onChange={(v) => (setSortBy(v), setPage(1))} options={SORT_BY} />
           </div>
         </div>
 
@@ -343,7 +370,8 @@ export default function Enquiries() {
                         onCheck={(on) => toggle(l.id, on)}
                         active={activeId === l.id || previewId === l.id}
                         menuOpen={menu?.id === l.id}
-                        onOpen={() => navigate(`/enquiries/${l.id}`)}
+                        linkState={linkState}
+                        onOpen={() => openLead(l.id)}
                         onAssign={(anchor) => actions.pickOwner(l.e, anchor)}
                         onMenu={(anchor) => (setActiveId(l.id), setMenu({ id: l.id, anchor }))}
                       />
@@ -358,11 +386,22 @@ export default function Enquiries() {
         {selected.size > 0 ? (
           <div className="flex flex-wrap items-center gap-2 border-t border-border px-4 py-2.5 text-xs">
             <span className="font-semibold text-foreground">{selected.size} selected</span>
-            {me && <Button variant="outline" size="sm" onClick={() => bulk({ owner: me }, "Assigned to you")}>Assign to me</Button>}
-            <Button variant="outline" size="sm" onClick={() => bulk({ status: "contacted", followUpAt: null }, "Marked contacted")}>Mark contacted</Button>
-            <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-[13px] font-semibold text-primary hover:underline">
+            {me && <Button variant="outline" size="sm" onClick={() => assignPicked(me)}>Assign to me</Button>}
+            <Button variant="outline" size="sm" onClick={(ev) => actions.pickOwner(null, ev.currentTarget, assignPicked)}>
+              <UserCheck className="h-3.5 w-3.5" /> Assign to…
+            </Button>
+            <Button variant="outline" size="sm" onClick={markContacted}>Mark contacted</Button>
+            <Button variant="outline" size="sm" onClick={(ev) => { const rows = picked(); if (rows.length) actions.pickStatus(rows[0], ev.currentTarget, rows) }}>
+              <RefreshCw className="h-3.5 w-3.5" /> Change status
+            </Button>
+            {isAdmin(profile) && (
+              <Button variant="dangerGhost" size="sm" onClick={() => actions.confirmDelete(picked(), () => setSelected(new Set()))}>
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setSelected(new Set())}>
               Clear
-            </button>
+            </Button>
           </div>
         ) : (
           filtered.length > 0 && (
@@ -374,13 +413,14 @@ export default function Enquiries() {
               onPage={(p) => (setPage(p), document.getElementById("leads-table")?.scrollIntoView({ block: "start", behavior: "smooth" }))}
               onPageSize={(n) => {
                 setPageSize(n)
+                setPage(1)
                 try {
                   localStorage.setItem("ortex.leads.pageSize", String(n))
                 } catch {
                   /* private window: the choice lasts this visit */
                 }
               }}
-              shortcuts={[["J / K", "Move down / up"], ["Enter", "Open the lead"], ["P", "Quick preview"], ["C", "Call"], ["W", "WhatsApp"], ["Q", "Create quotation"], ["/", "Search"]]}
+              shortcuts={[["J / K", "Move down / up"], ["Enter", "Open the lead"], ["P", "Quick preview"], ["C", "Call"], ["W", "WhatsApp"], ["E", "Email"], ["Q", "Create quotation"], ["R", "Resend quotation"], ["/", "Search"]]}
             />
           )
         )}
@@ -402,12 +442,78 @@ export default function Enquiries() {
         quotations={quotations}
         staff={staff}
         actions={actions}
+        linkState={linkState}
         position={preview ? `${flat.findIndex((l) => l.id === preview.id) + 1} of ${flat.length}` : ""}
         onMove={move}
         onClose={() => setPreviewId(null)}
       />
       <EnquiryImport open={importing} onClose={() => setImporting(false)} existing={items} staff={staff} me={me} />
+      <NewLeadDrawer open={creating} onClose={() => setCreating(false)} me={me} onCreated={(id) => navigate(`/enquiries/${id}`)} />
     </div>
+  )
+}
+
+// "New lead": a phone enquiry typed in by hand. Nothing is written until Save,
+// so an abandoned form never leaves an empty lead behind.
+function NewLeadDrawer({ open, onClose, me, onCreated }) {
+  const blank = { name: "", phone: "", productInterest: "" }
+  const [form, setForm] = useState(blank)
+  const [saving, setSaving] = useState(false)
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const dirty = Object.values(form).some((v) => v.trim())
+  const close = () => (setForm(blank), onClose())
+
+  const save = async () => {
+    const name = form.name.trim()
+    const phone = form.phone.trim()
+    if (!name && !phone) return toast.error("Enter a name or a phone number")
+    if (phone && phone.replace(/\D/g, "").length < 10) return toast.error("Enter the full 10-digit mobile number")
+    setSaving(true)
+    try {
+      const base = newEnquiry()
+      const row = await repo.create("enquiries", newEnquiry({ source: "Phone", owner: me, productInterest: form.productInterest, customer: { ...base.customer, name, phone } }))
+      toast.success("Lead added")
+      close()
+      onCreated(row.id)
+    } catch (err) {
+      toast.error(err?.message || "Could not add the lead")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Drawer
+      open={open}
+      onClose={close}
+      dirty={dirty}
+      title="New lead"
+      subtitle="A phone enquiry. Add the rest on the lead's page."
+      footer={
+        <div className="flex justify-end gap-2.5">
+          <Button variant="outline" onClick={close}>Cancel</Button>
+          <Button onClick={save} disabled={saving}>{saving ? "Adding…" : "Add lead"}</Button>
+        </div>
+      }
+    >
+      <form className="space-y-4" onSubmit={(ev) => (ev.preventDefault(), save())}>
+        <Field label="Name">
+          <Input autoFocus value={form.name} onChange={(ev) => set("name", ev.target.value)} placeholder="Who called" />
+        </Field>
+        <Field label="Phone">
+          <Input type="tel" inputMode="tel" value={form.phone} onChange={(ev) => set("phone", ev.target.value)} placeholder="10-digit mobile" />
+        </Field>
+        <Field label="Product">
+          <Select value={form.productInterest} onChange={(ev) => set("productInterest", ev.target.value)}>
+            <option value="">Not known yet</option>
+            {PRODUCT_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </Select>
+        </Field>
+        <button type="submit" hidden />
+      </form>
+    </Drawer>
   )
 }
 
@@ -420,7 +526,7 @@ function GroupBlock({ g, showHeader, children }) {
   )
 }
 
-function LeadRow({ l, now, checked, onCheck, active, menuOpen, onOpen, onAssign, onMenu }) {
+function LeadRow({ l, now, checked, onCheck, active, menuOpen, linkState, onOpen, onAssign, onMenu }) {
   const e = l.e
   const c = e.customer || {}
   const ch = channelMeta(l.channel)
@@ -429,8 +535,9 @@ function LeadRow({ l, now, checked, onCheck, active, menuOpen, onOpen, onAssign,
   const received = new Date(e.createdAt || e.submittedAt || now)
   const days = Math.floor((now - received) / 86400000)
   return (
-    <tr id={`lead-${l.id}`} className="v2-row" data-selected={active || checked} onClick={onOpen}>
-      <td style={{ paddingLeft: 16 }} onClick={(ev) => ev.stopPropagation()}>
+    <tr id={`lead-${l.id}`} className="v2-row" data-selected={checked} aria-current={active || undefined} onClick={onOpen}>
+      <td className="relative" style={{ paddingLeft: 16 }} onClick={(ev) => ev.stopPropagation()}>
+        <CursorBar on={active} />
         <Check checked={checked} onChange={onCheck} label={`Select ${c.name || "lead"}`} />
       </td>
       <td>
@@ -438,8 +545,10 @@ function LeadRow({ l, now, checked, onCheck, active, menuOpen, onOpen, onAssign,
           <Initials name={l.name} badge={<ch.icon className="h-[11px] w-[11px] text-muted-foreground" />} />
           <div className="min-w-0">
             <div className="flex items-center gap-[5px]">
-              <span className={cn("truncate font-semibold", l.name ? "text-foreground" : "text-muted-foreground")}>{l.name || "Unnamed caller"}</span>
-              {e.starred && <span className="flex-none text-xs text-warning">★</span>}
+              <Link to={`/enquiries/${l.id}`} state={linkState} onClick={(ev) => ev.stopPropagation()} className={cn("truncate font-semibold hover:underline", l.name ? "text-foreground" : "text-muted-foreground")}>
+                {l.name || "Unnamed caller"}
+              </Link>
+              {e.starred && <span className="flex-none text-xs text-warning" aria-label="Starred">★</span>}
             </div>
             <div className="truncate text-xs text-muted-foreground">{c.company || ch.label}</div>
           </div>
@@ -471,7 +580,7 @@ function LeadRow({ l, now, checked, onCheck, active, menuOpen, onOpen, onAssign,
             <div className="mt-[3px] whitespace-nowrap text-[11px] text-muted-foreground">{l.valueNote}</div>
           </>
         ) : (
-          <span className="text-muted-foreground">—</span>
+          <span className="text-muted-foreground">-</span>
         )}
       </td>
       <td>

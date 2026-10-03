@@ -55,7 +55,9 @@ export default function RowActions({ user, selfId, onEdit, onChanged }) {
     applyActive(true)
   }
 
-  if (!canManage) return <div className="h-8 w-8" aria-hidden="true" />
+  if (!canManage) {
+    return <span className="block whitespace-nowrap text-right text-[11px] text-subtle-foreground">You cannot manage this account</span>
+  }
 
   const item = "flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm text-secondary-foreground hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
 
@@ -102,7 +104,12 @@ export default function RowActions({ user, selfId, onEdit, onChanged }) {
         <ResetPasswordDialog user={user} isSelf={isSelf} onClose={() => setDialog(null)} onDone={() => { setDialog(null); onChanged() }} />
       )}
       {dialog === "delete" && (
-        <DeleteUserDialog user={user} onClose={() => setDialog(null)} onDone={() => { setDialog(null); onChanged() }} />
+        <DeleteUserDialog
+          user={user}
+          onClose={() => setDialog(null)}
+          onDone={() => { setDialog(null); onChanged() }}
+          onDeactivate={user.active ? () => setDialog("deactivate") : null}
+        />
       )}
       {dialog === "deactivate" && (
         <Modal
@@ -123,8 +130,7 @@ export default function RowActions({ user, selfId, onEdit, onChanged }) {
             <span className="flex items-start gap-2">
               <AlertTriangle variant="Linear" className="mt-0.5 h-4 w-4 flex-none" />
               <span>
-                <b>{user.email}</b> is signed out everywhere and cannot sign in again, by password or by emailed code,
-                until you reactivate them. Their records stay exactly as they are, and you can turn this back on at any time.
+                <b>{user.email}</b> is signed out everywhere and cannot sign in again until you reactivate them. Their records stay exactly as they are, and you can turn this back on at any time.
               </span>
             </span>
           </Banner>
@@ -178,7 +184,7 @@ function ResetPasswordDialog({ user, isSelf, onClose, onDone }) {
             Their current password stops working immediately, and every session they have open is signed out.
           </Banner>
         )}
-        <Field label="New Temporary Password" required hint="They change it themselves in Settings → Password.">
+        <Field label="New temporary password" required hint="They change it themselves in Profile, under Password.">
           <div className="flex gap-2">
             <Input value={password} onChange={(e) => setPassword(e.target.value)} />
             <Button type="button" variant="outline" size="sm" onClick={() => setPassword(randomPassword())}>New</Button>
@@ -199,9 +205,13 @@ function ResetPasswordDialog({ user, isSelf, onClose, onDone }) {
 // Deletion is irreversible and cascades, so it asks for the email to be typed
 // out, the same guard GitHub and Supabase use, and cheap insurance against a
 // mis-click on the wrong row.
-function DeleteUserDialog({ user, onClose, onDone }) {
+// The server refuses (hasRecords) while the person has attendance, leave or
+// payroll history, since those rows cascade with the login; the dialog then
+// shows its reason and offers Deactivate instead.
+function DeleteUserDialog({ user, onClose, onDone, onDeactivate }) {
   const [confirm, setConfirm] = useState("")
   const [busy, setBusy] = useState(false)
+  const [blocked, setBlocked] = useState(null)
   const matches = confirm.trim().toLowerCase() === (user.email || "").toLowerCase()
 
   const submit = async () => {
@@ -209,9 +219,30 @@ function DeleteUserDialog({ user, onClose, onDone }) {
     setBusy(true)
     const res = await deleteUser(user.id)
     setBusy(false)
+    if (res.hasRecords) return setBlocked(res.error)
     if (res.error) return toast.error(res.error)
     toast.success(`${user.email} deleted`)
     onDone()
+  }
+
+  if (blocked) {
+    return (
+      <Modal
+        open
+        onClose={onClose}
+        width="max-w-md"
+        title="This account cannot be deleted"
+        footer={
+          <div className="flex w-full justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+            {onDeactivate && <Button variant="danger" size="sm" onClick={onDeactivate}>Deactivate instead</Button>}
+          </div>
+        }
+      >
+        <Banner tone="warning">{blocked}</Banner>
+        {!onDeactivate && <p className="mt-3 text-sm text-muted-foreground">The account is already deactivated, so it cannot sign in.</p>}
+      </Modal>
+    )
   }
 
   return (
@@ -232,7 +263,10 @@ function DeleteUserDialog({ user, onClose, onDone }) {
           <span className="flex items-start gap-2">
             <AlertTriangle variant="Linear" className="mt-0.5 h-4 w-4 flex-none" />
             <span>
-              This removes the login, the profile, the role and every module permission. It cannot be undone. Records they created (leads, quotations, invoices) stay put.
+              This removes the login, the profile, the role, every module permission, their chat memberships,
+              their phone notification devices and their attendance settings. It cannot be undone. Leads,
+              quotations and invoices they created stay. An account with attendance, leave or payroll records
+              cannot be deleted; deactivate it instead.
             </span>
           </span>
         </Banner>

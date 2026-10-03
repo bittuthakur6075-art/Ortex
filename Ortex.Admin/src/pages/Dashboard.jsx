@@ -14,7 +14,7 @@ import { decideCorrection } from "../services/attendance"
 import { repo } from "../data/store/repository"
 import { loadDemoData } from "../data/seed/seed"
 import { formatNumber } from "../lib/format"
-import { Button, EmptyState, PageLoader } from "../components/ui/Ui"
+import { Button, EmptyState } from "../components/ui/Ui"
 import PageHeader from "../components/layout/PageHeader"
 import { canShowGateCode } from "./attendance/gate"
 import { INSIGHTS_MODULE_KEYS } from "./Insights"
@@ -136,7 +136,7 @@ export default function Dashboard() {
     [refreshOps],
   )
 
-  if (loading) return <PageLoader />
+  if (loading) return <DashboardSkeleton />
 
   const isEmpty = (data.enquiries?.length || 0) + (data.quotations?.length || 0) + (data.invoices?.length || 0) === 0
   if (isEmpty && ops?.demo) {
@@ -146,7 +146,7 @@ export default function Dashboard() {
         <EmptyState
           icon={Sparkles}
           title="Welcome to Ortex Console"
-          description="Load demo data to explore the full quote-to-cash workflow - enquiries, products, quotations, GST invoices and payments - with a populated dashboard."
+          description="Load demo data to explore the full quote-to-cash workflow (enquiries, products, quotations, GST invoices and payments) with a populated dashboard."
           action={
             <Button onClick={loadDemoData}>
               <Sparkles className="h-4 w-4" /> Load demo data
@@ -169,8 +169,8 @@ export default function Dashboard() {
 
   const actions = [
     access.insights && { label: "Insights", to: "/insights", icon: TrendingUp },
-    access.payments && { label: "Record payment", to: "/billing?tab=payments", icon: Wallet },
-    access.quotations && { label: "New quotation", to: "/quotations", icon: FileText, primary: true },
+    access.payments && { label: "Record payment", to: "/billing?tab=payments", icon: Wallet, create: true },
+    access.quotations && { label: "New quotation", to: "/quotations", icon: FileText, primary: true, create: true },
   ].filter(Boolean)
 
   const showPipeline = access.quotations || access.enquiries || access.voice
@@ -203,7 +203,7 @@ export default function Dashboard() {
         <div className="flex flex-wrap items-center gap-2.5">
           <Seg items={TODAY_RANGES} value={range} onChange={setRange} />
           {actions.map((a) => (
-            <Button key={a.to} variant={a.primary ? "primary" : "outline"} onClick={() => navigate(a.to)}>
+            <Button key={a.to} variant={a.primary ? "primary" : "outline"} onClick={() => navigate(a.to, a.create ? { state: { create: true } } : undefined)}>
               <a.icon className="h-4 w-4" /> {a.label}
             </Button>
           ))}
@@ -288,3 +288,38 @@ function words(d, noun) {
 }
 
 
+
+// Placeholders shaped like the page (header, KPI strip, work column and rail),
+// so the layout does not jump when the figures arrive.
+const Bone = ({ className }) => <span className={`block animate-pulse rounded-xl bg-muted ${className}`} />
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-label="Loading the dashboard">
+      <div className="space-y-3">
+        <Bone className="h-3 w-40" />
+        <Bone className="h-9 w-72" />
+        <Bone className="h-6 w-48" />
+      </div>
+      <div className="squircle grid grid-cols-2 gap-4 rounded-card bg-card p-5 sm:grid-cols-3 xl:grid-cols-6">
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="space-y-2.5">
+            <Bone className="h-3 w-20" />
+            <Bone className="h-7 w-28" />
+            <Bone className="h-7 w-24" />
+          </div>
+        ))}
+      </div>
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-6">
+          <div className="squircle h-[420px] rounded-card bg-card p-6"><Bone className="h-5 w-48" /></div>
+          <div className="squircle h-[320px] rounded-card bg-card p-6"><Bone className="h-5 w-32" /></div>
+        </div>
+        <div className="space-y-6">
+          <div className="squircle h-[220px] rounded-card bg-card p-6"><Bone className="h-5 w-32" /></div>
+          <div className="squircle h-[260px] rounded-card bg-card p-6"><Bone className="h-5 w-40" /></div>
+        </div>
+      </div>
+    </div>
+  )
+}

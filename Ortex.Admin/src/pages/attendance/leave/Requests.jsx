@@ -6,7 +6,7 @@ import { repo } from "../../../data/store/repository"
 import { currentUserId } from "../../../lib/auth"
 import { balanceAfter, daysWords } from "../../../lib/attendance"
 import { formatDateTime, relativeTime } from "../../../lib/format"
-import { cancelLeave, decideLeave, leaveBalances, leaveDocumentUrl, listLeaveRequests } from "../../../services/leave"
+import { balancesFor, cancelLeave, decideLeave, leaveBalances, leaveDocumentUrl, listLeaveRequests } from "../../../services/leave"
 import { datesText, nameOf, num } from "./common"
 import { openRow } from "../format"
 import { LeaveStatusBadge, TypeChip } from "./leaveUi"
@@ -29,6 +29,26 @@ async function stillPending(list) {
   const skipped = list.length - keep.length
   if (skipped) toast.info(skipped === 1 ? "One request was already decided, so it was skipped" : `${skipped} requests were already decided, so they were skipped`)
   return keep
+}
+
+/**
+ * The drawer's balance check, for a row or bulk approve: each request's balance
+ * now and after, said before anything is decided. False when cancelled.
+ */
+async function confirmBalances(list, ctx) {
+  const { byUser, error } = await balancesFor([...new Set(list.map((r) => r.user_id))])
+  const lines = list.map((r) => {
+    const bal = (byUser[r.user_id] || []).find((b) => b.code === r.type_code)
+    const head = `${nameOf(ctx, r.user_id)}, ${r.type_code} ${num(r.days)} ${r.days === 1 ? "day" : "days"}`
+    if (!bal) return `${head}: balance not known`
+    const now = bal.available + r.days // a pending request is already inside pending
+    const after = balanceAfter({ ...bal, available: now }, r.days)
+    if (after == null) return `${head}: no balance kept for this type`
+    return `${head}: ${num(now)} now, ${num(after)} after${after < 0 ? " (BELOW ZERO)" : ""}`
+  })
+  const short = lines.length > 12 ? [...lines.slice(0, 12), `and ${lines.length - 12} more`] : lines
+  const head = list.length === 1 ? "Approve this leave?" : `Approve ${list.length} leave requests?`
+  return window.confirm([head, "", ...short, ...(error ? ["", `Balances could not all be read: ${error}`] : [])].join("\n"))
 }
 
 const STATUSES = [
@@ -102,8 +122,10 @@ export default function Requests({ ctx, canDecide }) {
       return n
     })
 
-  const approve = async (asked) => {
+  // The drawer shows the balance itself; a row or bulk approve asks first.
+  const approve = async (asked, { checked = false } = {}) => {
     setBusy(true)
+    if (!checked && !(await confirmBalances(asked, ctx))) return setBusy(false)
     let ok = 0
     const errors = []
     let list = []
@@ -253,7 +275,7 @@ export default function Requests({ ctx, canDecide }) {
         deciding={busy}
         selfId={selfId}
         onClose={() => setOpen(null)}
-        onApprove={(r) => approve([r])}
+        onApprove={(r) => approve([r], { checked: true })}
         onDecline={(r) => setDeclining([r])}
         onChanged={() => {
           setOpen(null)

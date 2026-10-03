@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Navigate, useSearchParams } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import {
   Calendar,
   CalendarClock,
@@ -14,7 +14,7 @@ import {
   Wallet,
 } from "../components/ui/Icons"
 import PageHeader, { HeaderBand } from "../components/layout/PageHeader"
-import { PillTabs } from "../components/ui/Ui"
+import { Banner, PillTabs } from "../components/ui/Ui"
 import { useProfile } from "../hooks/useProfile"
 import { canAccess } from "../data/domain/modules"
 import { isAdmin } from "../lib/roles"
@@ -125,7 +125,16 @@ export default function Attendance({ scope = "team" }) {
   })
   if (!profile) return null
   // Nothing in this scope for this person: their own records, not a blank page.
-  if (!current) return scope === "me" ? null : <Navigate to="/my-records" replace />
+  // Said, not a silent redirect: the person learns why the page is empty.
+  if (!current) {
+    if (scope === "me") return null
+    return (
+      <Banner tone="info">
+        You do not have access to {SCOPE_TITLE[scope] || "this page"}. Ask the Super Admin if you need it.{" "}
+        <Link to="/my-records" className="font-semibold underline">Open My records</Link>
+      </Banner>
+    )
+  }
   const section = sections.find((s) => s.value === current.section)
   const pages = allowed.filter((t) => t.section === section.value)
   const go = (tab) => setParams({ tab }, { replace: true })

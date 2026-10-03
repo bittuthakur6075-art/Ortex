@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import { Eye, Trash2, IndianRupee, Mail, Upload, ReceiptText, Wallet, CheckCircle2, CalendarClock, Database } from "../../components/ui/Icons"
+import { Eye, Trash2, IndianRupee, Mail, ReceiptText, Wallet, CheckCircle2, CalendarClock, Database } from "../../components/ui/Icons"
 import { repo } from "../../data/store/repository"
 import {
   createInvoice,
@@ -24,7 +24,6 @@ import LivePreview from "../../components/editors/LivePreview"
 import { RecordActivity } from "../../components/ui/RecordActivity"
 import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../../components/editors/DocumentEditorShell"
 import ReceiptView from "../../components/documents/ReceiptView"
-import { decodeXmlBytes, parseTallyFiles, invoiceDoc } from "../../lib/tallyImport"
 import { Button, Input, Textarea, Field, StatusBadge, Chip } from "../../components/ui/Ui"
 import { cn } from "../../lib/cn"
 import PaymentHistory from "./PaymentHistory"
@@ -43,27 +42,16 @@ export default function InvoiceEditor({ draft, products, customers, payments, ca
   const [receiptFor, setReceiptFor] = useState(null)
   const [moreOpen, setMoreOpen] = useState(Boolean(draft.shipTo || draft.notes))
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
+  const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
 
-  const handleTallyEditorImport = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    try {
-      const text = decodeXmlBytes(await file.arrayBuffer())
-      const parsed = parseTallyFiles([{ name: file.name, text }]).invoices
-      if (!parsed.length) {
-        toast.error("No valid Tally Sales vouchers found in the XML file.")
-        return
-      }
-      const inv = invoiceDoc(parsed[0])
-      // A totals-only voucher still needs one line for the editor to save.
-      if (!inv.lines.length) inv.lines = [{ productId: null, description: "As per Tally voucher", hsn: "", quantity: 1, unit: "pcs", rate: inv.totals.taxable, discountPercent: 0, gstRate: parsed[0].totals.rate }]
-      set(inv)
-      toast.success(`Auto-filled invoice details from Tally (${inv.number})`)
-    } catch (err) {
-      console.error(err)
-      toast.error(`Error parsing Tally XML: ${err.message}`)
-    }
-    e.target.value = ""
+  // The invoice as last saved. `draft` itself follows the live row (payments
+  // change its _ fields), so the comparison is against this snapshot.
+  const [saved, setSaved] = useState(draft)
+  const dirty = JSON.stringify(form) !== JSON.stringify(saved)
+  const leave = () => {
+    if (dirty && !window.confirm("Discard the changes to this invoice?")) return
+    onClose()
   }
 
   const interState = isInterState(settings.company.stateCode, form.shipTo?.stateCode || form.customer.stateCode)
@@ -93,6 +81,10 @@ export default function InvoiceEditor({ draft, products, customers, payments, ca
     // `totals` carried in from a Tally import so createInvoice recomputes them.
     // updateInvoice never writes status, amountPaid, paidAt, tally or `_` view fields.
     const { totals: _staleTotals, ...payload } = form
+    // A double click must not mint two invoice numbers.
+    if (savingRef.current) return
+    savingRef.current = true
+    setSaving(true)
     try {
       if (isEdit) {
         await updateInvoice(form.id, payload)
@@ -106,6 +98,8 @@ export default function InvoiceEditor({ draft, products, customers, payments, ca
       onClose()
     } catch (e) {
       toast.error(e?.message || "Could not save the invoice")
+      savingRef.current = false
+      setSaving(false)
     }
   }
 
@@ -119,10 +113,13 @@ export default function InvoiceEditor({ draft, products, customers, payments, ca
     if (hasPayments && (status === "cancelled" || status === "draft")) {
       const ask = `${formatCurrency(paid)} has been received against this invoice. Mark it ${status === "cancelled" ? "cancelled" : "as a draft"} anyway? The payments stay recorded; refund or move them separately.`
       if (!window.confirm(ask)) return
+    } else if (status === "cancelled" && !window.confirm(`Mark invoice ${form.number} as cancelled? It stops counting as money owed.`)) {
+      return
     }
     try {
       if (isEdit) await repo.update("invoices", form.id, { status })
       set({ status })
+      setSaved((s) => ({ ...s, status }))
     } catch (e) {
       toast.error(e?.message || "Could not change the status")
     }
@@ -151,7 +148,7 @@ export default function InvoiceEditor({ draft, products, customers, payments, ca
   return (
     <div>
       <EditorHeader
-        onBack={onClose}
+        onBack={leave}
         backLabel="Back to invoices"
         title={isEdit ? `Invoice ${draft.number}` : "New invoice"}
         trail={["Billing", "Invoices", isEdit ? "Details" : "New"]}
@@ -168,14 +165,18 @@ export default function InvoiceEditor({ draft, products, customers, payments, ca
                   <Mail className="h-4 w-4" /> Email copy
                 </Button>
                 {canPay && !settled && !["draft", "cancelled"].includes(derivedStatus) && (
-                  <Button variant="success" size="md" onClick={() => setPayOpen(true)}>
-                    <IndianRupee className="h-4 w-4" /> Record payment
-                  </Button>
+                  <>
+                    {/* The payment is checked against the SAVED total, so unsaved edits come first. */}
+                    {dirty && <span className="text-xs text-warning-text">Save first</span>}
+                    <Button variant="success" size="md" disabled={dirty} title={dirty ? "Save first: the payment is checked against the saved invoice" : undefined} onClick={() => setPayOpen(true)}>
+                      <IndianRupee className="h-4 w-4" /> Record payment
+                    </Button>
+                  </>
                 )}
               </>
             )}
-            <Button size="md" onClick={save}>
-              {isEdit ? "Save changes" : "Create invoice"}
+            <Button size="md" onClick={save} disabled={saving}>
+              {saving ? "Saving…" : isEdit ? "Save changes" : "Create invoice"}
             </Button>
           </>
         }
@@ -206,22 +207,26 @@ export default function InvoiceEditor({ draft, products, customers, payments, ca
         <div className="min-w-0 space-y-4">
           <Section title="Customer" description="Who this invoice bills">
             <CustomerPicker value={form.customer} onChange={(customer) => set({ customer })} customers={customers} />
-            {hasState && (
+            {hasState ? (
               <p className={cn("mt-3 text-xs font-medium", interState ? "text-primary" : "text-success-text")}>
                 {interState ? "Inter-state supply: IGST will be applied." : "Intra-state supply: CGST + SGST will be applied."}
+              </p>
+            ) : (
+              <p className="mt-3 text-xs font-medium text-warning-text">
+                No place of supply set, so tax is worked out as intra-state (CGST + SGST). Set the customer's state to be sure.
               </p>
             )}
           </Section>
 
           <Section title="Details">
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <Field label="Issue Date">
+              <Field label="Issue date">
                 <Input type="date" value={toDateInput(form.issueDate)} onChange={(e) => set({ issueDate: new Date(e.target.value).toISOString() })} />
               </Field>
-              <Field label="Due Date">
+              <Field label="Due date">
                 <Input type="date" value={toDateInput(form.dueDate)} onChange={(e) => set({ dueDate: new Date(e.target.value).toISOString() })} />
               </Field>
-              <Field label="Payment Terms" className="col-span-2">
+              <Field label="Payment terms" className="col-span-2">
                 <Input value={form.paymentTerms || ""} onChange={(e) => set({ paymentTerms: e.target.value })} placeholder="Enter payment terms" />
               </Field>
             </div>
@@ -234,6 +239,7 @@ export default function InvoiceEditor({ draft, products, customers, payments, ca
                   </Chip>
                 ))}
                 <span className="text-xs text-subtle-foreground">· paid and overdue are automatic</span>
+                {canPay && form.status === "draft" && <span className="w-full text-xs text-warning-text">Mark as sent to record payments.</span>}
               </div>
             )}
           </Section>
@@ -315,24 +321,16 @@ export default function InvoiceEditor({ draft, products, customers, payments, ca
                 <Trash2 className="h-4 w-4" /> Delete
               </Button>
             )}
-            {!isEdit && (
-              <label className="cursor-pointer">
-                <span className="inline-flex h-8 items-center gap-1.5 rounded-btn border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-subtle">
-                  <Upload className="h-4 w-4" /> Import Tally XML
-                </span>
-                <input type="file" accept=".xml,text/xml" onChange={handleTallyEditorImport} className="hidden" />
-              </label>
-            )}
           </>
         }
         right={
           <>
             <span className="mr-2 hidden text-[13px] text-muted-foreground sm:inline">{summary}</span>
-            <Button variant="outline" size="sm" onClick={onClose}>
+            <Button variant="outline" size="sm" onClick={leave}>
               Cancel
             </Button>
-            <Button size="sm" onClick={save}>
-              {isEdit ? "Save changes" : "Create invoice"}
+            <Button size="sm" onClick={save} disabled={saving}>
+              {saving ? "Saving…" : isEdit ? "Save changes" : "Create invoice"}
             </Button>
           </>
         }

@@ -1,17 +1,17 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo } from "react"
 import { createPortal } from "react-dom"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { ArrowDownLeft as Chevron, PhoneOutgoing, MessageCircle, Mail, FileText, Send, Clock, CheckCircle2, ImageIcon, ShieldCheck, Maximize, FileSpreadsheet } from "../../components/ui/Icons"
-import { CloseButton } from "../../components/ui/Ui"
+import { Button, CloseButton } from "../../components/ui/Ui"
 import { ENQUIRY_STATUS } from "../../data/domain/schema"
 import { sameCustomer } from "../../data/domain/domain"
 import { enquiryAdvisories } from "../../lib/advisories"
 import { rfqToQuotationLines } from "../../lib/quoteRfq"
-import { dueLabel, rupees, tomorrowAt10, DAY } from "../../lib/salesWork"
+import { dueLabel, rupees } from "../../lib/salesWork"
 import { prettyPhone } from "../voice-leads/helpers"
 import { useCollection, useSettings } from "../../hooks/useCollection"
-import { ActionMenu, Initials, Tag } from "../../components/sales/ListParts"
+import { Initials, Tag } from "../../components/sales/ListParts"
 import { Dot } from "../dashboard/parts"
 import { cn } from "../../lib/cn"
 import { channelMeta, STATUS_TONE, gstRead, historyWith } from "./model"
@@ -23,12 +23,11 @@ const NEXT_STATUS = { new: "contacted", contacted: "qualified", quoted: "won" }
 // The row preview (Figma "V2 · Leads · Row preview panel"): a 460px panel over
 // an 18% scrim with everything needed to triage one lead without leaving the
 // list. The full page is "Open full lead".
-export default function LeadPreview({ lead: l, now, products, quotations, actions, position, onMove, onClose }) {
+export default function LeadPreview({ lead: l, now, products, quotations, actions, linkState, position, onMove, onClose }) {
   const navigate = useNavigate()
   const settings = useSettings()
   const { items: invoices } = useCollection("invoices")
   const { items: customers } = useCollection("customers")
-  const [fuMenu, setFuMenu] = useState(null)
 
   useEffect(() => {
     if (!l) return
@@ -66,18 +65,6 @@ export default function LeadPreview({ lead: l, now, products, quotations, action
         ? `Mark as ${ENQUIRY_STATUS.find((s) => s.id === next).label.toLowerCase()}`
         : null
 
-  const fuSections = [
-    {
-      title: "Follow up",
-      items: [
-        { icon: Clock, label: "Tomorrow, 10 am", onSelect: () => actions.followUp(e, tomorrowAt10(now)) },
-        { icon: Clock, label: "In 3 days", onSelect: () => actions.followUp(e, new Date(new Date(tomorrowAt10(now)).getTime() + 2 * DAY).toISOString()) },
-        { icon: Clock, label: "Next week", onSelect: () => actions.followUp(e, new Date(new Date(tomorrowAt10(now)).getTime() + 6 * DAY).toISOString()) },
-        ...(e.followUpAt ? [{ icon: Clock, label: "Clear", onSelect: () => actions.followUp(e, null) }] : []),
-      ],
-    },
-  ]
-
   return createPortal(
     <div className="fixed inset-0 z-40 flex justify-end" role="dialog" aria-label={`Lead ${l.name || "preview"}`}>
       <div className="absolute inset-0 bg-foreground/[0.18] animate-fade-in" onClick={onClose} />
@@ -98,7 +85,7 @@ export default function LeadPreview({ lead: l, now, products, quotations, action
               <span className="text-sm">↓</span>
             </button>
           </span>
-          <Link to={`/enquiries/${l.id}`} title="Open full lead" className="grid h-[30px] w-[30px] flex-none place-items-center rounded-full border border-line text-muted-foreground hover:text-primary">
+          <Link to={`/enquiries/${l.id}`} state={linkState} title="Open full lead" aria-label="Open full lead" className="grid h-[30px] w-[30px] flex-none place-items-center rounded-full border border-line text-muted-foreground hover:text-primary">
             <Maximize className="h-3.5 w-3.5" />
           </Link>
           <CloseButton onClick={onClose} className="rounded-full border border-line" />
@@ -111,7 +98,7 @@ export default function LeadPreview({ lead: l, now, products, quotations, action
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="truncate text-lg font-semibold text-foreground">{l.name || "Unnamed caller"}</span>
-                <button type="button" title={e.starred ? "Remove star" : "Star"} onClick={() => actions.patch(e, { starred: !e.starred })} className={cn("text-base leading-none", e.starred ? "text-warning" : "text-line hover:text-warning")}>
+                <button type="button" title={e.starred ? "Remove star" : "Star"} aria-label="Star this lead" aria-pressed={!!e.starred} onClick={() => actions.patch(e, { starred: !e.starred })} className={cn("text-base leading-none", e.starred ? "text-warning" : "text-muted-foreground hover:text-warning")}>
                   ★
                 </button>
               </div>
@@ -120,14 +107,14 @@ export default function LeadPreview({ lead: l, now, products, quotations, action
           </div>
 
           {/* Status · Owner · Follow-up */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-3">
             <Picker label="Status" onClick={(ev) => actions.pickStatus(e, ev.currentTarget)}>
               <Dot tone={STATUS_TONE[e.status || "new"]} size={7} /> {status?.label}
             </Picker>
             <Picker label="Owner" onClick={(ev) => actions.pickOwner(e, ev.currentTarget)}>
               {e.owner || <span className="text-primary">Assign</span>}
             </Picker>
-            <Picker label="Follow-up" onClick={(ev) => setFuMenu(ev.currentTarget)}>
+            <Picker label="Follow-up" onClick={(ev) => actions.pickFollowUp(e, ev.currentTarget)}>
               {l.step ? (
                 <>
                   <Dot tone={l.step.overdue ? "rose" : l.step.today ? "amber" : "slate"} size={7} />
@@ -140,7 +127,7 @@ export default function LeadPreview({ lead: l, now, products, quotations, action
           </div>
 
           {/* Big actions */}
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-2 min-[400px]:grid-cols-4">
             <BigAction icon={PhoneOutgoing} label="Call" k="C" onClick={(ev) => callContact(ev, contactOf(e))} disabled={!telHref(c.phone)} />
             <BigAction icon={MessageCircle} label="WhatsApp" k="W" href={waHref(c.phone)} external tone="green" />
             <BigAction icon={Mail} label="Email" k="E" href={mailHref(c.email)} />
@@ -160,8 +147,12 @@ export default function LeadPreview({ lead: l, now, products, quotations, action
               </div>
               {advice.length > 0 && <p className="mt-1.5 text-xs leading-[18px] text-muted-foreground">{advice.slice(0, 2).map((a) => a.text).join(" ")}</p>}
               <div className="mt-3 flex gap-2">
-                <SmallButton icon={PhoneOutgoing} onClick={logCall}>Log call</SmallButton>
-                <SmallButton icon={Clock} onClick={() => actions.followUp(e)}>Snooze</SmallButton>
+                <Button variant="outline" size="sm" onClick={logCall}>
+                  <PhoneOutgoing className="h-3.5 w-3.5" /> Log call
+                </Button>
+                <Button variant="outline" size="sm" onClick={(ev) => actions.pickFollowUp(e, ev.currentTarget)}>
+                  <Clock className="h-3.5 w-3.5" /> Snooze
+                </Button>
               </div>
             </div>
           )}
@@ -178,7 +169,7 @@ export default function LeadPreview({ lead: l, now, products, quotations, action
                   <div key={i} className="flex items-center gap-3 px-3.5 py-2.5 text-[12.5px]">
                     <span className="min-w-0 flex-1 truncate text-foreground">{ln.description}</span>
                     <span className="flex-none text-muted-foreground tabular">{Number(ln.quantity || 0).toLocaleString("en-IN")} {l.items[i]?.unit || "pcs"}</span>
-                    <span className="w-[72px] flex-none text-right font-semibold text-foreground tabular">{ln.rate ? rupees(ln.rate * ln.quantity) : "—"}</span>
+                    <span className="w-[72px] flex-none text-right font-semibold text-foreground tabular">{ln.rate ? rupees(ln.rate * ln.quantity) : "-"}</span>
                   </div>
                 ))
               ) : l.askedItems.length ? (
@@ -231,17 +222,16 @@ export default function LeadPreview({ lead: l, now, products, quotations, action
 
         {/* Footer */}
         <div className="flex flex-none items-center gap-2 border-t border-border px-5 py-3">
-          <Link to={`/enquiries/${l.id}`} className="squircle inline-flex h-[37px] items-center gap-2 rounded-[10px] border border-line px-4 text-[13px] font-medium text-foreground hover:bg-muted">
+          <Button variant="outline" onClick={() => navigate(`/enquiries/${l.id}`, { state: linkState })}>
             <Maximize className="h-3.5 w-3.5 text-muted-foreground" /> Open full lead
-          </Link>
+          </Button>
           {primaryLabel && (
-            <button type="button" onClick={primary} className="squircle ml-auto inline-flex h-[37px] items-center gap-2 rounded-[10px] bg-primary px-4 text-[13px] font-medium text-primary-foreground hover:bg-primary-hover">
+            <Button className="ml-auto" onClick={primary}>
               <CheckCircle2 className="h-4 w-4" /> {primaryLabel}
-            </button>
+            </Button>
           )}
         </div>
       </aside>
-      <ActionMenu open={!!fuMenu} anchor={fuMenu} onClose={() => setFuMenu(null)} sections={fuSections} width={200} />
     </div>,
     document.body,
   )
@@ -282,14 +272,6 @@ function BigAction({ icon: Icon, label, k, href, external, onClick, primary, ton
   return (
     <button type="button" className={cls} onClick={onClick}>
       {body}
-    </button>
-  )
-}
-
-function SmallButton({ icon: Icon, onClick, children }) {
-  return (
-    <button type="button" onClick={onClick} className="squircle inline-flex h-[34px] items-center gap-2 rounded-[10px] border border-line bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted">
-      <Icon className="h-3.5 w-3.5 text-muted-foreground" /> {children}
     </button>
   )
 }

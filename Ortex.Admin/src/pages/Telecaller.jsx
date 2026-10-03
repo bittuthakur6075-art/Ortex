@@ -100,7 +100,7 @@ export default function Telecaller() {
 
           {tab === "queue" && <QueueTab jobs={openJobs} onOpenCall={(id) => { setOpenCallId(id); setTab("calls") }} onPractice={(job) => setPractice(job)} />}
           {tab === "calls" && <CallsTab calls={calls.items} onOpen={setOpenCallId} />}
-          {tab === "agent" && <AgentTab isAdmin={isAdminRole(profile)} onPractice={() => setPractice(true)} />}
+          {tab === "agent" && <AgentTab onPractice={() => setPractice(true)} />}
 
           {!t?.enabled && tab !== "agent" && (
             <p className="mt-6 text-xs text-muted-foreground">

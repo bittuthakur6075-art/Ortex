@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
-import { ShieldCheck, Save } from "../components/ui/Icons"
+import { Save } from "../components/ui/Icons"
 import { Button, Card, Input, Field, Badge, PageLoader } from "../components/ui/Ui"
 import PageHeader from "../components/layout/PageHeader"
 import PasswordCard from "../components/ui/PasswordCard"
@@ -11,14 +11,15 @@ import SessionsCard from "./profile/SessionsCard"
 import { updateMyProfile } from "../services/users"
 import { currentEmail, currentUserId } from "../lib/auth"
 import { hasSupabase } from "../data/store/supabaseClient"
-import { roleLabel, moduleLabel, isAdmin as isAdminRole, ROLE_TONE } from "../lib/roles"
+import { roleLabel, ROLE_TONE } from "../lib/roles"
+import { MODULES, canAccess } from "../data/domain/modules"
 
 export default function Profile() {
   const profile = useProfile()
   if (!profile) return <PageLoader />
   return (
     <div>
-      <PageHeader title="My Profile" subtitle="Your account details and password" />
+      <PageHeader title="My profile" subtitle="Your account details and password" />
       <ProfileHeader profile={profile} />
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <AccountCard profile={profile} />
@@ -68,7 +69,9 @@ function AccountCard({ profile }) {
   useEffect(() => setPhone(profile.phone || ""), [profile.phone])
 
   const email = profile.email || currentEmail() || "-"
-  const isAdmin = isAdminRole(profile)
+  // What this person can actually open: role grants, own ticks, company switches
+  // and per-person hides, all through canAccess, as the sidebar does.
+  const reachable = MODULES.filter((m) => canAccess(profile, m.key))
 
   const save = async () => {
     if (!hasSupabase) return toast.error("Editing your name needs the backend enabled")
@@ -84,7 +87,7 @@ function AccountCard({ profile }) {
     <Card className="p-5 sm:p-6">
       <h3 className="mb-4 font-semibold text-foreground">Account details</h3>
 
-      <Field label="Full Name">
+      <Field label="Full name">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter full name" />
       </Field>
       <Field label="Phone" className="mt-3">
@@ -101,18 +104,11 @@ function AccountCard({ profile }) {
 
       <div className="mt-4">
         <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">Module access</span>
-        {isAdmin ? (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <ShieldCheck className="h-4 w-4 text-primary" /> Full access to every module.
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            <Badge tone="slate">Dashboard</Badge>
-            {(profile.modules || []).map((k) => (
-              <Badge key={k} tone="slate">{moduleLabel(k)}</Badge>
-            ))}
-          </div>
-        )}
+        <div className="flex flex-wrap gap-1.5">
+          {reachable.map((m) => (
+            <Badge key={m.key} tone="slate">{m.label}</Badge>
+          ))}
+        </div>
       </div>
 
       <Button size="sm" className="mt-5" onClick={save} disabled={busy}>

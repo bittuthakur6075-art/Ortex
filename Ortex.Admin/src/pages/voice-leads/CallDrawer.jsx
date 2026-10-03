@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { Building2, CalendarClock, CheckCircle2, FileText, Mail, MapPin, Trash2 } from "../../components/ui/Icons"
+import { ArrowRight, Building2, CalendarClock, CheckCircle2, FileText, Mail, MapPin, Trash2 } from "../../components/ui/Icons"
 import { Button, Drawer, Select } from "../../components/ui/Ui"
 import { Advisories } from "../../components/ui/Advisories"
 import { voiceCallAdvisories } from "../../lib/advisories"
@@ -16,7 +16,7 @@ import ItemsList from "./ItemsList"
 // simply never sees the control. The database is the other half of that rule:
 // 0007's `staff_enquiries` is still `for all`, so this gate is the console's,
 // not the row's, in the way 0022 made quotation deletes admin-only in BOTH.
-export default function CallDrawer({ active, related = [], saving, onClose, onStatus, onQuotation, onDelete }) {
+export default function CallDrawer({ active, related = [], saving, onClose, onStatus, onQuotation, onOpenLead, onDelete }) {
   const advisories = useMemo(() => voiceCallAdvisories(active, { related }), [active, related])
   // The website stamps every capture with `call` (Ortex.Web live-orty); the
   // newest row says whether the customer confirmed Anu's read-back. Rows saved
@@ -44,6 +44,9 @@ export default function CallDrawer({ active, related = [], saving, onClose, onSt
                 <option key={s.id} value={s.id}>{s.label}</option>
               ))}
             </Select>
+            <Button variant="outline" onClick={() => onOpenLead(active)}>
+              Open lead <ArrowRight className="h-4 w-4" />
+            </Button>
             <Button onClick={() => onQuotation(active)}>
               <FileText className="h-4 w-4" /> Create quotation
             </Button>

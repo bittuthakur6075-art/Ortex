@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { toast } from "sonner"
-import { ImportFile, FileSpreadsheet, CheckCircle2, AlertTriangle, Download, X, Search, Info } from "../ui/Icons"
+import { ImportFile, FileSpreadsheet, CheckCircle2, AlertTriangle, Download, Search, Info } from "../ui/Icons"
 import { repo } from "../../data/store/repository"
 import { ENQUIRY_STATUS, LEAD_SOURCES } from "../../data/domain/schema"
 import { sheetToEnquiries } from "../../lib/enquiryImport"
 import { formatDate, formatNumber } from "../../lib/format"
 import { cn } from "../../lib/cn"
 import { Dot } from "../../pages/dashboard/parts"
+import { Button, CloseButton } from "../ui/Ui"
 
 // Leads -> Import: the sales team's call-log workbook (Date, Name, Mobile No.,
 // Status, Mobile No.2, Type of Product, Quantity, Rate, City, company Name,
@@ -183,9 +184,7 @@ export default function EnquiryImport({ open, onClose, existing, staff = [], me 
             </ol>
           </div>
           {step !== "importing" && (
-            <button type="button" onClick={onClose} aria-label="Close" className="grid h-8 w-8 flex-none place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
-              <X variant="Linear" className="h-5 w-5" />
-            </button>
+            <CloseButton onClick={onClose} className="flex-none" />
           )}
         </div>
 
@@ -394,7 +393,7 @@ export default function EnquiryImport({ open, onClose, existing, staff = [], me 
                             <td className="whitespace-nowrap text-xs">{e.createdAt ? formatDate(e.createdAt) : "Today"}</td>
                             <td className="max-w-[160px] truncate font-medium">{e.customer.name}</td>
                             <td className="whitespace-nowrap tabular">
-                              {e.customer.phone || "—"}
+                              {e.customer.phone || "-"}
                               {repeatOf.has(e.imported.row) && (
                                 <span title={`Already a lead: ${repeatOf.get(e.imported.row)}`} className="ml-1.5 inline-flex h-[17px] items-center rounded-full bg-warning/12 px-2 text-[11px] font-medium text-warning-text">
                                   Already a lead
@@ -402,10 +401,10 @@ export default function EnquiryImport({ open, onClose, existing, staff = [], me 
                               )}
                             </td>
                             <td className="max-w-[200px] truncate">
-                              {e.productInterest || "—"}
+                              {e.productInterest || "-"}
                               {e.quantity && <span className="text-muted-foreground"> · {e.quantity}</span>}
                             </td>
-                            <td className="max-w-[120px] truncate text-muted-foreground">{e.customer.city || "—"}</td>
+                            <td className="max-w-[120px] truncate text-muted-foreground">{e.customer.city || "-"}</td>
                             <td>
                               <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs">
                                 <Dot tone={STATUS_TONE[e.status]} size={7} /> {ENQUIRY_STATUS.find((s) => s.id === e.status)?.label}
@@ -579,17 +578,7 @@ function Pick({ label, value, onChange, options }) {
   )
 }
 
-function FootBtn({ primary, children, ...props }) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "squircle h-10 rounded-xl px-4 text-[13px] font-semibold transition-colors disabled:opacity-50",
-        primary ? "bg-primary text-primary-foreground hover:bg-primary-hover" : "border border-line bg-card text-foreground hover:bg-background",
-      )}
-      {...props}
-    >
-      {children}
-    </button>
-  )
+// The footer buttons are the kit Button at its default size.
+function FootBtn({ primary, ...props }) {
+  return <Button type="button" variant={primary ? "primary" : "outline"} {...props} />
 }

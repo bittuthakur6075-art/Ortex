@@ -6,7 +6,7 @@ import { currentUserId } from "../../lib/auth"
 import { repo } from "../../data/store/repository"
 import { clockIST, REGULARISATION_LABEL } from "../../lib/attendance"
 import { relativeTime } from "../../lib/format"
-import { decideCorrection, listCorrections } from "../../services/attendance"
+import { decideCorrection, listCorrections, listPunches } from "../../services/attendance"
 import { dayLabel } from "./format"
 
 // Attendance → Corrections: "I forgot to clock out", asked on the phone
@@ -28,7 +28,21 @@ export default function Corrections() {
       listCorrections({ status: view }),
       repo.staffDirectory ? repo.staffDirectory().catch(() => ({})) : {},
     ])
-    setState({ loading: false, ...res, directory: directory || {} })
+    // What is on record for each waiting request's day, to show beside what
+    // was asked: approving replaces the punches of the kinds it gives (0065).
+    const recorded = {}
+    const days = (res.rows || []).filter((r) => r.status === "pending").map((r) => r.day).sort()
+    if (days.length) {
+      const punches = await listPunches({ from: days[0], to: days[days.length - 1] })
+      for (const p of punches.rows || []) {
+        if (p.review === "rejected") continue
+        const k = `${p.user_id}|${p.day}`
+        ;(recorded[k] ||= { in: null, out: null })
+        if (p.kind === "in" && (!recorded[k].in || p.at < recorded[k].in)) recorded[k].in = p.at
+        if (p.kind === "out" && (!recorded[k].out || p.at > recorded[k].out)) recorded[k].out = p.at
+      }
+    }
+    setState({ loading: false, ...res, directory: directory || {}, recorded })
   }, [view])
 
   useEffect(() => {
@@ -53,6 +67,12 @@ export default function Corrections() {
 
   const [approving, setApproving] = useState(null) // id, so a double click cannot send it twice
   const approve = async (r) => {
+    const rec = state.recorded?.[`${r.user_id}|${r.day}`] || {}
+    const replaced = [r.in_at && rec.in && `check-in at ${clockIST(rec.in)}`, r.out_at && rec.out && `check-out at ${clockIST(rec.out)}`].filter(Boolean)
+    const msg = replaced.length
+      ? `Approve this correction? The recorded ${replaced.join(" and ")} on ${dayLabel(r.day, true)} will be replaced by the requested times.`
+      : `Approve this correction? The requested times become the punches for ${dayLabel(r.day, true)}.`
+    if (!window.confirm(msg)) return
     setApproving(r.id)
     try {
       await decideCorrection(r.id, true, null)
@@ -93,8 +113,8 @@ export default function Corrections() {
                 <tr className="text-left">
                   <th>Person</th>
                   <th>Day</th>
-                  <th>Came in</th>
-                  <th>Left</th>
+                  <th>{view === "pending" ? "Recorded, then requested" : "Came in"}</th>
+                  {view !== "pending" && <th>Left</th>}
                   <th>Reason</th>
                   <th>Asked</th>
                   <th className="text-right">{view === "pending" ? "Decision" : "Status"}</th>
@@ -113,8 +133,16 @@ export default function Corrections() {
                         </div>
                       </td>
                       <td>{dayLabel(r.day, true)}</td>
-                      <td className="tabular">{r.in_at ? clockIST(r.in_at) : "-"}</td>
-                      <td className="tabular">{r.out_at ? clockIST(r.out_at) : "-"}</td>
+                      {view === "pending" ? (
+                        <td className="tabular">
+                          <RecordedVsRequested request={r} recorded={state.recorded?.[`${r.user_id}|${r.day}`]} />
+                        </td>
+                      ) : (
+                        <>
+                          <td className="tabular">{r.in_at ? clockIST(r.in_at) : "-"}</td>
+                          <td className="tabular">{r.out_at ? clockIST(r.out_at) : "-"}</td>
+                        </>
+                      )}
                       <td className="max-w-[280px] text-muted-foreground">
                         {r.reason}
                         {r.decision_note && <div className="mt-1 text-[12px]">Note: {r.decision_note}</div>}
@@ -152,6 +180,19 @@ export default function Corrections() {
           void load()
         }}
       />
+    </div>
+  )
+}
+
+// "Recorded 09:42 in, no out" over "Requested 09:30 in, 18:30 out".
+function RecordedVsRequested({ request: r, recorded }) {
+  const rec = recorded || {}
+  const said = (at, kind) => (at ? `${clockIST(at)} ${kind}` : `no ${kind}`)
+  const asked = [r.in_at && `${clockIST(r.in_at)} in`, r.out_at && `${clockIST(r.out_at)} out`].filter(Boolean).join(", ")
+  return (
+    <div className="space-y-0.5 text-[13px]">
+      <div className="text-muted-foreground">Recorded {said(rec.in, "in")}, {said(rec.out, "out")}</div>
+      <div className="font-medium text-foreground">Requested {asked || "no times"}</div>
     </div>
   )
 }

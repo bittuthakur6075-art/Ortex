@@ -160,10 +160,10 @@ export default function PayRuns() {
         title={dialog?.kind === "regular" ? "Create pay run" : "Off-cycle pay run"}
         footer={
           <>
-            <Button variant="outline" onClick={() => setDialog(null)} disabled={busy}>
+            <Button size="sm" variant="outline" onClick={() => setDialog(null)} disabled={busy}>
               Cancel
             </Button>
-            <Button onClick={create} disabled={busy}>
+            <Button size="sm" onClick={create} disabled={busy}>
               {busy ? "Creating…" : "Create and open"}
             </Button>
           </>

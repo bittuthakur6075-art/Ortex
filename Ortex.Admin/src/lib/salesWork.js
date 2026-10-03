@@ -31,6 +31,21 @@ export function tomorrowAt10(now = Date.now()) {
   return d.toISOString()
 }
 
+// The one follow-up menu's presets (lead page, preview, row menu, composer).
+// "Later today" is three hours on, to the hour, and only while that is still
+// today.
+export function snoozePresets(now = Date.now()) {
+  const later = new Date(now + 3 * HOUR)
+  later.setMinutes(0, 0, 0)
+  const tomorrow = new Date(tomorrowAt10(now)).getTime()
+  return [
+    ...(startOfDay(later) === startOfDay(now) ? [{ key: "later", label: "Later today", at: later.toISOString() }] : []),
+    { key: "tomorrow", label: "Tomorrow, 10 am", at: tomorrowAt10(now) },
+    { key: "3days", label: "In 3 days", at: new Date(tomorrow + 2 * DAY).toISOString() },
+    { key: "week", label: "Next week", at: new Date(tomorrow + 6 * DAY).toISOString() },
+  ]
+}
+
 const time = (ts) => {
   const t = new Date(ts || 0).getTime()
   return Number.isNaN(t) ? 0 : t

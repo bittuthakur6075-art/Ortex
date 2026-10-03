@@ -6,7 +6,6 @@ import { repo } from "../data/store/repository"
 import { useCollection } from "../hooks/useCollection"
 import { useProfile } from "../hooks/useProfile"
 import { isAdmin } from "../lib/roles"
-import { ENQUIRY_STATUS } from "../data/domain/schema"
 import { sameCustomer } from "../data/domain/domain"
 import { formatDateTime } from "../lib/format"
 import { exportCsv } from "../lib/csv"
@@ -18,6 +17,7 @@ import CallFilters from "./voice-leads/CallFilters"
 import CallCard from "./voice-leads/CallCard"
 import CallDrawer from "./voice-leads/CallDrawer"
 import DeleteCallDialog from "./voice-leads/DeleteCallDialog"
+import { useLeadActions } from "./leads/actions"
 
 // Leads captured by Anu, the website AI voice assistant, folded into calls.
 // Parsing, grouping and flagging live in ./voice-leads/helpers; this file only
@@ -34,6 +34,7 @@ export default function VoiceLeads() {
   const [pendingDelete, setPendingDelete] = useState(null) // the call awaiting confirmation
   const profile = useProfile()
   const canDelete = isAdmin(profile)
+  const actions = useLeadActions({ me: profile?.name || "" })
 
   const { calls, stats, visible } = useVoiceCalls(items, { query, range, view })
   const location = useLocation()
@@ -63,18 +64,10 @@ export default function VoiceLeads() {
 
   // Status lives on the underlying enquiry rows. A call can span several rows,
   // so move all of them together, otherwise the fold would keep showing the
-  // newest row's status while older siblings disagree in the Enquiries list.
-  const setStatus = async (call, status) => {
-    setSaving(true)
-    try {
-      await Promise.all(call.rows.map((r) => repo.update("enquiries", r.id, { status })))
-      toast.success(`Marked ${ENQUIRY_STATUS.find((s) => s.id === status)?.label || status}`)
-    } catch {
-      toast.error("Could not update the status. Please try again.")
-    } finally {
-      setSaving(false)
-    }
-  }
+  // newest row's status while older siblings disagree in the Leads list. The
+  // write is the Leads list's own (useLeadActions): Lost asks for a reason,
+  // statusAt is stamped, and the toast offers Undo.
+  const setStatus = (call, status) => actions.setStatus(call.rows[0], status, call.rows)
 
   // Delete a whole folded call. Every capture goes, for the same reason a
   // status change writes to every row: half a conversation left in the table
@@ -183,6 +176,7 @@ export default function VoiceLeads() {
         saving={saving}
         onClose={() => setOpen(null)}
         onStatus={setStatus}
+        onOpenLead={(call) => navigate(`/enquiries/${call.id}`)}
         onQuotation={toQuotation}
         onDelete={canDelete ? setPendingDelete : undefined}
       />
@@ -193,6 +187,7 @@ export default function VoiceLeads() {
         onCancel={() => setPendingDelete(null)}
         onConfirm={deleteCall}
       />
+      {actions.element}
     </div>
   )
 }

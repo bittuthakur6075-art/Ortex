@@ -3,10 +3,12 @@ import { toast } from "sonner"
 import { Mic, RefreshCw, Save, Sparkles } from "../../components/ui/Icons"
 import { TELECALL_KINDS } from "../../data/domain/schema"
 import { TELECALL_LANGUAGES } from "../../data/domain/telecallerLanguages"
-import { Button, Card, Field, Input, Select, Textarea } from "../../components/ui/Ui"
+import { Banner, Button, Card, Field, Input, Select, Textarea } from "../../components/ui/Ui"
 import { DEFAULT_SETTINGS } from "../../data/domain/settingsDefaults"
 import { repo } from "../../data/store/repository"
 import { useSettings } from "../../hooks/useCollection"
+import { useProfile } from "../../hooks/useProfile"
+import { isSuperAdmin } from "../../lib/roles"
 import { refreshPulse } from "../../services/telecaller"
 import { formatDateTime } from "../../lib/format"
 
@@ -35,8 +37,12 @@ const SCRIPT_HINT = {
   upsell: "Default: reference the last order, ask what is coming up, suggest add-ons or a reorder at volume rates, close on a mockup + quotation.",
 }
 
-export default function AgentTab({ isAdmin, onPractice }) {
+const REAL_CALLS = "Real customers will be phoned by the AI agent, from the Vapi number, whenever jobs are due. Continue?"
+
+export default function AgentTab({ onPractice }) {
   const settings = useSettings()
+  // settings is written only by the Super Admin (0050): anyone else reads.
+  const canSave = isSuperAdmin(useProfile())
   const [t, setT] = useState(null)
   const [saving, setSaving] = useState(false)
   const [pulsing, setPulsing] = useState(false)
@@ -71,21 +77,28 @@ export default function AgentTab({ isAdmin, onPractice }) {
 
   return (
     <div className="space-y-4">
+      {!canSave && <Banner tone="info">Read only. Only the Super Admin can change the agent's settings.</Banner>}
       <Section title="Agent" hint="Who calls, in which language, and whether the scheduler is allowed to dial on its own.">
-        <Field label="Agent Name"><Input value={t.agentName} onChange={(e) => set("agentName", e.target.value)} /></Field>
+        <Field label="Agent name"><Input value={t.agentName} onChange={(e) => set("agentName", e.target.value)} /></Field>
         <Field label="Language" hint={t.language === "auto" ? "Sneha opens in Hinglish and switches to whatever the customer speaks: Tamil, Bengali, Marathi, English…" : "Fixed language for every call. Auto is recommended."}>
           <Select value={t.language} onChange={(e) => set("language", e.target.value)}>
             {TELECALL_LANGUAGES.map((l) => <option key={l.id} value={l.id}>{l.label}{l.tier === "basic" ? " (basic)" : ""}</option>)}
           </Select>
         </Field>
         <Field label="Provider" hint={t.provider === "simulate" ? "Simulate: Gemini role-plays the customer, no phone rings. Switch to Vapi once the keys are set." : "Vapi places real calls from the number configured in the Edge Function secrets."}>
-          <Select value={t.provider} onChange={(e) => set("provider", e.target.value)}>
+          <Select
+            value={t.provider}
+            onChange={(e) => {
+              if (e.target.value === "vapi" && t.enabled && !window.confirm(REAL_CALLS)) return
+              set("provider", e.target.value)
+            }}
+          >
             <option value="simulate">Simulate (no phone)</option>
             <option value="vapi">Vapi (real calls)</option>
           </Select>
         </Field>
         <div className="flex flex-col justify-end gap-2">
-          <Check checked={t.enabled} onChange={(v) => set("enabled", v)}>Automatic calling on (scheduler dials due jobs)</Check>
+          <Check checked={t.enabled} onChange={(v) => (!v || t.provider !== "vapi" || window.confirm(REAL_CALLS)) && set("enabled", v)}>Automatic calling on (scheduler dials due jobs)</Check>
           <Check checked={t.autoQueueNewLeads} onChange={(v) => set("autoQueueNewLeads", v)}>Auto-queue new leads and voice leads for follow-up</Check>
         </div>
       </Section>
@@ -93,9 +106,9 @@ export default function AgentTab({ isAdmin, onPractice }) {
       <Section title="Calling window & limits" hint="No calls on Sundays or outside this window. Retries and rounds always land inside it.">
         <Field label="From"><Input type="time" value={t.callingHours.start} onChange={(e) => setIn("callingHours", "start", e.target.value)} /></Field>
         <Field label="To"><Input type="time" value={t.callingHours.end} onChange={(e) => setIn("callingHours", "end", e.target.value)} /></Field>
-        <Field label="Daily Cap (Calls)"><Input type="number" min="1" value={t.dailyCap} onChange={(e) => set("dailyCap", num(e.target.value, 40))} /></Field>
-        <Field label="Attempts per Job" hint="No answer / busy retries before the job is marked failed."><Input type="number" min="1" max="6" value={t.maxAttempts} onChange={(e) => set("maxAttempts", num(e.target.value, 3))} /></Field>
-        <Field label="Retry Gap (Hours)"><Input type="number" min="1" value={t.retryGapHours} onChange={(e) => set("retryGapHours", num(e.target.value, 24))} /></Field>
+        <Field label="Daily cap (calls)"><Input type="number" min="1" value={t.dailyCap} onChange={(e) => set("dailyCap", num(e.target.value, 40))} /></Field>
+        <Field label="Attempts per job" hint="No answer / busy retries before the job is marked failed."><Input type="number" min="1" max="6" value={t.maxAttempts} onChange={(e) => set("maxAttempts", num(e.target.value, 3))} /></Field>
+        <Field label="Retry gap (hours)"><Input type="number" min="1" value={t.retryGapHours} onChange={(e) => set("retryGapHours", num(e.target.value, 24))} /></Field>
         <Field label="Timezone"><Input value={t.timezone} onChange={(e) => set("timezone", e.target.value)} /></Field>
       </Section>
 
@@ -103,25 +116,25 @@ export default function AgentTab({ isAdmin, onPractice }) {
         <div className="space-y-3">
           <Check checked={t.followUp.enabled} onChange={(v) => setIn("followUp", "enabled", v)}>Follow-up rounds after an interested call</Check>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Delay (Hours)"><Input type="number" min="1" value={t.followUp.delayHours} onChange={(e) => setIn("followUp", "delayHours", num(e.target.value, 24))} /></Field>
-            <Field label="Max Rounds"><Input type="number" min="1" max="6" value={t.followUp.maxRounds} onChange={(e) => setIn("followUp", "maxRounds", num(e.target.value, 3))} /></Field>
+            <Field label="Delay (hours)"><Input type="number" min="1" value={t.followUp.delayHours} onChange={(e) => setIn("followUp", "delayHours", num(e.target.value, 24))} /></Field>
+            <Field label="Max rounds"><Input type="number" min="1" max="6" value={t.followUp.maxRounds} onChange={(e) => setIn("followUp", "maxRounds", num(e.target.value, 3))} /></Field>
           </div>
         </div>
         <div className="space-y-3">
           <Check checked={t.feedback.enabled} onChange={(v) => setIn("feedback", "enabled", v)}>Feedback call after every invoice</Check>
-          <Field label="Days After Invoice"><Input type="number" min="1" value={t.feedback.daysAfterInvoice} onChange={(e) => setIn("feedback", "daysAfterInvoice", num(e.target.value, 7))} /></Field>
+          <Field label="Days after invoice"><Input type="number" min="1" value={t.feedback.daysAfterInvoice} onChange={(e) => setIn("feedback", "daysAfterInvoice", num(e.target.value, 7))} /></Field>
         </div>
         <div className="space-y-3 sm:col-span-2">
           <Check checked={t.upsell.enabled} onChange={(v) => setIn("upsell", "enabled", v)}>Upsell / reorder calls to existing customers</Check>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="First Call, Days After Invoice"><Input type="number" min="1" value={t.upsell.daysAfterInvoice} onChange={(e) => setIn("upsell", "daysAfterInvoice", num(e.target.value, 30))} /></Field>
-            <Field label="Repeat Every (Days)"><Input type="number" min="7" value={t.upsell.repeatEveryDays} onChange={(e) => setIn("upsell", "repeatEveryDays", num(e.target.value, 90))} /></Field>
+            <Field label="First call, days after invoice"><Input type="number" min="1" value={t.upsell.daysAfterInvoice} onChange={(e) => setIn("upsell", "daysAfterInvoice", num(e.target.value, 30))} /></Field>
+            <Field label="Repeat every (days)"><Input type="number" min="7" value={t.upsell.repeatEveryDays} onChange={(e) => setIn("upsell", "repeatEveryDays", num(e.target.value, 90))} /></Field>
           </div>
         </div>
       </Section>
 
       <Section title="Training" hint="How the agent should sound, and what each type of call must achieve. Blank fields keep the built-in defaults. Rehearse with Practice, read the transcript, refine, repeat.">
-        <Field label="Persona & Style" hint="Tone, phrases to use, phrases to avoid, how to handle Hindi vs English, how formal to be." className="sm:col-span-2">
+        <Field label="Persona and style" hint="Tone, phrases to use, phrases to avoid, how to handle Hindi vs English, how formal to be." className="sm:col-span-2">
           <Textarea
             rows={4}
             ai={{
@@ -136,7 +149,7 @@ export default function AgentTab({ isAdmin, onPractice }) {
           />
         </Field>
         {TELECALL_KINDS.filter((k) => k.id !== "manual").map((k) => (
-          <Field key={k.id} label={`${k.label} Call Script`} hint={SCRIPT_HINT[k.id]}>
+          <Field key={k.id} label={`${k.label} call script`} hint={SCRIPT_HINT[k.id]}>
             <Textarea
               rows={4}
               ai={{
@@ -188,10 +201,10 @@ export default function AgentTab({ isAdmin, onPractice }) {
             placeholder="Enter pitch notes"
           />
         </Field>
-        <Field label="Your Upcoming Occasions" hint="Sneha already knows the Indian festival calendar, IST time and regional festivals by city. Add your own dates here, one per line: YYYY-MM-DD Name - what to pitch (e.g. 2026-10-15 Delhi Corporate Gifting Expo - invite buyers to the stall, offer exhibition pricing)." className="sm:col-span-2">
+        <Field label="Your upcoming occasions" hint="Sneha already knows the Indian festival calendar, IST time and regional festivals by city. Add your own dates here, one per line: YYYY-MM-DD Name: what to pitch (for example 2026-10-15 Delhi Corporate Gifting Expo: invite buyers to the stall, offer exhibition pricing)." className="sm:col-span-2">
           <Textarea rows={3} value={t.occasions || ""} onChange={(e) => set("occasions", e.target.value)} placeholder="Enter upcoming occasions" />
         </Field>
-        <Field label="Do Not Call" hint="One number per line. Anyone who asks not to be called is added here automatically." className="sm:col-span-2">
+        <Field label="Do not call" hint="One number per line. Anyone who asks not to be called is added here automatically." className="sm:col-span-2">
           <Textarea rows={3} value={(t.doNotCall || []).join("\n")} onChange={(e) => set("doNotCall", e.target.value.split(/\n/).map((s) => s.trim()).filter(Boolean))} />
         </Field>
       </Section>
@@ -199,9 +212,9 @@ export default function AgentTab({ isAdmin, onPractice }) {
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
           <Sparkles className="mr-1 inline h-3.5 w-3.5" />
-          Keys (Gemini, Vapi, webhook secret) are Edge Function secrets - see docs/guides/TELECALLER_SETUP.md.
+          Keys (Gemini, Vapi, webhook secret) are kept on the server, not here. Ask whoever set up the call agent to change them.
         </p>
-        <Button onClick={save} disabled={saving || isAdmin === false}><Save className="h-4 w-4" /> {saving ? "Saving…" : "Save agent settings"}</Button>
+        <Button onClick={save} disabled={saving || !canSave} title={canSave ? undefined : "Only the Super Admin can change these"}><Save className="h-4 w-4" /> {saving ? "Saving…" : "Save agent settings"}</Button>
       </div>
     </div>
   )

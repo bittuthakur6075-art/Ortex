@@ -12,6 +12,7 @@ import {
   savePayrollSettings,
   saveTemplate,
 } from "../../services/payroll"
+import { useReportUnsaved } from "../../hooks/useUnsaved"
 import { Check, LoadError } from "./setup/common"
 import { money, thisMonthIST } from "./setup/helpers"
 
@@ -90,6 +91,7 @@ function useDraft(value) {
   useEffect(() => setDraft(JSON.parse(sig)), [sig])
   const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }))
   const dirty = JSON.stringify(draft) !== sig
+  useReportUnsaved(dirty)
   return [draft, set, dirty, setDraft]
 }
 

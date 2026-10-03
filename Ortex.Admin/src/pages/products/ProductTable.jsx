@@ -32,13 +32,17 @@ export default function ProductTable({
         </thead>
         <tbody className="mt-body">
           {rows.map((p) => {
+            // No cost price, no margin to speak of: "-" rather than a 100% that isn't.
+            const costed = Number(p.costPrice) > 0
             const margin = round2(p.basePrice - p.costPrice)
             const marginPct = p.basePrice ? Math.round((margin / p.basePrice) * 100) : 0
             return (
               <tr
                 key={p.id}
                 className="cursor-pointer transition-colors hover:bg-subtle"
+                tabIndex={0}
                 onClick={() => onView(p)}
+                onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && onView(p)}
               >
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -73,14 +77,14 @@ export default function ProductTable({
                   <Money value={p.basePrice} />
                 </td>
                 <td className="px-4 py-3 text-right text-muted-foreground">
-                  <span className={margin > 0 ? "text-[hsl(var(--success))]" : ""}>{marginPct}%</span>
+                  {costed ? <span className={margin > 0 ? "text-success" : ""}>{marginPct}%</span> : "-"}
                 </td>
                 <td className="px-4 py-3 text-right tabular text-muted-foreground">{p.gstRate}%</td>
                 <td className="px-4 py-3">
                   <StatusBadge list={PRODUCT_STATUS} status={p.status} />
                 </td>
-                <td className="px-4 py-3 text-right" onClick={(e) => { e.stopPropagation(); onEdit(p); }}>
-                  <Button variant="ghost" size="sm" icon className="ml-auto text-muted-foreground" title="Edit product">
+                <td className="px-4 py-3 text-right">
+                  <Button variant="ghost" size="sm" icon className="ml-auto text-muted-foreground" title="Edit product" aria-label="Edit product" onClick={(e) => { e.stopPropagation(); onEdit(p) }}>
                     <Pencil className="h-4 w-4" />
                   </Button>
                 </td>

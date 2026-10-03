@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
-import { useNavigate } from "react-router-dom"
-import { Lock, Mail, ShieldCheck,Database, LayoutGrid, Eye, EyeOff } from "../components/ui/Icons"
+import { useLocation, useNavigate } from "react-router-dom"
+import { Lock, Mail, ShieldCheck, Database, LayoutGrid, Eye, EyeOff } from "../components/ui/Icons"
 import {
   signIn,
   isAuthed,
@@ -22,6 +22,10 @@ const MIN_PASSWORD_LENGTH = 6
 
 export default function Login() {
   const navigate = useNavigate()
+  // Where the route guard bounced from (AdminLayout passes it), so signing in
+  // lands back on the page that was asked for rather than on the Dashboard.
+  const from = useLocation().state?.from
+  const home = from?.pathname && from.pathname !== "/login" ? `${from.pathname}${from.search || ""}` : "/"
   const [step, setStep] = useState("password")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -36,8 +40,8 @@ export default function Login() {
   const resetRef = useRef(null)
 
   useEffect(() => {
-    if (isAuthed()) navigate("/", { replace: true })
-  }, [navigate])
+    if (isAuthed()) navigate(home, { replace: true })
+  }, [navigate, home])
 
   useEffect(() => {
     if (cooldown <= 0) return
@@ -57,7 +61,7 @@ export default function Login() {
       setPassword("")
       return
     }
-    navigate("/", { replace: true })
+    navigate(home, { replace: true })
   }
 
   const handleResend = async () => {
@@ -197,7 +201,7 @@ export default function Login() {
                   />
                 </div>
 
-                {error && <p className="mt-2 text-sm text-destructive" role="alert">{error}</p>}
+                {error && <p className="mt-2 text-sm text-destructive-text" role="alert">{error}</p>}
 
                 <Button type="submit" className="mt-8 w-full justify-center" disabled={busy}>
                   {busy ? "Sending…" : "Send code"}
@@ -253,7 +257,7 @@ export default function Login() {
                   />
                 </div>
 
-                {error && <p className="mt-2 text-sm text-destructive" role="alert">{error}</p>}
+                {error && <p className="mt-2 text-sm text-destructive-text" role="alert">{error}</p>}
 
                 <Button type="submit" className="mt-8 w-full justify-center" disabled={busy}>
                   {busy ? "Saving…" : "Save and sign in"}
@@ -266,7 +270,7 @@ export default function Login() {
             ) : onCodeStep ? (
               <form onSubmit={handleResetCode} noValidate className="lgn-form">
                 <label htmlFor="code" className="mb-1.5 block text-sm font-medium text-foreground">
-                  Verification Code
+                  Verification code
                 </label>
                 <div className="relative">
                   <ShieldCheck className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -284,7 +288,7 @@ export default function Login() {
                   />
                 </div>
 
-                {error && <p className="mt-2 text-sm text-destructive" role="alert">{error}</p>}
+                {error && <p className="mt-2 text-sm text-destructive-text" role="alert">{error}</p>}
 
                 <Button type="submit" className="mt-8 w-full justify-center" disabled={busy || code.length < 6}>
                   {busy ? "Verifying…" : "Verify code"}
@@ -313,6 +317,7 @@ export default function Login() {
                     id="email"
                     type="email"
                     autoFocus
+                    autoComplete="username"
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); if (error) setError("") }}
                     placeholder="Enter email address"
@@ -329,6 +334,7 @@ export default function Login() {
                 <Input
                   id="pw"
                   type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); if (error) setError("") }}
                   placeholder="Enter password"
@@ -358,19 +364,19 @@ export default function Login() {
                 </div>
               )}
 
-              {error && <p className="mt-2 text-sm text-destructive" role="alert">{error}</p>}
+              {error && <p className="mt-2 text-sm text-destructive-text" role="alert">{error}</p>}
 
               {/* Offline demo mode has no accounts, so state the passphrase
                   rather than leaving anyone guessing at a locked door. */}
               {!hasSupabase && (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Offline demo mode - no database configured. Use any email and the passphrase{" "}
+                  Offline demo mode: no database configured. Use any email and the passphrase{" "}
                   <span className="font-semibold text-foreground">ortex@admin</span>.
                 </p>
               )}
 
               <Button type="submit" className="mt-8 w-full justify-center" disabled={busy}>
-                {busy ? "Checking…" : "Continue"}
+                {busy ? "Signing in…" : "Sign in"}
               </Button>
 
             </form>
@@ -378,7 +384,7 @@ export default function Login() {
           </div>
 
           <div className="lgn-copyright">
-            Copyright &copy; {year} <span className="lgn-copyright-co">Ortex Industries</span>. All Rights Reserved.
+            Copyright &copy; {year} <span className="lgn-copyright-co">Ortex Industries</span>. All rights reserved.
           </div>
         </section>
 

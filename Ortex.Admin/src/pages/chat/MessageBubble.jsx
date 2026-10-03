@@ -166,11 +166,13 @@ function AssistantExtras({ meta }) {
   )
 }
 
-// Hover actions beside a bubble: reply for any message, edit and delete for mine.
+// Actions beside a bubble: reply for any message, edit and delete for mine.
+// Shown on hover or keyboard focus with a mouse; always on phones and touch
+// screens, which have no hover.
 function Actions({ onReply, onEdit, onDelete }) {
   const btn = "grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-card hover:text-primary"
   return (
-    <div className="flex flex-none items-center gap-0.5 self-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+    <div className="flex flex-none items-center gap-0.5 self-center transition-opacity sm:opacity-0 sm:focus-within:opacity-100 sm:group-hover:opacity-100 pointer-coarse:opacity-100">
       <button type="button" className={btn} onClick={onReply} title="Reply" aria-label="Reply">
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 010 11H11" /></svg>
       </button>

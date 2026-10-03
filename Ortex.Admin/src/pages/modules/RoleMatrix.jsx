@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { ShieldCheck } from "../../components/ui/Icons"
-import { Badge, Banner, Button, Card, CardHeader } from "../../components/ui/Ui"
+import { Badge, Banner, Button, Card, CardHeader, Modal } from "../../components/ui/Ui"
 import { ASSIGNABLE_MODULES, MODULES, adminAccessConfigurable, moduleControl } from "../../data/domain/modules"
 import { CONFIGURABLE_ROLES, ROLE_DESCRIPTION, roleLabel } from "../../lib/roles"
 import { saveRolePermissions, useRolePermissions } from "../../hooks/useRolePermissions"
 import { saveModuleControls, useModuleControls } from "../../hooks/useModuleControls"
+import { whoCanOpen } from "../../lib/moduleAccess"
+import { useReportUnsaved } from "../../hooks/useUnsaved"
 import { groupBySection, shortLabel } from "./helpers"
 
 // Modules → Roles: what each role may open. The Super Admin ticks a module for
@@ -27,13 +29,14 @@ const SUPER_ONLY = [
 const adminOn = (controls, key) => moduleControl({ moduleControls: controls }, key).adminAccess
 const moduleOn = (controls, key) => moduleControl({ moduleControls: controls }, key).enabled
 
-export default function RoleMatrix() {
+export default function RoleMatrix({ people = [] }) {
   const { grants, ready: grantsReady, loaded } = useRolePermissions()
   const { controls, ready: controlsReady } = useModuleControls()
   const [draft, setDraft] = useState(grants)
   // Module keys whose Admin switch is being changed: key -> new value.
   const [adminDraft, setAdminDraft] = useState({})
   const [saving, setSaving] = useState(false)
+  const [losses, setLosses] = useState(null) // [{ person, module }] awaiting confirmation
 
   const dirtyRoles = useMemo(
     () => CONFIGURABLE_ROLES.filter((r) => !sameSet(draft[r] || [], grants[r] || [])),
@@ -44,6 +47,7 @@ export default function RoleMatrix() {
     [adminDraft, controls],
   )
   const dirty = dirtyRoles.length + dirtyAdmin.length
+  useReportUnsaved(dirty > 0)
 
   // Follow the live copy until someone starts editing.
   useEffect(() => {
@@ -66,7 +70,28 @@ export default function RoleMatrix() {
     setAdminDraft({})
   }
 
+  // Who loses which module with these changes, by the same rule as the
+  // Modules tab (whoCanOpen): open now, closed after.
+  const computeLosses = () => {
+    const nextGrants = { ...grants, ...draft }
+    const nextControls = { ...controls }
+    for (const key of dirtyAdmin) nextControls[key] = { ...moduleControl({ moduleControls: controls }, key), adminAccess: adminDraft[key] }
+    const out = []
+    for (const m of ASSIGNABLE_MODULES) {
+      const after = new Set(whoCanOpen(people, m.key, nextGrants, nextControls).map((x) => x.person.id))
+      for (const x of whoCanOpen(people, m.key, grants, controls)) if (!after.has(x.person.id)) out.push({ person: x.person, module: m })
+    }
+    return out
+  }
+
+  const requestSave = () => {
+    const lost = computeLosses()
+    if (lost.length) setLosses(lost)
+    else save()
+  }
+
   const save = async () => {
+    setLosses(null)
     setSaving(true)
     try {
       for (const role of dirtyRoles) await saveRolePermissions(role, draft[role] || [])
@@ -112,7 +137,7 @@ export default function RoleMatrix() {
                   Discard
                 </Button>
               )}
-              <Button size="sm" onClick={save} disabled={saving || !dirty}>
+              <Button size="sm" onClick={requestSave} disabled={saving || !dirty}>
                 {saving ? "Saving…" : dirty ? "Save changes" : "Saved"}
               </Button>
             </div>
@@ -182,6 +207,33 @@ export default function RoleMatrix() {
           </table>
         </div>
       </Card>
+
+      {losses && (
+        <Modal
+          open
+          onClose={() => setLosses(null)}
+          width="max-w-md"
+          title="Some people lose access"
+          footer={
+            <div className="flex w-full justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setLosses(null)}>Cancel</Button>
+              <Button variant="danger" size="sm" onClick={save}>Save and remove access</Button>
+            </div>
+          }
+        >
+          <p className="mb-3 text-sm text-muted-foreground">
+            When you save, each person below can no longer open the module beside their name, on the console and the phone.
+          </p>
+          <ul className="max-h-72 space-y-1.5 overflow-y-auto text-sm">
+            {losses.map(({ person, module }) => (
+              <li key={`${person.id}-${module.key}`} className="flex justify-between gap-3">
+                <span className="truncate text-foreground">{person.name || person.email}</span>
+                <span className="flex-none text-muted-foreground">{shortLabel(module)}</span>
+              </li>
+            ))}
+          </ul>
+        </Modal>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Fixed title="Everyone, always" items={ALWAYS} note="Every role, including Staff." />

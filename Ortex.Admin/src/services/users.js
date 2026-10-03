@@ -62,7 +62,7 @@ async function invokeFunction(name, body) {
     let message = error.message
     try {
       const parsed = await error.context?.json?.()
-      if (parsed?.error) return { error: parsed.error }
+      if (parsed?.error) return { ...parsed } // keeps flags such as hasRecords
     } catch {
       /* not JSON - fall through to the transport cases below */
     }

@@ -35,6 +35,7 @@ import {
 import { listProfiles } from "../../services/users"
 import { Maintenance } from "./SettingsExtra"
 import LeavePolicy from "./LeavePolicy"
+import { useReportUnsaved } from "../../hooks/useUnsaved"
 
 // The attendance rules (Control centre, Super Admin): stations, the rules, and how each
 // person clocks in. Every input the module needs lives here, shipped with
@@ -405,6 +406,10 @@ function Rules() {
     })
   }, [])
 
+  // Nothing typed differs from what was read: Save stays off.
+  const dirty = !!doc && Object.keys({ ...doc, ...loaded }).some((k) => !sameValue(doc[k], loaded[k]))
+  useReportUnsaved(dirty)
+
   if (state.loading) return <Card className="p-6"><PageLoader /></Card>
   if (state.missing) return null
 
@@ -440,7 +445,7 @@ function Rules() {
     if ((next.checkInFrom || "08:30") >= (next.closeAt || "21:00")) return toast.error("Check-in must open before it closes")
     const patch = {}
     for (const k of Object.keys(next)) if (!sameValue(next[k], loaded[k])) patch[k] = next[k]
-    if (!Object.keys(patch).length) return toast.success("Nothing changed")
+    if (!Object.keys(patch).length) return setDoc(loaded) // only retyped the same values
     setBusy(true)
     try {
       const saved = await saveSettings(patch)
@@ -464,7 +469,7 @@ function Rules() {
       <CardHeader
         title="Rules"
         description="Changes apply from now on. Days already worked keep the rules they were recorded under."
-        action={<Button size="sm" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save rules"}</Button>}
+        action={<Button size="sm" onClick={save} disabled={busy || !dirty}>{busy ? "Saving…" : dirty ? "Save rules" : "Saved"}</Button>}
       />
       <div className="grid grid-cols-1 gap-5 px-5 pb-6 md:grid-cols-2">
         <div className="grid grid-cols-2 gap-4">
@@ -661,6 +666,7 @@ function PersonRow({ person, row, sites, onSaved, autoPresent, onAutoPresent }) 
   const [siteIds, setSiteIds] = useState(row?.site_ids || [])
   const [busy, setBusy] = useState(false)
   const dirty = (row?.mode || "") !== mode || !sameSet(row?.site_ids || [], siteIds)
+  useReportUnsaved(dirty)
   const def = defaultModeFor(person.role)
   const effective = mode || def
 

@@ -1,7 +1,8 @@
+import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
+import { toast } from "sonner"
 import { Printer, X, CheckCircle2, Download } from "../ui/Icons"
 import { formatCurrency, formatDate, amountInWords } from "../../lib/format"
-import { Button } from "../ui/Ui"
-import { useRef } from "react"
 import { buildSheetPdf } from "./documentPdf"
 
 // Printable payment acknowledgement. Titles itself:
@@ -14,9 +15,25 @@ import { buildSheetPdf } from "./documentPdf"
 // does not change an earlier receipt. The payment's note is internal and is
 // not printed.
 export default function ReceiptView({ open, onClose, payment, invoice, settings, allocation }) {
-  // Hooks must run unconditionally, so the ref is created before the early return.
+  // Hooks must run unconditionally, so they come before the early return.
   const receiptRef = useRef(null)
-  if (!open || !payment) return null
+  const [busy, setBusy] = useState(false)
+
+  // The same overlay behaviour as DocumentView: <body> is marked so print
+  // drops the app shell, and Escape closes.
+  const shown = open && !!payment
+  useEffect(() => {
+    if (!shown) return
+    document.body.classList.add("doc-open")
+    const onKey = (e) => e.key === "Escape" && onClose()
+    window.addEventListener("keydown", onKey)
+    return () => {
+      document.body.classList.remove("doc-open")
+      window.removeEventListener("keydown", onKey)
+    }
+  }, [shown, onClose])
+
+  if (!shown) return null
   const c = settings.company
   const isAdvance = !payment.invoiceId && !!payment.advance && !!(payment.customer || payment.party)
   const heading = isAdvance ? "Receipt Voucher" : "Payment Receipt"
@@ -36,29 +53,40 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
     const element = receiptRef.current
     if (!element) return
     const stem = `receipt-${payment.number}`
-    const pdf = await buildSheetPdf(element, stem)
-    pdf.save(`${stem}.pdf`)
+    setBusy(true)
+    try {
+      const pdf = await buildSheetPdf(element, stem)
+      pdf.save(`${stem}.pdf`)
+      toast.success(`Downloaded ${stem}.pdf`)
+    } catch (err) {
+      console.error(err)
+      toast.error("Could not generate the PDF.")
+    } finally {
+      setBusy(false)
+    }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-0 sm:p-6">
-      <div className="no-print sticky top-0 z-10 mx-auto mb-4 flex max-w-2xl items-center justify-between gap-2 bg-card px-4 py-3 sm:rounded-xl">
-        <span className="font-semibold text-foreground">
-          {heading} · {payment.number}
+  const party = payment.customer?.company || payment.party || payment.customer?.name
+
+  return createPortal(
+    <div className="doc-overlay" role="dialog" aria-modal="true" aria-label={`${heading} ${payment.number}`}>
+      <div className="doc-toolbar no-print">
+        <span className="doc-toolbar-title">
+          {heading} {payment.number}
+          {party && <small>{party}</small>}
         </span>
-        <div className="flex gap-2">
-          <Button size="sm" onClick={handleDownloadPDF}>
-            <Download className="h-4 w-4" /> Download PDF
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => window.print()}>
-            <Printer className="h-4 w-4" /> Print
-          </Button>
-          <Button variant="outline" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" /> Close
-          </Button>
-        </div>
+        <button type="button" className="doc-tb-btn ghost" onClick={() => window.print()}>
+          <Printer className="h-4 w-4" /> Print
+        </button>
+        <button type="button" className="doc-tb-btn primary" onClick={handleDownloadPDF} disabled={busy}>
+          <Download className="h-4 w-4" /> {busy ? "Preparing…" : "Download PDF"}
+        </button>
+        <button type="button" className="doc-tb-close" onClick={onClose} aria-label="Close">
+          <X className="h-[18px] w-[18px]" />
+        </button>
       </div>
 
+      <div className="doc-scroll">
       <div ref={receiptRef} className="print-area mx-auto w-full max-w-[210mm] bg-white p-8 sm:p-12 text-[13px] text-[#0b1220] sm:rounded-xl flex flex-col" style={{ minHeight: "297mm" }}>
         {/* Header */}
         <div className="flex items-start justify-between border-b-2 border-[#0b1220] pb-4">
@@ -162,6 +190,8 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
         </div>
         <div className="mt-auto pt-6 text-center text-[10px] text-[#9ca3af]">{settings.documents?.receiptFooter}</div>
       </div>
-    </div>
+      </div>
+    </div>,
+    document.body,
   )
 }

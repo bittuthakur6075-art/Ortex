@@ -84,7 +84,7 @@ export default function Categories() {
               </thead>
               <tbody className="mt-body">
                 {sortedItems.map((c) => (
-                  <tr key={c.id} className="cursor-pointer" onClick={() => setViewingId(c.id)}>
+                  <tr key={c.id} className="cursor-pointer" tabIndex={0} onClick={() => setViewingId(c.id)} onKeyDown={(e) => e.key === "Enter" && setViewingId(c.id)}>
                     <td className="px-4 py-3">
                       <div className="font-medium text-foreground">{c.name}</div>
                       {c.description && <div className="max-w-md truncate text-xs text-muted-foreground">{c.description}</div>}
@@ -165,7 +165,7 @@ function CategoryForm({ open, category, products, usage, onClose }) {
         seoTitle: data.seoTitle?.trim() || f.seoTitle,
         seoDescription: data.seoDescription?.trim() || f.seoDescription,
       }))
-      toast.success("AI copy generated - review before saving")
+      toast.success("AI copy generated. Review before saving")
     } catch (err) {
       console.error("Category AI copy failed:", err)
       toast.error(err?.message || "AI generation failed")
@@ -194,7 +194,7 @@ function CategoryForm({ open, category, products, usage, onClose }) {
         const orphans = (products || []).filter((p) => p.category === category.name)
         if (orphans.length) {
           await Promise.all(orphans.map((p) => repo.update("products", p.id, { category: name })))
-          toast.success(`Category renamed - ${orphans.length} product(s) moved to "${name}"`)
+          toast.success(`Category renamed. ${orphans.length} product(s) moved to "${name}"`)
         } else {
           toast.success("Category renamed")
         }
@@ -210,12 +210,15 @@ function CategoryForm({ open, category, products, usage, onClose }) {
   }
 
   const remove = async () => {
-    if (usage > 0) return toast.error(`In use by ${usage} product(s) - reassign them first`)
-    if (window.confirm(`Delete category "${category.name}"?`)) {
+    if (usage > 0) return toast.error(`In use by ${usage} product(s). Reassign them first`)
+    if (!window.confirm(`Delete category "${category.name}"?`)) return
+    try {
       await repo.remove("categories", category.id)
       toast.success("Category deleted")
       triggerSiteRebuild()
       onClose()
+    } catch (err) {
+      toast.error(err?.message || "Could not delete the category")
     }
   }
 
@@ -251,10 +254,10 @@ function CategoryForm({ open, category, products, usage, onClose }) {
       <div className="space-y-6">
         <Group title="Identity">
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Category Name" required error={error} hint="Must match the name on products">
+          <Field label="Category name" required error={error} hint="Must match the name on products">
             <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Enter category name" autoFocus />
           </Field>
-          <Field label="URL Slug" hint="Auto-filled from name if blank">
+          <Field label="URL slug" hint="Auto-filled from name if blank">
             <Input value={form.slug} onChange={(e) => set("slug", e.target.value)} placeholder={slugifyCategory(form.name) || "acrylic-products"} />
           </Field>
         </div>
@@ -295,15 +298,15 @@ function CategoryForm({ open, category, products, usage, onClose }) {
         >
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Display Heading" hint="Shown on site; falls back to name">
+            <Field label="Display heading" hint="Shown on site; falls back to name">
               <Input value={form.displayName} onChange={(e) => set("displayName", e.target.value)} placeholder={form.name || "Custom Acrylic Products"} />
             </Field>
-            <Field label="Sort Order" hint="Lower shows first">
+            <Field label="Sort order" hint="Lower shows first">
               <Input type="number" value={form.sortOrder} onChange={(e) => set("sortOrder", e.target.value)} placeholder="Enter sort order" />
             </Field>
           </div>
 
-          <Field label="Intro Paragraph" hint="Marketing copy on the category page">
+          <Field label="Intro paragraph" hint="Marketing copy on the category page">
             <Textarea
               ai={{
                 purpose: "Intro paragraph at the top of a product category page on the Ortex website, 2 to 3 persuasive SEO-friendly sentences for B2B buyers",
@@ -316,14 +319,14 @@ function CategoryForm({ open, category, products, usage, onClose }) {
             />
           </Field>
 
-          <ImageField label="Category Image" value={form.image} onChange={(url) => set("image", url)} bucket="categories" />
+          <ImageField label="Category image" value={form.image} onChange={(url) => set("image", url)} bucket="categories" />
 
           <div className="grid grid-cols-1 gap-4">
-            <Field label="SEO Title" hint="Browser tab + Google result title">
+            <Field label="SEO title" hint="Browser tab + Google result title">
               <Input value={form.seoTitle} onChange={(e) => set("seoTitle", e.target.value)} placeholder="Enter SEO title" />
             </Field>
             <Field
-              label="SEO Description"
+              label="SEO description"
               hint={`Google result snippet, ${(form.seoDescription || "").length}/155 characters`}
             >
               <Textarea

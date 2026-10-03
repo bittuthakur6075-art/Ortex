@@ -130,7 +130,7 @@ export default function Growth({ embedded = false }) {
         />
         <StatCard
           icon={Flame}
-          label="Visitor → Quote"
+          label="Visitor → quote"
           value={pct(g.visitorToQuote)}
           accent="bg-warning/10 text-warning-text"
         />
@@ -321,9 +321,9 @@ function ProductPerformance({ rows }) {
 // Median sales-cycle timing per stage of the document chain.
 function VelocityCard({ v }) {
   const stages = [
-    { key: "enquiryToQuote", label: "Enquiry → Quote" },
-    { key: "quoteToInvoice", label: "Quote → Invoice" },
-    { key: "invoiceToPaid", label: "Invoice → Paid" },
+    { key: "enquiryToQuote", label: "Enquiry → quote" },
+    { key: "quoteToInvoice", label: "Quote → invoice" },
+    { key: "invoiceToPaid", label: "Invoice → paid" },
     { key: "fullCycle", label: "Full cycle" },
   ]
   return (

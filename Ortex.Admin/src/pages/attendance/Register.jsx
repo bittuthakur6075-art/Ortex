@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { CalendarClock, Lock } from "../../components/ui/Icons"
 import {
@@ -31,13 +32,16 @@ import {
   overtimeByUser,
   firstAttendanceMonth,
   listDays,
+  listCorrections,
   listHolidays,
+  listPunches,
   lockedMonths,
   lockMonth,
   monthSummary,
   todayIST,
   unlockMonth,
 } from "../../services/attendance"
+import { listLeaveRequests } from "../../services/leave"
 import { cn } from "../../lib/cn"
 import { dayHead, dayLabel, daysOf, monthLabel, monthsBetween, toneFor } from "./format"
 import { MonthSwitcher, StatusLegend } from "./status"
@@ -309,8 +313,13 @@ export default function Register() {
           ) : (
             <span className="text-[13px] text-muted-foreground">This month is still running</span>
           )}
-          {canLock && !locked && past && (
-            <Button size="sm" onClick={() => setLocking(true)}>
+          {!locked && (
+            <Button
+              size="sm"
+              onClick={() => setLocking(true)}
+              disabled={!canLock || !past}
+              title={!canLock ? "Locking needs the Register (lock and export) permission" : !past ? "A month can be locked once it has ended" : undefined}
+            >
               <Lock className="h-4 w-4" /> Lock for payroll
             </Button>
           )}
@@ -372,7 +381,7 @@ export default function Register() {
                   <th className="text-right">Lates</th>
                   <th className="text-right">Penalty</th>
                   <th className="text-right">Worked</th>
-                  {seesOvertime && <th className="text-right" title="Past the shift on a working day, every worked minute on a day off. Admins only.">Overtime</th>}
+                  {seesOvertime && <th className="text-right" title="Past the shift on a working day, every worked minute on a day off. Shown to people with the Register or Payroll permission.">Overtime</th>}
                   <th className="text-right">Payable</th>
                 </tr>
               </thead>
@@ -454,6 +463,7 @@ export default function Register() {
                     {dayList.map((day) => {
                       const e = byCell.get(`${r.user_id}|${day}`)
                       const s = e ? effectiveStatus(e) : null
+                      const label = `${r.name}, ${dayLabel(day, true)}: ${s ? STATUS_LABEL[s] : "no record"}${e && countsAsLate(e) ? `, late by ${e.late_min} min` : ""}${e?.flags?.length ? `, ${flagWords(e.flags).join(", ").toLowerCase()}` : ""}`
                       const h = dayHead(day)
                       const off = state.weeklyOff.has(h.dow) || state.holidays.has(day)
                       return (
@@ -461,7 +471,8 @@ export default function Register() {
                           <button
                             type="button"
                             onClick={() => setCell({ userId: r.user_id, day })}
-                            title={`${r.name}, ${dayLabel(day, true)}: ${s ? STATUS_LABEL[s] : "no record"}${e && countsAsLate(e) ? `, late by ${e.late_min} min` : ""}${e?.flags?.length ? `, ${flagWords(e.flags).join(", ").toLowerCase()}` : ""}`}
+                            title={label}
+                            aria-label={label}
                             className={cn(
                               "relative grid h-8 w-8 place-items-center rounded text-[11px] font-semibold transition-opacity hover:opacity-80",
                               s ? toneFor(s) : "text-subtle-foreground",
@@ -521,15 +532,67 @@ export default function Register() {
         ]}
       />
 
-      <LockModal open={locking} month={month} onClose={() => setLocking(false)} onDone={() => { setLocking(false); void load() }} />
+      <LockModal open={locking} month={month} directory={state.directory} onClose={() => setLocking(false)} onDone={() => { setLocking(false); void load() }} />
       <UnlockModal open={unlocking} month={month} onClose={() => setUnlocking(false)} onDone={() => { setUnlocking(false); void load() }} />
     </div>
   )
 }
 
-function LockModal({ open, month, onClose, onDone }) {
+// The database refuses a lock while the month has flagged punches, pending
+// corrections or pending leave (0065), so the modal lists them first, with
+// where to clear each, and Lock stays off until there are none.
+function useLockBlockers(open, month, directory) {
+  const [state, setState] = useState(null)
+  useEffect(() => {
+    if (!open) return undefined
+    let alive = true
+    setState(null)
+    const list = daysOf(month)
+    const from = list[0]
+    const to = list[list.length - 1]
+    void Promise.all([
+      listPunches({ from, to }),
+      listCorrections({ status: "pending", from, to }),
+      listLeaveRequests({ status: "pending", from, to }),
+    ]).then(([punches, corrections, leave]) => {
+      if (!alive) return
+      const name = (id) => directory[id]?.name || "Someone"
+      setState({
+        error: punches.error || corrections.error || leave.error,
+        groups: [
+          {
+            label: "Flagged punches",
+            to: "/attendance?tab=today",
+            where: "Review them on Today, or in the day's drawer here",
+            items: punches.rows.filter((p) => p.review === "flagged").map((p) => `${name(p.user_id)}, ${dayLabel(p.day)}`),
+          },
+          {
+            label: "Pending corrections",
+            to: "/attendance?tab=corrections",
+            where: "Decide them in Corrections",
+            items: corrections.rows.map((c) => `${name(c.user_id)}, ${dayLabel(c.day)}`),
+          },
+          {
+            label: "Pending leave requests",
+            to: "/attendance?tab=leave-requests",
+            where: "Decide them in Leave requests",
+            items: leave.rows.map((l) => `${name(l.user_id)}, ${dayLabel(l.from_day)}${l.to_day !== l.from_day ? ` to ${dayLabel(l.to_day)}` : ""}`),
+          },
+        ].filter((g) => g.items.length),
+      })
+    })
+    return () => {
+      alive = false
+    }
+  }, [open, month, directory])
+  return state
+}
+
+function LockModal({ open, month, directory, onClose, onDone }) {
   const [note, setNote] = useState("")
   const [busy, setBusy] = useState(false)
+  const blockers = useLockBlockers(open, month, directory)
+  const blocked = !blockers || blockers.error || blockers.groups.length > 0
   const go = async () => {
     setBusy(true)
     try {
@@ -551,11 +614,32 @@ function LockModal({ open, month, onClose, onDone }) {
       footer={
         <div className="flex w-full justify-end gap-2">
           <Button size="sm" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button size="sm" onClick={go} disabled={busy}>{busy ? "Locking…" : "Lock month"}</Button>
+          <Button size="sm" onClick={go} disabled={busy || blocked}>{busy ? "Locking…" : "Lock month"}</Button>
         </div>
       }
     >
       <div className="space-y-4">
+        {!blockers ? (
+          <p className="text-sm text-muted-foreground">Checking the month for open items…</p>
+        ) : blockers.error ? (
+          <Banner tone="danger">Could not check the month: {blockers.error}</Banner>
+        ) : blockers.groups.length ? (
+          <div className="space-y-3">
+            <Banner tone="warning">Clear these first. The month cannot be locked while any of them is open.</Banner>
+            {blockers.groups.map((g) => (
+              <div key={g.label}>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-sm font-semibold text-foreground">{g.label} ({g.items.length})</span>
+                  <Link to={g.to} className="text-[13px] font-medium text-primary hover:underline" onClick={onClose}>Open</Link>
+                </div>
+                <p className="text-xs text-muted-foreground">{g.where}</p>
+                <ul className="mt-1 max-h-28 space-y-0.5 overflow-y-auto text-[13px] text-foreground">
+                  {g.items.map((t, i) => <li key={i}>{t}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : null}
         <p className="text-sm text-muted-foreground">
           Every day of the month is recalculated one last time, then frozen. No clock-in, correction or override can change it
           afterwards; only the Super Admin can unlock it, with a reason.

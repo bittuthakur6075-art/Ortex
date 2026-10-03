@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { toast } from "sonner"
 import { Upload, CheckCircle2, AlertTriangle } from "../../components/ui/Icons"
 import { repo } from "../../data/store/repository"
@@ -126,6 +126,7 @@ export default function TallyImport({ open, onClose }) {
   const [include, setInclude] = useState(() => Object.fromEntries(KINDS.map((k) => [k.key, true])))
   const [busy, setBusy] = useState("")
   const [summary, setSummary] = useState(null)
+  const fileInput = useRef(null)
 
   const reset = () => {
     setFiles([])
@@ -219,6 +220,9 @@ export default function TallyImport({ open, onClose }) {
   }
 
   const start = () => {
+    // These are the live books: imported payments are frozen and invoices with
+    // payments cannot be deleted, so a stray click must not start it.
+    if (!window.confirm(`Write ${toWrite} record${toWrite === 1 ? "" : "s"} to ${hasSupabase ? "the live books" : "this demo console"}? Imported payments can then be changed only by the Super Admin.`)) return
     setBusy("Starting")
     runImport().catch((e) => {
       setBusy("")
@@ -275,8 +279,8 @@ export default function TallyImport({ open, onClose }) {
           <section className="space-y-3">
             <h3 className="text-sm font-semibold text-foreground">1. Export from TallyPrime</h3>
             <HowToExport />
-            <label
-              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/20 p-6 text-center"
+            <div
+              className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/20 p-6 text-center"
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault()
@@ -286,8 +290,11 @@ export default function TallyImport({ open, onClose }) {
               <Upload className="h-6 w-6 text-primary" />
               <span className="text-sm font-medium text-foreground">Drop the XML files here, or choose them</span>
               <span className="text-xs text-muted-foreground">One or more .xml files. Day Book and masters can go together.</span>
-              <input type="file" accept=".xml,text/xml" multiple className="hidden" disabled={!!busy} onChange={(e) => { addFiles(e.target.files); e.target.value = "" }} />
-            </label>
+              <Button variant="outline" size="sm" disabled={!!busy} onClick={() => fileInput.current?.click()}>
+                Choose files
+              </Button>
+              <input ref={fileInput} type="file" accept=".xml,text/xml" multiple className="hidden" disabled={!!busy} onChange={(e) => { addFiles(e.target.files); e.target.value = "" }} />
+            </div>
             {parsed && (
               <ul className="space-y-1 text-xs text-muted-foreground">
                 {parsed.files.map((f) => (

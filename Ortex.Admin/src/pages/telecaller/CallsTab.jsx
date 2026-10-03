@@ -70,7 +70,7 @@ export default function CallsTab({ calls, onOpen }) {
               tabIndex={0}
               onClick={() => onOpen(c.id)}
               onKeyDown={(e) => e.key === "Enter" && onOpen(c.id)}
-              className={cn("cursor-pointer p-4 ring-1 ring-border/60 transition-shadow hover:shadow-md", live && "ring-warning/40")}
+              className={cn("cursor-pointer p-4 ring-1 ring-border/60 transition-colors hover:ring-primary/50", live && "ring-warning/40")}
             >
               <div className="flex items-start gap-3">
                 <Avatar name={c.contactName || "?"} />

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Link, useNavigate, useParams } from "react-router-dom"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 import {
   Inbox, ArrowLeft, PhoneOutgoing, MessageCircle, Mail, FileText, MoreHorizontal, Clock, UserCheck, Trash2, ImageIcon, ShieldCheck, Mic, Globe, ArrowRight, Calendar, Pencil, CheckCircle2, AlertTriangle,
@@ -7,6 +7,7 @@ import {
 import { repo } from "../data/store/repository"
 import { useCollection, useSettings } from "../hooks/useCollection"
 import { useProfile } from "../hooks/useProfile"
+import { isAdmin } from "../lib/roles"
 import { ENQUIRY_STATUS, LEAD_SOURCES, PRODUCT_CATEGORIES, QUOTATION_STATUS, newEnquiry } from "../data/domain/schema"
 import { sameCustomer } from "../data/domain/domain"
 import { enquiryAdvisories } from "../lib/advisories"
@@ -38,6 +39,7 @@ const stamp = (ts) =>
 export default function EnquiryDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { items, loading } = useCollection("enquiries")
   const { items: products } = useCollection("products")
   const { items: quotations } = useCollection("quotations")
@@ -63,15 +65,22 @@ export default function EnquiryDetail() {
     return digits ? items.filter((e) => e.source === "Voice assistant (Anu)" && (e.customer?.phone || "").replace(/\D/g, "").slice(-10) === digits) : []
   }, [items, enquiry])
 
-  // The list's order is not known here, so "next" walks the open leads by due date.
-  const siblings = useMemo(
-    () =>
-      items
-        .map((e) => buildLead(e, { products: [], quotations: [], now }))
-        .filter((x) => x.open)
-        .sort((a, b) => a.step.due - b.step.due),
-    [items, now],
-  )
+  // "Next lead" walks the order of the list this page was opened from (its ids
+  // arrive as router state); opened from anywhere else, the open leads by due date.
+  const listIds = location.state?.ids
+  const siblings = useMemo(() => {
+    if (Array.isArray(listIds) && listIds.length) {
+      const known = new Set(items.map((e) => e.id))
+      return listIds.filter((x) => known.has(x)).map((x) => ({ id: x }))
+    }
+    return items
+      .map((e) => buildLead(e, { products: [], quotations: [], now }))
+      .filter((x) => x.open)
+      .sort((a, b) => a.step.due - b.step.due)
+  }, [items, now, listIds])
+  // Back returns to the list as it was left (its view and filters are in the
+  // URL); a lead opened from a link with no history goes to the Leads list.
+  const back = () => (location.key !== "default" ? navigate(-1) : navigate("/crm"))
 
   if (loading) return <PageLoader />
   if (!enquiry || !l) {
@@ -96,12 +105,10 @@ export default function EnquiryDetail() {
   const ready = l.items.length > 0 && lines.every((ln) => ln.rate > 0) && (!gst || gst.ok)
   const quote = () => actions.quote({ ...e, rfqItems: l.items })
 
-  const remove = async () => {
-    if (!window.confirm("Delete this lead? This cannot be undone.")) return
-    await repo.remove("enquiries", e.id)
-    toast.success("Lead deleted")
-    navigate("/crm")
-  }
+  // Admins only, as on Voice calls. The database (0007 `staff_enquiries`) still
+  // lets anyone with the Leads module delete, so this gate is the console's.
+  const canDelete = isAdmin(profile)
+  const remove = () => actions.confirmDelete([e], () => navigate("/crm", { replace: true }))
 
   const tabs = [
     { key: "overview", label: "Overview" },
@@ -118,17 +125,17 @@ export default function EnquiryDetail() {
       {/* Breadcrumb */}
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-2 text-muted-foreground">
-          <Link to="/crm" aria-label="Back to leads" title="Back to leads" className="grid h-8 w-8 flex-none place-items-center rounded-full border border-line bg-card text-foreground transition-colors hover:border-primary/40 hover:text-primary">
+          <button type="button" onClick={back} aria-label="Back to leads" title="Back to leads" className="grid h-8 w-8 flex-none place-items-center rounded-full border border-line bg-card text-foreground transition-colors hover:border-primary/40 hover:text-primary">
             <ArrowLeft variant="Linear" className="h-4 w-4" />
-          </Link>
-          <Link to="/crm" className="hover:text-foreground">Leads</Link>
+          </button>
+          <button type="button" onClick={back} className="hover:text-foreground">Leads</button>
           <span>/</span>
           <span className="font-medium text-foreground">{e.reference || l.name || "Lead"}</span>
         </div>
         {pos >= 0 && siblings.length > 1 && (
           <div className="flex items-center gap-2 text-muted-foreground">
-            {pos + 1} of {siblings.length} open
-            <button type="button" onClick={() => navigate(`/enquiries/${nextSibling.id}`)} title="Next lead" className="grid h-8 w-8 place-items-center rounded-full border border-line bg-card text-foreground hover:border-primary/40 hover:text-primary">
+            {pos + 1} of {siblings.length}{listIds ? "" : " open"}
+            <button type="button" onClick={() => navigate(`/enquiries/${nextSibling.id}`, { state: location.state, replace: true })} title="Next lead" aria-label="Next lead" className="grid h-8 w-8 place-items-center rounded-full border border-line bg-card text-foreground hover:border-primary/40 hover:text-primary">
               <ArrowRight variant="Linear" className="h-4 w-4" />
             </button>
           </div>
@@ -142,7 +149,7 @@ export default function EnquiryDetail() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="truncate text-2xl font-semibold leading-8 tracking-[-0.01em] text-foreground">{l.name || "Unnamed caller"}</h1>
-              <button type="button" title={e.starred ? "Remove star" : "Star"} onClick={() => actions.patch(e, { starred: !e.starred })} className={cn("text-lg leading-none", e.starred ? "text-warning" : "text-line hover:text-warning")}>
+              <button type="button" title={e.starred ? "Remove star" : "Star"} aria-label="Star this lead" aria-pressed={!!e.starred} onClick={() => actions.patch(e, { starred: !e.starred })} className={cn("text-lg leading-none", e.starred ? "text-warning" : "text-muted-foreground hover:text-warning")}>
                 ★
               </button>
               <StatusDropdown value={status} statuses={ENQUIRY_STATUS} tones={STATUS_TONE} onChange={(s) => actions.setStatus(e, s)} />
@@ -190,9 +197,9 @@ export default function EnquiryDetail() {
             onPick={(s) => s !== status && actions.setStatus(e, s)}
           />
           {status !== "lost" && (
-            <button type="button" onClick={() => actions.setStatus(e, "lost")} className="squircle h-6 flex-none rounded-lg border border-destructive/30 px-2.5 text-xs font-medium text-destructive-text hover:bg-destructive/[0.06]">
+            <Button variant="dangerTonal" size="sm" className="flex-none" onClick={() => actions.setStatus(e, "lost")}>
               Close as lost
-            </button>
+            </Button>
           )}
         </div>
       </section>
@@ -229,7 +236,7 @@ export default function EnquiryDetail() {
             </div>
           </div>
           <div className="flex flex-none items-center gap-2">
-            <Button variant="outline" onClick={() => actions.followUp(e)}>
+            <Button variant="outline" onClick={(ev) => actions.pickFollowUp(e, ev.currentTarget)}>
               <Clock className="h-4 w-4" /> Snooze
             </Button>
             <Button variant="outline" onClick={(ev) => actions.pickOwner(e, ev.currentTarget)}>
@@ -357,8 +364,8 @@ export default function EnquiryDetail() {
           </RailCard>
 
           <section className="squircle grid grid-cols-2 gap-2 rounded-card bg-card p-4">
-            <MiniTile label={l.quote ? "Quoted" : "Est. value"} value={l.value > 0 ? rupees(l.value) : "—"} sub={l.quote ? l.quote.number : "excl. GST"} />
-            <MiniTile label="Units" value={l.units ? l.units.toLocaleString("en-IN") : "—"} sub={l.items.length ? `${l.items.length} line${l.items.length === 1 ? "" : "s"}` : e.productInterest || "not given"} />
+            <MiniTile label={l.quote ? "Quoted" : "Est. value"} value={l.value > 0 ? rupees(l.value) : "-"} sub={l.quote ? l.quote.number : "excl. GST"} />
+            <MiniTile label="Units" value={l.units ? l.units.toLocaleString("en-IN") : "-"} sub={l.items.length ? `${l.items.length} line${l.items.length === 1 ? "" : "s"}` : e.productInterest || "not given"} />
             <MiniTile label="Age" value={ageText(e, now)} sub={l.step?.overdue ? "overdue" : "since it came in"} danger={l.step?.overdue} />
             <MiniTile label="Buyer" value={history?.invoices.length ? "Repeat" : "New"} sub={history?.invoices.length ? `${history.invoices.length} invoice${history.invoices.length === 1 ? "" : "s"}` : "first order"} good={history?.invoices.length > 0} />
           </section>
@@ -375,7 +382,7 @@ export default function EnquiryDetail() {
               <Row
                 label="Follow-up"
                 value={l.step ? <span className={cn(l.step.overdue && "text-destructive-text")}>{dueLabel(l.step.due, now)}</span> : null}
-                action={l.step && <TextBtn onClick={() => actions.followUp(e)}>Tomorrow</TextBtn>}
+                action={<TextBtn onClick={(ev) => actions.pickFollowUp(e, ev.currentTarget)}>{l.step ? "Change" : "Set"}</TextBtn>}
               />
               <Row
                 label="Tags"
@@ -398,7 +405,7 @@ export default function EnquiryDetail() {
               <div className="grid grid-cols-3 gap-2">
                 <MiniTile label="Lifetime" value={compactRs(history.lifetime)} />
                 <MiniTile label="Invoices" value={history.invoices.length} />
-                <MiniTile label="Last order" value={history.last ? dayMonth(history.last) : "—"} />
+                <MiniTile label="Last order" value={history.last ? dayMonth(history.last) : "-"} />
               </div>
               <QuoteList quotes={history.quotes.filter((q) => q.enquiryId !== e.id).slice(0, 3)} onOpen={(q) => navigate("/quotations", { state: { openId: q.id } })} compact />
             </RailCard>
@@ -435,9 +442,11 @@ export default function EnquiryDetail() {
 
       <StickyActionBar
         left={
-          <button type="button" onClick={remove} className="squircle inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 font-medium text-destructive-text hover:bg-destructive/[0.06]">
-            <Trash2 className="h-3.5 w-3.5" /> Delete lead
-          </button>
+          canDelete && (
+            <Button variant="dangerGhost" size="sm" onClick={remove}>
+              <Trash2 className="h-3.5 w-3.5" /> Delete lead
+            </Button>
+          )
         }
       >
         <span className="inline-flex items-center gap-1.5 text-muted-foreground">
@@ -474,8 +483,8 @@ function AskedTable({ l, lines, gst }) {
   const e = l.e
   if (!l.items.length) {
     return (
-      <div className="squircle overflow-hidden rounded-xl border border-line">
-        <table className="w-full text-left text-[13px]">
+      <div className="squircle overflow-x-auto rounded-xl border border-line">
+        <table className="w-full min-w-[480px] text-left text-[13px]">
           <thead className="v2-head">
             <tr>
               <th>Item</th>
@@ -491,9 +500,9 @@ function AskedTable({ l, lines, gst }) {
                   <div className="font-medium text-foreground">{it.product}</div>
                   {it.notes && <div className="text-[11px] text-muted-foreground">{it.notes}</div>}
                 </td>
-                <td className="text-right tabular">{it.quantity || "—"}</td>
-                <td className="text-right tabular">{e.rate ? `₹${e.rate}` : "—"}</td>
-                <td className="text-right font-semibold tabular">{list.length === 1 && l.value > 0 && !l.quote ? rupees(l.value) : "—"}</td>
+                <td className="text-right tabular">{it.quantity || "-"}</td>
+                <td className="text-right tabular">{e.rate ? `₹${e.rate}` : "-"}</td>
+                <td className="text-right font-semibold tabular">{list.length === 1 && l.value > 0 && !l.quote ? rupees(l.value) : "-"}</td>
               </tr>
             ))}
           </tbody>
@@ -503,8 +512,8 @@ function AskedTable({ l, lines, gst }) {
   }
   const total = lines.reduce((s, ln) => s + (ln.rate || 0) * (Number(ln.quantity) || 0), 0)
   return (
-    <div className="squircle overflow-hidden rounded-xl border border-line">
-      <table className="w-full text-left text-[13px]">
+    <div className="squircle overflow-x-auto rounded-xl border border-line">
+      <table className="w-full min-w-[480px] text-left text-[13px]">
         <thead className="v2-head">
           <tr>
             <th>Item</th>
@@ -524,7 +533,7 @@ function AskedTable({ l, lines, gst }) {
                 </td>
                 <td className="text-right tabular">{Number(ln.quantity || 0).toLocaleString("en-IN")}</td>
                 <td className="text-right tabular">{ln.rate ? `₹${ln.rate.toFixed(2)}` : <span className="text-warning-text">No rate</span>}</td>
-                <td className="text-right font-semibold tabular">{ln.rate ? rupees(ln.rate * ln.quantity) : "—"}</td>
+                <td className="text-right font-semibold tabular">{ln.rate ? rupees(ln.rate * ln.quantity) : "-"}</td>
               </tr>
             )
           })}
@@ -566,7 +575,6 @@ function ActivityBox({ e, l, related, anuCalls, actions }) {
   const [mode, setMode] = useState("note")
   const [feed, setFeed] = useState("all")
   const [text, setText] = useState("")
-  const [date, setDate] = useState("")
 
   useEffect(() => {
     const on = (ev) => setMode(ev.detail)
@@ -592,23 +600,24 @@ function ActivityBox({ e, l, related, anuCalls, actions }) {
   const shown = feed === "all" ? entries : entries.filter((x) => KIND[x.kind]?.filter === feed)
   const current = COMPOSER.find((m) => m.key === mode)
 
-  const submit = async () => {
+  const submit = async (ev) => {
     const t = text.trim()
     if (mode === "followup") {
-      if (!date) return toast.error("Pick a date")
-      const when = new Date(`${date}T10:00`).toISOString()
-      await actions.logActivity(e, "followup", t || `Follow up on ${dayMonth(when)}`, { followUpAt: when, ...(t ? { nextStep: t } : {}) }, "Follow-up set")
-    } else {
-      if (!t) return toast.error("Write something first")
-      if (mode === "whatsapp") {
-        const href = waHref(e.customer?.phone)
-        if (!href) return toast.error("No WhatsApp number on this lead")
-        window.open(`${href}?text=${encodeURIComponent(t)}`, "_blank", "noopener")
-      }
-      await actions.logActivity(e, mode, t, {}, mode === "call" ? "Call logged" : mode === "whatsapp" ? "Logged" : "Note saved")
+      // The same follow-up menu as Snooze; the note rides along as the next step.
+      return actions.pickFollowUp(e, ev?.currentTarget, async (when) => {
+        await actions.logActivity(e, "followup", t || `Follow up on ${dayMonth(when)}`, { followUpAt: when, ...(t ? { nextStep: t } : {}) }, "Follow-up set")
+        setText("")
+      })
     }
+    if (!t) return toast.error("Write something first")
+    if (mode === "whatsapp") {
+      const href = waHref(e.customer?.phone)
+      if (!href) return toast.error("No WhatsApp number on this lead")
+      window.open(`${href}?text=${encodeURIComponent(t)}`, "_blank", "noopener")
+    }
+    // A logged call answers the follow-up that was due, as the preview's does.
+    await actions.logActivity(e, mode, t, mode === "call" ? { followUpAt: null } : {}, mode === "call" ? "Call logged" : mode === "whatsapp" ? "Logged" : "Note saved")
     setText("")
-    setDate("")
   }
 
   return (
@@ -640,9 +649,8 @@ function ActivityBox({ e, l, related, anuCalls, actions }) {
             placeholder={current.placeholder}
             rows={text.includes("\n") ? 3 : 1}
             className="min-h-9 min-w-[200px] flex-1 resize-none bg-transparent py-2 text-[13px] text-foreground outline-none placeholder:text-subtle-foreground"
-            onKeyDown={(ev) => ev.key === "Enter" && (ev.metaKey || ev.ctrlKey) && submit()}
+            onKeyDown={(ev) => ev.key === "Enter" && (ev.metaKey || ev.ctrlKey) && mode !== "followup" && submit()}
           />
-          {mode === "followup" && <Input type="date" value={date} onChange={(ev) => setDate(ev.target.value)} className="h-9 w-[150px]" />}
           {mode !== "followup" && (
             <AiWriter
               value={text}

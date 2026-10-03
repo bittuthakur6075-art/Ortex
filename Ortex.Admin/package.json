@@ -10,7 +10,7 @@
     "build": "node scripts/check-env.mjs production && vite build --mode production",
     "build:staging": "node scripts/check-env.mjs staging && vite build --mode staging",
     "build:production": "node scripts/check-env.mjs production && vite build --mode production",
-    "lint": "oxlint",
+    "lint": "oxlint && node scripts/ui-guard.mjs",
     "test": "vitest run",
     "preview": "vite preview",
     "check:functions": "npx --yes deno@2 check supabase/functions/*/index.ts supabase/functions/_shared/*.ts",

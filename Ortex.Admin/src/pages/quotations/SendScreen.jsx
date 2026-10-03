@@ -9,6 +9,7 @@ import { hasPhone, quotationFileName, quotationShareMessage } from "../../lib/qu
 import { quoteChecks, rupees } from "../../lib/salesWork"
 import { prettyPhone } from "../voice-leads/helpers"
 import { Initials } from "../../components/sales/ListParts"
+import { Button } from "../../components/ui/Ui"
 import { downloadPdf, sendQuotation, startWhatsAppShare } from "./actions"
 
 const dm = (ts) => new Date(ts).toLocaleDateString("en-IN", { day: "numeric", month: "short" })
@@ -47,6 +48,8 @@ export default function SendScreen({ q, settings, onClose, onEdit }) {
   const [kind, setKind] = useState(sent ? "reminder" : "first")
   const [message, setMessage] = useState("")
   const [busy, setBusy] = useState(false)
+  // A failed blocking check turns Send into "Send anyway", one more click.
+  const [anyway, setAnyway] = useState(false)
 
   useEffect(() => {
     if (q) setMessage(template(kind, q, settings))
@@ -70,9 +73,14 @@ export default function SendScreen({ q, settings, onClose, onEdit }) {
   const log = [...(q.sendLog || [])].reverse()
   const lastSent = q.sentAt || log[0]?.at
   const bad = checks.filter((x) => !x.ok)
+  const blocking = bad.filter((x) => !x.warn)
 
   const send = async () => {
     if (busy) return
+    if (blocking.length && !anyway) {
+      setAnyway(true)
+      return
+    }
     setBusy(true)
     try {
       const ok = channel === "whatsapp" ? await startWhatsAppShare(q, settings, message) : await sendQuotation(q, settings)
@@ -238,19 +246,32 @@ export default function SendScreen({ q, settings, onClose, onEdit }) {
 
         <div className="flex flex-none items-center gap-2 border-t border-border px-5 py-3">
           {channel === "copy" ? (
-            <button type="button" onClick={copy} className="squircle flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary text-[14px] font-semibold text-primary-foreground hover:bg-primary-hover">
+            <Button className="flex-1" onClick={copy}>
               <Copy className="h-4 w-4" /> Copy message
-            </button>
+            </Button>
           ) : (
-            <>
-              <button type="button" onClick={copy} disabled={channel === "email"} className="squircle h-11 flex-none rounded-xl border border-line px-4 text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-40">
-                Copy
-              </button>
-              <button type="button" onClick={send} disabled={busy} className="squircle flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary text-[14px] font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-60">
-                {channel === "whatsapp" ? <MessageCircle className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-                {busy ? "Preparing…" : channel === "whatsapp" ? "Send on WhatsApp" : "Send email"}
-              </button>
-            </>
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              {anyway && blocking.length > 0 && (
+                <p role="alert" className="text-xs text-destructive-text">
+                  {blocking.length === 1 ? blocking[0].text : `${blocking.length} checks above are not met.`} Send it anyway?
+                </p>
+              )}
+              <div className="flex items-center gap-2">
+                {anyway ? (
+                  <Button variant="outline" className="flex-none" onClick={() => setAnyway(false)}>
+                    Cancel
+                  </Button>
+                ) : (
+                  <Button variant="outline" className="flex-none" onClick={copy} disabled={channel === "email"}>
+                    Copy
+                  </Button>
+                )}
+                <Button variant={anyway ? "danger" : "primary"} className="flex-1" onClick={send} disabled={busy}>
+                  {channel === "whatsapp" ? <MessageCircle className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+                  {busy ? "Preparing…" : anyway ? "Send anyway" : channel === "whatsapp" ? "Send on WhatsApp" : "Send email"}
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       </aside>
@@ -261,8 +282,8 @@ export default function SendScreen({ q, settings, onClose, onEdit }) {
 
 function ToolbarBtn({ icon: Icon, onClick, children }) {
   return (
-    <button type="button" onClick={onClick} className="squircle hidden h-9 items-center gap-2 rounded-[10px] border border-line bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted md:inline-flex">
+    <Button variant="outline" size="sm" onClick={onClick} className="hidden md:inline-flex">
       <Icon className="h-4 w-4 text-muted-foreground" /> {children}
-    </button>
+    </Button>
   )
 }

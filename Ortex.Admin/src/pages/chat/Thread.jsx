@@ -33,12 +33,14 @@ export default function Thread({ conv, meId, profile, presence, onBack, onInfo }
   const scroller = useRef(null)
   const atBottom = useRef(true)
   const prevHeight = useRef(0)
+  const lastId = useRef(null)
+  const [newBelow, setNewBelow] = useState(false) // arrived while scrolled up
 
   const members = useMemo(() => new Map((conv.members || []).map((m) => [m.id, m])), [conv.members])
   const sections = useMemo(() => threadSections(thread.messages), [thread.messages])
   const byId = useMemo(() => new Map(thread.messages.map((m) => [m.id, m])), [thread.messages])
 
-  useEffect(() => { setReplyTo(null); setEditing(null); atBottom.current = true }, [conv.id])
+  useEffect(() => { setReplyTo(null); setEditing(null); setNewBelow(false); atBottom.current = true }, [conv.id])
 
   // Stick to the bottom as messages arrive, unless the reader has scrolled up.
   useLayoutEffect(() => {
@@ -50,12 +52,17 @@ export default function Thread({ conv, meId, profile, presence, onBack, onInfo }
       el.scrollTop = el.scrollHeight
     }
     prevHeight.current = el.scrollHeight
+    // A new LAST message while the reader is up the thread: offer the pill.
+    const last = thread.messages[thread.messages.length - 1]?.id || null
+    if (last && lastId.current && last !== lastId.current && !atBottom.current) setNewBelow(true)
+    lastId.current = last
   }, [thread.messages, assistant.thinking, assistant.steps])
 
   const onScroll = async () => {
     const el = scroller.current
     if (!el) return
     atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    if (atBottom.current) setNewBelow(false)
     if (el.scrollTop < 40 && thread.hasMore && !thread.loading) {
       prevHeight.current = el.scrollHeight
       await thread.loadOlder().catch(() => {})
@@ -156,6 +163,20 @@ export default function Thread({ conv, meId, profile, presence, onBack, onInfo }
         </div>
       </header>
 
+      <div className="relative flex min-h-0 flex-1 flex-col">
+      {newBelow && (
+        <Button
+          size="sm"
+          className="absolute bottom-3 left-1/2 z-[2] -translate-x-1/2"
+          onClick={() => {
+            const el = scroller.current
+            if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })
+            setNewBelow(false)
+          }}
+        >
+          New messages
+        </Button>
+      )}
       <div ref={scroller} onScroll={onScroll} className="scroll-thin min-h-0 flex-1 overflow-y-auto bg-subtle px-4 py-3 sm:px-6">
         {thread.loading && <ThreadSkeleton />}
         {thread.error && <p className="py-10 text-center text-sm text-destructive-text">{thread.error}</p>}
@@ -216,6 +237,7 @@ export default function Thread({ conv, meId, profile, presence, onBack, onInfo }
             <button type="button" onClick={assistant.clearError} className="font-semibold hover:underline">Dismiss</button>
           </div>
         )}
+      </div>
       </div>
 
       {/* The database refuses it too (chat_send, migration 0069). */}

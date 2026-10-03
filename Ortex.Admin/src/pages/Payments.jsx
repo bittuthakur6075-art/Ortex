@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import {
-  MoneyIn, MoneyOut, WalletMoney, Bank, Cash, CreditCard, CardPos, Cheque, Smartphone, Wallet, ReceiptText, Trash2, Search,
+  MoneyIn, MoneyOut, WalletMoney, Bank, Cash, CreditCard, CardPos, Cheque, Smartphone, Wallet, ReceiptText, Trash2, Search, Pencil,
 } from "../components/ui/Icons"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
 import { removePayment, receiptAllocation } from "../data/domain/domain"
@@ -49,7 +49,14 @@ export default function Payments() {
     navigate(location.pathname + location.search, { replace: true })
   }, [location.state, navigate, location.pathname, location.search])
   const [receiptFor, setReceiptFor] = useState(null)
+  const [editing, setEditing] = useState(null)
   const [sort, onSort] = useSorting("date", true)
+
+  // Migration 0066 refuses a change to a payment already in Tally for anyone
+  // but the Super Admin: say so instead of opening a form that cannot save.
+  const LOCKED = "Already in Tally. Only the Super Admin can change it, and it must be changed in Tally too."
+  const locked = (p) => p.tally?.status === "synced" && !superAdmin
+  const edit = (p) => (locked(p) ? toast.info(LOCKED) : setEditing(p))
 
   const filtered = useMemo(() => {
     let rows = items
@@ -187,7 +194,7 @@ export default function Payments() {
                   <SortTh sortKey="method" sort={sort} onSort={onSort}>Method</SortTh>
                   <SortTh sortKey="invoiceNumber" sort={sort} onSort={onSort}>Invoice</SortTh>
                   <SortTh sortKey="amount" sort={sort} onSort={onSort} align="right">Amount</SortTh>
-                  <th className="w-24 px-4 py-3" />
+                  <th className="w-32"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody className="mt-body">
@@ -195,7 +202,13 @@ export default function Payments() {
                   const inflow = p.type === "inflow"
                   const MethodIcon = METHOD_ICON[p.method] || Wallet
                   return (
-                    <tr key={p.id} className="group transition-colors hover:bg-subtle">
+                    <tr
+                      key={p.id}
+                      className="group cursor-pointer transition-colors hover:bg-subtle"
+                      tabIndex={0}
+                      onClick={() => edit(p)}
+                      onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && edit(p)}
+                    >
                       <td className="whitespace-nowrap px-4 py-3">
                         <div className="text-foreground">{formatDate(p.date)}</div>
                         <div className="text-xs tabular text-muted-foreground">{p.number}</div>
@@ -220,7 +233,10 @@ export default function Payments() {
                           <button
                             type="button"
                             className="font-medium tabular text-primary hover:underline"
-                            onClick={() => navigate("/billing?tab=invoices", { state: { openId: p.invoiceId } })}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate("/billing?tab=invoices", { state: { openId: p.invoiceId } })
+                            }}
                           >
                             {p.invoiceNumber}
                           </button>
@@ -234,13 +250,25 @@ export default function Payments() {
                           {formatCurrency(p.amount)}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1 opacity-60 transition-opacity group-hover:opacity-100">
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1 opacity-60 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                           {inflow && (
                             <Button onClick={() => setReceiptFor(p)} variant="ghost" size="sm" icon className="text-muted-foreground" title="Receipt" aria-label="Receipt">
                               <ReceiptText className="h-4 w-4" />
                             </Button>
                           )}
+                          <Button
+                            onClick={() => edit(p)}
+                            disabled={locked(p)}
+                            variant="ghost"
+                            size="sm"
+                            icon
+                            className="text-muted-foreground"
+                            title={locked(p) ? LOCKED : "Edit"}
+                            aria-label={locked(p) ? LOCKED : "Edit"}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                           {/* Migration 0066 refuses it for anyone else: a payment in Tally is changed there. */}
                           {(p.tally?.status !== "synced" || superAdmin) && (
                             <Button onClick={() => remove(p)} variant="dangerGhost" size="sm" icon className="text-muted-foreground" title="Delete" aria-label="Delete">
@@ -265,6 +293,16 @@ export default function Payments() {
           payments={items}
           onClose={() => setNewPayment(null)}
           onDone={() => setNewPayment(null)}
+        />
+      )}
+
+      {editing && (
+        <RecordPaymentModal
+          payment={editing}
+          invoices={invoices}
+          payments={items}
+          onClose={() => setEditing(null)}
+          onDone={() => setEditing(null)}
         />
       )}
 

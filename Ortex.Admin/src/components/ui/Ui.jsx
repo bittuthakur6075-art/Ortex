@@ -1,4 +1,4 @@
-import { Children, isValidElement, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { Children, Fragment, cloneElement, isValidElement, useCallback, useId, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { X, ArrowUpDown, ArrowDownLeft, CheckCircle2, Loader2, Search, Download, Pencil } from "./Icons"
 import { cn } from "../../lib/cn"
@@ -60,6 +60,10 @@ function btnSize(size, icon) {
 }
 
 export function Button({ variant = "primary", size = "md", icon = false, squircle = true, className, children, ...props }) {
+  if (import.meta.env.DEV) {
+    if (!BTN_SIZES[size]) console.error(`Button: unknown size "${size}". Use sm, md or lg.`)
+    if (icon && !props["aria-label"] && !props["aria-labelledby"] && !props.title) console.error("Button: an icon-only button needs an aria-label or title.")
+  }
   return (
     <button
       className={cn(
@@ -528,17 +532,28 @@ function childText(node) {
   return String(node)
 }
 
+// A single element child is wired to the label, hint and error: it gets an id
+// (its own wins), aria-describedby for the message and aria-invalid on error.
+// Anything else (text, several children, a fragment) renders untouched.
 export function Field({ label, hint, error, required, className, children }) {
+  const id = useId()
+  const only = isValidElement(children) && children.type !== Fragment ? children : null
+  const controlId = only?.props.id || `${id}-control`
+  const msgId = `${id}-msg`
+  const describedBy = [only?.props["aria-describedby"], (error || hint) && msgId].filter(Boolean).join(" ")
+  const control = only
+    ? cloneElement(only, { id: controlId, "aria-describedby": describedBy || undefined, ...(error ? { "aria-invalid": true } : null) })
+    : children
   return (
     <div className={className}>
       {label && (
-        <label className="mb-1.5 block text-sm font-normal text-foreground">
+        <label htmlFor={only ? controlId : undefined} className="mb-1.5 block text-sm font-normal text-foreground">
           {label} {required && <span className="text-destructive-text">*</span>}
         </label>
       )}
-      {children}
-      {hint && !error && <p className="mt-1 text-xs text-subtle-foreground">{hint}</p>}
-      {error && <p className="mt-1 text-xs text-destructive-text">{error}</p>}
+      {control}
+      {hint && !error && <p id={msgId} className="mt-1 text-xs text-subtle-foreground">{hint}</p>}
+      {error && <p id={msgId} className="mt-1 text-xs text-destructive-text">{error}</p>}
     </div>
   )
 }
@@ -665,8 +680,9 @@ export function TableWrap({ className, children }) {
 export function SortTh({ children, sortKey, sort, onSort, className, align = "left" }) {
   const active = sort?.key === sortKey
   return (
-    <th className={cn(align === "right" && "text-right", className)}>
+    <th aria-sort={active ? (sort.desc ? "descending" : "ascending") : "none"} className={cn(align === "right" && "text-right", className)}>
       <button
+        type="button"
         onClick={() => onSort(sortKey)}
         className={cn("inline-flex items-center gap-1.5 transition-colors hover:text-foreground", active ? "text-foreground" : "text-secondary-foreground")}
       >
@@ -678,33 +694,45 @@ export function SortTh({ children, sortKey, sort, onSort, className, align = "le
 }
 
 // Metronic table footer: rows-per-page left, "1 - 5 of 15" + pager right.
-export function TableFooter({ page = 1, pageCount = 1, total = 0, pageSize = 10, onPage, className }) {
+// `onPageSize` makes rows-per-page a real choice; without it the size is just stated.
+export function TableFooter({ page = 1, pageCount = 1, total = 0, pageSize = 10, pageSizes = [10, 25, 50, 100], onPage, onPageSize, className }) {
   if (!total) return null
   const from = (page - 1) * pageSize + 1
   const to = Math.min(page * pageSize, total)
   const pages = Array.from({ length: pageCount }, (_, i) => i + 1).filter((p) => Math.abs(p - page) <= 1 || p === 1 || p === pageCount)
   return (
     <div className={cn("flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-3 text-[13px] text-muted-foreground", className)}>
-      <span>
-        Rows per page <span className="ml-1 inline-flex h-8 items-center rounded-btn border border-input bg-card px-2.5 text-foreground">{pageSize}</span>
-      </span>
+      {onPageSize ? (
+        <span className="flex items-center gap-2">
+          Rows per page
+          <span className="w-20">
+            <Select aria-label="Rows per page" value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))}>
+              {pageSizes.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </Select>
+          </span>
+        </span>
+      ) : (
+        <span className="tabular">{pageSize} rows per page</span>
+      )}
       <div className="flex items-center gap-2.5">
         <span className="tabular">
-          {from} - {to} of {total}
+          {from}–{to} of {total}
         </span>
         <div className="flex items-center gap-1">
-          <button type="button" disabled={page <= 1} onClick={() => onPage?.(page - 1)} className="squircle grid h-[30px] w-[30px] place-items-center rounded-btn-sm text-foreground hover:bg-accent disabled:opacity-40">
+          <button type="button" disabled={page <= 1} onClick={() => onPage?.(page - 1)} aria-label="Previous page" className="squircle grid h-[30px] w-[30px] place-items-center rounded-btn-sm text-foreground hover:bg-accent disabled:opacity-40">
             ‹
           </button>
           {pages.map((p, i) => (
             <span key={p} className="contents">
-              {i > 0 && pages[i - 1] !== p - 1 && <span className="px-1">…</span>}
-              <button type="button" onClick={() => onPage?.(p)} className={cn("squircle grid h-[30px] min-w-[30px] place-items-center rounded-btn-sm px-2 text-xs tabular hover:bg-accent", p === page && "bg-accent font-medium text-foreground")}>
+              {i > 0 && pages[i - 1] !== p - 1 && <span className="px-1" aria-hidden="true">…</span>}
+              <button type="button" onClick={() => onPage?.(p)} aria-label={`Page ${p}`} aria-current={p === page ? "page" : undefined} className={cn("squircle grid h-[30px] min-w-[30px] place-items-center rounded-btn-sm px-2 text-xs tabular hover:bg-accent", p === page && "bg-accent font-medium text-foreground")}>
                 {p}
               </button>
             </span>
           ))}
-          <button type="button" disabled={page >= pageCount} onClick={() => onPage?.(page + 1)} className="squircle grid h-[30px] w-[30px] place-items-center rounded-btn-sm text-foreground hover:bg-accent disabled:opacity-40">
+          <button type="button" disabled={page >= pageCount} onClick={() => onPage?.(page + 1)} aria-label="Next page" className="squircle grid h-[30px] w-[30px] place-items-center rounded-btn-sm text-foreground hover:bg-accent disabled:opacity-40">
             ›
           </button>
         </div>
@@ -715,13 +743,72 @@ export function TableFooter({ page = 1, pageCount = 1, total = 0, pageSize = 10,
 
 // ---- Overlays: Drawer + Modal ----------------------------------------------
 
-function useEscape(onClose, active) {
+// One stack for every open overlay (Drawer, Modal, the command palette, the
+// phone nav), so Escape closes only the one on top and Tab never wanders
+// behind it.
+const overlayStack = []
+const FOCUSABLE = "a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex=\"-1\"])"
+
+// Makes the element behind the returned ref a modal dialog while `open`: focus
+// moves into it (unless something inside already took it, an autoFocus field),
+// Tab cycles inside it, Escape calls `onEscape` when it is the topmost overlay,
+// and focus goes back to whatever opened it on close. The caller adds
+// role="dialog", aria-modal and a label to the element itself.
+export function useDialog(open, onEscape) {
+  const ref = useRef(null)
+  const escape = useRef(onEscape)
+  useLayoutEffect(() => {
+    escape.current = onEscape
+  })
   useEffect(() => {
-    if (!active) return
-    const onKey = (e) => e.key === "Escape" && onClose()
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [onClose, active])
+    if (!open) return undefined
+    const token = {}
+    overlayStack.push(token)
+    const opener = document.activeElement
+    const panel = ref.current
+    if (panel && !panel.contains(document.activeElement)) panel.focus({ preventScroll: true })
+    const onKey = (e) => {
+      if (overlayStack[overlayStack.length - 1] !== token || !ref.current) return
+      // A control inside that handled the key itself (a Select closing its
+      // list) has already called preventDefault: leave the dialog open.
+      if (e.key === "Escape" && !e.defaultPrevented) {
+        e.stopPropagation()
+        escape.current?.()
+      } else if (e.key === "Tab") {
+        const items = [...ref.current.querySelectorAll(FOCUSABLE)].filter((el) => el.getClientRects().length > 0)
+        if (!items.length) {
+          e.preventDefault()
+          return
+        }
+        const first = items[0]
+        const last = items[items.length - 1]
+        const at = document.activeElement
+        if (!ref.current.contains(at)) {
+          e.preventDefault()
+          ;(e.shiftKey ? last : first).focus()
+        } else if (e.shiftKey && (at === first || at === ref.current)) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && at === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      overlayStack.splice(overlayStack.indexOf(token), 1)
+      if (opener && opener !== document.body && document.contains(opener)) opener.focus?.({ preventScroll: true })
+    }
+  }, [open])
+  return ref
+}
+
+// `dirty` overlays ask before throwing work away from Escape, the scrim or the
+// close button. Saving goes through the caller, never through this.
+function confirmDiscard(dirty) {
+  return !dirty || window.confirm("Discard your changes?")
 }
 
 export function CloseButton({ onClick, className, label = "Close" }) {
@@ -740,8 +827,8 @@ export function CloseButton({ onClick, className, label = "Close" }) {
   )
 }
 
-// Dimmed scrim shared by overlays.
-function Scrim({ onClick, leaving }) {
+// Dimmed scrim shared by every overlay (Drawer, Modal, palette, phone nav).
+export function Scrim({ onClick, leaving }) {
   return <div className={cn("absolute inset-0 bg-black/50", leaving ? "animate-fade-out" : "animate-fade-in")} onClick={onClick} />
 }
 
@@ -755,8 +842,9 @@ const DRAWER_OUT_MS = 200
 // Closing slides the panel back out before `onClose` runs. `footer` may be a
 // function of that animated close, `(close) => ...`, and `close(then)` runs
 // `then` instead of `onClose` once the panel is out (a save that calls onDone).
-export function Drawer({ open, onClose, title, subtitle, children, footer, width = "max-w-lg", bodyClassName }) {
+export function Drawer({ open, onClose, title, subtitle, children, footer, width = "max-w-lg", bodyClassName, dirty = false }) {
   const [leaving, setLeaving] = useState(false)
+  const titleId = useId()
   const close = useCallback(
     (then) => {
       setLeaving(true)
@@ -767,18 +855,28 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, width
     },
     [onClose],
   )
-  useEscape(close, open && !leaving)
+  const ask = () => {
+    if (!leaving && confirmDiscard(dirty)) close()
+  }
+  const panelRef = useDialog(open, ask)
   if (!open) return null
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
-      <Scrim onClick={() => close()} leaving={leaving} />
-      <div className={cn("relative flex h-full w-full flex-col border-l border-border bg-card shadow-xl", leaving ? "animate-drawer-out" : "animate-drawer-in", width)}>
+      <Scrim onClick={ask} leaving={leaving} />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        tabIndex={-1}
+        className={cn("relative flex h-full w-full flex-col border-l border-border bg-card shadow-xl outline-none", leaving ? "animate-drawer-out" : "animate-drawer-in", width)}
+      >
         <div className="flex min-h-14 items-start justify-between gap-3 border-b border-border px-5 py-3.5">
           <div className="min-w-0">
-            {typeof title === "string" ? <h2 className="truncate text-base font-semibold tracking-tight text-foreground">{title}</h2> : title}
+            {typeof title === "string" ? <h2 id={titleId} className="truncate text-base font-semibold tracking-tight text-foreground">{title}</h2> : <div id={titleId}>{title}</div>}
             {subtitle && <p className="mt-0.5 text-[13px] text-muted-foreground">{subtitle}</p>}
           </div>
-          <CloseButton onClick={() => close()} />
+          <CloseButton onClick={ask} />
         </div>
         <div className={cn("scroll-thin flex-1 overflow-y-auto p-5", bodyClassName)}>{children}</div>
         {footer && <div className="border-t border-border px-5 py-3.5">{typeof footer === "function" ? footer(close) : footer}</div>}
@@ -788,22 +886,31 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, width
   )
 }
 
-export function Modal({ open, onClose, title, children, footer, width = "max-w-lg" }) {
-  useEscape(onClose, open)
+export function Modal({ open, onClose, title, children, footer, width = "max-w-lg", dirty = false }) {
+  const titleId = useId()
+  const ask = () => {
+    if (confirmDiscard(dirty)) onClose?.()
+  }
+  const panelRef = useDialog(open, ask)
   if (!open) return null
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-5">
-      <Scrim onClick={onClose} />
+      <Scrim onClick={ask} />
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        tabIndex={-1}
         className={cn(
-          "relative flex max-h-[calc(100vh-40px)] w-full flex-col overflow-hidden rounded-card border border-border bg-card shadow-overlay-lg animate-pop-in",
+          "relative flex max-h-[calc(100vh-40px)] w-full flex-col overflow-hidden rounded-card border border-border bg-card shadow-overlay-lg outline-none animate-pop-in",
           width,
         )}
       >
         {title && (
           <div className="flex min-h-14 items-center justify-between gap-3 border-b border-border px-5 py-3">
-            <h2 className="text-base font-semibold tracking-tight text-foreground">{title}</h2>
-            <CloseButton onClick={onClose} />
+            <h2 id={titleId} className="text-base font-semibold tracking-tight text-foreground">{title}</h2>
+            <CloseButton onClick={ask} />
           </div>
         )}
         <div className="scroll-thin flex-1 overflow-y-auto px-5 pb-5 pt-4">{children}</div>
@@ -817,11 +924,13 @@ export function Modal({ open, onClose, title, children, footer, width = "max-w-l
 // ---- Filter chips / segmented control --------------------------------------
 
 // Metronic filter toggle: an outline button that fills blue when active.
-export function Chip({ active, onClick, children, className }) {
+export function Chip({ active, onClick, children, className, ...props }) {
   return (
     <button
       type="button"
+      aria-pressed={Boolean(active)}
       onClick={onClick}
+      {...props}
       className={cn(
         "inline-flex h-[38px] items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors",
         active ? "bg-primary/10 text-primary" : "text-secondary-foreground hover:bg-muted",
@@ -834,20 +943,21 @@ export function Chip({ active, onClick, children, className }) {
 }
 
 // Track for a row of Chips: one white 45px pill holding the 40px options.
-export function ChipGroup({ className, children }) {
-  return <div className={cn("inline-flex h-[45px] max-w-full items-center gap-1 overflow-x-auto rounded-full bg-card px-[5px]", className)}>{children}</div>
+export function ChipGroup({ className, children, ...props }) {
+  return <div {...props} className={cn("inline-flex h-[45px] max-w-full items-center gap-1 overflow-x-auto rounded-full bg-card px-[5px]", className)}>{children}</div>
 }
 
 // Segmented control (Metronic tab-toggle): options in one bordered pill.
 export function Segmented({ items, value, onChange, size = "sm", className }) {
   return (
-    <div className={cn("inline-flex items-center gap-0.5 rounded-btn border border-input bg-card p-0.5 shadow-sm", className)}>
+    <div role="group" className={cn("inline-flex items-center gap-0.5 rounded-btn border border-input bg-card p-0.5 shadow-sm", className)}>
       {items.map((it) => {
         const active = it.value === value
         return (
           <button
             key={it.value}
             type="button"
+            aria-pressed={active}
             onClick={() => onChange(it.value)}
             className={cn(
               "inline-flex items-center gap-1.5 whitespace-nowrap rounded-[4px] font-medium transition-colors",
@@ -872,13 +982,15 @@ export function Segmented({ items, value, onChange, size = "sm", className }) {
 // Metronic tabs: 14px medium, blue text + 2px blue underline when active.
 export function Tabs({ items, value, onChange, className }) {
   return (
-    <div className={cn("flex items-center gap-6 overflow-x-auto border-b border-border", className)}>
+    <div role="tablist" className={cn("flex items-center gap-6 overflow-x-auto border-b border-border", className)}>
       {items.map((it) => {
         const active = it.value === value
         return (
           <button
             key={it.value}
             type="button"
+            role="tab"
+            aria-selected={active}
             onClick={() => onChange(it.value)}
             className={cn(
               "relative inline-flex h-11 items-center gap-2 whitespace-nowrap border-b-2 text-sm font-medium transition-colors duration-[120ms]",
@@ -923,11 +1035,11 @@ export function Switch({ checked, onChange, label, disabled }) {
 // the hub-level switch.
 export function PillTabs({ items, value, onChange, className }) {
   return (
-    <ChipGroup className={cn("min-w-0 self-start", className)}>
+    <ChipGroup role="tablist" className={cn("min-w-0 self-start", className)}>
       {items.map((it) => {
         const active = it.value === value
         return (
-          <Chip key={it.value} active={active} onClick={() => onChange(it.value)}>
+          <Chip key={it.value} active={active} role="tab" aria-selected={active} aria-pressed={undefined} onClick={() => onChange(it.value)}>
             {it.icon && <it.icon className={cn("h-4 w-4 flex-none", active ? "text-primary" : "text-muted-foreground")} />}
             {it.label}
             {it.count != null && <span className={cn("tabular", active ? "text-primary/70" : "text-muted-foreground")}>({it.count})</span>}

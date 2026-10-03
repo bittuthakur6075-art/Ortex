@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { leadNextStep, leadGroup, dueLabel, quoteFollowUp, quoteStatus, validityLeft, leadFlags, quoteChecks, DAY, HOUR } from "./salesWork"
+import { leadNextStep, leadGroup, dueLabel, quoteFollowUp, quoteStatus, validityLeft, leadFlags, quoteChecks, snoozePresets, DAY, HOUR } from "./salesWork"
 
 const now = new Date("2026-09-27T11:00:00+05:30").getTime()
 const iso = (t) => new Date(t).toISOString()
@@ -79,5 +79,20 @@ describe("quoteChecks", () => {
     const q = { customer: { name: "Kavya" }, lines: [{ description: "Kit box, kraft", quantity: 1, gstRate: 18, discountPercent: 6 }], validUntil: iso(now - 2 * DAY) }
     const bad = quoteChecks(q, settings, now).filter((c) => !c.ok).map((c) => c.key)
     expect(bad).toEqual(["gst", "hsn", "discount", "validity"])
+  })
+})
+
+describe("snoozePresets", () => {
+  it("offers later today in the morning, every preset in the future", () => {
+    const t = new Date(2026, 8, 27, 11, 20).getTime()
+    const p = snoozePresets(t)
+    expect(p.map((x) => x.key)).toEqual(["later", "tomorrow", "3days", "week"])
+    expect(new Date(p[0].at).getHours()).toBe(14)
+    expect(p.every((x) => new Date(x.at).getTime() > t)).toBe(true)
+  })
+
+  it("drops later today when three hours on is tomorrow", () => {
+    const t = new Date(2026, 8, 27, 22, 0).getTime()
+    expect(snoozePresets(t).map((x) => x.key)).toEqual(["tomorrow", "3days", "week"])
   })
 })

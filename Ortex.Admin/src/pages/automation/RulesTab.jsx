@@ -68,7 +68,7 @@ export default function RulesTab({ rules, templateNameFor, onEdit, onDelete }) {
                       <Button variant="outline" size="sm" onClick={() => onEdit(rule)}>
                         Edit
                       </Button>
-                      <Button variant="dangerGhost" size="sm" icon onClick={() => onDelete(rule.id)}>
+                      <Button variant="dangerGhost" size="sm" icon onClick={() => onDelete(rule.id)} aria-label={`Delete ${rule.name}`} title="Delete rule">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

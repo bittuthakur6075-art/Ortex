@@ -62,18 +62,18 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
         <table className="w-full min-w-[640px] table-fixed text-left text-sm">
           <thead className="mt-head">
             <tr>
-              <th className="w-9 px-2 py-2.5 text-center">#</th>
-              <th className="px-2 py-2.5">Item · HSN</th>
-              <th className="w-[80px] px-2 py-2.5 text-right">Qty</th>
-              <th className="w-[62px] px-2 py-2.5">Unit</th>
-              <th className="w-[84px] px-2 py-2.5 text-right">Rate</th>
-              <th className="w-[60px] px-2 py-2.5 text-right">Disc %</th>
-              <th className="w-[76px] px-2 py-2.5 text-right">GST %</th>
-              <th className="w-[100px] px-2 py-2.5 text-right">Amount</th>
-              <th className="w-9 px-1 py-2.5" />
+              <th className="w-9 text-center">#</th>
+              <th>Item · HSN</th>
+              <th className="w-[80px] text-right">Qty</th>
+              <th className="w-[62px]">Unit</th>
+              <th className="w-[84px] text-right">Rate</th>
+              <th className="w-[60px] text-right">Disc %</th>
+              <th className="w-[76px] text-right">GST %</th>
+              <th className="w-[100px] text-right">Amount</th>
+              <th className="w-9" />
             </tr>
           </thead>
-          <tbody>
+          <tbody className="mt-body">
             {lines.length === 0 && (
               <tr>
                 <td colSpan={9} className="px-3 py-8 text-center text-[13px] text-muted-foreground">
@@ -85,9 +85,9 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
               const computed = totals.lines[i]
               return (
                 <Fragment key={i}>
-                <tr className="align-top border-t border-border first:border-t-0">
+                <tr className="align-top">
                   <td rowSpan={2} className="px-2 py-3 text-center text-xs text-subtle-foreground tabular">{i + 1}</td>
-                  <td colSpan={8} className="px-2 pb-1.5 pt-2.5">
+                  <td colSpan={8} className="px-2 pb-1.5 pt-2.5" style={{ borderBottom: 0 }}>
                     <div className="flex flex-col gap-1.5 sm:flex-row">
                     <div className="min-w-0 sm:w-[45%]">
                     <Select
@@ -144,7 +144,7 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
                       className={cn(num, line.productId && !Number(line.rate) && "border-warning")}
                       title={
                         line.productId && !Number(line.rate)
-                          ? "This product has no base price in the catalogue. Set one under Catalog, or type the rate here."
+                          ? "This product has no base price in the catalogue. Set one under Catalogue, or type the rate here."
                           : undefined
                       }
                     />

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react"
 import { createPortal } from "react-dom"
 import { useNavigate } from "react-router-dom"
 import { Search, ArrowRight, Users, FileText, ReceiptIndianRupee, Inbox, Headset, Package } from "../ui/Icons"
-import { Kbd } from "../ui/Ui"
+import { Kbd, Scrim, useDialog } from "../ui/Ui"
 import { useCollections } from "../../hooks/useCollection"
 import { useProfile } from "../../hooks/useProfile"
 import { canAccess } from "../../data/domain/modules"
@@ -14,6 +14,10 @@ import { cn } from "../../lib/cn"
 // the record itself rather than its list. Matching lives in lib/globalSearch.js
 // (the console's port of the phone's GlobalSearchScreen). Results are grouped
 // and keyboard navigable, in the style of Linear / Attio quick-open.
+
+// The shortcut as this keyboard writes it: ⌘K on a Mac, Ctrl K elsewhere.
+const platform = typeof navigator === "undefined" ? "" : navigator.userAgentData?.platform || navigator.platform || ""
+export const SEARCH_SHORTCUT = /mac/i.test(platform) ? "⌘K" : "Ctrl K"
 
 const COLLECTIONS = ["customers", "enquiries", "quotations", "invoices", "products"]
 const KIND_ICON = { customer: Users, enquiry: Inbox, voice: Headset, quotation: FileText, invoice: ReceiptIndianRupee, product: Package }
@@ -30,7 +34,7 @@ function score(hay, needle) {
 export function CommandPalette({ open, onClose, pages }) {
   const navigate = useNavigate()
   const profile = useProfile()
-  const { data } = useCollections(open ? COLLECTIONS : [])
+  const { data, loading } = useCollections(open ? COLLECTIONS : [])
   // The haystacks are rebuilt only when the data or the profile changes, never
   // per keystroke; each group is dropped here if the profile cannot open it.
   const searchable = useMemo(() => buildSearchIndex(data, (key) => canAccess(profile, key)), [data, profile])
@@ -38,6 +42,7 @@ export function CommandPalette({ open, onClose, pages }) {
   const [cursor, setCursor] = useState(0)
   const inputRef = useRef(null)
   const listRef = useRef(null)
+  const panelRef = useDialog(open, onClose)
 
   useEffect(() => {
     if (!open) return
@@ -90,8 +95,6 @@ export function CommandPalette({ open, onClose, pages }) {
     } else if (e.key === "Enter" && flat[cursor]) {
       e.preventDefault()
       go(flat[cursor])
-    } else if (e.key === "Escape") {
-      onClose()
     }
   }
 
@@ -99,8 +102,8 @@ export function CommandPalette({ open, onClose, pages }) {
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-[12vh]">
-      <div className="absolute inset-0 bg-[rgb(15_23_42/0.45)] animate-fade-in" onClick={onClose} />
-      <div className="relative w-full max-w-xl overflow-hidden rounded-xl border border-border bg-card shadow-overlay-lg animate-pop-in">
+      <Scrim onClick={onClose} />
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-label="Search" tabIndex={-1} className="relative w-full outline-none max-w-xl overflow-hidden rounded-xl border border-border bg-card shadow-overlay-lg animate-pop-in">
         <div className="flex items-center gap-2.5 border-b border-border px-4">
           <Search className="h-4 w-4 flex-none text-subtle-foreground" />
           <input
@@ -108,6 +111,7 @@ export function CommandPalette({ open, onClose, pages }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKey}
+            aria-label="Search customers, leads, quotes, invoices, products and pages"
             placeholder="Search customers, leads, quotes, invoices, products…"
             className="h-12 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-subtle-foreground"
           />
@@ -115,7 +119,7 @@ export function CommandPalette({ open, onClose, pages }) {
         </div>
         <div ref={listRef} className="scroll-thin max-h-[52vh] overflow-y-auto py-2">
           {flat.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-muted-foreground">No matches for “{q}”.</p>
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">{loading ? "Loading…" : `No matches for “${q}”.`}</p>
           ) : (
             groups.map((g) => (
               <div key={g.label} className="px-2 pb-1">

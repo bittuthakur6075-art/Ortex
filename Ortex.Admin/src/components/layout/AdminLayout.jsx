@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react"
+import { useState, useEffect, useRef, useMemo, Suspense } from "react"
 import { NavLink, Outlet, useNavigate, useLocation, Link } from "react-router-dom"
 import {
   Inbox,
@@ -28,7 +28,8 @@ import {
 import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
 import { useProfile } from "../../hooks/useProfile"
 import { NotificationsDrawer } from "./NotificationsDrawer"
-import { CommandPalette } from "./CommandPalette"
+import { CommandPalette, SEARCH_SHORTCUT } from "./CommandPalette"
+import { PageLoader, Scrim, useDialog } from "../ui/Ui"
 import { AnuProvider, useAnuController } from "../anu/AnuContext"
 import AnuPanel from "../anu/AnuPanel"
 import { AnuHeaderButton, AnuMiniCall } from "../anu/AnuLauncher"
@@ -148,7 +149,7 @@ function useAllowedNav() {
 function Brand() {
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2">
-      <Link to="/" className="flex min-w-0 items-center focus:outline-none">
+      <Link to="/" className="flex min-w-0 items-center">
         <img src="/img/logo.svg" alt="Ortex Industries" className="h-7 w-auto flex-none object-contain" />
       </Link>
       {ENV_LABEL && <span className="rounded bg-warning/12 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warning-text">{ENV_LABEL}</span>}
@@ -347,7 +348,7 @@ function AccountMenu({ onSignOut, onNavigate }) {
             }}
             className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-secondary-foreground hover:bg-accent"
           >
-            <LogOut variant="Linear" className="h-4 w-4 text-muted-foreground" /> Log out
+            <LogOut variant="Linear" className="h-4 w-4 text-muted-foreground" /> Sign out
           </button>
         </div>
       )}
@@ -358,6 +359,7 @@ function AccountMenu({ onSignOut, onNavigate }) {
 export default function AdminLayout() {
   const authed = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   useDarkMode()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -365,6 +367,7 @@ export default function AdminLayout() {
   const ready = useAuthReady()
   // Anu lives in the shell, so a conversation survives every route change.
   const anu = useAnuController()
+  const mobileRef = useDialog(mobileOpen, () => setMobileOpen(false))
 
   // Search reaches every page this person can open, including those under More.
   const pages = useMemo(
@@ -378,8 +381,9 @@ export default function AdminLayout() {
   )
 
   useEffect(() => {
-    if (ready && !authed) navigate("/login", { replace: true })
-  }, [ready, authed, navigate])
+    // Login sends the person back here once they are in.
+    if (ready && !authed) navigate("/login", { replace: true, state: { from: location } })
+  }, [ready, authed, navigate, location])
 
   // Ctrl/⌘ K opens global search from anywhere.
   useEffect(() => {
@@ -437,8 +441,8 @@ export default function AdminLayout() {
         {/* Mobile drawer */}
         {mobileOpen && (
           <div className="fixed inset-0 z-40 lg:hidden">
-            <div className="absolute inset-0 bg-black/50 animate-fade-in" onClick={() => setMobileOpen(false)} />
-            <aside className={cn("absolute inset-y-0 left-0 flex flex-col bg-card shadow-overlay-lg", SIDEBAR_W)}>
+            <Scrim onClick={() => setMobileOpen(false)} />
+            <aside ref={mobileRef} role="dialog" aria-modal="true" aria-label="Menu" tabIndex={-1} className={cn("absolute inset-y-0 left-0 flex flex-col bg-card shadow-overlay-lg outline-none", SIDEBAR_W)}>
               <div className="flex h-14 items-center gap-2 px-5">
                 <Brand />
                 <button
@@ -473,11 +477,11 @@ export default function AdminLayout() {
               type="button"
               onClick={() => setPaletteOpen(true)}
               className="squircle flex h-[38px] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-background px-3 text-left text-[13.5px] text-subtle-foreground transition-colors hover:bg-accent sm:max-w-[420px]"
-              aria-label="Search (Ctrl K)"
+              aria-label={`Search (${SEARCH_SHORTCUT})`}
             >
               <Search variant="Linear" className="h-[17px] w-[17px] flex-none" />
               <span className="flex-1 truncate">Search customers, quotes, pages…</span>
-              <kbd className="hidden rounded-md bg-card px-1.5 py-0.5 text-[11px] font-medium sm:inline">Ctrl K</kbd>
+              <kbd className="hidden rounded-md bg-card px-1.5 py-0.5 text-[11px] font-medium sm:inline">{SEARCH_SHORTCUT}</kbd>
             </button>
 
             <div className="ml-auto flex items-center gap-1.5">
@@ -488,7 +492,10 @@ export default function AdminLayout() {
           </header>
 
           <main className="w-full grow px-6 pt-5">
-            <Outlet />
+            {/* Pages are lazy chunks (App.jsx): the shell stays while one loads. */}
+            <Suspense fallback={<PageLoader />}>
+              <Outlet />
+            </Suspense>
           </main>
 
           {/* Hidden (html.own-footer) while a page shows its own StickyActionBar. */}

@@ -10,6 +10,7 @@ import { updateProfile } from "../../services/users"
 import { accessReason } from "../../lib/moduleAccess"
 import { ROLE_TONE, isSuperAdmin, roleLabel } from "../../lib/roles"
 import { cn } from "../../lib/cn"
+import { useReportUnsaved } from "../../hooks/useUnsaved"
 import { groupBySection, shortLabel } from "./helpers"
 
 // Modules → People: every person against every module, in one grid, where the
@@ -59,6 +60,8 @@ export default function PeopleAccess({ people, reload }) {
       : { modules: flip(modules), hidden: hidden.filter((k) => k !== key) }
     setDraft((d) => ({ ...d, [p.id]: next }))
   }
+
+  useReportUnsaved(dirtyIds.length > 0)
 
   const save = async () => {
     setSaving(true)

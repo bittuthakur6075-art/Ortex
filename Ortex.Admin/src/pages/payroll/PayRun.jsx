@@ -275,7 +275,12 @@ export default function PayRun() {
                 Cancel run
               </Button>
               <Button
-                onClick={() => transition("approve", "Pay run approved")}
+                onClick={() => {
+                  const sure = window.confirm(
+                    `Approve this pay run? ${counts.included} payslips, net pay ${rupees(t.netPay)}. Once approved it can be recalled or recorded as paid, not edited.`,
+                  )
+                  if (sure) void transition("approve", "Pay run approved")
+                }}
                 disabled={Boolean(busy) || (submittedByMe && !isSuperAdmin(profile)) || (needsLock && state.locked === false)}
                 title={
                   submittedByMe && !isSuperAdmin(profile)
@@ -454,7 +459,7 @@ export default function PayRun() {
                               max={d.basisDays}
                               step="0.5"
                               aria-label={`Paid days for ${d.employee?.name || "employee"}`}
-                              className="h-9 w-20 text-right"
+                              className="w-20 text-right"
                               value={shownDays}
                               onChange={(ev) => {
                                 const v = ev.target.value === "" ? 0 : Math.max(0, Math.min(Number(d.basisDays) || 31, Number(ev.target.value)))
@@ -540,10 +545,11 @@ export default function PayRun() {
         title="Record payment"
         footer={
           <>
-            <Button variant="outline" onClick={() => setDialog(null)} disabled={Boolean(busy)}>
+            <Button size="sm" variant="outline" onClick={() => setDialog(null)} disabled={Boolean(busy)}>
               Not yet
             </Button>
             <Button
+              size="sm"
               onClick={() => {
                 if (!form.payDate) return toast.error("Enter the date the salaries were paid")
                 void transition("pay", "Payment recorded. Payslips are released.", { payDate: form.payDate, mode: form.mode, ref: form.ref })
@@ -589,10 +595,11 @@ export default function PayRun() {
         title={dialog === "cancel" ? "Cancel this pay run?" : "Recall to draft?"}
         footer={
           <>
-            <Button variant="outline" onClick={() => setDialog(null)} disabled={Boolean(busy)}>
+            <Button size="sm" variant="outline" onClick={() => setDialog(null)} disabled={Boolean(busy)}>
               Keep it
             </Button>
             <Button
+              size="sm"
               variant={dialog === "cancel" ? "danger" : "primary"}
               onClick={() => transition(dialog, dialog === "cancel" ? "Pay run cancelled" : "Recalled to draft", { note: form.note })}
               disabled={Boolean(busy)}

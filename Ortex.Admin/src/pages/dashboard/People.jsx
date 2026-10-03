@@ -244,7 +244,7 @@ export function CatalogueCard({ products }) {
   const drafts = products.filter((p) => p.status === "draft").length
   const onSite = active.length - hidden
   return (
-    <Panel title="Catalogue and website" description="What the website shows" action={<PanelLink to="/catalog">Catalog</PanelLink>}>
+    <Panel title="Catalogue and website" description="What the website shows" action={<PanelLink to="/catalog">Catalogue</PanelLink>}>
       <div className="flex gap-2">
         <Tile label="Active" value={active.length} />
         <Tile label="Hidden from site" value={hidden} />

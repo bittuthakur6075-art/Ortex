@@ -95,8 +95,8 @@ export default function AnuPanel() {
       )}
       aria-label="Anu, voice assistant"
     >
-      {/* Head: aligned with the console's 70px header */}
-      <div className="flex h-[70px] flex-none items-center gap-3 border-b border-border px-5">
+      {/* Head: aligned with the console's 56px top bar */}
+      <div className="flex h-14 flex-none items-center gap-3 border-b border-border px-5">
         <div className="relative">
           <AnuFace size={36} ring={false} />
           <span
@@ -522,11 +522,11 @@ function Composer({ idle = false }) {
           aria-label="Message Anu"
         />
         {text.trim() ? (
-          <Button type="submit" icon size="sm" aria-label="Send" className="rounded-full">
+          <Button type="submit" icon size="sm" aria-label="Send">
             <ArrowUp variant="Linear" className="h-4 w-4" />
           </Button>
         ) : idle ? (
-          <Button type="button" size="sm" onClick={() => session.start()} className="rounded-full">
+          <Button type="button" size="sm" onClick={() => session.start()}>
             <Mic variant="Bold" className="h-4 w-4" /> Talk
           </Button>
         ) : null}

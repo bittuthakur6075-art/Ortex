@@ -77,6 +77,17 @@
   --radius-nav: 8px;
   --radius-card: 16px;
 
+  /* Type scale for UI text, so new code writes text-ui / text-meta rather than
+     another text-[13px]. Existing arbitrary sizes are left as they are. */
+  --text-meta: 11px;
+  --text-meta--line-height: 14px;
+  --text-caption: 12.5px;
+  --text-caption--line-height: 16px;
+  --text-ui: 13px;
+  --text-ui--line-height: 18px;
+  --text-title: 15px;
+  --text-title--line-height: 20px;
+
 /* Surfaces are flat: no drop shadows anywhere. Cards separate from the page by
      their white fill alone. Floating UI (menus, modals, drawers) keeps only a
      1px ring so it still has an edge against the content it covers, without

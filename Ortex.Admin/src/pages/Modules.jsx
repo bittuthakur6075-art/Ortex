@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useContext, useEffect, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import PageHeader, { HeaderBand } from "../components/layout/PageHeader"
 import { LayoutGrid, ShieldCheck, Users as UsersIcon } from "../components/ui/Icons"
 import { Tabs } from "../components/ui/Ui"
 import { listProfiles } from "../services/users"
+import { UnsavedContext } from "../hooks/useUnsaved"
 import ModuleOverview from "./modules/ModuleOverview"
 import RoleMatrix from "./modules/RoleMatrix"
 import PeopleAccess from "./modules/PeopleAccess"
@@ -33,7 +34,31 @@ export default function Modules({ embedded = false }) {
   // query string with the section menu (`?section=access`), and writing a bare
   // { tab } wiped it, which threw you back to Company the moment you pressed
   // Roles or People.
-  const goTab = (v) =>
+  // Unsaved ticks on Roles or People, passed on to the Control centre too.
+  const parentReport = useContext(UnsavedContext)
+  const [unsaved, setUnsaved] = useState({})
+  const report = useCallback(
+    (id, dirty) => {
+      setUnsaved((u) => (!!u[id] === dirty ? u : { ...u, [id]: dirty }))
+      parentReport?.(id, dirty)
+    },
+    [parentReport],
+  )
+  const dirty = Object.values(unsaved).some(Boolean)
+
+  useEffect(() => {
+    if (!dirty || parentReport) return // the Control centre has its own warning
+    const warn = (e) => {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
+  }, [dirty, parentReport])
+
+  const goTab = (v) => {
+    if (v === tab) return
+    if (dirty && !window.confirm("You have unsaved changes on this tab. Leave it and discard them?")) return
     setParams(
       (prev) => {
         const next = new URLSearchParams(prev)
@@ -43,6 +68,7 @@ export default function Modules({ embedded = false }) {
       },
       { replace: true },
     )
+  }
 
   const [people, setPeople] = useState([])
   const [peopleError, setPeopleError] = useState("")
@@ -71,9 +97,11 @@ export default function Modules({ embedded = false }) {
           <Tabs items={TABS} value={tab} onChange={goTab} />
         </HeaderBand>
       )}
-      {tab === "modules" && <ModuleOverview people={people} peopleError={peopleError} />}
-      {tab === "roles" && <RoleMatrix />}
-      {tab === "people" && <PeopleAccess people={people} reload={loadPeople} />}
+      <UnsavedContext.Provider value={report}>
+        {tab === "modules" && <ModuleOverview people={people} peopleError={peopleError} />}
+        {tab === "roles" && <RoleMatrix people={people} />}
+        {tab === "people" && <PeopleAccess people={people} reload={loadPeople} />}
+      </UnsavedContext.Provider>
     </div>
   )
 }

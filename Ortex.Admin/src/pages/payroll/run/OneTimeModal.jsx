@@ -45,10 +45,10 @@ export default function OneTimeModal({ person, onSave, onClose }) {
       title={`One-time items · ${person?.name || ""}`}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>
+          <Button size="sm" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={() => onSave(items)}>Keep for Calculate</Button>
+          <Button size="sm" onClick={() => onSave(items)}>Keep for Calculate</Button>
         </>
       }
     >

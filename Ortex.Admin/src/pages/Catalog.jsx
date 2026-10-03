@@ -10,7 +10,7 @@ import Products from "./Products"
 import Categories from "./Categories"
 import Work from "./Work"
 
-// One Catalog workspace. The three tabs are the former Products, Categories
+// One Catalogue workspace. The three tabs are the former Products, Categories
 // and Work pages, embedded unchanged. Access is still granted per tab through
 // the original module keys, so a user's permissions carry over without
 // migration.
@@ -50,7 +50,7 @@ export default function Catalog() {
   return (
     <div>
       <HeaderBand>
-        <PageHeader title="Catalog" subtitle="Products, website categories and work photos" />
+        <PageHeader title="Catalogue" subtitle="Products, website categories and work photos" />
         <Tabs
           items={items}
           value={current.value}

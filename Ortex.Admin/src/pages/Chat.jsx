@@ -77,7 +77,7 @@ export default function Chat() {
     return <EmptyState icon={MessageCircle} title="Team chat needs the database" description="Chat runs on Supabase. This console is in offline demo mode." />
   }
   if (inbox.missing) {
-    return <EmptyState icon={AlertTriangle} title="Team chat is not set up yet" description="Database migration 0045 (team chat) has not been pushed to this project. Ask an admin to run supabase db push." />
+    return <EmptyState icon={AlertTriangle} title="Team chat is not set up yet" description="The team chat tables are not on this database yet. Ask the Super Admin to finish setting it up." />
   }
 
   return (

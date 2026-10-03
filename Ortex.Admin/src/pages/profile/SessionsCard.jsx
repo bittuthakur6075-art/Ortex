@@ -60,7 +60,7 @@ export default function SessionsCard() {
         {others > 0 && (
           <Button variant="outline" size="sm" onClick={revokeOthers} disabled={!!busy}>
             <LogOut className="h-4 w-4" />
-            {busy === "others" ? "Signing out…" : "Log out all other devices"}
+            {busy === "others" ? "Signing out…" : "Sign out all other devices"}
           </Button>
         )}
       </div>
@@ -96,7 +96,7 @@ export default function SessionsCard() {
                 </div>
                 {!s.is_current && (
                   <Button variant="ghost" size="sm" onClick={() => revoke(s.id)} disabled={!!busy}>
-                    {busy === s.id ? "Signing out…" : "Log out"}
+                    {busy === s.id ? "Signing out…" : "Sign out"}
                   </Button>
                 )}
               </li>

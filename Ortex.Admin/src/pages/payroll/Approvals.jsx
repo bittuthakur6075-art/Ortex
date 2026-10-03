@@ -61,8 +61,11 @@ export default function Approvals() {
     })
 
   const bulkApprove = async () => {
-    const ids = selectable.filter((c) => selected.has(c.id)).map((c) => c.id)
+    const picked = selectable.filter((c) => selected.has(c.id))
+    const ids = picked.map((c) => c.id)
     if (!ids.length) return
+    const sum = picked.reduce((s, c) => s + Number(c.amount), 0)
+    if (!window.confirm(`Approve ${ids.length} ${ids.length === 1 ? "claim" : "claims"} for ${money(sum)}? They are paid in the next pay run.`)) return
     setBusy(true)
     const failed = []
     for (const id of ids) {
@@ -111,7 +114,7 @@ export default function Approvals() {
           description={rows.length ? `${rows.length} ${rows.length === 1 ? "claim" : "claims"}, ${money(total)}` : undefined}
           action={
             filter === "pending" && selectable.length > 0 ? (
-              <Button onClick={bulkApprove} disabled={busy || !selectable.some((c) => selected.has(c.id))}>
+              <Button size="sm" onClick={bulkApprove} disabled={busy || !selectable.some((c) => selected.has(c.id))}>
                 {busy ? "Approving…" : `Approve selected${selected.size ? ` (${selectable.filter((c) => selected.has(c.id)).length})` : ""}`}
               </Button>
             ) : null
@@ -244,10 +247,10 @@ function ClaimDrawer({ claim, own, nameOf, onClose, onDecided }) {
       footer={
         pending && !own ? (
           <div className="flex justify-end gap-2.5">
-            <Button variant="dangerGhost" onClick={() => decide(false)} disabled={Boolean(busy)}>
+            <Button size="sm" variant="dangerGhost" onClick={() => decide(false)} disabled={Boolean(busy)}>
               {busy === "reject" ? "Rejecting…" : "Reject"}
             </Button>
-            <Button onClick={() => decide(true)} disabled={Boolean(busy)}>
+            <Button size="sm" onClick={() => decide(true)} disabled={Boolean(busy)}>
               {busy === "approve" ? "Approving…" : "Approve"}
             </Button>
           </div>

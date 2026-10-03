@@ -29,7 +29,8 @@ import { ActionMenu, StatusDropdown } from "../components/sales/ListParts"
 import { StatusTimeline, StickyActionBar } from "../components/sales/StatusTimeline"
 import QuotationList from "./quotations/QuotationList"
 import SendScreen from "./quotations/SendScreen"
-import { convertToInvoice, downloadPdf, duplicateDraft, extendValidity, setQuoteStatus, startWhatsAppShare } from "./quotations/actions"
+import { downloadPdf, duplicateDraft, extendValidity, setQuoteStatus, startWhatsAppShare } from "./quotations/actions"
+import { useConvertConfirm } from "./quotations/ConvertDialog"
 
 const emptyDraft = (settings) => ({
   id: null,
@@ -397,18 +398,29 @@ function QuotationEditor({ draft, products, customers, enquiries, quotations, in
     }
   }
 
+  const convertConfirm = useConvertConfirm()
   const convert = async () => {
     if (!isEdit) return toast.error("Save the quotation first")
     if (dirty && !(await persist())) return
-    if (await convertToInvoice(form)) onClose()
+    convertConfirm.ask({ ...form, totals: t }, () => onClose())
   }
 
+  // Admin-only in the database (0022) and on screen (isAdmin above).
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const remove = async () => {
-    if (!window.confirm("Delete this quotation?")) return
-    await repo.remove("quotations", form.id)
-    discardDraft()
-    toast.success("Quotation deleted")
-    onClose()
+    setDeleting(true)
+    try {
+      await repo.remove("quotations", form.id)
+      discardDraft()
+      toast.success("Quotation deleted")
+      setConfirmDelete(false)
+      onClose()
+    } catch (err) {
+      toast.error(err?.message || "Could not delete the quotation")
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const snooze = async () => {
@@ -447,7 +459,7 @@ function QuotationEditor({ draft, products, customers, enquiries, quotations, in
         { icon: Printer, label: "Download PDF", onSelect: () => downloadPdf(liveDoc, settings) },
         ...(isEdit ? [{ icon: Calendar, label: "Extend validity", hint: "+15 days", disabled: !["draft", "sent", "expired"].includes(status), onSelect: () => extendValidity(form, 15) }] : []),
         ...(isEdit ? [{ icon: Copy, label: "Duplicate as new draft", onSelect: () => onOpen(duplicateDraft(form)) }] : []),
-        ...(isEdit && status !== "invoiced" ? [{ icon: FileCheck2, label: "Convert to invoice", onSelect: convert }] : []),
+        ...(isEdit && status === "accepted" ? [{ icon: FileCheck2, label: "Convert to invoice", onSelect: convert }] : []),
       ],
     },
   ]
@@ -770,7 +782,7 @@ function QuotationEditor({ draft, products, customers, enquiries, quotations, in
                   />
                   %
                 </dt>
-                <dd className={cn("font-medium tabular", t.docDiscount > 0 ? "text-success-text" : "text-muted-foreground")}>{t.docDiscount > 0 ? `−${rupees2(t.docDiscount)}` : "—"}</dd>
+                <dd className={cn("font-medium tabular", t.docDiscount > 0 ? "text-success-text" : "text-muted-foreground")}>{t.docDiscount > 0 ? `−${rupees2(t.docDiscount)}` : "-"}</dd>
               </div>
               <Line label="Taxable value" value={rupees2(t.taxable)} />
               {Object.entries(t.taxByRate || {})
@@ -845,9 +857,9 @@ function QuotationEditor({ draft, products, customers, enquiries, quotations, in
       <StickyActionBar
         left={
           isEdit && isAdmin && (
-            <button type="button" onClick={remove} className="squircle inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 font-medium text-destructive-text hover:bg-destructive/[0.06]">
+            <Button variant="dangerGhost" size="sm" onClick={() => setConfirmDelete(true)}>
               <Trash2 className="h-3.5 w-3.5" /> Delete quotation
-            </button>
+            </Button>
           )
         }
       >
@@ -881,6 +893,25 @@ function QuotationEditor({ draft, products, customers, enquiries, quotations, in
       </StickyActionBar>
 
       <ActionMenu open={!!menu} anchor={menu} onClose={() => setMenu(null)} sections={moreSections} width={240} />
+      {convertConfirm.element}
+      <Modal
+        open={confirmDelete}
+        onClose={deleting ? () => {} : () => setConfirmDelete(false)}
+        title="Delete this quotation?"
+        width="max-w-md"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={deleting}>Cancel</Button>
+            <Button variant="danger" onClick={remove} disabled={deleting}>{deleting ? "Deleting…" : "Delete quotation"}</Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm">
+          <p className="font-semibold text-foreground">{[draft.number, partyLabel].filter(Boolean).join(" · ")}</p>
+          <p className="text-muted-foreground">Its number is not reused, so the series will show a gap. Invoices already made from it are kept.</p>
+          <p className="text-destructive-text">This cannot be undone.</p>
+        </div>
+      </Modal>
 
       <Modal
         open={!!resume}

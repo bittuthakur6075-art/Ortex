@@ -18,6 +18,16 @@ export default function ProductForm({ open, product, categories = [], presetCate
   const [errors, setErrors] = useState({})
   const [hasManuallyChangedCategory, setHasManuallyChangedCategory] = useState(false)
   const [aiBusy, setAiBusy] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
+  // The form as it opened (taken on the first render after a reset), so the
+  // drawer can ask before throwing edits away.
+  const [baseline, setBaseline] = useState(null)
+  const formJson = JSON.stringify(form)
+  useEffect(() => {
+    if (open && baseline === null) setBaseline(formJson)
+  }, [open, baseline, formJson])
+  const dirty = baseline !== null && formJson !== baseline
 
   // Generate SEO- and marketing-optimised title, description, category and a
   // material suggestion via the product-copywriter Edge Function (Gemini, key held
@@ -43,6 +53,12 @@ export default function ProductForm({ open, product, categories = [], presetCate
     })
     setAiBusy(false)
     if (error) return toast.error(error)
+    // What the writer replaces, so one click puts it back.
+    const before = { name: form.name, description: form.description, category: form.category, material: form.material }
+    const undo = () => {
+      setForm((f) => ({ ...f, ...before }))
+      toast.success("Restored what was there before")
+    }
     setForm((f) => ({
       ...f,
       name: data.name?.trim() || f.name,
@@ -52,7 +68,10 @@ export default function ProductForm({ open, product, categories = [], presetCate
       material: f.material?.trim() ? f.material : data.material?.trim() || f.material,
     }))
     if (data.category && allowedCategories.includes(data.category)) setHasManuallyChangedCategory(true)
-    toast.success(data.usedPhoto ? "AI copy written from the photo. Review before saving" : "AI copy generated. Review before saving")
+    toast.success(data.usedPhoto ? "AI copy written from the photo. Review before saving" : "AI copy generated. Review before saving", {
+      action: { label: "Undo", onClick: undo },
+      duration: 10000,
+    })
   }
 
   const categoriesRef = useRef(categories)
@@ -77,6 +96,7 @@ export default function ProductForm({ open, product, categories = [], presetCate
         })
       }
       setErrors({})
+      setBaseline(null)
       // A preset category was chosen by a person, so typing a name must not
       // auto-detect it away.
       setHasManuallyChangedCategory(!product && !!presetCategory)
@@ -129,6 +149,9 @@ export default function ProductForm({ open, product, categories = [], presetCate
       moq: Math.max(1, parseInt(form.moq) || 1),
       gstRate: Number(form.gstRate),
     }
+    if (savingRef.current) return
+    savingRef.current = true
+    setSaving(true)
     try {
       if (isEdit) {
         await repo.update("products", product.id, payload)
@@ -144,18 +167,25 @@ export default function ProductForm({ open, product, categories = [], presetCate
       // drawer open so the user can remove images and retry without losing input.
       console.error("Product save failed:", err)
       toast.error(err?.message || "Couldn't save the product. Please try again.")
+    } finally {
+      savingRef.current = false
+      setSaving(false)
     }
   }
 
   const remove = async () => {
-    if (window.confirm(`Delete "${product.name}"? This cannot be undone.`)) {
+    if (!window.confirm(`Delete "${product.name}"? This cannot be undone.`)) return
+    try {
       await repo.remove("products", product.id)
       toast.success("Product deleted")
       triggerSiteRebuild()
       onClose()
+    } catch (err) {
+      toast.error(err?.message || "Could not delete the product")
     }
   }
 
+  const costed = Number(form.costPrice) > 0
   const margin = round2(form.basePrice - form.costPrice)
   const marginPct = form.basePrice ? Math.round((margin / form.basePrice) * 100) : 0
 
@@ -163,9 +193,10 @@ export default function ProductForm({ open, product, categories = [], presetCate
     <Drawer
       open={open}
       onClose={onClose}
+      dirty={dirty}
       title={isEdit ? "Edit product" : "New product"}
       subtitle={isEdit ? product.sku : "Add to the product master"}
-      footer={
+      footer={(close) => (
         <div className="flex items-center justify-between">
           {isEdit ? (
             <Button variant="dangerGhost" size="sm" onClick={remove}>
@@ -175,22 +206,22 @@ export default function ProductForm({ open, product, categories = [], presetCate
             <span />
           )}
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onClose}>
+            <Button variant="outline" size="sm" onClick={() => close()}>
               Cancel
             </Button>
-            <Button size="sm" onClick={save}>
-              {isEdit ? "Save changes" : "Add product"}
+            <Button size="sm" onClick={save} disabled={saving}>
+              {saving ? "Saving…" : isEdit ? "Save changes" : "Add product"}
             </Button>
           </div>
         </div>
-      }
+      )}
     >
       <div className="space-y-4">
         {/* AI copywriter - fills SEO title, marketing description, and category */}
         {hasSupabase && <AiCopyPanel busy={aiBusy} onGenerate={generateCopy} />}
 
         {/* 1. Product Name */}
-        <Field label="Product Name" required error={errors.name}>
+        <Field label="Product name" required error={errors.name}>
           <Input value={form.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="Enter product name" />
         </Field>
 
@@ -225,16 +256,16 @@ export default function ProductForm({ open, product, categories = [], presetCate
         </div>
 
         {/* 4. Material / Spec */}
-        <Field label="Material / Spec">
+        <Field label="Material / spec">
           <Input value={form.material} onChange={(e) => set("material", e.target.value)} placeholder="Enter material or spec" />
         </Field>
 
         {/* 5. Pricing (Base & Cost Price), console only, never published */}
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Base Price (₹)" required error={errors.basePrice}>
+          <Field label="Base price (₹)" required error={errors.basePrice}>
             <Input type="number" min="0" step="0.01" value={form.basePrice} onChange={(e) => set("basePrice", e.target.value)} />
           </Field>
-          <Field label="Cost Price (₹)" hint="For margin analytics">
+          <Field label="Cost price (₹)" hint="For margin analytics">
             <Input type="number" min="0" step="0.01" value={form.costPrice} onChange={(e) => set("costPrice", e.target.value)} />
           </Field>
         </div>
@@ -242,14 +273,18 @@ export default function ProductForm({ open, product, categories = [], presetCate
         {/* Gross Margin Banner */}
         <div className="rounded-lg bg-muted/30 px-4 py-2.5 text-sm">
           <span className="text-muted-foreground">Gross margin: </span>
-          <span className={margin > 0 ? "font-semibold text-[hsl(var(--success))]" : "font-semibold text-foreground"}>
-            {formatCurrency(margin)} ({marginPct}%)
-          </span>
+          {costed ? (
+            <span className={margin > 0 ? "font-semibold text-success" : "font-semibold text-foreground"}>
+              {formatCurrency(margin)} ({marginPct}%)
+            </span>
+          ) : (
+            <span className="text-muted-foreground">- <span className="text-xs">Add a cost price to see it</span></span>
+          )}
         </div>
 
         {/* 6. Taxation (HSN & GST %) */}
         <div className="grid grid-cols-2 gap-4">
-          <Field label="HSN Code" hint="4-digit for turnover ≤ ₹5cr">
+          <Field label="HSN code" hint="4-digit for turnover ≤ ₹5cr">
             <Input value={form.hsn} onChange={(e) => set("hsn", e.target.value)} placeholder="Enter HSN code" />
           </Field>
           <Field label="GST %">
@@ -277,7 +312,7 @@ export default function ProductForm({ open, product, categories = [], presetCate
           <Field label="MOQ">
             <Input type="number" min="1" value={form.moq} onChange={(e) => set("moq", e.target.value)} />
           </Field>
-          <Field label="Lead Time (Days)">
+          <Field label="Lead time (days)">
             <Input type="number" min="0" value={form.leadTimeDays} onChange={(e) => set("leadTimeDays", e.target.value)} />
           </Field>
         </div>
@@ -286,7 +321,7 @@ export default function ProductForm({ open, product, categories = [], presetCate
           images={form.images || []}
           onChange={(images) => set("images", images)}
           bucket="products"
-          label="Product Images"
+          label="Product images"
           max={MAX_IMAGES}
           enhance={hasSupabase ? { productName: form.name } : undefined}
         />

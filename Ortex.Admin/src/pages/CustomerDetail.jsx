@@ -29,7 +29,7 @@ import { formatCurrency, formatDate, formatNumber, relativeTime } from "../lib/f
 import { stateLabel } from "../lib/gstStates"
 import { findDuplicate, normaliseCustomer, validateCustomer } from "../lib/validateCustomer"
 import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../components/editors/DocumentEditorShell"
-import { Banner, Button, Input, Field, StatusBadge, EmptyState, Money, PageLoader, Textarea } from "../components/ui/Ui"
+import { Banner, Button, Input, Field, Modal, StatusBadge, EmptyState, Money, PageLoader, Textarea } from "../components/ui/Ui"
 import { RecordActivity } from "../components/ui/RecordActivity"
 
 const byNewest = (a, b) => new Date(b.issueDate || b.createdAt || 0) - new Date(a.issueDate || a.createdAt || 0)
@@ -54,6 +54,8 @@ export default function CustomerDetail() {
   // background store refresh never clobbers what is being typed and switching
   // customers never shows the previous one's values.
   const [draft, setDraft] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const linked = useMemo(() => {
     if (!record) return { invoices: [], quotations: [], payments: [], enquiries: [] }
@@ -117,10 +119,15 @@ export default function CustomerDetail() {
   }
 
   const remove = async () => {
-    if (!window.confirm("Delete this customer? Their quotations, invoices and payments are kept.")) return
-    await repo.remove("customers", record.id)
-    toast.success("Customer deleted")
-    navigate("/customers")
+    setDeleting(true)
+    try {
+      await repo.remove("customers", record.id)
+      toast.success("Customer deleted")
+      navigate("/customers")
+    } catch (err) {
+      toast.error(err?.message || "Could not delete the customer")
+      setDeleting(false)
+    }
   }
 
   const metaBits = [
@@ -367,7 +374,7 @@ export default function CustomerDetail() {
 
       <EditorFooter
         left={
-          <Button variant="dangerGhost" size="sm" onClick={remove}>
+          <Button variant="dangerGhost" size="sm" onClick={() => setConfirmDelete(true)}>
             <Trash2 className="h-4 w-4" /> Delete customer
           </Button>
         }
@@ -380,6 +387,25 @@ export default function CustomerDetail() {
           </>
         }
       />
+
+      <Modal
+        open={confirmDelete}
+        onClose={deleting ? () => {} : () => setConfirmDelete(false)}
+        title="Delete this customer?"
+        width="max-w-md"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)} disabled={deleting}>Cancel</Button>
+            <Button variant="danger" onClick={remove} disabled={deleting}>{deleting ? "Deleting…" : "Delete customer"}</Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm">
+          <p className="font-semibold text-foreground">{title}</p>
+          <p className="text-muted-foreground">Their quotations, invoices and payments are kept; they just stop being grouped under this customer.</p>
+          <p className="text-destructive-text">This cannot be undone.</p>
+        </div>
+      </Modal>
     </div>
   )
 }

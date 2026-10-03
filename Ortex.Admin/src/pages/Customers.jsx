@@ -144,7 +144,7 @@ export default function Customers({ embedded = false }) {
         <EmptyState
           icon={Users}
           title="No customers yet"
-          description="Customers are added automatically when you create a quotation or invoice - or add one manually."
+          description="Customers are added automatically when you create a quotation or invoice. You can also add one by hand."
           action={
             <Button onClick={() => setCreating(true)}>
               <Plus className="h-4 w-4" /> New customer
@@ -185,7 +185,9 @@ export default function Customers({ embedded = false }) {
                       <div className="flex items-center gap-3">
                         <Avatar name={c.company || c.name} />
                         <div className="min-w-0">
-                          <div className="truncate font-medium text-foreground">{c.company || c.name || "Unnamed"}</div>
+                          <Link to={`/customers/${c.id}`} onClick={(e) => e.stopPropagation()} className="block truncate font-medium text-foreground hover:underline">
+                            {c.company || c.name || "Unnamed"}
+                          </Link>
                           <div className="truncate text-xs text-muted-foreground">
                             {[c.company ? c.name : "", c.email].filter(Boolean).join(" · ") || "No contact details"}
                           </div>

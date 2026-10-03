@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import {
   AlertTriangle,
@@ -32,7 +32,8 @@ import { GST_STATES, stateLabel } from "../lib/gstStates"
 import AttendanceSettings from "./attendance/Settings"
 import PayrollSettings from "./payroll/PayrollSettings"
 import Modules from "./Modules"
-import { Button, Input, Select, Switch, Textarea, PageLoader } from "../components/ui/Ui"
+import { Banner, Button, Input, Select, Switch, Textarea, PageLoader } from "../components/ui/Ui"
+import { UnsavedContext } from "../hooks/useUnsaved"
 import { cn } from "../lib/cn"
 
 // Settings (Figma "V3 · Settings"): a section menu on the left, one section at
@@ -75,6 +76,33 @@ function changedPaths(a, b, prefix = "") {
   return [...keys].flatMap((k) => changedPaths(a[k], b[k], prefix ? `${prefix}.${k}` : k))
 }
 
+// `paths` (from changedPaths) copied from `from` onto a copy of `to`. A list is
+// copied whole, since it changes by index.
+function mergePaths(to, from, paths) {
+  const next = structuredClone(to)
+  for (const p of paths) {
+    const keys = p.split(".")
+    let dst = next
+    let src = from
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i]
+      const v = src?.[k]
+      if (i === keys.length - 1 || Array.isArray(v) || !v || typeof v !== "object") {
+        dst[k] = structuredClone(v)
+        break
+      }
+      if (!dst[k] || typeof dst[k] !== "object") dst[k] = {}
+      dst = dst[k]
+      src = v
+    }
+  }
+  return next
+}
+
+// The sections the page's own draft (and its floating Save bar) covers; the
+// others are embedded pages with their own Save buttons.
+const DRAFT_SECTIONS = ["company", "documents", "notifications", "integrations"]
+
 const PATH_LABEL = {
   "company.name": "Company name",
   "company.tagline": "Tagline",
@@ -115,26 +143,59 @@ function fyCode(d = new Date()) {
 export default function Settings() {
   const settings = useSettings()
   const [params, setParams] = useSearchParams()
-  const [draft, setDraft] = useState(null)
+  // The draft and the settings it was copied from. A live change (another tab,
+  // the IndiaMART sync stamping lastPull) re-bases the draft only while it has
+  // no unsaved changes, so nothing typed is ever overwritten.
+  const [edit, setEdit] = useState(null)
   const [saving, setSaving] = useState(false)
+  // Unsaved changes inside the embedded sections (attendance rules, payroll
+  // cards, modules), reported through UnsavedContext.
+  const [unsaved, setUnsaved] = useState({})
+  const report = useCallback((id, dirty) => setUnsaved((u) => (!!u[id] === dirty ? u : { ...u, [id]: dirty })), [])
   const section = SECTIONS.some((s) => s.id === params.get("section")) ? params.get("section") : "company"
 
   useEffect(() => {
-    if (settings) setDraft(structuredClone(settings))
+    if (settings) setEdit((e) => (e && changedPaths(e.base, e.draft).length ? e : { base: settings, draft: structuredClone(settings) }))
   }, [settings])
 
-  const changes = useMemo(() => (settings && draft ? changedPaths(settings, draft) : []), [settings, draft])
+  const draft = edit?.draft
+  const changes = useMemo(() => (edit ? changedPaths(edit.base, edit.draft) : []), [edit])
+  const embeddedDirty = Object.values(unsaved).some(Boolean)
+  const dirty = changes.length > 0 || embeddedDirty
+
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e) => {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
+  }, [dirty])
 
   if (!settings || !draft) return <PageLoader />
 
+  // Read failed: the page shows DEFAULT_SETTINGS, and saving would write those
+  // placeholders over the real company details.
+  const loadFailed = !!settings.loadFailed
+  const setDraft = (fn) => setEdit((e) => ({ ...e, draft: fn(e.draft) }))
   const set = (group, key, v) => setDraft((d) => ({ ...d, [group]: { ...d[group], [key]: v } }))
   const setEmailjs = (key, v) => setDraft((d) => ({ ...d, notifications: { ...d.notifications, emailjs: { ...d.notifications.emailjs, [key]: v } } }))
   const setIndiamart = (key, v) => setDraft((d) => ({ ...d, integrations: { ...d.integrations, indiamart: { ...d.integrations.indiamart, [key]: v } } }))
 
+  // Saves the given changed paths, merged into the LIVE settings, so a key
+  // someone else changed meanwhile is not overwritten with this page's copy.
+  const savePaths = async (paths) => {
+    if (loadFailed) throw new Error("Settings could not be loaded, so nothing can be saved. Reload the page.")
+    const next = mergePaths(settings, draft, paths)
+    await repo.saveSettings(next)
+    setEdit((e) => ({ base: mergePaths(e.base, e.draft, paths), draft: e.draft }))
+  }
+
   const save = async () => {
     setSaving(true)
     try {
-      await repo.saveSettings(draft)
+      await savePaths(changes)
       toast.success("Settings saved")
     } catch (e) {
       toast.error(e.message || "Could not save the settings")
@@ -142,7 +203,19 @@ export default function Settings() {
       setSaving(false)
     }
   }
-  const go = (id) => setParams(id === "company" ? {} : { section: id }, { replace: true })
+  const discard = () => setEdit({ base: settings, draft: structuredClone(settings) })
+  const go = (id) => {
+    if (id === section) return
+    // Embedded sections lose their edits when they unmount; the shared draft
+    // follows only to the other draft sections, where its bar is shown.
+    const losing = embeddedDirty || (changes.length > 0 && !DRAFT_SECTIONS.includes(id))
+    if (losing && !window.confirm("You have unsaved changes. Leave this section and discard them?")) return
+    if (losing) {
+      setUnsaved({})
+      if (!DRAFT_SECTIONS.includes(id)) discard()
+    }
+    setParams(id === "company" ? {} : { section: id }, { replace: true })
+  }
   // A list changes by index (company.paymentAliases.2): name the list.
   const changedWords = changes.map((p) => PATH_LABEL[p] || PATH_LABEL[p.replace(/\.\d+$/, "")] || p.split(".").pop()).filter((v, i, a) => a.indexOf(v) === i)
 
@@ -193,10 +266,18 @@ export default function Settings() {
 
         {/* ---- the section ---- */}
         <div className="min-w-0 flex-1">
+          {loadFailed && DRAFT_SECTIONS.includes(section) && (
+            <Banner tone="danger" className="mb-5">
+              The saved settings could not be loaded, so this page shows the defaults. Saving is off until they load: reload the page.
+            </Banner>
+          )}
+          <UnsavedContext.Provider value={report}>
           {section === "company" && <CompanySection draft={draft} set={set} />}
           {section === "documents" && <DocumentsSection draft={draft} set={set} />}
           {section === "notifications" && <NotificationsSection draft={draft} set={set} setEmailjs={setEmailjs} />}
-          {section === "integrations" && <IntegrationsSection draft={draft} settings={settings} setIndiamart={setIndiamart} />}
+          {section === "integrations" && (
+            <IntegrationsSection draft={draft} settings={settings} setIndiamart={setIndiamart} changes={changes} savePaths={savePaths} loadFailed={loadFailed} />
+          )}
           {/* These three were whole pages of their own. They keep their own
               cards and their own save buttons; only their address changed. */}
           {section === "attendance" && (
@@ -215,23 +296,24 @@ export default function Settings() {
             </SectionHead>
           )}
           {section === "data" && <DataSection />}
+          </UnsavedContext.Provider>
         </div>
       </div>
 
-      {/* ---- unsaved changes ---- */}
-      {changes.length > 0 && (
+      {/* ---- unsaved changes: only where this bar is what saves them ---- */}
+      {changes.length > 0 && DRAFT_SECTIONS.includes(section) && (
         <div className="squircle fixed bottom-5 left-1/2 z-30 flex w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 items-center gap-3 rounded-2xl bg-foreground py-2.5 pl-[18px] pr-2.5 text-primary-foreground animate-pop-in lg:left-[calc(50%+116px)]">
           <span className="h-2 w-2 flex-none rounded-full bg-warning" />
           <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
             {changes.length === 1 ? "1 unsaved change" : `${changes.length} unsaved changes`}
             <span className="opacity-60"> · {changedWords.slice(0, 3).join(", ")}{changedWords.length > 3 ? "…" : ""}</span>
           </span>
-          <button type="button" onClick={() => setDraft(structuredClone(settings))} className="h-9 rounded-xl px-3.5 text-[13.5px] font-medium opacity-80 hover:opacity-100">
+          <Button variant="dark" size="sm" onClick={discard}>
             Discard
-          </button>
-          <button type="button" onClick={save} disabled={saving} className="squircle h-9 rounded-xl bg-card px-4 text-[13.5px] font-semibold text-foreground disabled:opacity-60">
+          </Button>
+          <Button variant="outline" size="sm" onClick={save} disabled={saving || loadFailed} title={loadFailed ? "Settings could not be loaded" : undefined}>
             {saving ? "Saving…" : "Save changes"}
-          </button>
+          </Button>
         </div>
       )}
     </div>
@@ -597,33 +679,44 @@ function IntegrationCard({ icon: Icon, tone, title, description, status, facts, 
   )
 }
 
-function IntegrationsSection({ draft, settings, setIndiamart }) {
+function IntegrationsSection({ draft, settings, setIndiamart, changes, savePaths, loadFailed }) {
   const im = draft.integrations.indiamart
+  // What the server last wrote (lastPull, lastResult), not the draft's copy.
+  const imLive = settings.integrations?.indiamart || {}
   const [syncing, setSyncing] = useState(false)
   const [editingKey, setEditingKey] = useState(!im.crmKey)
-  const { items: usage } = useCollection("ai_usage")
+  const { items: usage, error: usageError, loading: usageLoading } = useCollection("ai_usage")
   const provider = settings.telecaller?.provider || "simulate"
+  const imPaths = changes.filter((p) => p.startsWith("integrations.indiamart"))
 
+  // Only successful calls are logged (logAiUsage), so recent rows show it
+  // works; no rows, or rows that cannot be read, prove nothing either way.
   const ai = useMemo(() => {
     const rows = usage || []
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()
-    const today = new Date().toDateString()
+    const last = rows.reduce((m, r) => (r.createdAt && (!m || r.createdAt > m) ? r.createdAt : m), null)
     return {
       tokens: rows.reduce((a, r) => a + (Number(r.totalTokens) || 0), 0),
       month: rows.filter((r) => r.createdAt && new Date(r.createdAt).getTime() >= monthStart).length,
-      today: rows.filter((r) => r.createdAt && new Date(r.createdAt).toDateString() === today).length,
-      model: rows.find((r) => r.model)?.model || "gemini-flash-lite-latest",
+      model: rows.find((r) => r.model)?.model || "Not recorded",
+      last,
     }
   }, [usage])
+  const recent = ai.last && Date.now() - new Date(ai.last).getTime() < 7 * 86400000
+  const aiStatus = usageError || usageLoading || !ai.last ? ["Not checked", "slate"] : recent ? ["Working", "green"] : ["Idle", "amber"]
 
+  // Saves ONLY the IndiaMART changes, merged into the saved settings: anything
+  // else still unsaved on this page stays a draft.
   const syncNow = async () => {
     setSyncing(true)
     try {
-      await repo.saveSettings(draft) // the server pulls with the saved key
+      if (imPaths.length) await savePaths(imPaths) // the server pulls with the saved key
       const res = await syncIndiaMart()
       if (res.error) toast.error(res.error)
       else if (res.skipped) toast.message(res.reason || "IndiaMART sync is off")
       else toast.success(`IndiaMART: ${res.inserted} new lead(s) imported${res.duplicates ? `, ${res.duplicates} already had` : ""}`)
+    } catch (e) {
+      toast.error(e.message || "Could not save the IndiaMART settings")
     } finally {
       setSyncing(false)
     }
@@ -642,8 +735,8 @@ function IntegrationsSection({ draft, settings, setIndiamart }) {
           description="Imports buyer enquiries into Enquiries."
           status={imOn ? ["On", "green"] : im.crmKey ? ["Off", "slate"] : ["No key", "amber"]}
           facts={[
-            ["Last sync", im.lastPull ? new Date(im.lastPull).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "Never"],
-            ["Result", im.lastResult || "No sync yet"],
+            ["Last sync", imLive.lastPull ? new Date(imLive.lastPull).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "Never"],
+            ["Result", imLive.lastResult || "No sync yet"],
           ]}
         >
           <div className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5">
@@ -659,8 +752,8 @@ function IntegrationsSection({ draft, settings, setIndiamart }) {
             />
           ) : null}
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={syncNow} disabled={syncing || !im.crmKey}>
-              <RefreshCw className="h-4 w-4" /> {syncing ? "Syncing…" : "Save and sync now"}
+            <Button size="sm" variant="outline" onClick={syncNow} disabled={syncing || !im.crmKey || (loadFailed && imPaths.length > 0)}>
+              <RefreshCw className="h-4 w-4" /> {syncing ? "Syncing…" : imPaths.length ? "Save IndiaMART and sync now" : "Sync now"}
             </Button>
             {!editingKey && (
               <Button size="sm" variant="outline" onClick={() => setEditingKey(true)}>
@@ -675,10 +768,10 @@ function IntegrationsSection({ draft, settings, setIndiamart }) {
           tone="violet"
           title="AI assistant"
           description="Gemini writes copy and powers Anu. Product photo edits run on Cloudflare."
-          status={["Working", "green"]}
+          status={aiStatus}
           facts={[
-            ["Calls this month", nf(ai.month)],
-            ["Today", `${nf(ai.today)} of 1,000 free`],
+            ["Calls this month", usageError ? "Not readable" : nf(ai.month)],
+            ["Last call", ai.last ? new Date(ai.last).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "None recorded"],
             ["Model", ai.model],
             ["Tokens, all time", nf(ai.tokens)],
           ]}
@@ -774,7 +867,7 @@ function DataSection() {
             size="sm"
             className="mt-4"
             onClick={async () => {
-              if (window.confirm("Delete ALL data - products, enquiries, quotations, invoices, payments and settings? This cannot be undone.")) {
+              if (window.confirm("Delete ALL data: products, enquiries, quotations, invoices, payments and settings? This cannot be undone.")) {
                 await repo.clearAll()
                 toast.success("All data cleared")
               }

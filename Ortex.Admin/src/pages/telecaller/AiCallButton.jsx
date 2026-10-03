@@ -6,6 +6,7 @@ import { Button } from "../../components/ui/Ui"
 import { useProfile } from "../../hooks/useProfile"
 import { canAccess } from "../../data/domain/modules"
 import { dialNow } from "../../services/telecaller"
+import { repo } from "../../data/store/repository"
 import { isValidMobile } from "./helpers"
 
 // "Let the AI call them", dropped onto Voice Leads cards and the Lead drawer.
@@ -21,12 +22,18 @@ export default function AiCallButton({ target, size = "sm", variant = "outline",
   const go = async (e) => {
     e?.stopPropagation?.()
     setBusy(true)
+    // Read at click time, not per card: a Vapi call rings a real phone.
+    const provider = await repo.getSettings().then((s) => s?.telecaller?.provider, () => null)
+    if (provider !== "simulate" && !window.confirm(`This places a real phone call to ${target.contactName || target.phone} now. Continue?`)) {
+      setBusy(false)
+      return
+    }
     const res = await dialNow({ target })
     setBusy(false)
     if (res.error) return toast.error(res.error)
     toast.success(
       res.simulated
-        ? `Simulated call done - ${String(res.analysis?.outcome || "").replace(/_/g, " ")}`
+        ? `Simulated call done: ${String(res.analysis?.outcome || "").replace(/_/g, " ")}`
         : `Ringing ${target.contactName || target.phone}…`,
       { action: { label: "Open", onClick: () => navigate(`/telecaller?call=${res.callId}`) } },
     )

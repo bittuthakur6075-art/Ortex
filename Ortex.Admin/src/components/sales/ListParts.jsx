@@ -147,6 +147,13 @@ export function Check({ checked, onChange, label = "Select" }) {
   )
 }
 
+/**
+ * The keyboard (j/k) cursor: a 3px brand bar on the row's left edge, kept
+ * apart from a ticked row's tint. Render inside the first cell, which must be
+ * `relative`.
+ */
+export const CursorBar = ({ on }) => (on ? <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] bg-primary" /> : null)
+
 /** A group divider inside the table: dot, name, count, a hint on the right. */
 export function GroupRow({ tone, label, count, hint, colSpan }) {
   return (
@@ -236,7 +243,8 @@ export function RowAction({ icon: Icon, label, href, external, onClick, tone, ac
  * The "···" menu: sections of actions, each with its keyboard shortcut, in a
  * 248px portal popover anchored under the button (a table's overflow would
  * clip it otherwise). `sections`: [{ title, items: [{ icon, label, hint, key,
- * danger, onSelect }] }].
+ * danger, checked, keepOpen, onSelect }] }]. `keepOpen` leaves the menu up
+ * after a pick, for multi-select filters.
  */
 export function ActionMenu({ anchor, open, onClose, sections, width = 248 }) {
   const ref = useRef(null)
@@ -255,24 +263,31 @@ export function ActionMenu({ anchor, open, onClose, sections, width = 248 }) {
     const down = (e) => {
       if (ref.current && !ref.current.contains(e.target) && !anchor?.contains(e.target)) onClose()
     }
+    // Capture phase, so a key the menu handles never also reaches the list's
+    // shortcuts (useListKeys) or the Escape of a panel underneath.
     const key = (e) => {
-      if (e.key === "Escape") return onClose()
-      if (e.metaKey || e.ctrlKey || e.altKey) return
-      const k = e.shiftKey ? `⇧${e.key.toUpperCase()}` : e.key.toUpperCase()
-      const hit = sections.flatMap((s) => s.items).find((it) => it.key && it.key.toUpperCase() === k)
-      if (hit) {
+      const handled = () => {
         e.preventDefault()
-        onClose()
+        e.stopImmediatePropagation()
+      }
+      if (e.key === "Escape") return handled(), onClose()
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      // Only a letter takes the ⇧ prefix: "*" is typed with Shift already.
+      const k = e.shiftKey && /^[a-z]$/i.test(e.key) ? `⇧${e.key.toUpperCase()}` : e.key.toUpperCase()
+      const hit = sections.flatMap((s) => s.items).find((it) => it.key && !it.disabled && it.key.toUpperCase() === k)
+      if (hit) {
+        handled()
+        if (!hit.keepOpen) onClose()
         hit.onSelect()
       }
     }
     const away = () => onClose()
     document.addEventListener("mousedown", down)
-    window.addEventListener("keydown", key)
+    window.addEventListener("keydown", key, true)
     window.addEventListener("scroll", away, true)
     return () => {
       document.removeEventListener("mousedown", down)
-      window.removeEventListener("keydown", key)
+      window.removeEventListener("keydown", key, true)
       window.removeEventListener("scroll", away, true)
     }
   }, [open, onClose, anchor, sections])
@@ -293,10 +308,11 @@ export function ActionMenu({ anchor, open, onClose, sections, width = 248 }) {
             <button
               key={it.label}
               type="button"
-              role="menuitem"
+              role={it.checked !== undefined ? "menuitemcheckbox" : "menuitem"}
+              aria-checked={it.checked !== undefined ? !!it.checked : undefined}
               disabled={it.disabled}
               onClick={() => {
-                onClose()
+                if (!it.keepOpen) onClose()
                 it.onSelect()
               }}
               className={cn(
@@ -461,7 +477,8 @@ export function useListKeys(handlers, deps) {
   useEffect(() => {
     const onKey = (e) => {
       const t = e.target
-      if (e.metaKey || e.ctrlKey || e.altKey) return
+      // An open ActionMenu handles its own keys first and marks them handled.
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return
       if (t.closest?.("input, textarea, select, [contenteditable=true], [role=menu], [role=dialog]")) return
       const fn = handlers[e.key === "Enter" ? "Enter" : e.key.toLowerCase()]
       if (fn) {

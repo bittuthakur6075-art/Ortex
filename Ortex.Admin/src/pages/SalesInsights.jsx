@@ -7,6 +7,7 @@ import { paymentsOrStored } from "../lib/invoiceMoney"
 import { QUOTATION_STATUS, statusMeta } from "../data/domain/schema"
 import { VOICE_SOURCE } from "./voice-leads/helpers"
 import { computeAnalytics } from "../lib/analytics/dashboard"
+import { inRange } from "../lib/analytics/period"
 import { RANGES } from "../lib/analytics/today"
 import { computeSales, durationWords, speedWords } from "../lib/analytics/sales"
 import { formatCurrency, formatNumber, round2 } from "../lib/format"
@@ -77,6 +78,37 @@ export default function SalesInsights({ embedded = false }) {
     [data, access.invoices, canPay],
   )
 
+  // Billed per month, grand totals incl. GST, so it compares like for like with
+  // the cash collected (receipts include GST). Drafts and cancelled left out.
+  const billed = useMemo(() => {
+    if (!money6) return []
+    const live = (data.invoices || []).filter((i) => i.status !== "draft" && i.status !== "cancelled")
+    const base = new Date()
+    return money6.trend.map((_, k) => {
+      const start = new Date(base.getFullYear(), base.getMonth() - (money6.trend.length - 1) + k, 1).getTime()
+      const end = new Date(base.getFullYear(), base.getMonth() - (money6.trend.length - 2) + k, 1).getTime()
+      return round2(live.filter((i) => inRange(i.issueDate, start, end)).reduce((s, i) => s + (Number(i.totals?.grandTotal) || 0), 0))
+    })
+  }, [money6, data.invoices])
+
+  // Gross margin only over invoice lines whose product has a cost price: a line
+  // with no cost would count as 100% margin.
+  const costed = useMemo(() => {
+    if (!money6) return null
+    const cost = new Map((data.products || []).filter((p) => Number(p.costPrice) > 0).map((p) => [p.id, Number(p.costPrice)]))
+    let revenue = 0
+    let spent = 0
+    for (const inv of data.invoices || []) {
+      if (inv.status === "cancelled") continue
+      ;(inv.lines || []).forEach((line, i) => {
+        if (!cost.has(line.productId)) return
+        revenue += Number(inv.totals?.lines?.[i]?.taxable) || 0
+        spent += cost.get(line.productId) * (Number(line.quantity) || 0)
+      })
+    }
+    return { revenue: round2(revenue), margin: round2(revenue - spent) }
+  }, [money6, data.invoices, data.products])
+
   if (loading) return <PageLoader />
 
   return (
@@ -99,18 +131,18 @@ export default function SalesInsights({ embedded = false }) {
       {money6 && (
         <>
           <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-            <SectionCard className="lg:col-span-2" title="Revenue vs. collections" description="Last six months, taxable revenue booked against cash received" bodyClassName="px-3 pb-3 pt-2">
+            <SectionCard className="lg:col-span-2" title="Billed vs collected, last 6 months" description="Invoice totals incl. GST against cash received, by month" bodyClassName="px-3 pb-3 pt-2">
               <AreaChart
                 height={272}
                 categories={money6.trend.map((t) => t.label)}
                 series={[
-                  { name: "Revenue", data: money6.trend.map((t) => round2(t.revenue)) },
+                  { name: "Billed", data: billed },
                   { name: "Collected", data: money6.trend.map((t) => round2(t.collected)) },
                 ]}
                 valueFormatter={(v) => money(v)}
               />
             </SectionCard>
-            <InvoiceMetrics a={money6} />
+            <InvoiceMetrics a={money6} costed={costed} />
           </div>
           <div className="mt-5 grid grid-cols-1 gap-5">
             <CategoryRevenue rows={money6.categoryRevenue} />
@@ -139,7 +171,7 @@ function Headline({ s, leadsAccess }) {
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-      <SectionCard className="lg:col-span-2" title="This period" description={`Quotations dated in the last ${s.days} days`}>
+      <SectionCard className="lg:col-span-2" title={`Last ${s.days} days`} description={`Quotations dated in the last ${s.days} days`}>
         <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
           {tiles.map((k) => (
             <div key={k.label} className="rounded-xl bg-subtle px-3.5 py-3">
@@ -163,7 +195,7 @@ function TimeToQuote({ s }) {
   // Faster is better, so a shorter time reads as the good (green) direction.
   const faster = hours != null && prevHours != null ? (hours < prevHours ? "good" : hours > prevHours ? "bad" : null) : null
   return (
-    <SectionCard title="Time to quote" description="Median, from a lead arriving to its first quotation">
+    <SectionCard title={`Time to quote, last ${s.days} days`} description="Median, from a lead arriving to its first quotation">
       <div className="flex items-center gap-3">
         <span className="inline-grid h-11 w-11 flex-none place-items-center rounded-full bg-primary/10 text-primary">
           <Clock className="h-5 w-5" />
@@ -237,7 +269,7 @@ function Legend({ items }) {
 function LeadSources({ s }) {
   return (
     <SectionCard
-      title="Where leads come from"
+      title={`Where leads come from, last ${s.days} days`}
       description={`${plural(s.leads.total, "lead")} in the last ${s.days} days, won ones counted through their quotation`}
       action={<Legend items={[{ label: "Leads", className: "bg-primary/15" }, { label: "Won", className: "bg-primary" }]} />}
     >
@@ -262,7 +294,7 @@ function LeadSources({ s }) {
 
 function TopProducts({ s }) {
   return (
-    <SectionCard title="Most quoted products" description="By line value, ex-GST, on quotations issued in the period">
+    <SectionCard title={`Most quoted products, last ${s.days} days`} description="By line value, ex-GST, on quotations issued in the period">
       {s.topProducts.length ? (
         <RankedBars
           rows={s.topProducts.map((p) => ({
@@ -283,7 +315,7 @@ function TopProducts({ s }) {
 function TopCustomers({ s }) {
   return (
     <SectionCard
-      title="Top customers"
+      title={`Top customers, last ${s.days} days`}
       description="By quoted value, with the part won"
       action={<Legend items={[{ label: "Quoted", className: "bg-primary/15" }, { label: "Won", className: "bg-primary" }]} />}
     >
@@ -310,7 +342,7 @@ function TopCustomers({ s }) {
 function ReasonsLost({ s }) {
   const total = s.lostReasons.reduce((n, r) => n + r.count, 0)
   return (
-    <SectionCard title="Why we lose" description={total ? `${plural(total, "rejected quotation")} in the period` : "Rejected quotations in the period"}>
+    <SectionCard title={`Why we lose, last ${s.days} days`} description={total ? `${plural(total, "rejected quotation")} in the period` : "Rejected quotations in the period"}>
       {total ? (
         <RankedBars
           tone="destructive"
@@ -334,7 +366,7 @@ function StatusMix({ s }) {
   const total = s.statusMix.reduce((n, m) => n + m.value, 0)
   const count = s.statusMix.reduce((n, m) => n + m.count, 0)
   return (
-    <SectionCard title="Quotation status" description={`By value, every quotation dated in the period, drafts included · ${money(s.openValue)} open overall`}>
+    <SectionCard title={`Quotation status, last ${s.days} days`} description={`By value, every quotation dated in the period, drafts included · ${money(s.openValue)} open overall`}>
       {count ? (
         <>
           <span className="text-[28px] font-semibold leading-none tracking-tight text-foreground tabular">{formatCurrency(total)}</span>
@@ -377,7 +409,7 @@ function StatusMix({ s }) {
 function WhenLeadsArrive({ heatmap: h }) {
   return (
     <SectionCard
-      title="When leads arrive"
+      title="When leads arrive, last 90 days"
       description="Last 90 days, whatever the range, in your local time"
     >
       {h.total ? (
@@ -440,17 +472,16 @@ function Row({ day, cells, bands, max, peak }) {
 
 // ---- invoice-derived cards (need invoice access) -----------------------------------
 
-function InvoiceMetrics({ a }) {
-  const revenue = a.categoryRevenue.reduce((n, c) => n + c.revenue, 0)
-  const margin = a.categoryRevenue.reduce((n, c) => n + c.margin, 0)
+function InvoiceMetrics({ a, costed }) {
+  const { revenue, margin } = costed
   const items = [
-    { label: "Gross margin", value: revenue ? `${Math.round((margin / revenue) * 100)}%` : "–", hint: `${money(margin)}, all invoices` },
+    { label: "Gross margin", value: revenue ? `${Math.round((margin / revenue) * 100)}%` : "–", hint: revenue ? `${money(margin)}, lines with a cost price` : "No product has a cost price" },
     { label: "Days sales outstanding", value: `${a.dso}`, hint: "days, trailing 90" },
     { label: "Repeat customers", value: `${a.repeatRate}%`, hint: "invoiced twice or more" },
     { label: "Outstanding", value: money(a.totalOutstanding), hint: "on every live invoice" },
   ]
   return (
-    <SectionCard title="Invoices">
+    <SectionCard title="Invoices to date">
       <div className="grid grid-cols-2 gap-2.5">
         {items.map((k) => (
           <div key={k.label} className="rounded-xl bg-subtle px-3.5 py-3">
@@ -466,7 +497,7 @@ function InvoiceMetrics({ a }) {
 
 function CategoryRevenue({ rows }) {
   return (
-    <SectionCard title="Revenue by category" description="Taxable value of invoice lines, all time" bodyClassName="px-3 pb-3">
+    <SectionCard title="Revenue by category, all time" description="Taxable value of invoice lines, all time" bodyClassName="px-3 pb-3">
       {rows.length === 0 ? (
         <Empty />
       ) : (

@@ -7,6 +7,7 @@ import { useProfile } from "../../hooks/useProfile"
 import { relativeTime, formatCurrency } from "../../lib/format"
 import { accessFor, buildFeed } from "../../lib/notifications"
 import { cn } from "../../lib/cn"
+import { canAccess } from "../../data/domain/modules"
 
 // The feed itself is built by lib/notifications.js (pure, tested). Read /
 // archived flags live in localStorage keyed by notification id, so the drawer
@@ -112,7 +113,7 @@ function NotificationRow({ item, read, archived, onOpen, onToggleRead, onArchive
           onClick={() => onToggleRead(item.id)}
           aria-label={read ? "Mark as unread" : "Mark as read"}
           title={read ? "Mark as unread" : "Mark as read"}
-          className="absolute right-5 top-5 grid h-4 w-4 place-items-center"
+          className="absolute right-2 top-2 grid h-[30px] w-[30px] place-items-center rounded-full hover:bg-accent"
         >
           <span className={cn("h-2 w-2 rounded-full transition-colors", read ? "bg-transparent ring-1 ring-border" : "bg-primary")} />
         </button>
@@ -192,6 +193,9 @@ export function NotificationsDrawer() {
   }
 
   const count = unread.length
+  // Both links lead to pages not everyone may open: show each only to those who can.
+  const canSettings = canAccess(profile, "settings")
+  const canActivity = canAccess(profile, "insights")
 
   return (
     <>
@@ -227,19 +231,19 @@ export function NotificationsDrawer() {
             >
               <CheckCircle2 className="h-[18px] w-[18px]" />
             </button>
-            <button
+            {canSettings && <button
               type="button"
-              onClick={() => go("/control")}
+              onClick={() => go("/control?section=notifications")}
               aria-label="Notification settings"
               title="Notification settings"
               className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-subtle hover:text-foreground"
             >
               <Settings className="h-[18px] w-[18px]" />
-            </button>
+            </button>}
           </div>
         }
         footer={
-          <Button
+          canActivity && <Button
             type="button"
             variant="ghost"
             size="md"

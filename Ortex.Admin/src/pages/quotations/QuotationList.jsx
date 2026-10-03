@@ -9,12 +9,13 @@ import { cn } from "../../lib/cn"
 import { QUOTE_GROUPS, QUOTE_TONE, rupees } from "../../lib/salesWork"
 import { Button, Chip, EmptyState, Modal, PageLoader } from "../../components/ui/Ui"
 import {
-  ListHeader, SmartViews, ListSearch, ToolButton, InlineSelect, Check, GroupRow, StatusDot, Initials, RowAction, ActionMenu, Pager, useListKeys,
+  ListHeader, SmartViews, ListSearch, ToolButton, InlineSelect, Check, CursorBar, GroupRow, StatusDot, Initials, RowAction, ActionMenu, Pager, useListKeys,
 } from "../../components/sales/ListParts"
 import { Track } from "../dashboard/parts"
 import { firstName } from "../leads/actions"
 import { buildQuoteRow } from "./model"
-import { convertToInvoice, downloadPdf, duplicateDraft, extendValidity, sendQuotation, setQuoteStatus, startWhatsAppShare } from "./actions"
+import { downloadPdf, duplicateDraft, extendValidity, sendQuotation, setQuoteStatus, startWhatsAppShare } from "./actions"
+import { useConvertConfirm } from "./ConvertDialog"
 
 const COLS = 9
 const DAY = 86400000
@@ -74,6 +75,7 @@ export default function QuotationList({ items, loading, settings, enquiries = []
   const [filterMenu, setFilterMenu] = useState(null)
   const [lostFor, setLostFor] = useState(null)
   const searchRef = useRef(null)
+  const convert = useConvertConfirm()
   const [now, setNow] = useState(Date.now)
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60000)
@@ -140,6 +142,7 @@ export default function QuotationList({ items, loading, settings, enquiries = []
   }, [rows, views, view, amount, query, status, owner, sortBy])
 
   useEffect(() => setPage(1), [view, query, status, owner, amount, sortBy, pageSize])
+  useEffect(() => setSelected(new Set()), [view, query, status, owner, amount])
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
   const cur = Math.min(page, pageCount)
   const shown = filtered.slice((cur - 1) * pageSize, cur * pageSize)
@@ -162,7 +165,7 @@ export default function QuotationList({ items, loading, settings, enquiries = []
 
   const primary = async (r) => {
     if (r.fu.action === "send" || r.fu.action === "remind") return onSend(r.q)
-    if (r.fu.action === "invoice") return convertToInvoice(r.q)
+    if (r.fu.action === "invoice") return convert.ask(r.q)
     if (r.fu.action === "revise") return onOpen(duplicateDraft(r.q))
   }
 
@@ -174,7 +177,7 @@ export default function QuotationList({ items, loading, settings, enquiries = []
       p: () => active && onPreview(active.q),
       s: () => active && onSend(active.q),
       w: () => active && startWhatsAppShare(active.q, settings),
-      i: () => active && active.st === "accepted" && convertToInvoice(active.q),
+      i: () => active && active.st === "accepted" && convert.ask(active.q),
       "/": () => searchRef.current?.focus(),
     },
     [flat, activeId, active],
@@ -198,7 +201,7 @@ export default function QuotationList({ items, loading, settings, enquiries = []
           { icon: RefreshCw, label: "Revise as a new draft", key: "V", onSelect: () => onOpen(duplicateDraft(q)) },
           { icon: Calendar, label: "Extend validity", hint: "+15 days", key: "X", disabled: !["draft", "sent", "expired"].includes(r.st), onSelect: () => extendValidity(q, 15) },
           { icon: CheckCircle2, label: "Mark accepted", key: "A", disabled: !["draft", "sent", "expired"].includes(r.st), onSelect: () => setQuoteStatus(q, "accepted").then(() => toast.success("Marked accepted")) },
-          { icon: FileCheck2, label: "Convert to invoice", key: "I", disabled: r.st === "invoiced", onSelect: () => convertToInvoice(q) },
+          ...(r.st === "accepted" ? [{ icon: FileCheck2, label: "Convert to invoice", key: "I", onSelect: () => convert.ask(q) }] : []),
           { icon: Copy, label: "Duplicate", key: "⇧D", onSelect: () => onOpen(duplicateDraft(q)) },
         ],
       },
@@ -343,9 +346,9 @@ export default function QuotationList({ items, loading, settings, enquiries = []
             <Button variant="outline" size="sm" onClick={bulkSend}>
               <Send className="h-3.5 w-3.5" /> Send by email
             </Button>
-            <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-[13px] font-semibold text-primary hover:underline">
+            <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setSelected(new Set())}>
               Clear
-            </button>
+            </Button>
           </div>
         ) : (
           filtered.length > 0 && (
@@ -373,6 +376,7 @@ export default function QuotationList({ items, loading, settings, enquiries = []
           { title: "Amount", items: AMOUNT.map((a) => ({ icon: null, label: a.label[0].toUpperCase() + a.label.slice(1), checked: amount === a.value, onSelect: () => setAmount(a.value) })) },
         ]}
       />
+      {convert.element}
       <Modal open={!!lostFor} onClose={() => setLostFor(null)} title="Why was this quotation lost?" width="max-w-sm">
         <div className="flex flex-wrap gap-2">
           {LOST_REASONS.map((reason) => (
@@ -446,12 +450,15 @@ function QuoteRow({ r, checked, onCheck, active, menuOpen, onOpen, onPrimary, on
   const pct = r.left == null ? 0 : Math.max(0, Math.min(100, (r.left / days) * 100))
   const action = { send: ["Send", true], remind: ["Remind", false], invoice: ["Invoice", false], revise: ["Revise", false] }[r.fu.action]
   return (
-    <tr id={`quote-${r.id}`} className="v2-row" data-selected={active || checked} onClick={onOpen}>
-      <td style={{ paddingLeft: 16 }} onClick={(e) => e.stopPropagation()}>
+    <tr id={`quote-${r.id}`} className="v2-row" data-selected={checked} aria-current={active || undefined} onClick={onOpen}>
+      <td className="relative" style={{ paddingLeft: 16 }} onClick={(e) => e.stopPropagation()}>
+        <CursorBar on={active} />
         <Check checked={checked} onChange={onCheck} label={`Select ${q.number}`} />
       </td>
       <td>
-        <div className="truncate font-semibold text-foreground tabular">{q.number || "Draft"}</div>
+        <button type="button" onClick={(e) => (e.stopPropagation(), onOpen())} className="block max-w-full truncate font-semibold text-foreground tabular hover:underline">
+          {q.number || "Draft"}
+        </button>
         <div className="mt-px truncate text-xs text-muted-foreground">
           {r.st === "draft" ? "Draft" : dm(q.issueDate)}
           {r.lead?.reference ? ` · from ${r.lead.reference}` : ""}
@@ -462,7 +469,7 @@ function QuoteRow({ r, checked, onCheck, active, menuOpen, onOpen, onPrimary, on
           <Initials name={r.customer} size={28} />
           <div className="min-w-0">
             <div className={cn("truncate font-semibold", r.customer ? "text-foreground" : "text-muted-foreground")}>{r.customer || "No customer"}</div>
-            <div className="truncate text-xs text-muted-foreground">{[r.contact, r.place].filter(Boolean).join(" · ") || "—"}</div>
+            <div className="truncate text-xs text-muted-foreground">{[r.contact, r.place].filter(Boolean).join(" · ") || "No contact details"}</div>
           </div>
         </div>
       </td>
@@ -501,17 +508,10 @@ function QuoteRow({ r, checked, onCheck, active, menuOpen, onOpen, onPrimary, on
       <td style={{ paddingRight: 16 }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-end gap-1">
           {action && (
-            <button
-              type="button"
-              onClick={onPrimary}
-              className={cn(
-                "squircle inline-flex h-7 flex-none items-center gap-1 rounded-lg px-2.5 text-xs font-semibold transition-colors",
-                action[1] ? "bg-primary text-primary-foreground hover:bg-primary-hover" : "border border-line bg-card text-foreground hover:border-primary/40",
-              )}
-            >
+            <Button size="sm" variant={action[1] ? "primary" : "outline"} className="flex-none" onClick={onPrimary}>
               {r.fu.action === "invoice" ? <FileCheck2 className="h-3.5 w-3.5" /> : r.fu.action === "revise" ? <RefreshCw className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
               {action[0]}
-            </button>
+            </Button>
           )}
           <RowAction icon={MessageCircle} label="WhatsApp (W)" tone="green" onClick={onWhatsApp} />
           <RowAction icon={MoreHorizontal} label="More actions" active={menuOpen} onClick={(e) => onMenu(e.currentTarget)} />

@@ -6,7 +6,8 @@
 //
 //   { action: "set-active",     id, active }            enable / disable a login
 //   { action: "reset-password", id, password?, notify }  set a new password
-//   { action: "delete",         id }                     remove the account
+//   { action: "delete",         id }                     remove the account (409 while it
+//                                                         has attendance, leave or payroll rows)
 //
 // Callable ONLY by a signed-in, active admin. Two self-protection rules are
 // enforced here rather than only in the UI, because the UI is not the security
@@ -124,6 +125,34 @@ Deno.serve(async (req) => {
     // ---- delete -------------------------------------------------------------
     if (action === "delete") {
       if (id === staff.userId) return json({ error: "You can't delete your own account" }, 400)
+
+      // Each of these tables references auth.users ON DELETE CASCADE (migrations
+      // 0034, 0036, 0040), so deleting the login would silently erase that
+      // person's attendance, leave and payroll history. Refuse while any exists;
+      // the console offers Deactivate instead, which keeps it all.
+      const HISTORY: [string, string][] = [
+        ["payslips", "payslips"],
+        ["employees", "a payroll employee record"],
+        ["loans", "loans"],
+        ["reimbursement_claims", "expense claims"],
+        ["attendance_punches", "attendance punches"],
+        ["attendance_days", "attendance days"],
+        ["regularisations", "attendance corrections"],
+        ["leave_requests", "leave requests"],
+        ["leave_ledger", "leave balance entries"],
+      ]
+      const found: string[] = []
+      for (const [table, label] of HISTORY) {
+        const { count, error } = await admin.from(table).select("user_id", { count: "exact", head: true }).eq("user_id", id)
+        if (error) return json({ error: `Could not check ${label}: ${error.message}` }, 500)
+        if (count) found.push(label)
+      }
+      if (found.length) {
+        return json({
+          error: `This account has ${found.join(", ")}. Deleting it would erase them for good, so deactivate the account instead.`,
+          hasRecords: true,
+        }, 409)
+      }
 
       // Strip access first. If the auth delete then fails for any reason, the
       // account is left with no role and no modules rather than fully powered.

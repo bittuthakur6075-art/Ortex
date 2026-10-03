@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom"
 import { formatCurrency, initials } from "../../lib/format"
 import { cn } from "../../lib/cn"
+import { Card } from "../../components/ui/Ui"
 
 // The Dashboard's building blocks, measured off the Figma V2 frames
 // ("Dashboard v2" page). One spacing scale: 24px around and between cards,
@@ -21,10 +22,10 @@ export const TONE = {
   slate: { soft: "bg-background", text: "text-muted-foreground", fill: "bg-subtle-foreground/40" },
 }
 
-/** A dashboard card: 24px padding, 20px between blocks. */
+/** A dashboard card (the kit Card): 24px padding, 20px between blocks. */
 export function Panel({ title, description, action, className, children, ...props }) {
   return (
-    <section className={cn("squircle flex flex-col gap-5 rounded-card bg-card p-6", className)} {...props}>
+    <Card className={cn("gap-5 p-6", className)} {...props}>
       {(title || action) && (
         <header className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -35,7 +36,7 @@ export function Panel({ title, description, action, className, children, ...prop
         </header>
       )}
       {children}
-    </section>
+    </Card>
   )
 }
 
@@ -103,15 +104,14 @@ export function Change({ d, unit = "%" }) {
  */
 export function Seg({ items, value, onChange, className }) {
   return (
-    <div className={cn("squircle inline-flex items-center gap-0.5 rounded-xl bg-[hsl(var(--table-head))] p-1", className)} role="tablist">
+    <div className={cn("squircle inline-flex items-center gap-0.5 rounded-xl bg-[hsl(var(--table-head))] p-1", className)} role="group">
       {items.map((it) => {
         const active = it.value === value
         return (
           <button
             key={it.value}
             type="button"
-            role="tab"
-            aria-selected={active}
+            aria-pressed={active}
             onClick={() => onChange(it.value)}
             className={cn(
               "squircle whitespace-nowrap rounded-[9px] px-3 py-1.5 text-[12.5px] leading-[15px] transition-colors",

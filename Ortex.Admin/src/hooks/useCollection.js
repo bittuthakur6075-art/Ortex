@@ -152,7 +152,10 @@ export function useSettings() {
       // Said out loud: a page drawn from the defaults shows a placeholder GSTIN.
       console.error("Failed to load settings:", e)
       toast.error(`Company settings could not be loaded: ${e?.message || e}`, { id: "settings-load" })
-      if (mounted.current) setSettings(DEFAULT_SETTINGS)
+      // Flagged (non-enumerable, so never saved or cloned along) for the
+      // Control centre to refuse saving; settings that did load are kept.
+      const fallback = Object.defineProperty(structuredClone(DEFAULT_SETTINGS), "loadFailed", { value: true })
+      if (mounted.current) setSettings((prev) => (prev && !prev.loadFailed ? prev : fallback))
     }
   }, [])
 

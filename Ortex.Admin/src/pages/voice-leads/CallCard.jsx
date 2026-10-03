@@ -17,7 +17,7 @@ export default function CallCard({ call, onOpen }) {
   return (
     <Card
       className={cn(
-        "flex flex-col p-5 ring-1 transition-shadow hover:shadow-md",
+        "flex flex-col p-5 ring-1 transition-shadow hover:ring-border-strong",
         f.support ? "ring-destructive/30" : "ring-border/60",
       )}
     >
