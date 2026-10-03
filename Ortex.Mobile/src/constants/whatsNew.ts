@@ -32,13 +32,23 @@ export const RELEASES: Release[] = [
     id: "1.10.0",
     version: "1.10.0",
     date: "2026-10-03",
-    title: "Alerts when the app is closed, and calls you can log",
-    summary: "Allow notifications when asked, so Ortex can ring for new leads even when the app is closed.",
+    title: "Companies, calls you can log, and checked quotations",
+    summary: "A required update. Work for Ortex, Aman Enterprises or Medinetix from one app.",
     items: [
       {
         kind: "new",
-        title: "Alerts with the app closed",
-        detail: "New leads, chat messages, leave decisions, payslips and claims now arrive even when Ortex is closed. Tap one to open that lead, chat or payslip. Choose what rings you in Profile, Notifications.",
+        title: "One app for every company",
+        detail: "If you work for more than one company, pick it from the name at the top of Home. Leads, customers, quotations and payments show that company's, and its quotation PDF carries its own logo, GSTIN and address.",
+      },
+      {
+        kind: "improved",
+        title: "Quotations checked before you create them",
+        detail: "Ortex now checks the phone number, email, GSTIN, address, PIN code, quantities and dates as you fill in a quotation, and tells you exactly what to fix before it goes out.",
+      },
+      {
+        kind: "improved",
+        title: "Tap an alert to open it",
+        detail: "Tapping a notification now opens that lead, chat or payslip, even when Ortex was closed. Choose what rings you in Profile, Notifications.",
       },
       {
         kind: "new",
