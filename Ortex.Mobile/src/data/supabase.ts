@@ -30,7 +30,31 @@ if (!hasSupabase && __DEV__) {
   console.warn("[ortex] SUPABASE_URL / SUPABASE_ANON_KEY are missing. Copy .env.example to .env")
 }
 
+/** A request that has not answered in this long has hung (a dropped connection hangs rather than fails). */
+const REQUEST_TIMEOUT_MS = 15 * 1000
+/** Storage objects (photo uploads, file downloads): a 1 MB photo on weak 3G takes far longer than a read. */
+const FILE_TIMEOUT_MS = 2 * 60 * 1000
+
+/**
+ * fetch with a deadline, for every REST, RPC, auth, storage and edge-function
+ * call the client makes. Realtime is a WebSocket and never comes through here.
+ * A signal the caller passed still aborts the request.
+ */
+function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const href = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+  const file = href.includes("/storage/v1/object")
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), file ? FILE_TIMEOUT_MS : REQUEST_TIMEOUT_MS)
+  const outer = init.signal
+  if (outer) {
+    if (outer.aborted) controller.abort()
+    else outer.addEventListener("abort", () => controller.abort())
+  }
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer))
+}
+
 export const supabase: SupabaseClient = createClient(url || "http://localhost", anonKey || "anon", {
+  global: { fetch: fetchWithTimeout },
   auth: {
     storage: AsyncStorage,
     persistSession: true,
@@ -56,6 +80,7 @@ AppState.addEventListener("change", (state) => {
  */
 export function createEphemeralClient(): SupabaseClient {
   return createClient(url || "http://localhost", anonKey || "anon", {
+    global: { fetch: fetchWithTimeout },
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   })
 }
@@ -71,5 +96,7 @@ export function errorMessage(error: unknown, fallback = "Something went wrong"):
   if (/network request failed|fetch failed/i.test(message)) {
     return "No connection. Check your mobile data and try again."
   }
+  // fetchWithTimeout gave up on a request that hung.
+  if (/abort/i.test(message)) return "The connection timed out. Check your mobile data and try again."
   return message
 }

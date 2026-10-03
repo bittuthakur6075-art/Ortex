@@ -1,8 +1,10 @@
+import { usePreventRemove, type NavigationAction } from "@react-navigation/native"
 import { Image } from "expo-image"
 import * as ImagePicker from "expo-image-picker"
 import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
+import { getCollectionSnapshot, loadCollection } from "@/data/collectionStore"
 import { repo } from "@/data/repo"
 import { errorMessage } from "@/data/supabase"
 import {
@@ -21,9 +23,24 @@ import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { AppScreen, Button, Icon, OptionSheet, Section, Spinner, Switch, TextField, useToast } from "@/ui"
+import { AppScreen, Button, Dialog, Icon, OptionSheet, Section, Spinner, Switch, TextField, useToast } from "@/ui"
 
 type Draft = ReturnType<typeof newCategory>
+
+/**
+ * Move every product still filed under `from` to `to`, each on its own, so one
+ * refusal does not hide the rest. Reads the products fresh, so a retry moves only
+ * what is still on the old name, whatever the category is called by then.
+ */
+async function moveProducts(from: string, to: string) {
+  await loadCollection("products")
+  const orphans = getCollectionSnapshot<Product & Row>("products").items.filter((p) => p.category === from)
+  const results = await Promise.allSettled(orphans.map((p) => repo.update("products", p.id, { category: to })))
+  return { moved: results.filter((r) => r.status === "fulfilled").length, total: orphans.length }
+}
+
+const moveWords = (moved: number, total: number) =>
+  `${moved} of ${total} product${total === 1 ? "" : "s"} moved`
 
 /** The folder the console files category uploads under, inside the shared bucket. */
 const FOLDER = "categories"
@@ -64,6 +81,18 @@ export default function CategoryEditorScreen({ route, navigation }: StackScreenP
   const [gstOpen, setGstOpen] = React.useState(false)
   const [uploading, setUploading] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
+  const [dirty, setDirty] = React.useState(false)
+  // A rename whose products did not all move: the old and new name, for Retry.
+  const [moving, setMoving] = React.useState<{ from: string; to: string } | null>(null)
+  const [confirmLeave, setConfirmLeave] = React.useState(false)
+  // Swipe back, the hardware back and the app bar all ask before dropping changes.
+  const allowLeave = React.useRef(false)
+  const pendingLeave = React.useRef<NavigationAction | null>(null)
+  usePreventRemove(dirty || !!moving, ({ data }) => {
+    if (allowLeave.current) return navigation.dispatch(data.action)
+    pendingLeave.current = data.action
+    setConfirmLeave(true)
+  })
 
   // Over the factory, not in place of it, so a row written before a field
   // existed still opens with that field's default rather than undefined.
@@ -78,6 +107,7 @@ export default function CategoryEditorScreen({ route, navigation }: StackScreenP
 
   const set = (patch: Partial<Draft>) => {
     setDraft((prev) => ({ ...prev, ...patch }))
+    setDirty(true)
     setError("")
   }
 
@@ -189,12 +219,17 @@ export default function CategoryEditorScreen({ route, navigation }: StackScreenP
         // of the category filter and the product count, and the website shelf
         // empties. The console moves them across; so does this.
         if (name !== original.name) {
-          const orphans = products.filter((p) => p.category === original.name)
-          await Promise.all(orphans.map((p) => repo.update("products", p.id, { category: name })))
+          const { moved, total } = await moveProducts(original.name, name)
+          if (moved < total) {
+            // The category is saved under its new name; stay, and offer to move the rest.
+            setDirty(false)
+            setMoving({ from: original.name, to: name })
+            feedback.error()
+            toast.show({ message: `Category renamed. ${moveWords(moved, total)}. Tap Retry`, tone: "danger" })
+            return
+          }
           toast.show({
-            message: orphans.length
-              ? `Category renamed · ${orphans.length} product${orphans.length === 1 ? "" : "s"} moved`
-              : "Category renamed",
+            message: total ? `Category renamed. ${moveWords(moved, total)}` : "Category renamed",
             tone: "success",
           })
         } else {
@@ -205,6 +240,7 @@ export default function CategoryEditorScreen({ route, navigation }: StackScreenP
         toast.show({ message: "Category added", tone: "success" })
       }
       feedback.created()
+      allowLeave.current = true
 
       // Hand the name back to whoever sent us here, so the product being typed
       // is filed under the category that was just created. merge: true updates
@@ -222,6 +258,29 @@ export default function CategoryEditorScreen({ route, navigation }: StackScreenP
     }
   }
 
+  const retryMove = async () => {
+    if (!moving || saving) return
+    setSaving(true)
+    try {
+      const { moved, total } = await moveProducts(moving.from, moving.to)
+      if (moved < total) {
+        feedback.error()
+        toast.show({ message: `${moveWords(moved, total)}. Tap Retry`, tone: "danger" })
+        return
+      }
+      feedback.created()
+      toast.show({ message: total ? moveWords(moved, total) : "Every product is moved", tone: "success" })
+      setMoving(null)
+      allowLeave.current = true
+      navigation.goBack()
+    } catch (e) {
+      feedback.error()
+      toast.show({ message: errorMessage(e, "Could not move the products"), tone: "danger" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <>
       <AppScreen
@@ -232,10 +291,21 @@ export default function CategoryEditorScreen({ route, navigation }: StackScreenP
         contentStyle={styles.content}
       >
         <Section title="Photo" style={styles.section} bodyStyle={styles.form}>
-          <Pressable onPress={() => void pickImage()} disabled={uploading}>
+          <Pressable
+            onPress={() => void pickImage()}
+            disabled={uploading}
+            accessibilityRole="button"
+            accessibilityLabel={draft.image ? "Category card image. Tap to replace" : "Choose the card image"}
+          >
             <View style={[styles.photo, { backgroundColor: t.surfaceInset, borderColor: t.border }]}>
               {draft.image ? (
-                <Image source={{ uri: draft.image }} style={StyleSheet.absoluteFill} contentFit="cover" transition={120} />
+                <Image
+                  source={{ uri: draft.image }}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                  transition={120}
+                  accessible={false}
+                />
               ) : (
                 <View style={styles.photoEmpty}>
                   <Icon name="camera" size={26} color={t.textTertiary} variant="Bulk" />
@@ -313,7 +383,11 @@ export default function CategoryEditorScreen({ route, navigation }: StackScreenP
             placeholder="Enter default HSN"
             keyboardType="number-pad"
           />
-          <Pressable onPress={() => setGstOpen(true)}>
+          <Pressable
+            onPress={() => setGstOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Default GST: ${draft.gstRate}%`}
+          >
             <Text style={[textVariants.caption, styles.pickerLabel, { color: t.textSecondary }]}>Default GST</Text>
             <View style={[styles.picker, { borderColor: t.border, backgroundColor: t.surface }]}>
               <Text style={[styles.pickerValue, { color: t.text }]}>{draft.gstRate}%</Text>
@@ -338,12 +412,22 @@ export default function CategoryEditorScreen({ route, navigation }: StackScreenP
         </Section>
 
         <View style={styles.pageBlock}>
-          <Button
-            label={original ? "Save changes" : "Add category"}
-            fullWidth
-            loading={saving}
-            onPress={() => void save()}
-          />
+          {moving ? (
+            <Button
+              label="Retry moving the products"
+              icon="refresh"
+              fullWidth
+              loading={saving}
+              onPress={() => void retryMove()}
+            />
+          ) : (
+            <Button
+              label={original ? "Save changes" : "Add category"}
+              fullWidth
+              loading={saving}
+              onPress={() => void save()}
+            />
+          )}
           <Text style={[textVariants.caption, styles.hint, { color: t.textTertiary }]}>
             {original && usage > 0
               ? `${usage} product${usage === 1 ? "" : "s"} use this category. Renaming it moves them all.`
@@ -351,6 +435,36 @@ export default function CategoryEditorScreen({ route, navigation }: StackScreenP
           </Text>
         </View>
       </AppScreen>
+
+      <Dialog
+        visible={confirmLeave}
+        title={moving ? "Leave products behind?" : "Discard changes?"}
+        message={
+          moving
+            ? `Some products are still filed under "${moving.from}" and drop off this shelf until they are moved.`
+            : "Nothing you have typed here has been saved yet."
+        }
+        onClose={() => setConfirmLeave(false)}
+        actions={[
+          {
+            label: moving ? "Stay" : "Keep editing",
+            onPress: () => {
+              pendingLeave.current = null
+              setConfirmLeave(false)
+            },
+          },
+          {
+            label: moving ? "Leave" : "Discard",
+            tone: "danger",
+            onPress: () => {
+              setConfirmLeave(false)
+              allowLeave.current = true
+              if (pendingLeave.current) navigation.dispatch(pendingLeave.current)
+              else navigation.goBack()
+            },
+          },
+        ]}
+      />
 
       <OptionSheet
         visible={gstOpen}

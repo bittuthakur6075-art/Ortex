@@ -34,7 +34,7 @@ function Badge({ label, tone = "accent", dotOnly }: Props) {
 
   return (
     <View style={[styles.pill, { backgroundColor: bg }]}>
-      <Text style={[styles.label, { color: text }]} numberOfLines={1}>
+      <Text style={[styles.label, { color: text }]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
         {label}
       </Text>
     </View>
@@ -46,7 +46,7 @@ export default memo(Badge)
 const styles = StyleSheet.create({
   pill: {
     minWidth: 20,
-    height: 20,
+    minHeight: 20,
     paddingHorizontal: 6,
     borderRadius: 10,
     alignItems: "center",

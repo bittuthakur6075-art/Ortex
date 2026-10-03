@@ -6,6 +6,7 @@
 // match the console exactly.
 
 import { repo } from "@/data/repo"
+import { GST_STATES } from "@/domain/gstStates"
 import { documentNumber } from "@/domain/id"
 import { computeDocument, type DocumentTotals } from "@/domain/pricing"
 import type { Customer, Enquiry, Line, Quotation } from "@/domain/schema"
@@ -25,6 +26,12 @@ export function isInterState(companyStateCode?: string, customerStateCode?: stri
  * GST place of supply for goods follows the ship-to (consignee) location when
  * one is given, otherwise the bill-to customer.
  */
+/** The state a GSTIN names in its first two digits ("07" for Delhi), or "". */
+export function gstinState(gstin?: string): string {
+  const code = String(gstin || "").trim().slice(0, 2)
+  return GST_STATES[code] ? code : ""
+}
+
 export function placeOfSupplyState(customer?: Customer | null, shipTo?: Customer | null): string | undefined {
   return shipTo?.stateCode?.trim() ? shipTo.stateCode : customer?.stateCode
 }
@@ -167,8 +174,24 @@ export function validUntilFor(issueDate: string, validityDays: number): string {
   return new Date(new Date(issueDate).getTime() + validityDays * 86400000).toISOString()
 }
 
-export async function createQuotation(draft: QuotationDraft, settings: Settings): Promise<Quotation> {
-  const number = await generateNumber("quotation", settings)
+/**
+ * One Create press and its retries. The number is reserved once and kept here,
+ * so a retry after a lost answer reuses it rather than minting a second one.
+ */
+export type CreateAttempt = { number?: string }
+
+export async function createQuotation(
+  draft: QuotationDraft,
+  settings: Settings,
+  attempt: CreateAttempt = {},
+): Promise<Quotation> {
+  if (attempt.number) {
+    // A retry: the first insert may have landed after all.
+    const landed = await findQuotationByNumber(attempt.number)
+    if (landed) return landed
+  }
+  const number = attempt.number || (await generateNumber("quotation", settings))
+  attempt.number = number
   const issueDate = draft.issueDate || new Date().toISOString()
   const validityDays = draft.validityDays ?? settings.quotation.validityDays
   const validUntil = validUntilFor(issueDate, validityDays)
@@ -204,6 +227,50 @@ export async function createQuotation(draft: QuotationDraft, settings: Settings)
     sellerName: draft.sellerName || "",
     showSeller: draft.showSeller !== false,
   })
+}
+
+/**
+ * A quotation by its number among the newest rows, or null. Throws when the
+ * list could only be read from the phone's cache: then nobody knows.
+ */
+export async function findQuotationByNumber(number: string): Promise<Quotation | null> {
+  const { items, fromCache } = await repo.fetch<Quotation>("quotations", { limit: 50 })
+  if (fromCache) throw new Error("No signal to check whether the quotation was saved")
+  return items.find((q) => q.number === number) || null
+}
+
+const SAVE_TIMEOUT = 20000
+
+/**
+ * `createQuotation` raced against 20s (a dropped connection hangs rather than
+ * fails), and on an error or a timeout the list is read again: if the reserved
+ * number is there, it saved. Only then is it a failure.
+ * ponytail: a request still in flight past the re-read can land after a retry's
+ * check; widen the check (or a unique index on doc number) if that ever bites.
+ */
+export async function createQuotationReliably(
+  draft: QuotationDraft,
+  settings: Settings,
+  attempt: CreateAttempt,
+  timeoutMs = SAVE_TIMEOUT,
+): Promise<Quotation> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      createQuotation(draft, settings, attempt),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("No answer from the server. Check your signal.")), timeoutMs)
+      }),
+    ])
+  } catch (e) {
+    if (attempt.number) {
+      const landed = await findQuotationByNumber(attempt.number).catch(() => null)
+      if (landed) return landed
+    }
+    throw e
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export async function updateQuotation(

@@ -10,6 +10,7 @@ import Button from "@/ui/Button"
 import { Chip } from "@/ui/Chips"
 import Icon from "@/ui/Icon"
 import Sheet from "@/ui/Sheet"
+import { SquircleBackground } from "@/ui/Squircle"
 import TextField from "@/ui/TextField"
 
 /**
@@ -145,7 +146,8 @@ export default function AiWriterSheet({ visible, onClose, current, onApply, purp
       />
 
       {result ? (
-        <View style={[styles.result, { backgroundColor: t.surfaceInset, borderColor: t.border }]}>
+        <View style={styles.result}>
+          <SquircleBackground fill={t.surfaceInset} stroke={t.border} strokeWidth={1} radius={radius.card} />
           <View style={styles.resultHead}>
             <Icon name="assistant" size={16} color={t.primary} variant="Bulk" />
             <Text style={[textVariants.captionStrong, { color: t.textSecondary }]}>Suggestion</Text>
@@ -157,7 +159,8 @@ export default function AiWriterSheet({ visible, onClose, current, onApply, purp
       ) : null}
 
       {error ? (
-        <View style={[styles.error, { backgroundColor: t.dangerBg }]} accessibilityLiveRegion="polite">
+        <View style={styles.error} accessibilityLiveRegion="polite">
+          <SquircleBackground fill={t.dangerBg} radius={radius.card} />
           <Icon name="warning" size={16} color={t.danger} variant="Bulk" />
           <Text style={[textVariants.small, styles.errorText, { color: t.dangerText }]}>{error}</Text>
         </View>
@@ -205,8 +208,6 @@ export default function AiWriterSheet({ visible, onClose, current, onApply, purp
 const styles = StyleSheet.create({
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.md },
   result: {
-    borderRadius: radius.card,
-    borderWidth: StyleSheet.hairlineWidth,
     padding: spacing.md,
     marginBottom: spacing.md,
     gap: spacing.xs,
@@ -216,7 +217,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: spacing.sm,
-    borderRadius: radius.card,
     padding: spacing.md,
     marginBottom: spacing.md,
   },

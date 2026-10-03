@@ -52,6 +52,8 @@ type Props = {
   description?: string
   disabled?: boolean
   style?: StyleProp<ViewStyle>
+  /** What the bare control (no `label`) is read out as; the row around it shows the words. */
+  accessibilityLabel?: string
 }
 
 /** The track and thumb alone — display only, no gesture and no accessibility role. */
@@ -102,7 +104,7 @@ function SwitchTrack({ value, disabled }: { value: boolean; disabled?: boolean }
   )
 }
 
-function Switch({ value, onValueChange, label, description, disabled, style }: Props) {
+function Switch({ value, onValueChange, label, description, disabled, style, accessibilityLabel }: Props) {
   const t = useTheme()
 
   if (!label) {
@@ -110,6 +112,7 @@ function Switch({ value, onValueChange, label, description, disabled, style }: P
       <Pressable
         accessibilityRole="switch"
         accessibilityState={{ checked: value, disabled }}
+        accessibilityLabel={accessibilityLabel}
         disabled={disabled}
         hitSlop={8}
         onPress={() => {

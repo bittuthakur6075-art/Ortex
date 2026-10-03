@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   root: { alignItems: "center", width: 76 },
   pill: {
     width: 76,
-    height: 54,
+    minHeight: 54,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",

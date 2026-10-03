@@ -323,7 +323,7 @@ function Thumb({ uri, fallback }: { uri?: string; fallback: IconName }) {
   return (
     <View style={[styles.thumb, { backgroundColor: t.surfaceInset }]}>
       {uri ? (
-        <Image source={{ uri }} style={styles.thumbImage} contentFit="cover" transition={120} />
+        <Image source={{ uri }} style={styles.thumbImage} contentFit="cover" transition={120} accessible={false} />
       ) : (
         <Icon name={fallback} size={24} color={t.textTertiary} variant="Bulk" />
       )}

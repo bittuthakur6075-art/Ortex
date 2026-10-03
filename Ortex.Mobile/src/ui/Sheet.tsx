@@ -17,6 +17,7 @@ import { useKeyboardHeight } from "@/hooks/useKeyboard"
 import { useTheme } from "@/store/ThemeContext"
 import { radius, motion, spacing, gutter } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
+import { useReducedMotion } from "@/ui/motion"
 import { SquircleBackground } from "@/ui/Squircle"
 
 type Props = {
@@ -41,11 +42,17 @@ export default function Sheet({ visible, onClose, title, children }: Props) {
   const keyboard = useKeyboardHeight()
   const progress = useRef(new Animated.Value(0)).current
   const [mounted, setMounted] = useState(visible)
+  const reduce = useReducedMotion()
   // Start at full screen height: a smaller guess makes a tall sheet's first
   // open begin part-way up the screen instead of fully off it.
   const [height, setHeight] = useState(Dimensions.get("window").height)
 
   useEffect(() => {
+    if (reduce) {
+      progress.setValue(visible ? 1 : 0)
+      setMounted(visible)
+      return
+    }
     if (visible) {
       setMounted(true)
       Animated.spring(progress, {
@@ -66,7 +73,7 @@ export default function Sheet({ visible, onClose, title, children }: Props) {
     }).start(({ finished }) => {
       if (finished) setMounted(false)
     })
-  }, [visible, progress])
+  }, [visible, progress, reduce])
 
   if (!mounted) return null
 

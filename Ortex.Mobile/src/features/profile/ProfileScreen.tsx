@@ -21,6 +21,7 @@
  * true of THIS HANDSET: the photo, the fingerprint lock, the theme, signing out.
  */
 
+import AsyncStorage from "@react-native-async-storage/async-storage"
 import * as ImagePicker from "expo-image-picker"
 import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
@@ -51,6 +52,9 @@ const SINCE_DAY = new Intl.DateTimeFormat("en-IN", {
   timeZone: "Asia/Kolkata",
 })
 
+/** The version whose release notes were last opened: the New tag shows until this one is. */
+const WHATS_NEW_SEEN_KEY = "@ortex/whats-new-seen"
+
 const THEMES: { key: ThemePref; short: string }[] = [
   { key: "system", short: "Auto" },
   { key: "light", short: "Light" },
@@ -71,8 +75,13 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
   const [confirmRemovePhoto, setConfirmRemovePhoto] = React.useState(false)
   const [photoBusy, setPhotoBusy] = React.useState(false)
 
+  const [notesSeen, setNotesSeen] = React.useState(true)
+
   React.useEffect(() => {
     void biometricAvailable().then(setCanBiometric)
+    AsyncStorage.getItem(WHATS_NEW_SEEN_KEY)
+      .then((v) => setNotesSeen(v === APP_VERSION))
+      .catch(() => {})
   }, [])
 
   const email = profile?.email || session?.user?.email || ""
@@ -294,6 +303,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
                   value={biometricEnabled}
                   onValueChange={setBiometricEnabled}
                   disabled={!canBiometric}
+                  accessibilityLabel="Fingerprint unlock"
                 />
               }
             />
@@ -332,8 +342,12 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
               icon="gift"
               title="What's New"
               subtitle={`Version ${APP_VERSION}`}
-              trailing={<Tag label="New" tone="primary" />}
-              onPress={() => navigation.navigate("WhatsNew")}
+              trailing={notesSeen ? undefined : <Tag label="New" tone="primary" />}
+              onPress={() => {
+                setNotesSeen(true)
+                AsyncStorage.setItem(WHATS_NEW_SEEN_KEY, APP_VERSION).catch(() => {})
+                navigation.navigate("WhatsNew")
+              }}
             />
             {/* The published terms, carried locally (features/profile/legal.ts) so
                 they open on a warehouse floor with no signal. */}
@@ -420,7 +434,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
         visible={confirmOut}
         onClose={() => setConfirmOut(false)}
         title="Sign out?"
-        message="You will need your password and an emailed code to get back in."
+        message="You will need your password to get back in."
         actions={[
           { label: "Cancel", onPress: () => setConfirmOut(false) },
           {

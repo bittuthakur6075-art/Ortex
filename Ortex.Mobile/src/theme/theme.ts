@@ -70,6 +70,10 @@ export type Colors = {
   primaryPressed: string
   primary10: string
   primary20: string
+  /** The brand tint well (a selected chip, a tonal button). */
+  primaryBg: string
+  /** Brand words on `primaryBg`: the bare primary is under AA (4.4:1) on its own tint. */
+  primaryText: string
   accentTint: string
   accentBorder: string
   iconWell: string
@@ -94,6 +98,10 @@ export type Colors = {
   success: string
   successBg: string
   successText: string
+  /** A solid success FILL that carries white words at AA (the bare green is 2.8:1). */
+  successStrong: string
+  /** A danger fill white text can sit on (AA); `danger` stays for glyphs and rules. */
+  dangerStrong: string
   warning: string
   warningBg: string
   warningText: string
@@ -110,6 +118,8 @@ export type Colors = {
   tabBarBorder: string
   appBar: string
   scrim: string
+  /** The toast pill: a dark plane in both themes, white words on it. */
+  toastBg: string
   /**
    * THE ONLY SHADOW IN THE APP, under the floating tab capsule (owner, 2026-09-13).
    * Four stacked layers, each twice the offset and blur of the last at a low
@@ -173,6 +183,8 @@ export const lightColors: Colors = {
   primaryPressed: brand.primaryPressed,
   primary10: brand.primary10,
   primary20: brand.primary20,
+  primaryBg: brand.primary10,
+  primaryText: brand.primaryPressed,
   accentTint: "rgba(37,103,232,0.08)",
   accentBorder: "rgba(37,103,232,0.2)",
   // The round icon well behind a list row's leading glyph.
@@ -190,6 +202,8 @@ export const lightColors: Colors = {
   success: "#04B440",
   successBg: "#E8FAEE",
   successText: "#0B7A2E",
+  successStrong: "#08843A",
+  dangerStrong: "#C41232",
   warning: "#DFA000",
   warningBg: "#FFF8E6",
   warningText: "#8A6200",
@@ -206,6 +220,7 @@ export const lightColors: Colors = {
   tabBarBorder: "#EBEDF3",
   appBar: "#FFFFFF",
   scrim: "rgba(0,0,0,0.45)",
+  toastBg: "#071437",
   // Tinted with the heading navy, never pure black, so it reads as depth on the
   // brand ground rather than dirt.
   barShadow:
@@ -242,6 +257,8 @@ export const darkColors: Colors = {
   primaryPressed: "#2567E8",
   primary10: "#101F38",
   primary20: "#16294A",
+  primaryBg: "#101F38",
+  primaryText: brand.primary50,
   accentTint: "rgba(76,134,245,0.10)",
   accentBorder: "rgba(76,134,245,0.24)",
   iconWell: "rgba(76,134,245,0.12)",
@@ -260,6 +277,8 @@ export const darkColors: Colors = {
   success: "#17C653",
   successBg: "#0B2B18",
   successText: "#17C653",
+  successStrong: "#08843A",
+  dangerStrong: "#C41232",
   warning: "#F6B100",
   warningBg: "#2C2405",
   warningText: "#F6B100",
@@ -276,6 +295,7 @@ export const darkColors: Colors = {
   tabBarBorder: "#333333",
   appBar: "#000000",
   scrim: "rgba(0,0,0,0.6)",
+  toastBg: "#2A2A2A",
   barShadow:
     "0px 1px 2px rgba(0, 0, 0, 0.28), 0px 3px 8px rgba(0, 0, 0, 0.30), 0px 10px 22px rgba(0, 0, 0, 0.36), 0px 22px 44px rgba(0, 0, 0, 0.42)",
   skeleton: "#1F1F1F",

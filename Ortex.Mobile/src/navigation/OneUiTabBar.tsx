@@ -389,12 +389,14 @@ function TabBar({ state: navState, descriptors, navigation }: BottomTabBarProps)
                 <View style={styles.labelBox}>
                   <Animated.Text
                     numberOfLines={1}
+                    maxFontSizeMultiplier={1.3}
                     style={[styles.label, { color: c.text, opacity: Animated.subtract(1, near) }]}
                   >
                     {label}
                   </Animated.Text>
                   <Animated.Text
                     numberOfLines={1}
+                    maxFontSizeMultiplier={1.3}
                     style={[styles.label, styles.labelOver, { color: c.primary, opacity: near }]}
                   >
                     {label}
@@ -479,8 +481,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   labelBox: { marginTop: 2, alignItems: "center", justifyContent: "center" },
-  // 9dp, set here rather than as a shared role: only the tab bar runs this small.
-  label: { ...textVariants.microLabel, fontSize: 9, lineHeight: 11, textAlign: "center" },
+  // 11sp, capped at 1.3x so a large system font cannot burst the fixed-height chip.
+  label: { ...textVariants.microLabel, fontSize: 11, lineHeight: 13, textAlign: "center" },
   labelOver: { position: "absolute", left: 0, right: 0 },
   // The Bulk glyph is stacked ON the Linear one so the pair cross-fade in place;
   // laid out normally they would sit side by side and double the chip's width.

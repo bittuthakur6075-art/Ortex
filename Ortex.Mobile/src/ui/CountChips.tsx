@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text } from "react-native"
 
 import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
-import { gutter } from "@/theme/tokens"
+import { gutter, size } from "@/theme/tokens"
 import { fontFamily } from "@/theme/typography"
 
 /**
@@ -32,13 +32,15 @@ export default function CountChips<K extends string>({
               feedback.select()
               onChange(o.key)
             }}
-            accessibilityRole="tab"
+            accessibilityRole="button"
             accessibilityState={{ selected: on }}
+            // About 33dp tall: the slop takes the touch to 48.
+            hitSlop={{ top: (size.touchMin - 33) / 2, bottom: (size.touchMin - 33) / 2, left: 4, right: 4 }}
             accessibilityLabel={`${o.label}, ${o.count}`}
             style={[styles.chip, { backgroundColor: on ? t.primary : t.surfaceInset }]}
           >
-            <Text style={[styles.label, { color: on ? t.textOnPrimary : t.text }]}>{o.label}</Text>
-            <Text style={[styles.count, { color: on ? t.textOnPrimary : t.textTertiary, opacity: on ? 0.8 : 1 }]}>{o.count}</Text>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.label, { color: on ? t.textOnPrimary : t.text }]}>{o.label}</Text>
+            <Text maxFontSizeMultiplier={1.3} style={[styles.count, { color: on ? t.textOnPrimary : t.textTertiary, opacity: on ? 0.8 : 1 }]}>{o.count}</Text>
           </Pressable>
         )
       })}

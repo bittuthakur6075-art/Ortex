@@ -1,12 +1,12 @@
 {
   "name": "ortex-mobile",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "private": true,
   "scripts": {
     "start": "react-native start",
     "android": "react-native run-android",
     "ios": "react-native run-ios",
-    "lint": "oxlint",
+    "lint": "oxlint && node scripts/ui-guard.mjs",
     "typecheck": "tsc --noEmit",
     "release:setup": "node scripts/release-setup.mjs",
     "release:android": "node scripts/release-android.mjs",

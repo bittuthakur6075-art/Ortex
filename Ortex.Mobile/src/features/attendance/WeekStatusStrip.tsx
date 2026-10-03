@@ -63,7 +63,7 @@ export default function WeekStatusStrip({
               style={[
                 styles.dow,
                 {
-                  color: c.today ? t.primary : c.future ? t.textFaint : t.textTertiary,
+                  color: c.today ? t.primary : t.textTertiary,
                   fontFamily: c.today ? font.semibold : font.medium,
                 },
               ]}
@@ -95,7 +95,7 @@ export default function WeekStatusStrip({
                         : planned
                         ? planned.fg
                         : c.future
-                        ? t.textFaint
+                        ? t.textTertiary
                         : t.textSecondary,
                   },
                 ]}
@@ -123,7 +123,7 @@ export default function WeekStatusStrip({
                 <Text
                   style={[
                     styles.hours,
-                    { color: c.future ? t.textFaint : c.minutes ? t.textSecondary : t.textTertiary },
+                    { color: c.minutes && !c.future ? t.textSecondary : t.textTertiary },
                   ]}
                 >
                   {c.future ? " " : c.minutes ? hoursShort(c.minutes) : "0h"}

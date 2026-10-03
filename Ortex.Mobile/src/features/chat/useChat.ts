@@ -118,6 +118,8 @@ export function useChatThread(conversationId: string, meId: string | null) {
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState("")
   const [hasMore, setHasMore] = React.useState(false)
+  // Bumped by reload() to fetch the thread again after a failed first read.
+  const [attempt, setAttempt] = React.useState(0)
   const photos = React.useRef(new Map<string, Photo>())
 
   const markRead = React.useCallback(() => {
@@ -148,7 +150,9 @@ export function useChatThread(conversationId: string, meId: string | null) {
     return () => {
       alive = false
     }
-  }, [conversationId, markRead])
+  }, [conversationId, markRead, attempt])
+
+  const reload = React.useCallback(() => setAttempt((n) => n + 1), [])
 
   React.useEffect(
     () =>
@@ -227,7 +231,7 @@ export function useChatThread(conversationId: string, meId: string | null) {
     setMessages((list) => list.filter((x) => x.id !== m.id))
   }, [])
 
-  return { messages, setMessages, loading, error, hasMore, loadOlder, send, retry, discard, markRead }
+  return { messages, setMessages, loading, error, hasMore, loadOlder, send, retry, discard, markRead, reload }
 }
 
 /** The signed-in user's id, for "is this mine". */

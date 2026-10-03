@@ -70,7 +70,7 @@ export default function QuotationsScreen({ navigation }: TabScreenProps<"Quotes"
           <NotificationBell />
         </>
       }
-      overlay={<Fab label="New Quote" icon="add" accessibilityLabel="New quotation" onPress={() => navigation.navigate("QuotationEditor")} />}
+      overlay={<Fab label="New quotation" icon="add" accessibilityLabel="New quotation" onPress={() => navigation.navigate("QuotationEditor")} />}
       sections={{
         sections: loading ? [] : sections,
         refreshControl: <ListRefreshControl refreshing={refreshing} onRefresh={reload} />,
@@ -98,7 +98,7 @@ export default function QuotationsScreen({ navigation }: TabScreenProps<"Quotes"
           <EmptyState
             icon="quote"
             title={filter !== "all" ? "Nothing matches" : "No quotations yet"}
-            hint={filter !== "all" ? "Try another filter above." : "Tap New Quote to raise one, or start from a lead."}
+            hint={filter !== "all" ? "Try another filter above." : "Tap New quotation to raise one, or start from a lead."}
           />
         ),
         renderItem: ({ item }: { item: unknown }) => {

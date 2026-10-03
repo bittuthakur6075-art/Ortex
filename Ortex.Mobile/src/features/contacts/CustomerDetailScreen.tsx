@@ -316,6 +316,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
                 <View key={q.id}>
                   {i > 0 && <Divider inset={68} />}
                   <Pressable
+                    accessibilityRole="button"
                     onPress={() => navigation.navigate("QuotationDetail", { id: q.id })}
                     android_ripple={{ color: t.accentTint }}
                     style={styles.historyRow}
@@ -364,6 +365,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
                 <View key={e.id}>
                   {i > 0 && <Divider inset={68} />}
                   <Pressable
+                    accessibilityRole="button"
                     onPress={() => navigation.navigate("EnquiryDetail", { id: e.id })}
                     android_ripple={{ color: t.accentTint }}
                     style={styles.historyRow}
@@ -393,6 +395,7 @@ export default function CustomerDetailScreen({ route, navigation }: StackScreenP
               <View key={c.id}>
                 {i > 0 && <Divider inset={68} />}
                 <Pressable
+                  accessibilityRole="button"
                   onPress={() => navigation.navigate("VoiceCallDetail", { id: c.id })}
                   android_ripple={{ color: t.accentTint }}
                   style={styles.historyRow}
@@ -469,6 +472,7 @@ function InfoRow({
   const t = useTheme()
   return (
     <Pressable
+      accessibilityRole="button"
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={320}

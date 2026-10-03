@@ -261,6 +261,7 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
                 >
                   {images.map((uri) => (
                     <Image
+                      accessible={false}
                       key={uri}
                       source={{ uri }}
                       style={{ width, height: heroHeight }}
@@ -271,6 +272,7 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
                 </ScrollView>
               ) : (
                 <Image
+                  accessible={false}
                   source={{ uri: images[0] }}
                   style={{ width, height: heroHeight }}
                   contentFit="cover"
@@ -341,6 +343,8 @@ export default function ProductDetailScreen({ route, navigation }: StackScreenPr
               <Pressable
                 key={f.label}
                 disabled={!f.copyable}
+                accessibilityRole={f.copyable ? "button" : "text"}
+                accessibilityHint={f.copyable ? "Long press to copy" : undefined}
                 onLongPress={f.copyable ? () => void copyValue(f.value, f.label) : undefined}
                 delayLongPress={320}
                 style={({ pressed }) => [

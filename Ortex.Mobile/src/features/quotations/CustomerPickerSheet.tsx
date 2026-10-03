@@ -75,6 +75,7 @@ export default function CustomerPickerSheet({
       </View>
 
       <Pressable
+        accessibilityRole="button"
         onPress={() => {
           setQuery("")
           // A blank customer opens the inline form on the editor; the name the
@@ -94,6 +95,7 @@ export default function CustomerPickerSheet({
 
       {matches.map((c) => (
         <Pressable
+          accessibilityRole="button"
           key={c.id}
           onPress={() => pick(c)}
           android_ripple={{ color: t.accentTint }}

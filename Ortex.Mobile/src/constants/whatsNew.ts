@@ -29,6 +29,45 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.10.0",
+    version: "1.10.0",
+    date: "2026-10-03",
+    title: "Alerts when the app is closed, and calls you can log",
+    summary: "Allow notifications when asked, so Ortex can ring for new leads even when the app is closed.",
+    items: [
+      {
+        kind: "new",
+        title: "Alerts with the app closed",
+        detail: "New leads, chat messages, leave decisions, payslips and claims now arrive even when Ortex is closed. Tap one to open that lead, chat or payslip. Choose what rings you in Profile, Notifications.",
+      },
+      {
+        kind: "new",
+        title: "How did the call go?",
+        detail: "After you call or WhatsApp a lead, Ortex asks what happened and when to follow up. Leads with a follow-up due today now come to the top of Call First.",
+      },
+      {
+        kind: "new",
+        title: "Edit a payment",
+        detail: "Open a payment and tap Edit to fix a wrong amount or date. Pick the date from a calendar, and filter the ledger by this month or this year.",
+      },
+      {
+        kind: "improved",
+        title: "Nothing you type is lost",
+        detail: "Going back from a quotation, customer or product you are editing now asks first, and the app keeps your place when it locks while you share a PDF.",
+      },
+      {
+        kind: "improved",
+        title: "Easier at the gate",
+        detail: "If a scan fails for no signal, Scan again comes first, and there is a torch for dim mornings. A punch sent for review now says you are clocked in.",
+      },
+      {
+        kind: "improved",
+        title: "Works better offline and with TalkBack",
+        detail: "Home and the Team tab show the last saved copy when there is no signal, buttons are easier to tap, and screen readers can now reach every action.",
+      },
+    ],
+  },
+  {
     id: "1.9.0",
     version: "1.9.0",
     date: "2026-10-02",

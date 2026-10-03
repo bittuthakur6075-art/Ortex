@@ -1,4 +1,6 @@
 import { CameraView, useCameraPermissions } from "expo-camera"
+import Flash from "iconsax-react-native/dist/esm/Flash"
+import FlashSlash from "iconsax-react-native/dist/esm/FlashSlash"
 import React from "react"
 import { BackHandler, Linking, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -11,12 +13,14 @@ import { cancelTodayReminder } from "@/lib/attendanceReminders"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
+import { palette } from "@/theme/theme"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
 import Button from "@/ui/Button"
 import Icon from "@/ui/Icon"
 import IconButton from "@/ui/IconButton"
 import ScreenLoader from "@/ui/ScreenLoader"
+import { SquircleBackground } from "@/ui/Squircle"
 import TextField from "@/ui/TextField"
 
 /**
@@ -60,6 +64,9 @@ export default function AttendanceClockScreen({ navigation, route }: StackScreen
   // Latches on the first accepted frame; see the header note.
   const sent = React.useRef(false)
   const lastPayload = React.useRef<string | null>(null)
+  // When the code was read: a code is dead within about thirty seconds, so
+  // retrying the same one is only worth offering for a short while.
+  const scannedAt = React.useRef(0)
   // One request at a time: a double tap on Try again or the field button
   // lands twice before the "saving" render can hide them.
   const inFlight = React.useRef(false)
@@ -116,6 +123,7 @@ export default function AttendanceClockScreen({ navigation, route }: StackScreen
       // Not ours: keep looking rather than asking the server about a parcel.
       if (!isAttendanceCode(payload)) return
       sent.current = true
+      scannedAt.current = Date.now()
       feedback.tap()
       void submit(payload)
     },
@@ -164,6 +172,7 @@ export default function AttendanceClockScreen({ navigation, route }: StackScreen
           onDone={close}
           onScanAgain={rescan}
           onRetry={() => void submit(lastPayload.current, note)}
+          retryUntil={lastPayload.current ? scannedAt.current + RETRY_WINDOW_MS : Infinity}
           onSwitch={(other) => navigation.replace("AttendanceClock", { kind: other })}
           bottom={insets.bottom}
         />
@@ -171,6 +180,9 @@ export default function AttendanceClockScreen({ navigation, route }: StackScreen
     </View>
   )
 }
+
+/** How long after a scan the same code is still worth sending again. */
+const RETRY_WINDOW_MS = 20_000
 
 // ---- scanning ------------------------------------------------------------------------------
 
@@ -193,6 +205,7 @@ function ScanStep({
   const insets = useSafeAreaInsets()
   const { width, height } = useWindowDimensions()
   const [permission, requestPermission] = useCameraPermissions()
+  const [torch, setTorch] = React.useState(false)
 
   const box = Math.min(width * 0.72, 300)
   const x = (width - box) / 2
@@ -223,6 +236,7 @@ function ScanStep({
       <CameraView
         style={StyleSheet.absoluteFill}
         facing="back"
+        enableTorch={torch}
         barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
         onBarcodeScanned={(e) => onScanned(e.data)}
       />
@@ -234,6 +248,16 @@ function ScanStep({
       <View style={[styles.scanTop, { paddingTop: insets.top + spacing.sm }]}>
         <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close" style={styles.round}>
           <Icon name="close" size={22} color="#FFFFFF" />
+        </Pressable>
+        <Pressable
+          onPress={() => setTorch((on) => !on)}
+          hitSlop={12}
+          accessibilityRole="switch"
+          accessibilityLabel="Torch"
+          accessibilityState={{ checked: torch }}
+          style={[styles.round, torch && styles.roundOn]}
+        >
+          {torch ? <Flash size={22} color="#000000" variant="Bold" /> : <FlashSlash size={22} color="#FFFFFF" />}
         </Pressable>
       </View>
 
@@ -277,7 +301,8 @@ function FieldStep({
   return (
     <View style={styles.flex}>
       <View style={styles.content}>
-        <View style={[styles.card, { backgroundColor: t.warningBg }]}>
+        <View style={styles.card}>
+          <SquircleBackground fill={t.warningBg} radius={radius.card} />
           <Text style={[textVariants.cardTitle, { color: t.warningText }]}>Marking without a code</Text>
           <Text style={[textVariants.small, { color: t.warningText }]}>
             This is for field work, when you are not at an office screen. It is recorded and an admin checks it. If you
@@ -309,6 +334,7 @@ function ResultStep({
   onDone,
   onScanAgain,
   onRetry,
+  retryUntil,
   onSwitch,
   bottom,
 }: {
@@ -318,6 +344,8 @@ function ResultStep({
   onDone: () => void
   onScanAgain: () => void
   onRetry: () => void
+  /** Try again is offered until then; Infinity for a punch without a code. */
+  retryUntil: number
   onSwitch: (kind: "in" | "out") => void
   bottom: number
 }) {
@@ -327,14 +355,20 @@ function ResultStep({
   const good = ok || flagged
   const ink = ok ? t.success : flagged ? t.warning : t.danger
   const well = ok ? t.successBg : flagged ? t.warningBg : t.dangerBg
-  const title = ok
-    ? kind === "in"
-      ? "You're clocked in"
-      : "You're clocked out"
-    : flagged
-      ? "Saved, for review"
-      : "Not saved"
-  const sentence = failure || (result ? resultSentence(result) : "")
+  // A flagged punch IS recorded; the review is a note under it, not the headline.
+  const title = good ? (kind === "in" ? "You're clocked in" : "You're clocked out") : "Not saved"
+  // The time and place are in the chip below, so a good result needs no sentence.
+  const sentence = failure || (result && !good ? resultSentence(result) : "")
+  const scanned = Number.isFinite(retryUntil)
+  const [retryOpen, setRetryOpen] = React.useState(() => Date.now() < retryUntil)
+  React.useEffect(() => {
+    const left = retryUntil - Date.now()
+    if (!Number.isFinite(left)) return
+    if (left <= 0) return setRetryOpen(false)
+    setRetryOpen(true)
+    const id = setTimeout(() => setRetryOpen(false), left)
+    return () => clearTimeout(id)
+  }, [retryUntil])
   // A dead code means "look up, the screen has a new one". Being already
   // clocked in does not, so it gets Close rather than Scan again.
   const again = !good && !failure && result ? canRescan(result.status) : false
@@ -354,16 +388,16 @@ function ResultStep({
           <Icon name={good ? "tick" : "warning"} size={40} color={ink} variant="Bold" />
         </View>
         <Text style={[textVariants.largeTitle, styles.center, { color: t.text }]}>{title}</Text>
-        <Text style={[textVariants.body, styles.center, { color: t.textSecondary }]}>{sentence}</Text>
+        {sentence ? <Text style={[textVariants.body, styles.center, { color: t.textSecondary }]}>{sentence}</Text> : null}
         {good && result?.at ? (
           <InfoChip icon="clock" tone={ok ? "success" : "warning"}>
             {`${kind === "in" ? "In" : "Out"} at ${clockIST(result.at)}${result.mode === "field" ? " · Field visit" : result.site ? ` · ${result.site}` : ""}`}
           </InfoChip>
         ) : null}
-        {flagged && result?.flags?.length ? (
-          <Text style={[textVariants.small, styles.center, { color: t.warningText }]}>
-            An admin will check: {flagWords(result.flags).join(", ").toLowerCase()}.
-          </Text>
+        {flagged ? (
+          <InfoChip icon="warning" tone="warning">
+            {result?.flags?.length ? `An admin will check: ${flagWords(result.flags).join(", ").toLowerCase()}` : "An admin will check this punch"}
+          </InfoChip>
         ) : null}
       </View>
       <View style={[styles.footer, { paddingBottom: bottom + spacing.md }]}>
@@ -371,8 +405,12 @@ function ResultStep({
           <Button label="Done" fullWidth onPress={onDone} />
         ) : (
           <>
-            {failure ? <Button label="Try again" fullWidth onPress={onRetry} /> : null}
-            {again ? <Button label="Scan again" fullWidth={!failure} variant={failure ? "ghost" : "primary"} onPress={onScanAgain} /> : null}
+            {/* A dropped connection: the code on the wall has most likely moved on,
+                so a fresh scan leads. It keeps the same punch id, so a punch that
+                did land is not recorded twice. */}
+            {failure && scanned ? <Button label="Scan again" fullWidth onPress={onScanAgain} /> : null}
+            {failure && retryOpen ? <Button label="Try again" fullWidth variant={scanned ? "ghost" : "primary"} onPress={onRetry} /> : null}
+            {again ? <Button label="Scan again" fullWidth onPress={onScanAgain} /> : null}
             {switchTo ? (
               <Button label={switchTo === "out" ? "Check out instead" : "Check in instead"} fullWidth onPress={() => onSwitch(switchTo)} />
             ) : null}
@@ -389,14 +427,15 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   bar: { height: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: gutter - 10 },
   content: { flex: 1, paddingHorizontal: gutter, paddingTop: spacing.lg, gap: spacing.md },
-  card: { borderRadius: radius.card, padding: spacing.md, gap: spacing.xs },
+  card: { padding: spacing.md, gap: spacing.xs },
   footer: { paddingHorizontal: gutter, gap: spacing.xs, paddingTop: spacing.sm },
   dark: { flex: 1, backgroundColor: "#000000" },
   white: { color: "#FFFFFF" },
-  dim: { color: "#C9CDD8", marginTop: spacing.sm },
+  dim: { color: palette.text5, marginTop: spacing.sm },
   center: { textAlign: "center" },
-  scanTop: { position: "absolute", top: 0, left: 0, right: 0, paddingHorizontal: gutter, flexDirection: "row" },
+  scanTop: { position: "absolute", top: 0, left: 0, right: 0, paddingHorizontal: gutter, flexDirection: "row", justifyContent: "space-between" },
   round: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.35)" },
+  roundOn: { backgroundColor: "#FFFFFF" },
   scanBottom: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: gutter, gap: spacing.sm, alignItems: "center" },
   resultBox: { alignItems: "center", justifyContent: "center", paddingBottom: spacing.huge },
   resultIcon: { width: 88, height: 88, borderRadius: 44, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },

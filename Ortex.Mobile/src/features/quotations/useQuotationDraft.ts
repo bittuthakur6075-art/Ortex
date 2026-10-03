@@ -13,16 +13,27 @@ import type { QuotationDraft } from "@/domain/quotations"
 
 const KEY = "@ortex/quotation-draft"
 
+/**
+ * One slot per enquiry, and one for a blank quotation (the original key), so a
+ * quote started from an enquiry never overwrites a blank draft or another lead's.
+ */
+const keyFor = (enquiryId?: string | null) => (enquiryId ? `${KEY}:${enquiryId}` : KEY)
+
 export type StoredDraft = { draft: QuotationDraft; savedAt: number }
 
-/** Persist `draft` whenever it changes, unless we are editing an existing doc. */
+/**
+ * Persist `draft` whenever it changes, unless we are editing an existing doc,
+ * and only once it holds something: an untouched form must not replace a
+ * draft worth offering back.
+ */
 export function usePersistedDraft(draft: QuotationDraft, enabled: boolean) {
   React.useEffect(() => {
-    if (!enabled) return
+    if (!enabled || !draftHasContent(draft)) return
     const handle = setTimeout(() => {
-      AsyncStorage.setItem(KEY, JSON.stringify({ draft, savedAt: Date.now() } satisfies StoredDraft)).catch(
-        () => {},
-      )
+      AsyncStorage.setItem(
+        keyFor(draft.enquiryId),
+        JSON.stringify({ draft, savedAt: Date.now() } satisfies StoredDraft),
+      ).catch(() => {})
       // Debounced: writing on every keystroke of a long terms field would hit
       // the disk dozens of times a second for no benefit.
     }, 400)
@@ -30,9 +41,9 @@ export function usePersistedDraft(draft: QuotationDraft, enabled: boolean) {
   }, [draft, enabled])
 }
 
-export async function readStoredDraft(): Promise<StoredDraft | null> {
+export async function readStoredDraft(enquiryId?: string | null): Promise<StoredDraft | null> {
   try {
-    const raw = await AsyncStorage.getItem(KEY)
+    const raw = await AsyncStorage.getItem(keyFor(enquiryId))
     if (!raw) return null
     const parsed = JSON.parse(raw) as StoredDraft
     return parsed?.draft ? parsed : null
@@ -41,8 +52,8 @@ export async function readStoredDraft(): Promise<StoredDraft | null> {
   }
 }
 
-export async function clearStoredDraft(): Promise<void> {
-  await AsyncStorage.removeItem(KEY).catch(() => {})
+export async function clearStoredDraft(enquiryId?: string | null): Promise<void> {
+  await AsyncStorage.removeItem(keyFor(enquiryId)).catch(() => {})
 }
 
 /** Is this draft worth offering back, or is it an untouched blank? */

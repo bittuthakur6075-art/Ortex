@@ -1,5 +1,5 @@
 import * as Clipboard from "expo-clipboard"
-import { Linking } from "react-native"
+import { Alert, Linking, Platform, ToastAndroid } from "react-native"
 
 import { feedback } from "@/lib/feedback"
 
@@ -31,23 +31,32 @@ export function prettyPhone(phone = ""): string {
   return ten.length === 10 ? `+91 ${ten.slice(0, 5)} ${ten.slice(5)}` : phone || ""
 }
 
-async function open(url: string): Promise<boolean> {
+async function open(url: string, failure: string): Promise<boolean> {
   try {
     await Linking.openURL(url)
     return true
   } catch {
     // canOpenURL is unreliable across Android 11 package visibility, so we try
     // the intent and report the failure rather than pre-checking and lying.
+    // The platform's own toast: this module has no React tree to reach ui/Toast.
     feedback.error()
+    if (Platform.OS === "android") ToastAndroid.show(failure, ToastAndroid.SHORT)
+    else Alert.alert(failure)
     return false
   }
 }
 
+/**
+ * Dial with the country code kept: a bare 10-digit mobile becomes +91 (the
+ * `whatsappNumber` rule), a number typed with its own code keeps it. Toll-free
+ * 1800 numbers and short codes are dialled as typed.
+ */
 export function callNumber(phone?: string): Promise<boolean> {
   const d = String(phone || "").replace(/\D/g, "")
   if (!d) return Promise.resolve(false)
   feedback.tap()
-  return open(`tel:${d}`)
+  const n = whatsappNumber(d)
+  return open(/^1800/.test(d) || n.length < 11 ? `tel:${d}` : `tel:+${n}`, "Could not open the phone app")
 }
 
 /** Opens the WhatsApp chat, optionally pre-filled with a message. */
@@ -56,7 +65,7 @@ export function whatsapp(phone?: string, text?: string): Promise<boolean> {
   if (!n) return Promise.resolve(false)
   feedback.tap()
   const query = text ? `?text=${encodeURIComponent(text)}` : ""
-  return open(`https://wa.me/${n}${query}`)
+  return open(`https://wa.me/${n}${query}`, "Could not open WhatsApp")
 }
 
 export function email(address?: string, subject?: string, body?: string): Promise<boolean> {
@@ -65,7 +74,7 @@ export function email(address?: string, subject?: string, body?: string): Promis
   const params: string[] = []
   if (subject) params.push(`subject=${encodeURIComponent(subject)}`)
   if (body) params.push(`body=${encodeURIComponent(body)}`)
-  return open(`mailto:${address}${params.length ? `?${params.join("&")}` : ""}`)
+  return open(`mailto:${address}${params.length ? `?${params.join("&")}` : ""}`, "Could not open your email app")
 }
 
 export async function copy(value: string): Promise<void> {

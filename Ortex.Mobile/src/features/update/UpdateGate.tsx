@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import * as Application from "expo-application"
 import React from "react"
-import { AppState, Platform, StyleSheet, Text, View } from "react-native"
+import { AppState, Modal, Platform, ScrollView, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { APP_VERSION } from "@/constants/app"
@@ -31,7 +31,8 @@ import { Button, Dialog, Icon, ProgressBar } from "@/ui"
  *               is Update.
  *   · OPTIONAL  the app works as normal and offers the update in a dialog, at
  *               most once a day per version. "Update" opens the same screen with
- *               a Not now.
+ *               a Not now, as a full-screen sheet OVER the mounted app (a form
+ *               half typed underneath survives), and hardware back is Not now.
  *
  * Android only: iOS has no side-loaded APK and nothing to install.
  */
@@ -98,11 +99,18 @@ export default function UpdateGate({ children }: { children: React.ReactNode }) 
   }
 
   if (status === "required" && manifest) return <UpdateScreen manifest={manifest} required />
-  if (screenOpen && manifest) return <UpdateScreen manifest={manifest} onLater={snooze} />
 
   return (
     <>
       {children}
+      <Modal
+        visible={screenOpen && !!manifest}
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={snooze}
+      >
+        {manifest ? <UpdateScreen manifest={manifest} onLater={snooze} /> : null}
+      </Modal>
       <Dialog
         visible={offered && status === "optional" && !!manifest}
         onClose={snooze}
@@ -167,7 +175,7 @@ function UpdateScreen({
         { backgroundColor: t.background, paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.lg },
       ]}
     >
-      <View style={styles.body}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
         <View style={[styles.badge, { backgroundColor: t.primary10 }]}>
           <Icon name="refresh" size={30} color={t.primary} />
         </View>
@@ -204,7 +212,7 @@ function UpdateScreen({
         )}
 
         {!!error && <Text style={[textVariants.small, styles.center, { color: t.dangerText }]}>{error}</Text>}
-      </View>
+      </ScrollView>
 
       <View style={styles.actions}>
         <Button
@@ -223,8 +231,15 @@ function UpdateScreen({
             style={styles.full}
           />
         )}
-        {!required && phase !== "downloading" && (
-          <Button label="Not now" variant="ghost" onPress={onLater} style={styles.full} />
+        {/* While downloading this says what happens: the download carries on
+            and the installer opens when it is done. */}
+        {!required && (
+          <Button
+            label={phase === "downloading" ? "Keep using the app" : "Not now"}
+            variant="ghost"
+            onPress={onLater}
+            style={styles.full}
+          />
         )}
       </View>
     </View>
@@ -232,7 +247,8 @@ function UpdateScreen({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: gutter, justifyContent: "space-between" },
+  root: { flex: 1, paddingHorizontal: gutter, gap: spacing.md },
+  scroll: { flex: 1 },
   body: { alignItems: "center", gap: spacing.md, paddingTop: spacing.xxl },
   badge: { width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center" },
   center: { textAlign: "center" },

@@ -14,11 +14,12 @@ import {
   rfqSummary,
   rfqToQuotationLines,
 } from "@/domain/quoteRfq"
+import type { LeadDoc } from "@/domain/leads"
 import {
   ENQUIRY_STATUS,
+  LOST_REASONS,
   QUOTATION_STATUS,
   newLine,
-  statusMeta,
   type Enquiry,
   type Product,
   type Quotation,
@@ -27,10 +28,13 @@ import { useCollection } from "@/hooks/useCollection"
 import { callNumber, copy, email as sendEmail, prettyPhone, whatsapp } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
+import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import { border, gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { Button, Icon, IconButton, Panel, PanelBand, RecordActivityPanel, DetailSkeleton, StatusBadge, useToast } from "@/ui"
+import { Button, Icon, IconButton, OptionSheet, Panel, PanelBand, RecordActivityPanel, DetailSkeleton, SquircleBackground, StatusBadge, useToast } from "@/ui"
+import CallOutcomeSheet from "@/features/leads/CallOutcomeSheet"
+import { useAfterContact, writeLeadStatus } from "@/features/leads/leadWrites"
 import { Advisory, Fact, ItemRow, QuickAction, StatusStepper } from "@/features/leads/leadUi"
 
 /**
@@ -62,8 +66,11 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
   const { items: quotations } = useCollection<Quotation>("quotations")
   const scrollY = React.useRef(new Animated.Value(0)).current
   const [saving, setSaving] = React.useState(false)
+  const [lostOpen, setLostOpen] = React.useState(false)
+  const { profile } = useAuth()
+  const outcome = useAfterContact()
 
-  const enquiry = items.find((e) => e.id === route.params.id)
+  const enquiry = items.find((e) => e.id === route.params.id) as LeadDoc | undefined
 
   const rfq = React.useMemo(() => parseQuoteRfq(enquiry), [enquiry])
   const summary = React.useMemo(() => (rfq ? rfqSummary(rfq.items, products) : null), [rfq, products])
@@ -115,18 +122,13 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
     extrapolate: "clamp",
   })
 
-  const setStatus = async (status: string) => {
+  // Lost asks why first, as the console does.
+  const setStatus = async (status: string, lostReason?: string) => {
+    if (status === "lost" && !lostReason) return setLostOpen(true)
+    setLostOpen(false)
     setSaving(true)
-    try {
-      await repo.update("enquiries", enquiry.id, { status })
-      feedback.created()
-      toast.show({ message: `Marked ${statusMeta(ENQUIRY_STATUS, status).label}`, tone: "success" })
-    } catch (e) {
-      feedback.error()
-      toast.show({ message: errorMessage(e, "Could not update"), tone: "danger" })
-    } finally {
-      setSaving(false)
-    }
+    await writeLeadStatus([enquiry], status, toast, lostReason ? { lostReason } : {})
+    setSaving(false)
   }
 
   const toggleStar = async () => {
@@ -241,14 +243,14 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
               label="Call"
               tone="blue"
               disabled={!phone}
-              onPress={() => void callNumber(phone)}
+              onPress={() => void outcome.reach("call", () => callNumber(phone))}
             />
             <QuickAction
               icon="whatsapp"
               label="WhatsApp"
               tone="emerald"
               disabled={!phone}
-              onPress={() => void whatsapp(phone)}
+              onPress={() => void outcome.reach("whatsapp", () => whatsapp(phone))}
             />
             <QuickAction
               icon="mail"
@@ -257,7 +259,8 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
               disabled={!mail}
               onPress={() => void sendEmail(mail)}
             />
-            <QuickAction icon="quote" label="Quote" tone="primary" onPress={createQuotation} />
+            {/* Quote is the footer's job; this logs a call made from another phone. */}
+            <QuickAction icon="callAdd" label="Log call" tone="primary" onPress={() => outcome.setOpen("call")} />
           </View>
         </Panel>
 
@@ -303,7 +306,8 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
           )}
 
           {!!artwork && !artwork.failed && (
-            <View style={[styles.artwork, { backgroundColor: t.successBg }]}>
+            <View style={styles.artwork}>
+              <SquircleBackground fill={t.successBg} radius={radius.card} />
               <Icon name="image" size={18} color={t.successText} variant="Bulk" />
               <Text style={[textVariants.smallStrong, { color: t.successText, flex: 1 }]}>
                 Artwork attached: {artwork.fileName}
@@ -314,6 +318,7 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
 
         <Panel title="Contact" padded>
           <Pressable
+            accessibilityRole="button"
             onLongPress={phone ? () => void copyPhone(phone) : undefined}
             delayLongPress={320}
             disabled={!phone}
@@ -353,6 +358,7 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
             <Panel title="Quotations">
               {related.map((q, i) => (
                 <Pressable
+                  accessibilityRole="button"
                   key={q.id}
                   onPress={() => navigation.navigate("QuotationDetail", { id: q.id })}
                   android_ripple={{ color: t.accentTint }}
@@ -394,6 +400,15 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
       >
         <Button label="Create quotation" icon="quote" onPress={createQuotation} fullWidth />
       </View>
+
+      <CallOutcomeSheet channel={outcome.open} rows={[enquiry]} me={profile?.name || ""} onClose={() => outcome.setOpen(null)} />
+      <OptionSheet
+        visible={lostOpen}
+        title="Why was this lead lost?"
+        options={LOST_REASONS}
+        onClose={() => setLostOpen(false)}
+        onPick={(reason) => void setStatus("lost", reason)}
+      />
     </View>
   )
 
@@ -406,7 +421,8 @@ export default function EnquiryDetailScreen({ route, navigation }: StackScreenPr
 function Total({ label, value }: { label: string; value: string }) {
   const t = useTheme()
   return (
-    <View style={[styles.total, { backgroundColor: t.surfaceInset }]}>
+    <View style={styles.total}>
+      <SquircleBackground fill={t.surfaceInset} radius={radius.card} />
       <Text numberOfLines={1} style={[textVariants.factValue, { color: t.text }]}>
         {value}
       </Text>
@@ -452,7 +468,7 @@ const styles = StyleSheet.create({
   },
 
   totals: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.sm },
-  total: { flex: 1, borderRadius: radius.card, paddingVertical: 12, paddingHorizontal: 12 },
+  total: { flex: 1, paddingVertical: 12, paddingHorizontal: 12 },
   items: { marginTop: spacing.xs },
   artwork: {
     flexDirection: "row",
@@ -460,7 +476,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: spacing.md,
     padding: 10,
-    borderRadius: radius.card,
   },
 
   quoteRow: {

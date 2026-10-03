@@ -248,14 +248,14 @@ export function WeekStrip({ columns, targetMin }: { columns: WeekColumn[]; targe
               style={[
                 textVariants.caption,
                 {
-                  color: c.today ? t.primary : c.future ? t.textFaint : t.textTertiary,
+                  color: c.today ? t.primary : t.textTertiary,
                   fontFamily: c.today ? font.semibold : font.regular,
                 },
               ]}
             >
               {c.label}
             </Text>
-            <Text style={[styles.hours, { color: c.future ? t.textFaint : t.textSecondary }]}>
+            <Text style={[styles.hours, { color: c.future ? t.textTertiary : t.textSecondary }]}>
               {c.future
                 ? ""
                 : c.minutes

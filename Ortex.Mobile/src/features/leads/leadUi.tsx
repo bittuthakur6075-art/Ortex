@@ -8,6 +8,7 @@ import { gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
 import { Icon } from "@/ui"
 import ActionButton, { type ActionTone } from "@/ui/ActionButton"
+import { SquircleBackground } from "@/ui/Squircle"
 import type { IconName } from "@/ui/Icon"
 
 /**
@@ -44,7 +45,8 @@ export function Advisory({ tone, icon, children }: { tone: AdvisoryTone; icon: I
     success: t.successText,
   }
   return (
-    <View style={[styles.advisory, { backgroundColor: fills[tone] }]}>
+    <View style={styles.advisory}>
+      <SquircleBackground fill={fills[tone]} radius={radius.card} />
       <Icon name={icon} size={18} color={inks[tone]} variant="Bulk" />
       <Text style={[textVariants.small, styles.advisoryText, { color: inks[tone] }]}>{children}</Text>
     </View>
@@ -85,6 +87,8 @@ export function StatusStepper({
             disabled={disabled || active}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
+            accessibilityLabel={`${s.label}${active ? ", current status" : ""}`}
+            hitSlop={{ top: 6, bottom: 6 }}
             onPress={() => {
               feedback.select()
               onChange(s.id)
@@ -212,7 +216,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     padding: 12,
-    borderRadius: radius.card,
     // Loose content between panels carries the page gutter itself.
     marginHorizontal: gutter,
     marginBottom: spacing.sm,
@@ -224,7 +227,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    height: 32,
+    // 36 tall with 6 of slop above and below: a 48dp target in a wrapping row.
+    height: 36,
     paddingHorizontal: 13,
     borderRadius: radius.pill,
   },

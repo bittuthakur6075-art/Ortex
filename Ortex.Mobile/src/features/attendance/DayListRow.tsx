@@ -108,7 +108,7 @@ export default function DayListRow({
       </View>
       <View style={styles.middle}>{middle}</View>
       <View style={styles.value}>
-        <Text style={[styles.hours, { color: minutes ? t.text : t.textFaint }]}>
+        <Text style={[styles.hours, { color: minutes ? t.text : t.textTertiary }]}>
           {minutes ? hoursShort(Math.round(minutes)) : "0h"}
         </Text>
         <Text style={[textVariants.caption, { color: t.textTertiary }]}>Hrs</Text>

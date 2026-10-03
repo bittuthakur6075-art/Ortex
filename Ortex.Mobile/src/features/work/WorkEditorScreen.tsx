@@ -1,3 +1,4 @@
+import { usePreventRemove, type NavigationAction } from "@react-navigation/native"
 import { Image } from "expo-image"
 import * as ImagePicker from "expo-image-picker"
 import React from "react"
@@ -61,6 +62,16 @@ export default function WorkEditorScreen({ route, navigation }: StackScreenProps
   const [saving, setSaving] = React.useState(false)
   const [categoryOpen, setCategoryOpen] = React.useState(false)
   const [confirmDelete, setConfirmDelete] = React.useState(false)
+  const [dirty, setDirty] = React.useState(false)
+  const [confirmLeave, setConfirmLeave] = React.useState(false)
+  // Swipe back, the hardware back and the app bar all ask before dropping changes.
+  const allowLeave = React.useRef(false)
+  const pendingLeave = React.useRef<NavigationAction | null>(null)
+  usePreventRemove(dirty, ({ data }) => {
+    if (allowLeave.current) return navigation.dispatch(data.action)
+    pendingLeave.current = data.action
+    setConfirmLeave(true)
+  })
 
   React.useEffect(() => {
     if (!editingId) return
@@ -75,6 +86,7 @@ export default function WorkEditorScreen({ route, navigation }: StackScreenProps
 
   const set = (patch: Partial<Draft>) => {
     setDraft((prev) => ({ ...prev, ...patch }))
+    setDirty(true)
     setError("")
   }
 
@@ -175,6 +187,7 @@ export default function WorkEditorScreen({ route, navigation }: StackScreenProps
         toast.show({ message: "Added to the gallery", tone: "success" })
       }
       feedback.created()
+      allowLeave.current = true
       navigation.goBack()
     } catch (e) {
       feedback.error()
@@ -193,6 +206,7 @@ export default function WorkEditorScreen({ route, navigation }: StackScreenProps
       void removeProductImage(original.image)
       feedback.deleted()
       toast.show({ message: "Removed from the gallery", tone: "success" })
+      allowLeave.current = true
       navigation.goBack()
     } catch (e) {
       feedback.error()
@@ -212,10 +226,21 @@ export default function WorkEditorScreen({ route, navigation }: StackScreenProps
         contentStyle={styles.content}
       >
         <Section title="Photo" style={styles.section} bodyStyle={styles.form}>
-          <Pressable onPress={() => void pickPhoto()} disabled={uploading}>
+          <Pressable
+            onPress={() => void pickPhoto()}
+            disabled={uploading}
+            accessibilityRole="button"
+            accessibilityLabel={draft.image ? "Work photo. Tap to replace" : "Choose a photo"}
+          >
             <View style={[styles.photo, { backgroundColor: t.surfaceInset, borderColor: error ? t.dangerText : t.border }]}>
               {draft.image ? (
-                <Image source={{ uri: draft.image }} style={StyleSheet.absoluteFill} contentFit="cover" transition={120} />
+                <Image
+                  source={{ uri: draft.image }}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                  transition={120}
+                  accessible={false}
+                />
               ) : (
                 <View style={styles.photoEmpty}>
                   <Icon name="camera" size={28} color={t.textTertiary} variant="Bulk" />
@@ -249,7 +274,11 @@ export default function WorkEditorScreen({ route, navigation }: StackScreenProps
               context: () => ({ category: draft.category, altText: draft.alt }),
             }}
           />
-          <Pressable onPress={() => setCategoryOpen(true)}>
+          <Pressable
+            onPress={() => setCategoryOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Category: ${draft.category || "No category"}`}
+          >
             <Text style={[textVariants.caption, styles.pickerLabel, { color: t.textSecondary }]}>Category</Text>
             <View style={[styles.picker, { borderColor: t.border, backgroundColor: t.surface }]}>
               <Text style={[styles.pickerValue, { color: draft.category ? t.text : t.textTertiary }]}>
@@ -324,6 +353,31 @@ export default function WorkEditorScreen({ route, navigation }: StackScreenProps
         }}
       />
 
+      <Dialog
+        visible={confirmLeave}
+        title="Discard changes?"
+        message="Nothing you have typed here has been saved yet."
+        onClose={() => setConfirmLeave(false)}
+        actions={[
+          {
+            label: "Keep editing",
+            onPress: () => {
+              pendingLeave.current = null
+              setConfirmLeave(false)
+            },
+          },
+          {
+            label: "Discard",
+            tone: "danger",
+            onPress: () => {
+              setConfirmLeave(false)
+              allowLeave.current = true
+              if (pendingLeave.current) navigation.dispatch(pendingLeave.current)
+              else navigation.goBack()
+            },
+          },
+        ]}
+      />
       <Dialog
         visible={confirmDelete}
         onClose={() => setConfirmDelete(false)}

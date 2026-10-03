@@ -10,6 +10,7 @@ import { useTheme } from "@/store/ThemeContext"
 import { radius, size, spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 import { Button, Chip, Icon, Sheet, TextField } from "@/ui"
+import { SquircleBackground } from "@/ui/Squircle"
 
 // The console edits line items in a `table-fixed` grid with a 1024px minimum
 // width. That cannot survive on a phone, so a line is edited one at a time in a
@@ -118,6 +119,7 @@ export default function LineItemSheet({
           </View>
 
           <Pressable
+            accessibilityRole="button"
             onPress={() => {
               // Not everything quoted is in the catalogue — a one-off job, a
               // custom size. A free-text line is a first-class option, not a
@@ -138,6 +140,7 @@ export default function LineItemSheet({
 
           {matches.map((p) => (
             <Pressable
+              accessibilityRole="button"
               key={p.id}
               onPress={() => pickProduct(p)}
               android_ripple={{ color: t.accentTint }}
@@ -236,7 +239,8 @@ export default function LineItemSheet({
             keyboardType="number-pad"
           />
 
-          <View style={[styles.summary, { backgroundColor: t.surfaceInset }]}>
+          <View style={styles.summary}>
+            <SquircleBackground fill={t.surfaceInset} radius={18} />
             <SummaryRow label="Taxable" value={formatCurrency(computed.taxable)} />
             <SummaryRow label={`GST ${draft.gstRate}%`} value={formatCurrency(computed.gstAmount)} />
             <SummaryRow label="Line Total" value={formatCurrency(computed.total)} strong />
@@ -375,7 +379,7 @@ const styles = StyleSheet.create({
   numberField: { marginBottom: spacing.md },
   fieldLabel: { marginBottom: 6, fontSize: 13, fontFamily: font.medium },
   chips: { flexDirection: "row", flexWrap: "wrap" },
-  summary: { borderRadius: 18, padding: 14, marginTop: 6, marginBottom: spacing.md },
+  summary: { padding: 14, marginTop: 6, marginBottom: spacing.md },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
   summaryLabel: { fontSize: 14, fontFamily: font.regular },
   summaryValue: {},

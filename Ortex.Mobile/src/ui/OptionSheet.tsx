@@ -50,6 +50,8 @@ export default function OptionSheet({
               onPick(option)
             }}
             android_ripple={{ color: t.accentTint }}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: active, checked: active }}
             style={styles.optionRow}
           >
             <Text

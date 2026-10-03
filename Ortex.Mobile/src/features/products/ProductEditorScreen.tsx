@@ -1,7 +1,8 @@
+import { usePreventRemove, type NavigationAction } from "@react-navigation/native"
 import { Image } from "expo-image"
 import * as ImagePicker from "expo-image-picker"
 import React from "react"
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import { Pressable, ScrollView, StyleSheet, Text, type TextInput, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { repo } from "@/data/repo"
@@ -41,6 +42,7 @@ import KeyboardAwareScrollView from "@/ui/KeyboardAwareScrollView"
 
 type Draft = ReturnType<typeof newProduct>
 
+
 /** Digits in, number out — an empty field is 0, not NaN. */
 
 const toNumber = (v: string) => {
@@ -66,6 +68,24 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
   const [writingCopy, setWritingCopy] = React.useState(false)
   // The photo the AI studio is open for, or null.
   const [studioFor, setStudioFor] = React.useState<string | null>(null)
+  // Photos taken off the product: deleted from storage only once Save succeeds,
+  // so Undo and Discard both keep them.
+  const removed = React.useRef<string[]>([])
+  // Swipe back, the hardware back and the app bar all ask before dropping changes.
+  const allowLeave = React.useRef(false)
+  const pendingLeave = React.useRef<NavigationAction | null>(null)
+  usePreventRemove(dirty, ({ data }) => {
+    if (allowLeave.current) return navigation.dispatch(data.action)
+    pendingLeave.current = data.action
+    setConfirmLeave(true)
+  })
+  const skuRef = React.useRef<TextInput>(null)
+  const hsnRef = React.useRef<TextInput>(null)
+  const materialRef = React.useRef<TextInput>(null)
+  const descriptionRef = React.useRef<TextInput>(null)
+  const costRef = React.useRef<TextInput>(null)
+  const moqRef = React.useRef<TextInput>(null)
+  const leadRef = React.useRef<TextInput>(null)
 
   // The picker used to offer a hardcoded list, so a category the office added
   // last week did not exist on the phone and a product saved here could not be
@@ -136,13 +156,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
     setTouched((t2) => ({ ...t2, ...Object.fromEntries(Object.keys(patch).map((k) => [k, true])) }))
   }
 
-  const leave = () => {
-    if (dirty) {
-      setConfirmLeave(true)
-      return
-    }
-    navigation.goBack()
-  }
+  const leave = () => navigation.goBack()
 
   /**
    * Photos upload as they are picked rather than on save, so the form always
@@ -242,6 +256,13 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
       return
     }
     const copy = res.data
+    // What the copywriter is about to overwrite, for Undo.
+    const before = {
+      name: draft.name,
+      description: draft.description,
+      category: draft.category,
+      material: draft.material,
+    }
     set({
       ...(copy.name ? { name: copy.name } : {}),
       ...(copy.description ? { description: copy.description } : {}),
@@ -252,6 +273,10 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
     toast.show({
       message: copy.usedPhoto ? "Written from your photo. Check it before saving" : "Written. Check it before saving",
       tone: "success",
+      onUndo: () => {
+        feedback.tap()
+        setDraft((d) => ({ ...d, ...before }))
+      },
     })
   }
 
@@ -272,12 +297,24 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
     toast.show({ message: "Main photo set. Save to keep it", tone: "success" })
   }
 
+  // Off the form at once with Undo; the file is deleted only after Save.
   const removePhoto = (url: string) => {
+    const at = (draft.images || []).indexOf(url)
     setDraft((d) => ({ ...d, images: (d.images || []).filter((u) => u !== url) }))
+    removed.current.push(url)
     setDirty(true)
     feedback.deleted()
-    // Only ours to delete, and only once it is off the record.
-    void removeProductImage(url)
+    toast.show({
+      message: "Photo removed. Save to keep this",
+      onUndo: () => {
+        removed.current = removed.current.filter((u) => u !== url)
+        setDraft((d) => {
+          const images = (d.images || []).filter((u) => u !== url)
+          images.splice(Math.max(0, Math.min(at, images.length)), 0, url)
+          return { ...d, images }
+        })
+      },
+    })
   }
 
   /**
@@ -319,8 +356,12 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
       } else {
         await repo.create("products", payload)
       }
+      // Only now are removed photos really gone: ours to delete, and off the record.
+      for (const url of removed.current) if (!payload.images?.includes(url)) void removeProductImage(url)
+      removed.current = []
       feedback.created()
       toast.show({ message: editingId ? "Product saved" : "Product added", tone: "success" })
+      allowLeave.current = true
       navigation.goBack()
     } catch (e) {
       feedback.error()
@@ -378,7 +419,14 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
                 key={uri}
                 style={[styles.photo, index === 0 && images.length > 1 ? { borderWidth: 2, borderColor: t.primary } : null]}
               >
-                <Image source={{ uri }} style={styles.photoImage} contentFit="cover" transition={120} />
+                <Image
+                  source={{ uri }}
+                  style={styles.photoImage}
+                  contentFit="cover"
+                  transition={120}
+                  accessible
+                  accessibilityLabel={index === 0 ? "Main photo" : `Photo ${index + 1}`}
+                />
                 {images.length > 1 ? (
                   index === 0 ? (
                     <View
@@ -391,7 +439,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
                   ) : (
                     <Pressable
                       onPress={() => makeMainPhoto(uri)}
-                      hitSlop={6}
+                      hitSlop={11}
                       accessibilityRole="button"
                       accessibilityLabel="Make this the main photo"
                       style={[styles.photoMakeMain, { backgroundColor: t.surface }]}
@@ -406,7 +454,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
                       feedback.tap()
                       setStudioFor(uri)
                     }}
-                    hitSlop={6}
+                    hitSlop={12}
                     accessibilityRole="button"
                     accessibilityLabel="Enhance this photo with AI"
                     style={[styles.photoEnhance, { backgroundColor: t.surface }]}
@@ -417,7 +465,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
                 ) : null}
                 <Pressable
                   onPress={() => removePhoto(uri)}
-                  hitSlop={6}
+                  hitSlop={11}
                   accessibilityRole="button"
                   accessibilityLabel="Remove photo"
                   style={[styles.photoRemove, { backgroundColor: t.surface }]}
@@ -485,6 +533,9 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
               value={draft.name}
               onChangeText={(v) => set({ name: v })}
               placeholder="Enter product name"
+              returnKeyType="next"
+              submitBehavior="submit"
+              onSubmitEditing={() => skuRef.current?.focus()}
               ai={{
                 purpose: "Product title for the catalogue and website, keyword rich, under 60 characters, Title Case",
                 format: "short",
@@ -506,34 +557,47 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
             <View style={styles.row}>
               <View style={styles.half}>
                 <TextField
+                  ref={skuRef}
                   fieldStyle={styles.flush}
                   label="SKU"
                   value={draft.sku}
                   onChangeText={(v) => set({ sku: v })}
                   placeholder="Enter SKU"
+                  returnKeyType="next"
+                  submitBehavior="submit"
+                  onSubmitEditing={() => hsnRef.current?.focus()}
                   autoCapitalize="characters"
                 />
               </View>
               <View style={styles.half}>
                 <TextField
+                  ref={hsnRef}
                   fieldStyle={styles.flush}
                   label="HSN"
                   value={draft.hsn}
                   onChangeText={(v) => set({ hsn: v })}
                   error={touched.hsn ? problems.hsn : undefined}
                   placeholder="Enter HSN code"
+                  returnKeyType="next"
+                  submitBehavior="submit"
+                  onSubmitEditing={() => materialRef.current?.focus()}
                   keyboardType="number-pad"
                 />
               </View>
             </View>
             <TextField
+              ref={materialRef}
               fieldStyle={styles.flush}
               label="Material"
               value={draft.material}
               onChangeText={(v) => set({ material: v })}
               placeholder="Enter material"
+              returnKeyType="next"
+              submitBehavior="submit"
+              onSubmitEditing={() => descriptionRef.current?.focus()}
             />
             <TextField
+              ref={descriptionRef}
               fieldStyle={styles.flush}
               label="Description"
               value={draft.description}
@@ -568,16 +632,23 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
                   value={draft.basePrice ? String(draft.basePrice) : ""}
                   onChangeText={(v) => set({ basePrice: toNumber(v) })}
                   placeholder="Enter selling price"
+                  returnKeyType="next"
+                  submitBehavior="submit"
+                  onSubmitEditing={() => costRef.current?.focus()}
                   keyboardType="decimal-pad"
                 />
               </View>
               <View style={styles.half}>
                 <TextField
+                  ref={costRef}
                   fieldStyle={styles.flush}
                   label="Cost Price"
                   value={draft.costPrice ? String(draft.costPrice) : ""}
                   onChangeText={(v) => set({ costPrice: toNumber(v) })}
                   placeholder="Enter cost price"
+                  returnKeyType="next"
+                  submitBehavior="submit"
+                  onSubmitEditing={() => moqRef.current?.focus()}
                   keyboardType="decimal-pad"
                   hint="Never leaves the console"
                 />
@@ -594,23 +665,29 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
             <View style={styles.row}>
               <View style={styles.half}>
                 <TextField
+                  ref={moqRef}
                   fieldStyle={styles.flush}
                   label="Minimum Order"
                   value={draft.moq ? String(draft.moq) : ""}
                   onChangeText={(v) => set({ moq: toNumber(v) })}
                   error={touched.moq ? problems.moq : undefined}
                   placeholder="Enter minimum order"
+                  returnKeyType="next"
+                  submitBehavior="submit"
+                  onSubmitEditing={() => leadRef.current?.focus()}
                   keyboardType="number-pad"
                 />
               </View>
               <View style={styles.half}>
                 <TextField
+                  ref={leadRef}
                   fieldStyle={styles.flush}
                   label="Lead Time (Days)"
                   value={draft.leadTimeDays ? String(draft.leadTimeDays) : ""}
                   onChangeText={(v) => set({ leadTimeDays: toNumber(v) })}
                   error={touched.leadTimeDays ? problems.leadTimeDays : undefined}
                   placeholder="Enter lead time in days"
+                  returnKeyType="done"
                   keyboardType="number-pad"
                 />
               </View>
@@ -662,6 +739,7 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
         extra={
           canAddCategory ? (
             <Pressable
+              accessibilityRole="button"
               onPress={() => {
                 setPicker(null)
                 navigation.navigate("CategoryEditor", { pickFor: "ProductEditor" })
@@ -729,13 +807,23 @@ export default function ProductEditorScreen({ route, navigation }: StackScreenPr
         message="Nothing you have typed here has been saved yet."
         onClose={() => setConfirmLeave(false)}
         actions={[
-          { label: "Keep editing", onPress: () => setConfirmLeave(false) },
+          {
+            label: "Keep editing",
+            onPress: () => {
+              pendingLeave.current = null
+              setConfirmLeave(false)
+            },
+          },
           {
             label: "Discard",
             tone: "danger",
             onPress: () => {
               setConfirmLeave(false)
-              navigation.goBack()
+              // Removed photos stay: the saved product still shows them.
+              removed.current = []
+              allowLeave.current = true
+              if (pendingLeave.current) navigation.dispatch(pendingLeave.current)
+              else navigation.goBack()
             },
           },
         ]}

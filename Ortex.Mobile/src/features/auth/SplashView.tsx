@@ -1,8 +1,8 @@
 import React from "react"
-import { StatusBar, StyleSheet, Text, useWindowDimensions, View } from "react-native"
+import { StatusBar, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { BRAND, brandFieldSeen, ON_BRAND, ON_BRAND_SOFT } from "@/features/auth/brandField"
+import { BRAND, ON_BRAND, ON_BRAND_SOFT } from "@/features/auth/brandField"
 import { spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 import { OrtexWordmark, WORDMARK_RATIO } from "@/ui/OrtexLogo"
@@ -39,10 +39,7 @@ import ScreenLoader from "@/ui/ScreenLoader"
 const WORDMARK_HEIGHT = 40
 
 export default function SplashView({ message }: { message?: string }) {
-  const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
-  // A later brand-field screen in the same launch starts with the glow lit.
-  const [arrived] = React.useState(brandFieldSeen)
 
   return (
     <View style={styles.root}>

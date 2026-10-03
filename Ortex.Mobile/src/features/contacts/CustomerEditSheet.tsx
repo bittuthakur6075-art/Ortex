@@ -17,6 +17,7 @@ import { useTheme } from "@/store/ThemeContext"
 import { spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
 import { Button, Icon, Sheet, TextField, useToast } from "@/ui"
+import { useFocusChain } from "@/features/contacts/useFocusChain"
 
 /**
  * Editing a contact, in a sheet rather than a screen.
@@ -44,6 +45,7 @@ export default function CustomerEditSheet({
   const [draft, setDraft] = React.useState(() => fields(customer))
   const [stateOpen, setStateOpen] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
+  const chain = useFocusChain()
   const [errors, setErrors] = React.useState<ContactErrors>({})
   // The master list, for the duplicate check — the same one ContactEditorScreen
   // runs. Editing a phone number into another contact's number is exactly how a
@@ -111,12 +113,14 @@ export default function CustomerEditSheet({
             onChangeText={(v) => set({ name: v })}
             error={errors.name}
             placeholder="Enter contact name"
+            {...chain(0)}
           />
           <TextField
             label="Company"
             value={draft.company}
             onChangeText={(v) => set({ company: v })}
             placeholder="Enter company name"
+            {...chain(1)}
           />
           <TextField
             label="Phone"
@@ -125,6 +129,7 @@ export default function CustomerEditSheet({
             error={errors.phone}
             keyboardType="phone-pad"
             placeholder="Enter phone number"
+            {...chain(2)}
           />
           <TextField
             label="Email"
@@ -134,6 +139,7 @@ export default function CustomerEditSheet({
             keyboardType="email-address"
             autoCapitalize="none"
             placeholder="Enter email address"
+            {...chain(3)}
           />
           <TextField
             label="GSTIN"
@@ -142,11 +148,13 @@ export default function CustomerEditSheet({
             error={errors.gstin}
             autoCapitalize="characters"
             placeholder="Enter GSTIN"
+            {...chain(4, true)}
           />
 
           <View>
             <Text style={[styles.pickerLabel, { color: t.textSecondary }]}>Place of supply</Text>
             <Pressable
+              accessibilityRole="button"
               onPress={() => setStateOpen(true)}
               style={({ pressed }) => [
                 styles.picker,

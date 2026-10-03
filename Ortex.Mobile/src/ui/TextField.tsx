@@ -36,6 +36,8 @@ import { SquircleBackground } from "@/ui/Squircle"
  */
 
 type Props = Omit<TextInputProps, "style" | "placeholderTextColor"> & {
+  /** React 19 passes ref as a prop; it reaches the TextInput through the spread (focus chains). */
+  ref?: React.Ref<TextInput>
   label?: string
   error?: string
   hint?: string

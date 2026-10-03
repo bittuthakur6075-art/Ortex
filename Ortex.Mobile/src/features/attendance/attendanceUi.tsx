@@ -8,6 +8,7 @@ import { gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
 import Icon, { type IconName } from "@/ui/Icon"
 import { AnimatedPressable, usePressMotion } from "@/ui/motion"
+import { SquircleBackground } from "@/ui/Squircle"
 
 /**
  * Small pieces shared by the attendance screens: the status chip and pill, the
@@ -185,20 +186,21 @@ export function ActionAdvisory({
   const ink = tone === "warning" ? t.warningText : t.primary
   const body = (
     <>
+      <SquircleBackground fill={fill} radius={inCard ? 16 : radius.card} />
       <Icon name={icon} size={18} color={ink} variant="Bulk" />
       <Text style={[textVariants.small, styles.advisoryText, { color: ink }]}>{children}</Text>
       {onPress ? <Icon name="forward" size={16} color={ink} /> : null}
     </>
   )
   const place = inCard ? styles.advisoryInCard : null
-  if (!onPress) return <View style={[styles.advisory, place, { backgroundColor: fill }]}>{body}</View>
+  if (!onPress) return <View style={[styles.advisory, place]}>{body}</View>
   return (
     <AnimatedPressable
       onPress={onPress}
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
       accessibilityRole="button"
-      style={[styles.advisory, place, { backgroundColor: fill }, press.style]}
+      style={[styles.advisory, place, press.style]}
     >
       {body}
     </AnimatedPressable>
@@ -222,7 +224,8 @@ export function DayDone({
   const t = useTheme()
   const press = usePressMotion({ scale: 0.985, dim: 0.85 })
   return (
-    <View style={[styles.dayDone, { backgroundColor: t.successBg }]}>
+    <View style={styles.dayDone}>
+      <SquircleBackground fill={t.successBg} radius={radius.lg} />
       <View style={styles.dayDoneHead}>
         <Icon name="tick" size={20} color={t.success} variant="Bulk" />
         <Text style={[textVariants.bodyStrong, { color: t.successText }]}>Done for today</Text>
@@ -255,7 +258,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  chipSm: { minWidth: 24, height: 16, paddingHorizontal: 4, borderRadius: 8 },
+  // minHeight, not height: a large font setting must grow the chip, not clip it.
+  chipSm: { minWidth: 24, height: undefined, minHeight: 16, paddingHorizontal: 4, borderRadius: 8 },
   chipText: { fontFamily: font.bold, fontSize: 12, lineHeight: 16 },
   chipTextSm: { fontFamily: font.bold, fontSize: 9, lineHeight: 12 },
   pill: {
@@ -298,13 +302,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     padding: 12,
-    borderRadius: radius.card,
     marginHorizontal: gutter,
     marginBottom: spacing.sm,
   },
-  advisoryInCard: { marginHorizontal: 0, marginBottom: 0, borderRadius: 16 },
+  advisoryInCard: { marginHorizontal: 0, marginBottom: 0 },
   advisoryText: { flex: 1 },
-  dayDone: { borderRadius: radius.lg, padding: spacing.md, gap: spacing.xs },
+  dayDone: { padding: spacing.md, gap: spacing.xs },
   dayDoneHead: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   dayDoneLink: {
     flexDirection: "row",

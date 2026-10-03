@@ -5,6 +5,7 @@ import {
   Image,
   Keyboard,
   LayoutAnimation,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -236,8 +237,10 @@ export default function AnuScreen({ navigation, route }: StackScreenProps<"Anu">
               : "Listening"
         : anu.status === "ended"
           ? "Conversation ended"
-          : anu.status === "error"
-            ? "Could not connect"
+          : anu.micDenied
+            ? "Microphone is off"
+            : anu.status === "error"
+              ? "Could not connect"
             : "Your Ortex assistant"
 
   return (
@@ -521,7 +524,12 @@ function Conversation({ anu, first, reduced, onOpen }: { anu: Session; first: st
       {anu.status === "error" && (
         <View style={[styles.errorBox, { backgroundColor: t.dangerBg }]}>
           <Icon name="warning" size={18} color={t.danger} variant="Bulk" />
-          <Text style={[textVariants.small, styles.flex, { color: t.dangerText }]}>{anu.error || "Anu abhi nahi mil payi. Phir se try kijiye."}</Text>
+          <View style={styles.flex}>
+            <Text style={[textVariants.small, { color: t.dangerText }]}>{anu.error || "Anu abhi nahi mil payi. Phir se try kijiye."}</Text>
+            {anu.micDenied ? (
+              <Button label="Open settings" size="sm" variant="secondary" onPress={() => void Linking.openSettings()} style={styles.settingsBtn} />
+            ) : null}
+          </View>
         </View>
       )}
     </ScrollView>
@@ -552,7 +560,7 @@ function AnuLine({ text, partial }: { text: string; partial?: boolean }) {
   const t = useTheme()
   return (
     <View style={styles.anuRow} accessibilityLabel={`Anu: ${text}`}>
-      <Image source={PHOTO} style={styles.anuAvatar} />
+      <Image source={PHOTO} style={styles.anuAvatar} accessible={false} />
       <Text style={[textVariants.body, styles.flex, { color: partial ? t.textSecondary : t.text }]}>{text}</Text>
     </View>
   )
@@ -746,7 +754,7 @@ function Composer({ anu, bottom }: { anu: Session; bottom: number }) {
           >
             <Icon name="voice" size={18} color={t.textOnPrimary} variant="Bold" />
             <Text style={[styles.talkText, { color: t.textOnPrimary }]}>
-              {anu.status === "ended" ? "Talk again" : anu.status === "error" ? "Try again" : "Talk"}
+              {anu.status === "ended" ? "Talk again" : anu.status === "error" && !anu.micDenied ? "Try again" : "Talk"}
             </Text>
           </Pressable>
         ) : null}
@@ -847,6 +855,7 @@ const styles = StyleSheet.create({
   thinking: { flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 36 },
   dots: { flexDirection: "row", gap: 4 },
   dot: { width: 6, height: 6, borderRadius: 3 },
+  settingsBtn: { marginTop: spacing.sm },
   errorBox: { flexDirection: "row", alignItems: "flex-start", gap: 10, padding: 12, borderRadius: radius.md },
 
   pending: { paddingHorizontal: gutter, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth, gap: 12 },
@@ -855,10 +864,10 @@ const styles = StyleSheet.create({
   pendingActions: { flexDirection: "row", gap: spacing.sm },
 
   composer: { paddingHorizontal: gutter, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, gap: 10 },
-  inputRow: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 52, borderRadius: 26, paddingLeft: 18, paddingRight: 6 },
+  inputRow: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 56, borderRadius: 28, paddingLeft: 18, paddingRight: 4 },
   input: { flex: 1, minWidth: 0, fontSize: 15, fontFamily: font.regular, paddingVertical: Platform.OS === "ios" ? 14 : 8 },
-  send: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  talk: { flexDirection: "row", alignItems: "center", gap: 6, height: 40, paddingHorizontal: 16, borderRadius: 20 },
+  send: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
+  talk: { flexDirection: "row", alignItems: "center", gap: 6, height: 48, paddingHorizontal: 18, borderRadius: 24 },
   talkText: { fontSize: 14, fontFamily: font.semibold },
   controls: { flexDirection: "row", gap: spacing.sm },
   pill: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 48, borderRadius: 24 },

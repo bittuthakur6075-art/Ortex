@@ -1,6 +1,6 @@
 import { Image } from "expo-image"
 import React from "react"
-import { StyleSheet, Text, View } from "react-native"
+import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { aiEnhancePhoto, type PhotoStyle } from "@/lib/ai"
 import { feedback } from "@/lib/feedback"
@@ -10,16 +10,19 @@ import { textVariants } from "@/theme/typography"
 import Button from "@/ui/Button"
 import { Chip } from "@/ui/Chips"
 import Icon from "@/ui/Icon"
+import ImageViewer from "@/ui/ImageViewer"
 import Sheet from "@/ui/Sheet"
+import { SquircleBackground } from "@/ui/Squircle"
 import TextField from "@/ui/TextField"
 
 /**
  * Re-shoot one product photo with AI (the console's `product-image-studio`
  * function, Cloudflare FLUX.2 [klein] 4B).
  *
- * The result is ALWAYS added as a new photo beside the original, never swapped
- * in for it, and the sheet shows the two side by side with a line telling the
- * person to check the logo and lettering. Ortex sells made-to-order goods, and a
+ * Adding the result as a new photo beside the original is the primary action;
+ * replacing the original is the secondary one. The sheet shows the two side by
+ * side (tap either to zoom) with a line telling the person to check the logo
+ * and lettering. Ortex sells made-to-order goods, and a
  * model that quietly redraws a customer's logo on the sample photo is a wrong
  * order waiting to happen; the side-by-side is where that gets caught.
  */
@@ -50,6 +53,8 @@ export default function PhotoStudioSheet({ visible, onClose, imageUrl, productNa
   const [result, setResult] = React.useState("")
   const [error, setError] = React.useState("")
   const [busy, setBusy] = React.useState(false)
+  // Which tile is open full screen: 0 the original, 1 the new one.
+  const [zoom, setZoom] = React.useState<number | null>(null)
 
   React.useEffect(() => {
     if (!visible) return
@@ -83,8 +88,8 @@ export default function PhotoStudioSheet({ visible, onClose, imageUrl, productNa
   return (
     <Sheet visible={visible} onClose={onClose} title="Enhance photo">
       <View style={styles.compare}>
-        <Tile label="Original" uri={imageUrl} />
-        <Tile label={busy ? "Working" : "New"} uri={result} busy={busy} />
+        <Tile label="Original" uri={imageUrl} onPress={() => setZoom(0)} />
+        <Tile label={busy ? "Working" : "New"} uri={result} busy={busy} onPress={() => setZoom(1)} />
       </View>
 
       <View style={styles.chips}>
@@ -110,7 +115,8 @@ export default function PhotoStudioSheet({ visible, onClose, imageUrl, productNa
       />
 
       {result ? (
-        <View style={[styles.note, { backgroundColor: t.warningBg }]}>
+        <View style={styles.note}>
+          <SquircleBackground fill={t.warningBg} radius={radius.card} />
           <Icon name="warning" size={16} color={t.warning} variant="Bulk" />
           <Text style={[textVariants.small, styles.noteText, { color: t.warningText }]}>
             Check the logo and text match your product before using this photo.
@@ -123,7 +129,8 @@ export default function PhotoStudioSheet({ visible, onClose, imageUrl, productNa
       )}
 
       {error ? (
-        <View style={[styles.note, { backgroundColor: t.dangerBg }]} accessibilityLiveRegion="polite">
+        <View style={styles.note} accessibilityLiveRegion="polite">
+          <SquircleBackground fill={t.dangerBg} radius={radius.card} />
           <Icon name="warning" size={16} color={t.danger} variant="Bulk" />
           <Text style={[textVariants.small, styles.noteText, { color: t.dangerText }]}>{error}</Text>
         </View>
@@ -132,30 +139,30 @@ export default function PhotoStudioSheet({ visible, onClose, imageUrl, productNa
       <View style={styles.actions}>
         {result ? (
           <>
-            {onReplace ? (
-              <Button
-                label="Replace original"
-                icon="tick"
-                onPress={() => {
-                  feedback.created()
-                  onReplace(result, imageUrl)
-                  onClose()
-                }}
-                fullWidth
-              />
-            ) : null}
+            <Button
+              label="Add as new photo"
+              icon="add"
+              onPress={() => {
+                feedback.created()
+                onAdd(result)
+                onClose()
+              }}
+              fullWidth
+            />
             <View style={styles.buttonRow}>
-              <Button
-                label="Add as new photo"
-                icon="add"
-                variant={onReplace ? "outline" : "primary"}
-                onPress={() => {
-                  feedback.created()
-                  onAdd(result)
-                  onClose()
-                }}
-                style={styles.flex}
-              />
+              {onReplace ? (
+                <Button
+                  label="Replace original"
+                  variant="outline"
+                  size="md"
+                  onPress={() => {
+                    feedback.created()
+                    onReplace(result, imageUrl)
+                    onClose()
+                  }}
+                  style={styles.flex}
+                />
+              ) : null}
               <Button label="Try again" variant="outline" size="md" onPress={() => void generate()} loading={busy} style={styles.flex} />
             </View>
           </>
@@ -169,21 +176,37 @@ export default function PhotoStudioSheet({ visible, onClose, imageUrl, productNa
           />
         )}
       </View>
+      <ImageViewer
+        visible={zoom !== null}
+        images={zoom === 1 ? [result] : [imageUrl]}
+        onClose={() => setZoom(null)}
+      />
     </Sheet>
   )
 }
 
-function Tile({ label, uri, busy }: { label: string; uri?: string; busy?: boolean }) {
+function Tile({ label, uri, busy, onPress }: { label: string; uri?: string; busy?: boolean; onPress: () => void }) {
   const t = useTheme()
   return (
     <View style={styles.tileWrap}>
-      <View style={[styles.tile, { backgroundColor: t.surfaceInset, borderColor: t.border }]}>
+      <Pressable
+        onPress={() => {
+          feedback.tap()
+          onPress()
+        }}
+        disabled={!uri}
+        accessibilityRole="imagebutton"
+        accessibilityLabel={`${label} photo. Tap to zoom`}
+        style={styles.tile}
+      >
+        <SquircleBackground fill={t.surfaceInset} stroke={t.border} strokeWidth={1} radius={radius.card} />
         {uri ? (
-          <Image source={{ uri }} style={styles.tileImage} contentFit="cover" transition={160} />
+          // The squircle draws, it does not clip: the photo keeps a plain radius just inside it.
+          <Image source={{ uri }} style={styles.tileImage} contentFit="cover" transition={160} accessible={false} />
         ) : (
           <Icon name={busy ? "assistant" : "image"} size={28} color={t.textTertiary} variant="Bulk" />
         )}
-      </View>
+      </Pressable>
       <Text style={[textVariants.captionStrong, { color: t.textSecondary, textAlign: "center" }]}>{label}</Text>
     </View>
   )
@@ -192,21 +215,13 @@ function Tile({ label, uri, busy }: { label: string; uri?: string; busy?: boolea
 const styles = StyleSheet.create({
   compare: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
   tileWrap: { flex: 1, gap: spacing.xs },
-  tile: {
-    aspectRatio: 1,
-    borderRadius: radius.card,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tileImage: { width: "100%", height: "100%" },
+  tile: { aspectRatio: 1, alignItems: "center", justifyContent: "center" },
+  tileImage: { width: "100%", height: "100%", borderRadius: radius.card },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.md },
   note: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: spacing.sm,
-    borderRadius: radius.card,
     padding: spacing.md,
     marginBottom: spacing.md,
   },

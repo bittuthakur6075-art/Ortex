@@ -248,7 +248,7 @@ export default function PayslipScreen({ navigation, route }: StackScreenProps<"P
             accessibilityLabel="Print payslip"
           />
           <Button
-            label="Download PDF"
+            label="Share PDF"
             icon="share"
             loading={busy === "share"}
             disabled={!!busy}

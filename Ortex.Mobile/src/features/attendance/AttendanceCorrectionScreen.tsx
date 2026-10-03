@@ -1,5 +1,5 @@
 import React from "react"
-import { StyleSheet, Text, View } from "react-native"
+import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { dayKey } from "@/domain/attendance"
 import { DateBadge, InfoChip } from "@/features/attendance/attendanceUi"
@@ -10,7 +10,7 @@ import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { AppScreen, Button, IconButton, Panel, Switch, TextField, useToast } from "@/ui"
+import { AppScreen, Button, Panel, SquircleBackground, Switch, TextField, useToast } from "@/ui"
 
 const pad = (hhmm: string) => hhmm.padStart(5, "0")
 
@@ -129,6 +129,7 @@ export default function AttendanceCorrectionScreen({ navigation, route }: StackS
         <View style={styles.body}>
           <TimeRow
             label="Came in at"
+            switchLabel="Correct the time I came in"
             hint={inAt ? `Recorded: ${clock12(istHHMM(inAt))}` : "No clock-in was recorded"}
             enabled={useIn}
             onToggle={setUseIn}
@@ -139,6 +140,7 @@ export default function AttendanceCorrectionScreen({ navigation, route }: StackS
           <View style={[styles.rule, { backgroundColor: t.divider }]} />
           <TimeRow
             label="Left at"
+            switchLabel="Correct the time I left"
             hint={outAt ? `Recorded: ${clock12(istHHMM(outAt))}` : "No clock-out was recorded"}
             enabled={useOut}
             onToggle={setUseOut}
@@ -167,7 +169,8 @@ export default function AttendanceCorrectionScreen({ navigation, route }: StackS
       </Panel>
 
       {!!error && (
-        <View style={[styles.error, { backgroundColor: t.dangerBg }]}>
+        <View style={styles.error}>
+          <SquircleBackground fill={t.dangerBg} radius={radius.card} />
           <Text style={[textVariants.small, { color: t.dangerText }]}>{error}</Text>
         </View>
       )}
@@ -181,6 +184,7 @@ export default function AttendanceCorrectionScreen({ navigation, route }: StackS
 
 function TimeRow({
   label,
+  switchLabel,
   hint,
   enabled,
   onToggle,
@@ -189,6 +193,7 @@ function TimeRow({
   onChange,
 }: {
   label: string
+  switchLabel: string
   hint: string
   enabled: boolean
   onToggle: (v: boolean) => void
@@ -209,27 +214,38 @@ function TimeRow({
           <Text style={[textVariants.listTitle, { color: t.text }]}>{label}</Text>
           <Text style={[textVariants.caption, { color: t.textTertiary }]}>{hint}</Text>
         </View>
-        <Switch value={enabled} onValueChange={onToggle} />
+        <Switch value={enabled} onValueChange={onToggle} accessibilityLabel={switchLabel} />
       </View>
       {enabled && (
         <View style={styles.stepper}>
-          <IconButton name="minus" onPress={() => step(-60)} accessibilityLabel={`${label}: one hour earlier`} />
-          <IconButton name="minus" size={16} onPress={() => step(-15)} accessibilityLabel={`${label}: 15 minutes earlier`} />
-          <View style={[styles.time, { backgroundColor: t.fieldBg }]}>
+          <StepButton text="-1h" onPress={() => step(-60)} label={`${label}: one hour earlier`} />
+          <StepButton text="-15m" onPress={() => step(-15)} label={`${label}: 15 minutes earlier`} />
+          <View style={styles.time}>
+            <SquircleBackground fill={t.fieldBg} radius={radius.card} />
             <Text style={[styles.timeText, { color: t.text }]} accessibilityLiveRegion="polite">
               {value ? clock12(value) : "Choose"}
             </Text>
           </View>
-          <IconButton name="add" size={16} onPress={() => step(15)} accessibilityLabel={`${label}: 15 minutes later`} />
-          <IconButton name="add" onPress={() => step(60)} accessibilityLabel={`${label}: one hour later`} />
+          <StepButton text="+15m" onPress={() => step(15)} label={`${label}: 15 minutes later`} />
+          <StepButton text="+1h" onPress={() => step(60)} label={`${label}: one hour later`} />
         </View>
       )}
-      {enabled && (
-        <Text style={[textVariants.caption, styles.stepHint, { color: t.textTertiary }]}>
-          Small buttons move 15 minutes, large ones an hour.
-        </Text>
-      )}
     </View>
+  )
+}
+
+function StepButton({ text, label, onPress }: { text: string; label: string; onPress: () => void }) {
+  const t = useTheme()
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      android_ripple={{ color: t.accentTint, borderless: true, radius: 26 }}
+      style={({ pressed }) => [styles.stepBtn, { opacity: pressed ? 0.6 : 1 }]}
+    >
+      <Text style={[styles.stepText, { color: t.primary }]}>{text}</Text>
+    </Pressable>
   )
 }
 
@@ -240,15 +256,15 @@ const styles = StyleSheet.create({
   rowHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   stepper: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.xs },
   time: {
-    minWidth: 120,
+    minWidth: 104,
     height: 48,
-    borderRadius: radius.card,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
-  timeText: { fontFamily: font.semibold, fontSize: 22, lineHeight: 28 },
-  stepHint: { textAlign: "center" },
-  error: { marginHorizontal: gutter, marginTop: spacing.md, padding: 12, borderRadius: radius.card },
+  timeText: { fontFamily: font.semibold, fontSize: 20, lineHeight: 26 },
+  stepBtn: { minWidth: 48, height: 48, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
+  stepText: { fontFamily: font.semibold, fontSize: 14, lineHeight: 19 },
+  error: { marginHorizontal: gutter, marginTop: spacing.md, padding: 12 },
   footer: { paddingHorizontal: gutter, paddingTop: spacing.lg },
 })

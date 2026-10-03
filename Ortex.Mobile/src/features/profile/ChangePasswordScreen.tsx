@@ -85,7 +85,7 @@ export default function ChangePasswordScreen({ navigation }: StackScreenProps<"C
 
       <Section bodyStyle={styles.form}>
         <TextField
-          label="Current Password"
+          label="Current password"
           value={current}
           onChangeText={(v) => {
             setCurrent(v)
@@ -98,7 +98,7 @@ export default function ChangePasswordScreen({ navigation }: StackScreenProps<"C
           textContentType="password"
         />
         <TextField
-          label="New Password"
+          label="New password"
           value={next}
           onChangeText={(v) => {
             setNext(v)
@@ -111,7 +111,7 @@ export default function ChangePasswordScreen({ navigation }: StackScreenProps<"C
           textContentType="newPassword"
         />
         <TextField
-          label="Confirm New Password"
+          label="Confirm new password"
           value={confirm}
           onChangeText={(v) => {
             setConfirm(v)

@@ -159,3 +159,96 @@ export function paymentBlocker(d: PaymentDraft): string | null {
   if (!d.method) return "Choose how it was paid."
   return null
 }
+
+/** The stored instant for a chosen IST day: midday IST keeps the day the same in every time zone. */
+export const paymentDateIso = (day: string) => new Date(`${day}T12:00:00+05:30`).toISOString()
+
+// ---- editing (the console's RecordPaymentModal in edit mode) ------------------------------
+
+type Stored = Payment & { tally?: { status?: string } | null; advance?: boolean }
+
+/** Migration 0066: a payment already in Tally is changed only by the Super Admin, and in Tally too. */
+export const inTally = (p: Payment) => (p as Stored).tally?.status === "synced"
+export const TALLY_LOCKED =
+  "Already in Tally. Only the Super Admin can change it, and it must be changed in Tally too."
+
+/** The form as it opens for a stored payment. */
+export function draftOf(p: Payment): PaymentDraft {
+  const t = new Date(p.date).getTime()
+  return {
+    type: p.type === "payout" ? "payout" : "inflow",
+    amount: String(p.amount ?? ""),
+    party: p.party || "",
+    method: p.method || "UPI",
+    date: Number.isNaN(t) ? "" : dayKey(t),
+    reference: p.reference || "",
+    note: p.note || "",
+  }
+}
+
+/**
+ * Only what changed, as the console's saveEdit: an untouched field (an imported
+ * date at midnight, a frozen Tally field) is never rewritten. The number stays.
+ * Turning a linked receipt into a payout unlinks it (0066 refuses a payout with
+ * an invoice); an advance stays one only while it is an unlinked receipt.
+ */
+export function paymentPatch(p: Payment, d: PaymentDraft): Record<string, unknown> {
+  const was = draftOf(p)
+  const patch: Record<string, unknown> = {}
+  if (d.type !== was.type) patch.type = d.type
+  const amount = amountOf(d.amount)
+  if (amount !== Number(p.amount)) patch.amount = amount
+  if (d.date !== was.date) patch.date = paymentDateIso(d.date)
+  for (const k of ["method", "reference", "note", "party"] as const) {
+    const v = k === "method" ? d[k] : d[k].trim()
+    if (v !== was[k]) patch[k] = v
+  }
+  const invoiceId = d.type === "payout" ? null : p.invoiceId || null
+  if (invoiceId !== (p.invoiceId || null)) Object.assign(patch, { invoiceId, invoiceNumber: "", customer: null })
+  const advance = !!(p as Stored).advance && d.type !== "payout" && !invoiceId
+  if (advance !== !!(p as Stored).advance) patch.advance = advance
+  return patch
+}
+
+// ---- the ledger's period and month sections ----------------------------------------------
+
+export type PaymentPeriod = "month" | "fy" | "all"
+
+/** The first day the period covers, or null for all time. `today` is yyyy-mm-dd (IST). */
+export function periodStart(period: PaymentPeriod, today: string): string | null {
+  if (period === "all") return null
+  const [y, m] = today.split("-").map(Number)
+  if (period === "month") return `${today.slice(0, 7)}-01`
+  // India's financial year runs April to March.
+  return `${m >= 4 ? y : y - 1}-04-01`
+}
+
+/** The payments dated within the period (by their IST day). */
+export function inPeriod(items: Payment[], period: PaymentPeriod, today: string): Payment[] {
+  const from = periodStart(period, today)
+  if (!from) return items
+  return items.filter((p) => {
+    const t = new Date(p.date).getTime()
+    return !Number.isNaN(t) && dayKey(t) >= from
+  })
+}
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+
+/** Consecutive runs of one IST month, in the order given ("October 2026"). */
+export function monthSections(items: Payment[]): { key: string; title: string; data: Payment[] }[] {
+  const out: { key: string; title: string; data: Payment[] }[] = []
+  for (const p of items) {
+    const t = new Date(p.date).getTime()
+    const key = Number.isNaN(t) ? "undated" : dayKey(t).slice(0, 7)
+    const last = out[out.length - 1]
+    if (last?.key === key) last.data.push(p)
+    else
+      out.push({
+        key,
+        title: key === "undated" ? "No date" : `${MONTHS[Number(key.slice(5)) - 1]} ${key.slice(0, 4)}`,
+        data: [p],
+      })
+  }
+  return out
+}

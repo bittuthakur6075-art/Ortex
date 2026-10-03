@@ -23,8 +23,8 @@ import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import type { StatusTone } from "@/theme/theme"
 import { border, gutter, size as sizes, spacing } from "@/theme/tokens"
-import { font } from "@/theme/typography"
-import { Button, Dialog, Icon, IconButton, PopupMenu, RecordActivityPanel, ScreenLoader, Sheet, useToast } from "@/ui"
+import { font, textVariants } from "@/theme/typography"
+import { Button, Dialog, Icon, IconButton, OptionSheet, PopupMenu, RecordActivityPanel, ScreenLoader, useToast } from "@/ui"
 import ActionButton from "@/ui/ActionButton"
 import type { IconName } from "@/ui/Icon"
 import { isAdmin } from "@/domain/modules"
@@ -90,6 +90,9 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
   // salesperson comes back — the covering note cannot ride with a document, so
   // it is a second message and this is the prompt to send it.
   const [offerMessage, setOfferMessage] = React.useState(false)
+  // Neither WhatsApp nor the share sheet says whether anything was sent, so a
+  // draft asks when the person comes back, and only a Yes marks it sent.
+  const [askSent, setAskSent] = React.useState<null | "whatsapp" | "sheet">(null)
   const [deleting, setDeleting] = React.useState(false)
   const [sharing, setSharing] = React.useState(false)
   const scrollY = React.useRef(new Animated.Value(0)).current
@@ -147,34 +150,44 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
   const share = async () => {
     if (!doc) return
     setSharing(true)
+    let via: "whatsapp" | "sheet"
     try {
-      // Straight into that customer's own WhatsApp chat, PDF attached, with the
-      // covering message on the clipboard: WhatsApp drops a caption sent with a
-      // DOCUMENT (it honours one for an image), so the note cannot travel with
-      // the file and is pasted into WhatsApp's own caption box instead —
-      // lib/pdf.ts has the detail. `shareQuotationOnWhatsApp` reports false
-      // rather than throwing when WhatsApp is missing or declines the intent,
-      // and the system share sheet is the fallback — the send still has to be
-      // possible on a phone without WhatsApp.
-      const sent =
+      // Into that customer's own WhatsApp chat: page one as a picture carrying
+      // the covering message, then the PDF offered (lib/pdf.ts has the detail).
+      // `shareQuotationOnWhatsApp` reports false rather than throwing when
+      // WhatsApp is missing or declines, and the system share sheet is the
+      // fallback, so the send is possible on a phone without WhatsApp.
+      const handed =
         !!doc.customer?.phone && (await shareQuotationOnWhatsApp(doc, settings, doc.customer.phone, pitch))
-      if (sent) {
-        // Not a toast: a toast is gone before they are back from WhatsApp, and
-        // the note is half the send. The prompt waits on the screen they return
-        // to, with the words already on the clipboard either way.
-        setOfferMessage(true)
-      } else {
-        await shareQuotationPdf(doc, settings)
-      }
-      // Sending is what "sent" means, so the status follows the action rather
-      // than waiting for someone to remember to set it.
-      if (doc.status === "draft") await repo.update("quotations", doc.id, { status: "sent" })
+      if (!handed) await shareQuotationPdf(doc, settings)
+      via = handed ? "whatsapp" : "sheet"
     } catch (e) {
       feedback.error()
-      toast.show({ message: errorMessage(e, "Could not build the PDF"), tone: "danger" })
+      toast.show({ message: errorMessage(e, "Could not build or share the PDF"), tone: "danger" })
+      return
     } finally {
       setSharing(false)
     }
+    // Not a toast: a toast is gone before they are back from WhatsApp. The
+    // prompt waits on the screen they return to.
+    if (doc.status === "draft") setAskSent(via)
+    else if (via === "whatsapp") setOfferMessage(true)
+  }
+
+  // Only a confirmed send marks a draft sent, with the time it went.
+  const markSent = async () => {
+    if (!doc) return
+    const via = askSent
+    setAskSent(null)
+    try {
+      await repo.update("quotations", doc.id, { status: "sent", sentAt: new Date().toISOString() })
+      feedback.created()
+      toast.show({ message: `${doc.number} marked sent`, tone: "success" })
+    } catch (e) {
+      feedback.error()
+      toast.show({ message: errorMessage(e, "It was shared, but could not be marked sent"), tone: "danger" })
+    }
+    if (via === "whatsapp") setOfferMessage(true)
   }
 
   // The bar loader, not a skeleton (the owner's call, 2026-09-13). The back arrow
@@ -456,7 +469,7 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
         ]}
       >
         {doc.status === "draft" && (
-          <Text style={[styles.footNote, { color: t.textTertiary }]}>Sharing marks this quotation sent.</Text>
+          <Text style={[styles.footNote, { color: t.textTertiary }]}>After sharing you can mark it sent.</Text>
         )}
         <Button
           label={sharing ? "Preparing…" : "Share quotation"}
@@ -550,6 +563,20 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
       />
 
       <Dialog
+        visible={!!askSent}
+        onClose={() => setAskSent(null)}
+        title="Did you send it?"
+        message={`Mark ${doc.number} as sent to ${who}? Leave it as a draft if it did not go.`}
+        actions={[
+          {
+            label: "Not yet",
+            onPress: () => setAskSent(null),
+          },
+          { label: "Yes, sent", onPress: () => void markSent() },
+        ]}
+      />
+
+      <Dialog
         visible={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         title="Delete this quotation?"
@@ -567,44 +594,30 @@ export default function QuotationDetailScreen({ route, navigation }: StackScreen
         settings={settings}
       />
 
-      <Sheet visible={statusOpen} onClose={() => setStatusOpen(false)} title="Quotation status">
-        {QUOTATION_STATUS.map((s) => (
-          <Pressable
-            key={s.id}
-            onPress={() =>
-              s.id === "rejected" ? (setStatusOpen(false), setLostOpen(true)) : void setStatus(s.id)
-            }
-            android_ripple={{ color: t.accentTint }}
-            style={styles.sheetRow}
-          >
-            <View style={[styles.dot, { backgroundColor: t.tones[s.tone].fg }]} />
-            <Text
-              style={[
-                styles.sheetLabel,
-                { color: t.text, fontFamily: s.id === doc.status ? font.semibold : font.regular },
-              ]}
-            >
-              {s.label}
-            </Text>
-            {s.id === doc.status && <Icon name="tick" size={20} color={t.primary} variant="Bulk" />}
-          </Pressable>
-        ))}
-      </Sheet>
+      <OptionSheet
+        visible={statusOpen}
+        title="Quotation status"
+        options={QUOTATION_STATUS.map((s) => s.label)}
+        value={status.label}
+        onClose={() => setStatusOpen(false)}
+        onPick={(label) => {
+          const id = QUOTATION_STATUS.find((s) => s.label === label)?.id || doc.status
+          if (id === "rejected") {
+            setStatusOpen(false)
+            setLostOpen(true)
+          } else void setStatus(id)
+        }}
+      />
 
       {/* Every loss is captured with a reason, so the console's lost-reason
           report stays honest whether the quote was rejected at a desk or here. */}
-      <Sheet visible={lostOpen} onClose={() => setLostOpen(false)} title="Why was it rejected?">
-        {LOST_REASONS.map((reason) => (
-          <Pressable
-            key={reason}
-            onPress={() => void setStatus("rejected", reason)}
-            android_ripple={{ color: t.accentTint }}
-            style={styles.sheetRow}
-          >
-            <Text style={[styles.sheetLabel, { color: t.text }]}>{reason}</Text>
-          </Pressable>
-        ))}
-      </Sheet>
+      <OptionSheet
+        visible={lostOpen}
+        title="Why was it rejected?"
+        options={LOST_REASONS}
+        onClose={() => setLostOpen(false)}
+        onPick={(reason) => void setStatus("rejected", reason)}
+      />
     </View>
   )
 }
@@ -691,7 +704,7 @@ const styles = StyleSheet.create({
   centre: { alignItems: "center", justifyContent: "center" },
 
   head: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, gap: 2 },
-  headTitle: { flex: 1, marginHorizontal: 6, fontSize: 17, fontFamily: font.semibold },
+  headTitle: { ...textVariants.subtitle, flex: 1, marginHorizontal: 6 },
   // 1dp, not `StyleSheet.hairlineWidth`: a hairline is 0.33dp on a 3x phone, one
   // physical pixel of `divider`, which is invisible in the hand.
   headRule: { position: "absolute", left: 0, right: 0, bottom: 0, height: border.hairline },
@@ -704,13 +717,13 @@ const styles = StyleSheet.create({
   // starting flush against its rule — the same 16dp the lead detail pages use.
   pageBlock: { paddingHorizontal: gutter, paddingTop: spacing.md },
 
-  eyebrow: { fontSize: 12, letterSpacing: 0.4, fontFamily: font.medium },
-  who: { marginTop: 6, fontSize: 24, lineHeight: 30, letterSpacing: -0.4, fontFamily: font.bold },
-  whoSub: { marginTop: 2, fontSize: 14, fontFamily: font.regular },
+  eyebrow: { ...textVariants.captionStrong, letterSpacing: 0.4 },
+  who: { ...textVariants.detailTitle, marginTop: 6 },
+  whoSub: { ...textVariants.screenSubtitle, marginTop: 2 },
   whoPhoneRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 6 },
-  whoPhone: { fontSize: 14, fontFamily: font.semibold },
-  amount: { marginTop: 14, fontSize: 36, letterSpacing: -1.2, fontFamily: font.extrabold },
-  amountNote: { marginTop: 2, fontSize: 12, fontFamily: font.regular },
+  whoPhone: textVariants.segmentedLabel,
+  amount: { ...textVariants.statLarge, marginTop: 14 },
+  amountNote: { ...textVariants.caption, marginTop: 2 },
 
   pills: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14 },
   pill: {
@@ -791,7 +804,4 @@ const styles = StyleSheet.create({
   },
   footNote: { marginBottom: 8, fontSize: 12, textAlign: "center", fontFamily: font.regular },
 
-  sheetRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 6 },
-  dot: { width: 9, height: 9, borderRadius: 5, marginRight: 12 },
-  sheetLabel: { flex: 1, fontSize: 16 },
 })

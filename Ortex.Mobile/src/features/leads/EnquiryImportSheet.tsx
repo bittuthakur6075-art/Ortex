@@ -16,6 +16,7 @@ import Button from "@/ui/Button"
 import { Chip } from "@/ui/Chips"
 import Icon from "@/ui/Icon"
 import Sheet from "@/ui/Sheet"
+import { SquircleBackground } from "@/ui/Squircle"
 import { useToast } from "@/ui/Toast"
 
 // Leads -> Import: the same spreadsheet import as the console's Enquiries ->
@@ -142,7 +143,8 @@ export default function EnquiryImportSheet({ visible, onClose, existing, onImpor
             </Text>
           ) : null}
           {repeatRows.size ? (
-            <View style={[styles.note, { backgroundColor: t.warningBg, marginTop: 0, marginBottom: spacing.md }]}>
+            <View style={[styles.note, { marginTop: 0, marginBottom: spacing.md }]}>
+              <SquircleBackground fill={t.warningBg} radius={radius.card} />
               <Icon name="warning" size={16} color={t.warning} variant="Bulk" />
               <View style={styles.noteText}>
                 <Text style={[textVariants.small, { color: t.warningText, marginBottom: spacing.sm }]}>
@@ -178,7 +180,8 @@ export default function EnquiryImportSheet({ visible, onClose, existing, onImpor
       )}
 
       {error ? (
-        <View style={[styles.note, { backgroundColor: t.dangerBg }]} accessibilityLiveRegion="polite">
+        <View style={styles.note} accessibilityLiveRegion="polite">
+          <SquircleBackground fill={t.dangerBg} radius={radius.card} />
           <Icon name="warning" size={16} color={t.danger} variant="Bulk" />
           <Text style={[textVariants.small, styles.noteText, { color: t.dangerText }]}>{error}</Text>
         </View>
@@ -208,7 +211,8 @@ export default function EnquiryImportSheet({ visible, onClose, existing, onImpor
 function Stat({ label, value }: { label: string; value: string }) {
   const t = useTheme()
   return (
-    <View style={[styles.stat, { backgroundColor: t.surfaceInset }]}>
+    <View style={styles.stat}>
+      <SquircleBackground fill={t.surfaceInset} radius={radius.card} />
       <Text style={[textVariants.title, { color: t.text }]}>{value}</Text>
       <Text style={[textVariants.caption, { color: t.textTertiary }]}>{label}</Text>
     </View>
@@ -217,9 +221,9 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   stats: { flexDirection: "row", gap: spacing.sm, marginVertical: spacing.md },
-  stat: { flex: 1, borderRadius: radius.card, padding: spacing.md, gap: 2 },
+  stat: { flex: 1, padding: spacing.md, gap: 2 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.md },
-  note: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, borderRadius: radius.card, padding: spacing.md, marginTop: spacing.md },
+  note: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, padding: spacing.md, marginTop: spacing.md },
   noteText: { flex: 1 },
   actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
   grow: { flex: 1 },

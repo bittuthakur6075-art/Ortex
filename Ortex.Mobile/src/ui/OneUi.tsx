@@ -89,17 +89,19 @@ export function SubHeader({
         {title.toUpperCase()}
       </Text>
       {action && onAction ? (
-        <Text
+        <Pressable
           onPress={() => {
             feedback.tap()
             onAction()
           }}
-          accessibilityRole="link"
-          suppressHighlighting
-          style={[styles.subAction, { color: t.primary }]}
+          accessibilityRole="button"
+          accessibilityLabel={`${action}, ${title}`}
+          // An 18dp line of text: the slop makes it a 48dp touch.
+          hitSlop={{ top: 15, bottom: 15, left: 12, right: 12 }}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
-          {action}
-        </Text>
+          <Text style={[styles.subAction, { color: t.primary }]}>{action}</Text>
+        </Pressable>
       ) : null}
       {right}
     </View>
@@ -132,7 +134,7 @@ export function Tag({ label, tone = "neutral", dot }: { label: string; tone?: On
   return (
     <View style={[styles.tag, { backgroundColor: tint.bg }]}>
       {dot ? <View style={[styles.tagDot, { backgroundColor: tint.solid }]} /> : null}
-      <Text style={[styles.tagText, { color: tint.fg }]}>{label}</Text>
+      <Text maxFontSizeMultiplier={1.3} style={[styles.tagText, { color: tint.fg }]}>{label}</Text>
     </View>
   )
 }
@@ -201,12 +203,17 @@ export function CardRow({
         onPress()
       }}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityLabel={accessibilityLabel ?? [title, subtitle, tagLabel(trailing)].filter(Boolean).join(", ")}
       style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
     >
       {body}
     </Pressable>
   )
+}
+
+/** The words of a `Tag` passed as a row's trailing, so a screen reader hears it too. */
+function tagLabel(node: React.ReactNode): string | undefined {
+  return React.isValidElement<{ label?: string }>(node) && node.type === Tag ? node.props.label : undefined
 }
 
 /** The 1px rule between two rows, indented to the text. */

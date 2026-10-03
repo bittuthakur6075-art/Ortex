@@ -252,7 +252,7 @@ export default function MonthAttendance({
               <View style={styles.calendar}>
                 <View style={styles.weekRow}>
                   {WEEKDAYS.map((w, i) => (
-                    <Text key={i} style={[styles.dow, { color: i >= 5 ? t.textFaint : t.textTertiary }]}>
+                    <Text key={i} style={[styles.dow, { color: t.textTertiary }]}>
                       {w}
                     </Text>
                   ))}

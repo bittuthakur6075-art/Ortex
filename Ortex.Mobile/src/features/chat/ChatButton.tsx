@@ -8,6 +8,7 @@ import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import IconButton from "@/ui/IconButton"
+import { useReducedMotion } from "@/ui/motion"
 
 /**
  * Team chat in the app bar, beside search and the bell (it left the tab bar,
@@ -20,9 +21,11 @@ export default function ChatButton() {
   const { unread } = useChatInbox()
   const { profile } = useAuth()
   const dot = React.useRef(new Animated.Value(unread ? 1 : 0)).current
+  const reduceMotion = useReducedMotion()
   React.useEffect(() => {
-    Animated.spring(dot, { toValue: unread ? 1 : 0, stiffness: 320, damping: 24, mass: 0.6, useNativeDriver: true }).start()
-  }, [unread, dot])
+    if (reduceMotion) dot.setValue(unread ? 1 : 0)
+    else Animated.spring(dot, { toValue: unread ? 1 : 0, stiffness: 320, damping: 24, mass: 0.6, useNativeDriver: true }).start()
+  }, [unread, dot, reduceMotion])
   // Staff have Chat as a tab (navigation/tabAccess.ts).
   if (profile?.role === "staff") return null
 

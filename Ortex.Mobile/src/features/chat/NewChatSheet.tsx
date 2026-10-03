@@ -1,5 +1,5 @@
 import React from "react"
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native"
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native"
 
 import { roleLabel } from "@/domain/modules"
 import { PersonFace } from "@/features/chat/chatUi"
@@ -8,7 +8,7 @@ import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { fontFamily, textVariants } from "@/theme/typography"
-import { Button, SearchField, SegmentedControl, Sheet, Spinner, useToast } from "@/ui"
+import { Button, Checkbox, SearchField, SegmentedControl, Sheet, Spinner, useToast } from "@/ui"
 
 /**
  * Start a chat: one tap on a colleague opens (or creates) the direct chat;
@@ -92,32 +92,40 @@ export default function NewChatSheet({ visible, onClose, onOpened }: { visible: 
             onChangeText={setTitle}
             maxLength={80}
             placeholder="Group name, for example Dispatch team"
-            placeholderTextColor={t.textHint}
+            placeholderTextColor={t.textTertiary}
             style={[styles.input, { backgroundColor: t.fieldBg, color: t.text, borderColor: t.border }]}
           />
         ) : null}
         <SearchField value={query} onChangeText={setQuery} placeholder="Search colleagues" />
       </View>
 
-      <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
-        {loading ? (
-          <View style={styles.center}>
-            <Spinner />
-          </View>
-        ) : !shown.length ? (
-          <Text style={[textVariants.small, styles.empty, { color: t.textTertiary }]}>No colleagues found.</Text>
-        ) : (
-          shown.map((p) => {
+      {loading ? (
+        <View style={styles.center}>
+          <Spinner label="Loading colleagues" />
+        </View>
+      ) : (
+        <FlatList
+          style={styles.list}
+          data={shown}
+          keyExtractor={(p) => p.id}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+          initialNumToRender={12}
+          ListEmptyComponent={<Text style={[textVariants.small, styles.empty, { color: t.textTertiary }]}>No colleagues found.</Text>}
+          renderItem={({ item: p }) => {
             const on = picked.includes(p.id)
+            const toggle = () => setPicked((list) => (on ? list.filter((x) => x !== p.id) : [...list, p.id]))
             return (
               <Pressable
-                key={p.id}
                 disabled={busy}
                 onPress={() => {
                   feedback.select()
                   if (mode === "direct") void openDirect(p.id)
-                  else setPicked((list) => (on ? list.filter((x) => x !== p.id) : [...list, p.id]))
+                  else toggle()
                 }}
+                accessibilityRole={mode === "group" ? "checkbox" : "button"}
+                accessibilityState={mode === "group" ? { checked: on, disabled: busy } : { disabled: busy }}
+                accessibilityLabel={`${p.name || "Unnamed"}, ${roleLabel(p.role)}`}
                 style={({ pressed }) => [styles.person, { backgroundColor: pressed ? t.surfacePressed : on ? t.primary10 : "transparent" }]}
               >
                 <PersonFace name={p.name || "?"} uri={p.avatar_url || undefined} />
@@ -125,16 +133,12 @@ export default function NewChatSheet({ visible, onClose, onOpened }: { visible: 
                   <Text numberOfLines={1} style={[textVariants.listTitle, { color: t.text }]}>{p.name || "Unnamed"}</Text>
                   <Text style={[textVariants.caption, { color: t.textTertiary }]}>{roleLabel(p.role)}</Text>
                 </View>
-                {mode === "group" ? (
-                  <View style={[styles.check, { borderColor: on ? t.primary : t.borderStrong, backgroundColor: on ? t.primary : "transparent" }]}>
-                    {on ? <Text style={[styles.checkMark, { color: t.textOnPrimary }]}>✓</Text> : null}
-                  </View>
-                ) : null}
+                {mode === "group" ? <Checkbox checked={on} onChange={toggle} disabled={busy} /> : null}
               </Pressable>
             )
-          })
-        )}
-      </ScrollView>
+          }}
+        />
+      )}
 
       {mode === "group" ? (
         <View style={styles.footer}>
@@ -159,7 +163,5 @@ const styles = StyleSheet.create({
   empty: { textAlign: "center", paddingVertical: spacing.xxl },
   person: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingHorizontal: gutter, paddingVertical: spacing.sm + 2 },
   personBody: { flex: 1, minWidth: 0 },
-  check: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: "center", justifyContent: "center" },
-  checkMark: { fontFamily: fontFamily.bold, fontSize: 12, lineHeight: 14 },
   footer: { paddingHorizontal: gutter, paddingTop: spacing.md },
 })

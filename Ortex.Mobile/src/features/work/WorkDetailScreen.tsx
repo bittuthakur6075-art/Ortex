@@ -97,6 +97,7 @@ export default function WorkDetailScreen({ route, navigation }: StackScreenProps
                 style={{ width, height: heroHeight }}
                 contentFit="cover"
                 transition={140}
+                accessible={false}
               />
             </Pressable>
           ) : (

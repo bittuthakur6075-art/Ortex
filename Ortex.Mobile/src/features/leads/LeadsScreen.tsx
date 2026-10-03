@@ -2,15 +2,19 @@ import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { formatNumber, shortAge } from "@/domain/format"
-import { callCallFirst, callSections, enquiryCallFirst, enquirySections, statusCounts, type ListSection } from "@/domain/lists"
+import type { LeadDoc } from "@/domain/leads"
+import { callCallFirst, callFirstLabel, callSections, enquiryCallFirst, enquirySections, statusCounts, type ListSection } from "@/domain/lists"
 import { canAccess } from "@/domain/modules"
 import { parseQuoteRfq, rfqArtwork, rfqUnits } from "@/domain/quoteRfq"
 import { ENQUIRY_STATUS, type Enquiry } from "@/domain/schema"
 import { VOICE_SOURCE, voiceCallsFrom, type VoiceCall } from "@/domain/voice"
+import CallOutcomeSheet from "@/features/leads/CallOutcomeSheet"
+import { useAfterContact } from "@/features/leads/leadWrites"
 import EnquiryImportSheet from "@/features/leads/EnquiryImportSheet"
 import ChatButton from "@/features/chat/ChatButton"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { useCollection } from "@/hooks/useCollection"
+import { callNumber } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
 import type { TabScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
@@ -25,11 +29,11 @@ import { SubHeader, Tag, useOneTone, type OneTone } from "@/ui/OneUi"
 // Enquiries and voice calls read the SAME `enquiries` collection: a voice lead
 // is a row tagged with VOICE_SOURCE, folded per conversation. The list (Figma
 // "Quotations and Leads · One UI lists") opens on who to ring first: enquiries
-// left new for two days and urgent or complaint calls, then today, then the
+// still new, due follow-ups and urgent or complaint calls, then today, then the
 // rest. Minimal and compact: one row of filter pills, as the console's views
 // (All, each status, then Anu calls) in place of a switch, then two-line rows (what they asked for and its status; who, when and from
 // where), the person's face with a dot when the lead is overdue, urgent or a
-// complaint. Calling lives on the lead's own page. The grouping rules are
+// complaint. A Call First row carries a Call button; won and lost close the list. The grouping rules are
 // domain/lists.ts.
 
 /** "all", "anu" (Anu's calls), or an enquiry status id. */
@@ -41,7 +45,7 @@ const stampOf = (r: Row) => Date.parse(String(isCall(r) ? r.endedAt : r.createdA
 
 /** Enquiries and calls in one list: the same three sections, newest first inside each. */
 function mergeSections(a: ListSection<Row>[], b: ListSection<Row>[]): ListSection<Row>[] {
-  const order: ListSection<Row>["key"][] = ["first", "recent", "earlier"]
+  const order: ListSection<Row>["key"][] = ["first", "recent", "earlier", "closed"]
   return order
     .map((key) => {
       const parts = [...a, ...b].filter((x) => x.key === key)
@@ -61,6 +65,13 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
   const canVoice = canAccess(profile, "voice-leads")
   const [importing, setImporting] = React.useState(false)
   const [filter, setFilter] = React.useState<Filter>("all")
+  // A Call First row rings straight from the list, then asks how it went.
+  const outcome = useAfterContact()
+  const [ringing, setRinging] = React.useState<LeadDoc[]>([])
+  const ring = (rows: LeadDoc[], phone?: string) => {
+    setRinging(rows)
+    void outcome.reach("call", () => callNumber(phone))
+  }
 
   const enquiries = React.useMemo(() => (canEnquiries ? items.filter((e) => e.source !== VOICE_SOURCE) : []), [items, canEnquiries])
   const calls = React.useMemo(() => (canVoice ? voiceCallsFrom(items) : []), [items, canVoice])
@@ -86,6 +97,11 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
     ...ENQUIRY_STATUS.filter((st) => counts[st.id]).map((st) => ({ key: st.id, label: st.label, count: counts[st.id] })),
     ...(canVoice && calls.length ? [{ key: "anu", label: "Anu Calls", count: calls.length }] : []),
   ]
+  // The chip in use can vanish (its last lead moved on): fall back to All.
+  const filterGone = !loading && !chips.some((c) => c.key === filter)
+  React.useEffect(() => {
+    if (filterGone) setFilter("all")
+  }, [filterGone])
   const newToday = rows.filter((r) => (r.status || "new") === "new" && now - stampOf(r) < 86400000).length
   const waiting = enquiries.filter((e) => enquiryCallFirst(e, now)).length + calls.filter((c) => callCallFirst(c, now)).length
 
@@ -145,6 +161,8 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
               <CallRow
                 call={r}
                 first={s.key === "first"}
+                now={now}
+                onCall={() => ring(r.rows as LeadDoc[], r.customer.phone)}
                 onPress={() => {
                   feedback.tap()
                   navigation.navigate("VoiceCallDetail", { id: r.id })
@@ -154,6 +172,8 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
               <EnquiryRow
                 e={r}
                 first={s.key === "first"}
+                now={now}
+                onCall={() => ring([r as LeadDoc], r.customer?.phone)}
                 onPress={() => {
                   feedback.tap()
                   navigation.navigate("EnquiryDetail", { id: r.id })
@@ -167,6 +187,7 @@ export default function LeadsScreen({ navigation }: TabScreenProps<"Leads">) {
         {!loading && rows.length ? <CountChips options={chips} value={filter} onChange={setFilter} /> : null}
         {!loading && sections.length ? <RowSeparator /> : null}
       </AppScreen>
+      <CallOutcomeSheet channel={outcome.open} rows={ringing} me={profile?.name || ""} onClose={() => outcome.setOpen(null)} />
       <EnquiryImportSheet visible={importing} onClose={() => setImporting(false)} existing={items} onImported={() => void reload()} />
     </View>
   )
@@ -184,7 +205,7 @@ function enquiryWhat(e: Enquiry): string {
   return e.quantity ? `${what} · ${e.quantity} pcs` : what
 }
 
-function EnquiryRow({ e, first, onPress }: { e: Enquiry; first: boolean; onPress: () => void }) {
+function EnquiryRow({ e, first, now, onPress, onCall }: { e: Enquiry; first: boolean; now: number; onPress: () => void; onCall: () => void }) {
   const rfq = parseQuoteRfq(e)
   const artwork = rfqArtwork(e)
   const name = e.customer?.name || e.customer?.company || "Unnamed"
@@ -194,14 +215,21 @@ function EnquiryRow({ e, first, onPress }: { e: Enquiry; first: boolean; onPress
       name={name}
       what={enquiryWhat(e)}
       meta={[who, shortAge(e.createdAt), rfq ? "Quote calculator" : e.source]}
-      flag={artwork?.failed ? { label: "Artwork failed", tone: "danger" } : first ? { label: "Overdue", tone: "warning" } : null}
+      flag={
+        artwork?.failed
+          ? { label: "Artwork failed", tone: "danger" }
+          : first
+            ? { label: callFirstLabel(e.status, e.createdAt, e as LeadDoc, now), tone: "warning" }
+            : null
+      }
       status={<StatusBadge list={ENQUIRY_STATUS} id={e.status || "new"} small />}
       onPress={onPress}
+      onCall={first && e.customer?.phone ? onCall : undefined}
     />
   )
 }
 
-function CallRow({ call, first, onPress }: { call: VoiceCall; first: boolean; onPress: () => void }) {
+function CallRow({ call, first, now, onPress, onCall }: { call: VoiceCall; first: boolean; now: number; onPress: () => void; onCall: () => void }) {
   const what = call.itemsList.length
     ? call.itemsList.map((i) => [i.product, i.quantity && `${i.quantity} pcs`].filter(Boolean).join(" · ")).join(", ")
     : call.productInterest || "Nothing captured"
@@ -216,11 +244,12 @@ function CallRow({ call, first, onPress }: { call: VoiceCall; first: boolean; on
           : call.flags.urgent
             ? { label: "Urgent", tone: "warning" }
             : first
-              ? { label: "Overdue", tone: "warning" }
+              ? { label: callFirstLabel(call.status, call.endedAt, (call.rows[0] || {}) as LeadDoc, now), tone: "warning" }
               : null
       }
       status={<StatusBadge list={ENQUIRY_STATUS} id={call.status} small />}
       onPress={onPress}
+      onCall={first && call.customer.phone ? onCall : undefined}
     />
   )
 }
@@ -233,6 +262,7 @@ function LeadRow({
   flag,
   status,
   onPress,
+  onCall,
 }: {
   name: string
   what: string
@@ -240,6 +270,8 @@ function LeadRow({
   flag: { label: string; tone: OneTone } | null
   status: React.ReactNode
   onPress: () => void
+  /** A trailing Call button, on Call First rows. */
+  onCall?: () => void
 }) {
   const t = useTheme()
   const tint = useOneTone()
@@ -261,6 +293,7 @@ function LeadRow({
           {meta.filter(Boolean).join(" · ")}
         </Text>
       </View>
+      {onCall ? <IconButton name="call" color={t.primary} onPress={onCall} accessibilityLabel={`Call ${name}`} /> : null}
     </Pressable>
   )
 }

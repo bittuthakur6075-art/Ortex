@@ -2,21 +2,23 @@ import React from "react"
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { repo } from "@/data/repo"
-import { errorMessage } from "@/data/supabase"
 import { formatCurrency, formatDateTime, formatNumber, relativeTime } from "@/domain/format"
-import { ENQUIRY_STATUS, QUOTATION_STATUS, statusMeta, type Enquiry, type Quotation } from "@/domain/schema"
+import type { LeadDoc } from "@/domain/leads"
+import { ENQUIRY_STATUS, LOST_REASONS, QUOTATION_STATUS, type Enquiry, type Quotation } from "@/domain/schema"
 import { buildQuotationPrefill, parseQuantity, prettyPhone, voiceCallsFrom } from "@/domain/voice"
 import { useCollection } from "@/hooks/useCollection"
 import { callNumber, copy, email as sendEmail, whatsapp } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
+import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import { border, gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { Button, Icon, IconButton, Panel, PanelBand, RecordActivityPanel, DetailSkeleton, StatusBadge, useToast } from "@/ui"
+import { Button, Icon, IconButton, OptionSheet, Panel, PanelBand, RecordActivityPanel, DetailSkeleton, StatusBadge, useToast } from "@/ui"
 import { Advisory, Fact, ItemRow, QuickAction, StatusStepper } from "@/features/leads/leadUi"
 import CallRecordings from "@/features/leads/CallRecordings"
+import CallOutcomeSheet from "@/features/leads/CallOutcomeSheet"
+import { useAfterContact, writeLeadStatus } from "@/features/leads/leadWrites"
 
 /**
  * One call with Anu, the website's voice assistant.
@@ -44,6 +46,9 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
   const { items: quotations } = useCollection<Quotation>("quotations")
   const scrollY = React.useRef(new Animated.Value(0)).current
   const [saving, setSaving] = React.useState(false)
+  const [lostOpen, setLostOpen] = React.useState(false)
+  const { profile } = useAuth()
+  const outcome = useAfterContact()
 
   // Refolded from the live collection rather than passed through navigation, so
   // a status write (or a capture arriving while the page is open) is reflected
@@ -89,18 +94,13 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
 
   // A status change writes to EVERY row of the call, so whoever opens any single
   // capture next sees the same truth.
-  const setStatus = async (status: string) => {
+  // Lost asks why first, as the console does.
+  const setStatus = async (status: string, lostReason?: string) => {
+    if (status === "lost" && !lostReason) return setLostOpen(true)
+    setLostOpen(false)
     setSaving(true)
-    try {
-      await Promise.all(call.rows.map((r) => repo.update("enquiries", r.id, { status })))
-      feedback.created()
-      toast.show({ message: `Marked ${statusMeta(ENQUIRY_STATUS, status).label}`, tone: "success" })
-    } catch (e) {
-      feedback.error()
-      toast.show({ message: errorMessage(e, "Could not update"), tone: "danger" })
-    } finally {
-      setSaving(false)
-    }
+    await writeLeadStatus(call.rows as LeadDoc[], status, toast, lostReason ? { lostReason } : {})
+    setSaving(false)
   }
 
   const createQuotation = () => {
@@ -122,7 +122,7 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
         </Animated.Text>
         <IconButton
           name="call"
-          onPress={() => void callNumber(phone)}
+          onPress={() => void outcome.reach("call", () => callNumber(phone))}
           accessibilityLabel="Call back"
           color={t.primary}
         />
@@ -216,14 +216,14 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
               label="Call"
               tone="blue"
               disabled={!phone}
-              onPress={() => void callNumber(phone)}
+              onPress={() => void outcome.reach("call", () => callNumber(phone))}
             />
             <QuickAction
               icon="whatsapp"
               label="WhatsApp"
               tone="emerald"
               disabled={!phone}
-              onPress={() => void whatsapp(phone)}
+              onPress={() => void outcome.reach("whatsapp", () => whatsapp(phone))}
             />
             <QuickAction
               icon="mail"
@@ -231,7 +231,7 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
               disabled={!call.customer.email}
               onPress={() => void sendEmail(call.customer.email)}
             />
-            <QuickAction icon="quote" label="Quote" tone="primary" onPress={createQuotation} />
+            <QuickAction icon="callAdd" label="Log call" tone="primary" onPress={() => outcome.setOpen("call")} />
           </View>
         </Panel>
 
@@ -261,6 +261,7 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
 
         <Panel title="Contact" padded>
           <Pressable
+            accessibilityRole="button"
             onLongPress={phone ? () => void copyValue(phone, "Number") : undefined}
             delayLongPress={320}
             disabled={!phone}
@@ -335,6 +336,7 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
             <Panel title="Quotations">
               {related.map((q, i) => (
                 <Pressable
+                  accessibilityRole="button"
                   key={q.id}
                   onPress={() => navigation.navigate("QuotationDetail", { id: q.id })}
                   android_ripple={{ color: t.accentTint }}
@@ -386,13 +388,22 @@ export default function VoiceCallDetailScreen({ route, navigation }: StackScreen
               icon="call"
               size="sm"
               disabled={!phone}
-              onPress={() => void callNumber(phone)}
+              onPress={() => void outcome.reach("call", () => callNumber(phone))}
             />
           </View>
         ) : (
           <Button label="Create quotation" icon="quote" onPress={createQuotation} fullWidth />
         )}
       </View>
+
+      <CallOutcomeSheet channel={outcome.open} rows={call.rows as LeadDoc[]} me={profile?.name || ""} onClose={() => outcome.setOpen(null)} />
+      <OptionSheet
+        visible={lostOpen}
+        title="Why was this lead lost?"
+        options={LOST_REASONS}
+        onClose={() => setLostOpen(false)}
+        onPick={(reason) => void setStatus("lost", reason)}
+      />
     </View>
   )
 

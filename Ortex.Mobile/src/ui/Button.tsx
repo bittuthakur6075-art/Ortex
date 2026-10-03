@@ -53,22 +53,23 @@ function variantStyle(c: Colors, variant: ButtonVariant, disabled: boolean) {
   switch (variant) {
     case "secondary":
       // Tonal brand: the ramp's Primary-10 fill, no border, primary text.
-      return { bg: c.primary10, border: "transparent", fg: c.primary }
+      return { bg: c.primaryBg, border: "transparent", fg: c.primaryText }
     case "outline":
       return { bg: "transparent", border: c.borderStrong, fg: c.text }
     case "ghost":
       return { bg: "transparent", border: "transparent", fg: c.primary }
     case "danger":
-      return { bg: c.danger, border: "transparent", fg: "#FFFFFF" }
+      return { bg: c.dangerStrong, border: "transparent", fg: c.textOnPrimary }
     case "outline-danger":
       return { bg: "transparent", border: c.danger, fg: c.danger }
     case "danger-tonal":
       // The tonal secondary in the error colour.
       return { bg: c.dangerBg, border: "transparent", fg: c.dangerText }
     case "success":
-      return { bg: c.success, border: "transparent", fg: "#FFFFFF" }
+      // The darker fill: white on the bare green is 2.8:1.
+      return { bg: c.successStrong, border: "transparent", fg: c.textOnPrimary }
     case "warning":
-      return { bg: c.warningBg, border: "transparent", fg: c.warning }
+      return { bg: c.warningBg, border: "transparent", fg: c.warningText }
     default:
       return { bg: c.primary, border: "transparent", fg: c.textOnPrimary }
   }
@@ -122,6 +123,8 @@ export default function Button({
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       accessibilityLabel={accessibilityLabel ?? label}
       disabled={isDisabled}
+      // The 30dp small button still takes a 48dp touch.
+      hitSlop={size === "sm" ? (sizes.touchMin - sizes.buttonSm) / 2 : undefined}
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
       onPress={

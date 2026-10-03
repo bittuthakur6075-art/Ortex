@@ -250,7 +250,7 @@ export function Swatch({ color, label, value }: { color: string; label: string; 
   return (
     <View style={styles.swatchRow}>
       <View style={[styles.swatch, { backgroundColor: color }]} />
-      <Text style={[textVariants.caption, { color: t.textSecondary }]} numberOfLines={1}>
+      <Text style={[textVariants.caption, { color: t.textSecondary, flexShrink: 1 }]} numberOfLines={1}>
         {label}
       </Text>
       {value ? <Text style={[textVariants.captionStrong, { color: t.text, marginLeft: 6 }]}>{value}</Text> : null}
@@ -461,17 +461,18 @@ const styles = StyleSheet.create({
   slot: { height: "100%", alignItems: "center", justifyContent: "flex-end" },
   axis: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
   legend: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md, marginTop: spacing.md },
-  swatchRow: { flexDirection: "row", alignItems: "center" },
+  swatchRow: { flexDirection: "row", alignItems: "center", flexShrink: 1 },
   swatch: { width: 10, height: 10, borderRadius: 3, marginRight: 6 },
   // A taller touch band than the 12dp bar, so the bar is easy to land on.
   stackHit: { paddingVertical: 10, marginVertical: -10 },
   stack: { flexDirection: "row", height: 12 },
   legendList: { marginTop: spacing.md, marginHorizontal: -8 },
-  legendRow: { minHeight: 36, justifyContent: "center" },
+  legendRow: { minHeight: 48, justifyContent: "center" },
   legendWash: { borderRadius: 8 },
   legendInner: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8 },
   legendCount: { marginLeft: "auto" },
-  legendValue: { width: 72, textAlign: "right" },
+  // Sized to its content: a fixed width clipped lakh amounts ("₹12,34,567").
+  legendValue: { minWidth: 72, marginLeft: spacing.md, textAlign: "right", flexShrink: 0 },
   funnelRow: { flexDirection: "row", alignItems: "center" },
   funnelLabel: { width: 72 },
   funnelTrack: { flex: 1, height: 28, justifyContent: "center" },

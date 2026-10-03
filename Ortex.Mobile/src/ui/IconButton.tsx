@@ -13,7 +13,8 @@ type Props = {
   variant?: IconVariant
   disabled?: boolean
   style?: ViewStyle
-  accessibilityLabel?: string
+  /** Required: an icon alone says nothing to a screen reader. */
+  accessibilityLabel: string
 }
 
 export default function IconButton({

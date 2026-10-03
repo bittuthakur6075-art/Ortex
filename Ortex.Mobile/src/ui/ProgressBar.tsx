@@ -2,6 +2,7 @@ import React, { memo, useEffect, useRef } from "react"
 import { Animated, Easing, StyleSheet, View } from "react-native"
 
 import { useTheme } from "@/store/ThemeContext"
+import { useReducedMotion } from "@/ui/motion"
 
 type Props = {
   /** 0 to 1. */
@@ -16,15 +17,17 @@ function ProgressBar({ progress, color }: Props) {
   const t = useTheme()
   const width = useRef(new Animated.Value(0)).current
   const clamped = Math.min(1, Math.max(0, progress))
+  const reduce = useReducedMotion()
 
   useEffect(() => {
+    if (reduce) return width.setValue(clamped)
     Animated.timing(width, {
       toValue: clamped,
       duration: 220,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start()
-  }, [clamped, width])
+  }, [clamped, width, reduce])
 
   return (
     <View

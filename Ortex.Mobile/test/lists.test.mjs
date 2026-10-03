@@ -48,22 +48,46 @@ test("quote summary: open value, expiring, won this month", () => {
   assert.deepEqual(s, { openValue: 750, openCount: 2, expiring: 1, wonValue: 900, wonCount: 1 })
 })
 
-test("enquiries: new for two days goes first, contacted never does", () => {
-  const e = (id, status, hoursAgo) => ({ id, status, createdAt: iso(now - hoursAgo * 3600000) })
-  const s = L.enquirySections([e("stale", "new", 60), e("worked", "contacted", 90), e("fresh", "new", 2), e("ancient", "new", 24 * 60)], now)
+test("enquiries: new and due follow-ups go first, won and lost close the list", () => {
+  const e = (id, status, hoursAgo, followUpAt) => ({ id, status, createdAt: iso(now - hoursAgo * 3600000), followUpAt })
+  const s = L.enquirySections(
+    [
+      e("stale", "new", 60),
+      e("worked", "contacted", 90),
+      e("fresh", "new", 2),
+      e("ancient", "new", 24 * 60),
+      e("due", "quoted", 200, iso(now - DAY)),
+      e("dueToday", "contacted", 3, iso(now + 3600000)),
+      e("snoozed", "new", 1, iso(now + 3 * DAY)),
+      e("won", "won", 1),
+      e("lost", "lost", 100, iso(now - DAY)),
+    ],
+    now,
+  )
   assert.deepEqual(s.map((x) => [x.title, x.data.map((d) => d.id)]), [
-    ["Call First", ["stale"]],
-    ["Today", ["fresh"]],
+    ["Call First", ["fresh", "dueToday", "stale", "due"]],
+    ["Today", ["snoozed"]],
     ["Earlier", ["worked", "ancient"]],
+    ["Closed", ["won", "lost"]],
   ])
+})
+
+test("call first labels", () => {
+  assert.equal(L.callFirstLabel("new", iso(now - 3 * DAY), {}, now), "Overdue")
+  assert.equal(L.callFirstLabel("new", iso(now - 3600000), {}, now), "New")
+  assert.equal(L.callFirstLabel("contacted", iso(now), { followUpAt: iso(now - 1) }, now), "Follow-up due")
 })
 
 test("voice calls: complaints and urgent asks first unless closed", () => {
   const c = (id, status, flags, hoursAgo) => ({ id, status, endedAt: iso(now - hoursAgo * 3600000), flags: { support: false, urgent: false, ...flags } })
-  const s = L.callSections([c("sup", "contacted", { support: true }, 30), c("won", "won", { urgent: true }, 1), c("plain", "new", {}, 1)], now)
+  const s = L.callSections(
+    [c("sup", "contacted", { support: true }, 30), c("won", "won", { urgent: true }, 1), c("plain", "new", {}, 1), c("worked", "contacted", {}, 2)],
+    now,
+  )
   assert.deepEqual(s.map((x) => [x.key, x.data.map((d) => d.id)]), [
-    ["first", ["sup"]],
-    ["recent", ["won", "plain"]],
+    ["first", ["plain", "sup"]],
+    ["recent", ["worked"]],
+    ["closed", ["won"]],
   ])
 })
 

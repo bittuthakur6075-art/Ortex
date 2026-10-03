@@ -1,4 +1,4 @@
-// Recording a payment from the phone.
+// Recording and editing a payment from the phone.
 //
 // Writes the SAME doc as the console's recordPayment()
 // (Ortex.Admin/src/data/domain/domain.js) and takes its number from the same
@@ -6,12 +6,22 @@
 // logged at a desk can never share a number. The phone does not link a payment
 // to an invoice: that also re-derives the invoice's paid status, which stays a
 // console job.
+//
+// An edit writes only the fields that changed (paymentPatch), as the console's
+// RecordPaymentModal does, and keeps the number. The database refuses a change
+// to a payment already in Tally from anyone but the Super Admin (0066).
 
 import { repo } from "@/data/repo"
 import { documentNumber } from "@/domain/id"
 import type { Payment } from "@/domain/schema"
 import type { Settings } from "@/domain/settings"
-import { amountOf, paymentBlocker, type PaymentDraft } from "@/features/payments/payments"
+import {
+  amountOf,
+  paymentBlocker,
+  paymentDateIso,
+  paymentPatch,
+  type PaymentDraft,
+} from "@/features/payments/payments"
 
 /** Save to the live ledger. Midday IST keeps the day the same in every time zone. */
 export async function recordPayment(d: PaymentDraft, settings: Settings): Promise<Payment> {
@@ -27,7 +37,7 @@ export async function recordPayment(d: PaymentDraft, settings: Settings): Promis
     type: d.type,
     amount: amountOf(d.amount),
     method: d.method,
-    date: new Date(`${d.date}T12:00:00+05:30`).toISOString(),
+    date: paymentDateIso(d.date),
     reference: d.reference.trim(),
     note: d.note.trim(),
     invoiceId: null,
@@ -35,4 +45,15 @@ export async function recordPayment(d: PaymentDraft, settings: Settings): Promis
     party: d.party.trim(),
     customer: null,
   })
+}
+
+/** Save the changed fields of a stored payment. Returns it unchanged when nothing changed. */
+export async function updatePayment(p: Payment, d: PaymentDraft): Promise<Payment> {
+  const blocker = paymentBlocker(d)
+  if (blocker) throw new Error(blocker)
+  const patch = paymentPatch(p, d)
+  if (!Object.keys(patch).length) return p
+  const saved = await repo.update<Payment>("payments", p.id, patch)
+  if (!saved) throw new Error("This payment is no longer in the ledger")
+  return saved
 }

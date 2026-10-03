@@ -23,6 +23,7 @@ import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
 import Icon, { type IconName } from "@/ui/Icon"
+import { SquircleBackground } from "@/ui/Squircle"
 import {
   AppScreen,
   Avatar,
@@ -410,7 +411,8 @@ function RequestCard({
         <Text style={[textVariants.small, { color: t.textSecondary, flex: 1 }]}>{when}</Text>
       </View>
       {reason ? (
-        <View style={[styles.reason, { backgroundColor: t.surfaceInset }]}>
+        <View style={styles.reason}>
+          <SquircleBackground fill={t.surfaceInset} radius={radius.card} />
           <Text style={[textVariants.small, { color: t.textSecondary }]}>{reason}</Text>
         </View>
       ) : null}
@@ -468,7 +470,7 @@ const styles = StyleSheet.create({
     maxWidth: "100%",
   },
   when: { flexDirection: "row", alignItems: "center", gap: 6 },
-  reason: { borderRadius: radius.card, padding: 12 },
+  reason: { padding: 12 },
   punch: { marginHorizontal: -gutter },
   actions: { flexDirection: "row", gap: spacing.sm, paddingTop: spacing.xs },
   action: { flex: 1 },

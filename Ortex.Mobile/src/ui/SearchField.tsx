@@ -35,7 +35,7 @@ export default function SearchField({
         style={[styles.input, { color: t.text }]}
       />
       {value.length > 0 && (
-        <Pressable hitSlop={10} onPress={() => onChangeText("")} accessibilityLabel="Clear search">
+        <Pressable hitSlop={10} onPress={() => onChangeText("")} accessibilityRole="button" accessibilityLabel="Clear search">
           <Icon name="close" size={18} color={t.textTertiary} variant="Bulk" />
         </Pressable>
       )}
@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
   root: {
     flexDirection: "row",
     alignItems: "center",
-    height: 40,
+    minHeight: 40,
     borderRadius: 20,
     paddingHorizontal: 14,
     marginHorizontal: gutter,

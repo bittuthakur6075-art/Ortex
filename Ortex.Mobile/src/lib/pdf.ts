@@ -119,7 +119,7 @@ export async function shareQuotationOnWhatsApp(
       whatsAppNumber: number,
       url: uri,
       type: "application/pdf",
-      filename: `Quotation-${(doc.number || "draft").replace(/[^w-]/g, "")}`,
+      filename: `Quotation-${(doc.number || "draft").replace(/[^\w-]/g, "")}`,
       message,
     } as ShareSingleOptions & { whatsAppNumber: string })
     feedback.created()

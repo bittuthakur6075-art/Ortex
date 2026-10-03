@@ -4,6 +4,7 @@ import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "reac
 import { useTheme } from "@/store/ThemeContext"
 import { font } from "@/theme/typography"
 import Icon, { type IconName } from "@/ui/Icon"
+import { useReducedMotion } from "@/ui/motion"
 
 export type MenuItem = {
   key: string
@@ -30,8 +31,14 @@ export default function PopupMenu({ visible, onClose, items, top = 56 }: Props) 
   const t = useTheme()
   const progress = useRef(new Animated.Value(0)).current
   const [mounted, setMounted] = useState(visible)
+  const reduce = useReducedMotion()
 
   useEffect(() => {
+    if (reduce) {
+      progress.setValue(visible ? 1 : 0)
+      setMounted(visible)
+      return
+    }
     if (visible) {
       setMounted(true)
       Animated.spring(progress, {
@@ -52,7 +59,7 @@ export default function PopupMenu({ visible, onClose, items, top = 56 }: Props) 
     }).start(({ finished }) => {
       if (finished) setMounted(false)
     })
-  }, [visible, progress])
+  }, [visible, progress, reduce])
 
   if (!mounted) return null
 
@@ -63,7 +70,7 @@ export default function PopupMenu({ visible, onClose, items, top = 56 }: Props) 
 
   return (
     <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable style={styles.backdrop} onPress={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close menu">
         <Animated.View
           style={[
             styles.menu,
@@ -87,6 +94,8 @@ export default function PopupMenu({ visible, onClose, items, top = 56 }: Props) 
             <Pressable
               key={item.key}
               disabled={item.disabled}
+              accessibilityRole="menuitem"
+              accessibilityState={{ disabled: !!item.disabled }}
               android_ripple={{ color: t.accentTint }}
               onPress={() => {
                 onClose()

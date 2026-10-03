@@ -13,6 +13,7 @@ import { gutter, radius, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
 import Button from "@/ui/Button"
 import Icon, { type IconName } from "@/ui/Icon"
+import { SquircleBackground } from "@/ui/Squircle"
 
 const FALLBACK_NOTICE =
   "You mark attendance by scanning the code on the office screen. Ortex records the time from our server, which code you scanned and which station it was shown at. No selfie is taken, and your location is not read or stored."
@@ -74,7 +75,8 @@ export default function AttendanceNoticeScreen({ navigation, route }: StackScree
         </View>
 
         {!!blocked && (
-          <View style={[styles.warn, { backgroundColor: t.warningBg }]}>
+          <View style={styles.warn}>
+            <SquircleBackground fill={t.warningBg} radius={radius.card} />
             <Text style={[textVariants.small, { color: t.warningText }]}>
               {permanentlyBlocked
                 ? "Camera is turned off for Ortex. Turn it on in Settings to clock in."
@@ -118,6 +120,6 @@ const styles = StyleSheet.create({
   rows: { gap: spacing.lg, marginTop: spacing.md },
   explain: { flexDirection: "row", gap: spacing.md, alignItems: "flex-start" },
   well: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  warn: { borderRadius: radius.card, padding: spacing.md, marginTop: spacing.sm },
+  warn: { padding: spacing.md, marginTop: spacing.sm },
   footer: { paddingHorizontal: gutter, gap: spacing.xs, paddingTop: spacing.sm },
 })

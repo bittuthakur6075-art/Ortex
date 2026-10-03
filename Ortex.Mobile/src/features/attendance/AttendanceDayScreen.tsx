@@ -35,7 +35,7 @@ import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
-import { AppScreen, Badge, Button, DataNotice, Panel, ProgressBar, SkeletonPanel, useToast } from "@/ui"
+import { AppScreen, Badge, Button, DataNotice, Panel, ProgressBar, SkeletonPanel, SquircleBackground, useToast } from "@/ui"
 import Icon from "@/ui/Icon"
 
 const TITLE = new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })
@@ -262,7 +262,8 @@ export default function AttendanceDayScreen({ navigation, route }: StackScreenPr
             <Panel title="Corrections" meta={`${corrections.length}`}>
               <View style={styles.corrections}>
                 {corrections.map((c) => (
-                  <View key={c.id} style={[styles.correction, { backgroundColor: t.surfaceInset }]}>
+                  <View key={c.id} style={styles.correction}>
+                    <SquircleBackground fill={t.surfaceInset} radius={radius.card} />
                     <View style={styles.correctionHead}>
                       <Text style={[textVariants.listTitle, { color: t.text, flex: 1 }]}>
                         {[c.in_at ? `In ${clock12(istHHMM(c.in_at))}` : null, c.out_at ? `Out ${clock12(istHHMM(c.out_at))}` : null]
@@ -341,7 +342,8 @@ function Tile({ icon, tone, label, value }: { icon: "forward" | "back"; tone: "i
   const well = tone === "in" ? t.successBg : t.dangerBg
   const glyph = tone === "in" ? t.success : t.danger
   return (
-    <View style={[styles.tile, { backgroundColor: t.surfaceInset }]}>
+    <View style={styles.tile}>
+      <SquircleBackground fill={t.surfaceInset} radius={radius.card} />
       <View style={[styles.tileWell, { backgroundColor: well }]}>
         <Icon name={icon} size={14} color={glyph} />
       </View>
@@ -362,7 +364,7 @@ const styles = StyleSheet.create({
   hours: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm, flexWrap: "wrap" },
   hoursFigure: { fontFamily: font.bold, fontSize: 30, lineHeight: 36, fontVariant: ["tabular-nums"] },
   tiles: { flexDirection: "row", gap: spacing.sm },
-  tile: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: radius.card },
+  tile: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, padding: 12 },
   tileWell: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   sessionHead: {
@@ -374,7 +376,7 @@ const styles = StyleSheet.create({
   },
   empty: { paddingHorizontal: gutter, paddingBottom: spacing.md },
   corrections: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.sm },
-  correction: { borderRadius: radius.card, padding: spacing.md, gap: 6 },
+  correction: { padding: spacing.md, gap: 6 },
   correctionHead: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   action: { paddingHorizontal: gutter, paddingTop: spacing.md, gap: spacing.sm },
   center: { textAlign: "center" },

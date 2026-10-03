@@ -1,5 +1,5 @@
 import React from "react"
-import { Alert, StyleSheet, Text, View } from "react-native"
+import { StyleSheet, Text, View } from "react-native"
 
 import { describeDevice } from "@/domain/sessions"
 import { formatDateTime, relativeTime } from "@/domain/format"
@@ -9,7 +9,7 @@ import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
-import { AppScreen, Badge, Button, Section, SectionRow, Spinner, useToast } from "@/ui"
+import { AppScreen, Badge, Button, Dialog, Section, SectionRow, Spinner, useToast } from "@/ui"
 
 /**
  * Login sessions: every device signed in to this account, with a way to sign
@@ -51,26 +51,20 @@ export default function LoginSessionsScreen({ navigation }: StackScreenProps<"Lo
     void load()
   }
 
-  const revokeOthers = () =>
-    Alert.alert("Log out all other devices?", "Every other phone and browser will need your password again.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Log out",
-        style: "destructive",
-        onPress: async () => {
-          setBusy("others")
-          const res = await logoutOtherDevices()
-          setBusy("")
-          if ("error" in res) {
-            feedback.error()
-            return toast.show({ message: res.error, tone: "danger" })
-          }
-          feedback.tap()
-          toast.show({ message: "Signed out of every other device", tone: "success" })
-          void load()
-        },
-      },
-    ])
+  const [confirmOthers, setConfirmOthers] = React.useState(false)
+  const revokeOthers = async () => {
+    setConfirmOthers(false)
+    setBusy("others")
+    const res = await logoutOtherDevices()
+    setBusy("")
+    if ("error" in res) {
+      feedback.error()
+      return toast.show({ message: res.error, tone: "danger" })
+    }
+    feedback.tap()
+    toast.show({ message: "Signed out of every other device", tone: "success" })
+    void load()
+  }
 
   const others = (sessions ?? []).filter((s) => !s.is_current).length
 
@@ -135,10 +129,21 @@ export default function LoginSessionsScreen({ navigation }: StackScreenProps<"Lo
             fullWidth
             loading={busy === "others"}
             disabled={!!busy && busy !== "others"}
-            onPress={revokeOthers}
+            onPress={() => setConfirmOthers(true)}
           />
         </View>
       )}
+
+      <Dialog
+        visible={confirmOthers}
+        onClose={() => setConfirmOthers(false)}
+        title="Log out all other devices?"
+        message="Every other phone and browser will need your password again."
+        actions={[
+          { label: "Cancel", onPress: () => setConfirmOthers(false) },
+          { label: "Log out", tone: "danger", onPress: () => void revokeOthers() },
+        ]}
+      />
     </AppScreen>
   )
 }

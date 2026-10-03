@@ -2,24 +2,22 @@ import { Image } from "expo-image"
 import React from "react"
 import {
   AccessibilityInfo,
-  Alert,
   Animated,
   Easing,
   Pressable,
   StatusBar,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-import { BRAND, brandFieldSeen, ON_BRAND, ON_BRAND_SOFT } from "@/features/auth/brandField"
+import { BRAND, ON_BRAND, ON_BRAND_SOFT } from "@/features/auth/brandField"
 import type { BiometricMethod } from "@/features/auth/useAppLock"
 import { useAuth } from "@/store/AuthContext"
 import { motion, spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
-import { Icon } from "@/ui"
+import { Dialog, Icon } from "@/ui"
 import { OrtexWordmark } from "@/ui/OrtexLogo"
 
 /**
@@ -38,7 +36,7 @@ import { OrtexWordmark } from "@/ui/OrtexLogo"
  *   - There is a way out that is not the sensor (PayPal's "Try another way"). A
  *     phone whose fingerprint has stopped reading would otherwise strand a rep
  *     behind their own lock; signing out and back in with the password is the
- *     honest escape, and it is confirmed because it costs an emailed code.
+ *     honest escape, and it is confirmed because it costs a password.
  *
  * It stands on the SAME brand field as the splash, because on a cold start the
  * two are shown back to back: blue → blue reads as one arrival, blue → white as
@@ -60,14 +58,11 @@ export default function LockScreen({
 }) {
   const { profile, signOut } = useAuth()
   const insets = useSafeAreaInsets()
-  const { width } = useWindowDimensions()
 
   const firstName = profile?.name?.trim().split(/\s+/)[0]
   const monogram = initials(profile?.name)
   const sensor = method === "face" ? "face" : "fingerprint"
 
-  // Straight after the splash on a cold start the glow is already lit: keep it.
-  const [arrived] = React.useState(brandFieldSeen)
   const enter = React.useRef(new Animated.Value(0)).current
   const ring = React.useRef(new Animated.Value(0)).current
   const [reduced, setReduced] = React.useState(false)
@@ -113,11 +108,7 @@ export default function LockScreen({
       : "Touch the fingerprint sensor"
     : "Ortex Sales is locked"
 
-  const confirmSignOut = () =>
-    Alert.alert("Sign out?", "You will need your password and an emailed code to sign back in.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Sign out", style: "destructive", onPress: () => void signOut() },
-    ])
+  const [confirmOut, setConfirmOut] = React.useState(false)
 
   const rise = enter.interpolate({ inputRange: [0, 1], outputRange: [12, 0] })
 
@@ -186,7 +177,7 @@ export default function LockScreen({
         </Pressable>
 
         <Pressable
-          onPress={confirmSignOut}
+          onPress={() => setConfirmOut(true)}
           accessibilityRole="button"
           hitSlop={8}
           style={({ pressed }) => [styles.secondary, { opacity: pressed ? 0.6 : 1 }]}
@@ -194,6 +185,24 @@ export default function LockScreen({
           <Text style={styles.secondaryText}>Not you? Sign out</Text>
         </Pressable>
       </Animated.View>
+
+      <Dialog
+        visible={confirmOut}
+        onClose={() => setConfirmOut(false)}
+        title="Sign out?"
+        message="You will need your password to sign back in."
+        actions={[
+          { label: "Cancel", onPress: () => setConfirmOut(false) },
+          {
+            label: "Sign out",
+            tone: "danger",
+            onPress: () => {
+              setConfirmOut(false)
+              void signOut()
+            },
+          },
+        ]}
+      />
     </View>
   )
 }

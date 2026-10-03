@@ -1,6 +1,7 @@
 import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
+import { cachedAt, readCache, writeCache } from "@/data/cache"
 import { supabase, errorMessage } from "@/data/supabase"
 import { ROLE_TONE, roleLabel } from "@/domain/modules"
 import NotificationBell from "@/features/notifications/NotificationBell"
@@ -12,6 +13,7 @@ import { font, textVariants } from "@/theme/typography"
 import {
   AppScreen,
   Avatar,
+  DataNotice,
   EmptyState,
   IconButton,
   ListRefreshControl,
@@ -36,17 +38,29 @@ export default function TeamContactsScreen() {
   const [loading, setLoading] = React.useState(true)
   const [refreshing, setRefreshing] = React.useState(false)
   const [query, setQuery] = React.useState("")
+  // The last good list, per person, so the phone book still opens offline.
+  const [savedAt, setSavedAt] = React.useState<number | null>(null)
+  const cacheKey = `team_contacts/${profile?.id || "anon"}`
 
   const load = React.useCallback(async () => {
     const { data, error } = await supabase.rpc("team_contacts")
-    if (error) setFailed(errorMessage(error, "Could not load the team"))
-    else {
-      setPeople((data as Contact[]) || [])
+    if (error) {
+      const saved = await readCache<Contact[]>(cacheKey)
+      if (saved) {
+        setPeople(saved)
+        setSavedAt((await cachedAt(cacheKey)) ?? Date.now())
+      }
+      setFailed(errorMessage(error, "Could not load the team"))
+    } else {
+      const rows = (data as Contact[]) || []
+      setPeople(rows)
       setFailed(null)
+      setSavedAt(null)
+      void writeCache(cacheKey, rows)
     }
     setLoading(false)
     setRefreshing(false)
-  }, [])
+  }, [cacheKey])
 
   React.useEffect(() => void load(), [load])
 
@@ -66,7 +80,7 @@ export default function TeamContactsScreen() {
       subtitle={loading ? "Loading…" : `${people.length} ${people.length === 1 ? "person" : "people"}`}
       headerRight={<NotificationBell />}
       list={{
-        data: loading || failed ? [] : shown,
+        data: loading || (failed && !savedAt) ? [] : shown,
         keyExtractor: (p: unknown) => (p as Contact).id,
         refreshControl: (
           <ListRefreshControl
@@ -80,7 +94,7 @@ export default function TeamContactsScreen() {
         ItemSeparatorComponent: RowSeparator,
         ListEmptyComponent: loading ? (
           <SkeletonList count={6} leading="avatar" leadingSize={48} />
-        ) : failed ? (
+        ) : failed && !savedAt ? (
           <EmptyState icon="warning" title="Could not load the team" hint={failed} actionLabel="Try again" onAction={() => void load()} />
         ) : (
           <EmptyState icon="search" title="No one matches" hint={needle ? `Nobody on the team matches “${query.trim()}”.` : "No one to show."} />
@@ -128,6 +142,7 @@ export default function TeamContactsScreen() {
         },
       }}
     >
+      {!!savedAt && <DataNotice fromCache cachedAt={savedAt} error={failed} onRetry={() => void load()} />}
       <View style={styles.tools}>
         <SearchField value={query} onChangeText={setQuery} placeholder="Search name, email or phone" />
       </View>

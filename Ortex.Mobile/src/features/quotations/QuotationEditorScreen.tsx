@@ -1,3 +1,4 @@
+import { usePreventRemove } from "@react-navigation/native"
 import React from "react"
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -5,16 +6,18 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { repo } from "@/data/repo"
 import { errorMessage } from "@/data/supabase"
 import { formatCurrency, formatDate } from "@/domain/format"
-import { stateLabel } from "@/domain/gstStates"
+import { stateLabel, stateName } from "@/domain/gstStates"
 import { computeDocument } from "@/domain/pricing"
 import {
-  createQuotation,
+  createQuotationReliably,
   emptyDraft,
+  gstinState,
   isInterState,
   markEnquiryQuoted,
   placeOfSupplyState,
   updateQuotation,
   validUntilFor,
+  type CreateAttempt,
   type QuotationDraft,
 } from "@/domain/quotations"
 import { newCustomer, type Line, type Quotation } from "@/domain/schema"
@@ -31,6 +34,7 @@ import { useSettings } from "@/hooks/useSettings"
 import { prettyPhone } from "@/lib/contact"
 import { useQuotationDefaults } from "@/lib/quotationDefaults"
 import { withDefaults } from "@/domain/quotationDefaults"
+import { useFocusChain } from "@/features/contacts/useFocusChain"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
@@ -51,6 +55,7 @@ import {
 } from "@/ui"
 import ListTextField from "@/ui/ListTextField"
 import KeyboardAwareScrollView from "@/ui/KeyboardAwareScrollView"
+import { SquircleBackground } from "@/ui/Squircle"
 
 /**
  * Make a quotation.
@@ -120,6 +125,17 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
   const [showTerms, setShowTerms] = React.useState(false)
   const [resumeOffer, setResumeOffer] = React.useState<QuotationDraft | null>(null)
   const [confirmLeave, setConfirmLeave] = React.useState(false)
+  // The draft as it was seeded: leaving, or keeping a local copy, only matters once it differs.
+  const original = React.useRef("")
+  // One Create press and its retries share a reserved number (domain/quotations.ts).
+  const attempt = React.useRef<CreateAttempt>({})
+  // Set just before a saved quotation navigates away, so the guard lets it go.
+  const leaving = React.useRef(false)
+  const seed = (d: QuotationDraft) => {
+    original.current = JSON.stringify(d)
+    setDraft(d)
+  }
+  const chain = useFocusChain()
 
   // Seed once the settings row has arrived: `validityDays` and the default terms
   // both come from it, and seeding earlier would bake in the fallbacks.
@@ -130,7 +146,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
       if (editingId) {
         const existing = await repo.get<Quotation>("quotations", editingId)
         if (existing) {
-          setDraft({
+          seed({
             id: existing.id,
             customer: existing.customer,
             shipTo: existing.shipTo,
@@ -159,13 +175,16 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
       // editable like any other field (the console does the same).
       const base = { ...withDefaults(emptyDraft(settings), quoteDefaults), sellerName: profile?.name?.trim() || "" }
       if (prefill) {
-        setDraft({
+        seed({
           ...base,
           customer: { ...base.customer, ...prefill.customer },
           lines: prefill.lines ?? base.lines,
           notes: prefill.notes ?? base.notes,
           enquiryId: prefill.enquiryId ?? null,
         })
+        // A quote already started from this enquiry is offered back too.
+        const stored = prefill.enquiryId ? await readStoredDraft(prefill.enquiryId) : null
+        if (stored && draftHasContent(stored.draft)) setResumeOffer(stored.draft)
         setSeeded(true)
         return
       }
@@ -173,15 +192,22 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
       // A blank new quotation: offer back whatever the app was killed holding.
       const stored = await readStoredDraft()
       if (stored && draftHasContent(stored.draft)) setResumeOffer(stored.draft)
-      setDraft(base)
+      seed(base)
       setSeeded(true)
     }
 
     void run()
   }, [seeded, settingsLoading, settings, editingId, prefill, defaultsLoaded, quoteDefaults, profile])
 
-  // Only a new, unsaved quotation is worth persisting locally.
-  usePersistedDraft(draft, seeded && !editingId)
+  const dirty = seeded && !!original.current && JSON.stringify(draft) !== original.current
+  // Only a new, unsaved quotation someone has touched is worth persisting locally.
+  usePersistedDraft(draft, dirty && !editingId)
+
+  // Gesture and hardware back ask the same question as the arrow.
+  usePreventRemove(dirty, ({ data }) => {
+    if (leaving.current) navigation.dispatch(data.action)
+    else setConfirmLeave(true)
+  })
 
   const set = (patch: Partial<QuotationDraft>) => setDraft((d) => ({ ...d, ...patch }))
 
@@ -218,14 +244,15 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         await updateQuotation(editingId, draft as Partial<Quotation>, settings)
         feedback.created()
         toast.show({ message: "Quotation updated", tone: "success" })
+        leaving.current = true
         navigation.goBack()
       } else {
-        const created = await createQuotation(draft, settings)
+        const created = await createQuotationReliably(draft, settings, attempt.current)
         // The quotation EXISTS from here on, so nothing below may throw into the
         // catch: a "Could not save" toast after a successful insert makes the
         // rep press Save again and mint a second number for the same document.
         // The draft is cleared first, so even a crash cannot offer it back.
-        await clearStoredDraft().catch(() => {})
+        await clearStoredDraft(draft.enquiryId).catch(() => {})
         let followUp: string | null = null
         if (draft.enquiryId) {
           await markEnquiryQuoted(draft.enquiryId).catch(() => {
@@ -237,6 +264,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
           message: followUp ? `Quotation ${created.number} created. ${followUp}` : `Quotation ${created.number} created`,
           tone: followUp ? "neutral" : "success",
         })
+        leaving.current = true
         navigation.replace("QuotationDetail", { id: created.id })
       }
     } catch (e) {
@@ -249,13 +277,8 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
     }
   }
 
-  const leave = () => {
-    if (!editingId && draftHasContent(draft)) {
-      setConfirmLeave(true)
-      return
-    }
-    navigation.goBack()
-  }
+  // The guard above asks first when there is something to lose.
+  const leave = () => navigation.goBack()
 
   const upsertLine = (line: Line) => {
     const index = editingLine?.index ?? draft.lines.length
@@ -273,6 +296,9 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
   }
 
   const customerName = draft.customer.company || draft.customer.name
+  // A GSTIN from one state with a place of supply in another: allowed, but said.
+  const gstFrom = gstinState(draft.customer.gstin)
+  const gstMismatch = gstFrom && draft.customer.stateCode && gstFrom !== draft.customer.stateCode ? gstFrom : ""
   const customerSub =
     draft.customer.company && draft.customer.name ? draft.customer.name : prettyPhone(draft.customer.phone)
 
@@ -304,7 +330,8 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
             priced on the built-in defaults: a placeholder GSTIN and a Delhi
             home state. Said before anything is typed, not discovered on the PDF. */}
         {!!settingsError && (
-          <View style={[styles.settingsWarning, { backgroundColor: t.warningBg }]}>
+          <View style={styles.settingsWarning}>
+            <SquircleBackground fill={t.warningBg} radius={radius.md} />
             <Icon name="warning" size={18} color={t.warningText} variant="Bold" />
             <Text style={[textVariants.caption, { color: t.warningText, flex: 1 }]}>
               {`Company settings could not be loaded (${settingsError}). Numbering, GSTIN and the tax split on this quotation may be wrong. Get signal and reopen before sending it.`}
@@ -343,6 +370,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                   onChangeText={(v) => set({ customer: { ...draft.customer, name: v } })}
                   placeholder="Enter contact name"
                   autoCapitalize="words"
+                  {...chain(0)}
                 />
                 <TextField
                   label="Company"
@@ -350,6 +378,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                   onChangeText={(v) => set({ customer: { ...draft.customer, company: v } })}
                   placeholder="Enter company name"
                   autoCapitalize="words"
+                  {...chain(1)}
                 />
                 {/* One field per row. Side by side, each got half the width, which
                   is not enough for an email address — it scrolled inside its own
@@ -361,6 +390,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                   onChangeText={(v) => set({ customer: { ...draft.customer, phone: v } })}
                   keyboardType="phone-pad"
                   placeholder="Enter phone number"
+                  {...chain(2)}
                 />
                 <TextField
                   label="Email"
@@ -370,15 +400,22 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                   autoCapitalize="none"
                   autoCorrect={false}
                   placeholder="Enter email address"
+                  {...chain(3)}
                 />
                 <TextField
                   label="GSTIN"
                   value={draft.customer.gstin}
-                  onChangeText={(v) => set({ customer: { ...draft.customer, gstin: v.toUpperCase() } })}
+                  onChangeText={(v) => {
+                    const gstin = v.toUpperCase()
+                    // The first two digits name the state: fill an empty place of supply from them.
+                    const stateCode = draft.customer.stateCode || gstinState(gstin)
+                    set({ customer: { ...draft.customer, gstin, stateCode } })
+                  }}
                   autoCapitalize="characters"
                   autoCorrect={false}
                   maxLength={15}
                   placeholder="Enter GSTIN"
+                  {...chain(4, true)}
                 />
                 {/* The one field here that changes the money. */}
                 <PickerField
@@ -388,8 +425,12 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                       ? stateLabel(draft.customer.stateCode)
                       : "Not set, taxed as local"
                   }
-                  hint="Decides CGST + SGST or IGST"
-                  warn={!draft.customer.stateCode}
+                  hint={
+                    gstMismatch
+                      ? `The GSTIN is registered in ${stateName(gstMismatch)}. Check the place of supply.`
+                      : "Decides CGST + SGST or IGST"
+                  }
+                  warn={!draft.customer.stateCode || !!gstMismatch}
                   onPress={() => setStateOpen("customer")}
                 />
                 <TextField
@@ -474,6 +515,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                 <View key={index}>
                   {index > 0 && <Divider inset={gutter} />}
                   <Pressable
+                    accessibilityRole="button"
                     onPress={() => {
                       feedback.tap()
                       setEditingLine({ index, line })
@@ -621,6 +663,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         {/* ── THE REST, folded away ──────────────────────────────────────── */}
         <Panel>
           <Pressable
+            accessibilityRole="button"
             onPress={() => {
               feedback.tap()
               setShowTerms((v) => !v)
@@ -790,7 +833,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
             label: "Start fresh",
             onPress: () => {
               setResumeOffer(null)
-              void clearStoredDraft()
+              void clearStoredDraft(draft.enquiryId)
             },
           },
           {
@@ -809,7 +852,9 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         visible={confirmLeave}
         onClose={() => setConfirmLeave(false)}
         title="Leave without saving?"
-        message="The draft is kept on this phone, so you can pick it up again."
+        message={
+          editingId ? "Your changes to this quotation are not saved." : "The draft is kept on this phone, so you can pick it up again."
+        }
         actions={[
           { label: "Keep editing", onPress: () => setConfirmLeave(false) },
           {
@@ -817,6 +862,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
             tone: "danger",
             onPress: () => {
               setConfirmLeave(false)
+              leaving.current = true
               navigation.goBack()
             },
           },
@@ -1048,7 +1094,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
   },
   foldHead: {
     flexDirection: "row",

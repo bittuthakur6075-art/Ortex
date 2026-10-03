@@ -78,3 +78,57 @@ test("justSaved finds the row a lost answer wrote, and only a fresh one", () => 
   // A row already in the ledger before Save is never taken for this one.
   assert.equal(p.justSaved(d, [row], now, new Set(["9"])), null)
 })
+
+test("period: this month, this financial year (April to March), all", () => {
+  const rows = [
+    { id: "a", date: "2026-10-01T06:30:00.000Z" },
+    { id: "b", date: "2026-09-30T19:00:00.000Z" }, // 00:30 IST on 1 Oct
+    { id: "c", date: "2026-09-29T06:30:00.000Z" },
+    { id: "d", date: "2026-04-01T06:30:00.000Z" },
+    { id: "e", date: "2026-03-31T06:30:00.000Z" },
+  ]
+  const ids = (period, today) => p.inPeriod(rows, period, today).map((x) => x.id)
+  assert.deepEqual(ids("month", "2026-10-03"), ["a", "b"])
+  assert.deepEqual(ids("fy", "2026-10-03"), ["a", "b", "c", "d"])
+  assert.deepEqual(ids("fy", "2027-02-10"), ["a", "b", "c", "d"])
+  assert.deepEqual(ids("fy", "2026-03-31"), ["a", "b", "c", "d", "e"])
+  assert.deepEqual(ids("all", "2026-10-03"), ["a", "b", "c", "d", "e"])
+  assert.equal(p.periodStart("fy", "2026-01-15"), "2025-04-01")
+})
+
+test("month sections follow the order given, by IST month", () => {
+  const sorted = p.visiblePayments(ledger, "all")
+  assert.deepEqual(
+    p.monthSections([{ id: "x", date: "2026-09-30T19:00:00.000Z" }, ...sorted]).map((s) => [s.title, s.data.map((x) => x.id)]),
+    [["October 2026", ["x"]], ["September 2026", ["3", "2", "1"]]],
+  )
+  assert.deepEqual(p.monthSections([]), [])
+})
+
+test("edit: the form opens on the stored payment and saves only what changed", () => {
+  const row = { ...ledger[1], invoiceId: null, invoiceNumber: "" }
+  const d = p.draftOf(row)
+  assert.deepEqual(d, { type: "inflow", amount: "236000", party: "NEHA GUPTA", method: "Bank transfer / NEFT", date: "2026-09-28", reference: "HDFCN52026092812", note: "" })
+  assert.deepEqual(p.paymentPatch(row, d), {})
+  assert.deepEqual(p.paymentPatch(row, { ...d, amount: "2,36,000.00", party: " NEHA GUPTA " }), {})
+  assert.deepEqual(p.paymentPatch(row, { ...d, amount: "1500", note: " paid ", date: "2026-09-27" }), {
+    amount: 1500,
+    note: "paid",
+    date: "2026-09-27T06:30:00.000Z",
+  })
+  // A linked receipt made a payout is unlinked (0066 refuses a payout with an invoice); an advance ends.
+  const linked = { ...row, invoiceId: "inv1", invoiceNumber: "INV-1", advance: true }
+  assert.deepEqual(p.paymentPatch(linked, { ...p.draftOf(linked), type: "payout" }), {
+    type: "payout",
+    invoiceId: null,
+    invoiceNumber: "",
+    customer: null,
+    advance: false,
+  })
+})
+
+test("in Tally means a synced stamp, as the database reads it", () => {
+  assert.equal(p.inTally({ tally: { status: "synced" } }), true)
+  assert.equal(p.inTally({ tally: { status: "pending" } }), false)
+  assert.equal(p.inTally({}), false)
+})

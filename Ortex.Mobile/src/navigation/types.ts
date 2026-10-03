@@ -91,7 +91,8 @@ export type RootStackParamList = {
   PayClaimNew: undefined
   // Payments (Super Admin and Admins): the console's Billing -> Payments.
   Payments: undefined
-  PaymentNew: { type?: "inflow" | "payout" } | undefined
+  // `id` edits that payment (the number stays); without it, a new one.
+  PaymentNew: { type?: "inflow" | "payout"; id?: string } | undefined
 }
 
 export type TabScreenProps<T extends keyof TabParamList> = CompositeScreenProps<

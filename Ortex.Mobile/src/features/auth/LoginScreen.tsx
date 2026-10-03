@@ -3,6 +3,7 @@ import React from "react"
 import {
   AccessibilityInfo,
   Animated,
+  BackHandler,
   Easing,
   Keyboard,
   Pressable,
@@ -54,7 +55,7 @@ import { arrivalStyle, useArrival } from "@/ui/motion"
  * engraving, trophies, wooden keychains, gift boxes, the workshop. Replace them with
  * Ortex's own factory photography when it exists.
  *
- * THE FLOW IS UNCHANGED: password, then a code emailed to the same address.
+ * THE FLOW: email and password (the emailed sign-in code was removed 2026-10-01).
  * Ortex is invite-only, so there is no sign-up. "Forgot password?" is a real
  * self-service reset by emailed code (see the FORGOT PASSWORD note in lib/auth.ts).
  */
@@ -269,6 +270,16 @@ export default function LoginScreen() {
     goTo("password")
   }
 
+  // Hardware back on a forgot-password step returns to sign in, not out of the app.
+  React.useEffect(() => {
+    if (step === "password") return
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (!busy) backToSignIn()
+      return true
+    })
+    return () => sub.remove()
+  })
+
   const submitResetEmail = async () => {
     const problem = !email.trim() ? "Enter your email address" : (emailProblem(email) ?? undefined)
     setFieldErrors({ email: problem })
@@ -362,7 +373,7 @@ export default function LoginScreen() {
         </>
       ),
       subtitle: "Sign in with your Ortex console account.",
-      action: "Login",
+      action: "Sign in",
       onSubmit: submitPassword,
     },
     "reset-email": {
@@ -453,93 +464,98 @@ export default function LoginScreen() {
             </Text>
           </Animated.View>
 
-          <Animated.View ref={formRef} collapsable={false} style={[styles.fields, arrive[1]]}>
-            {step === "password" && (
-              <>
-                {emailField}
-                <View>
+          {/* Measured for the keyboard lift: the fields AND the button, so the
+              button is never left under the keyboard. */}
+          <View ref={formRef} collapsable={false}>
+            <Animated.View style={[styles.fields, arrive[1]]}>
+              {step === "password" && (
+                <>
+                  {emailField}
+                  <View>
+                    <TextField
+                      label="Password"
+                      value={password}
+                      onChangeText={(v) => {
+                        setPassword(v)
+                        setFieldErrors((e) => ({ ...e, password: undefined }))
+                      }}
+                      error={fieldErrors.password}
+                      placeholder="Enter your password"
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoComplete="current-password"
+                      editable={!busy}
+                      leadingIcon="lock"
+                      onSubmitEditing={submitPassword}
+                      returnKeyType="go"
+                      fieldStyle={styles.noMargin}
+                    />
+                    <Pressable
+                      onPress={() => goTo("reset-email")}
+                      disabled={busy}
+                      hitSlop={10}
+                      style={styles.link}
+                      accessibilityRole="button"
+                    >
+                      <Text style={[styles.linkText, { color: c.primary }]}>Forgot password?</Text>
+                    </Pressable>
+                  </View>
+                </>
+              )}
+
+
+              {step === "reset-email" && emailField}
+
+              {step === "reset-code" && codeField((v) => void submitResetCode(v))}
+
+              {step === "reset-password" && (
+                <>
                   <TextField
-                    label="Password"
-                    value={password}
+                    label="New password"
+                    value={nextPassword}
                     onChangeText={(v) => {
-                      setPassword(v)
-                      setFieldErrors((e) => ({ ...e, password: undefined }))
+                      setNextPassword(v)
+                      setFieldErrors((e) => ({ ...e, next: undefined }))
                     }}
-                    error={fieldErrors.password}
-                    placeholder="Enter your password"
+                    error={fieldErrors.next}
+                    placeholder="Enter a new password"
                     secureTextEntry
                     autoCapitalize="none"
+                    autoComplete="new-password"
                     editable={!busy}
                     leadingIcon="lock"
-                    onSubmitEditing={submitPassword}
+                    returnKeyType="next"
+                    autoFocus
+                    fieldStyle={styles.noMargin}
+                  />
+                  <TextField
+                    label="Confirm new password"
+                    value={confirmPassword}
+                    onChangeText={(v) => {
+                      setConfirmPassword(v)
+                      setFieldErrors((e) => ({ ...e, confirm: undefined }))
+                    }}
+                    error={fieldErrors.confirm}
+                    placeholder="Enter it again"
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoComplete="new-password"
+                    editable={!busy}
+                    leadingIcon="lock"
+                    onSubmitEditing={submitNewPassword}
                     returnKeyType="go"
                     fieldStyle={styles.noMargin}
                   />
-                  <Pressable
-                    onPress={() => goTo("reset-email")}
-                    disabled={busy}
-                    hitSlop={10}
-                    style={styles.link}
-                    accessibilityRole="button"
-                  >
-                    <Text style={[styles.linkText, { color: c.primary }]}>Forgot password?</Text>
-                  </Pressable>
-                </View>
-              </>
-            )}
+                </>
+              )}
 
+              {!!error && <Text style={[textVariants.small, { color: c.dangerText }]}>{error}</Text>}
+            </Animated.View>
 
-            {step === "reset-email" && emailField}
-
-            {step === "reset-code" && codeField((v) => void submitResetCode(v))}
-
-            {step === "reset-password" && (
-              <>
-                <TextField
-                  label="New password"
-                  value={nextPassword}
-                  onChangeText={(v) => {
-                    setNextPassword(v)
-                    setFieldErrors((e) => ({ ...e, next: undefined }))
-                  }}
-                  error={fieldErrors.next}
-                  placeholder="Enter a new password"
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoComplete="new-password"
-                  editable={!busy}
-                  leadingIcon="lock"
-                  returnKeyType="next"
-                  autoFocus
-                  fieldStyle={styles.noMargin}
-                />
-                <TextField
-                  label="Confirm new password"
-                  value={confirmPassword}
-                  onChangeText={(v) => {
-                    setConfirmPassword(v)
-                    setFieldErrors((e) => ({ ...e, confirm: undefined }))
-                  }}
-                  error={fieldErrors.confirm}
-                  placeholder="Enter it again"
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoComplete="new-password"
-                  editable={!busy}
-                  leadingIcon="lock"
-                  onSubmitEditing={submitNewPassword}
-                  returnKeyType="go"
-                  fieldStyle={styles.noMargin}
-                />
-              </>
-            )}
-
-            {!!error && <Text style={[textVariants.small, { color: c.dangerText }]}>{error}</Text>}
-          </Animated.View>
-
-          <Animated.View style={arrive[2]}>
-            <Button label={screen.action} onPress={screen.onSubmit} loading={busy} fullWidth style={styles.submit} />
-          </Animated.View>
+            <Animated.View style={arrive[2]}>
+              <Button label={screen.action} onPress={screen.onSubmit} loading={busy} fullWidth style={styles.submit} />
+            </Animated.View>
+          </View>
 
           {step !== "password" && (
             <Animated.View style={[styles.secondary, arrive[3]]}>

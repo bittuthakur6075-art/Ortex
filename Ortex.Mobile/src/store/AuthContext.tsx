@@ -143,14 +143,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfileError(null)
       return
     }
+    // Cold start: draw the tabs from the saved copy at once and let the network
+    // read below replace it, rather than holding the splash on a slow line.
+    const saved = await readCachedProfile(userId)
+    if (saved) setProfile((current) => current ?? saved)
     const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle()
     if (error) {
       // No signal on a cold start. The profile decides which tabs exist, so
       // without it the app had nothing to draw and the navigator threw. Use the
       // copy saved from the last successful read; only a first-ever launch with
       // no network has nothing, and RootNavigator shows that case as a screen.
-      const cached = await readCachedProfile(userId)
-      setProfile(cached)
+      setProfile((current) => current ?? saved)
       setProfileError(errorMessage(error, "Could not load your account"))
       return
     }

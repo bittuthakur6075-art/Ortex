@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from "react"
-import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from "react-native"
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native"
 
 import { useTheme } from "@/store/ThemeContext"
 import { spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
-import { EASE } from "@/ui/motion"
+import { EASE, useReducedMotion } from "@/ui/motion"
 
 export type DialogAction = {
   label: string
@@ -30,8 +30,16 @@ export default function Dialog({ visible, onClose, title, message, children, act
   const t = useTheme()
   const progress = useRef(new Animated.Value(0)).current
   const [mounted, setMounted] = useState(visible)
+  const reduce = useReducedMotion()
+  const { height } = useWindowDimensions()
 
   useEffect(() => {
+    if (reduce) {
+      // Reduce motion: appear and go, no scale or fade.
+      progress.setValue(visible ? 1 : 0)
+      setMounted(visible)
+      return
+    }
     if (visible) {
       setMounted(true)
       Animated.timing(progress, {
@@ -52,7 +60,7 @@ export default function Dialog({ visible, onClose, title, message, children, act
     }).start(({ finished }) => {
       if (finished) setMounted(false)
     })
-  }, [visible, progress])
+  }, [visible, progress, reduce])
 
   if (!mounted) return null
 
@@ -62,7 +70,7 @@ export default function Dialog({ visible, onClose, title, message, children, act
     <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.root}>
         <Animated.View style={[styles.backdrop, { opacity: progress }]}>
-          <Pressable style={styles.backdropPress} onPress={onClose} />
+          <Pressable style={styles.backdropPress} onPress={onClose} accessibilityLabel="Close" />
         </Animated.View>
 
         <Animated.View
@@ -71,9 +79,19 @@ export default function Dialog({ visible, onClose, title, message, children, act
             { backgroundColor: t.surfaceRaised, opacity: progress, transform: [{ scale }] },
           ]}
         >
-          {!!title && <Text style={[styles.title, { color: t.text }]}>{title}</Text>}
-          {!!message && <Text style={[styles.message, { color: t.textSecondary }]}>{message}</Text>}
-          {children}
+          {!!title && (
+            <Text style={[styles.title, { color: t.text }]} accessibilityRole="header">
+              {title}
+            </Text>
+          )}
+          {/* The words scroll and the actions stay: a long message or a large
+              font never pushes the buttons off screen. */}
+          {(!!message || !!children) && (
+            <ScrollView style={{ maxHeight: height * 0.55 }} bounces={false}>
+              {!!message && <Text style={[styles.message, { color: t.textSecondary }]}>{message}</Text>}
+              {children}
+            </ScrollView>
+          )}
 
           <View style={styles.actions}>
             {actions.map((action, index) => (
@@ -133,12 +151,14 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "flex-end",
     marginTop: 20,
   },
   action: {
+    minHeight: 48,
+    justifyContent: "center",
     paddingHorizontal: 14,
-    paddingVertical: 10,
     marginLeft: 6,
   },
   actionLabel: {

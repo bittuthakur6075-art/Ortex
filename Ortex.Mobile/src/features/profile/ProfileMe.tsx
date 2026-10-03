@@ -68,7 +68,7 @@ export default function ProfileMe({
           })
         })
         .catch(() => alive && setLeft(null))
-      void latestPayslip().then((s) => alive && setPaidOn(s?.released_at ?? null))
+      void latestPayslip().then((s) => alive && setPaidOn(s?.released_at ?? null)).catch(() => {})
       return () => {
         alive = false
       }

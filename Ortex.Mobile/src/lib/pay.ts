@@ -86,25 +86,23 @@ export async function payslip(id: string): Promise<Payslip | null> {
 }
 
 /** The newest released payslip, for Home; null when there is none or payroll is not set up. */
+// Throws when the read fails, so Home's Pay card can say "Couldn't load"
+// rather than "no payslip yet"; null means there really is none.
 export async function latestPayslip(): Promise<Payslip | null> {
   if (!hasSupabase) return null
-  try {
-    const uid = await myId()
-    if (!uid) return null
-    // The newest few by release, then the newest by month: an off-cycle run
-    // released later can be for an earlier month.
-    const { data, error } = await supabase
-      .from("payslips")
-      .select(SLIP_COLUMNS)
-      .eq("user_id", uid)
-      .not("released_at", "is", null)
-      .order("released_at", { ascending: false })
-      .limit(3)
-    if (error) return null
-    return sortSlips(((data || []) as Payslip[]).map(toSlip))[0] ?? null
-  } catch {
-    return null
-  }
+  const uid = await myId()
+  if (!uid) return null
+  // The newest few by release, then the newest by month: an off-cycle run
+  // released later can be for an earlier month.
+  const { data, error } = await supabase
+    .from("payslips")
+    .select(SLIP_COLUMNS)
+    .eq("user_id", uid)
+    .not("released_at", "is", null)
+    .order("released_at", { ascending: false })
+    .limit(3)
+  if (error) throw error
+  return sortSlips(((data || []) as Payslip[]).map(toSlip))[0] ?? null
 }
 
 // ---- salary -----------------------------------------------------------------------------------------

@@ -1,4 +1,3 @@
-import { useFocusEffect } from "@react-navigation/native"
 import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
@@ -9,12 +8,14 @@ import type { Quotation } from "@/domain/schema"
 import { dayLabel } from "@/features/attendance/format"
 import { money as payMoney, monthLabel, type Claim, type Payslip } from "@/features/pay/payFormat"
 import { decideCorrection, pendingCorrections } from "@/lib/attendance"
+import { useCardLoad } from "@/features/home/cardLoad"
 import { useCollection } from "@/hooks/useCollection"
 import { callNumber } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
 import * as leaveLib from "@/lib/leave"
 import { latestPayslip, myClaims } from "@/lib/pay"
 import { useTheme } from "@/store/ThemeContext"
+import { gutter } from "@/theme/tokens"
 import { fontFamily } from "@/theme/typography"
 import Icon, { type IconName } from "@/ui/Icon"
 import {
@@ -40,6 +41,48 @@ import { SquircleBackground } from "@/ui/Squircle"
  */
 
 const money = (n: number) => (n ? formatCurrency(n, { compact: true }) : "₹0")
+
+/** In place of a card that could not load: its name, and a way to try again. */
+function LoadFailed({ title, onRetry }: { title: string; onRetry: () => void }) {
+  const t = useTheme()
+  return (
+    <>
+      <SubHeader title={title} />
+      <Card>
+        <CardRow
+          icon="warning"
+          tone="danger"
+          title="Couldn't load"
+          subtitle="Try again"
+          accessibilityLabel={`Couldn't load ${title}. Try again`}
+          onPress={onRetry}
+          chevron={false}
+          trailing={<Icon name="refresh" size={20} color={t.primary} />}
+        />
+      </Card>
+    </>
+  )
+}
+
+/** An 18dp line of text made a 48dp touch. */
+const TEXT_LINK_SLOP = { top: 15, bottom: 15, left: 12, right: 12 }
+
+/** "Show 3 more" under a card's rows: a full-width 48dp button. */
+function MoreLink({ label, onPress }: { label: string; onPress: () => void }) {
+  const t = useTheme()
+  return (
+    <Pressable
+      onPress={() => {
+        feedback.tap()
+        onPress()
+      }}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.more, { opacity: pressed ? 0.6 : 1 }]}
+    >
+      <Text style={[styles.moreText, { color: t.primary }]}>{label}</Text>
+    </Pressable>
+  )
+}
 
 /** The head every Home card opens with. */
 export function CardHead({
@@ -67,17 +110,18 @@ export function CardHead({
       {count ? <Tag label={String(count)} tone={countTone} /> : null}
       <View style={styles.flex} />
       {action && onAction ? (
-        <Text
+        <Pressable
           onPress={() => {
             feedback.tap()
             onAction()
           }}
-          suppressHighlighting
-          accessibilityRole="link"
-          style={[styles.headAction, { color: t.primary }]}
+          accessibilityRole="button"
+          accessibilityLabel={`${action}, ${title}`}
+          hitSlop={TEXT_LINK_SLOP}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
-          {`${action} ›`}
-        </Text>
+          <Text style={[styles.headAction, { color: t.primary }]}>{`${action} ›`}</Text>
+        </Pressable>
       ) : null}
     </View>
   )
@@ -134,15 +178,17 @@ function PillButton({
   kind = "tonal",
   onPress,
   busy,
+  accessibilityLabel,
 }: {
   label: string
   kind?: "primary" | "tonal" | "grey"
   onPress: () => void
   busy?: boolean
+  accessibilityLabel?: string
 }) {
   const t = useTheme()
-  const bg = kind === "primary" ? t.primary : kind === "tonal" ? t.primary10 : t.surfaceInset
-  const ink = kind === "primary" ? t.textOnPrimary : kind === "tonal" ? t.primary : t.text
+  const bg = kind === "primary" ? t.primary : kind === "tonal" ? t.primaryBg : t.surfaceInset
+  const ink = kind === "primary" ? t.textOnPrimary : kind === "tonal" ? t.primaryText : t.text
   return (
     <Pressable
       disabled={busy}
@@ -151,6 +197,10 @@ function PillButton({
         onPress()
       }}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ busy: !!busy, disabled: !!busy }}
+      // A 36dp pill: the slop makes it a 48dp touch.
+      hitSlop={6}
       style={({ pressed }) => [styles.pill, { backgroundColor: bg, opacity: pressed || busy ? 0.6 : 1 }]}
     >
       <Text style={[styles.pillText, { color: ink }]}>{label}</Text>
@@ -235,11 +285,7 @@ export function NeedsYouCard({
           />
         ))}
       </CardRows>
-      {rest > 0 ? (
-        <Text onPress={onAll} suppressHighlighting style={[styles.more, { color: t.primary }]}>
-          {`Show ${rest} more`}
-        </Text>
-      ) : null}
+      {rest > 0 ? <MoreLink label={`Show ${rest} more`} onPress={onAll} /> : null}
     </Card>
   )
 }
@@ -266,7 +312,7 @@ export function QuickActionsCard({
             style={({ pressed }) => [styles.quickItem, { opacity: pressed ? 0.6 : 1 }]}
           >
             <Well icon={a.icon} tone={a.tone || "primary"} size={52} />
-            <Text style={[styles.quickLabel, { color: t.text }]} numberOfLines={1}>
+            <Text style={[styles.quickLabel, { color: t.text }]} numberOfLines={2}>
               {a.label}
             </Text>
           </Pressable>
@@ -442,23 +488,19 @@ export function WidgetGrid({ children }: { children: React.ReactNode }) {
 
 type Decision = { id: string; kind: "leave" | "correction"; title: string; sub: string }
 
+/** How long an approval waits for Undo before it is written. */
+const UNDO_MS = 5000
+
 /**
  * Approvals, decided in place: leave and attendance corrections waiting for an
  * admin. Approve is one tap; Decline asks for a reason, so it opens the
  * approvals page (the database requires the note to reach the person).
  */
 export function ApprovalsCard({ onAll }: { onAll: () => void }) {
-  const t = useTheme()
   const toast = useToast()
-  const [items, setItems] = React.useState<Decision[] | null>(null)
-  const [busy, setBusy] = React.useState<string | null>(null)
-
-  const load = React.useCallback(async () => {
-    const [leave, corr] = await Promise.all([
-      leaveLib.pendingLeave().catch(() => []),
-      pendingCorrections().catch(() => []),
-    ])
-    setItems([
+  const { data: items, error, retry } = useCardLoad<Decision[]>("approvals", async () => {
+    const [leave, corr] = await Promise.all([leaveLib.pendingLeave(), pendingCorrections()])
+    return [
       ...leave.map((r) => ({
         id: r.id,
         kind: "leave" as const,
@@ -473,41 +515,71 @@ export function ApprovalsCard({ onAll }: { onAll: () => void }) {
         title: `${c.person} · correction`,
         sub: `${dayLabel(c.day)}${c.reason ? ` · ${c.reason}` : ""}`,
       })),
-    ])
-  }, [])
-  useFocusEffect(
-    React.useCallback(() => {
-      void load()
-    }, [load]),
-  )
+    ]
+  })
+  // Approved but still inside the Undo window, and the one being written now:
+  // both show the row as busy until the list reloads without it.
+  const [held, setHeld] = React.useState<Set<string>>(() => new Set())
+  const [busy, setBusy] = React.useState<string | null>(null)
+  const timers = React.useRef(new Map<string, ReturnType<typeof setTimeout>>())
 
-  if (!items?.length) return null
-  const approve = async (d: Decision) => {
+  const release = (id: string) =>
+    setHeld((s) => {
+      const next = new Set(s)
+      next.delete(id)
+      return next
+    })
+
+  const commit = async (d: Decision) => {
+    timers.current.delete(d.id)
     setBusy(d.id)
     try {
       if (d.kind === "leave") await leaveLib.decideLeave(d.id, true)
       else await decideCorrection(d.id, true)
       feedback.created()
-      toast.show({ message: d.kind === "leave" ? "Leave approved" : "Correction approved", tone: "success" })
-      await load()
+      retry()
     } catch (e) {
+      feedback.error()
       toast.show({ message: (e as Error).message, tone: "danger" })
+      release(d.id)
     } finally {
       setBusy(null)
     }
   }
+
+  // Approve waits out the Undo toast before it writes, so a slip of the thumb
+  // costs nothing; Decline needs a note, so it opens the approvals page.
+  const approve = (d: Decision) => {
+    setHeld((s) => new Set(s).add(d.id))
+    timers.current.set(d.id, setTimeout(() => void commit(d), UNDO_MS))
+    toast.show({
+      message: d.kind === "leave" ? "Leave approved" : "Correction approved",
+      tone: "success",
+      durationMs: UNDO_MS,
+      onUndo: () => {
+        clearTimeout(timers.current.get(d.id))
+        timers.current.delete(d.id)
+        release(d.id)
+      },
+    })
+  }
+
+  if (error) return <LoadFailed title="Approvals" onRetry={retry} />
+  const shown = items ?? []
+  const pending = (id: string) => held.has(id) || busy === id
+  if (!shown.length) return null
   return (
     <Card style={styles.headed}>
       <CardHead
         icon="tick"
         tone="violet"
         title="Approvals"
-        count={items.length}
+        count={shown.length}
         countTone="violet"
         action="All"
         onAction={onAll}
       />
-      {items.slice(0, 3).map((d, i) => (
+      {shown.slice(0, 3).map((d, i) => (
         <React.Fragment key={d.id}>
           {i > 0 ? <CardDivider inset={16} /> : null}
           <View style={styles.decide}>
@@ -519,25 +591,28 @@ export function ApprovalsCard({ onAll }: { onAll: () => void }) {
             />
             <View style={styles.decideButtons}>
               <View style={styles.flex}>
-                <PillButton label="Decline" kind="grey" onPress={onAll} />
+                <PillButton
+                  label="Decline"
+                  kind="grey"
+                  busy={pending(d.id)}
+                  accessibilityLabel={`Decline ${d.title}`}
+                  onPress={onAll}
+                />
               </View>
               <View style={styles.flex}>
                 <PillButton
-                  label={busy === d.id ? "Approving" : "Approve"}
+                  label={pending(d.id) ? "Approving" : "Approve"}
                   kind="primary"
-                  busy={busy === d.id}
-                  onPress={() => void approve(d)}
+                  busy={pending(d.id)}
+                  accessibilityLabel={`Approve ${d.title}`}
+                  onPress={() => approve(d)}
                 />
               </View>
             </View>
           </View>
         </React.Fragment>
       ))}
-      {items.length > 3 ? (
-        <Text onPress={onAll} style={[styles.more, { color: t.primary }]}>{`Show ${
-          items.length - 3
-        } more`}</Text>
-      ) : null}
+      {shown.length > 3 ? <MoreLink label={`Show ${shown.length - 3} more`} onPress={onAll} /> : null}
     </Card>
   )
 }
@@ -554,59 +629,36 @@ const REQ_TAG: Record<string, { label: string; tone: OneTone }> = {
 
 /** What the office owes this person an answer on: recent leave requests and claims. */
 export function RequestsCard({ onLeave, onClaims }: { onLeave: () => void; onClaims: () => void }) {
-  const [rows, setRows] = React.useState<
-    {
-      key: string
-      icon: IconName
-      tone: OneTone
-      title: string
-      sub: string
-      status: string
-      open: () => void
-    }[]
-  >([])
-  useFocusEffect(
-    React.useCallback(() => {
-      let alive = true
-      void Promise.all([leaveLib.myRequests().catch(() => []), myClaims().catch(() => [] as Claim[])]).then(
-        ([leave, claims]) => {
-          if (!alive) return
-          const recent = (d: string) => Date.now() - new Date(d).getTime() < 30 * 86400000
-          setRows(
-            [
-              ...leave
-                .filter((r) => r.status === "pending" || recent(r.created_at))
-                .map((r) => ({
-                  key: `l${r.id}`,
-                  icon: "calendar" as IconName,
-                  tone: "violet" as OneTone,
-                  title: `Leave, ${dayLabel(r.from_day)}${
-                    r.to_day !== r.from_day ? ` to ${dayLabel(r.to_day)}` : ""
-                  }`,
-                  sub: r.days === 1 ? "1 day" : `${r.days} days`,
-                  status: r.status,
-                  open: onLeave,
-                })),
-              ...claims
-                .filter((c) => c.status === "pending" || recent(c.created_at))
-                .map((c) => ({
-                  key: `c${c.id}`,
-                  icon: "invoice" as IconName,
-                  tone: "success" as OneTone,
-                  title: `${c.category} claim, ${payMoney(c.amount)}`,
-                  sub: dayLabel(c.bill_date),
-                  status: c.status,
-                  open: onClaims,
-                })),
-            ].slice(0, 3),
-          )
-        },
-      )
-      return () => {
-        alive = false
-      }
-    }, [onLeave, onClaims]),
-  )
+  const { data, error, retry } = useCardLoad("requests", async () => {
+    const [leave, claims] = await Promise.all([leaveLib.myRequests(), myClaims()])
+    const recent = (d: string) => Date.now() - new Date(d).getTime() < 30 * 86400000
+    return [
+      ...leave
+        .filter((r) => r.status === "pending" || recent(r.created_at))
+        .map((r) => ({
+          key: `l${r.id}`,
+          icon: "calendar" as IconName,
+          tone: "violet" as OneTone,
+          title: `Leave, ${dayLabel(r.from_day)}${r.to_day !== r.from_day ? ` to ${dayLabel(r.to_day)}` : ""}`,
+          sub: r.days === 1 ? "1 day" : `${r.days} days`,
+          status: r.status,
+          open: onLeave,
+        })),
+      ...claims
+        .filter((c: Claim) => c.status === "pending" || recent(c.created_at))
+        .map((c: Claim) => ({
+          key: `c${c.id}`,
+          icon: "invoice" as IconName,
+          tone: "success" as OneTone,
+          title: `${c.category} claim, ${payMoney(c.amount)}`,
+          sub: dayLabel(c.bill_date),
+          status: c.status,
+          open: onClaims,
+        })),
+    ].slice(0, 3)
+  })
+  if (error) return <LoadFailed title="Your requests" onRetry={retry} />
+  const rows = data ?? []
   if (!rows.length) return null
   return (
     <>
@@ -644,19 +696,11 @@ const LEAVE_LOOK: Record<string, { icon: IconName; tone: OneTone }> = {
 
 /** Leave balance as a 2 × 2 grid of white widgets (paid types only). */
 export function LeaveBalanceGrid({ onOpen }: { onOpen: () => void }) {
-  const [rows, setRows] = React.useState<Awaited<ReturnType<typeof leaveLib.balances>>>([])
-  useFocusEffect(
-    React.useCallback(() => {
-      let alive = true
-      void leaveLib
-        .balances()
-        .then((r) => alive && setRows(r.filter((b) => b.paid).slice(0, 4)))
-        .catch(() => undefined)
-      return () => {
-        alive = false
-      }
-    }, []),
+  const { data, error, retry } = useCardLoad("leave", async () =>
+    (await leaveLib.balances()).filter((b) => b.paid).slice(0, 4),
   )
+  if (error) return <LoadFailed title="Leave balance" onRetry={retry} />
+  const rows = data ?? []
   if (!rows.length) return null
   return (
     <>
@@ -679,16 +723,8 @@ export function LeaveBalanceGrid({ onOpen }: { onOpen: () => void }) {
 
 /** The last payslip, one row, only once there is one. */
 export function PayCard({ onOpen }: { onOpen: (id: string) => void }) {
-  const [slip, setSlip] = React.useState<Payslip | null>(null)
-  useFocusEffect(
-    React.useCallback(() => {
-      let alive = true
-      void latestPayslip().then((s) => alive && setSlip(s))
-      return () => {
-        alive = false
-      }
-    }, []),
-  )
+  const { data: slip, error, retry } = useCardLoad<Payslip | null>("pay", latestPayslip)
+  if (error) return <LoadFailed title="Pay" onRetry={retry} />
   if (!slip) return null
   return (
     <>
@@ -733,8 +769,8 @@ const styles = StyleSheet.create({
   quotePill: { flex: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, alignItems: "flex-start" },
   quoteValue: { fontFamily: fontFamily.semibold, fontSize: 15, lineHeight: 20, fontVariant: ["tabular-nums"] },
   quoteLabel: { fontFamily: fontFamily.medium, fontSize: 11.5, lineHeight: 15 },
-  needsSummary: { fontFamily: fontFamily.regular, fontSize: 13.5, lineHeight: 18, paddingHorizontal: 20, paddingBottom: 8 },
-  head: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, paddingBottom: 8 },
+  needsSummary: { fontFamily: fontFamily.regular, fontSize: 13.5, lineHeight: 18, paddingHorizontal: gutter, paddingBottom: 8 },
+  head: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: gutter, paddingBottom: 8 },
   headTitle: { fontFamily: fontFamily.semibold, fontSize: 17, lineHeight: 22 },
   headAction: { fontFamily: fontFamily.semibold, fontSize: 14, lineHeight: 18 },
   pill: {
@@ -760,7 +796,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 5,
     height: 60,
-    paddingHorizontal: 20,
+    paddingHorizontal: gutter,
     marginTop: 4,
     marginBottom: 14,
   },
@@ -782,5 +818,6 @@ const styles = StyleSheet.create({
   gridRow: { flexDirection: "row", gap: 10 },
   decide: { paddingBottom: 14 },
   decideButtons: { flexDirection: "row", gap: 8, paddingLeft: 16 + 38 + 14, paddingRight: 16, marginTop: -2 },
-  more: { fontFamily: fontFamily.semibold, fontSize: 13.5, textAlign: "center", paddingVertical: 10 },
+  more: { minHeight: 48, alignItems: "center", justifyContent: "center" },
+  moreText: { fontFamily: fontFamily.semibold, fontSize: 13.5 },
 })

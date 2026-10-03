@@ -1,3 +1,4 @@
+import { usePreventRemove } from "@react-navigation/native"
 import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
@@ -7,12 +8,14 @@ import { newCustomer, type Customer, type Row } from "@/domain/schema"
 import { normaliseContact, validateContact, type ContactErrors } from "@/features/contacts/validateContact"
 import StatePickerSheet from "@/features/quotations/StatePickerSheet"
 import { useCollection } from "@/hooks/useCollection"
+import { useFocusChain } from "@/features/contacts/useFocusChain"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
-import { AppScreen, Button, Icon, Section, TextField, useToast } from "@/ui"
+import { AppScreen, Button, Dialog, Icon, Section, TextField, useToast } from "@/ui"
+import { SquircleBackground } from "@/ui/Squircle"
 
 /**
  * Add a customer contact from the phone.
@@ -37,6 +40,16 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
   const { items: customers } = useCollection<Customer & Row>("customers")
 
   const [draft, setDraft] = React.useState<Customer>(() => newCustomer(route.params?.prefill))
+  const [initial] = React.useState(() => JSON.stringify(draft))
+  const [confirmLeave, setConfirmLeave] = React.useState(false)
+  // Set just before a saved contact navigates away, so the guard lets it go.
+  const leaving = React.useRef(false)
+  // Gesture and hardware back ask before typed details are thrown away.
+  usePreventRemove(JSON.stringify(draft) !== initial, ({ data }) => {
+    if (leaving.current) navigation.dispatch(data.action)
+    else setConfirmLeave(true)
+  })
+  const chain = useFocusChain()
   const [errors, setErrors] = React.useState<ContactErrors>({})
   const [stateOpen, setStateOpen] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
@@ -64,6 +77,7 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
       toast.show({ message: "Customer saved", tone: "success" })
       // Replace rather than push: coming back to a half-filled form you have
       // already submitted is never what anyone wants.
+      leaving.current = true
       navigation.replace("CustomerDetail", { id: row.id })
     } catch (e) {
       feedback.error()
@@ -86,7 +100,8 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
             said once at the top rather than pinned to a field, because it is a
             statement about the record and not about one box. */}
         {!!errors.form && (
-          <View style={[styles.banner, { backgroundColor: t.dangerBg }]}>
+          <View style={styles.banner}>
+            <SquircleBackground fill={t.dangerBg} radius={radius.md} />
             <Icon name="warning" size={18} color={t.dangerText} variant="Bulk" />
             <Text style={[textVariants.small, styles.bannerText, { color: t.dangerText }]}>{errors.form}</Text>
           </View>
@@ -101,6 +116,7 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
             autoCapitalize="words"
             error={errors.name}
             autoFocus
+            {...chain(0)}
           />
           <TextField
             label="Company"
@@ -108,6 +124,7 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
             onChangeText={(v) => set("company", v)}
             placeholder="Enter company name"
             autoCapitalize="words"
+            {...chain(1)}
           />
         </Section>
 
@@ -119,6 +136,7 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
             placeholder="Enter phone number"
             keyboardType="phone-pad"
             error={errors.phone}
+            {...chain(2)}
           />
           <TextField
             label="Email"
@@ -129,6 +147,7 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
             autoCapitalize="none"
             autoCorrect={false}
             error={errors.email}
+            {...chain(3)}
           />
         </Section>
 
@@ -145,6 +164,7 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
             maxLength={15}
             error={errors.gstin}
             hint="Optional, but its first two digits set the place of supply"
+            {...chain(4, true)}
           />
           {/* A picker, not a field: the state code decides CGST+SGST versus
               IGST, so a typo here is a wrong tax invoice. */}
@@ -179,6 +199,25 @@ export default function ContactEditorScreen({ route, navigation }: StackScreenPr
           </Text>
         </View>
       </AppScreen>
+
+      <Dialog
+        visible={confirmLeave}
+        onClose={() => setConfirmLeave(false)}
+        title="Leave without saving?"
+        message="The details you typed for this customer are not saved."
+        actions={[
+          { label: "Keep editing", onPress: () => setConfirmLeave(false) },
+          {
+            label: "Leave",
+            tone: "danger",
+            onPress: () => {
+              setConfirmLeave(false)
+              leaving.current = true
+              navigation.goBack()
+            },
+          },
+        ]}
+      />
 
       <StatePickerSheet
         visible={stateOpen}
@@ -247,7 +286,6 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: spacing.sm,
     padding: spacing.md,
-    borderRadius: radius.md,
     // Loose content on a full-bleed page carries the gutter itself.
     marginHorizontal: gutter,
     marginTop: spacing.md,

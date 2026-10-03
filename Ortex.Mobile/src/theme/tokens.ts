@@ -78,7 +78,7 @@ export const radius = {
 
 /**
  * Control heights. One UI targets are large and finger-first, and nothing
- * interactive is ever below 44 (the minimum touch target).
+ * interactive is ever below 48 (the minimum touch target, `touchMin`).
  */
 export const size = {
   control: 56,
@@ -92,7 +92,7 @@ export const size = {
   // difference rather than levelling it.
   field: 48,
   search: 48,
-  touchMin: 44,
+  touchMin: 48,
   // The floating tab capsule.
   tabBar: 74,
   appBar: 56,

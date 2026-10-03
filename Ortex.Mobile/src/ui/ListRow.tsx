@@ -1,6 +1,7 @@
 import React from "react"
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native"
 
+import { statusMeta, type StatusOption } from "@/domain/schema"
 import { useTheme } from "@/store/ThemeContext"
 import type { StatusTone } from "@/theme/theme"
 import { gutter, radius, size as sizes, spacing, state } from "@/theme/tokens"
@@ -62,6 +63,15 @@ type Props = {
   /** A row that opens something shows the chevron; one that states a fact does not. */
   chevron?: boolean
   style?: StyleProp<ViewStyle>
+}
+
+/** What a row's status caption says (text, a Badge's `label`, a StatusBadge's status), for its spoken label. */
+function spokenText(node: React.ReactNode): string | undefined {
+  if (typeof node === "string" || typeof node === "number") return String(node)
+  if (!React.isValidElement<{ label?: unknown; list?: StatusOption[]; id?: string }>(node)) return undefined
+  const { label, list, id } = node.props
+  if (typeof label === "string") return label
+  return list ? statusMeta(list, id).label : undefined
 }
 
 export default function ListRow({
@@ -136,7 +146,7 @@ export default function ListRow({
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
       accessibilityRole="button"
-      accessibilityLabel={title}
+      accessibilityLabel={[title, subtitle, value, spokenText(valueSub)].filter(Boolean).join(", ")}
       style={[styles.row, press.style, style]}
     >
       {body}

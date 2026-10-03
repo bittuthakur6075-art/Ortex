@@ -638,6 +638,8 @@ export function useAnuSession(profile: Profile | null) {
     onMessage,
     status,
     error,
+    /** The microphone permission is off: the screen offers Settings, not a retry. */
+    micDenied: status === "error" && error === ERROR_TEXT["mic-denied"],
     speaking,
     thinking,
     muted,

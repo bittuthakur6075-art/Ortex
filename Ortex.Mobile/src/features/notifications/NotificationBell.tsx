@@ -7,6 +7,7 @@ import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
 import IconButton from "@/ui/IconButton"
+import { useReducedMotion } from "@/ui/motion"
 
 /**
  * The app bar's bell. It sits at the RIGHT end of every tab root's bar, after
@@ -27,9 +28,11 @@ export default function NotificationBell() {
   const unread = unreadCount > 0
 
   const dot = React.useRef(new Animated.Value(unread ? 1 : 0)).current
+  const reduceMotion = useReducedMotion()
   React.useEffect(() => {
-    Animated.spring(dot, { toValue: unread ? 1 : 0, stiffness: 320, damping: 24, mass: 0.6, useNativeDriver: true }).start()
-  }, [unread, dot])
+    if (reduceMotion) dot.setValue(unread ? 1 : 0)
+    else Animated.spring(dot, { toValue: unread ? 1 : 0, stiffness: 320, damping: 24, mass: 0.6, useNativeDriver: true }).start()
+  }, [unread, dot, reduceMotion])
 
   return (
     <View>

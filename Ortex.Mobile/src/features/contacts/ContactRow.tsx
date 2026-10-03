@@ -1,12 +1,15 @@
+import AsyncStorage from "@react-native-async-storage/async-storage"
 import React from "react"
 import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from "react-native"
 
 import { callNumber, whatsapp } from "@/lib/contact"
+import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, spacing } from "@/theme/tokens"
 import { font } from "@/theme/typography"
 import { Avatar, Icon } from "@/ui"
 import { Tag } from "@/ui/OneUi"
+import { useReducedMotion } from "@/ui/motion"
 
 /**
  * One person in the directory.
@@ -29,6 +32,13 @@ export const CONTACT_ROW_HEIGHT = 68
 /** How far the row must travel before the lift fires its action. */
 const TRIGGER = 96
 const MAX_TRAVEL = 132
+/** Rows are a fixed height, so their words may grow only this far with the system font size. */
+const MAX_FONT_SCALE = 1.3
+
+// The swipe is invisible until someone tries it, so the first row that can be
+// swiped nudges right and back once per install.
+const HINT_KEY = "@ortex/contact-swipe-hint"
+let hintClaimed = false
 
 export type ContactRowData = {
   id: string
@@ -64,6 +74,26 @@ function ContactRow({
   const armed = React.useRef(false)
   armed.current = swipeEnabled && hasPhone && !selecting
 
+  const reduceMotion = useReducedMotion()
+  React.useEffect(() => {
+    if (!armed.current || hintClaimed || reduceMotion) return
+    hintClaimed = true
+    void AsyncStorage.getItem(HINT_KEY)
+      .then((seen) => {
+        if (seen) return
+        void AsyncStorage.setItem(HINT_KEY, "1")
+        Animated.sequence([
+          Animated.delay(700),
+          Animated.timing(dx, { toValue: 48, duration: 260, useNativeDriver: true }),
+          Animated.spring(dx, { toValue: 0, useNativeDriver: true, damping: 14, stiffness: 180 }),
+        ]).start()
+      })
+      .catch(() => {})
+  }, [dx, reduceMotion])
+
+  // One tick of haptics the moment a drag passes the point where it will act.
+  const past = React.useRef(false)
+
   const settle = React.useCallback(() => {
     Animated.spring(dx, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 260 }).start()
   }, [dx])
@@ -76,13 +106,22 @@ function ContactRow({
         onPanResponderMove: (_e, g) => {
           const clamped = Math.max(-MAX_TRAVEL, Math.min(MAX_TRAVEL, g.dx))
           dx.setValue(clamped)
+          const over = Math.abs(g.dx) > TRIGGER
+          if (over !== past.current) {
+            past.current = over
+            if (over) feedback.select()
+          }
         },
         onPanResponderRelease: (_e, g) => {
+          past.current = false
           if (g.dx > TRIGGER) void callNumber(contact.phone)
           else if (g.dx < -TRIGGER) void whatsapp(contact.phone)
           settle()
         },
-        onPanResponderTerminate: settle,
+        onPanResponderTerminate: () => {
+          past.current = false
+          settle()
+        },
       }),
     [contact.phone, dx, settle],
   )
@@ -100,12 +139,12 @@ function ContactRow({
     <View style={styles.clip}>
       <Animated.View style={[styles.rail, styles.railLeft, { opacity: callOpacity }]}>
         <View style={[styles.railBadge, { backgroundColor: t.primary }]}>
-          <Icon name="call" size={20} color="#FFFFFF" variant="Bulk" />
+          <Icon name="call" size={20} color={t.textOnPrimary} variant="Bulk" />
         </View>
       </Animated.View>
       <Animated.View style={[styles.rail, styles.railRight, { opacity: chatOpacity }]}>
         <View style={[styles.railBadge, { backgroundColor: t.success }]}>
-          <Icon name="whatsapp" size={20} color="#FFFFFF" variant="Bulk" />
+          <Icon name="whatsapp" size={20} color={t.textOnPrimary} variant="Bulk" />
         </View>
       </Animated.View>
 
@@ -117,6 +156,19 @@ function ContactRow({
           accessibilityRole="button"
           accessibilityState={selecting ? { checked: selected } : undefined}
           accessibilityLabel={[contact.name, contact.secondary, contact.tag].filter(Boolean).join(", ")}
+          // The swipe's two actions, reachable without a swipe.
+          accessibilityActions={
+            hasPhone && !selecting
+              ? [
+                  { name: "call", label: "Call" },
+                  { name: "whatsapp", label: "WhatsApp" },
+                ]
+              : undefined
+          }
+          onAccessibilityAction={(e) => {
+            if (e.nativeEvent.actionName === "call") void callNumber(contact.phone)
+            else if (e.nativeEvent.actionName === "whatsapp") void whatsapp(contact.phone)
+          }}
           android_ripple={{ color: t.accentTint }}
           style={({ pressed }) => [
             styles.row,
@@ -144,11 +196,11 @@ function ContactRow({
           </View>
 
           <View style={styles.body}>
-            <Text numberOfLines={1} style={[styles.name, { color: t.text }]}>
+            <Text numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.name, { color: t.text }]}>
               {contact.name}
             </Text>
             {!!contact.secondary && (
-              <Text numberOfLines={1} style={[styles.secondary, { color: t.textTertiary }]}>
+              <Text numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.secondary, { color: t.textTertiary }]}>
                 {contact.secondary}
               </Text>
             )}
@@ -156,7 +208,11 @@ function ContactRow({
 
           {!selecting && (!!contact.tag || !!contact.meta || contact.favourite) && (
             <View style={styles.end}>
-              {!!contact.meta && <Text style={[styles.meta, { color: t.textTertiary }]}>{contact.meta}</Text>}
+              {!!contact.meta && (
+                <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.meta, { color: t.textTertiary }]}>
+                  {contact.meta}
+                </Text>
+              )}
               {!!contact.tag && <Tag label={contact.tag} tone="primary" />}
               {contact.favourite && <Icon name="star" size={16} color={t.warning} variant="Bold" />}
             </View>

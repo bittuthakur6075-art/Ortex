@@ -14,8 +14,10 @@ import { useAttendanceNotices } from "@/features/attendance/useAttendance"
 import ChatButton from "@/features/chat/ChatButton"
 import NotificationBell from "@/features/notifications/NotificationBell"
 import { feedback } from "@/lib/feedback"
+import { tabAllowed } from "@/navigation/tabAccess"
 import type { TabScreenProps } from "@/navigation/types"
 import { useIsDark, useTheme } from "@/store/ThemeContext"
+import { gutter } from "@/theme/tokens"
 import { fontFamily } from "@/theme/typography"
 import AppScreen from "@/ui/AppScreen"
 import DataNotice from "@/ui/DataNotice"
@@ -43,6 +45,7 @@ import {
   Widget,
   WidgetGrid,
 } from "@/features/home/homeCards"
+import { HomeCardLoad } from "@/features/home/cardLoad"
 import { useDashboard } from "@/features/home/useDashboard"
 
 /**
@@ -106,6 +109,27 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
   const notices = useAttendanceNotices()
   const r = rangeFor(shownRange)
 
+  // Cards that read on their own (approvals, requests, leave, pay) report a
+  // failure here, so the page's DataNotice says so for every role, and its
+  // retry reads them again.
+  const [cardErrors, setCardErrors] = React.useState<Record<string, string>>({})
+  const [cardsKey, setCardsKey] = React.useState(0)
+  const report = React.useCallback((card: string, err: string | null) => {
+    setCardErrors((prev) => {
+      if ((prev[card] ?? null) === err) return prev
+      const next = { ...prev }
+      if (err) next[card] = err
+      else delete next[card]
+      return next
+    })
+  }, [])
+  const cardLoad = React.useMemo(() => ({ reloadKey: cardsKey, report }), [cardsKey, report])
+  const pageError = error || Object.values(cardErrors)[0] || null
+  const retryAll = () => {
+    setCardsKey((k) => k + 1)
+    return reload()
+  }
+
   const staff = !access.leads && !access.quotes
   const admin = access.admin
   // The database's gate (Accounts hold it; an Admin can have it switched off).
@@ -132,11 +156,16 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
         // Accounts record payments; their chat is in the app bar.
         payments
           ? { icon: "wallet" as const, label: "Payments", onPress: () => navigation.navigate("Payments") }
-          : { icon: "enquiry" as const, label: "Team Chat", onPress: () => navigation.navigate("Chat") },
+          : {
+              icon: "enquiry" as const,
+              label: "Team Chat",
+              // Staff have Chat as a tab: switch to it rather than stack a second copy.
+              onPress: () => navigation.navigate(tabAllowed(profile, "ChatTab") ? "ChatTab" : "Chat"),
+            },
       ]
     : admin
     ? [
-        { icon: "quote" as const, label: "New Quote", onPress: () => navigation.navigate("QuotationEditor") },
+        { icon: "quote" as const, label: "New quotation", onPress: () => navigation.navigate("QuotationEditor") },
         {
           icon: "tick" as const,
           label: "Approvals",
@@ -149,7 +178,7 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
     : [
         access.quotes && {
           icon: "quote" as const,
-          label: "New Quote",
+          label: "New quotation",
           onPress: () => navigation.navigate("QuotationEditor"),
         },
         access.customers && {
@@ -169,275 +198,277 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
       )
 
   return (
-    <View style={{ flex: 1, backgroundColor: t.surfaceInset }}>
-      <AppScreen
-        title={title}
-        subtitle={dateLine}
-        titleSize={24}
-        titleTop={20}
-        barSubtitle={firstName || dateLine}
-        subtitleStrong
-        barTitle={greeting(today)}
-        titleRight={<WeatherNow />}
-        barTitleRight={<WeatherNow compact />}
-        inset
-        headerLeft={<ProfileAvatarButton />}
-        headerRight={
-          <>
-            <IconButton
-              name="search"
-              onPress={() => navigation.navigate("Search")}
-              accessibilityLabel="Search everything"
-            />
-            <ChatButton />
-            <NotificationBell />
-          </>
-        }
-        list={{
-          data: [],
-          renderItem: () => null,
-          refreshControl: (
-            <ListRefreshControl
-              refreshing={refreshing}
-              onRefresh={async () => {
-                await Promise.all([reload(), notices.reload()])
-              }}
-            />
-          ),
-        }}
-      >
-        <DataNotice error={error} fromCache={fromCache} cachedAt={cachedAt} onRetry={() => void reload()} />
-
-        {/* The day in words, under the greeting (Figma "Summary" pills). */}
-        {!staff && !loading && (attention.length > 0 || expiring > 0) ? (
-          <View style={styles.summary}>
-            {attention.length ? <Tag label={`${attention.length} need you`} tone="primary" dot /> : null}
-            {expiring ? (
-              <Tag label={`${expiring} quote${expiring === 1 ? "" : "s"} to chase`} tone="warning" dot />
-            ) : null}
-          </View>
-        ) : null}
-
-        {/* Attendance first for everyone; collapsed to a row once in, except for
-            Staff, whose day is the clock. */}
-        <AttendanceHomeCard collapse={!staff} />
-
-        {admin && canAccess(profile, "attendance-team") ? (
-          <ApprovalsCard onAll={() => navigation.navigate("AttendanceApprovals")} />
-        ) : null}
-
-        {!staff ? (
-          loading ? (
-            <SkeletonPanel lines={3} />
-          ) : (
-            <NeedsYouCard
-              items={attention}
-              limit={admin ? 2 : 4}
-              onOpen={openRecord}
-              onAll={() => navigation.navigate("Leads")}
-            />
-          )
-        ) : null}
-
-        <QuickActionsCard items={actions} />
-
-        {!staff && access.quotes ? <QuotesCard onAll={() => navigation.navigate("Quotes")} /> : null}
-
-        {staff ? (
-          <>
-            <RequestsCard
-              onLeave={() => navigation.navigate("Leave")}
-              onClaims={() => navigation.navigate("PayClaims")}
-            />
-            <LeaveBalanceGrid onOpen={() => navigation.navigate("Leave")} />
-            <PayCard onOpen={(id) => navigation.navigate("Payslip", { id })} />
-            <ComingUpCard holiday={notices.nextHoliday} />
-          </>
-        ) : loading ? null : admin ? (
-          <>
-            <SubHeader title={`Business, last ${r.label}`} action="Insights" onAction={openInsights} />
-            <WidgetGrid>
-              <Widget
-                icon="quote"
-                tone="primary"
-                label="Quoted"
-                value={money(d.quoted.value)}
-                tag={<DeltaTag d={d.quoted.delta} />}
-                note={`${formatNumber(d.quoted.count)} quotations`}
+    <HomeCardLoad.Provider value={cardLoad}>
+      <View style={{ flex: 1, backgroundColor: t.surfaceInset }}>
+        <AppScreen
+          title={title}
+          subtitle={dateLine}
+          titleSize={24}
+          titleTop={20}
+          barSubtitle={firstName || dateLine}
+          subtitleStrong
+          barTitle={greeting(today)}
+          titleRight={<WeatherNow />}
+          barTitleRight={<WeatherNow compact />}
+          inset
+          headerLeft={<ProfileAvatarButton />}
+          headerRight={
+            <>
+              <IconButton
+                name="search"
+                onPress={() => navigation.navigate("Search")}
+                accessibilityLabel="Search everything"
               />
-              <Widget
-                icon="tick"
-                tone="success"
-                label="Won"
-                value={money(d.won.value)}
-                tag={<DeltaTag d={d.won.delta} />}
-                note={`${formatNumber(d.won.count)} orders`}
+              <ChatButton />
+              <NotificationBell />
+            </>
+          }
+          list={{
+            data: [],
+            renderItem: () => null,
+            refreshControl: (
+              <ListRefreshControl
+                refreshing={refreshing}
+                onRefresh={async () => {
+                  await Promise.all([retryAll(), notices.reload()])
+                }}
               />
-              <Widget
-                icon="leads"
-                tone="primary"
-                label="New leads"
-                value={formatNumber(d.leads.total)}
-                tag={<DeltaTag d={d.leads.delta} />}
-                note={`Web ${formatNumber(d.leads.web)} · Anu ${formatNumber(d.leads.voice)}`}
-              />
-              <Widget
-                icon="insights"
-                tone="violet"
-                label="Win rate"
-                value={d.winRate.pct === null ? "–" : `${d.winRate.pct}%`}
-                tag={
-                  d.winRate.pct !== null && d.winRate.prevPct !== null ? (
-                    <DeltaTag points d={delta(d.winRate.pct, d.winRate.prevPct)} />
-                  ) : undefined
-                }
-                note={d.winRate.decided ? `${d.winRate.won} of ${d.winRate.decided} decided` : "None decided"}
-              />
-            </WidgetGrid>
-          </>
-        ) : (
-          <>
-            {/* The month in one card: range, one number said in words, the steps
-                behind it, then four tiles. */}
-            <Card style={styles.headed}>
-              <CardHead
-                icon="insights"
-                tone="success"
-                title="My Month"
-                action="Insights"
-                onAction={openInsights}
-              />
-              <View style={styles.seg}>
-                <SegmentedControl
-                  options={RANGES.map((x) => ({ key: x.key, label: x.label }))}
-                  value={range}
-                  onChange={(k) => {
-                    feedback.select()
-                    setRange(k)
-                  }}
-                />
-              </View>
-              {access.quotes ? (
-                <>
-                  <View style={styles.hero}>
-                    <Text style={[styles.heroLabel, { color: t.textTertiary }]}>Quoted</Text>
-                    <View style={styles.heroLine}>
-                      <Text
-                        style={[styles.heroValue, { color: t.text }]}
-                        adjustsFontSizeToFit
-                        numberOfLines={1}
-                      >
-                        {money(d.quoted.value)}
-                      </Text>
-                      <DeltaTag d={d.quoted.delta} />
-                    </View>
-                    <Text style={[styles.heroLabel, { color: t.textTertiary }]}>
-                      {compareWords(d.quoted.delta, d.quoted.prevValue, r.noun)}
-                    </Text>
-                  </View>
-                  <Columns values={steps(d.pace.current)} />
-                </>
+            ),
+          }}
+        >
+          <DataNotice error={pageError} fromCache={fromCache} cachedAt={cachedAt} onRetry={() => void retryAll()} />
+
+          {/* The day in words, under the greeting (Figma "Summary" pills). */}
+          {!staff && !loading && (attention.length > 0 || expiring > 0) ? (
+            <View style={styles.summary}>
+              {attention.length ? <Tag label={`${attention.length} need you`} tone="primary" dot /> : null}
+              {expiring ? (
+                <Tag label={`${expiring} quote${expiring === 1 ? "" : "s"} to chase`} tone="warning" dot />
               ) : null}
-              <View style={styles.tiles}>
-                <View style={styles.tileRow}>
-                  {access.quotes ? (
-                    <InsetTile
-                      label="Won"
-                      value={money(d.won.value)}
-                      tag={<DeltaTag d={d.won.delta} />}
-                      note={`${d.won.count} quote${d.won.count === 1 ? "" : "s"}`}
-                    />
-                  ) : null}
-                  {access.quotes ? (
-                    <InsetTile
-                      label="Win rate"
-                      value={d.winRate.pct === null ? "–" : `${d.winRate.pct}%`}
-                      tag={
-                        d.winRate.pct !== null && d.winRate.prevPct !== null ? (
-                          <DeltaTag points d={delta(d.winRate.pct, d.winRate.prevPct)} />
-                        ) : undefined
-                      }
-                      note={
-                        d.winRate.decided
-                          ? `${d.winRate.won} of ${d.winRate.decided} decided`
-                          : "None decided"
-                      }
-                    />
-                  ) : null}
-                </View>
-                <View style={styles.tileRow}>
-                  {access.leads ? (
-                    <InsetTile
-                      label="New leads"
-                      value={formatNumber(d.leads.total)}
-                      tag={<DeltaTag d={d.leads.delta} />}
-                      note={d.uncontacted ? `${d.uncontacted} waiting` : "None waiting"}
-                    />
-                  ) : null}
-                  {access.quotes ? (
-                    <InsetTile
-                      label="Open"
-                      value={money(d.openValue)}
-                      note={`${d.aging.reduce((s, a) => s + a.count, 0)} quotes`}
-                    />
-                  ) : null}
-                </View>
-              </View>
-            </Card>
+            </View>
+          ) : null}
 
-            {access.quotes ? (
+          {/* Attendance first for everyone; collapsed to a row once in, except for
+              Staff, whose day is the clock. */}
+          <AttendanceHomeCard collapse={!staff} />
+
+          {admin && canAccess(profile, "attendance-team") ? (
+            <ApprovalsCard onAll={() => navigation.navigate("AttendanceApprovals")} />
+          ) : null}
+
+          {!staff ? (
+            loading ? (
+              <SkeletonPanel lines={3} />
+            ) : (
+              <NeedsYouCard
+                items={attention}
+                limit={admin ? 2 : 4}
+                onOpen={openRecord}
+                onAll={() => navigation.navigate("Leads")}
+              />
+            )
+          ) : null}
+
+          <QuickActionsCard items={actions} />
+
+          {!staff && access.quotes ? <QuotesCard onAll={() => navigation.navigate("Quotes")} /> : null}
+
+          {staff ? (
+            <>
+              <RequestsCard
+                onLeave={() => navigation.navigate("Leave")}
+                onClaims={() => navigation.navigate("PayClaims")}
+              />
+              <LeaveBalanceGrid onOpen={() => navigation.navigate("Leave")} />
+              <PayCard onOpen={(id) => navigation.navigate("Payslip", { id })} />
+              <ComingUpCard holiday={notices.nextHoliday} />
+            </>
+          ) : loading ? null : admin ? (
+            <>
+              <SubHeader title={`Business, last ${r.label}`} action="Insights" onAction={openInsights} />
+              <WidgetGrid>
+                <Widget
+                  icon="quote"
+                  tone="primary"
+                  label="Quoted"
+                  value={money(d.quoted.value)}
+                  tag={<DeltaTag d={d.quoted.delta} />}
+                  note={`${formatNumber(d.quoted.count)} quotations`}
+                />
+                <Widget
+                  icon="tick"
+                  tone="success"
+                  label="Won"
+                  value={money(d.won.value)}
+                  tag={<DeltaTag d={d.won.delta} />}
+                  note={`${formatNumber(d.won.count)} orders`}
+                />
+                <Widget
+                  icon="leads"
+                  tone="primary"
+                  label="New leads"
+                  value={formatNumber(d.leads.total)}
+                  tag={<DeltaTag d={d.leads.delta} />}
+                  note={`Web ${formatNumber(d.leads.web)} · Anu ${formatNumber(d.leads.voice)}`}
+                />
+                <Widget
+                  icon="insights"
+                  tone="violet"
+                  label="Win rate"
+                  value={d.winRate.pct === null ? "–" : `${d.winRate.pct}%`}
+                  tag={
+                    d.winRate.pct !== null && d.winRate.prevPct !== null ? (
+                      <DeltaTag points d={delta(d.winRate.pct, d.winRate.prevPct)} />
+                    ) : undefined
+                  }
+                  note={d.winRate.decided ? `${d.winRate.won} of ${d.winRate.decided} decided` : "None decided"}
+                />
+              </WidgetGrid>
+            </>
+          ) : (
+            <>
+              {/* The month in one card: range, one number said in words, the steps
+                  behind it, then four tiles. */}
               <Card style={styles.headed}>
                 <CardHead
-                  icon="quote"
-                  tone="warning"
-                  title="Quotes by Age"
-                  action="All"
-                  onAction={() => navigation.navigate("Quotes")}
-                />
-                <Text style={[styles.caption, { color: t.textTertiary }]}>
-                  Chase the amber and red ones before they lapse
-                </Text>
-                <AgeCells cells={d.aging} />
-              </Card>
-            ) : null}
-          </>
-        )}
-
-        {admin ? (
-          <>
-            <SubHeader title="Team and pay" />
-            <Card>
-              <CardRows>
-                <CardRow
-                  icon="team"
-                  title="Team Attendance"
-                  subtitle="Who is in today, and who is not yet"
-                  onPress={() => navigation.navigate("TeamAttendance")}
-                />
-                {payments ? (
-                  <CardRow
-                    icon="wallet"
-                    tone="primary"
-                    title="Payments"
-                    subtitle="Received and paid out, record one"
-                    onPress={() => navigation.navigate("Payments")}
-                  />
-                ) : null}
-                <CardRow
-                  icon="money"
+                  icon="insights"
                   tone="success"
-                  title="My Payslips"
-                  subtitle="Payslips, salary and claims"
-                  onPress={() => navigation.navigate("Pay")}
+                  title="My Month"
+                  action="Insights"
+                  onAction={openInsights}
                 />
-              </CardRows>
-            </Card>
-          </>
-        ) : null}
+                <View style={styles.seg}>
+                  <SegmentedControl
+                    options={RANGES.map((x) => ({ key: x.key, label: x.label }))}
+                    value={range}
+                    onChange={(k) => {
+                      feedback.select()
+                      setRange(k)
+                    }}
+                  />
+                </View>
+                {access.quotes ? (
+                  <>
+                    <View style={styles.hero}>
+                      <Text style={[styles.heroLabel, { color: t.textTertiary }]}>Quoted</Text>
+                      <View style={styles.heroLine}>
+                        <Text
+                          style={[styles.heroValue, { color: t.text }]}
+                          adjustsFontSizeToFit
+                          numberOfLines={1}
+                        >
+                          {money(d.quoted.value)}
+                        </Text>
+                        <DeltaTag d={d.quoted.delta} />
+                      </View>
+                      <Text style={[styles.heroLabel, { color: t.textTertiary }]}>
+                        {compareWords(d.quoted.delta, d.quoted.prevValue, r.noun)}
+                      </Text>
+                    </View>
+                    <Columns values={steps(d.pace.current)} />
+                  </>
+                ) : null}
+                <View style={styles.tiles}>
+                  <View style={styles.tileRow}>
+                    {access.quotes ? (
+                      <InsetTile
+                        label="Won"
+                        value={money(d.won.value)}
+                        tag={<DeltaTag d={d.won.delta} />}
+                        note={`${d.won.count} quote${d.won.count === 1 ? "" : "s"}`}
+                      />
+                    ) : null}
+                    {access.quotes ? (
+                      <InsetTile
+                        label="Win rate"
+                        value={d.winRate.pct === null ? "–" : `${d.winRate.pct}%`}
+                        tag={
+                          d.winRate.pct !== null && d.winRate.prevPct !== null ? (
+                            <DeltaTag points d={delta(d.winRate.pct, d.winRate.prevPct)} />
+                          ) : undefined
+                        }
+                        note={
+                          d.winRate.decided
+                            ? `${d.winRate.won} of ${d.winRate.decided} decided`
+                            : "None decided"
+                        }
+                      />
+                    ) : null}
+                  </View>
+                  <View style={styles.tileRow}>
+                    {access.leads ? (
+                      <InsetTile
+                        label="New leads"
+                        value={formatNumber(d.leads.total)}
+                        tag={<DeltaTag d={d.leads.delta} />}
+                        note={d.uncontacted ? `${d.uncontacted} waiting` : "None waiting"}
+                      />
+                    ) : null}
+                    {access.quotes ? (
+                      <InsetTile
+                        label="Open"
+                        value={money(d.openValue)}
+                        note={`${d.aging.reduce((s, a) => s + a.count, 0)} quotes`}
+                      />
+                    ) : null}
+                  </View>
+                </View>
+              </Card>
 
-        <AnuHomeCard />
-      </AppScreen>
-    </View>
+              {access.quotes ? (
+                <Card style={styles.headed}>
+                  <CardHead
+                    icon="quote"
+                    tone="warning"
+                    title="Quotes by Age"
+                    action="All"
+                    onAction={() => navigation.navigate("Quotes")}
+                  />
+                  <Text style={[styles.caption, { color: t.textTertiary }]}>
+                    Chase the amber and red ones before they lapse
+                  </Text>
+                  <AgeCells cells={d.aging} />
+                </Card>
+              ) : null}
+            </>
+          )}
+
+          {admin ? (
+            <>
+              <SubHeader title="Team and pay" />
+              <Card>
+                <CardRows>
+                  <CardRow
+                    icon="team"
+                    title="Team Attendance"
+                    subtitle="Who is in today, and who is not yet"
+                    onPress={() => navigation.navigate("TeamAttendance")}
+                  />
+                  {payments ? (
+                    <CardRow
+                      icon="wallet"
+                      tone="primary"
+                      title="Payments"
+                      subtitle="Received and paid out, record one"
+                      onPress={() => navigation.navigate("Payments")}
+                    />
+                  ) : null}
+                  <CardRow
+                    icon="money"
+                    tone="success"
+                    title="My Payslips"
+                    subtitle="Payslips, salary and claims"
+                    onPress={() => navigation.navigate("Pay")}
+                  />
+                </CardRows>
+              </Card>
+            </>
+          ) : null}
+
+          <AnuHomeCard />
+        </AppScreen>
+      </View>
+    </HomeCardLoad.Provider>
   )
 }
 
@@ -505,7 +536,7 @@ const styles = StyleSheet.create({
   summary: { flexDirection: "row", flexWrap: "wrap", gap: 6, paddingHorizontal: 26, paddingBottom: 14 },
   headed: { paddingTop: 18, paddingBottom: 4 },
   seg: { paddingHorizontal: 16, paddingBottom: 14 },
-  hero: { paddingHorizontal: 20, paddingBottom: 6, gap: 4 },
+  hero: { paddingHorizontal: gutter, paddingBottom: 6, gap: 4 },
   heroLine: { flexDirection: "row", alignItems: "center", gap: 8 },
   heroLabel: { fontFamily: fontFamily.regular, fontSize: 13.5, lineHeight: 18 },
   heroValue: {

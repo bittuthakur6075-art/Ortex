@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     // rather than one control with something sliding in it.
     borderRadius: radius.pill,
     padding: 4,
-    height: 44,
+    minHeight: 44,
   },
   lens: {
     position: "absolute",

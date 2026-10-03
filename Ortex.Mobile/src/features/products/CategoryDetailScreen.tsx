@@ -114,6 +114,7 @@ export default function CategoryDetailScreen({ route, navigation }: StackScreenP
               }}
             >
               <Image
+                accessible={false}
                 source={{ uri: category.image }}
                 style={{ width, height: heroHeight }}
                 contentFit="cover"
@@ -178,6 +179,7 @@ export default function CategoryDetailScreen({ route, navigation }: StackScreenP
                     <View style={[styles.thumb, { backgroundColor: t.surfaceInset }]}>
                       {p.images?.[0] ? (
                         <Image
+                          accessible={false}
                           source={{ uri: p.images[0] }}
                           style={styles.thumbImage}
                           contentFit="cover"

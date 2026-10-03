@@ -1,16 +1,24 @@
 import React from "react"
-import { StyleSheet, Text, View } from "react-native"
+import { StyleSheet, Text, useWindowDimensions, View } from "react-native"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { formatCurrency } from "@/domain/format"
-import { canAccess } from "@/domain/modules"
+import { canAccess, isSuperAdmin } from "@/domain/modules"
 import type { Payment } from "@/domain/schema"
+import { SECTION_TITLE } from "@/features/attendance/format"
+import { todayIST } from "@/features/leave/leaveFormat"
 import { StatStrip } from "@/features/pay/payUi"
 import {
+  inPeriod,
+  inTally,
   METHOD_ICON,
+  monthSections,
   paymentDay,
   paymentTotals,
+  TALLY_LOCKED,
   visiblePayments,
   type PaymentFilter,
+  type PaymentPeriod,
 } from "@/features/payments/payments"
 import { useCollection } from "@/hooks/useCollection"
 import { feedback } from "@/lib/feedback"
@@ -19,7 +27,6 @@ import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
 import {
   AppScreen,
   Button,
@@ -31,21 +38,30 @@ import {
   Panel,
   RowSeparator,
   SearchField,
+  SegmentedControl,
   Sheet,
   SkeletonList,
+  SquircleBackground,
 } from "@/ui"
 import CountChips from "@/ui/CountChips"
+import { SubHeader } from "@/ui/OneUi"
 
 /** Whole rupees in a list, the paise in the detail. */
 const rupees = (n: number) => formatCurrency(n).replace(/\.00$/, "")
 
+const PERIODS: { key: PaymentPeriod; label: string }[] = [
+  { key: "month", label: "This month" },
+  { key: "fy", label: "This FY" },
+  { key: "all", label: "All" },
+]
+
 /**
  * Payments, for whoever holds the `payments` module (the database's gate, so
- * Accounts too): the console's Billing -> Payments
- * on the phone. Received, paid out and net on one strip, then All / Received /
- * Paid out and a search, then the ledger newest first: who, how (the method's
- * glyph and the UTR) and the signed amount. A row opens its details; Record
- * opens the form.
+ * Accounts too): the console's Billing -> Payments on the phone. A period
+ * (this month, this financial year, all), received, paid out and net on one
+ * strip, then All / Received / Paid out and a search, then the ledger newest
+ * first under month headings. A row opens its details, with Edit; the footer
+ * records money paid out or received.
  */
 export default function PaymentsScreen(props: StackScreenProps<"Payments">) {
   const { profile } = useAuth()
@@ -68,22 +84,34 @@ export default function PaymentsScreen(props: StackScreenProps<"Payments">) {
 
 function PaymentsLedger({ navigation }: StackScreenProps<"Payments">) {
   const t = useTheme()
+  const { profile } = useAuth()
   const { items, loading, error, fromCache, cachedAt, reload } = useCollection<Payment>("payments")
+  const [period, setPeriod] = React.useState<PaymentPeriod>("month")
   const [filter, setFilter] = React.useState<PaymentFilter>("all")
   const [query, setQuery] = React.useState("")
   const [refreshing, setRefreshing] = React.useState(false)
   const [open, setOpen] = React.useState<Payment | null>(null)
 
-  const totals = React.useMemo(() => paymentTotals(items), [items])
-  const shown = React.useMemo(() => visiblePayments(items, filter, query), [items, filter, query])
+  const today = todayIST()
+  const inRange = React.useMemo(() => inPeriod(items, period, today), [items, period, today])
+  const totals = React.useMemo(() => paymentTotals(inRange), [inRange])
+  const sections = React.useMemo(
+    () => monthSections(visiblePayments(inRange, filter, query)),
+    [inRange, filter, query],
+  )
 
   const insets = useSafeAreaInsets()
   const [footerH, setFooterH] = React.useState(0)
+  // Two buttons side by side clip at 360dp with large text: stack them.
+  const { width, fontScale } = useWindowDimensions()
+  const stacked = width < 380 || fontScale > 1.15
 
   const record = (type: "inflow" | "payout") => {
     feedback.tap()
     navigation.navigate("PaymentNew", { type })
   }
+
+  const locked = !!open && inTally(open) && !isSuperAdmin(profile)
 
   return (
     <AppScreen
@@ -97,28 +125,50 @@ function PaymentsLedger({ navigation }: StackScreenProps<"Payments">) {
           onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}
           style={[
             styles.footer,
+            stacked ? styles.footerStacked : null,
             { backgroundColor: t.surface, borderTopColor: t.border, paddingBottom: insets.bottom + spacing.sm },
           ]}
         >
-          <View style={styles.half}>
-            <Button label="Record payout" variant="danger-tonal" fullWidth onPress={() => record("payout")} />
+          <View style={stacked ? null : styles.half}>
+            <Button
+              label="Paid out"
+              icon="moneyOut"
+              variant="danger-tonal"
+              fullWidth
+              accessibilityLabel="Record a payout"
+              onPress={() => record("payout")}
+            />
           </View>
-          <View style={styles.half}>
-            <Button label="Record payment" variant="success" fullWidth onPress={() => record("inflow")} />
+          <View style={stacked ? null : styles.half}>
+            <Button
+              label="Received"
+              icon="moneyIn"
+              variant="success"
+              fullWidth
+              accessibilityLabel="Record a payment received"
+              onPress={() => record("inflow")}
+            />
           </View>
         </View>
       }
-      list={{
+      sections={{
         contentContainerStyle: { paddingBottom: footerH + spacing.lg },
         // Virtualised: thousands of rows draw only what is on screen.
-        data: loading || items.length === 0 ? [] : shown,
+        sections: loading || items.length === 0 ? [] : sections,
         keyExtractor: (p: unknown) => (p as Payment).id,
+        stickySectionHeadersEnabled: false,
+        renderSectionHeader: ({ section }: { section: unknown }) => (
+          <View style={{ backgroundColor: t.surface }}>
+            <SubHeader flush titleStyle={SECTION_TITLE} title={(section as { title: string }).title} />
+          </View>
+        ),
         ItemSeparatorComponent: RowSeparator,
+        renderSectionFooter: () => <RowSeparator />,
         ListEmptyComponent:
           loading || items.length === 0 ? null : (
             <Panel>
               <Text style={[textVariants.small, styles.empty, { color: t.textTertiary }]}>
-                No payments match.
+                {inRange.length ? "No payments match." : "No payments in this period."}
               </Text>
             </Panel>
           ),
@@ -174,13 +224,23 @@ function PaymentsLedger({ navigation }: StackScreenProps<"Payments">) {
       ) : (
         <>
           <View style={[styles.top, { backgroundColor: t.surface }]}>
-            <StatStrip
-              stats={[
-                { key: "in", label: "Received", value: rupees(totals.inflow) },
-                { key: "out", label: "Paid out", value: rupees(totals.payout) },
-                { key: "net", label: "Net", value: rupees(totals.net), tone: "accent" },
-              ]}
+            <SegmentedControl<PaymentPeriod>
+              options={PERIODS}
+              value={period}
+              onChange={(k) => {
+                feedback.select()
+                setPeriod(k)
+              }}
             />
+            <View style={styles.gap}>
+              <StatStrip
+                stats={[
+                  { key: "in", label: "Received", value: rupees(totals.inflow) },
+                  { key: "out", label: "Paid out", value: rupees(totals.payout) },
+                  { key: "net", label: "Net", value: rupees(totals.net), tone: "accent" },
+                ]}
+              />
+            </View>
             <View style={styles.gap}>
               <SearchField value={query} onChangeText={setQuery} placeholder="Search name, UTR, number" />
             </View>
@@ -224,7 +284,8 @@ function PaymentsLedger({ navigation }: StackScreenProps<"Payments">) {
                 </Text>
               </View>
             </View>
-            <View style={[styles.facts, { backgroundColor: t.surfaceInset }]}>
+            <View style={styles.facts}>
+              <SquircleBackground fill={t.surfaceInset} radius={radius.card} />
               <Fact
                 label={open.type === "inflow" ? "From" : "To"}
                 value={open.party || open.customer?.name || "-"}
@@ -237,8 +298,21 @@ function PaymentsLedger({ navigation }: StackScreenProps<"Payments">) {
             {open.note ? (
               <Text style={[textVariants.body, { color: t.textSecondary }]}>{open.note}</Text>
             ) : null}
+            <Button
+              label={open.type === "inflow" ? "Edit payment" : "Edit payout"}
+              icon="edit"
+              variant="outline"
+              fullWidth
+              disabled={locked}
+              onPress={() => {
+                feedback.tap()
+                const id = open.id
+                setOpen(null)
+                navigation.navigate("PaymentNew", { id })
+              }}
+            />
             <Text style={[textVariants.caption, { color: t.textTertiary }]}>
-              Edit, delete or print a receipt in the console.
+              {locked ? TALLY_LOCKED : "Delete or print a receipt in the console."}
             </Text>
           </View>
         ) : (
@@ -303,8 +377,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
+  footerStacked: { flexDirection: "column", gap: spacing.sm },
   half: { flex: 1 },
   sheetHeadBody: { flex: 1, minWidth: 0, gap: spacing.xs },
-  facts: { borderRadius: radius.card, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  facts: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   fact: { flexDirection: "row", alignItems: "center", paddingVertical: 6, gap: spacing.md },
 })
