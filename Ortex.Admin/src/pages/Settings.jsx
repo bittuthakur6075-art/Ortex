@@ -88,6 +88,7 @@ const PATH_LABEL = {
   "company.bankIfsc": "IFSC",
   "company.bankBranch": "Branch",
   "company.upi": "UPI ID",
+  "company.paymentAliases": "Other names and accounts",
   "tax.defaultGstRate": "Default GST",
   "numbering.quotationPrefix": "Quotation prefix",
   "numbering.invoicePrefix": "Invoice prefix",
@@ -138,7 +139,8 @@ export default function Settings() {
     }
   }
   const go = (id) => setParams(id === "company" ? {} : { section: id }, { replace: true })
-  const changedWords = changes.map((p) => PATH_LABEL[p] || p.split(".").pop()).filter((v, i, a) => a.indexOf(v) === i)
+  // A list changes by index (company.paymentAliases.2): name the list.
+  const changedWords = changes.map((p) => PATH_LABEL[p] || PATH_LABEL[p.replace(/\.\d+$/, "")] || p.split(".").pop()).filter((v, i, a) => a.indexOf(v) === i)
 
   const indiamartOn = !!draft.integrations.indiamart.enabled && !!draft.integrations.indiamart.crmKey
   const emailOn = !!draft.notifications.invoiceEmailEnabled
@@ -367,6 +369,17 @@ function CompanySection({ draft, set }) {
             </Row>
             <Row label="UPI ID" hint="Optional">
               <Input value={c.upi} onChange={(e) => set("company", "upi", e.target.value)} placeholder="name@bank" />
+            </Row>
+            <Row
+              label="Other names and accounts"
+              hint="One per line: a name, a UPI ID or an account number the business also pays or is paid through, such as an owner's personal account. The payment screenshot reader counts these as the company to tell money received from a payout. Every staff member can see this list."
+            >
+              <Textarea
+                rows={3}
+                value={(c.paymentAliases || []).join("\n")}
+                onChange={(e) => set("company", "paymentAliases", e.target.value.split("\n"))}
+                placeholder={"Owner name\nowner@okicici\nXXXX 1912"}
+              />
             </Row>
           </Group>
         </div>

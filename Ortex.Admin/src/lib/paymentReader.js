@@ -591,22 +591,36 @@ const SUFFIX = /(?:privatelimited|pvtltd|pvt|limited|ltd|llp|inc|co)$/
  * the screen. Us, as payer: the payer name is the company's, or a bank line
  * ends in the last 4 digits of the company's account (apps print the debited
  * account as "ICICI Bank - 1912"). When both sides look like us, it says null.
+ *
+ * `company.paymentAliases` adds other ways the company appears: an owner's or
+ * partner's name, a personal UPI ID, another account. An entry with "@" is a
+ * UPI ID, one of 4 or more digits an account (its last 4 count), else a name.
  */
 export function paymentDirection(raw, company = {}) {
   const r = raw || {}
   const text = String(r.text || "")
-  const name = squash(company.name).replace(SUFFIX, "")
+  const aliases = (Array.isArray(company.paymentAliases) ? company.paymentAliases : []).map((a) => String(a || "").trim()).filter(Boolean)
+  // Digits, as typed or masked by the bank ("XXXX 9269"): at least 4 of them.
+  const isAccount = (a) => /^[\dXx*\s-]+$/.test(a) && a.replace(/\D/g, "").length >= 4
+  const names = [company.name, ...aliases.filter((a) => !a.includes("@") && !isAccount(a))]
+    .map((n) => squash(n).replace(SUFFIX, ""))
+    .filter((n) => n.length >= 4)
   const isUs = (who) => {
     const w = squash(who).replace(SUFFIX, "")
-    return name.length >= 4 && w.length >= 4 && (w === name || w.startsWith(name) || name.startsWith(w))
+    return w.length >= 4 && names.some((n) => w === n || w.startsWith(n) || n.startsWith(w))
   }
-  const upi = String(company.upi || "").trim().toLowerCase()
-  const last4 = String(company.bankAccount || "").replace(/\D/g, "").slice(-4)
+  const upis = [company.upi, ...aliases.filter((a) => a.includes("@"))]
+    .map((u) => String(u || "").trim().toLowerCase())
+    .filter((u) => u.includes("@"))
+  const accounts = [company.bankAccount, ...aliases.filter(isAccount)]
+    .map((a) => String(a || "").replace(/\D/g, "").slice(-4))
+    .filter((a) => a.length === 4)
+  const lower = text.toLowerCase()
 
-  const toUs = isUs(r.payeeName) || (upi.includes("@") && text.toLowerCase().includes(upi))
+  const toUs = isUs(r.payeeName) || upis.some((u) => lower.includes(u))
   const fromUs =
     isUs(r.payerName) ||
-    (last4.length === 4 && new RegExp(String.raw`\b(?:bank|a\/c|account)\b[^\n]*?(?:x|\*|-|\s)${last4}\b`, "i").test(text))
+    accounts.some((last4) => new RegExp(String.raw`\b(?:bank|a\/c|account)\b[^\n]*?(?:x|\*|-|\s)${last4}\b`, "i").test(text))
   if (toUs === fromUs) return null
   return toUs ? "inflow" : "payout"
 }

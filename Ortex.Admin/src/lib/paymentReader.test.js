@@ -400,3 +400,15 @@ describe("paymentDirection: whose payment a screenshot shows", () => {
     expect(paymentDirection({ payeeName: "Ort" }, company)).toBe(null)
   })
 })
+
+describe("paymentDirection: other names and accounts that mean us", () => {
+  const company = { name: "Ortex Industries", paymentAliases: ["Ramshankar Prasad Thakur", "owner@okicici", "XXXX 9269"] }
+  it("counts an owner's personal name, UPI ID and account as the company", () => {
+    expect(paymentDirection({ payerName: "RAMSHANKAR PRASAD THAKUR", payeeName: "Preeti Kumari" }, company)).toBe("payout")
+    expect(paymentDirection({ payerName: "Bittu Kumar", text: "UPI ID: owner@okicici" }, company)).toBe("inflow")
+    expect(paymentDirection({ payeeName: "Arya Book Shop", text: "Bittu Kumar\nPunjab National Bank - 9269" }, company)).toBe("payout")
+  })
+  it("ignores blanks and too-short entries", () => {
+    expect(paymentDirection({ payeeName: "Ram" }, { name: "Ortex Industries", paymentAliases: ["", "Ram", "  "] })).toBe(null)
+  })
+})

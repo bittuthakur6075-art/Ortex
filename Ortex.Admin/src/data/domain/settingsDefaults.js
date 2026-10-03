@@ -19,6 +19,9 @@ export const DEFAULT_SETTINGS = {
     bankAccount: "",
     bankIfsc: "",
     upi: "",
+    // Other names, UPI IDs and accounts that mean "us" on a payment screenshot
+    // (an owner paying from a personal account): paymentDirection() reads them.
+    paymentAliases: [],
     logoText: "Ortex",
   },
   tax: {

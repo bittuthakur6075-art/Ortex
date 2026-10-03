@@ -20,6 +20,7 @@ export type CompanySettings = {
   bankAccount: string
   bankIfsc: string
   upi: string
+  paymentAliases: string[]
   logoText: string
 }
 
@@ -45,6 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
     bankAccount: "",
     bankIfsc: "",
     upi: "",
+    paymentAliases: [],
     logoText: "Ortex",
   },
   tax: {
