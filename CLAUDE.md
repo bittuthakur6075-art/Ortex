@@ -41,6 +41,7 @@ Never run destructive SQL, a test write or a bulk import against it casually.
 | `Ortex.Admin/src/lib/companyMark.js` (a company's fallback monogram) | `Ortex.Mobile/src/domain/companyMark.ts` (line for line; parity test in `test/companies.test.mjs`) |
 | `Ortex.Admin/src/lib/enquiryImport.js` (Excel import of enquiries) | `Ortex.Mobile/src/domain/enquiryImport.ts` (parity test `test/enquiryImport.test.mjs`) |
 | `Ortex.Admin/src/lib/sessions.js` (Login sessions device names) | `Ortex.Mobile/src/domain/sessions.ts` (parity test `test/sessions.test.mjs`) |
+| `Ortex.Admin/src/lib/validateDocument.js` (quotation and invoice field rules, GSTIN check digit) | `Ortex.Mobile/src/domain/validateDocument.ts` (parity test `test/validateDocument.test.mjs`) |
 | `Ortex.Admin/src/lib/address.js` (company registered / dispatch address on documents) | `Ortex.Mobile/src/domain/address.ts` (parity test `test/address.test.mjs`) |
 | `Ortex.Web/src/pages/Privacy.jsx`, `Terms.jsx` | `Ortex.Mobile/src/features/profile/legal.ts` (verbatim mirror) |
 | Anu's portrait `Ortex.Web/public/img/anu.jpg` | `Ortex.Admin/public/img/anu.jpg`, `Ortex.Mobile/assets/anu.jpg` |

@@ -9,7 +9,10 @@ import { CompanyField } from "../components/ui/CompanyChip"
 import { useProfile } from "../hooks/useProfile"
 import useQuotationDefaults from "../hooks/useQuotationDefaults"
 import { withDefaults } from "../lib/quotationDefaults"
-import { clearDraft, draftHasContent, draftKey, isDirty, readDraft, saveBlocker, writeDraft } from "../lib/quotationDraft"
+import { clearDraft, draftHasContent, draftKey, isDirty, readDraft, writeDraft } from "../lib/quotationDraft"
+import { errorsUnder, tidyDocument } from "../lib/validateDocument"
+import useDocumentValidation from "../hooks/useDocumentValidation"
+import FixSummary from "../components/editors/FixSummary"
 import { currentUserId } from "../lib/auth"
 import { createQuotation, updateQuotation, markEnquiryQuoted, markLeadQuoted, isInterState, sameCustomer } from "../data/domain/domain"
 import { QUOTATION_STATUS, LOST_REASONS, newCustomer, newLine } from "../data/domain/schema"
@@ -328,6 +331,16 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
   const left = validityLeft(liveDoc)
   const fu = isEdit ? quoteFollowUp(liveDoc) : null
   const checks = useMemo(() => quoteChecks(liveDoc, settings), [liveDoc, settings])
+  // Field rules (lib/validateDocument.js): errors block Save, warnings are said.
+  const { on: companiesOn } = useCompany()
+  const v = useDocumentValidation(liveDoc, { kind: "quotation", products, companyRequired: !isEdit && companiesOn })
+  const shownUnder = (prefix) => Object.keys(v.shown).some((k) => k.startsWith(prefix))
+  // Show every problem and open the folded parts that hold one.
+  const revealAll = () => {
+    const keys = Object.keys(v.errors)
+    setOpen((o) => ({ ...o, customer: o.customer || keys.some((k) => k.startsWith("customer.")), ship: o.ship || keys.some((k) => k.startsWith("shipTo.")) }))
+    v.reveal()
+  }
   const lead = form.enquiryId ? enquiries.find((e) => e.id === form.enquiryId) : null
   const party = useMemo(() => {
     const c = form.customer || {}
@@ -338,23 +351,21 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
     return { count: qs.length, won: won.length, billed, master }
   }, [quotations, invoices, customers, form.customer])
 
-  // Said beside the save button while it applies, not only as a toast after.
-  const { on: companiesOn } = useCompany()
-  const blocker = saveBlocker(form) || (!isEdit && companiesOn && !form.companyId ? "Choose a company" : "")
-
   // Persist the form. Returns the saved quotation (or null on failure) and
   // never closes the editor; `save` below decides what happens next.
   const persist = async () => {
     if (saving) return null
-    if (blocker) {
-      toast.error(blocker)
+    if (v.count) {
+      revealAll()
       return null
     }
+    // Stored trimmed; the form takes the same text so it is not left "unsaved".
+    const clean = tidyDocument(form)
     setSaving(true)
     setSaveError("")
     let saved = null
     try {
-      saved = isEdit ? await updateQuotation(form.id, form) : await createQuotation(form)
+      saved = isEdit ? await updateQuotation(form.id, clean) : await createQuotation(clean)
     } catch (e) {
       // Nothing was saved. The form and its local draft stay exactly as they
       // are, so nothing typed is lost and Save can simply be pressed again.
@@ -368,6 +379,8 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
     // save: that makes someone press Save again and mint a second number.
     discardDraft()
     if (isEdit) {
+      setForm(clean)
+      setBaseline(clean)
       toast.success("Quotation saved")
     } else {
       let followUp = ""
@@ -386,10 +399,8 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
   const save = async () => {
     const saved = await persist()
     if (!saved) return
-    if (isEdit) {
-      setBaseline({ ...form })
-      setSavedAt(new Date().toISOString())
-    } else onOpen({ ...saved })
+    if (isEdit) setSavedAt(new Date().toISOString())
+    else onOpen({ ...saved })
   }
 
   // Send needs a saved quotation that matches the screen.
@@ -398,13 +409,15 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
       const saved = await persist()
       if (!saved) return
       if (!isEdit) return onOpen({ ...saved }), onSend(saved)
-      setBaseline({ ...form })
     }
     onSend(form)
   }
 
   const saveAndPreview = async () => {
-    if (dirty || !isEdit) await save()
+    if (dirty || !isEdit) {
+      if (v.count) return revealAll()
+      await save()
+    }
     onPreview(liveDoc)
   }
 
@@ -494,7 +507,7 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
 
   return (
     // At least one window tall, so the sticky action bar rests on the bottom edge.
-    <div className="flex min-h-[calc(100dvh-76px)] flex-col gap-4">
+    <div ref={v.rootRef} onBlurCapture={v.onBlurCapture} className="flex min-h-[calc(100dvh-76px)] flex-col gap-4">
       {/* Breadcrumb */}
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -653,9 +666,9 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
             <>
               <CompanyField value={form.companyId} onChange={pickCompany} disabled={isEdit} className={cn("rounded-card bg-card p-[18px]", isEdit && "hidden")} />
               <Box attached={isEdit} title="Customer and supply" action={<TextBtn onClick={() => toggle("customer")}>{open.customer ? "Done" : partyLabel ? "Change customer" : "Add customer"}</TextBtn>}>
-                {open.customer && (
+                {(open.customer || shownUnder("customer.")) && (
                   <div className="mb-4">
-                    <CustomerPicker value={form.customer} onChange={(customer) => set({ customer })} customers={customers} />
+                    <CustomerPicker value={form.customer} onChange={(customer) => set({ customer })} customers={customers} errors={errorsUnder(v.shown, "customer")} warnings={errorsUnder(v.shownWarnings, "customer")} />
                   </div>
                 )}
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -698,25 +711,25 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
                     )}
                   </div>
                 </div>
-                {open.ship && (
+                {(open.ship || shownUnder("shipTo.")) && (
                   <div className="mt-4 border-t border-border pt-4">
-                    <ShipToFields value={form.shipTo} onChange={(shipTo) => set({ shipTo })} customers={customers} />
+                    <ShipToFields value={form.shipTo} onChange={(shipTo) => set({ shipTo })} customers={customers} errors={errorsUnder(v.shown, "shipTo")} warnings={errorsUnder(v.shownWarnings, "shipTo")} />
                   </div>
                 )}
               </Box>
 
               <Box title="Details">
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-                  <Field label="Issue date">
-                    <Input type="date" value={toDateInput(form.issueDate)} onChange={(e) => set({ issueDate: new Date(e.target.value).toISOString() })} />
+                  <Field label="Issue date" data-path="issueDate" error={v.shown.issueDate}>
+                    <Input type="date" value={toDateInput(form.issueDate)} onChange={(e) => set({ issueDate: e.target.value ? new Date(e.target.value).toISOString() : "" })} />
                   </Field>
-                  <Field label="Validity">
+                  <Field label="Validity" data-path="validityDays" error={v.shown.validityDays} warning={v.shownWarnings.validityDays}>
                     <Input type="number" min="1" value={form.validityDays} onChange={(e) => set({ validityDays: Number(e.target.value) })} />
                   </Field>
                   <Field label="Valid until" hint={left == null ? undefined : left < 0 ? `Lapsed ${-left} days ago` : `${left} days left`}>
                     <Input readOnly value={liveDoc.validUntil ? dm(liveDoc.validUntil) + " " + new Date(liveDoc.validUntil).getFullYear() : ""} />
                   </Field>
-                  <Field label="Payment terms">
+                  <Field label="Payment terms" data-path="paymentTerms" error={v.shown.paymentTerms}>
                     <Input value={form.paymentTerms} onChange={(e) => set({ paymentTerms: e.target.value })} placeholder="e.g. 50% advance" />
                   </Field>
                   <Field label="Seller">
@@ -738,9 +751,11 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
                   onChange={(lines) => set({ lines })}
                   products={products}
                   extraDiscountPercent={form.extraDiscountPercent}
-                  onExtraDiscountChange={(v) => set({ extraDiscountPercent: v })}
+                  onExtraDiscountChange={(x) => set({ extraDiscountPercent: x })}
                   interState={interState}
                   showTotals={false}
+                  errors={v.shown}
+                  warnings={v.shownWarnings}
                 />
               </Box>
 
@@ -807,12 +822,15 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
                     value={form.extraDiscountPercent || 0}
                     onChange={(e) => set({ extraDiscountPercent: Number(e.target.value) })}
                     aria-label="Extra discount percent"
+                    data-path="extraDiscountPercent"
+                    aria-invalid={v.shown.extraDiscountPercent ? true : undefined}
                     className="h-6 w-12 rounded-md border border-line bg-card px-1.5 text-right text-xs text-foreground outline-none focus:border-primary"
                   />
                   %
                 </dt>
                 <dd className={cn("font-medium tabular", t.docDiscount > 0 ? "text-success-text" : "text-muted-foreground")}>{t.docDiscount > 0 ? `−${rupees2(t.docDiscount)}` : "-"}</dd>
               </div>
+              {v.shown.extraDiscountPercent && <p className="text-xs text-destructive-text">{v.shown.extraDiscountPercent}</p>}
               <Line label="Taxable value" value={rupees2(t.taxable)} />
               {Object.entries(t.taxByRate || {})
                 .sort((a, b) => Number(b[0]) - Number(a[0]))
@@ -838,6 +856,13 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
                 <li key={x.key} className={cn("flex items-start gap-2", x.ok ? "text-foreground" : x.warn ? "text-warning-text" : "text-destructive-text")}>
                   {x.ok ? <CheckCircle2 className="mt-px h-4 w-4 flex-none text-success-text" /> : <AlertTriangle className="mt-px h-4 w-4 flex-none" />}
                   {x.text}
+                </li>
+              ))}
+              {/* validateDocument's warnings: worth a look, never a block. */}
+              {Object.entries(v.warnings).map(([path, text]) => (
+                <li key={path} className="flex items-start gap-2 text-warning-text">
+                  <AlertTriangle className="mt-px h-4 w-4 flex-none" />
+                  {warningLabel(path)}{text}
                 </li>
               ))}
             </ul>
@@ -895,8 +920,8 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
         <span className="mr-1 inline-flex min-w-0 items-center gap-1.5">
           {saveError ? (
             <span className="font-medium text-destructive-text" role="alert">Not saved: {saveError}</span>
-          ) : blocker ? (
-            <span className="inline-flex items-center gap-1.5 font-medium text-warning-text"><AlertTriangle className="h-3.5 w-3.5" /> {blocker}</span>
+          ) : v.count && (dirty || !isEdit) ? (
+            <FixSummary v={v} />
           ) : dirty ? (
             <span className="inline-flex items-center gap-1.5 font-medium text-warning-text"><span className="h-2 w-2 rounded-full bg-warning" /> {isEdit ? "Unsaved changes" : "Not created yet"}</span>
           ) : (
@@ -912,7 +937,7 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
           Close
         </Button>
         {(dirty || !isEdit) && (
-          <Button variant="outline" size="sm" onClick={save} disabled={saving}>
+          <Button variant="outline" size="sm" onClick={save} disabled={saving || v.count > 0} title={v.count ? v.first : undefined}>
             {saving ? "Saving…" : isEdit ? "Save" : "Create quotation"}
           </Button>
         )}
@@ -1021,6 +1046,12 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
 }
 
 // ---- pieces ---------------------------------------------------------------
+
+// "Line 2: " before a line's warning in the pre-send list; nothing for the rest.
+const warningLabel = (path) => {
+  const m = /^lines.(d+)./.exec(path)
+  return m ? `Line ${Number(m[1]) + 1}: ` : ""
+}
 
 const rupees2 = (n) => `₹${(Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 

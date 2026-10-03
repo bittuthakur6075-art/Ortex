@@ -28,6 +28,9 @@ import { Button, Input, Textarea, Field, StatusBadge, Chip } from "../../compone
 import { CompanyField } from "../../components/ui/CompanyChip"
 import { useCompany } from "../../hooks/useCompany"
 import { cn } from "../../lib/cn"
+import { errorsUnder, tidyDocument } from "../../lib/validateDocument"
+import useDocumentValidation from "../../hooks/useDocumentValidation"
+import FixSummary from "../../components/editors/FixSummary"
 import PaymentHistory from "./PaymentHistory"
 import RecordPaymentModal from "./RecordPaymentModal"
 
@@ -84,15 +87,19 @@ export default function InvoiceEditor({ draft, products, customers: allCustomers
   const balance = isEdit ? invoiceBalance({ ...form, totals: liveDoc.totals }, payments) : grand
   const settled = isEdit && isSettled(balance)
   const hasPayments = paid > 0
+  // Field rules (lib/validateDocument.js): errors block Save, warnings are said.
+  const v = useDocumentValidation(liveDoc, { kind: "invoice", products, companyRequired: !isEdit && companiesOn })
+  const shipShown = Object.keys(v.shown).some((k) => k.startsWith("shipTo."))
 
   const save = async () => {
-    if (!form.customer.name.trim() && !form.customer.company?.trim()) return toast.error("Choose or add a customer")
-    if (!form.lines.length) return toast.error("Add at least one line item")
-    if (!isEdit && companiesOn && !form.companyId) return toast.error("Choose a company")
+    if (v.count) {
+      if (Object.keys(v.errors).some((k) => k.startsWith("shipTo."))) setMoreOpen(true)
+      return v.reveal()
+    }
     // The editor's line items are the source of truth. Drop any aggregate
     // `totals` carried in from a Tally import so createInvoice recomputes them.
     // updateInvoice never writes status, amountPaid, paidAt, tally or `_` view fields.
-    const { totals: _staleTotals, ...payload } = form
+    const { totals: _staleTotals, ...payload } = tidyDocument(form)
     // A double click must not mint two invoice numbers.
     if (savingRef.current) return
     savingRef.current = true
@@ -158,7 +165,7 @@ export default function InvoiceEditor({ draft, products, customers: allCustomers
   const summary = `${lineCount} line${lineCount === 1 ? "" : "s"} · ${formatCurrency(grand)}`
 
   return (
-    <div>
+    <div ref={v.rootRef} onBlurCapture={v.onBlurCapture}>
       <EditorHeader
         onBack={leave}
         backLabel="Back to invoices"
@@ -187,7 +194,7 @@ export default function InvoiceEditor({ draft, products, customers: allCustomers
                 )}
               </>
             )}
-            <Button size="md" onClick={save} disabled={saving}>
+            <Button size="md" onClick={save} disabled={saving || v.count > 0} title={v.count ? v.first : undefined}>
               {saving ? "Saving…" : isEdit ? "Save changes" : "Create invoice"}
             </Button>
           </>
@@ -219,7 +226,7 @@ export default function InvoiceEditor({ draft, products, customers: allCustomers
         <div className="min-w-0 space-y-4">
           {!isEdit && <CompanyField value={form.companyId} onChange={pickCompany} className="rounded-card bg-card p-5" />}
           <Section title="Customer" description="Who this invoice bills">
-            <CustomerPicker value={form.customer} onChange={(customer) => set({ customer })} customers={customers} />
+            <CustomerPicker value={form.customer} onChange={(customer) => set({ customer })} customers={customers} errors={errorsUnder(v.shown, "customer")} warnings={errorsUnder(v.shownWarnings, "customer")} />
             {hasState ? (
               <p className={cn("mt-3 text-xs font-medium", interState ? "text-primary" : "text-success-text")}>
                 {interState ? "Inter-state supply: IGST will be applied." : "Intra-state supply: CGST + SGST will be applied."}
@@ -233,13 +240,13 @@ export default function InvoiceEditor({ draft, products, customers: allCustomers
 
           <Section title="Details">
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <Field label="Issue date">
-                <Input type="date" value={toDateInput(form.issueDate)} onChange={(e) => set({ issueDate: new Date(e.target.value).toISOString() })} />
+              <Field label="Issue date" data-path="issueDate" error={v.shown.issueDate}>
+                <Input type="date" value={toDateInput(form.issueDate)} onChange={(e) => set({ issueDate: e.target.value ? new Date(e.target.value).toISOString() : "" })} />
               </Field>
-              <Field label="Due date">
-                <Input type="date" value={toDateInput(form.dueDate)} onChange={(e) => set({ dueDate: new Date(e.target.value).toISOString() })} />
+              <Field label="Due date" data-path="dueDate" error={v.shown.dueDate}>
+                <Input type="date" value={toDateInput(form.dueDate)} onChange={(e) => set({ dueDate: e.target.value ? new Date(e.target.value).toISOString() : null })} />
               </Field>
-              <Field label="Payment terms" className="col-span-2">
+              <Field label="Payment terms" className="col-span-2" data-path="paymentTerms" error={v.shown.paymentTerms}>
                 <Input value={form.paymentTerms || ""} onChange={(e) => set({ paymentTerms: e.target.value })} placeholder="Enter payment terms" />
               </Field>
             </div>
@@ -263,8 +270,10 @@ export default function InvoiceEditor({ draft, products, customers: allCustomers
               onChange={(lines) => set({ lines })}
               products={products}
               extraDiscountPercent={form.extraDiscountPercent}
-              onExtraDiscountChange={(v) => set({ extraDiscountPercent: v })}
+              onExtraDiscountChange={(x) => set({ extraDiscountPercent: x })}
               interState={interState}
+              errors={v.shown}
+              warnings={v.shownWarnings}
             />
           </Section>
 
@@ -280,6 +289,7 @@ export default function InvoiceEditor({ draft, products, customers: allCustomers
               onChange={(e) => set({ terms: e.target.value })}
               className="min-h-[110px]"
             />
+            {v.warnings.terms && <p className="mt-1 text-xs text-warning-text">{v.warnings.terms}</p>}
           </Section>
 
           <div className="rounded-card bg-card shadow-card">
@@ -293,10 +303,10 @@ export default function InvoiceEditor({ draft, products, customers: allCustomers
               </div>
               <span className="text-[13px] font-medium text-primary">{moreOpen ? "Hide" : "Edit"}</span>
             </button>
-            {moreOpen && (
+            {(moreOpen || shipShown) && (
               <div className="space-y-5 border-t border-border px-5 py-5">
-                <ShipToFields value={form.shipTo} onChange={(shipTo) => set({ shipTo })} customers={customers} />
-                <Field label="Notes" hint="Printed under the totals">
+                <ShipToFields value={form.shipTo} onChange={(shipTo) => set({ shipTo })} customers={customers} errors={errorsUnder(v.shown, "shipTo")} warnings={errorsUnder(v.shownWarnings, "shipTo")} />
+                <Field label="Notes" hint="Printed under the totals" warning={v.warnings.notes}>
                   <Textarea
                     ai={{
                       purpose: "Short note printed under the totals of a customer invoice, for example a thank you, bank transfer reminder or delivery remark",
@@ -338,11 +348,11 @@ export default function InvoiceEditor({ draft, products, customers: allCustomers
         }
         right={
           <>
-            <span className="mr-2 hidden text-[13px] text-muted-foreground sm:inline">{summary}</span>
+            {v.count && (dirty || !isEdit) ? <FixSummary v={v} /> : <span className="mr-2 hidden text-[13px] text-muted-foreground sm:inline">{summary}</span>}
             <Button variant="outline" size="sm" onClick={leave}>
               Cancel
             </Button>
-            <Button size="sm" onClick={save} disabled={saving}>
+            <Button size="sm" onClick={save} disabled={saving || v.count > 0} title={v.count ? v.first : undefined}>
               {saving ? "Saving…" : isEdit ? "Save changes" : "Create invoice"}
             </Button>
           </>

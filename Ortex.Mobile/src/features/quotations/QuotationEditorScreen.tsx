@@ -1,6 +1,6 @@
 import { usePreventRemove } from "@react-navigation/native"
 import React from "react"
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { repo } from "@/data/repo"
@@ -20,7 +20,8 @@ import {
   type CreateAttempt,
   type QuotationDraft,
 } from "@/domain/quotations"
-import { newCustomer, type Line, type Quotation } from "@/domain/schema"
+import { newCustomer, type Line, type Product, type Quotation } from "@/domain/schema"
+import { errorsUnder, tidyDocument, validateDocument } from "@/domain/validateDocument"
 import { DEFAULT_SETTINGS } from "@/domain/settings"
 import CustomerPickerSheet from "@/features/quotations/CustomerPickerSheet"
 import LineItemSheet from "@/features/quotations/LineItemSheet"
@@ -31,6 +32,7 @@ import {
   readStoredDraft,
   usePersistedDraft,
 } from "@/features/quotations/useQuotationDraft"
+import { useCollection } from "@/hooks/useCollection"
 import { useSettings } from "@/hooks/useSettings"
 import { prettyPhone } from "@/lib/contact"
 import { useQuotationDefaults } from "@/lib/quotationDefaults"
@@ -258,34 +260,70 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
 
   const hasCustomer = !!(draft.customer.name.trim() || draft.customer.company.trim())
   const hasLines = draft.lines.length > 0
-  const needsCompany = company.multi && !draft.companyId
-  const canSave = hasCustomer && hasLines && !needsCompany && !saving
+
+  // The console's rules (domain/validateDocument.ts): errors block Create,
+  // warnings are said. A field shows its problem once it has been left, and
+  // every problem once Create (or the footer's count) is pressed.
+  const { items: products } = useCollection<Product>("products")
+  const check = React.useMemo(
+    () => validateDocument(draft, { kind: "quotation", products, companyRequired: company.multi && !editingId }),
+    [draft, products, company.multi, editingId],
+  )
+  const [touched, setTouched] = React.useState<Record<string, boolean>>({})
+  const [tried, setTried] = React.useState(false)
+  const touch = (path: string) => () => setTouched((x) => (x[path] ? x : { ...x, [path]: true }))
+  const err = (path: string) => (tried || touched[path] ? check.errors[path] : undefined)
+  const warn = (path: string) => (tried || touched[path] ? check.warnings[path] : undefined)
+  const errorKeys = Object.keys(check.errors)
+  const canSave = errorKeys.length === 0 && !saving
   // Said in the footer, in place of the total, so the block is visible before the
   // button is ever pressed.
-  const blocker = needsCompany
-    ? "Choose a company"
-    : !hasCustomer
-    ? "Choose a customer"
-    : !hasLines
-    ? "Add at least one item"
-    : null
+  const blocker = errorKeys.length ? check.errors[errorKeys[0]] : null
+
+  // Where each part of the form starts, for "N things to fix" to scroll to.
+  const scrollRef = React.useRef<ScrollView | null>(null)
+  const sectionY = React.useRef<Record<string, number>>({})
+  const markY = (key: string) => (e: { nativeEvent: { layout: { y: number } } }) => {
+    sectionY.current[key] = e.nativeEvent.layout.y
+  }
+  const sectionOf = (path: string) =>
+    /^(companyId|customer|shipTo)/.test(path)
+      ? "who"
+      : /^(lines|total)/.test(path)
+      ? "what"
+      : path === "extraDiscountPercent"
+      ? "money"
+      : path === "issueDate"
+      ? "top"
+      : "rest"
+  const reveal = () => {
+    setTried(true)
+    feedback.warn()
+    const first = errorKeys[0]
+    if (!first) return
+    if (first.startsWith("customer.") && !hasCustomer) setCustomerFormOpen(true)
+    const section = sectionOf(first)
+    if (section === "rest") setShowTerms(true)
+    scrollRef.current?.scrollTo({ y: Math.max(0, (sectionY.current[section] ?? 0) - 8), animated: true })
+  }
 
   const save = async () => {
     if (blocker) {
-      feedback.warn()
-      toast.show({ message: blocker, tone: "danger" })
+      reveal()
       return
     }
+    // Stored trimmed: names, contact details, item text.
+    const clean = tidyDocument(draft)
     setSaving(true)
     try {
       if (editingId) {
-        await updateQuotation(editingId, draft as Partial<Quotation>, settings)
+        await updateQuotation(editingId, clean as Partial<Quotation>, settings)
         feedback.created()
         toast.show({ message: "Quotation updated", tone: "success" })
         leaving.current = true
         navigation.goBack()
       } else {
-        const created = await createQuotationReliably(draft, settings, attempt.current)
+        const created = await createQuotationReliably(clean, settings, attempt.current)
         // The quotation EXISTS from here on, so nothing below may throw into the
         // catch: a "Could not save" toast after a successful insert makes the
         // rep press Save again and mint a second number for the same document.
@@ -363,7 +401,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         </Text>
       </View>
 
-      <KeyboardAwareScrollView contentContainerStyle={styles.content} bottomOffset={footerHeight}>
+      <KeyboardAwareScrollView contentContainerStyle={styles.content} bottomOffset={footerHeight} scrollRef={scrollRef}>
         {/* The company itself could not be loaded, so this document is being
             priced on the built-in defaults: a placeholder GSTIN and a Delhi
             home state. Said before anything is typed, not discovered on the PDF. */}
@@ -377,7 +415,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
           </View>
         )}
         {/* ── WHO ────────────────────────────────────────────────────────── */}
-        <Panel title="Customer">
+        <Panel title="Customer" onLayout={markY("who")}>
           {company.multi && (
             <View style={styles.form}>
               <PickerField
@@ -385,6 +423,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                 value={company.nameOf(draft.companyId) || "Choose a company"}
                 hint={editingId ? "A quotation stays with the company it was raised for" : "Numbering, GSTIN and terms follow it"}
                 warn={!draft.companyId}
+                error={err("companyId")}
                 onPress={() => {
                   if (editingId) return
                   feedback.tap()
@@ -423,6 +462,8 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                   onChangeText={(v) => set({ customer: { ...draft.customer, name: v } })}
                   placeholder="Enter contact name"
                   autoCapitalize="words"
+                  onBlur={touch("customer.name")}
+                  error={err("customer.name")}
                   {...chain(0)}
                 />
                 <TextField
@@ -431,6 +472,8 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                   onChangeText={(v) => set({ customer: { ...draft.customer, company: v } })}
                   placeholder="Enter company name"
                   autoCapitalize="words"
+                  onBlur={touch("customer.company")}
+                  error={err("customer.company")}
                   {...chain(1)}
                 />
                 {/* One field per row. Side by side, each got half the width, which
@@ -443,6 +486,8 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                   onChangeText={(v) => set({ customer: { ...draft.customer, phone: v } })}
                   keyboardType="phone-pad"
                   placeholder="Enter phone number"
+                  onBlur={touch("customer.phone")}
+                  error={err("customer.phone")}
                   {...chain(2)}
                 />
                 <TextField
@@ -453,6 +498,9 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                   autoCapitalize="none"
                   autoCorrect={false}
                   placeholder="Enter email address"
+                  onBlur={touch("customer.email")}
+                  error={err("customer.email")}
+                  warning={warn("customer.email")}
                   {...chain(3)}
                 />
                 <TextField
@@ -468,6 +516,8 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                   autoCorrect={false}
                   maxLength={15}
                   placeholder="Enter GSTIN"
+                  onBlur={touch("customer.gstin")}
+                  error={err("customer.gstin")}
                   {...chain(4, true)}
                 />
                 {/* The one field here that changes the money. */}
@@ -484,6 +534,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                       : "Decides CGST + SGST or IGST"
                   }
                   warn={!draft.customer.stateCode || !!gstMismatch}
+                  error={err("customer.stateCode")}
                   onPress={() => setStateOpen("customer")}
                 />
                 <TextField
@@ -493,6 +544,9 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                   placeholder="Enter billing address"
                   multiline
                   numberOfLines={3}
+                  onBlur={touch("customer.address")}
+                  error={err("customer.address")}
+                  warning={warn("customer.address")}
                 />
               </View>
 
@@ -514,10 +568,13 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                     onChangeText={(v) => set({ shipTo: { ...draft.shipTo!, name: v } })}
                     placeholder="Enter consignee name"
                     autoCapitalize="words"
+                    onBlur={touch("shipTo.name")}
+                    error={err("shipTo.name")}
                   />
                   <PickerField
                     label="Delivery State"
                     value={draft.shipTo.stateCode ? stateLabel(draft.shipTo.stateCode) : "Not set"}
+                    error={err("shipTo.stateCode")}
                     onPress={() => setStateOpen("shipTo")}
                   />
                   <TextField
@@ -527,6 +584,9 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                     placeholder="Enter delivery address"
                     multiline
                     numberOfLines={3}
+                    onBlur={touch("shipTo.address")}
+                    error={err("shipTo.address")}
+                    warning={warn("shipTo.address")}
                   />
                 </View>
               )}
@@ -554,10 +614,14 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
               <Icon name="forward" size={18} color={t.textTertiary} />
             </Pressable>
           )}
+          {!hasCustomer && !customerFormOpen && !!err("customer.name") && (
+            <Text style={[textVariants.caption, styles.panelError, { color: t.danger }]}>{err("customer.name")}</Text>
+          )}
         </Panel>
 
         {/* ── WHAT ───────────────────────────────────────────────────────── */}
         <Panel
+          onLayout={markY("what")}
           title="Items"
           meta={hasLines ? `${draft.lines.length} ${draft.lines.length === 1 ? "line" : "lines"}` : undefined}
         >
@@ -592,6 +656,10 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                       {formatCurrency(computed?.taxable ?? 0)}
                     </Text>
                   </Pressable>
+                  <LineProblem
+                    error={tried ? Object.values(errorsUnder(check.errors, `lines.${index}`))[0] : undefined}
+                    warning={Object.values(errorsUnder(check.warnings, `lines.${index}`))[0]}
+                  />
                 </View>
               )
             })
@@ -604,6 +672,11 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
             </View>
           )}
 
+          {tried && !!(check.errors.lines || check.errors.total) && (
+            <Text style={[textVariants.caption, styles.panelError, { color: t.danger }]}>
+              {check.errors.lines || check.errors.total}
+            </Text>
+          )}
           <Divider inset={0} />
           <Pressable
             onPress={() => {
@@ -623,7 +696,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         </Panel>
 
         {/* ── HOW MUCH ───────────────────────────────────────────────────── */}
-        <Panel title="Money">
+        <Panel title="Money" onLayout={markY("money")}>
           {/* The tax treatment, said in words at the TOP. Reading "IGST" for the
               first time at the bottom of a sent PDF is how a wrong split gets
               noticed by the customer instead of by us. */}
@@ -685,6 +758,11 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
             />
             <Text style={[textVariants.bodyStrong, { color: t.textSecondary }]}>%</Text>
           </View>
+          {tried && !!check.errors.extraDiscountPercent && (
+            <Text style={[textVariants.caption, styles.panelError, { color: t.danger }]}>
+              {check.errors.extraDiscountPercent}
+            </Text>
+          )}
         </Panel>
 
         {/* ── THE SHEET ITSELF ───────────────────────────────────────────── */}
@@ -714,7 +792,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         </Panel>
 
         {/* ── THE REST, folded away ──────────────────────────────────────── */}
-        <Panel>
+        <Panel onLayout={markY("rest")}>
           <Pressable
             accessibilityRole="button"
             onPress={() => {
@@ -758,12 +836,17 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                 onChangeText={(v) => set({ validityDays: Number(v.replace(/[^0-9]/g, "")) || 0 })}
                 placeholder="Enter number of days"
                 keyboardType="number-pad"
+                onBlur={touch("validityDays")}
+                error={err("validityDays")}
+                warning={warn("validityDays")}
               />
               <TextField
                 label="Payment Terms"
                 value={draft.paymentTerms}
                 onChangeText={(v) => set({ paymentTerms: v })}
                 placeholder="Enter payment terms"
+                onBlur={touch("paymentTerms")}
+                error={err("paymentTerms")}
                 ai={{
                   purpose: "Payment terms printed on a B2B quotation, one short line (for example the advance and when the balance is due)",
                   format: "short",
@@ -776,6 +859,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                 value={draft.terms}
                 onChangeText={(v) => set({ terms: v })}
                 placeholder="Enter terms and conditions"
+                hint={check.warnings.terms}
                 numberOfLines={6}
                 ai={{
                   purpose:
@@ -793,6 +877,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
                 value={draft.notes}
                 onChangeText={(v) => set({ notes: v })}
                 placeholder="Enter notes"
+                hint={check.warnings.notes}
                 numberOfLines={4}
                 ai={{
                   purpose: "Short notes to the customer printed on the quotation, such as artwork proofs, samples or delivery notes. One note per line.",
@@ -819,10 +904,20 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
       >
         <View style={styles.footerTotal}>
           {blocker ? (
-            <>
-              <Text style={[textVariants.microLabel, { color: t.textTertiary }]}>NEXT</Text>
-              <Text style={[textVariants.cardTitle, { color: t.warningText }]}>{blocker}</Text>
-            </>
+            // The count is a button: it shows every problem and scrolls to the first.
+            <Pressable
+              onPress={reveal}
+              accessibilityRole="button"
+              accessibilityLabel={`${errorKeys.length} to fix: ${blocker}`}
+              hitSlop={8}
+            >
+              <Text style={[textVariants.microLabel, { color: t.danger }]}>
+                {errorKeys.length === 1 ? "1 THING TO FIX" : `${errorKeys.length} THINGS TO FIX`}
+              </Text>
+              <Text numberOfLines={2} style={[textVariants.cardTitle, { color: t.warningText }]}>
+                {blocker}
+              </Text>
+            </Pressable>
           ) : (
             <>
               <Text style={[textVariants.microLabel, { color: t.textTertiary }]}>
@@ -852,6 +947,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
         onPick={(name) => {
           const picked = company.companies.find((c) => c.name === name)
           if (picked) set({ companyId: picked.id })
+          touch("companyId")()
           setCompanyOpen(false)
         }}
       />
@@ -878,6 +974,7 @@ export default function QuotationEditorScreen({ route, navigation }: StackScreen
           feedback.select()
           if (stateOpen === "shipTo" && draft.shipTo) set({ shipTo: { ...draft.shipTo, stateCode: code } })
           else set({ customer: { ...draft.customer, stateCode: code } })
+          touch(stateOpen === "shipTo" ? "shipTo.stateCode" : "customer.stateCode")()
           setStateOpen(null)
         }}
       />
@@ -954,12 +1051,15 @@ function PickerField({
   value,
   hint,
   warn,
+  error,
   onPress,
 }: {
   label: string
   value: string
   hint?: string
   warn?: boolean
+  /** Outranks the hint and the warning tint, as on TextField. */
+  error?: string
   onPress: () => void
 }) {
   const t = useTheme()
@@ -970,11 +1070,12 @@ function PickerField({
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${value}`}
+        accessibilityHint={error || hint || undefined}
         style={({ pressed }) => [
           styles.picker,
           {
-            backgroundColor: warn ? t.warningBg : t.fieldBg,
-            borderColor: warn ? t.warning : t.border,
+            backgroundColor: warn && !error ? t.warningBg : t.fieldBg,
+            borderColor: error ? t.danger : warn ? t.warning : t.border,
             opacity: pressed ? 0.7 : 1,
           },
         ]}
@@ -984,7 +1085,11 @@ function PickerField({
         </Text>
         <Icon name="down" size={16} color={t.textTertiary} />
       </Pressable>
-      {!!hint && <Text style={[textVariants.caption, { color: t.textTertiary, marginTop: 5 }]}>{hint}</Text>}
+      {!!(error || hint) && (
+        <Text style={[textVariants.caption, { color: error ? t.danger : t.textTertiary, marginTop: 5 }]}>
+          {error || hint}
+        </Text>
+      )}
     </View>
   )
 }
@@ -1005,11 +1110,21 @@ function PickerField({
  * its children and inserts separators breaks the moment a panel is conditional or
  * wrapped, and the band then belongs to whatever renders it.
  */
-function Panel({ title, meta, children }: { title?: string; meta?: string; children: React.ReactNode }) {
+function Panel({
+  title,
+  meta,
+  onLayout,
+  children,
+}: {
+  title?: string
+  meta?: string
+  onLayout?: (e: { nativeEvent: { layout: { y: number } } }) => void
+  children: React.ReactNode
+}) {
   const t = useTheme()
   return (
     <>
-      <View style={{ backgroundColor: t.surface }}>
+      <View style={{ backgroundColor: t.surface }} onLayout={onLayout}>
         {!!title && (
           <View style={styles.panelHead}>
             <Text style={[textVariants.sectionLabel, { color: t.textTertiary }]}>{title.toUpperCase()}</Text>
@@ -1022,6 +1137,16 @@ function Panel({ title, meta, children }: { title?: string; meta?: string; child
       </View>
       <View style={[styles.band, { backgroundColor: t.border }]} />
     </>
+  )
+}
+
+/** A line's first problem under its row: an error once Create was pressed, else a warning. */
+function LineProblem({ error, warning }: { error?: string; warning?: string }) {
+  const t = useTheme()
+  const text = error || warning
+  if (!text) return null
+  return (
+    <Text style={[textVariants.caption, styles.lineProblem, { color: error ? t.danger : t.warningText }]}>{text}</Text>
   )
 }
 
@@ -1188,4 +1313,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 2,
   },
   footerTotal: { flex: 1, gap: 2 },
+  panelError: { paddingHorizontal: gutter, paddingBottom: spacing.md },
+  lineProblem: { paddingLeft: gutter + 34, paddingRight: gutter, marginTop: -8, paddingBottom: 10 },
 })

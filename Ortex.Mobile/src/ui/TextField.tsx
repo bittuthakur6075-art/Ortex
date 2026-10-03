@@ -40,6 +40,8 @@ type Props = Omit<TextInputProps, "style" | "placeholderTextColor"> & {
   ref?: React.Ref<TextInput>
   label?: string
   error?: string
+  /** Said in amber where the hint goes: worth a look, not a block. An error outranks it. */
+  warning?: string
   hint?: string
   required?: boolean
   disabled?: boolean
@@ -72,6 +74,7 @@ function getAiWriterSheet() {
 export default function TextField({
   label,
   error,
+  warning,
   hint,
   required = false,
   disabled = false,
@@ -184,7 +187,7 @@ export default function TextField({
           multiline={multiline}
           secureTextEntry={isPassword && !revealed}
           accessibilityLabel={label}
-          accessibilityHint={error || hint || undefined}
+          accessibilityHint={error || warning || hint || undefined}
           accessibilityState={{ disabled }}
           onFocus={(e) => {
             setFocused(true)
@@ -235,11 +238,14 @@ export default function TextField({
         ) : null}
       </View>
 
-      {error || hint ? (
+      {error || warning || hint ? (
         <Text
-          style={[textVariants.caption, { color: error ? c.danger : c.textTertiary, marginTop: spacing.xs }]}
+          style={[
+            textVariants.caption,
+            { color: error ? c.danger : warning ? c.warningText : c.textTertiary, marginTop: spacing.xs },
+          ]}
         >
-          {error || hint}
+          {error || warning || hint}
         </Text>
       ) : null}
     </View>

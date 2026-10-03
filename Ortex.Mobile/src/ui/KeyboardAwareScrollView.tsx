@@ -16,9 +16,12 @@ export default function KeyboardAwareScrollView({
   children,
   bottomOffset = 0,
   contentContainerStyle,
+  scrollRef,
   ...rest
 }: ScrollViewProps & {
   children: React.ReactNode
+  /** The ScrollView itself, for a screen that scrolls to a section (a form's first error). */
+  scrollRef?: React.RefObject<ScrollView | null>
   /** Space kept below the content besides the keyboard — a sticky footer. */
   bottomOffset?: number
 }) {
@@ -32,7 +35,10 @@ export default function KeyboardAwareScrollView({
       {...rest}
       // After the spread, so a caller passing its own handlers cannot quietly
       // disable the tracking these feed.
-      ref={ref}
+      ref={(r) => {
+        ref.current = r
+        if (scrollRef) scrollRef.current = r
+      }}
       onLayout={(e) => {
         onLayout(e)
         rest.onLayout?.(e)

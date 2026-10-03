@@ -5,6 +5,9 @@ import { computeDocument } from "../../lib/pricing"
 import { formatCurrency, round2 } from "../../lib/format"
 import { Button, Input, Select } from "../ui/Ui"
 import { cn } from "../../lib/cn"
+import { errorsUnder } from "../../lib/validateDocument"
+
+const LABEL = { description: "Item", hsn: "HSN", quantity: "Qty", rate: "Rate", discountPercent: "Discount", gstRate: "GST" }
 
 // Editable line-items grid + live totals, shared by quotations and invoices.
 // Layout follows the Keystone document: a compact bordered grid with an
@@ -15,7 +18,8 @@ import { cn } from "../../lib/cn"
 //   extraDiscountPercent, onExtraDiscountChange
 //   interState      , controls the GST split shown in the summary
 // `showTotals` false leaves the totals to the page (the quotation editor's rail).
-export default function LineItemsEditor({ lines, onChange, products, extraDiscountPercent = 0, onExtraDiscountChange, interState, showTotals = true }) {
+// `errors` / `warnings` are validateDocument's maps ("lines.2.rate", ...).
+export default function LineItemsEditor({ lines, onChange, products, extraDiscountPercent = 0, onExtraDiscountChange, interState, showTotals = true, errors = {}, warnings = {} }) {
   const totals = computeDocument(lines, { interState, extraDiscountPercent })
 
   const update = (i, patch) => onChange(lines.map((l, idx) => (idx === i ? { ...l, ...patch } : l)))
@@ -83,10 +87,19 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
             )}
             {lines.map((line, i) => {
               const computed = totals.lines[i]
+              const err = errorsUnder(errors, `lines.${i}`)
+              const warn = errorsUnder(warnings, `lines.${i}`)
+              const msgId = `line-${i}-msg`
+              // Props for one cell's control: its path, and the red border while it is wrong.
+              const v = (key) => ({ "data-path": `lines.${i}.${key}`, ...(err[key] ? { "aria-invalid": true, "aria-describedby": msgId } : null) })
+              const notes = [
+                ...Object.entries(err).map(([k, m]) => ({ k, m, bad: true })),
+                ...Object.entries(warn).filter(([k]) => !err[k]).map(([k, m]) => ({ k, m, bad: false })),
+              ]
               return (
                 <Fragment key={i}>
                 <tr className="align-top">
-                  <td rowSpan={2} className="px-2 py-3 text-center text-xs text-subtle-foreground tabular">{i + 1}</td>
+                  <td rowSpan={notes.length ? 3 : 2} className="px-2 py-3 text-center text-xs text-subtle-foreground tabular">{i + 1}</td>
                   <td colSpan={8} className="px-2 pb-1.5 pt-2.5" style={{ borderBottom: 0 }}>
                     <div className="flex flex-col gap-1.5 sm:flex-row">
                     <div className="min-w-0 sm:w-[45%]">
@@ -120,22 +133,23 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
                         ))}
                     </Select>
                     </div>
-                    <Input value={line.description} onChange={(e) => update(i, { description: e.target.value })} placeholder="Description as it prints on the quotation" className={cn(cell, "min-w-0 flex-1")} />
+                    <Input {...v("description")} value={line.description} onChange={(e) => update(i, { description: e.target.value })} placeholder="Description as it prints on the quotation" className={cn(cell, "min-w-0 flex-1")} />
                     </div>
                   </td>
                 </tr>
                 <tr className="align-top">
                   <td className="px-2 pb-2.5 pt-0">
-                    <Input value={line.hsn} onChange={(e) => update(i, { hsn: e.target.value })} className={cell} placeholder="HSN" />
+                    <Input {...v("hsn")} value={line.hsn} onChange={(e) => update(i, { hsn: e.target.value })} className={cell} placeholder="HSN" />
                   </td>
                   <td className="px-2 pb-2.5 pt-0">
-                    <Input type="number" min="0" value={line.quantity} onChange={(e) => update(i, { quantity: Number(e.target.value) })} className={num} />
+                    <Input {...v("quantity")} type="number" min="0" value={line.quantity} onChange={(e) => update(i, { quantity: Number(e.target.value) })} className={num} />
                   </td>
                   <td className="px-2 pb-2.5 pt-0">
                     <Input value={line.unit ?? "pcs"} onChange={(e) => update(i, { unit: e.target.value })} className={cell} placeholder="pcs" />
                   </td>
                   <td className="px-2 pb-2.5 pt-0">
                     <Input
+                      {...v("rate")}
                       type="number"
                       min="0"
                       step="0.01"
@@ -150,10 +164,10 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
                     />
                   </td>
                   <td className="px-2 pb-2.5 pt-0">
-                    <Input type="number" min="0" max="100" value={line.discountPercent} onChange={(e) => update(i, { discountPercent: Number(e.target.value) })} className={num} />
+                    <Input {...v("discountPercent")} type="number" min="0" max="100" value={line.discountPercent} onChange={(e) => update(i, { discountPercent: Number(e.target.value) })} className={num} />
                   </td>
                   <td className="px-2 pb-2.5 pt-0">
-                    <Select value={line.gstRate} onChange={(e) => update(i, { gstRate: Number(e.target.value) })} className={cn(cell, "gap-1 !px-2 text-left")}>
+                    <Select {...v("gstRate")} value={line.gstRate} onChange={(e) => update(i, { gstRate: Number(e.target.value) })} className={cn(cell, "gap-1 !px-2 text-left")}>
                       {GST_RATES.map((r) => (
                         <option key={r} value={r}>
                           {r}
@@ -168,6 +182,19 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
                     </Button>
                   </td>
                 </tr>
+                {notes.length > 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-2 pb-2.5 pt-0" style={{ borderTop: 0 }}>
+                      <ul id={msgId} className="space-y-0.5 text-xs">
+                        {notes.map((n) => (
+                          <li key={n.k} className={n.bad ? "text-destructive-text" : "text-warning-text"}>
+                            {LABEL[n.k] || "Item"}: {n.m}
+                          </li>
+                        ))}
+                      </ul>
+                    </td>
+                  </tr>
+                )}
                 </Fragment>
               )
             })}
@@ -175,12 +202,18 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
         </table>
         <button
           type="button"
+          data-path="lines"
           onClick={add}
           className="flex w-full items-center gap-2 border-t border-dashed border-border px-4 py-2.5 text-[13px] font-medium text-primary transition-colors hover:bg-primary/5"
         >
           <Plus className="h-4 w-4" /> Add line
         </button>
       </div>
+      {(errors.lines || errors.total) && (
+        <p data-path="total" className="text-xs text-destructive-text" role="status">
+          {errors.lines || errors.total}
+        </p>
+      )}
 
       {/* Totals - right half, hairline rows (Keystone document style) */}
       {showTotals && (
@@ -197,11 +230,15 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
                 max="100"
                 value={extraDiscountPercent}
                 onChange={(e) => onExtraDiscountChange(Number(e.target.value))}
+                data-path="extraDiscountPercent"
+                aria-invalid={errors.extraDiscountPercent ? true : undefined}
+                aria-label="Extra discount percent"
                 className="h-7 w-16 px-2 text-right text-xs shadow-none"
               />
               <span className="text-xs text-subtle-foreground">%</span>
             </span>
           </div>
+          {errors.extraDiscountPercent && <p className="pb-1.5 text-right text-xs text-destructive-text">{errors.extraDiscountPercent}</p>}
           <Row label="Taxable value">{formatCurrency(totals.taxable)}</Row>
           {totals.interState ? (
             <Row label="IGST">{formatCurrency(totals.igst)}</Row>

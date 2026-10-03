@@ -62,7 +62,7 @@ test("email shape is checked loosely", () => {
 
 test("a GSTIN must be well formed and carry a real state code", () => {
   const base = { name: "Ravi", phone: "9876543210" }
-  assert.equal(validateContact(draft({ ...base, gstin: "07AABCU9603R1ZM" })).gstin, undefined)
+  assert.equal(validateContact(draft({ ...base, gstin: "07AABCU9603R1ZP" })).gstin, undefined)
   assert.match(validateContact(draft({ ...base, gstin: "07AABCU9603R1Z" })).gstin, /15 characters/)
   // 99 is not a state.
   assert.match(validateContact(draft({ ...base, gstin: "99AABCU9603R1ZM" })).gstin, /state code/)
@@ -70,12 +70,12 @@ test("a GSTIN must be well formed and carry a real state code", () => {
 
 test("a GSTIN that disagrees with the place of supply is refused", () => {
   const errors = validateContact(
-    draft({ name: "Ravi", phone: "9876543210", gstin: "07AABCU9603R1ZM", stateCode: "27" }),
+    draft({ name: "Ravi", phone: "9876543210", gstin: "07AABCU9603R1ZP", stateCode: "27" }),
   )
   assert.match(errors.stateCode, /does not match/)
 
   assert.equal(
-    validateContact(draft({ name: "Ravi", phone: "9876543210", gstin: "07AABCU9603R1ZM", stateCode: "07" }))
+    validateContact(draft({ name: "Ravi", phone: "9876543210", gstin: "07AABCU9603R1ZP", stateCode: "07" }))
       .stateCode,
     undefined,
   )
@@ -106,7 +106,7 @@ test("normalising stores digits, uppercases the GSTIN, and fills the state from 
       company: " Acme Pvt Ltd ",
       email: " ravi@acme.in ",
       phone: "+91 98765-43210",
-      gstin: " 07aabcu9603r1zm ",
+      gstin: " 07aabcu9603r1zp ",
     }),
   )
 
@@ -114,12 +114,12 @@ test("normalising stores digits, uppercases the GSTIN, and fills the state from 
   assert.equal(row.company, "Acme Pvt Ltd")
   assert.equal(row.email, "ravi@acme.in")
   assert.equal(row.phone, "9876543210")
-  assert.equal(row.gstin, "07AABCU9603R1ZM")
+  assert.equal(row.gstin, "07AABCU9603R1ZP")
   // Blank picker, but the GSTIN knows the answer.
   assert.equal(row.stateCode, "07")
 
   // An explicit choice is never overwritten by the GSTIN.
-  assert.equal(normaliseContact(draft({ gstin: "07AABCU9603R1ZM", stateCode: "27" })).stateCode, "27")
+  assert.equal(normaliseContact(draft({ gstin: "07AABCU9603R1ZP", stateCode: "27" })).stateCode, "27")
 })
 
 test("digitsOf strips everything a number is typed with", () => {

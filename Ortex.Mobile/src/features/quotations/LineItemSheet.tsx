@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native"
 import { formatCurrency } from "@/domain/format"
 import { computeLine } from "@/domain/pricing"
 import { GST_RATES, newLine, type Line, type Product } from "@/domain/schema"
+import { errorsUnder, validateDocument } from "@/domain/validateDocument"
 import { useCollection } from "@/hooks/useCollection"
 import { feedback } from "@/lib/feedback"
 import { useTheme } from "@/store/ThemeContext"
@@ -38,6 +39,9 @@ export default function LineItemSheet({
   const [draft, setDraft] = React.useState<Line>(line ?? newLine())
   const [mode, setMode] = React.useState<Mode>(line ? "fields" : "product")
   const [query, setQuery] = React.useState("")
+  // A field says what is wrong once it has been left, or once Add is pressed.
+  const [touched, setTouched] = React.useState<Record<string, boolean>>({})
+  const [tried, setTried] = React.useState(false)
 
   // Re-seed whenever the sheet is opened for a different line.
   React.useEffect(() => {
@@ -45,6 +49,8 @@ export default function LineItemSheet({
     setDraft(line ?? newLine())
     setMode(line ? "fields" : "product")
     setQuery("")
+    setTouched({})
+    setTried(false)
   }, [visible, line])
 
   const set = (patch: Partial<Line>) => setDraft((d) => ({ ...d, ...patch }))
@@ -80,23 +86,18 @@ export default function LineItemSheet({
 
   const computed = computeLine(draft)
   /**
-   * What a line has to be before it can go on a quotation.
-   *
-   * Only the description was checked before, so a line could be added with a
-   * quantity of zero — which prices at zero, prints as a row nobody ordered, and
-   * is invisible in the total. A rate of zero IS allowed: free samples and
-   * bundled items are quoted at zero on purpose.
+   * What a line has to be before it can go on a quotation: the line rules of
+   * domain/validateDocument.ts, the console's own. A rate of zero is a warning,
+   * not an error: free samples are quoted at zero on purpose.
    */
-  const problems = {
-    description: draft.description.trim() ? undefined : "Describe what is being quoted",
-    quantity: draft.quantity > 0 ? undefined : "Quantity must be at least 1",
-    rate: draft.rate < 0 ? "A rate cannot be negative" : undefined,
-    discountPercent:
-      draft.discountPercent < 0 || draft.discountPercent > 100
-        ? "A discount runs from 0 to 100%"
-        : undefined,
-  }
-  const valid = !Object.values(problems).some(Boolean)
+  const check = React.useMemo(() => validateDocument({ lines: [draft] }, { products }), [draft, products])
+  const errors = errorsUnder(check.errors, "lines.0")
+  const warnings = errorsUnder(check.warnings, "lines.0")
+  const seen = (k: string) => tried || touched[k]
+  const errorOf = (k: string) => (seen(k) ? errors[k] : undefined)
+  const warningOf = (k: string) => (seen(k) ? warnings[k] : undefined)
+  const touch = (k: string) => () => setTouched((x) => (x[k] ? x : { ...x, [k]: true }))
+  const valid = Object.keys(errors).length === 0
 
   return (
     <Sheet
@@ -172,6 +173,9 @@ export default function LineItemSheet({
             placeholder="Enter description"
             trailingIcon="catalogue"
             onTrailingPress={() => setMode("product")}
+            onBlur={touch("description")}
+            error={errorOf("description")}
+            warning={warningOf("description")}
             ai={{
               purpose:
                 "One line item description on a B2B quotation: the product, material, size or finish and the customisation, in one concise line",
@@ -197,7 +201,9 @@ export default function LineItemSheet({
                 label={`Quantity (${draft.unit})`}
                 value={draft.quantity}
                 onChange={(n) => set({ quantity: n })}
-                error={problems.quantity}
+                onLeave={touch("quantity")}
+                error={errorOf("quantity")}
+                warning={warningOf("quantity")}
                 decimals
               />
             </View>
@@ -206,7 +212,9 @@ export default function LineItemSheet({
                 label="Rate (₹)"
                 value={draft.rate}
                 onChange={(n) => set({ rate: n })}
-                error={problems.rate}
+                onLeave={touch("rate")}
+                error={errorOf("rate")}
+                warning={warningOf("rate")}
                 decimals
               />
             </View>
@@ -215,7 +223,8 @@ export default function LineItemSheet({
             label="Discount (%)"
             value={draft.discountPercent}
             onChange={(n) => set({ discountPercent: n })}
-            error={problems.discountPercent}
+            onLeave={touch("discountPercent")}
+            error={errorOf("discountPercent")}
             decimals
           />
 
@@ -230,6 +239,7 @@ export default function LineItemSheet({
               />
             ))}
           </View>
+          {!!errors.gstRate && <Text style={[styles.chipError, { color: t.danger }]}>{errors.gstRate}</Text>}
 
           <TextField
             label="HSN / SAC"
@@ -237,6 +247,9 @@ export default function LineItemSheet({
             onChangeText={(v) => set({ hsn: v })}
             placeholder="Enter HSN or SAC code"
             keyboardType="number-pad"
+            onBlur={touch("hsn")}
+            error={errorOf("hsn")}
+            warning={warningOf("hsn")}
           />
 
           <View style={styles.summary}>
@@ -272,10 +285,15 @@ export default function LineItemSheet({
               <Button
                 label={line ? "Save Changes" : "Add to Quote"}
                 onPress={() => {
+                  if (!valid) {
+                    // Say every problem, rather than a button that does nothing.
+                    setTried(true)
+                    feedback.warn()
+                    return
+                  }
                   feedback.tap()
-                  onSave(draft)
+                  onSave({ ...draft, description: draft.description.trim(), hsn: draft.hsn.trim() })
                 }}
-                disabled={!valid}
                 fullWidth
               />
             </View>
@@ -296,13 +314,17 @@ function NumberField({
   label,
   value,
   onChange,
+  onLeave,
   error,
+  warning,
   decimals,
 }: {
   label: string
   value: number
   onChange: (n: number) => void
+  onLeave?: () => void
   error?: string
+  warning?: string
   decimals?: boolean
 }) {
   const [text, setText] = React.useState(String(value ?? 0))
@@ -325,8 +347,12 @@ function NumberField({
         onChange(Number(cleaned) || 0)
       }}
       onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      onBlur={() => {
+        setFocused(false)
+        onLeave?.()
+      }}
       error={error}
+      warning={warning}
       keyboardType={decimals ? "decimal-pad" : "number-pad"}
       placeholder={`Enter ${label.toLowerCase()}`}
       fieldStyle={styles.numberField}
@@ -379,6 +405,7 @@ const styles = StyleSheet.create({
   numberField: { marginBottom: spacing.md },
   fieldLabel: { marginBottom: 6, fontSize: 13, fontFamily: font.medium },
   chips: { flexDirection: "row", flexWrap: "wrap" },
+  chipError: { fontFamily: font.regular, fontSize: 12.5, marginTop: spacing.xs },
   summary: { padding: 14, marginTop: 6, marginBottom: spacing.md },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
   summaryLabel: { fontSize: 14, fontFamily: font.regular },

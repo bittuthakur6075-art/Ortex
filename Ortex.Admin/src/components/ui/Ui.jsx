@@ -535,25 +535,31 @@ function childText(node) {
 // A single element child is wired to the label, hint and error: it gets an id
 // (its own wins), aria-describedby for the message and aria-invalid on error.
 // Anything else (text, several children, a fragment) renders untouched.
-export function Field({ label, hint, error, required, className, children }) {
+// `warning` is said in amber where the hint goes; an error outranks it. Other
+// props (data-path, ...) land on the wrapper.
+export function Field({ label, hint, error, warning, required, className, children, ...rest }) {
   const id = useId()
   const only = isValidElement(children) && children.type !== Fragment ? children : null
   const controlId = only?.props.id || `${id}-control`
   const msgId = `${id}-msg`
-  const describedBy = [only?.props["aria-describedby"], (error || hint) && msgId].filter(Boolean).join(" ")
+  const message = error || warning || hint
+  const describedBy = [only?.props["aria-describedby"], message && msgId].filter(Boolean).join(" ")
   const control = only
     ? cloneElement(only, { id: controlId, "aria-describedby": describedBy || undefined, ...(error ? { "aria-invalid": true } : null) })
     : children
   return (
-    <div className={className}>
+    <div className={className} {...rest}>
       {label && (
         <label htmlFor={only ? controlId : undefined} className="mb-1.5 block text-sm font-normal text-foreground">
           {label} {required && <span className="text-destructive-text">*</span>}
         </label>
       )}
       {control}
-      {hint && !error && <p id={msgId} className="mt-1 text-xs text-subtle-foreground">{hint}</p>}
-      {error && <p id={msgId} className="mt-1 text-xs text-destructive-text">{error}</p>}
+      {message && (
+        <p id={msgId} className={cn("mt-1 text-xs", error ? "text-destructive-text" : warning ? "text-warning-text" : "text-subtle-foreground")}>
+          {message}
+        </p>
+      )}
     </div>
   )
 }

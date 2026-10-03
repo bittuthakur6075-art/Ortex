@@ -18,9 +18,7 @@
 //   record that produces a wrong tax invoice.
 
 import { GST_STATES } from "./gstStates"
-
-// 15 characters: 2 state digits, PAN, entity number, "Z", checksum.
-const GSTIN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/
+import { GSTIN_PATTERN as GSTIN, gstinCheckDigitValid } from "./validateDocument"
 
 // Deliberately loose: a validator that rejects a real address is worse than one
 // that lets a typo through.
@@ -63,10 +61,13 @@ export function gstinProblem(gstin, stateCode) {
   const value = str(gstin).toUpperCase()
   if (!value) return null
   if (!GSTIN.test(value)) {
-    return { field: "gstin", message: "A GSTIN is 15 characters, like 07AABCU9603R1ZM" }
+    return { field: "gstin", message: "A GSTIN is 15 characters, like 07AABCU9603R1ZP" }
   }
   if (!GST_STATES[value.slice(0, 2)]) {
     return { field: "gstin", message: "That GSTIN does not start with a valid state code" }
+  }
+  if (!gstinCheckDigitValid(value)) {
+    return { field: "gstin", message: "This GSTIN has a typing mistake: its last character does not match" }
   }
   const state = str(stateCode)
   if (state && state !== value.slice(0, 2)) {

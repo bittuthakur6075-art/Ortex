@@ -80,11 +80,11 @@ function cust(name, company, email, phone, stateCode, gstin = "", address = "") 
 }
 
 const CUSTOMERS = {
-  bright: cust("Priya Sharma", "Bright Corp", "priya@brightcorp.in", "+91-9876543210", "07", "07AABCB1234C1Z2", "Connaught Place, New Delhi"),
-  technova: cust("Rahul Verma", "TechNova Solutions", "rahul.v@technova.com", "+91-9811122233", "27", "27AACCT5678D1Z9", "Andheri East, Mumbai, Maharashtra"),
-  edulearn: cust("Anita Desai", "EduLearn Academy", "anita@edulearn.org", "+91-9900011122", "29", "29AAECE9012E1Z1", "Koramangala, Bengaluru, Karnataka"),
-  gifthub: cust("Vikram Singh", "GiftHub Retail", "vikram@gifthub.in", "+91-9765432109", "07", "07AAGCG3456F1Z8", "Karol Bagh, New Delhi"),
-  acme: cust("Meera Nair", "Acme Manufacturing", "meera.nair@acmemfg.com", "+91-9654321098", "24", "24AAACA7890G1Z3", "Vatva GIDC, Ahmedabad, Gujarat"),
+  bright: cust("Priya Sharma", "Bright Corp", "priya@brightcorp.in", "+91-9876501234", "07", "07AABCB1234C1ZG", "Connaught Place, New Delhi"),
+  technova: cust("Rahul Verma", "TechNova Solutions", "rahul.v@technova.com", "+91-9811122233", "27", "27AACCT5678D1Z5", "Andheri East, Mumbai, Maharashtra"),
+  edulearn: cust("Anita Desai", "EduLearn Academy", "anita@edulearn.org", "+91-9900011122", "29", "29AAECE9012E1ZS", "Koramangala, Bengaluru, Karnataka"),
+  gifthub: cust("Vikram Singh", "GiftHub Retail", "vikram@gifthub.in", "+91-9765432109", "07", "07AAGCG3456F1ZO", "Karol Bagh, New Delhi"),
+  acme: cust("Meera Nair", "Acme Manufacturing", "meera.nair@acmemfg.com", "+91-9654321098", "24", "24AAACA7890G1ZO", "Vatva GIDC, Ahmedabad, Gujarat"),
   startupx: cust("Karan Mehta", "StartupX", "karan@startupx.io", "+91-9543210987", "07", "", "Nehru Place, New Delhi"),
 }
 
@@ -304,7 +304,7 @@ export async function seedDemo() {
 
   // ---- AI Messages ----
   const AI_MESSAGES = [
-    { key: "m1", on: "v3", userId: "usr_priya", customerName: "Priya Sharma", triggerType: "Quote Request Follow-up", context: "Trigger: Quote Request Follow-up. User activity: User requested a quote for Custom MDF Award Trophy (500 pcs). Customer details: Priya Sharma (+91-9876543210).", generatedMessage: "Hi Priya Sharma, we received your quote request for Custom MDF Award Trophy. Our team is working on your pricing. - Ortex Sales Desk", createdAt: ago(4) },
+    { key: "m1", on: "v3", userId: "usr_priya", customerName: "Priya Sharma", triggerType: "Quote Request Follow-up", context: "Trigger: Quote Request Follow-up. User activity: User requested a quote for Custom MDF Award Trophy (500 pcs). Customer details: Priya Sharma (+91-9876501234).", generatedMessage: "Hi Priya Sharma, we received your quote request for Custom MDF Award Trophy. Our team is working on your pricing. - Ortex Sales Desk", createdAt: ago(4) },
     { key: "m2", on: "v6", userId: "usr_rahul", customerName: "Rahul Verma", triggerType: "Contact Form Auto-reply", context: "Trigger: Contact Form Auto-reply. User activity: User submitted contact form for Sublimation Lanyard 16mm. Customer details: Rahul Verma (+91-9811122233).", generatedMessage: "Hi Rahul Verma, thanks for contacting us! We received your message: \"1000 sublimation lanyards in brand colours for a conference.\". A representative will contact you soon. - Ortex Industries", createdAt: ago(3) },
     { key: "m3", on: "v9", userId: "usr_anon1", customerName: "Anonymous Buyer", triggerType: "Cart Abandonment Reminder", context: "Trigger: Cart Abandonment Reminder. User activity: User abandoned cart with Acrylic Desk Standee (50 pcs).", generatedMessage: "Hi Customer, we noticed you left some items in your quote cart, including Acrylic Desk Standee. Can we help you finalize your quote? - Ortex Sales", createdAt: ago(2) },
   ]
@@ -316,7 +316,7 @@ export async function seedDemo() {
   // ---- WhatsApp Logs ----
   // templateName is a name, not a foreign key, so it needs no remapping.
   const WA_LOGS = [
-    { userId: "usr_priya", customerName: "Priya Sharma", phone: "+91-9876543210", templateName: "template_quote_request", messageText: "Hi Priya Sharma, we received your quote request for Custom MDF Award Trophy. Our team is working on your pricing. - Ortex Sales Desk", status: "delivered", retryCount: 0, maxRetries: 3, errorMessage: "", responsePayload: { success: true }, createdAt: ago(4), sentAt: ago(4) },
+    { userId: "usr_priya", customerName: "Priya Sharma", phone: "+91-9876501234", templateName: "template_quote_request", messageText: "Hi Priya Sharma, we received your quote request for Custom MDF Award Trophy. Our team is working on your pricing. - Ortex Sales Desk", status: "delivered", retryCount: 0, maxRetries: 3, errorMessage: "", responsePayload: { success: true }, createdAt: ago(4), sentAt: ago(4) },
     { userId: "usr_rahul", customerName: "Rahul Verma", phone: "+91-9811122233", templateName: "template_contact_form", messageText: "Hi Rahul Verma, thanks for contacting us! We received your message: \"1000 sublimation lanyards in brand colours for a conference.\". A representative will contact you soon. - Ortex Industries", status: "delivered", retryCount: 0, maxRetries: 3, errorMessage: "", responsePayload: { success: true }, createdAt: ago(3), sentAt: ago(3) },
     { userId: "usr_anon1", customerName: "Anonymous Buyer", phone: "+91-9999999999", templateName: "template_cart_abandonment", messageText: "Hi Customer, we noticed you left some items in your quote cart, including Acrylic Desk Standee. Can we help you finalize your quote? - Ortex Sales", status: "failed", retryCount: 3, maxRetries: 3, errorMessage: "API Error: Invalid recipient phone number format.", responsePayload: null, createdAt: ago(2), sentAt: ago(2) },
   ]

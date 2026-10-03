@@ -7,12 +7,11 @@ const STATE_OPTIONS = Object.entries(GST_STATES)
 // Reusable customer detail grid used by the quotation and invoice editors.
 // `value` is a customer object; `onChange` receives the full updated object.
 // If `customers` (the master list) is provided, a picker prefills the fields
-// from an existing customer.
-export default function CustomerFields({ value, onChange, customers }) {
+// from an existing customer. `errors` / `warnings` are validateDocument's for
+// this party (keys name, phone, ...), and `prefix` names it in `data-path`.
+export default function CustomerFields({ value, onChange, customers, errors = {}, warnings = {}, prefix = "customer" }) {
   const set = (key, v) => onChange({ ...value, [key]: v })
-  // Advisory only: a GSTIN whose state digits disagree with the state code is a
-  // wrong CGST/IGST split, but the editors decide whether to save, not this grid.
-  const gst = gstinProblem(value.gstin, value.stateCode)
+  const at = (key) => ({ "data-path": `${prefix}.${key}`, error: errors[key], warning: warnings[key] })
 
   // A valid GSTIN names its state in the first two digits: fill an empty
   // place of supply from it. The stored value stays the 2-digit code.
@@ -57,22 +56,22 @@ export default function CustomerFields({ value, onChange, customers }) {
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Customer name" required>
+        <Field label="Customer name" required {...at("name")}>
           <Input value={value.name} onChange={(e) => set("name", e.target.value)} placeholder="Enter customer name" />
         </Field>
-        <Field label="Company">
+        <Field label="Company" {...at("company")}>
           <Input value={value.company} onChange={(e) => set("company", e.target.value)} placeholder="Enter company name" />
         </Field>
-        <Field label="Email">
+        <Field label="Email" {...at("email")}>
           <Input value={value.email} onChange={(e) => set("email", e.target.value)} placeholder="Enter email address" />
         </Field>
-        <Field label="Phone">
+        <Field label="Phone" {...at("phone")}>
           <Input value={value.phone} onChange={(e) => set("phone", e.target.value)} placeholder="Enter phone number" />
         </Field>
-        <Field label="GSTIN" hint="Buyer's GST number (for input credit)" error={gst?.field === "gstin" ? gst.message : undefined}>
+        <Field label="GSTIN" hint="Buyer's GST number (for input credit)" {...at("gstin")}>
           <Input value={value.gstin} onChange={(e) => setGstin(e.target.value)} placeholder="Enter GSTIN" />
         </Field>
-        <Field label="State (place of supply)" hint="Decides CGST + SGST or IGST" error={gst?.field === "stateCode" ? gst.message : undefined}>
+        <Field label="State (place of supply)" hint="Decides CGST + SGST or IGST" required {...at("stateCode")}>
           <Select searchable searchPlaceholder="Search states" value={code} onChange={(e) => set("stateCode", e.target.value)} placeholder="Choose a state">
             <option value="">Not set</option>
             {STATE_OPTIONS.map(([c, name]) => (
@@ -83,7 +82,7 @@ export default function CustomerFields({ value, onChange, customers }) {
             {code && !GST_STATES[code] && <option value={code}>{code}</option>}
           </Select>
         </Field>
-        <Field label="Billing address" className="sm:col-span-2">
+        <Field label={prefix === "shipTo" ? "Delivery address" : "Billing address"} className="sm:col-span-2" {...at("address")}>
           <Input value={value.address} onChange={(e) => set("address", e.target.value)} placeholder="Enter billing address" />
         </Field>
       </div>

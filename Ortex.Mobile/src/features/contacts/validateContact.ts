@@ -1,5 +1,6 @@
 import { GST_STATES } from "@/domain/gstStates"
 import type { Customer } from "@/domain/schema"
+import { GSTIN_PATTERN as GSTIN, gstinCheckDigitValid } from "@/domain/validateDocument"
 
 /**
  * What a new contact has to satisfy before it is allowed into `customers`.
@@ -28,9 +29,6 @@ import type { Customer } from "@/domain/schema"
 export type ContactDraft = Customer
 
 export type ContactErrors = Partial<Record<keyof Customer | "form", string>>
-
-/** 15 characters: 2 state digits, PAN, entity number, "Z", checksum. */
-const GSTIN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/
 
 // Deliberately loose. Address syntax is far wider than the shapes people
 // remember, and a validator that rejects a real address is worse than one that
@@ -69,10 +67,13 @@ export function gstinProblem(
     .toUpperCase()
   if (!value) return null
   if (!GSTIN.test(value)) {
-    return { field: "gstin", message: "A GSTIN is 15 characters, like 07AABCU9603R1ZM" }
+    return { field: "gstin", message: "A GSTIN is 15 characters, like 07AABCU9603R1ZP" }
   }
   if (!GST_STATES[value.slice(0, 2)]) {
     return { field: "gstin", message: "That GSTIN does not start with a valid state code" }
+  }
+  if (!gstinCheckDigitValid(value)) {
+    return { field: "gstin", message: "This GSTIN has a typing mistake: its last character does not match" }
   }
   const state = String(stateCode || "").trim()
   if (state && state !== value.slice(0, 2)) {
@@ -135,16 +136,8 @@ export function validateContact(
     errors.form = "Add a phone number or an email. It is how this contact is matched to their quotations"
   }
 
-  const gstin = draft.gstin.trim().toUpperCase()
-  if (gstin) {
-    if (!GSTIN.test(gstin)) {
-      errors.gstin = "A GSTIN is 15 characters, like 07AABCU9603R1ZM"
-    } else if (!GST_STATES[gstin.slice(0, 2)]) {
-      errors.gstin = "That GSTIN does not start with a valid state code"
-    } else if (draft.stateCode.trim() && draft.stateCode.trim() !== gstin.slice(0, 2)) {
-      errors.stateCode = "The place of supply does not match the GSTIN's state"
-    }
-  }
+  const gst = gstinProblem(draft.gstin, draft.stateCode)
+  if (gst) errors[gst.field] = gst.message
 
   // The duplicate check is `sameCustomer`'s rule, applied before the insert
   // rather than after: two rows matching on the same number would both answer

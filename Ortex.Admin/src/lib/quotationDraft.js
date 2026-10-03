@@ -30,13 +30,6 @@ export function isDirty(form, initial) {
   return JSON.stringify(form) !== JSON.stringify(initial)
 }
 
-/** Why the quotation cannot be saved yet, or null when it can. */
-export function saveBlocker(form) {
-  if (!form?.customer?.name?.trim() && !form?.customer?.company?.trim()) return "Choose or add a customer"
-  if (!form?.lines?.length) return "Add at least one line item"
-  return null
-}
-
 export function readDraft(key) {
   try {
     const raw = localStorage.getItem(key)

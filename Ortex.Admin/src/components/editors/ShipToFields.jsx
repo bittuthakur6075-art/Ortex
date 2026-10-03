@@ -4,7 +4,7 @@ import { newCustomer } from "../../data/domain/schema"
 // Optional consignee (ship-to) block. When "same as billing" is checked, the
 // value is null and the document ships to the bill-to party. Unchecking reveals
 // a full address form. The ship-to state drives the GST place of supply.
-export default function ShipToFields({ value, onChange, customers }) {
+export default function ShipToFields({ value, onChange, customers, errors, warnings }) {
   const differs = Boolean(value)
   return (
     <div className="space-y-3">
@@ -18,7 +18,7 @@ export default function ShipToFields({ value, onChange, customers }) {
         Ship to a different address (Consignee)
         <span className="text-xs text-muted-foreground">(GST place of supply follows this address)</span>
       </label>
-      {differs && <CustomerFields value={value} onChange={onChange} customers={customers} />}
+      {differs && <CustomerFields value={value} onChange={onChange} customers={customers} errors={errors} warnings={warnings} prefix="shipTo" />}
     </div>
   )
 }

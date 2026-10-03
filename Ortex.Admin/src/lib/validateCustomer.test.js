@@ -53,16 +53,16 @@ describe("validateCustomer", () => {
 
   test("a GSTIN must be well formed and carry a real state code", () => {
     const base = { name: "Ravi", phone: "9876543210" }
-    expect(validateCustomer(draft({ ...base, gstin: "07AABCU9603R1ZM" })).gstin).toBeUndefined()
+    expect(validateCustomer(draft({ ...base, gstin: "07AABCU9603R1ZP" })).gstin).toBeUndefined()
     expect(validateCustomer(draft({ ...base, gstin: "07AABCU9603R1Z" })).gstin).toMatch(/15 characters/)
     expect(validateCustomer(draft({ ...base, gstin: "99AABCU9603R1ZM" })).gstin).toMatch(/state code/)
   })
 
   test("a GSTIN that disagrees with the place of supply is refused", () => {
-    const base = { name: "Ravi", phone: "9876543210", gstin: "07AABCU9603R1ZM" }
+    const base = { name: "Ravi", phone: "9876543210", gstin: "07AABCU9603R1ZP" }
     expect(validateCustomer(draft({ ...base, stateCode: "27" })).stateCode).toMatch(/does not match/)
     expect(validateCustomer(draft({ ...base, stateCode: "07" })).stateCode).toBeUndefined()
-    expect(gstinProblem("07aabcu9603r1zm", "27")).toEqual({
+    expect(gstinProblem("07aabcu9603r1zp", "27")).toEqual({
       field: "stateCode",
       message: "The place of supply does not match the GSTIN's state",
     })
@@ -90,16 +90,16 @@ describe("validateCustomer", () => {
         company: " Acme Pvt Ltd ",
         email: " ravi@acme.in ",
         phone: "+91 98765-43210",
-        gstin: " 07aabcu9603r1zm ",
+        gstin: " 07aabcu9603r1zp ",
       }),
     )
     expect(row.name).toBe("Ravi Kumar")
     expect(row.company).toBe("Acme Pvt Ltd")
     expect(row.email).toBe("ravi@acme.in")
     expect(row.phone).toBe("9876543210")
-    expect(row.gstin).toBe("07AABCU9603R1ZM")
+    expect(row.gstin).toBe("07AABCU9603R1ZP")
     expect(row.stateCode).toBe("07")
-    expect(normaliseCustomer(draft({ gstin: "07AABCU9603R1ZM", stateCode: "27" })).stateCode).toBe("27")
+    expect(normaliseCustomer(draft({ gstin: "07AABCU9603R1ZP", stateCode: "27" })).stateCode).toBe("27")
   })
 
   test("digitsOf strips everything a number is typed with", () => {

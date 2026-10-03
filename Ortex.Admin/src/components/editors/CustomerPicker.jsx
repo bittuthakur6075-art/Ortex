@@ -13,8 +13,11 @@ import { stateName } from "../../lib/gstStates"
 // grid is shown only for a new customer or when editing details.
 //
 // `value` is the document's customer snapshot; `onChange(customer)`.
-export default function CustomerPicker({ value, onChange, customers = [] }) {
+// `errors` / `warnings` (validateDocument's, keyed name, phone, ...) keep the
+// field grid open while a detail needs fixing.
+export default function CustomerPicker({ value, onChange, customers = [], errors = {}, warnings = {} }) {
   const hasCustomer = Boolean(value?.name || value?.company)
+  const hasErrors = Object.keys(errors).length > 0
   const [editing, setEditing] = useState(!hasCustomer && Boolean(value?.email || value?.phone || value?.gstin))
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState("")
@@ -100,7 +103,7 @@ export default function CustomerPicker({ value, onChange, customers = [] }) {
   useEffect(() => setCursor(matches.length ? 1 : 0), [q, matches.length])
 
   // ---- Selected customer: compact card ------------------------------------
-  if (hasCustomer && !editing) {
+  if (hasCustomer && !editing && !hasErrors) {
     const title = value.company || value.name
     const sub = [value.company && value.name ? value.name : null, value.email || value.phone].filter(Boolean).join(" · ")
     return (
@@ -126,7 +129,7 @@ export default function CustomerPicker({ value, onChange, customers = [] }) {
   }
 
   // ---- New customer / editing details: full grid --------------------------
-  if (editing) {
+  if (editing || (hasCustomer && hasErrors)) {
     return (
       <div>
         <div className="mb-3 flex items-center justify-between gap-3">
@@ -135,14 +138,14 @@ export default function CustomerPicker({ value, onChange, customers = [] }) {
             {hasCustomer ? "Done" : "Choose existing instead"}
           </button>
         </div>
-        <CustomerFields value={value} onChange={onChange} />
+        <CustomerFields value={value} onChange={onChange} errors={errors} warnings={warnings} />
       </div>
     )
   }
 
   // ---- Empty: combobox ---------------------------------------------------
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative" data-path="customer.name">
       <div className="relative">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle-foreground" />
         <Input
@@ -156,8 +159,15 @@ export default function CustomerPicker({ value, onChange, customers = [] }) {
           role="combobox"
           aria-expanded={open}
           aria-autocomplete="list"
+          aria-invalid={errors.name ? true : undefined}
+          aria-describedby={errors.name ? "customer-picker-error" : undefined}
         />
       </div>
+      {errors.name && (
+        <p id="customer-picker-error" className="mt-1 text-xs text-destructive-text">
+          Choose a customer, or create a new one
+        </p>
+      )}
       {open && (
         <div className="absolute left-0 right-0 z-30 mt-1.5 overflow-hidden rounded-lg border border-border bg-card shadow-overlay-lg animate-pop-in">
           <ul className="max-h-72 overflow-y-auto py-1">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { draftHasContent, draftKey, isDirty, saveBlocker } from "./quotationDraft"
+import { draftHasContent, draftKey, isDirty } from "./quotationDraft"
 
 const blank = { customer: { name: "", company: "" }, lines: [{ description: "", rate: 0 }] }
 
@@ -21,11 +21,5 @@ describe("quotation draft", () => {
   it("dirty means the form moved away from what it was opened with", () => {
     expect(isDirty(blank, { ...blank })).toBe(false)
     expect(isDirty({ ...blank, notes: "x" }, blank)).toBe(true)
-  })
-
-  it("names what blocks a save", () => {
-    expect(saveBlocker(blank)).toBe("Choose or add a customer")
-    expect(saveBlocker({ customer: { name: "Ravi" }, lines: [] })).toBe("Add at least one line item")
-    expect(saveBlocker({ customer: { company: "Acme" }, lines: [{}] })).toBeNull()
   })
 })

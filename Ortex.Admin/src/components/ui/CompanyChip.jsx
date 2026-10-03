@@ -27,7 +27,7 @@ export function CompanyField({ value, onChange, disabled, className }) {
   if (!view.multi) return null
   const known = view.companies.some((c) => c.id === value)
   return (
-    <Field label="Company" required={!disabled} error={!disabled && !value ? "Choose a company" : ""} className={className}>
+    <Field data-path="companyId" label="Company" required={!disabled} error={!disabled && !value ? "Choose a company" : ""} className={className}>
       <Select value={value || ""} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder="Choose a company">
         {!known && value && <option value={value}>{view.all.find((c) => c.id === value)?.name || value}</option>}
         {view.companies.map((c) => (
