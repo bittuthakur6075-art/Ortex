@@ -1,12 +1,14 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
-import { ReceiptIndianRupee, Wallet } from "../components/ui/Icons"
+import { ReceiptIndianRupee, Wallet, ImportFile } from "../components/ui/Icons"
 import { useProfile } from "../hooks/useProfile"
 import { useCollections } from "../hooks/useCollection"
 import { canAccess } from "../data/domain/modules"
 import { outstandingBalance, paymentsOrStored } from "../data/domain/domain"
 import PageHeader, { HeaderBand } from "../components/layout/PageHeader"
-import { Tabs } from "../components/ui/Ui"
+import { Tabs, Button } from "../components/ui/Ui"
+import { isAdmin } from "../lib/roles"
+import TallyImport from "./billing/TallyImport"
 import Invoices from "./Invoices"
 import Payments from "./Payments"
 
@@ -23,6 +25,7 @@ export const BILLING_MODULE_KEYS = TABS.map((t) => t.moduleKey)
 export default function Billing() {
   const profile = useProfile()
   const [params, setParams] = useSearchParams()
+  const [importing, setImporting] = useState(false)
   const { data } = useCollections(["invoices", "payments"])
 
   const allowed = useMemo(() => TABS.filter((t) => canAccess(profile, t.moduleKey)), [profile])
@@ -52,7 +55,15 @@ export default function Billing() {
   return (
     <div>
       <HeaderBand>
-        <PageHeader title="Billing" subtitle="Invoices, receipts and payouts" />
+        <PageHeader title="Billing" subtitle="Invoices, receipts and payouts">
+          {/* Admins only: the database keeps an import's "already in Tally" stamp
+              for an admin alone (0070); anyone else's would be posted to Tally again. */}
+          {isAdmin(profile) && (
+            <Button variant="outline" size="sm" onClick={() => setImporting(true)}>
+              <ImportFile className="h-4 w-4" /> Import from Tally
+            </Button>
+          )}
+        </PageHeader>
         <Tabs
           items={items}
           value={current.value}
@@ -60,6 +71,7 @@ export default function Billing() {
         />
       </HeaderBand>
       <Page key={current.value} embedded />
+      {importing && <TallyImport open onClose={() => setImporting(false)} />}
     </div>
   )
 }

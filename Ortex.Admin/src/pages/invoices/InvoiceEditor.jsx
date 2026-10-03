@@ -24,7 +24,7 @@ import LivePreview from "../../components/editors/LivePreview"
 import { RecordActivity } from "../../components/ui/RecordActivity"
 import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../../components/editors/DocumentEditorShell"
 import ReceiptView from "../../components/documents/ReceiptView"
-import { parseTallyInvoiceXml } from "../../components/editors/TallyInvoiceImport"
+import { decodeXmlBytes, parseTallyFiles, invoiceDoc } from "../../lib/tallyImport"
 import { Button, Input, Textarea, Field, StatusBadge, Chip } from "../../components/ui/Ui"
 import { cn } from "../../lib/cn"
 import PaymentHistory from "./PaymentHistory"
@@ -48,13 +48,15 @@ export default function InvoiceEditor({ draft, products, customers, payments, ca
     const file = e.target.files?.[0]
     if (!file) return
     try {
-      const text = await file.text()
-      const parsed = parseTallyInvoiceXml(text)
+      const text = decodeXmlBytes(await file.arrayBuffer())
+      const parsed = parseTallyFiles([{ name: file.name, text }]).invoices
       if (!parsed.length) {
         toast.error("No valid Tally Sales vouchers found in the XML file.")
         return
       }
-      const inv = parsed[0]
+      const inv = invoiceDoc(parsed[0])
+      // A totals-only voucher still needs one line for the editor to save.
+      if (!inv.lines.length) inv.lines = [{ productId: null, description: "As per Tally voucher", hsn: "", quantity: 1, unit: "pcs", rate: inv.totals.taxable, discountPercent: 0, gstRate: parsed[0].totals.rate }]
       set(inv)
       toast.success(`Auto-filled invoice details from Tally (${inv.number})`)
     } catch (err) {

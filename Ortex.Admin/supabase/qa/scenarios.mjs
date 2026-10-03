@@ -1026,6 +1026,62 @@ await scenario("0068 late marks", async () => {
 
 })
 
+await scenario("0070 manual Tally import stamps", async () => {
+  const stamp = (guid, alterId, over = {}) => ({ status: "synced", source: "tally", syncedAt: "2026-10-03T10:00:00.000Z", voucherRef: "1", guid, alterId, ...over })
+  const base = { status: "sent", totals: { grandTotal: 500 } }
+  // invoices
+  const inv = await newInvoice(U.ADMIN, { ...base, number: "TI-1", tally: stamp("g-inv-1", 10) })
+  const sorted = (o) => o && Object.fromEntries(Object.entries(o).sort())
+  eq("admin: a new invoice keeps the import stamp", sorted((await invDoc(inv)).tally), sorted(stamp("g-inv-1", 10)))
+  eq("super admin too", (await invDoc(await newInvoice(U.SUPER, { ...base, number: "TI-2", tally: stamp("g-inv-2", 1) }))).tally?.guid, "g-inv-2")
+  for (const [who, label] of [[U.ACCT, "accounts"], [U.STAFF1, "staff"]]) {
+    await run("service", "update profiles set modules = '[\"invoices\",\"payments\"]' where id = $1", [who])
+    eq(`${label}: the import stamp is dropped`, Object.hasOwn(await invDoc(await newInvoice(who, { ...base, number: `TI-${label}`, tally: stamp(`g-${label}`, 1) })), "tally"), false)
+  }
+  for (const [label, bad] of [["an extra key", stamp("g-x", 1, { error: "" })], ["alterId as text", stamp("g-x", "1")], ["a blank guid", stamp(" ", 1)], ["no source", { ...stamp("g-x", 1), source: undefined }]]) {
+    eq(`admin: a stamp with ${label} is dropped`, Object.hasOwn(await invDoc(await newInvoice(U.ADMIN, { ...base, number: `TI-bad-${label}`, tally: bad })), "tally"), false)
+  }
+  await run(U.ADMIN, "update invoices set doc = doc || $2 where id = $1", [inv, J({ totals: { grandTotal: 600 }, tally: stamp("g-inv-1", 11) })])
+  eq("admin: changed in Tally replaces an import stamp", [(await invDoc(inv)).tally.alterId, (await invDoc(inv)).totals.grandTotal], [11, 600])
+  await run(U.ACCT, "update invoices set doc = doc || $2 where id = $1", [inv, J({ tally: stamp("g-inv-1", 12) })])
+  eq("accounts cannot replace it", (await invDoc(inv)).tally.alterId, 11)
+  const old = await newInvoice(U.ADMIN, { ...base, number: "TI-OLD", tally: { status: "synced", syncedAt: "x", voucherRef: "TI-OLD" } })
+  eq("the old import shape still works", (await invDoc(old)).tally.voucherRef, "TI-OLD")
+  await run(U.ADMIN, "update invoices set doc = doc || $2 where id = $1", [old, J({ tally: stamp("g-old", 5) })])
+  eq("an old-shape stamp is not replaced by an import stamp", Object.hasOwn((await invDoc(old)).tally, "guid"), false)
+  const conn = await newInvoice(null, { ...base, number: "TI-CONN" })
+  await val("service", "select tally_mark('invoices', $1, $2)", [conn, J({ status: "synced", voucherRef: "TI-CONN" })])
+  await run(U.ADMIN, "update invoices set doc = doc || $2 where id = $1", [conn, J({ tally: stamp("g-conn", 99) })])
+  eq("a connector stamp is not replaced by an admin", Object.hasOwn((await invDoc(conn)).tally, "guid"), false)
+
+  // payments
+  const p = await newPayment(U.ADMIN, { number: "TP-1", amount: 100, party: "Acme", invoiceId: inv, tally: stamp("g-pay-1", 20), account: "HDFC" })
+  let d = await payDoc(p)
+  eq("admin: a new payment keeps the import stamp, not account", [sorted(d.tally), d.account ?? null], [sorted(stamp("g-pay-1", 20)), null])
+  eq("the imported receipt settles its invoice", (await invDoc(inv)).amountPaid, 100)
+  eq("accounts: the stamp is dropped", (await payDoc(await newPayment(U.ACCT, { number: "TP-2", amount: 5, tally: stamp("g-pay-2", 1) }))).tally ?? null, null)
+  eq("staff (payments module): the stamp is dropped", (await payDoc(await newPayment(U.STAFF1, { number: "TP-3", amount: 5, tally: stamp("g-pay-3", 1) }))).tally ?? null, null)
+  like("imported: an admin's plain edit is still frozen", await err(U.ADMIN, "update payments set doc = doc || $2 where id = $1", [p, J({ amount: 101 })]), /already in Tally/)
+  like("imported: the same alterId does not unlock it", await err(U.ADMIN, "update payments set doc = doc || $2 where id = $1", [p, J({ amount: 101, tally: stamp("g-pay-1", 20) })]), /already in Tally/)
+  like("imported: accounts with a higher alterId is refused", await err(U.ACCT, "update payments set doc = doc || $2 where id = $1", [p, J({ amount: 101, tally: stamp("g-pay-1", 21) })]), /already in Tally/)
+  await run(U.ADMIN, "update payments set doc = doc || $2 where id = $1", [p, J({ amount: 150, date: "2026-10-02T06:30:00.000Z", tally: stamp("g-pay-1", 21) })])
+  d = await payDoc(p)
+  eq("admin: changed in Tally (higher alterId) updates amount and stamp", [d.amount, d.date, d.tally.alterId], [150, "2026-10-02T06:30:00.000Z", 21])
+  eq("... and the invoice follows", (await invDoc(inv)).amountPaid, 150)
+  like("imported: an admin still cannot delete", await err(U.ADMIN, "delete from payments where id = $1", [p]), /already in Tally/)
+  const plain = await newPayment(U.ADMIN, { number: "TP-4", amount: 7, party: "Tea" })
+  await run(U.ADMIN, "update payments set doc = doc || $2 where id = $1", [plain, J({ tally: stamp("g-pay-4", 1) })])
+  eq("admin: a payment with no stamp may be import-stamped", (await payDoc(plain)).tally?.guid, "g-pay-4")
+  const c = await newPayment(U.ACCT, { number: "TP-5", amount: 9, party: "Conn" })
+  await val("service", "select tally_mark('payments', $1, $2)", [c, J({ status: "synced", voucherRef: "TP-5", alterId: 1 })])
+  like("connector-synced: an admin's import stamp does not unlock it", await err(U.ADMIN, "update payments set doc = doc || $2 where id = $1", [c, J({ amount: 10, tally: stamp("g-c", 99) })]), /already in Tally/)
+  await run(U.ADMIN, "update payments set doc = doc || $2 where id = $1", [c, J({ note: "x", tally: stamp("g-c", 99) })])
+  eq("connector-synced: nor replaces its stamp", sorted((await payDoc(c)).tally), sorted({ status: "synced", voucherRef: "TP-5", alterId: 1 }))
+  await run(U.SUPER, "update payments set doc = doc || '{\"amount\": 11}' where id = $1", [c])
+  eq("connector-synced: the Super Admin can still change it", (await payDoc(c)).amount, 11)
+  for (const who of [U.ACCT, U.STAFF1]) await run("service", "update profiles set modules = '[]' where id = $1", [who])
+})
+
 // ---- report -----------------------------------------------------------------------------
 console.log("")
 let fails = 0

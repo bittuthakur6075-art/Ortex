@@ -16,7 +16,7 @@ export const HELP = [
   { id: "quotation-invoice", module: "invoices", path: "/quotations", title: "Turn an accepted quotation into an invoice",
     steps: ["Open the quotation and press Convert to invoice.", "Check the invoice number, dates and lines, then save it under Billing, Invoices."] },
   { id: "invoice-new", module: "invoices", path: "/billing?tab=invoices", title: "Create an invoice",
-    steps: ["Open Billing, Invoices and press New invoice.", "Pick the customer and add the lines, exactly as for a quotation.", "Invoices can also be imported from TallyPrime XML with Import."] },
+    steps: ["Open Billing, Invoices and press New invoice.", "Pick the customer and add the lines, exactly as for a quotation.", "Admins can bring in invoices, receipts, payouts, customers and stock items from TallyPrime XML with Import from Tally at the top of Billing."] },
   { id: "payment", module: "payments", path: "/billing?tab=payments", title: "Record a payment",
     steps: ["Open Billing, Payments and press Record payment (or Record payout for money paid out). From an open invoice, press Record payment at the top.", "Drop, paste or click to add a UPI or bank screenshot: it is read on your computer and fills the amount, date, method, reference and payer, each marked with a sparkle. Check them; the X removes the screenshot and what it filled.", "Enter or check the Amount, Received from, Date, Method and Reference, and pick the Invoice it pays if it is not already chosen.", "Press Save. The invoice's balance and status update by themselves."] },
   { id: "enquiries", module: "enquiries", path: "/crm?tab=enquiries", title: "Work a website enquiry",

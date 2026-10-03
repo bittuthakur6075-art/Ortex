@@ -4,12 +4,10 @@ import { toast } from "sonner"
 import { ReceiptIndianRupee, Plus, Search } from "../components/ui/Icons"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
 import DocumentView from "../components/documents/DocumentView"
-import TallyInvoiceImport from "../components/editors/TallyInvoiceImport"
-import { Button, ExportButton, ToolbarButton, EmptyState, PageLoader } from "../components/ui/Ui"
+import { Button, ExportButton, EmptyState, PageLoader } from "../components/ui/Ui"
 import { emptyDraft, exportInvoicesCsv } from "./invoices/helpers"
 import useInvoiceList from "./invoices/useInvoiceList"
 import { useProfile } from "../hooks/useProfile"
-import { isAdmin } from "../lib/roles"
 import { canAccess } from "../data/domain/modules"
 import { paymentsOrStored } from "../data/domain/domain"
 import InvoiceFilters from "./invoices/InvoiceFilters"
@@ -31,7 +29,6 @@ export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [editing, setEditing] = useState(null)
   const [preview, setPreview] = useState(null)
-  const [importing, setImporting] = useState(false)
   const [sort, onSort] = useSorting("issueDate", true)
   const location = useLocation()
   const navigate = useNavigate()
@@ -89,14 +86,7 @@ export default function Invoices() {
         setQuery={setQuery}
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
-        actions={
-          <>
-            <ExportButton onClick={handleExport} disabled={!filtered.length} />
-            {/* Admins only: the database keeps an import's "already in Tally" stamp
-                for an admin alone (0066), so anyone else's import would be posted twice. */}
-            {isAdmin(profile) && <ToolbarButton onClick={() => setImporting(true)}>Import Tally XML</ToolbarButton>}
-          </>
-        }
+        actions={<ExportButton onClick={handleExport} disabled={!filtered.length} />}
       />
 
       {loading ? (
@@ -127,7 +117,6 @@ export default function Invoices() {
       )}
 
 
-      <TallyInvoiceImport open={importing} onClose={() => setImporting(false)} />
 
       <DocumentView open={!!preview} onClose={() => setPreview(null)} doc={preview} settings={settings} type="invoice" />
     </div>
