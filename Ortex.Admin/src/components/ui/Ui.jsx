@@ -24,6 +24,7 @@ const BTN_VARIANTS = {
   subtle: "bg-accent text-foreground hover:bg-border-strong/60",
   danger: "bg-destructive-strong text-white hover:bg-destructive-text",
   dangerGhost: "text-destructive-text hover:bg-destructive/10",
+  dangerTonal: "bg-destructive/10 text-destructive-text hover:bg-destructive/15 active:bg-destructive/20",
   success: "bg-success text-white hover:opacity-90",
   dark: "bg-foreground text-background hover:opacity-90",
 }

@@ -158,10 +158,10 @@ export default function Payments() {
           title="Payments"
           action={
             <div className="flex items-center gap-2.5">
-              <Button variant="outline" onClick={() => setNewPayment("payout")}>
+              <Button variant="dangerTonal" onClick={() => setNewPayment("payout")}>
                 <MoneyOut className="h-4 w-4" /> Record payout
               </Button>
-              <Button onClick={() => setNewPayment("inflow")}>
+              <Button variant="success" onClick={() => setNewPayment("inflow")}>
                 <MoneyIn className="h-4 w-4" /> Record payment
               </Button>
             </div>
