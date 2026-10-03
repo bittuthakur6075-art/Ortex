@@ -107,7 +107,8 @@ export function normalizeReading(raw, { type = "inflow", now = Date.now() } = {}
   if (r.currency && String(r.currency).toUpperCase() !== "INR") warnings.push(`Amount is in ${r.currency}, not ₹.`)
   if (confidence && confidence < 0.6) warnings.push("Hard to read. Check every field.")
 
-  const note = [r.app && `Paid by ${r.app}`, r.note && `remark "${String(r.note).trim()}"`].filter(Boolean).join(", ")
+  // Who paid through the app: the other side for money in, us for a payout.
+  const note = [r.app && (type === "payout" ? `Paid with ${r.app}` : `Paid by ${r.app}`), r.note && `remark "${String(r.note).trim()}"`].filter(Boolean).join(", ")
 
   return {
     amount,

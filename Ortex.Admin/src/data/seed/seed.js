@@ -107,6 +107,15 @@ export async function seedDemo() {
   // Never on the live database: sample invoices would reuse real GST invoice
   // numbers and sample products would appear on the public website.
   if (hasSupabase) throw new Error("Demo data can only be loaded in the local demo, never on the live database.")
+  // Number the samples after whatever this browser already holds, so loading the
+  // demo on top of real test entries never repeats a quotation, invoice or payment number.
+  const startNumbering = (await repo.getSettings()).numbering
+  const base = {
+    QTN: (startNumbering.quotationSeq || 1) - 1,
+    INV: (startNumbering.invoiceSeq || 1) - 1,
+    PAY: (startNumbering.paymentSeq || 1) - 1,
+  }
+  const num = (prefix, n) => documentNumber(prefix, base[prefix] + n)
   // ---- categories, products & customers (no inbound references) ----
   await repo.bulkCreate("categories", CATEGORIES.map((c) => ({ ...c, description: "" })))
   const productIds = await createMapped("products", PRODUCTS)
@@ -159,13 +168,13 @@ export async function seedDemo() {
   const q7Lines = [line("gft01", 80, 0)]
 
   const quotations = [
-    { key: "q1", from: "e1", number: documentNumber("QTN", 1), status: "invoiced", customer: CUSTOMERS.bright, lines: q1Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.bright, q1Lines), issueDate: ago(94), validUntil: ago(79), validityDays: 15, notes: "", terms: "", lostReason: "", createdAt: ago(94) },
-    { key: "q2", from: "e2", number: documentNumber("QTN", 2), status: "invoiced", customer: CUSTOMERS.technova, lines: q2Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.technova, q2Lines), issueDate: ago(68), validUntil: ago(53), validityDays: 15, notes: "", terms: "", lostReason: "", createdAt: ago(68) },
-    { key: "q3", from: "e3", number: documentNumber("QTN", 3), status: "sent", customer: CUSTOMERS.edulearn, lines: q3Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.edulearn, q3Lines), issueDate: ago(18), validUntil: inFuture(-3), validityDays: 15, notes: "Awaiting PO confirmation.", terms: "", lostReason: "", createdAt: ago(18) },
-    { key: "q4", from: "e4", number: documentNumber("QTN", 4), status: "invoiced", customer: CUSTOMERS.gifthub, lines: q4Lines, extraDiscountPercent: 5, totals: makeDoc(CUSTOMERS.gifthub, q4Lines, 5), issueDate: ago(52), validUntil: ago(37), validityDays: 15, notes: "", terms: "", lostReason: "", createdAt: ago(52) },
-    { key: "q5", from: "e5", number: documentNumber("QTN", 5), status: "rejected", customer: CUSTOMERS.acme, lines: q5Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.acme, q5Lines), issueDate: ago(38), validUntil: ago(23), validityDays: 15, notes: "", terms: "", lostReason: "Price too high", createdAt: ago(38) },
-    { key: "q6", from: "e6", number: documentNumber("QTN", 6), status: "sent", customer: CUSTOMERS.startupx, lines: q6Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.startupx, q6Lines), issueDate: ago(10), validUntil: inFuture(5), validityDays: 15, notes: "", terms: "", lostReason: "", createdAt: ago(10) },
-    { key: "q7", from: null, number: documentNumber("QTN", 7), status: "draft", customer: CUSTOMERS.gifthub, lines: q7Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.gifthub, q7Lines), issueDate: ago(2), validUntil: inFuture(13), validityDays: 15, notes: "Repeat customer top-up order.", terms: "", lostReason: "", createdAt: ago(2) },
+    { key: "q1", from: "e1", number: num("QTN", 1), status: "invoiced", customer: CUSTOMERS.bright, lines: q1Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.bright, q1Lines), issueDate: ago(94), validUntil: ago(79), validityDays: 15, notes: "", terms: "", lostReason: "", createdAt: ago(94) },
+    { key: "q2", from: "e2", number: num("QTN", 2), status: "invoiced", customer: CUSTOMERS.technova, lines: q2Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.technova, q2Lines), issueDate: ago(68), validUntil: ago(53), validityDays: 15, notes: "", terms: "", lostReason: "", createdAt: ago(68) },
+    { key: "q3", from: "e3", number: num("QTN", 3), status: "sent", customer: CUSTOMERS.edulearn, lines: q3Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.edulearn, q3Lines), issueDate: ago(18), validUntil: inFuture(-3), validityDays: 15, notes: "Awaiting PO confirmation.", terms: "", lostReason: "", createdAt: ago(18) },
+    { key: "q4", from: "e4", number: num("QTN", 4), status: "invoiced", customer: CUSTOMERS.gifthub, lines: q4Lines, extraDiscountPercent: 5, totals: makeDoc(CUSTOMERS.gifthub, q4Lines, 5), issueDate: ago(52), validUntil: ago(37), validityDays: 15, notes: "", terms: "", lostReason: "", createdAt: ago(52) },
+    { key: "q5", from: "e5", number: num("QTN", 5), status: "rejected", customer: CUSTOMERS.acme, lines: q5Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.acme, q5Lines), issueDate: ago(38), validUntil: ago(23), validityDays: 15, notes: "", terms: "", lostReason: "Price too high", createdAt: ago(38) },
+    { key: "q6", from: "e6", number: num("QTN", 6), status: "sent", customer: CUSTOMERS.startupx, lines: q6Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.startupx, q6Lines), issueDate: ago(10), validUntil: inFuture(5), validityDays: 15, notes: "", terms: "", lostReason: "", createdAt: ago(10) },
+    { key: "q7", from: null, number: num("QTN", 7), status: "draft", customer: CUSTOMERS.gifthub, lines: q7Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.gifthub, q7Lines), issueDate: ago(2), validUntil: inFuture(13), validityDays: 15, notes: "Repeat customer top-up order.", terms: "", lostReason: "", createdAt: ago(2) },
   ]
   const quotationIds = await createMapped(
     "quotations",
@@ -184,11 +193,11 @@ export async function seedDemo() {
 
   // ---- invoices (converted from accepted quotes) ----
   const invoices = [
-    { key: "i1", from: "q1", number: documentNumber("INV", 1), status: "paid", customer: CUSTOMERS.bright, lines: q1Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.bright, q1Lines), issueDate: ago(90), dueDate: ago(75), notes: "", terms: "", quotationNumber: documentNumber("QTN", 1), amountPaid: 0, createdAt: ago(90) },
-    { key: "i2", from: "q2", number: documentNumber("INV", 2), status: "paid", customer: CUSTOMERS.technova, lines: q2Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.technova, q2Lines), issueDate: ago(64), dueDate: ago(49), notes: "", terms: "", quotationNumber: documentNumber("QTN", 2), amountPaid: 0, createdAt: ago(64) },
-    { key: "i3", from: "q4", number: documentNumber("INV", 3), status: "partial", customer: CUSTOMERS.gifthub, lines: q4Lines, extraDiscountPercent: 5, totals: makeDoc(CUSTOMERS.gifthub, q4Lines, 5), issueDate: ago(48), dueDate: ago(33), notes: "50% advance received.", terms: "", quotationNumber: documentNumber("QTN", 4), amountPaid: 0, createdAt: ago(48) },
-    { key: "i4", from: null, number: documentNumber("INV", 4), status: "overdue", customer: CUSTOMERS.edulearn, lines: q3Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.edulearn, q3Lines), issueDate: ago(50), dueDate: ago(20), notes: "Payment reminder sent twice.", terms: "", quotationNumber: "", amountPaid: 0, createdAt: ago(50) },
-    { key: "i5", from: null, number: documentNumber("INV", 5), status: "sent", customer: CUSTOMERS.startupx, lines: q6Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.startupx, q6Lines), issueDate: ago(5), dueDate: inFuture(10), notes: "", terms: "", quotationNumber: "", amountPaid: 0, createdAt: ago(5) },
+    { key: "i1", from: "q1", number: num("INV", 1), status: "paid", customer: CUSTOMERS.bright, lines: q1Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.bright, q1Lines), issueDate: ago(90), dueDate: ago(75), notes: "", terms: "", quotationNumber: num("QTN", 1), amountPaid: 0, createdAt: ago(90) },
+    { key: "i2", from: "q2", number: num("INV", 2), status: "paid", customer: CUSTOMERS.technova, lines: q2Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.technova, q2Lines), issueDate: ago(64), dueDate: ago(49), notes: "", terms: "", quotationNumber: num("QTN", 2), amountPaid: 0, createdAt: ago(64) },
+    { key: "i3", from: "q4", number: num("INV", 3), status: "partial", customer: CUSTOMERS.gifthub, lines: q4Lines, extraDiscountPercent: 5, totals: makeDoc(CUSTOMERS.gifthub, q4Lines, 5), issueDate: ago(48), dueDate: ago(33), notes: "50% advance received.", terms: "", quotationNumber: num("QTN", 4), amountPaid: 0, createdAt: ago(48) },
+    { key: "i4", from: null, number: num("INV", 4), status: "overdue", customer: CUSTOMERS.edulearn, lines: q3Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.edulearn, q3Lines), issueDate: ago(50), dueDate: ago(20), notes: "Payment reminder sent twice.", terms: "", quotationNumber: "", amountPaid: 0, createdAt: ago(50) },
+    { key: "i5", from: null, number: num("INV", 5), status: "sent", customer: CUSTOMERS.startupx, lines: q6Lines, extraDiscountPercent: 0, totals: makeDoc(CUSTOMERS.startupx, q6Lines), issueDate: ago(5), dueDate: inFuture(10), notes: "", terms: "", quotationNumber: "", amountPaid: 0, createdAt: ago(5) },
   ]
   const invoiceIds = await createMapped(
     "invoices",
@@ -210,11 +219,11 @@ export async function seedDemo() {
   const half = (key) => Math.round(total(key) / 2)
 
   const payments = [
-    { key: "p1", on: "i1", number: documentNumber("PAY", 1), type: "inflow", amount: total("i1"), method: "Bank transfer / NEFT", date: ago(74), reference: "NEFT-8891", note: "Full payment", invoiceNumber: byKey.i1.number, party: CUSTOMERS.bright.name, customer: CUSTOMERS.bright, createdAt: ago(74) },
-    { key: "p2", on: "i2", number: documentNumber("PAY", 2), type: "inflow", amount: total("i2"), method: "UPI", date: ago(50), reference: "UPI-4471", note: "Full payment", invoiceNumber: byKey.i2.number, party: CUSTOMERS.technova.name, customer: CUSTOMERS.technova, createdAt: ago(50) },
-    { key: "p3", on: "i3", number: documentNumber("PAY", 3), type: "inflow", amount: half("i3"), method: "UPI", date: ago(47), reference: "UPI-5522", note: "50% advance", invoiceNumber: byKey.i3.number, party: CUSTOMERS.gifthub.name, customer: CUSTOMERS.gifthub, createdAt: ago(47) },
-    { key: "p4", on: null, number: documentNumber("PAY", 4), type: "payout", amount: 42000, method: "RTGS", date: ago(60), reference: "PO-MAT-221", note: "Raw material - acrylic sheets", invoiceNumber: "", party: "Sheela Acrylics Pvt Ltd", customer: null, createdAt: ago(60) },
-    { key: "p5", on: null, number: documentNumber("PAY", 5), type: "payout", amount: 18500, method: "Bank transfer / NEFT", date: ago(30), reference: "PO-JOB-118", note: "Job-work - laser engraving", invoiceNumber: "", party: "Precision Laserworks", customer: null, createdAt: ago(30) },
+    { key: "p1", on: "i1", number: num("PAY", 1), type: "inflow", amount: total("i1"), method: "Bank transfer / NEFT", date: ago(74), reference: "NEFT-8891", note: "Full payment", invoiceNumber: byKey.i1.number, party: CUSTOMERS.bright.name, customer: CUSTOMERS.bright, createdAt: ago(74) },
+    { key: "p2", on: "i2", number: num("PAY", 2), type: "inflow", amount: total("i2"), method: "UPI", date: ago(50), reference: "UPI-4471", note: "Full payment", invoiceNumber: byKey.i2.number, party: CUSTOMERS.technova.name, customer: CUSTOMERS.technova, createdAt: ago(50) },
+    { key: "p3", on: "i3", number: num("PAY", 3), type: "inflow", amount: half("i3"), method: "UPI", date: ago(47), reference: "UPI-5522", note: "50% advance", invoiceNumber: byKey.i3.number, party: CUSTOMERS.gifthub.name, customer: CUSTOMERS.gifthub, createdAt: ago(47) },
+    { key: "p4", on: null, number: num("PAY", 4), type: "payout", amount: 42000, method: "RTGS", date: ago(60), reference: "PO-MAT-221", note: "Raw material - acrylic sheets", invoiceNumber: "", party: "Sheela Acrylics Pvt Ltd", customer: null, createdAt: ago(60) },
+    { key: "p5", on: null, number: num("PAY", 5), type: "payout", amount: 18500, method: "Bank transfer / NEFT", date: ago(30), reference: "PO-JOB-118", note: "Job-work - laser engraving", invoiceNumber: "", party: "Precision Laserworks", customer: null, createdAt: ago(30) },
   ]
   await createMapped(
     "payments",
@@ -317,7 +326,7 @@ export async function seedDemo() {
   const settings = await repo.getSettings()
   await repo.saveSettings({
     ...settings,
-    numbering: { ...settings.numbering, quotationSeq: 8, invoiceSeq: 6, paymentSeq: 6 },
+    numbering: { ...settings.numbering, quotationSeq: base.QTN + 8, invoiceSeq: base.INV + 6, paymentSeq: base.PAY + 6 },
   })
 }
 

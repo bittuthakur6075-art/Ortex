@@ -8,13 +8,15 @@ export function round2(n) {
 // Indian Rupee. `compact` gives ₹1.2L / ₹3.4Cr for dashboard tiles.
 export function formatCurrency(n, { compact = false } = {}) {
   const value = Number(n) || 0
+  // The sign before the ₹ (-₹10,000.00), never inside it (₹-10,000.00).
+  const sign = value < 0 ? "-" : ""
+  const abs = Math.abs(value)
   if (compact) {
-    const abs = Math.abs(value)
-    if (abs >= 1e7) return `₹${round2(value / 1e7)}Cr`
-    if (abs >= 1e5) return `₹${round2(value / 1e5)}L`
-    if (abs >= 1e3) return `₹${round2(value / 1e3)}K`
+    if (abs >= 1e7) return `${sign}₹${round2(abs / 1e7)}Cr`
+    if (abs >= 1e5) return `${sign}₹${round2(abs / 1e5)}L`
+    if (abs >= 1e3) return `${sign}₹${round2(abs / 1e3)}K`
   }
-  return `₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `${sign}₹${abs.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export function formatNumber(n) {

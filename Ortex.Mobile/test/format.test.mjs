@@ -31,7 +31,9 @@ test("rupees group the Indian way: last three, then pairs", () => {
 })
 
 test("negative amounts keep the sign outside the grouping", () => {
-  assert.equal(formatCurrency(-1234567.5), "₹-12,34,567.50")
+  // The sign before the ₹, as the console prints it.
+  assert.equal(formatCurrency(-1234567.5), "-₹12,34,567.50")
+  assert.equal(formatCurrency(-250000, { compact: true }), "-₹2.5L")
 })
 
 test("compact amounts read as lakhs and crores", () => {

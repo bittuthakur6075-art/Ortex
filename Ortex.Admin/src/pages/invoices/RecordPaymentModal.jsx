@@ -141,7 +141,7 @@ export default function RecordPaymentModal({ type: initialType = "inflow", invoi
     if (date > maxDate) return toast.error("The date cannot be after today")
     const partyName = party.trim()
     if (!pinned && !linked && !partyName) return toast.error(isPayout ? "Enter who was paid" : "Enter who paid")
-    if (amt > CONFIRM_ABOVE && !window.confirm(`Is ${formatCurrency(amt)} correct?`)) return
+    if (amt > CONFIRM_ABOVE && !window.confirm(`Is ${formatCurrency(amt).replace(/\.00$/, "")} correct?`)) return
     if (duplicate?.sure && !window.confirm(`${duplicate.payment.number || "A payment"} already has this reference. Record it again?`)) return
     if (reading?.serious && !window.confirm(reading.status === "failed" ? "This payment failed. Record it anyway?" : "This is not a payment screenshot. Record it anyway?")) return
     if (reading?.status === "pending" && !window.confirm("This payment is still pending. Record it anyway?")) return
