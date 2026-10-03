@@ -88,10 +88,10 @@ export default function MyPayslips() {
                   onChange={setFy}
                 />
               )}
-              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              <div className={`grid grid-cols-2 gap-3 ${ytd.tds ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
                 <Tile label={`Gross, FY ${current[0]}`} value={rupees(ytd.gross)} />
-                <Tile label="Deductions (PF, ESI, loans)" value={rupees(ytd.deductions)} />
-                <Tile label="Income tax deducted" value={rupees(ytd.tds)} />
+                <Tile label="Deductions" value={rupees(ytd.deductions)} />
+                {ytd.tds > 0 && <Tile label="Income tax deducted" value={rupees(ytd.tds)} />}
                 <Tile label="Net pay received" value={rupees(ytd.net)} strong />
               </div>
               <Card className="overflow-hidden">
@@ -101,7 +101,7 @@ export default function MyPayslips() {
                     <thead className="mt-head">
                       <tr className="text-left">
                         <th>Month</th>
-                        <th className="text-right">Paid days</th>
+                        <th className="text-right">Days</th>
                         <th className="text-right">Gross</th>
                         <th className="text-right">Deductions</th>
                         <th className="text-right">Net pay</th>
@@ -113,7 +113,7 @@ export default function MyPayslips() {
                         <tr key={s.id} className={ROW_LINK} {...rowOpens(() => setOpen(s))}>
                           <td className="font-medium text-foreground">{monthWords(s.data?.month)}</td>
                           <td className="text-right tabular">
-                            {s.data?.paidDays} / {s.data?.basisDays}
+                            {s.data?.payType === "daily" ? `${s.data.daysWorked} worked` : s.data?.basisDays ? `${s.data.paidDays} / ${s.data.basisDays}` : "-"}
                           </td>
                           <td className="text-right tabular">{rupees(s.data?.gross)}</td>
                           <td className="text-right tabular">{rupees(s.data?.totalDeductions)}</td>

@@ -2,22 +2,20 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { Trash2 } from "../../../components/ui/Icons"
 import { Button, Field, Input, Modal, Select } from "../../../components/ui/Ui"
-import { Check } from "../setup/common"
 import { money } from "./shared"
 
-// One-time earnings and deductions for one person in a draft run (Zoho's
-// "Add one-time earning / deduction"). The list is kept in the run screen's
-// local edits and reaches the payslip at the next Calculate.
+// One-time earnings and deductions for one person in a draft run: a bonus or
+// an incentive, or a deduction outside the advances. The list is kept in the
+// run screen's local edits and reaches the payslip at the next Calculate.
 
 const PRESETS = [
   { code: "BONUS", name: "Bonus", kind: "earning" },
   { code: "INCENTIVE", name: "Incentive", kind: "earning" },
-  { code: "OVERTIME", name: "Overtime", kind: "earning" },
-  { code: "RECOVERY", name: "Recovery", kind: "deduction" },
+  { code: "RECOVERY", name: "Other deduction", kind: "deduction" },
   { code: "CUSTOM", name: "", kind: "earning" },
 ]
 
-const blank = { code: "BONUS", name: "Bonus", kind: "earning", amount: "", taxable: true }
+const blank = { code: "BONUS", name: "Bonus", kind: "earning", amount: "" }
 
 export default function OneTimeModal({ person, onSave, onClose }) {
   const [items, setItems] = useState(() => person?.items || [])
@@ -34,7 +32,7 @@ export default function OneTimeModal({ person, onSave, onClose }) {
     if (!name) return toast.error("Name the item, like Festival advance")
     if (!(amount > 0)) return toast.error("Enter an amount above zero")
     const code = draft.code === "CUSTOM" ? name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").slice(0, 20) || "ONE_TIME" : draft.code
-    setItems([...items, { kind: draft.kind, code, name, amount, taxable: draft.kind === "earning" ? draft.taxable : undefined }])
+    setItems([...items, { kind: draft.kind, code, name, amount }])
     setDraft(blank)
   }
 
@@ -60,7 +58,7 @@ export default function OneTimeModal({ person, onSave, onClose }) {
                 <span className="min-w-0">
                   <span className="font-medium text-foreground">{it.name}</span>
                   <span className="block text-[12px] text-muted-foreground">
-                    {it.kind === "deduction" ? "Deduction" : it.taxable === false ? "Earning, not taxed" : "Earning, taxed"}
+                    {it.kind === "deduction" ? "Deduction" : "Earning"}
                   </span>
                 </span>
                 <span className="flex items-center gap-2">
@@ -81,8 +79,7 @@ export default function OneTimeModal({ person, onSave, onClose }) {
             <Select value={draft.code} onChange={(e) => pick(e.target.value)}>
               <option value="BONUS">Bonus</option>
               <option value="INCENTIVE">Incentive</option>
-              <option value="OVERTIME">Overtime</option>
-              <option value="RECOVERY">Recovery (deduction)</option>
+              <option value="RECOVERY">Other deduction</option>
               <option value="CUSTOM">Something else</option>
             </Select>
           </Field>
@@ -103,15 +100,10 @@ export default function OneTimeModal({ person, onSave, onClose }) {
             </>
           )}
         </div>
-        {draft.kind === "earning" && (
-          <Check id="one-time-taxable" checked={draft.taxable} onChange={(v) => setDraft({ ...draft, taxable: v })} label="Taxable" hint="Counts towards this month's TDS" />
-        )}
         <Button variant="outline" onClick={add}>
           Add item
         </Button>
-        <p className="text-[12px] text-muted-foreground">
-          One-time earnings are outside PF wages. Deductions give way to the 50% cap first and carry forward if they do not fit. Overtime added here replaces the overtime worked out from attendance.
-        </p>
+        <p className="text-[12px] text-muted-foreground">Overtime and advance recovery have their own place on the pay run.</p>
       </div>
     </Modal>
   )

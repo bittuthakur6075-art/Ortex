@@ -31,8 +31,12 @@ export type PayslipTemplateInput = {
     account_last4?: string | null
     pay_mode?: string | null
   }
-  paidDays: number
-  lopDays: number
+  /** New slips (2026-10-03): how the person is paid. An older slip has none and prints Paid / LOP days. */
+  payType?: "monthly" | "daily" | null
+  paidDays?: number
+  basisDays?: number
+  lopDays?: number
+  daysWorked?: number
   earnings: TemplateLine[]
   deductions: TemplateLine[]
   reimbursements: TemplateLine[]
@@ -125,7 +129,7 @@ export function amountInWords(value: number): string {
   return paise ? `${words} and ${belowHundred(paise)} Paise Only` : `${words} Only`
 }
 
-const days = (n: number): string => {
+const days = (n: number | undefined): string => {
   const v = Number(n) || 0
   return Number.isInteger(v) ? String(v) : String(Math.round(v * 100) / 100)
 }
@@ -213,12 +217,29 @@ export function payslipBody(p: PayslipTemplateInput): string {
     : e.pay_mode && e.pay_mode !== "bank"
       ? `Paid by ${e.pay_mode}`
       : "-"
-  const ids: [string, string][] = [
-    ["PAN", e.pan_last4 ? `XXXXXX${e.pan_last4}` : "-"],
-    ["UAN", e.uan || "-"],
-    ...(e.esi_ip ? ([["ESI Number", e.esi_ip]] as [string, string][]) : []),
-    ["Bank Account No", bank],
-  ]
+  const ids: [string, string][] = p.payType
+    ? [
+        ["Pay Type", p.payType === "daily" ? "Daily wage" : "Monthly salary"],
+        ["Bank Account No", bank],
+      ]
+    : [
+        ["PAN", e.pan_last4 ? `XXXXXX${e.pan_last4}` : "-"],
+        ["UAN", e.uan || "-"],
+        ...(e.esi_ip ? ([["ESI Number", e.esi_ip]] as [string, string][]) : []),
+        ["Bank Account No", bank],
+      ]
+  const dayRows: [string, string][] =
+    p.payType === "daily"
+      ? [["Days Worked", days(p.daysWorked)]]
+      : p.payType === "monthly"
+        ? [
+            ["Paid Days", `${days(p.paidDays)} of ${days(p.basisDays)}`],
+            ["LOP Days", days(p.lopDays)],
+          ]
+        : [
+            ["Paid Days", days(p.paidDays)],
+            ["LOP Days", days(p.lopDays)],
+          ]
   const formula = `Gross Earnings - Total Deductions${reimbursements.length ? " + Reimbursements" : ""}`
 
   return `<div class="zp-sheet">
@@ -259,8 +280,7 @@ export function payslipBody(p: PayslipTemplateInput): string {
         </div>
       </div>
       <div class="zp-card-days">
-        <span class="zp-k">Paid Days</span><span class="zp-v">: ${esc(days(p.paidDays))}</span>
-        <span class="zp-k">LOP Days</span><span class="zp-v">: ${esc(days(p.lopDays))}</span>
+        ${dayRows.map(([k, v]) => `<span class="zp-k">${esc(k)}</span><span class="zp-v">: ${esc(v)}</span>`).join("")}
       </div>
     </div>
   </div>

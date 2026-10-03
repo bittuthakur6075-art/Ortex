@@ -286,7 +286,7 @@ export default function Settings() {
             </SectionHead>
           )}
           {section === "payroll" && (
-            <SectionHead title="Payroll" description="Pay heads, cycles and statutory settings for the pay run.">
+            <SectionHead title="Payroll" description="Pay schedule, overtime, the bank file and the name on payslips.">
               <PayrollSettings />
             </SectionHead>
           )}

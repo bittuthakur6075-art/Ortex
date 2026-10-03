@@ -105,7 +105,7 @@ export default function PayRuns() {
             <EmptyState
               icon={IndianRupee}
               title={state.runs.length ? "No pay runs match" : "No pay runs yet"}
-              description={state.runs.length ? "Choose another status above." : "Create the first pay run. Its payslips come from each person's salary and this month's attendance."}
+              description={state.runs.length ? "Choose another status above." : "Create the first pay run. Its payslips come from each person's pay and this month's attendance."}
             />
           </div>
         ) : (
@@ -117,7 +117,7 @@ export default function PayRuns() {
                   <th>Status</th>
                   <th className="text-right">Employees</th>
                   <th className="text-right">Net pay</th>
-                  <th className="text-right">Payroll cost</th>
+                  <th className="text-right">Gross</th>
                   <th>Pay date</th>
                   <th>Created by</th>
                 </tr>
@@ -142,7 +142,7 @@ export default function PayRuns() {
                       </td>
                       <td className="text-right tabular">{t.employees ?? "-"}</td>
                       <td className="text-right tabular">{t.netPay != null ? rupees(t.netPay) : "-"}</td>
-                      <td className="text-right tabular">{t.payrollCost != null ? rupees(t.payrollCost) : "-"}</td>
+                      <td className="text-right tabular">{t.gross != null ? rupees(t.gross) : "-"}</td>
                       <td className="tabular">{dayWords(r.pay_date) || "-"}</td>
                       <td>{state.directory[r.created_by]?.name || (r.created_by ? "Unknown" : "Not recorded")}</td>
                     </tr>
@@ -180,7 +180,7 @@ export default function PayRuns() {
               </Field>
             )}
             <p className="text-[13px] text-muted-foreground">
-              The run opens as a draft. Calculate it to build the payslips from salaries and attendance, then submit it for approval.
+              The run opens as a draft. Calculate it to build the payslips from pay and attendance, then submit it for approval.
             </p>
           </div>
         )}

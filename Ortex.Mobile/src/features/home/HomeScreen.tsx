@@ -151,7 +151,7 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
   const actions = staff
     ? [
         { icon: "calendar" as const, label: "Apply Leave", onPress: () => navigation.navigate("LeaveApply") },
-        { icon: "invoice" as const, label: "New Claim", onPress: () => navigation.navigate("PayClaimNew") },
+        { icon: "money" as const, label: "My Pay", onPress: () => navigation.navigate("Pay") },
         { icon: "clock" as const, label: "Fix a Punch", onPress: () => navigation.navigate("Attendance") },
         // Accounts record payments; their chat is in the app bar.
         payments
@@ -275,10 +275,7 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
 
           {staff ? (
             <>
-              <RequestsCard
-                onLeave={() => navigation.navigate("Leave")}
-                onClaims={() => navigation.navigate("PayClaims")}
-              />
+              <RequestsCard onLeave={() => navigation.navigate("Leave")} />
               <LeaveBalanceGrid onOpen={() => navigation.navigate("Leave")} />
               <PayCard onOpen={(id) => navigation.navigate("Payslip", { id })} />
               <ComingUpCard holiday={notices.nextHoliday} />
@@ -457,7 +454,7 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
                     icon="money"
                     tone="success"
                     title="My Payslips"
-                    subtitle="Payslips, salary and claims"
+                    subtitle="Payslips, salary and advances"
                     onPress={() => navigation.navigate("Pay")}
                   />
                 </CardRows>

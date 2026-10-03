@@ -100,9 +100,10 @@ const MOVED_TAB = {
   payroll: "/payroll?tab=payroll",
   runs: "/payroll?tab=runs",
   employees: "/payroll?tab=employees",
-  approvals: "/payroll?tab=approvals",
+  // Approvals (claims) and Reports were removed with the statutory payroll (2026-10-03).
+  approvals: "/payroll?tab=runs",
   loans: "/payroll?tab=loans",
-  reports: "/payroll?tab=reports",
+  reports: "/payroll?tab=runs",
   settings: "/control?section=attendance",
   "payroll-settings": "/control?section=payroll",
 }

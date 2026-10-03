@@ -1,87 +1,49 @@
 # Payroll: design and rules
 
-Status (2026-09-19): **built, migration 0040 applied to production.** Console: `/payroll` (dashboard, pay runs, employees, approvals, loans, reports, settings) and `/payslips`. Phone: Profile → My pay (payslips + PDF, salary, reimbursement claims), and a payslip alert. Nothing has been run end to end with real salaries yet. The app reference is **Zoho Payroll (India)**, owner's choice, rebuilt inside Ortex; there is no Zoho subscription.
+Status (2026-10-03): **simplified** (owner's decision). Built on migration 0040 (applied 2026-09-19); migration **0077** adds pay types, `payroll_days_worked()` and stops new claims. Console: `/payroll` (Overview, Pay runs, Employees, Advances) with settings in the Control centre; `/my-records?tab=payslips`. Phone: Profile → My pay (payslips + PDF, pay rate, advances) and a payslip alert. Not yet run end to end with real salaries.
+
+## What was removed, and what stays readable
+
+Removed from the product: PF, ESI, professional tax, TDS (projection, regime, investment declarations, Form 16 / 24Q), LWF, statutory reports and files (ECR, ESIC upload, salary register, TDS summary), salary components and templates (Basic, HRA, ...), arrears from back-dated revisions, reimbursement claims (console Approvals, the phone's claim screens; `claim_submit` refuses since 0077), and the 50% deduction cap.
+
+Nothing was dropped from the database. Every PAID payslip keeps the lines it was stored with and prints them as they are (console sheet and PDF, phone screen and PDF), statutory lines included. Old salary revisions, claims, components, templates and settings stay in their tables.
 
 ## Who
 
-| | Payroll (settings) | Run payroll, employees, loans, claims | Own payslips |
+| | Payroll settings | Run payroll, employees, advances | Own payslips |
 |---|---|---|---|
 | Super Admin | ● | ● | ● |
 | Accounts | · | ● (the `payroll` grant, by default) | ● |
 | Admin | · | only if granted `payroll` | ● |
 | Sales Executive, Staff | · | · | ● |
 
-- **Who counts as payroll.** `is_payroll()` (migration 0040) returns true for the Super Admin, plus anyone whose role grants or personal extras include `payroll`. It never uses `is_admin()`, because a salary is not something every Admin sees.
-- **Separate history.** Salary tables are **not** part of the 0023 audit trail, which every member of staff can read. `payroll_audit` is their history instead, and only payroll can read it.
+`is_payroll()` (0040, 0053, 0055) never uses `is_admin()`. Salary tables are not in the 0023 audit trail; `payroll_audit` is their history, readable by payroll only.
 
-## Structure (Zoho Payroll's)
+## Pay types (on the effective-dated salary revision)
 
-**Settings (Super Admin)**
-- organisation statutory IDs (PAN, TAN, PF code, ESI code, LWF registration);
-- pay schedule: salary on the month's actual days or a fixed 26 / 30, and pay day;
-- EPF / ESI / LWF / PT / TDS;
-- the deduction cap;
-- the bank file columns;
-- salary components and salary templates.
+* **Monthly salary**: `pay_type = 'monthly'`, `monthly_gross` = the salary (`earnings` holds one SALARY line). Pay = salary × paid days / basis days. Paid days are attendance's payable days (`attendance_month_summary`), clamped to the employed span; the basis is the month's actual days or a fixed 26 / 30 (settings).
+* **Daily wage**: `pay_type = 'daily'`, `daily_rate`. Pay = days worked × rate. Days worked count only the effective status (override, else computed): P = 1, OD = 1, HD = 0.5; WO, H, L, LOP, A and MP are 0, so Sundays, holidays and leave are not paid. Read through `payroll_days_worked(month)` (0077, security definer, `is_payroll()`), because payroll may not hold `attendance-team`.
+* **An older revision** (no `pay_type`) is monthly at the sum of its earning components (its gross): `payTermsOf` in `lib/payroll.js` (mirrored in the phone's `payFormat.ts`).
 
-**Employees**
-- the pay profile: PAN and bank account are **encrypted** with a key the database generates in Vault. Only the last four digits are stored in the clear, and every reveal is logged.
-- statutory flags: PF, ESI, LWF, TDS, and tax regime.
-- exit.
-- salary revisions: annual CTC with an **Effective From** and a **Payout Month**. A back-dated revision pays its **arrears** automatically.
-
-**Pay runs**
-- The flow is draft → submit → approve (a second person, or the Super Admin) → record payment, and a run can be recalled until it is paid.
-- In the draft you can edit paid days, add one-time earnings and deductions, and skip or withhold an employee.
-- A payslip is visible to its employee **only once the run is paid**.
-
-**Off-cycle runs** (a bonus, an incentive, a settlement top-up) pay only the one-time items added to them: no monthly salary, loans, claims or arrears, and everyone starts as Skip. TDS and LWF are left to the next regular run, whose projection counts the payout and catches the tax up.
-
-**Approvals:** reimbursement claims, submitted from the phone with a receipt.
-
-**Loans:** an instalment is recovered in each pay run, and the loan closes itself when it is fully recovered.
-
-**Reports and files**
-- salary register (Form IV style);
-- bank transfer CSV;
-- EPFO ECR (11 fields, `#~#`);
-- ESIC monthly upload;
-- TDS summary.
+Both are paid monthly, in the same run.
 
 ## The rules the engine applies (`Ortex.Admin/src/lib/payroll.js`, tested in `payroll.test.js`)
 
-- **Paid days.**
-  - Paid days come from attendance's payable days for the month (`attendance_month_summary`), clamped to the part of the month the person was employed.
-  - On the actual-days basis, paid = payable. On a fixed basis, paid = fixed days × the employed share, less the unpaid days.
-- **Code on Wages "wages"** (s.2(y)) are the in-wages components (Basic, Fixed allowance). If the excluded ones (HRA, conveyance) carry more than half of the pay, the excess counts as wages too. Wages are the PF base.
-- **EPF.**
-  - 12% employee and 12% employer, of which 8.33% goes to EPS, always capped at the ceiling. EDLI and admin are 0.5% each.
-  - The wage is restricted to the **dated** ceiling: ₹15,000 is seeded.
-  - **The Cabinet approved ₹25,000 on 16 Sep 2026.** Add it in Settings with its date once EPFO notifies it.
-- **ESI:** 0.75% employee and 3.25% employer of gross, rounded up. It applies to people flagged ESI (gross ₹21,000 or less at the start of the contribution period).
-- **Delhi LWF:** ₹0.75 employee and ₹2.25 employer, deducted in June and December. There is no professional tax in Delhi.
-- **TDS.**
-  - Each month the year's taxable salary is projected: paid so far + this month + the current structure × the months left.
-  - From that, the standard deduction is taken (₹75,000 new regime, ₹50,000 old), plus declared deductions under the old regime.
-  - Slabs for FY 2026-27 are unchanged by Budget 2026. The rebate: nothing is payable up to ₹12 lakh taxable, with marginal relief just above. Cess is 4%.
-  - The monthly figure is that year's tax, less TDS already deducted, divided by the months left.
-  - The Income-tax Act 2025 applies from 1 Apr 2026: Form 16 is now Form 130, and the investment declaration is Form 124.
-- **Deduction cap** (Code on Wages s.18): total deductions may not exceed 50% of the month's wages. Loan instalments and one-time deductions give way first, and the excess carries forward.
-- **Salary structure from CTC:**
-  - Basic is 50% of monthly CTC, HRA 40% of Basic, conveyance ₹1,600.
-  - Fixed allowance is the **balance**, after the employer's PF when that is included in CTC.
+* **Overtime at 1x** (owner's decision 2026-10-03): hourly rate = one day's pay / shift hours, where one day's pay is salary / basis days (monthly) or the daily rate (daily); the shift comes from the attendance settings (9h by default). Minutes are the month's `attendance_overtime` inside the employed span, weekly offs and holidays included. Per person on the run, payroll chooses **Auto-calculate** (default when "Pay overtime automatically" is on) or **Enter amount** (a rupee figure typed after seeing the hours, 0 pays none). The choice is kept on the slip (`overtimeInput`) across Calculate; the slip shows the hours and, for auto, the rate.
+* **One-time items**: earnings (bonus, incentive, anything named) and deductions (other recoveries).
+* **Advances** (the `loans` table): recorded with amount, date paid, note and recovery (in full in one pay run, or N monthly instalments) from Advances, a pay profile or the run screen. Each regular run deducts the instalment, never more than the balance; payroll can change or skip one month's recovery per person (`recoverInput`, kept across Calculate). The slip line reads "Salary advance recovered ₹X (balance ₹Y)". Recoveries are written when the run is paid (`payroll_run_transition`), and an advance closes itself once recovered.
+* **Net pay never goes below zero**: deductions that do not fit the gross are carried forward (shown on the slip).
+* **Off-cycle runs** (a bonus, a settlement top-up) pay only their one-time items: no salary, overtime or advance recovery.
 
-## Still to verify (as of 2026-09-19)
+## Pay runs
 
-1. The EPFO gazette for the ₹25,000 ceiling, and how September 2026 is split.
-2. Any Delhi minimum-wage revision after April 2025: Unskilled ₹18,456, Semi-skilled ₹20,371, Skilled ₹22,411 a month.
-3. Delhi's final wage rules, and the exact fields of Form V (wage slip) and Form IV (register).
-4. The form number for choosing the old regime.
-5. Whether statutory bonus uses the central or the Delhi minimum wage.
+Draft → submit → approve (someone other than the submitter, or the Super Admin) → record payment, recallable until paid; a regular run cannot be submitted, approved or paid until its month's attendance is locked (0065). Calculate refuses when the attendance summary, the days worked (with any daily-wage person) or, with auto overtime on, the overtime cannot be read. A payslip reaches its employee only once the run is paid. An approved run gives the bank transfer CSV (columns set in settings; full account numbers through `payroll_bank_details`, logged) and all payslips in one PDF.
 
-Not in this version:
-- the bonus and gratuity provision;
-- Form 124 declarations with proof upload;
-- the Form 130 / 138 exports;
-- the professional tax slabs for other states;
-- pushing the Tally salary journal.
+## Worked examples
+
+* Monthly ₹27,000, 30-day month, 26 paid days, 5h overtime: salary 27,000 × 26 / 30 = ₹23,400; hourly rate 27,000 / 30 / 9 = ₹100; overtime 5 × 100 = ₹500; gross ₹23,900.
+* Daily ₹800, 22 P + 2 HD + 1 OD, 3h overtime: days worked 22 + 1 + 1 = 24; wages 24 × 800 = ₹19,200; hourly rate 800 / 9 = ₹88.89; overtime 3 × 88.89 = ₹267 (rounded); gross ₹19,467.
+
+## Settings (Control centre → Payroll, Super Admin)
+
+Organisation name and address (printed on payslips), pay schedule (basis, pay day, pay overtime automatically), bank file (debit account, IFSC, narration, column order).

@@ -20,6 +20,8 @@ export type PayLine = {
   note?: string
   oneTime?: boolean
   full?: number
+  /** An advance recovery line: the balance left after it. */
+  balanceAfter?: number
 }
 
 export type PayslipEmployee = {
@@ -40,18 +42,27 @@ export type PayslipEmployee = {
 
 export type PayslipData = {
   month: string
-  paidDays: number
-  basisDays: number
-  lopDays: number
+  /** Slips from 2026-10-03: how the person was paid. An older slip has none (monthly, paid and LOP days). */
+  payType?: "monthly" | "daily"
+  rate?: number
+  /** Monthly (and every older slip). */
+  paidDays?: number
+  basisDays?: number
+  lopDays?: number
+  /** Daily wage: P and OD 1, HD 0.5. */
+  daysWorked?: number
+  /** The month's overtime and how it was paid (auto at the hourly rate, or an amount payroll typed). */
+  overtime?: { minutes: number; mode: "auto" | "manual"; amount: number; hourlyRate?: number | null } | null
   earnings: PayLine[]
   gross: number
   deductions: PayLine[]
   totalDeductions: number
-  reimbursements: PayLine[]
-  reimbursementTotal: number
+  /** Older slips only (claims, PF, ESI and TDS were removed 2026-10-03); render them when present. */
+  reimbursements?: PayLine[]
+  reimbursementTotal?: number
   netPay: number
-  employer: PayLine[]
-  employerTotal: number
+  employer?: PayLine[]
+  employerTotal?: number
   tds?: { monthly?: number; annualTax?: number; taxable?: number; annualGross?: number; regime?: "new" | "old" }
   employee?: PayslipEmployee
   revision?: { annual_ctc?: number; effective_from?: string }
@@ -78,6 +89,9 @@ export type SalaryRevision = {
   earnings: PayLine[]
   monthly_gross: number
   employer_pf_in_ctc: number
+  /** Admin 0077. Null on an older revision: monthly at the sum of its earnings. */
+  pay_type?: "monthly" | "daily" | null
+  daily_rate?: number | null
   reason: string | null
   created_at: string
 }
@@ -93,21 +107,6 @@ export type Loan = {
   note: string | null
   recovered: number
   balance: number
-}
-
-export type ClaimStatus = "pending" | "approved" | "rejected" | "paid" | "cancelled"
-
-export type Claim = {
-  id: string
-  category: string
-  amount: number
-  bill_date: string
-  description: string | null
-  receipt_path: string | null
-  status: ClaimStatus
-  decided_at: string | null
-  decision_note: string | null
-  created_at: string
 }
 
 // ---- engine ports (Ortex.Admin/src/lib/payroll.js) -----------------------------------------------
@@ -288,49 +287,30 @@ export function loanProgress(amount: number, recoveries: { amount: number }[]): 
   return { recovered, balance: round2(Math.max(0, (Number(amount) || 0) - recovered)) }
 }
 
-// ---- claims ----------------------------------------------------------------------------------------
-
-export const CLAIM_CATEGORIES = ["Fuel", "Travel", "Phone", "Food", "Medical", "Other"] as const
-
-export const CLAIM_STATUS_LABEL: Record<ClaimStatus, string> = {
-  pending: "Waiting",
-  approved: "Approved",
-  paid: "Paid",
-  rejected: "Rejected",
-  cancelled: "Cancelled",
-}
-
-export const CLAIM_STATUS_TONE: Record<ClaimStatus, "amber" | "blue" | "emerald" | "rose" | "slate"> = {
-  pending: "amber",
-  approved: "blue",
-  paid: "emerald",
-  rejected: "rose",
-  cancelled: "slate",
-}
-
-/** The server accepts bills from today back to 90 days ago (claim_submit). */
-export const CLAIM_MAX_AGE_DAYS = 90
-
-/** "YYYY-MM-DD" `delta` days from `day`. */
-export function shiftDay(day: string, delta: number): string {
-  return new Date(Date.parse(`${day}T00:00:00Z`) + delta * 86400000).toISOString().slice(0, 10)
-}
+// ---- pay type ------------------------------------------------------------------------------------
 
 /**
- * Why a claim cannot be sent yet, in words, or null. Mirrors claim_submit's
- * own checks (amount 1 to 2,00,000, bill within 90 days) so the refusal
- * arrives before the button is pressed.
+ * How a revision pays: a port of payTermsOf in Ortex.Admin/src/lib/payroll.js
+ * (checked against it in test/pay.test.mjs). An older revision (no pay_type)
+ * is monthly at the sum of its earnings.
  */
-export function claimBlocker(
-  c: { category: string; amount: string; billDate: string; hasReceipt: boolean },
-  today: string,
-): string | null {
-  if (!c.category) return "Choose a category"
-  const amount = Number(c.amount.replace(/,/g, ""))
-  if (!c.amount.trim() || !Number.isFinite(amount) || amount <= 0) return "Enter the amount"
-  if (amount > 200000) return "A single claim can be at most ₹2,00,000"
-  if (c.billDate > today) return "The bill date cannot be in the future"
-  if (c.billDate < shiftDay(today, -CLAIM_MAX_AGE_DAYS)) return "Claim bills from the last 90 days"
-  if (!c.hasReceipt) return "Add a photo of the bill"
-  return null
+export function payTermsOf(rev: Pick<SalaryRevision, "pay_type" | "daily_rate" | "earnings" | "monthly_gross"> | null | undefined): { type: "monthly" | "daily"; rate: number } | null {
+  if (!rev) return null
+  if (rev.pay_type === "daily") return { type: "daily", rate: round2(Number(rev.daily_rate) || 0) }
+  const gross = round2((rev.earnings || []).reduce((s, e) => s + (Number(e.amount) || 0), 0))
+  return { type: "monthly", rate: gross || round2(Number(rev.monthly_gross) || 0) }
+}
+
+export const PAY_TYPE_LABEL = { monthly: "Monthly salary", daily: "Daily wage" } as const
+
+/** "Paid days: 26 of 30", "Days worked: 24", or "" for an off-cycle slip. */
+export function slipDaysText(d: Pick<PayslipData, "payType" | "paidDays" | "basisDays" | "daysWorked">): string {
+  if (d.payType === "daily") return `Days worked: ${round2(Number(d.daysWorked) || 0)}`
+  if (d.basisDays) return `Paid days: ${round2(Number(d.paidDays) || 0)} of ${d.basisDays}`
+  return ""
+}
+
+/** "YYYY-MM-DD" `delta` days from `day` (used by Payments' day picker). */
+export function shiftDay(day: string, delta: number): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) + delta * 86400000).toISOString().slice(0, 10)
 }

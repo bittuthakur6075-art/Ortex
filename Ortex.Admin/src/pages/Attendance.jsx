@@ -32,9 +32,7 @@ import MyPayslips from "./MyPayslips"
 import PayrollDashboard from "./payroll/Dashboard"
 import PayRuns from "./payroll/PayRuns"
 import Employees from "./payroll/Employees"
-import Approvals from "./payroll/Approvals"
 import Loans from "./payroll/Loans"
-import Reports from "./payroll/Reports"
 
 // Attendance & pay (docs/pm/ATTENDANCE_LEAVE_PLAN.md, PAYROLL_PLAN.md). The
 // console VIEWS and manages attendance; it never marks it. Clocking in and out
@@ -54,7 +52,7 @@ import Reports from "./payroll/Reports"
 const SECTIONS = [
   { value: "team", label: "Team", icon: Users, subtitle: "Who is in today, the monthly register, and requests waiting for a decision." },
   { value: "me", label: "My records", icon: CalendarClock, subtitle: "Your attendance, leave and payslips. Attendance is marked in the phone app." },
-  { value: "payroll", label: "Payroll", icon: IndianRupee, subtitle: "Salaries from attendance: pay runs, payslips, PF, ESI and TDS, bank and statutory files." },
+  { value: "payroll", label: "Payroll", icon: IndianRupee, subtitle: "Monthly salaries and daily wages from attendance: pay runs, payslips, advances and the bank file." },
 ]
 
 // canAccess, not isAdmin: it honours module switches and per-person hides,
@@ -87,9 +85,7 @@ const PAGES = [
   { section: "payroll", value: "payroll", label: "Overview", icon: LayoutDashboard, render: () => <PayrollDashboard />, allow: payroll },
   { section: "payroll", value: "runs", label: "Pay runs", icon: IndianRupee, render: () => <PayRuns />, allow: payroll },
   { section: "payroll", value: "employees", label: "Employees", icon: Users, render: () => <Employees />, allow: payroll },
-  { section: "payroll", value: "approvals", label: "Approvals", icon: ReceiptIndianRupee, render: () => <Approvals />, allow: payroll },
-  { section: "payroll", value: "loans", label: "Loans", icon: Wallet, render: () => <Loans />, allow: payroll },
-  { section: "payroll", value: "reports", label: "Reports", icon: FileText, render: () => <Reports />, allow: payroll },
+  { section: "payroll", value: "loans", label: "Advances", icon: Wallet, render: () => <Loans />, allow: payroll },
 ]
 
 

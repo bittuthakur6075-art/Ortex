@@ -20,7 +20,7 @@ test("server pushes open the right screen", () => {
   assert.deepEqual(pushRoute(server("LeaveRequest", "l1", "requests")), { screen: "LeaveRequest", params: { id: "l1" } })
   assert.deepEqual(pushRoute(server("AttendanceDay", "2026-09-30", "requests")), { screen: "AttendanceDay", params: { day: "2026-09-30" } })
   assert.deepEqual(pushRoute(server("Payslip", "p1", "pay")), { screen: "Payslip", params: { id: "p1" } })
-  assert.deepEqual(pushRoute(server("PayClaims", "k1", "pay")), { screen: "PayClaims" })
+  assert.deepEqual(pushRoute(server("PayClaims", "k1", "pay")), { screen: "Pay" })
 })
 
 test("the app's own lead alerts and scheduled notes", () => {

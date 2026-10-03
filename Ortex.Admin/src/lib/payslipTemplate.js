@@ -163,12 +163,29 @@ export function payslipBody(p) {
     : e.pay_mode && e.pay_mode !== "bank"
     ? `Paid by ${e.pay_mode}`
     : "-"
-  const ids = [
-    ["PAN", e.pan_last4 ? `XXXXXX${e.pan_last4}` : "-"],
-    ["UAN", e.uan || "-"],
-    ...(e.esi_ip ? [["ESI Number", e.esi_ip]] : []),
-    ["Bank Account No", bank],
-  ]
+  const ids = p.payType
+    ? [
+        ["Pay Type", p.payType === "daily" ? "Daily wage" : "Monthly salary"],
+        ["Bank Account No", bank],
+      ]
+    : [
+        ["PAN", e.pan_last4 ? `XXXXXX${e.pan_last4}` : "-"],
+        ["UAN", e.uan || "-"],
+        ...(e.esi_ip ? [["ESI Number", e.esi_ip]] : []),
+        ["Bank Account No", bank],
+      ]
+  const dayRows =
+    p.payType === "daily"
+      ? [["Days Worked", days(p.daysWorked)]]
+      : p.payType === "monthly"
+        ? [
+            ["Paid Days", `${days(p.paidDays)} of ${days(p.basisDays)}`],
+            ["LOP Days", days(p.lopDays)],
+          ]
+        : [
+            ["Paid Days", days(p.paidDays)],
+            ["LOP Days", days(p.lopDays)],
+          ]
   const formula = `Gross Earnings - Total Deductions${reimbursements.length ? " + Reimbursements" : ""}`
   return `<div class="zp-sheet">
   <div class="zp-head">
@@ -208,8 +225,7 @@ export function payslipBody(p) {
         </div>
       </div>
       <div class="zp-card-days">
-        <span class="zp-k">Paid Days</span><span class="zp-v">: ${esc(days(p.paidDays))}</span>
-        <span class="zp-k">LOP Days</span><span class="zp-v">: ${esc(days(p.lopDays))}</span>
+        ${dayRows.map(([k, v]) => `<span class="zp-k">${esc(k)}</span><span class="zp-v">: ${esc(v)}</span>`).join("")}
       </div>
     </div>
   </div>

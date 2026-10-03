@@ -19,7 +19,7 @@ const TEST_ID = "ortex.test"
 // Routes a notification may open, with how its id becomes params. A screen not
 // listed here is ignored: a payload can name anything, the navigator cannot.
 const BY_ID = new Set(["EnquiryDetail", "VoiceCallDetail", "QuotationDetail", "ChatThread", "LeaveRequest", "Payslip"])
-const NO_PARAMS = new Set(["AttendanceApprovals", "PayClaims", "Leave", "Pay", "Notifications", "Attendance"])
+const NO_PARAMS = new Set(["AttendanceApprovals", "Leave", "Pay", "Notifications", "Attendance"])
 
 export function pushRoute(data: Record<string, unknown> | null | undefined): PushRoute | null {
   if (!data) return null
@@ -30,6 +30,8 @@ export function pushRoute(data: Record<string, unknown> | null | undefined): Pus
   const screen = String(t?.screen ?? data.targetScreen ?? "")
   const id = String(t?.id ?? data.targetId ?? "")
 
+  // Claims were removed (Admin 0077); an older claim alert opens My pay.
+  if (screen === "PayClaims") return { screen: "Pay" }
   if (screen === "AttendanceDay") return /^\d{4}-\d{2}-\d{2}$/.test(id) ? { screen, params: { day: id } } : null
   if (NO_PARAMS.has(screen)) return { screen }
   if (BY_ID.has(screen) && id) return { screen, params: { id } }

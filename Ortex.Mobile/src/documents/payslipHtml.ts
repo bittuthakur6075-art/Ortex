@@ -17,7 +17,8 @@ import { ORTEX_WORDMARK_DATA_URI } from "@/theme/logo"
 const key = (x: PayLine) => `${x.code || ""}|${x.name || ""}`
 
 const withYtd = (xs: PayLine[] | undefined, ytd: Record<string, number> | undefined): TemplateLine[] =>
-  (xs || []).map((x) => ({ name: x.name, amount: Number(x.amount) || 0, ytd: ytd ? (ytd[key(x)] ?? null) : null }))
+  // A line's note (overtime's "5h at ₹100/h") prints beside its name, as on the console; the YTD key stays the bare name.
+  (xs || []).map((x) => ({ name: x.note ? `${x.name} (${x.note})` : x.name, amount: Number(x.amount) || 0, ytd: ytd ? (ytd[key(x)] ?? null) : null }))
 
 export function payslipHtml(slip: Payslip, settings: Settings | null): string {
   const d = slip.data
@@ -31,14 +32,17 @@ export function payslipHtml(slip: Payslip, settings: Settings | null): string {
     withheld: slip.status === "withheld",
     payDate: d.payDate || slip.released_at || null,
     employee: d.employee || {},
+    payType: d.payType || null,
     paidDays: d.paidDays,
+    basisDays: d.basisDays,
     lopDays: d.lopDays,
+    daysWorked: d.daysWorked,
     earnings: withYtd(d.earnings, d.ytdLines?.earnings),
     deductions: withYtd(d.deductions, d.ytdLines?.deductions),
     reimbursements: withYtd(d.reimbursements, undefined),
     gross: d.gross,
     totalDeductions: d.totalDeductions,
-    reimbursementTotal: d.reimbursementTotal,
+    reimbursementTotal: d.reimbursementTotal || 0,
     netPay: d.netPay,
   })
 

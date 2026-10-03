@@ -1,43 +1,44 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
-import { AlertTriangle, ArrowLeft, CheckCircle2, IndianRupee, Plus } from "../../components/ui/Icons"
+import { AlertTriangle, ArrowLeft, CheckCircle2, IndianRupee, Plus, Wallet } from "../../components/ui/Icons"
 import { Badge, Banner, Button, Card, CardHeader, Delta, EmptyState, Field, Input, Modal, PageLoader, Select, Textarea } from "../../components/ui/Ui"
 import { useProfile } from "../../hooks/useProfile"
 import { loadDirectory } from "../../hooks/useRecordHistory"
 import { isSuperAdmin } from "../../lib/roles"
-import { varianceFlags } from "../../lib/payroll"
-import { computeRun, getPayrollSettings, getRun, listRuns, releaseWithheld, saveRun, transitionRun } from "../../services/payroll"
+import { PAY_TYPES, hoursWords, varianceFlags } from "../../lib/payroll"
+import { computeRun, getPayrollSettings, getRun, listLoans, listRuns, releaseWithheld, saveRun, transitionRun } from "../../services/payroll"
 import { lockedMonths } from "../../services/attendance"
 import { downloadPayslipPdf } from "../../components/documents/payslipPdf"
 import { cn } from "../../lib/cn"
 import { LoadError } from "./setup/common"
 import OneTimeModal from "./run/OneTimeModal"
+import AdvanceModal from "./run/AdvanceModal"
+import { NewAdvance } from "./Loans"
 import PayslipPreview from "./run/PayslipPreview"
 import RunFiles from "./run/RunFiles"
 import SlipDrawer from "./run/SlipDrawer"
 import { KIND_LABEL, ROW_LINK, RUN_STATUS, SLIP_STATUS, dayWords, flatSlip, monthWords, pctChange, previousPaidRegular, rowOpens, rupees, runName, todayISTDay } from "./run/shared"
 
-// One pay run (Zoho Payroll's pay run page). A draft is where the work is:
-// Calculate builds every payslip from the salary in force, this month's
-// attendance, loans, approved claims, arrears and the year's tax so far, and
-// saves them; paid days, one-time items and each person's status can be
-// changed and are applied at the next Calculate. Then it is submitted, approved
+// One pay run. A draft is where the work is: Calculate builds every payslip
+// from the pay in force (a monthly salary prorated by paid days, or a daily
+// wage x days worked), this month's attendance and overtime, one-time items
+// and advance recovery, and saves them. Days, overtime (worked out, or an
+// amount typed after seeing the hours), one-time items, this month's advance
+// recovery and each person's status can be changed and are applied at the
+// next Calculate, and kept for the one after. Then it is submitted, approved
 // by someone else (or the Super Admin), and paid, which releases the payslips.
-// The database enforces every step (payroll_run_transition, migration 0040);
-// this page shows its answer when it refuses.
+// The database enforces every step (payroll_run_transition, migrations 0040
+// and 0065); this page shows its answer when it refuses.
 
 const MODES = ["Bank transfer", "NEFT", "IMPS", "RTGS", "Cheque", "Cash"]
-
-const statutoryDeductions = (slips) =>
-  slips.reduce((t, s) => t + (Number(s.pf?.employee) || 0) + (Number(s.esi?.employee) || 0) + (Number(s.lwf?.employee) || 0), 0)
 
 export default function PayRun() {
   const { id } = useParams()
   const navigate = useNavigate()
   const profile = useProfile()
   const [state, setState] = useState({ loading: true })
-  const [edits, setEdits] = useState({}) // { [user_id]: { status, paidDays, oneTime } }
+  const [edits, setEdits] = useState({}) // { [user_id]: { status, paidDays, daysWorked, oneTime, overtime, recover } }
   const [busy, setBusy] = useState(null)
   const [refusal, setRefusal] = useState(null)
   const [dialog, setDialog] = useState(null) // "pay" | "recall" | "cancel"
@@ -45,16 +46,19 @@ export default function PayRun() {
   const [openRow, setOpenRow] = useState(null)
   const [preview, setPreview] = useState(null)
   const [oneTimeFor, setOneTimeFor] = useState(null)
+  const [advanceFor, setAdvanceFor] = useState(null)
+  const [recording, setRecording] = useState(null)
   const [pdfBusy, setPdfBusy] = useState(false)
 
   const load = useCallback(async () => {
     try {
-      const [run, runs, settings, directory, locks] = await Promise.all([
+      const [run, runs, settings, directory, locks, loans] = await Promise.all([
         getRun(id),
         listRuns(),
         getPayrollSettings(),
         loadDirectory(),
         lockedMonths().catch(() => ({ rows: [], error: true })),
+        listLoans(),
       ])
       if (!run) {
         setState({ loading: false, notFound: true })
@@ -69,6 +73,7 @@ export default function PayRun() {
         prev,
         settings,
         directory: directory || {},
+        loans,
         // null = the lock list could not be read: let the server decide.
         locked: locks.error ? null : (locks.rows || []).some((r) => String(r.month).slice(0, 7) === month),
       })
@@ -202,16 +207,15 @@ export default function PayRun() {
   }
 
   const tiles = [
-    { label: "Payroll cost", value: t.payrollCost, before: pt.payrollCost },
+    { label: "Gross", value: t.gross, before: pt.gross },
+    { label: "Deductions", value: t.deductions, before: pt.deductions },
     { label: "Net pay", value: t.netPay, before: pt.netPay },
-    { label: "TDS", value: t.tds, before: pt.tds },
-    {
-      label: "EPF, ESI and LWF deducted",
-      value: statutoryDeductions(slips.filter((s) => s.status !== "skipped")),
-      before: state.prev ? statutoryDeductions(prevSlips.filter((s) => s.status !== "skipped")) : null,
-    },
-    { label: "Employer contributions", value: t.employer, before: pt.employer },
   ]
+  const nextMonth = (() => {
+    const [y, m] = String(run.month).split("-").map(Number)
+    return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 7)
+  })()
+  const openLoansOf = (uid) => (state.loans || []).filter((l) => l.user_id === uid && l.status === "active" && l.balance > 0 && l.start_month <= run.month)
 
   return (
     <div className="space-y-5">
@@ -339,8 +343,8 @@ export default function PayRun() {
       )}
       {draft && run.kind !== "regular" && (
         <Banner tone="warning">
-          An off-cycle run pays only the one-time items you add here. No monthly salary, loans, claims or arrears. Add an item for each person,
-          set them to Included, and Calculate. TDS on it is caught up by the next regular run.
+          An off-cycle run pays only the one-time items you add here: no salary, overtime or advance recovery. Add an item for each person, set
+          them to Included, and Calculate.
         </Banner>
       )}
       {draft && dirty && (
@@ -353,7 +357,7 @@ export default function PayRun() {
       )}
       {run.note && <Banner tone="info">Note: {run.note}</Banner>}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {tiles.map((x) => (
           <Tile key={x.label} label={x.label} value={rupees(x.value)} change={pctChange(x.value, x.before)} prevLabel={state.prev ? monthWords(state.prev.month) : null} />
         ))}
@@ -390,7 +394,7 @@ export default function PayRun() {
           title="Employees"
           description={
             draft
-              ? "Edit paid days, add one-time items or skip someone, then Calculate. Click a row for the full payslip."
+              ? "Change days, overtime, advance recovery or one-time items, or skip someone, then Calculate. Click a row for the full payslip."
               : "Click a row for the full payslip and its PDF."
           }
         />
@@ -411,15 +415,14 @@ export default function PayRun() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1080px] text-sm">
+            <table className="w-full min-w-[1180px] text-sm">
               <thead className="mt-head">
                 <tr className="text-left">
                   <th>Employee</th>
-                  <th className="text-right">Paid days</th>
+                  <th className="text-right">Days</th>
+                  <th>Overtime</th>
                   <th className="text-right">Gross</th>
                   <th className="text-right">Deductions</th>
-                  <th className="text-right">TDS</th>
-                  <th className="text-right">Reimbursements</th>
                   <th className="text-right">Net pay</th>
                   <th>Status</th>
                   {draft && <th />}
@@ -429,18 +432,23 @@ export default function PayRun() {
                 {rows.map((r) => {
                   const d = r.data || {}
                   const e = edits[r.user_id] || {}
-                  const stored = Number(d.paidDays)
-                  const shownDays = e.paidDays ?? stored
-                  const original = e.paidDays != null ? stored : d.paidDaysOverride != null ? (d.attendance ? Number(d.attendance.payable) : null) : null
+                  const daily = d.payType === "daily"
+                  const offCycleSlip = !d.payType
+                  const stored = Number(daily ? d.daysWorked : d.paidDays)
+                  const shownDays = (daily ? e.daysWorked : e.paidDays) ?? stored
+                  const changed = daily ? e.daysWorked != null : e.paidDays != null
                   const sStatus = e.status ?? r.status
                   const oneTime = e.oneTime ?? d.oneTimeInput ?? []
+                  const ot = e.overtime ?? d.overtimeInput ?? (d.overtime ? { mode: d.overtime.mode, amount: d.overtime.mode === "manual" ? d.overtime.amount : "" } : null)
+                  const advances = (d.deductions || []).filter((x) => x.code === "LOAN")
+                  const hasLoans = advances.length > 0 || openLoansOf(r.user_id).length > 0
                   const stop = (ev) => ev.stopPropagation()
                   return (
                     <tr key={r.id} className={cn(ROW_LINK, sStatus === "skipped" && "text-muted-foreground")} {...rowOpens(() => setOpenRow(r))}>
                       <td>
                         <div className={cn("font-medium", sStatus === "skipped" ? "text-muted-foreground line-through" : "text-foreground")}>{d.employee?.name || "Unknown"}</div>
                         <div className="text-[12px] text-muted-foreground">
-                          {[d.employee?.employee_code, d.employee?.designation].filter(Boolean).join(" · ") || "-"}
+                          {d.payType ? `${PAY_TYPES[d.payType]}, ${rupees(d.rate)}${daily ? " a day" : " a month"}` : [d.employee?.employee_code, d.employee?.designation].filter(Boolean).join(" · ") || "-"}
                           {oneTime.length > 0 && ` · ${oneTime.length} one-time`}
                         </div>
                         {d.attendanceMissing && (
@@ -449,33 +457,89 @@ export default function PayRun() {
                           </div>
                         )}
                       </td>
-                      <td className="text-right tabular" onClick={draft ? stop : undefined}>
-                        <div className="flex items-center justify-end gap-2">
-                          {original != null && Number(original) !== Number(shownDays) && <span className="text-[12px] text-muted-foreground line-through">{original}</span>}
-                          {draft ? (
-                            <Input
-                              type="number"
-                              min="0"
-                              max={d.basisDays}
-                              step="0.5"
-                              aria-label={`Paid days for ${d.employee?.name || "employee"}`}
-                              className="w-20 text-right"
-                              value={shownDays}
-                              onChange={(ev) => {
-                                const v = ev.target.value === "" ? 0 : Math.max(0, Math.min(Number(d.basisDays) || 31, Number(ev.target.value)))
-                                edit(r.user_id, { paidDays: v })
-                              }}
-                            />
-                          ) : (
-                            <span>{shownDays}</span>
-                          )}
-                          <span className="text-[12px] text-muted-foreground">/ {d.basisDays}</span>
-                        </div>
+                      <td className="text-right tabular" onClick={draft && !offCycleSlip ? stop : undefined}>
+                        {offCycleSlip ? (
+                          <span className="text-muted-foreground">-</span>
+                        ) : (
+                          <div className="flex items-center justify-end gap-2">
+                            {changed && Number(stored) !== Number(shownDays) && <span className="text-[12px] text-muted-foreground line-through">{stored}</span>}
+                            {draft ? (
+                              <Input
+                                type="number"
+                                min="0"
+                                max={daily ? 31 : d.basisDays}
+                                step="0.5"
+                                aria-label={`${daily ? "Days worked" : "Paid days"} for ${d.employee?.name || "employee"}`}
+                                className="w-20 text-right"
+                                value={shownDays}
+                                onChange={(ev) => {
+                                  const max = daily ? 31 : Number(d.basisDays) || 31
+                                  const v = ev.target.value === "" ? 0 : Math.max(0, Math.min(max, Number(ev.target.value)))
+                                  edit(r.user_id, daily ? { daysWorked: v } : { paidDays: v })
+                                }}
+                              />
+                            ) : (
+                              <span>{shownDays}</span>
+                            )}
+                            <span className="text-[12px] text-muted-foreground">{daily ? "worked" : `/ ${d.basisDays}`}</span>
+                          </div>
+                        )}
+                      </td>
+                      <td onClick={draft && d.overtime ? stop : undefined}>
+                        {!d.overtime ? (
+                          <span className="text-muted-foreground">-</span>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <div className="text-[12px] text-muted-foreground">Overtime worked: {hoursWords(d.overtime.minutes || 0)}</div>
+                            {draft ? (
+                              <div className="flex items-center gap-2">
+                                <Select
+                                  className="w-[150px]"
+                                  aria-label={`Overtime for ${d.employee?.name || "employee"}`}
+                                  value={ot?.mode || "auto"}
+                                  onChange={(ev) => edit(r.user_id, { overtime: { mode: ev.target.value, amount: ev.target.value === "manual" ? (ot?.amount ?? "") : "" } })}
+                                >
+                                  <option value="auto">Auto-calculate</option>
+                                  <option value="manual">Enter amount</option>
+                                </Select>
+                                {ot?.mode === "manual" ? (
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    aria-label={`Overtime amount for ${d.employee?.name || "employee"}`}
+                                    className="w-24 text-right"
+                                    placeholder="0"
+                                    value={ot.amount ?? ""}
+                                    onChange={(ev) => edit(r.user_id, { overtime: { mode: "manual", amount: ev.target.value === "" ? "" : Math.max(0, Number(ev.target.value)) } })}
+                                  />
+                                ) : (
+                                  <span className="tabular text-foreground">{rupees(d.overtime.mode === "auto" ? d.overtime.amount : 0)}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="tabular text-foreground">
+                                {rupees(d.overtime.amount)}
+                                <span className="ml-1 text-[12px] text-muted-foreground">{d.overtime.mode === "manual" ? "entered" : "auto"}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="text-right tabular">{rupees(d.gross)}</td>
-                      <td className="text-right tabular">{rupees((Number(d.totalDeductions) || 0) - (Number(d.tds?.monthly) || 0))}</td>
-                      <td className="text-right tabular">{rupees(d.tds?.monthly)}</td>
-                      <td className="text-right tabular">{Number(d.reimbursementTotal) ? rupees(d.reimbursementTotal) : "-"}</td>
+                      <td className="text-right tabular" onClick={draft && hasLoans ? stop : undefined}>
+                        <div>{rupees(d.totalDeductions)}</div>
+                        {advances.map((x) => (
+                          <div key={x.loanId} className="text-[12px] text-muted-foreground">
+                            Advance recovered {rupees(x.amount)} (balance {rupees(x.balanceAfter)})
+                          </div>
+                        ))}
+                        {draft && hasLoans && (
+                          <Button size="sm" variant="ghost" onClick={() => setAdvanceFor({ user_id: r.user_id, name: d.employee?.name, loans: openLoansOf(r.user_id), recover: { ...(d.recoverInput || {}), ...(e.recover || {}) } })}>
+                            Change recovery
+                          </Button>
+                        )}
+                      </td>
                       <td className="text-right font-semibold text-foreground tabular">{rupees(d.netPay)}</td>
                       <td onClick={stop}>
                         {draft ? (
@@ -498,13 +562,16 @@ export default function PayRun() {
                       </td>
                       {draft && (
                         <td onClick={stop} className="text-right">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setOneTimeFor({ user_id: r.user_id, name: d.employee?.name, items: oneTime })}
-                          >
-                            <Plus className="h-4 w-4" /> Add one-time
-                          </Button>
+                          <div className="flex flex-col items-end gap-1">
+                            <Button size="sm" variant="ghost" onClick={() => setOneTimeFor({ user_id: r.user_id, name: d.employee?.name, items: oneTime })}>
+                              <Plus className="h-4 w-4" /> One-time item
+                            </Button>
+                            {run.kind === "regular" && (
+                              <Button size="sm" variant="ghost" onClick={() => setRecording({ user_id: r.user_id, name: d.employee?.name })}>
+                                <Wallet className="h-4 w-4" /> Record advance
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -528,6 +595,28 @@ export default function PayRun() {
         onPreview={() => setPreview({ slip: openRow.data, status: openRow.status, title: run.kind === "regular" ? null : run.title, payDate: run.pay_date })}
       />
       <PayslipPreview item={preview} org={org} onClose={() => setPreview(null)} />
+      {advanceFor && (
+        <AdvanceModal
+          person={advanceFor}
+          onClose={() => setAdvanceFor(null)}
+          onSave={(recover) => {
+            edit(advanceFor.user_id, { recover })
+            setAdvanceFor(null)
+          }}
+        />
+      )}
+      {recording && (
+        <NewAdvance
+          people={[{ id: recording.user_id, name: recording.name }]}
+          userId={recording.user_id}
+          start={nextMonth}
+          onClose={() => setRecording(null)}
+          onSaved={async () => {
+            setRecording(null)
+            await load()
+          }}
+        />
+      )}
       {oneTimeFor && (
         <OneTimeModal
           person={oneTimeFor}
@@ -563,7 +652,7 @@ export default function PayRun() {
       >
         <div className="space-y-4">
           <Banner tone="warning">
-            Recording the payment releases every included payslip to its employee, recovers loan instalments and marks reimbursed claims paid. A paid run
+            Recording the payment releases every included payslip to its employee and records this month's advance recovery. A paid run
             cannot be recalled or changed afterwards, so check the bank has processed the transfer first.
           </Banner>
           <div className="grid gap-3 sm:grid-cols-2">

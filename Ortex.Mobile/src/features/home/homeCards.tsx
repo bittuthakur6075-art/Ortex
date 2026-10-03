@@ -6,14 +6,14 @@ import { formatCurrency } from "@/domain/format"
 import { quoteSummary } from "@/domain/lists"
 import type { Quotation } from "@/domain/schema"
 import { dayLabel } from "@/features/attendance/format"
-import { money as payMoney, monthLabel, type Claim, type Payslip } from "@/features/pay/payFormat"
+import { money as payMoney, monthLabel, type Payslip } from "@/features/pay/payFormat"
 import { decideCorrection, pendingCorrections } from "@/lib/attendance"
 import { useCardLoad } from "@/features/home/cardLoad"
 import { useCollection } from "@/hooks/useCollection"
 import { callNumber } from "@/lib/contact"
 import { feedback } from "@/lib/feedback"
 import * as leaveLib from "@/lib/leave"
-import { latestPayslip, myClaims } from "@/lib/pay"
+import { latestPayslip } from "@/lib/pay"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter } from "@/theme/tokens"
 import { fontFamily } from "@/theme/typography"
@@ -627,10 +627,10 @@ const REQ_TAG: Record<string, { label: string; tone: OneTone }> = {
   paid: { label: "Paid", tone: "success" },
 }
 
-/** What the office owes this person an answer on: recent leave requests and claims. */
-export function RequestsCard({ onLeave, onClaims }: { onLeave: () => void; onClaims: () => void }) {
+/** What the office owes this person an answer on: recent leave requests. */
+export function RequestsCard({ onLeave }: { onLeave: () => void }) {
   const { data, error, retry } = useCardLoad("requests", async () => {
-    const [leave, claims] = await Promise.all([leaveLib.myRequests(), myClaims()])
+    const leave = await leaveLib.myRequests()
     const recent = (d: string) => Date.now() - new Date(d).getTime() < 30 * 86400000
     return [
       ...leave
@@ -643,17 +643,6 @@ export function RequestsCard({ onLeave, onClaims }: { onLeave: () => void; onCla
           sub: r.days === 1 ? "1 day" : `${r.days} days`,
           status: r.status,
           open: onLeave,
-        })),
-      ...claims
-        .filter((c: Claim) => c.status === "pending" || recent(c.created_at))
-        .map((c: Claim) => ({
-          key: `c${c.id}`,
-          icon: "invoice" as IconName,
-          tone: "success" as OneTone,
-          title: `${c.category} claim, ${payMoney(c.amount)}`,
-          sub: dayLabel(c.bill_date),
-          status: c.status,
-          open: onClaims,
         })),
     ].slice(0, 3)
   })

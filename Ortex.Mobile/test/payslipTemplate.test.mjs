@@ -60,3 +60,13 @@ test("the page carries Zoho's sections and the pay date as dd/MM/yyyy", () => {
   assert.ok(html.includes("05/10/2026"))
   assert.ok(html.includes("Gross Earnings - Total Deductions + Reimbursements"))
 })
+
+test("a slip from 2026-10-03 prints its pay type and days, and no PAN, UAN or LOP for a daily wage", () => {
+  const daily = { ...input, payType: "daily", daysWorked: 24, paidDays: undefined, lopDays: undefined, employee: { ...input.employee, pan_last4: null, uan: null }, earnings: [{ name: "Daily wage (days worked 24 x ₹800)", amount: 19200, ytd: 19200 }], deductions: [{ name: "Salary advance recovered (balance ₹6,000)", amount: 3000, ytd: 3000 }], reimbursements: [], reimbursementTotal: 0 }
+  const html = phone.payslipBody(daily)
+  assert.equal(admin.payslipBody(daily), html)
+  for (const s of ["Pay Type", "Daily wage", "Days Worked", "Salary advance recovered (balance ₹6,000)"]) assert.ok(html.includes(s), s)
+  for (const s of ["PAN", "UAN", "LOP Days", "Reimbursements"]) assert.ok(!html.includes(s), s)
+  const monthly = phone.payslipBody({ ...daily, payType: "monthly", paidDays: 26, basisDays: 30, lopDays: 4 })
+  assert.ok(monthly.includes("Monthly salary") && monthly.includes(": 26 of 30") && monthly.includes("LOP Days"))
+})

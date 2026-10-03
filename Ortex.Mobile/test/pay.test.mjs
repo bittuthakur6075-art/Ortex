@@ -12,6 +12,7 @@ import { loadModule, loadTs } from "./loadTs.mjs"
 const here = dirname(fileURLToPath(import.meta.url))
 const admin = await loadModule(resolve(here, "../../Ortex.Admin/src/lib/payroll.js"))
 const pay = await loadTs("features/pay/payFormat.ts")
+const rows = await loadTs("features/pay/payRows.ts")
 
 const slip = (id, month, { gross, net, tds = 0, other = 0, reimb = 0, released = `${month}T12:00:00Z` }) => ({
   id,
@@ -126,16 +127,50 @@ test("loanProgress never goes below zero", () => {
   assert.deepEqual(pay.loanProgress(1000, [{ amount: 1500 }]), { recovered: 1500, balance: 0 })
 })
 
-test("claimBlocker mirrors claim_submit's rules", () => {
-  const today = "2026-09-19"
-  const ok = { category: "Fuel", amount: "450", billDate: today, hasReceipt: true }
-  assert.equal(pay.claimBlocker(ok, today), null)
-  assert.equal(pay.claimBlocker({ ...ok, category: "" }, today), "Choose a category")
-  assert.equal(pay.claimBlocker({ ...ok, amount: "" }, today), "Enter the amount")
-  assert.equal(pay.claimBlocker({ ...ok, amount: "0" }, today), "Enter the amount")
-  assert.equal(pay.claimBlocker({ ...ok, amount: "2,00,001" }, today), "A single claim can be at most ₹2,00,000")
-  assert.equal(pay.claimBlocker({ ...ok, billDate: "2026-09-20" }, today), "The bill date cannot be in the future")
-  assert.equal(pay.claimBlocker({ ...ok, billDate: pay.shiftDay(today, -90) }, today), null)
-  assert.equal(pay.claimBlocker({ ...ok, billDate: pay.shiftDay(today, -91) }, today), "Claim bills from the last 90 days")
-  assert.equal(pay.claimBlocker({ ...ok, hasReceipt: false }, today), "Add a photo of the bill")
+test("payTermsOf matches the engine: pay types, and an older revision is monthly at its gross", () => {
+  const revs = [
+    { pay_type: "monthly", daily_rate: null, monthly_gross: 27000, earnings: [{ code: "SALARY", name: "Salary", amount: 27000 }] },
+    { pay_type: "daily", daily_rate: 800, monthly_gross: 0, earnings: [] },
+    { monthly_gross: 28200, earnings: [{ code: "BASIC", amount: 15000 }, { code: "HRA", amount: 6000 }, { code: "CONV", amount: 1600 }, { code: "FIXED", amount: 5600 }] },
+    { monthly_gross: 20000, earnings: [] },
+    null,
+  ]
+  for (const r of revs) assert.deepEqual(pay.payTermsOf(r), admin.payTermsOf(r))
+  assert.deepEqual(pay.payTermsOf(revs[1]), { type: "daily", rate: 800 })
+  assert.deepEqual(pay.payTermsOf(revs[2]), { type: "monthly", rate: 28200 })
+})
+
+test("slipDaysText reads the pay type", () => {
+  assert.equal(pay.slipDaysText({ payType: "monthly", paidDays: 26, basisDays: 30 }), "Paid days: 26 of 30")
+  assert.equal(pay.slipDaysText({ payType: "daily", daysWorked: 24 }), "Days worked: 24")
+  // An older slip has no pay type: paid days of the basis, as before.
+  assert.equal(pay.slipDaysText({ paidDays: 29, basisDays: 30 }), "Paid days: 29 of 30")
+  // An off-cycle slip has no days.
+  assert.equal(pay.slipDaysText({}), "")
+})
+
+test("payRows shows the engine's new lines with their notes, and an older slip's statutory lines as stored", () => {
+  const slip = admin.computePayslip({
+    month: "2026-09-01",
+    terms: { type: "monthly", rate: 27000 },
+    paidDays: 26,
+    basisDays: 30,
+    oneTime: [admin.overtimeItem({ minutes: 300, dayRate: 900, shiftMin: 540 })],
+    loans: [{ id: "L1", name: "Salary advance", balance: 9000, instalment: 3000 }],
+  })
+  assert.deepEqual(
+    rows.payRows(slip.earnings).map((r) => [r.label, r.values[0], r.note]),
+    [
+      ["Salary", "₹23,400", "₹27,000, paid days 26 of 30"],
+      ["Overtime", "₹500", "5h at ₹100/h"],
+    ],
+  )
+  assert.deepEqual(
+    rows.payRows(slip.deductions).map((r) => [r.label, r.values[0], r.note]),
+    [["Salary advance recovered", "₹3,000", "balance ₹6,000"]],
+  )
+  const daily = admin.computePayslip({ month: "2026-09-01", terms: { type: "daily", rate: 800 }, daysWorked: 24 })
+  assert.deepEqual(rows.payRows(daily.earnings).map((r) => [r.label, r.values[0], r.note]), [["Daily wage", "₹19,200", "days worked 24 x ₹800"]])
+  const old = [{ code: "EPF", name: "EPF (employee)", amount: 1800 }, { code: "TDS", name: "Income tax (TDS)", amount: 0 }]
+  assert.deepEqual(rows.payRows(old).map((r) => r.label), ["EPF (employee)"])
 })

@@ -2,14 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Users } from "../../components/ui/Icons"
 import { Avatar, Badge, Button, Card, CardHeader, Chip, ChipGroup, EmptyState, ExportButton, PageLoader, SearchInput } from "../../components/ui/Ui"
+import { PAY_TYPES, payTermsOf } from "../../lib/payroll"
 import { exportCsv } from "../../lib/csv"
 import { listEmployees, revisionFor } from "../../services/payroll"
 import { LoadError } from "./setup/common"
-import { dateLabel, missingFor, money, thisMonthIST } from "./setup/helpers"
+import { dateLabel, missingFor, payWords, thisMonthIST } from "./setup/helpers"
 import { ROW_LINK, rowOpens } from "./run/shared"
 
 // Payroll → Employees (Zoho Payroll's employee list): everyone with a login,
-// their current salary, their PF / ESI flags and what is still missing before
+// how they are paid (monthly salary or daily wage) and what is still missing before
 // they can be paid. A row opens the pay profile.
 
 const FILTERS = [
@@ -78,10 +79,8 @@ export default function Employees() {
       { header: "Designation", value: (p) => p.employee?.designation || "" },
       { header: "Department", value: (p) => p.employee?.department || "" },
       { header: "Date of joining", value: (p) => p.employee?.doj || "" },
-      { header: "Annual CTC", value: (p) => (p.current ? Number(p.current.annual_ctc) : "") },
-      { header: "Monthly gross", value: (p) => (p.current ? Number(p.current.monthly_gross) : "") },
-      { header: "PF", value: (p) => (p.employee?.pf_enabled ?? true ? "Yes" : "No") },
-      { header: "ESI", value: (p) => (p.employee?.esi_enabled ? "Yes" : "No") },
+      { header: "Pay type", value: (p) => (p.current ? PAY_TYPES[payTermsOf(p.current).type] : "") },
+      { header: "Rate", value: (p) => (p.current ? payTermsOf(p.current).rate : "") },
       { header: "Status", value: (p) => p.employee?.status || "active" },
       { header: "Missing", value: (p) => p.missing.join(", ") },
     ], shown)
@@ -115,16 +114,15 @@ export default function Employees() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-sm">
+            <table className="w-full min-w-[880px] text-sm">
               <thead className="mt-head">
                 <tr className="text-left">
                   <th>Employee</th>
                   <th>Code</th>
                   <th>Designation</th>
                   <th>Department</th>
-                  <th className="text-right">Annual CTC</th>
-                  <th className="text-right">Monthly gross</th>
-                  <th>Statutory</th>
+                  <th>Pay type</th>
+                  <th className="text-right">Rate</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -145,9 +143,10 @@ export default function Employees() {
                       <td className="text-muted-foreground">{e.employee_code || "Not set"}</td>
                       <td className="text-muted-foreground">{e.designation || "Not set"}</td>
                       <td className="text-muted-foreground">{e.department || "Not set"}</td>
+                      <td className="text-muted-foreground">{p.current ? PAY_TYPES[payTermsOf(p.current).type] : "Not set"}</td>
                       <td className="tabular text-right text-foreground">
                         {p.current ? (
-                          money(p.current.annual_ctc)
+                          payWords(p.current)
                         ) : (
                           <Button
                             size="sm"
@@ -160,14 +159,6 @@ export default function Employees() {
                             Add salary
                           </Button>
                         )}
-                      </td>
-                      <td className="tabular text-right text-foreground">{p.current ? money(p.current.monthly_gross) : ""}</td>
-                      <td>
-                        <div className="flex gap-1">
-                          {(e.pf_enabled ?? true) && <Badge tone="blue">PF</Badge>}
-                          {e.esi_enabled && <Badge tone="violet">ESI</Badge>}
-                          {!(e.pf_enabled ?? true) && !e.esi_enabled && <span className="text-xs text-muted-foreground">None</span>}
-                        </div>
                       </td>
                       <td>
                         {exited(p) ? (

@@ -41,7 +41,7 @@ import {
  * hero (the month, NET PAY as the one large figure, the pay date, paid and LOP
  * days, and "View payslip"); then every payslip by month, newest first, with
  * its net pay and the day it was paid; then the year so far; then the doors to
- * the salary structure, reimbursement claims and income tax.
+ * the pay (monthly salary or daily wage). Claims were removed (Admin 0077).
  */
 export default function PayScreen({ navigation }: StackScreenProps<"Pay">) {
   const t = useTheme()
@@ -84,7 +84,7 @@ export default function PayScreen({ navigation }: StackScreenProps<"Pay">) {
   return (
     <AppScreen
       title="My pay"
-      subtitle="Payslips, salary and claims"
+      subtitle="Payslips, salary and advances"
       back
       onBack={() => navigation.goBack()}
       inTabs={false}
@@ -122,13 +122,17 @@ export default function PayScreen({ navigation }: StackScreenProps<"Pay">) {
                 >
                   <StatStrip
                     stats={[
-                      { key: "paid", label: "Paid days", value: `${latest.data.paidDays}` },
-                      {
-                        key: "lop",
-                        label: "LOP days",
-                        value: `${latest.data.lopDays || 0}`,
-                        tone: latest.data.lopDays > 0 ? "warning" : undefined,
-                      },
+                      ...(latest.data.payType === "daily"
+                        ? [{ key: "worked", label: "Days worked", value: `${latest.data.daysWorked ?? 0}` }]
+                        : [
+                            { key: "paid", label: "Paid days", value: `${latest.data.paidDays ?? 0}` },
+                            {
+                              key: "lop",
+                              label: "LOP days",
+                              value: `${latest.data.lopDays || 0}`,
+                              tone: (latest.data.lopDays || 0) > 0 ? ("warning" as const) : undefined,
+                            },
+                          ]),
                       { key: "gross", label: "Gross", value: money(latest.data.gross ?? latest.gross) },
                     ]}
                   />
@@ -152,7 +156,7 @@ export default function PayScreen({ navigation }: StackScreenProps<"Pay">) {
                     leadingTone={s.id === latest?.id ? "primary" : "slate"}
                     title={monthLabel(s.data.month)}
                     subtitle={`Paid on ${formatDate(s.released_at)}${
-                      s.data.lopDays > 0 ? ` · ${daysText(s.data.lopDays)} LOP` : ""
+                      (s.data.lopDays || 0) > 0 ? ` · ${daysText(s.data.lopDays)} LOP` : ""
                     }`}
                     value={money(s.data.netPay ?? s.net_pay)}
                     valueSub={<Text style={[textVariants.caption, { color: t.textTertiary }]}>Net pay</Text>}
@@ -210,23 +214,14 @@ export default function PayScreen({ navigation }: StackScreenProps<"Pay">) {
             </Panel>
           ) : null}
 
-          <Section title="Salary and Benefits">
+          <Section title="Salary">
             <SectionRow
               leadingIcon="money"
-              title="Salary structure"
-              subtitle="Annual CTC and the monthly breakup"
+              title="My pay rate"
+              subtitle="Your pay type and rate"
               onPress={() => {
                 feedback.tap()
                 navigation.navigate("PaySalary")
-              }}
-            />
-            <SectionRow
-              leadingIcon="invoice"
-              title="Reimbursement claims"
-              subtitle="Fuel, travel, phone and other bills"
-              onPress={() => {
-                feedback.tap()
-                navigation.navigate("PayClaims")
               }}
             />
             {ytd.tds > 0 && latest ? (

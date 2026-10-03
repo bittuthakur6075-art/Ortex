@@ -2,7 +2,6 @@ import { useMemo } from "react"
 import { Link } from "react-router-dom"
 import { Phone, ShieldCheck } from "../../components/ui/Icons"
 import { countsAsLate, missedCheckout, summarizeDay } from "../../lib/attendance"
-import { upcomingDeadlines, dueWords, shortDate } from "../../lib/payrollDeadlines"
 import { monthWords, nextAction, thisMonthIST } from "../payroll/run/shared"
 import { ROLES, roleLabel } from "../../lib/roles"
 import { ACTION_VERB, collectionLabel } from "../../lib/auditWords"
@@ -130,42 +129,23 @@ export function PayrollCard({ ops }) {
     live.filter((r) => r.status !== "paid").sort((a, b) => (a.month < b.month ? 1 : -1))[0] ||
     null
   const at = run ? STEPS.findIndex((s) => s.key === run.status) : -1
-  const deadlines = upcomingDeadlines(ops.today, { payDay: ops.payroll?.schedule?.payDay || 7, days: 30 }).slice(0, 3)
-  const claims = (ops.claims || []).length
 
   return (
     <Panel title="Payroll" description={run ? `${monthWords(run.month)} pay run` : "No pay run this month yet"} action={<Pill tone="violet">Payroll access</Pill>}>
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div className="space-y-4">
-          <ol className="flex gap-1.5">
-            {STEPS.map((s, i) => (
-              <li key={s.key} className="flex-1">
-                <div className={cn("h-1.5 rounded-[3px]", i < at ? "bg-success" : i === at ? "bg-info" : "bg-background")} />
-                <div className={cn("mt-2 text-xs leading-[15px]", i === at ? "font-semibold text-info-text" : i < at ? "font-medium text-success-text" : "text-subtle-foreground")}>{s.label}</div>
-              </li>
-            ))}
-          </ol>
-          <div className="flex gap-2">
-            <Tile label="Payroll cost" value={run?.totals?.payrollCost ? money(run.totals.payrollCost) : "–"} />
-            <Tile label="Net pay" value={run?.totals?.netPay ? money(run.totals.netPay) : "–"} sub={run?.totals?.employees ? `${run.totals.employees} employees` : null} />
-          </div>
-          <p className="text-[12.5px] text-muted-foreground">{nextAction(run)}</p>
+      <div className="space-y-4">
+        <ol className="flex gap-1.5">
+          {STEPS.map((s, i) => (
+            <li key={s.key} className="flex-1">
+              <div className={cn("h-1.5 rounded-[3px]", i < at ? "bg-success" : i === at ? "bg-info" : "bg-background")} />
+              <div className={cn("mt-2 text-xs leading-[15px]", i === at ? "font-semibold text-info-text" : i < at ? "font-medium text-success-text" : "text-subtle-foreground")}>{s.label}</div>
+            </li>
+          ))}
+        </ol>
+        <div className="flex gap-2">
+          <Tile label="Gross" value={run?.totals?.gross ? money(run.totals.gross) : "–"} />
+          <Tile label="Net pay" value={run?.totals?.netPay ? money(run.totals.netPay) : "–"} sub={run?.totals?.employees ? `${run.totals.employees} employees` : null} />
         </div>
-        <div>
-          <Kicker className="mb-1">Due soon</Kicker>
-          <Rows>
-            {deadlines.map((d) => (
-              <Row key={d.key}>
-                <span className="flex-1 truncate text-foreground">{d.title}</span>
-                <Pill tone={d.daysLeft <= 3 ? "amber" : "slate"} className="text-xs">{d.daysLeft <= 1 ? dueWords(d.daysLeft) : shortDate(d.due)}</Pill>
-              </Row>
-            ))}
-            <Row>
-              <span className="flex-1 text-foreground">Claims to approve</span>
-              <Pill tone={claims ? "violet" : "slate"} className="text-xs">{claims}</Pill>
-            </Row>
-          </Rows>
-        </div>
+        <p className="text-[12.5px] text-muted-foreground">{nextAction(run)}</p>
       </div>
     </Panel>
   )

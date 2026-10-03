@@ -1132,7 +1132,8 @@ await scenario("0073 lead delete is admins only", async () => {
 
 await scenario("0074 pay push triggers and muted push categories", async () => {
   const calls = () => val(null, "select count(*)::int from net.calls")
-  const claim = () => val(U.STAFF1, "select claim_submit('Travel', 250, $1::date, 'push test', null)", [today])
+  // claim_submit refuses since 0077 (claims removed); a claim row stands in for one sent earlier.
+  const claim = () => val(null, "insert into reimbursement_claims (user_id, category, amount, bill_date, description) values ($1, 'Travel', 250, $2::date, 'push test') returning id", [U.STAFF1, today])
   const slip = await one(null, "select id from payslips where released_at is not null and status = 'included' limit 1")
   check("a released payslip exists to replay", !!slip, "a row", slip)
   const release = () => run(null, "update payslips set released_at = null where id = $1", [slip.id])
@@ -1183,6 +1184,41 @@ await scenario("0074 pay push triggers and muted push categories", async () => {
   eq("a token moving to another person starts unmuted", await one(null, "select user_id, muted from push_devices where token = $1", [tok]), { user_id: U.STAFF2, muted: [] })
   like("too many categories refused", await err(U.STAFF2, "select register_push_device($1, 'android', '1', $2)", [tok, Array(11).fill("x")]), /too many/)
   await run(null, "delete from push_devices where token = $1", [tok])
+})
+
+await scenario("0077 simple payroll: days worked, pay types, no new claims", async () => {
+  // STAFF2 in October 2026: P, P, HD, OD, plus WO, H, L, A, LOP and an overridden day.
+  const oct = (d) => `2026-10-${String(d).padStart(2, "0")}`
+  const days = [[1, "P"], [2, "P"], [3, "HD"], [4, "OD"], [5, "WO"], [6, "H"], [7, "L"], [8, "A"], [9, "LOP"], [10, "MP"]]
+  for (const [d, st] of days) {
+    await run(null, "insert into attendance_days (user_id, day, status) values ($1, $2, $3) on conflict (user_id, day) do update set status = excluded.status, override_status = null", [U.STAFF2, oct(d), st])
+  }
+  // An override wins: a computed A made P counts, a computed P made A does not.
+  await run(null, "insert into attendance_days (user_id, day, status, override_status) values ($1, $2, 'A', 'P'), ($1, $3, 'P', 'A') on conflict (user_id, day) do update set status = excluded.status, override_status = excluded.override_status", [U.STAFF2, oct(12), oct(13)])
+  const rows = (await run(U.PAY, "select day::text, status from payroll_days_worked('2026-10-15') where user_id = $1 order by day", [U.STAFF2])).rows
+  eq("payroll reads days worked: P, OD, HD only, on the effective status", rows.map((r) => [r.day.slice(8), r.status]), [["01", "P"], ["02", "P"], ["03", "HD"], ["04", "OD"], ["12", "P"]])
+  like("staff cannot read days worked", await err(U.STAFF1, "select * from payroll_days_worked('2026-10-01')"), /Only payroll/)
+  like("an admin without payroll cannot either", await err(U.ADMIN, "select * from payroll_days_worked('2026-10-01')"), /Only payroll/)
+  check("the Super Admin can", (await err(U.SUPER, "select * from payroll_days_worked('2026-10-01')")) === null, "null", "ok")
+
+  // Pay types on the revision; an old revision (no pay_type) still inserts.
+  await run(U.PAY, "insert into salary_revisions (user_id, effective_from, payout_month, annual_ctc, earnings, monthly_gross, pay_type, daily_rate) values ($1, '2026-10-01', '2026-10-01', 0, '[]', 0, 'daily', 800)", [U.STAFF2])
+  eq("a daily revision keeps its rate", await one(U.PAY, "select pay_type, daily_rate::int r from salary_revisions where user_id = $1 and effective_from = '2026-10-01'", [U.STAFF2]), { pay_type: "daily", r: 800 })
+  like("a daily revision needs a rate", await err(U.PAY, "insert into salary_revisions (user_id, effective_from, payout_month, annual_ctc, earnings, monthly_gross, pay_type) values ($1, '2026-11-01', '2026-11-01', 0, '[]', 0, 'daily')", [U.STAFF2]), /daily_has_rate/)
+  like("an unknown pay type is refused", await err(U.PAY, "insert into salary_revisions (user_id, effective_from, payout_month, annual_ctc, earnings, monthly_gross, pay_type) values ($1, '2026-12-01', '2026-12-01', 0, '[]', 0, 'hourly')", [U.STAFF2]), /pay_type/)
+  check("an old-style revision still inserts", (await err(U.PAY, "insert into salary_revisions (user_id, effective_from, payout_month, annual_ctc, earnings, monthly_gross) values ($1, '2027-01-01', '2027-01-01', 360000, '[{\"code\":\"BASIC\",\"amount\":15000}]', 28200)", [U.STAFF1])) === null, "null", "ok")
+  eq("an employee reads their own pay type", await val(U.STAFF2, "select pay_type from salary_revisions where effective_from = '2026-10-01'"), "daily")
+
+  like("claim_submit refuses new claims", await err(U.STAFF1, "select claim_submit('Travel', 250, $1::date, 'x', null)", [today]), /no longer taken/)
+  check("claims already sent are kept", (await val(null, "select count(*)::int from reimbursement_claims")) > 0, "> 0", "")
+
+  // Advance recovery: a pay run's LOAN line is recorded when paid; the balance follows.
+  const loan = await val(U.PAY, "insert into loans (user_id, amount, instalment, start_month) values ($1, 9000, 3000, '2026-10-01') returning id", [U.STAFF2])
+  await run(U.PAY, "insert into loan_recoveries (loan_id, amount, note) values ($1, 5000, 'Pay run Oct 2026 (changed)')", [loan])
+  eq("balance after a changed recovery", await val(U.PAY, "select (l.amount - coalesce(sum(r.amount), 0))::int from loans l left join loan_recoveries r on r.loan_id = l.id where l.id = $1 group by l.amount", [loan]), 4000)
+  await run(U.PAY, "insert into loan_recoveries (loan_id, amount) values ($1, 4000)", [loan])
+  eq("a fully recovered advance closes itself", await val(U.PAY, "select status from loans where id = $1", [loan]), "closed")
+  eq("the employee sees their own advance", await val(U.STAFF2, "select count(*)::int from loans where id = $1", [loan]), 1)
 })
 
 await scenario("Companies (0075, 0076)", async () => {

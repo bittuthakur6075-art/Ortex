@@ -1,23 +1,26 @@
-// Payroll data (migration 0040, docs/pm/PAYROLL_PLAN.md). Every read and write
-// the console makes for payroll goes through here; the figures come from the
-// pure engine in lib/payroll.js. The database decides who may do what
-// (is_payroll(): the Super Admin and whoever holds the payroll grant), so a
-// refused call surfaces its message rather than being hidden.
+// Payroll data (migration 0040, simplified by 0077; docs/pm/PAYROLL_PLAN.md).
+// Every read and write the console makes for payroll goes through here; the
+// figures come from the pure engine in lib/payroll.js. The database decides who
+// may do what (is_payroll(): the Super Admin and whoever holds the payroll
+// grant), so a refused call surfaces its message rather than being hidden.
 
 import { supabase } from "../data/store/supabaseClient"
 import {
-  arrearsFor,
   computePayslip,
+  dayRateOf,
   daysInMonth,
+  daysWorkedFrom,
   DEFAULT_PAYROLL_SETTINGS,
   fyOf,
   monthKey,
   overtimeItem,
+  overtimeMinutes,
   paidDaysFor,
   payableFrom,
+  payTermsOf,
+  revisionRow,
   runTotals,
   shiftMinutes,
-  structureFromCtc,
   ytdLines,
 } from "../lib/payroll"
 
@@ -51,7 +54,7 @@ const deepMerge = (a, b) => {
   return out
 }
 
-// ---- settings, components, templates ----------------------------------------------------------------
+// ---- settings --------------------------------------------------------------------------------------
 
 export async function getPayrollSettings() {
   const { data, error } = await supabase.from("payroll_settings").select("doc, updated_at").eq("id", true).maybeSingle()
@@ -69,36 +72,9 @@ export async function savePayrollSettings(patch) {
   return doc
 }
 
-export async function listComponents() {
-  const { data, error } = await supabase.from("salary_components").select("*").order("sort")
-  fail(error)
-  return data || []
-}
-
-export async function saveComponent(c) {
-  const { error } = await supabase.from("salary_components").upsert(c)
-  fail(error)
-}
-
-export async function listTemplates() {
-  const { data, error } = await supabase.from("salary_templates").select("*").order("name")
-  fail(error)
-  return data || []
-}
-
-export async function saveTemplate(t) {
-  const { error } = await supabase.from("salary_templates").upsert(t)
-  fail(error)
-}
-
-export async function deleteTemplate(id) {
-  const { error } = await supabase.from("salary_templates").delete().eq("id", id)
-  fail(error)
-}
-
 // ---- people -------------------------------------------------------------------------------------------
 
-/** Every active profile with its pay profile (or none yet) and latest revision. */
+/** Every active profile with its pay profile (or none yet) and its revisions, newest first. */
 export async function listEmployees() {
   const [profiles, employees, revisions] = await Promise.all([
     all(() => supabase.from("profiles").select("id, name, email, role, active, avatar_url, created_at").order("name")),
@@ -124,17 +100,17 @@ export async function getEmployee(userId) {
   return list.find((e) => e.user_id === userId) || null
 }
 
-/** Plain fields plus, optionally, `pan` / `account_number` (encrypted by the database). */
+/** Plain fields plus, optionally, `account_number` (encrypted by the database). */
 export async function saveEmployee(userId, fields) {
   const { error } = await supabase.rpc("payroll_employee_save", { p_user: userId, p: fields })
   fail(error)
 }
 
-/** Full PAN and account number. Every call is written to the payroll history. */
+/** The full account number. Every call is written to the payroll history. */
 export async function revealSecrets(userId) {
   const { data, error } = await supabase.rpc("payroll_employee_secrets", { p_user: userId })
   fail(error)
-  return (data || [])[0] || { pan: null, account_number: null }
+  return (data || [])[0] || { account_number: null }
 }
 
 /** The revision in force for a month: the latest effective on or before it. */
@@ -143,22 +119,16 @@ export function revisionFor(revisions, month) {
   return (revisions || []).filter((r) => r.effective_from <= m).sort((a, b) => (a.effective_from < b.effective_from ? 1 : -1))[0] || null
 }
 
-/** Add a revision; the earnings are computed from the CTC and the template now, and kept. */
-export async function addRevision({ userId, annualCtc, templateItems, templateId, effectiveFrom, payoutMonth, reason, settings, pfEnabled }) {
-  const s = structureFromCtc({ annualCtc, template: templateItems, month: effectiveFrom, settings, pfEnabled })
+/** Add a revision: a pay type ("monthly" | "daily"), its rate, and the month it takes effect. */
+export async function addRevision({ userId, type, rate, effectiveFrom, reason }) {
   const { error } = await supabase.from("salary_revisions").insert({
     user_id: userId,
-    annual_ctc: annualCtc,
-    template_id: templateId || null,
+    ...revisionRow({ type, rate }),
     effective_from: monthKey(effectiveFrom),
-    payout_month: monthKey(payoutMonth || effectiveFrom),
-    earnings: s.earnings,
-    monthly_gross: s.gross,
-    employer_pf_in_ctc: s.employerPfInCtc,
+    payout_month: monthKey(effectiveFrom),
     reason: reason || null,
   })
   fail(error)
-  return s
 }
 
 export async function deleteRevision(id) {
@@ -166,7 +136,7 @@ export async function deleteRevision(id) {
   fail(error)
 }
 
-// ---- loans and claims ------------------------------------------------------------------------------------
+// ---- advances (the loans table) -------------------------------------------------------------------
 
 export async function listLoans() {
   const [loans, recoveries] = await Promise.all([
@@ -188,26 +158,6 @@ export async function saveLoan(loan) {
 export async function recordLoanRepayment(loanId, amount, note) {
   const { error } = await supabase.from("loan_recoveries").insert({ loan_id: loanId, amount, note: note || "Manual repayment" })
   fail(error)
-}
-
-export async function listClaims({ status } = {}) {
-  const rows = await all(() => {
-    let q = supabase.from("reimbursement_claims").select("*").order("created_at", { ascending: false })
-    if (status) q = q.eq("status", status)
-    return q
-  })
-  return rows
-}
-
-export async function decideClaim(id, approve, note) {
-  const { error } = await supabase.rpc("claim_decide", { p_id: id, p_approve: approve, p_note: note || null })
-  fail(error)
-}
-
-export async function receiptUrl(path) {
-  if (!path) return null
-  const { data } = await supabase.storage.from("claim-receipts").createSignedUrl(path, 3600)
-  return data?.signedUrl || null
 }
 
 // ---- pay runs -----------------------------------------------------------------------------------------------
@@ -257,7 +207,7 @@ export async function bankDetails(runId) {
   return data || []
 }
 
-/** Paid payslips of the financial year before `month`, for TDS year-to-date and arrears. */
+/** Paid payslips of the financial year before `month`, for each line's year to date. */
 export async function paidSlipsBefore(month) {
   const m = monthKey(month)
   const fy = fyOf(m)
@@ -274,16 +224,33 @@ export async function attendanceFor(month) {
   return { rows: data || [], error: null }
 }
 
+/** Per-person days worked (P, OD, HD) for daily wages (payroll_days_worked, 0077). Throws when it cannot be read. */
+async function daysWorkedRows(month) {
+  const { data, error } = await supabase.rpc("payroll_days_worked", { p_month: monthKey(month) })
+  if (error) {
+    throw new Error(
+      `Days worked for ${monthKey(month).slice(0, 7)} could not be read, so nothing was calculated: ${MISSING.test(error.message || "") ? "the database needs migration 0077" : error.message}`,
+    )
+  }
+  const byUser = new Map()
+  for (const r of data || []) {
+    if (!byUser.has(r.user_id)) byUser.set(r.user_id, [])
+    byUser.get(r.user_id).push({ day: String(r.day).slice(0, 10), status: r.status })
+  }
+  return byUser
+}
+
 /**
- * What overtime pay needs: the month's attendance_overtime rows per person
- * (0056, readable by payroll since 0065), the full-day shift's minutes and the
- * OVERTIME component's tax flag (0040). Throws when the rows or the shift
- * cannot be read: a regular run must not silently drop overtime.
+ * The month's attendance_overtime rows per person (0056, readable by payroll
+ * since 0065) and the full-day shift's minutes. When they cannot be read, a
+ * run with "Pay overtime automatically" on is refused (it must not silently
+ * drop overtime); with it off, the hours are just not shown.
  */
-async function overtimeFor(month) {
+async function overtimeFor(month, required) {
   const from = monthKey(month)
   const to = `${from.slice(0, 8)}${String(daysInMonth(month)).padStart(2, "0")}`
   const refuse = (why) => {
+    if (!required) return { byUser: new Map(), shiftMin: 540, error: why }
     throw new Error(
       `Overtime for ${from.slice(0, 7)} could not be read, so nothing was calculated: ${why}. To calculate without overtime, turn off "Pay overtime automatically" in the payroll settings.`,
     )
@@ -292,155 +259,115 @@ async function overtimeFor(month) {
   try {
     rows = await all(() => supabase.from("attendance_overtime").select("user_id, day, minutes").gte("day", from).lte("day", to).order("day").order("user_id"))
   } catch (e) {
-    refuse(e.missing ? "the overtime table is not on this database (migration 0056)" : e.message)
+    return refuse(e.missing ? "the overtime table is not on this database (migration 0056)" : e.message)
   }
-  const [{ data: att, error }, { data: comp }] = await Promise.all([
-    supabase.from("attendance_settings").select("doc").eq("id", true).maybeSingle(),
-    supabase.from("salary_components").select("taxable").eq("code", "OVERTIME").maybeSingle(),
-  ])
-  if (error) refuse(error.message)
+  const { data: att, error } = await supabase.from("attendance_settings").select("doc").eq("id", true).maybeSingle()
+  if (error) return refuse(error.message)
   const byUser = new Map()
   for (const r of rows) {
     if (!byUser.has(r.user_id)) byUser.set(r.user_id, [])
     byUser.get(r.user_id).push({ day: String(r.day).slice(0, 10), minutes: Number(r.minutes) || 0 })
   }
-  return { byUser, shiftMin: shiftMinutes(att?.doc?.shift), taxable: comp ? comp.taxable !== false : true }
+  return { byUser, shiftMin: shiftMinutes(att?.doc?.shift), error: null }
 }
 
 /**
- * Compute a draft run's payslips from the engine: revision in force, paid days
- * from attendance (or the edits already made in the run), one-time items and
- * statuses kept from the current draft, approved claims, active loans,
- * back-dated revisions' arrears, and the year so far for TDS.
+ * Compute a draft run's payslips: the pay type and rate in force, paid days
+ * (monthly) or days worked (daily) from attendance, overtime, one-time items,
+ * advance recovery, and each line's year to date.
  *
- * `edits` is { [user_id]: { status, paidDays, oneTime: [...] } }, what the
- * payroll user changed in the run screen; they win over attendance.
+ * `edits` is { [user_id]: { status, paidDays, daysWorked, oneTime, overtime:
+ * { mode, amount }, recover: { [loanId]: amount } } }, what payroll changed on
+ * the run screen. They win over attendance and are kept on the slip, so they
+ * survive the next Calculate.
  */
 export async function computeRun(run, { edits = {} } = {}) {
   const month = run.month
-  const [settings, people, att, loans, claims, prior] = await Promise.all([
-    getPayrollSettings(),
-    listEmployees(),
-    attendanceFor(month),
-    listLoans(),
-    listClaims({ status: "approved" }),
-    paidSlipsBefore(month),
-  ])
+  const [settings, people, att, loans, prior] = await Promise.all([getPayrollSettings(), listEmployees(), attendanceFor(month), listLoans(), paidSlipsBefore(month)])
   const existing = new Map((run.payslips || []).map((p) => [p.user_id, p]))
   // An off-cycle run (a bonus, an incentive, a settlement top-up) pays only the
-  // one-time items payroll adds to it: no monthly salary, loans, claims or
-  // arrears, which belong to the regular run. TDS and LWF are left to the
-  // regular run too; its projection counts this payout as paid so far and
-  // catches the tax up.
+  // one-time items payroll adds to it: no salary, overtime or advance recovery.
   const offCycle = run.kind && run.kind !== "regular"
   const monthEnd = `${month.slice(0, 8)}${String(daysInMonth(month)).padStart(2, "0")}`
-  // A regular run refuses to compute when attendance could not be read (it
-  // used to pay everyone the full month). An off-cycle run pays no salary, so
-  // it does not need attendance.
+  // A regular run refuses when attendance could not be read (it would pay
+  // everyone the full month). An off-cycle run does not need attendance.
   const payableOf = payableFrom(offCycle ? { rows: att.rows } : att, month)
-  // Overtime at the regular rate, regular runs only (overtimeItem).
-  const payOvertime = !offCycle && settings.schedule?.payOvertime !== false
-  const ot = payOvertime ? await overtimeFor(month) : null
+  const autoOvertime = settings.schedule?.payOvertime !== false
+
+  const payees = people.filter((person) => {
+    const e = person.employee
+    return e && person.active && e.status !== "settled" && !(e.exit_date && e.exit_date < month) && !(e.doj && e.doj > monthEnd) && revisionFor(person.revisions, month)
+  })
+  const anyDaily = !offCycle && payees.some((p) => payTermsOf(revisionFor(p.revisions, month))?.type === "daily")
+  const [worked, ot] = await Promise.all([anyDaily ? daysWorkedRows(month) : new Map(), offCycle ? null : overtimeFor(month, autoOvertime)])
 
   const slips = []
-  for (const person of people) {
+  for (const person of payees) {
     const e = person.employee
-    if (!e || !person.active) continue
-    if (e.status === "settled") continue
-    if (e.exit_date && e.exit_date < month) continue
-    if (e.doj && e.doj > monthEnd) continue
     const rev = revisionFor(person.revisions, month)
-    if (!rev) continue
-
-    const prev = existing.get(person.user_id)
+    const terms = payTermsOf(rev)
+    const span = { month, doj: e.doj, exitDate: e.exit_date }
+    const prev = existing.get(person.user_id)?.data || {}
     const edit = edits[person.user_id] || {}
     const pay = payableOf(person.user_id)
-    const pd = paidDaysFor({
-      month,
-      payable: pay.payable,
-      doj: e.doj,
-      exitDate: e.exit_date,
-      basis: settings.schedule.basis,
-      fixedDays: settings.schedule.fixedDays,
-    })
-    const paidDays = edit.paidDays ?? prev?.data?.paidDaysOverride ?? pd.paidDays
+    const pd = paidDaysFor({ month, payable: pay.payable, doj: e.doj, exitDate: e.exit_date, basis: settings.schedule.basis, fixedDays: settings.schedule.fixedDays })
 
-    // Arrears for a revision effective earlier and paid out this month.
-    const oneTime = [...(edit.oneTime ?? prev?.data?.oneTimeInput ?? [])]
-    const mine = prior.filter((s) => s.user_id === person.user_id && s.data)
-    const arrearsRev = person.revisions.find((r) => r.payout_month === month && r.effective_from < month && !r.arrears_paid)
-    if (!offCycle && arrearsRev && !oneTime.some((o) => o.code === "ARREARS")) {
-      const a = arrearsFor({
-        effectiveFrom: arrearsRev.effective_from,
-        payoutMonth: month,
-        newGross: Number(arrearsRev.monthly_gross),
-        paidSlips: mine.map((s) => ({ month: s.month, status: s.status, ...s.data })),
-      })
-      if (a.total > 0) oneTime.push({ kind: "earning", code: "ARREARS", name: "Arrears", amount: a.total, taxable: true, lines: a.lines })
+    // What payroll set on the run screen, kept across Calculate.
+    const input = {
+      paidDaysOverride: edit.paidDays ?? prev.paidDaysOverride ?? null,
+      daysWorkedOverride: edit.daysWorked ?? prev.daysWorkedOverride ?? null,
+      oneTimeInput: edit.oneTime ?? prev.oneTimeInput ?? [],
+      overtimeInput: edit.overtime ?? prev.overtimeInput ?? null,
+      recoverInput: { ...(prev.recoverInput || {}), ...(edit.recover || {}) },
     }
-    // Recomputed on every Calculate and never kept in oneTimeInput; an
-    // OVERTIME item payroll added by hand replaces it.
-    const overtime = overtimeItem({
-      enabled: payOvertime,
-      offCycle,
-      oneTime,
-      rows: ot?.byUser.get(person.user_id) || [],
-      month,
-      doj: e.doj,
-      exitDate: e.exit_date,
-      monthlyGross: (rev.earnings || []).reduce((t, x) => t + (Number(x.amount) || 0), 0),
-      basisDays: pd.basisDays,
-      shiftMin: ot?.shiftMin,
-      taxable: ot?.taxable,
-    })
-    if (overtime) oneTime.push(overtime)
+    const oneTime = [...input.oneTimeInput]
+    const daysWorked = input.daysWorkedOverride ?? daysWorkedFrom(worked.get(person.user_id), span)
 
-    // The financial year so far, from payslips actually paid: taxable earnings
-    // and the TDS already deducted (what the projection subtracts).
-    const ytd = mine
-      .filter((s) => s.status === "included")
-      .reduce(
-        (acc, s) => ({
-          taxable:
-            acc.taxable +
-            (s.data.earnings || []).filter((x) => x.taxable !== false).reduce((t, x) => t + (Number(x.amount) || 0), 0),
-          tds: acc.tds + (Number(s.data.tds?.monthly) || 0),
-        }),
-        { taxable: 0, tds: 0 },
-      )
+    let overtime = null
+    if (!offCycle) {
+      const minutes = overtimeMinutes(ot?.byUser.get(person.user_id), span)
+      const mode = input.overtimeInput?.mode || (autoOvertime ? "auto" : "manual")
+      const item = overtimeItem({
+        minutes,
+        mode,
+        amount: input.overtimeInput?.amount ?? 0,
+        dayRate: dayRateOf(terms, pd.basisDays),
+        shiftMin: ot?.shiftMin,
+        oneTime,
+      })
+      if (item) oneTime.push(item)
+      overtime = { minutes, mode, amount: item?.amount || 0, hourlyRate: item?.data?.hourlyRate ?? null, error: ot?.error || null }
+    }
 
     const slip = computePayslip({
       month,
-      structure: { earnings: offCycle ? [] : rev.earnings },
-      paidDays,
+      terms: offCycle ? null : terms,
+      paidDays: input.paidDaysOverride ?? pd.paidDays,
       basisDays: pd.basisDays,
+      daysWorked,
       oneTime,
-      reimbursements: offCycle ? [] : claims.filter((c) => c.user_id === person.user_id).map((c) => ({ id: c.id, name: `Reimbursement: ${c.category}`, amount: Number(c.amount) })),
       loans: offCycle ? [] : loans.filter((l) => l.user_id === person.user_id && l.status === "active" && l.start_month <= month && l.balance > 0),
-      employee: { pf: e.pf_enabled, esi: e.esi_enabled, lwf: offCycle ? false : e.lwf_enabled, tds: offCycle ? false : e.tds_enabled, regime: e.tax_regime },
-      settings,
-      ytd,
-      taxDeductions: e.tax_regime === "old" ? Number(e.tax_deductions) || 0 : 0,
+      recover: input.recoverInput,
     })
+    const mine = prior.filter((s) => s.user_id === person.user_id && s.data && s.status === "included")
 
     slips.push({
       user_id: person.user_id,
       // Nobody is paid by an off-cycle run until payroll gives them an item.
-      status: edit.status ?? prev?.status ?? (offCycle && !oneTime.length ? "skipped" : "included"),
+      status: edit.status ?? existing.get(person.user_id)?.status ?? (offCycle && !oneTime.length ? "skipped" : "included"),
       data: {
         ...slip,
-        // Zoho prints the pay date, and each line's year to date beside it.
         payDate: run.pay_date || null,
         ytdLines: ytdLines(
-          mine.filter((s) => s.status === "included").map((s) => s.data),
+          mine.map((s) => s.data),
           slip,
         ),
-        oneTimeInput: edit.oneTime ?? prev?.data?.oneTimeInput ?? [],
-        paidDaysOverride: edit.paidDays ?? prev?.data?.paidDaysOverride ?? null,
+        ...input,
+        overtime,
         attendance: att.rows.find((r) => r.user_id === person.user_id) || null,
         attendanceError: att.error,
-        // No summary row for this person: paid the full month, flagged on the run screen.
-        attendanceMissing: !offCycle && pay.missing,
+        // No summary row for a monthly person: paid the full month, flagged on the run screen.
+        attendanceMissing: !offCycle && terms?.type === "monthly" && pay.missing,
         employee: {
           name: person.name || person.email,
           email: person.email,
@@ -448,15 +375,12 @@ export async function computeRun(run, { edits = {} } = {}) {
           designation: e.designation,
           department: e.department,
           doj: e.doj,
-          pan_last4: e.pan_last4,
-          uan: e.uan,
-          esi_ip: e.esi_ip,
           bank_name: e.bank_name,
           account_last4: e.account_last4,
           ifsc: e.ifsc,
           pay_mode: e.pay_mode,
         },
-        revision: { id: rev.id, annual_ctc: Number(rev.annual_ctc), effective_from: rev.effective_from },
+        revision: { id: rev.id, effective_from: rev.effective_from },
       },
       gross: slip.gross,
       net_pay: slip.netPay,

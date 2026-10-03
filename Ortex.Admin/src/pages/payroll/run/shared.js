@@ -1,4 +1,4 @@
-// Shared by the pay-run pages (Dashboard, Pay runs, the run itself, Reports):
+// Shared by the pay-run pages (Overview, Pay runs, the run itself):
 // the status vocabulary, the words for a run, and the flattening that turns a
 // stored payslip row into what the engine's file builders read.
 
@@ -148,11 +148,11 @@ export function nextAction(run) {
   if (run.status === "draft") return run.totals?.employees ? "Review and submit for approval" : "Calculate the payslips"
   if (run.status === "pending_approval") return "Waiting for a second person to approve"
   if (run.status === "approved") return "Pay salaries and record the payment"
-  if (run.status === "paid") return "Paid. File PF, ESI and TDS by their due dates"
+  if (run.status === "paid") return "Paid. Payslips are released"
   return "Cancelled"
 }
 
-/** Save text as a file (the bank CSV, the ECR). */
+/** Save text as a file (the bank CSV). */
 export function downloadText(filename, text, mime = "text/plain;charset=utf-8") {
   const blob = new Blob([text], { type: mime })
   const url = URL.createObjectURL(blob)
@@ -161,33 +161,4 @@ export function downloadText(filename, text, mime = "text/plain;charset=utf-8") 
   a.download = filename
   a.click()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
-/**
- * Save rows as .xlsx. `asText` writes every cell as text (the ESIC portal
- * rejects numbers). Returns false when the spreadsheet library cannot load,
- * so the caller can fall back to CSV.
- */
-export async function downloadXlsx(filename, sheets, { asText = false } = {}) {
-  let XLSX
-  try {
-    XLSX = await import("xlsx")
-  } catch {
-    return false
-  }
-  const wb = XLSX.utils.book_new()
-  for (const { name, rows } of sheets) {
-    const data = asText ? rows.map((r) => r.map((c) => (c == null ? "" : String(c)))) : rows
-    const ws = XLSX.utils.aoa_to_sheet(data)
-    if (asText) {
-      for (const key of Object.keys(ws)) {
-        if (key[0] === "!") continue
-        ws[key].t = "s"
-        ws[key].z = "@"
-      }
-    }
-    XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31))
-  }
-  XLSX.writeFile(wb, filename)
-  return true
 }

@@ -2,7 +2,7 @@ import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 import Svg, { Circle } from "react-native-svg"
 
-import { CLAIM_STATUS_LABEL, CLAIM_STATUS_TONE, money, type ClaimStatus } from "@/features/pay/payFormat"
+import { money } from "@/features/pay/payFormat"
 import type { PayTableRow } from "@/features/pay/payRows"
 import { usePayColors } from "@/features/pay/usePayColors"
 import { feedback } from "@/lib/feedback"
@@ -14,7 +14,7 @@ import Skeleton, { SkeletonList } from "@/ui/Skeleton"
 /**
  * The pay pages' drawing kit, modelled on Zoho Payroll's employee app: the
  * payslip hero, the summary band, the ruled earnings/deductions tables, the
- * stat strip, the year-to-date donut, the monthly bars and the claim pill.
+ * stat strip, the year-to-date donut and the monthly bars.
  *
  * Everything here is flat: a panel's content on `surface`, a nested tile on the
  * inset plane or a tone's tinted well, never a shadow. A status hue fills a
@@ -359,19 +359,6 @@ export function NetStrip({ parts }: { parts: PaySlice[] }) {
   )
 }
 
-// ---- claims ----------------------------------------------------------------------------------------
-
-/** "Waiting" on its tone's tinted well. */
-export function ClaimStatusPill({ status }: { status: ClaimStatus }) {
-  const t = useTheme()
-  const c = t.tones[CLAIM_STATUS_TONE[status]]
-  return (
-    <View style={[styles.pill, { backgroundColor: c.bg }]}>
-      <Text style={[textVariants.caption, { color: c.fg, fontFamily: font.semibold }]}>{CLAIM_STATUS_LABEL[status]}</Text>
-    </View>
-  )
-}
-
 // ---- skeletons -------------------------------------------------------------------------------------
 
 /** The hero panel's shape: eyebrow, label, figure, caption, the stat strip and a button. */
@@ -443,7 +430,6 @@ const styles = StyleSheet.create({
   netStrip: { height: 10, borderRadius: 5, overflow: "hidden", flexDirection: "row" },
   netStripLegend: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
   netStripItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  pill: { alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill },
 
   band: { height: 2 },
   skHead: { paddingHorizontal: gutter, paddingTop: gutter, paddingBottom: spacing.sm },

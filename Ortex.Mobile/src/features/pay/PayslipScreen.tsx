@@ -7,7 +7,9 @@ import {
   money,
   monthLabel,
   otherDeductionsOf,
+  PAY_TYPE_LABEL,
   rupeesInWords,
+  slipDaysText,
   tdsOf,
   type Payslip,
 } from "@/features/pay/payFormat"
@@ -25,12 +27,14 @@ import { textVariants } from "@/theme/typography"
 import { AppScreen, Button, DataNotice, DetailSkeleton, FactRow, IconButton, Panel, useToast } from "@/ui"
 
 /**
- * One payslip, laid out like Zoho Payroll's payslip view: the month in the
- * title; a summary band of gross earnings, total deductions and NET PAY (the
- * net highlighted), with paid and LOP days; EARNINGS and DEDUCTIONS as two
- * ruled tables with their totals; reimbursements; the net pay in words;
- * employer contributions (never deducted); the income-tax working and the
- * employee's details. The PDF actions are pinned to the bottom of the screen.
+ * One payslip: the month in the title; a summary band of gross earnings,
+ * total deductions and NET PAY, with the pay type and days (paid days of the
+ * month, or days worked for a daily wage); EARNINGS (salary or wages,
+ * overtime with its hours, extras) and DEDUCTIONS (advance recovered, with the
+ * balance left) as two ruled tables; the net pay in words; the employee's
+ * details. An older slip still shows whatever it was paid with (PF, ESI,
+ * income tax, employer contributions, reimbursements). The PDF actions are
+ * pinned to the bottom of the screen.
  */
 export default function PayslipScreen({ navigation, route }: StackScreenProps<"Payslip">) {
   const t = useTheme()
@@ -115,21 +119,28 @@ export default function PayslipScreen({ navigation, route }: StackScreenProps<"P
                 parts={[
                   { key: "net", label: "Take-home", value: Math.max(0, (d.netPay || 0) - (d.reimbursementTotal || 0)), color: c.net },
                   { key: "ded", label: "Deductions", value: otherDeductionsOf(d), color: c.deductions },
-                  { key: "tds", label: "Income tax", value: tdsOf(d), color: c.tds },
+                  ...(tdsOf(d) > 0 ? [{ key: "tds", label: "Income tax", value: tdsOf(d), color: c.tds }] : []),
                 ]}
               />
               <View style={styles.days}>
-                <Text style={[textVariants.small, { color: t.textSecondary }]}>
-                  {`Paid days: ${d.paidDays} of ${d.basisDays}`}
-                </Text>
-                <Text style={[textVariants.small, { color: t.textFaint }]}>·</Text>
-                {d.lopDays > 0 ? (
-                  <View style={[styles.lop, { backgroundColor: t.warningBg }]}>
-                    <Text style={[textVariants.captionStrong, { color: t.warningText }]}>{`LOP days: ${d.lopDays}`}</Text>
-                  </View>
-                ) : (
-                  <Text style={[textVariants.small, { color: t.textSecondary }]}>LOP days: 0</Text>
-                )}
+                {d.payType ? (
+                  <>
+                    <Text style={[textVariants.small, { color: t.textSecondary }]}>
+                      {`${PAY_TYPE_LABEL[d.payType]}${d.rate ? `, ${money(d.rate)} ${d.payType === "daily" ? "a day" : "a month"}` : ""}`}
+                    </Text>
+                    <Text style={[textVariants.small, { color: t.textFaint }]}>·</Text>
+                  </>
+                ) : null}
+                {slipDaysText(d) ? <Text style={[textVariants.small, { color: t.textSecondary }]}>{slipDaysText(d)}</Text> : null}
+                {d.payType !== "daily" && d.basisDays ? (
+                  (d.lopDays || 0) > 0 ? (
+                    <View style={[styles.lop, { backgroundColor: t.warningBg }]}>
+                      <Text style={[textVariants.captionStrong, { color: t.warningText }]}>{`LOP days: ${d.lopDays}`}</Text>
+                    </View>
+                  ) : (
+                    <Text style={[textVariants.small, { color: t.textSecondary }]}>LOP days: 0</Text>
+                  )
+                ) : null}
               </View>
             </Panel>
 

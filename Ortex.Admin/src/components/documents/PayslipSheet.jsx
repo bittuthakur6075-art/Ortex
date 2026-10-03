@@ -1,7 +1,7 @@
 import { forwardRef } from "react"
 import { PAYSLIP_CSS, payslipBody } from "../../lib/payslipTemplate"
 
-// The A4 payslip in Zoho Payroll's standard layout. The page is
+// The A4 payslip (Zoho Payroll's standard layout, simplified 2026-10-03). The page is
 // lib/payslipTemplate.js, generated from the phone's
 // Ortex.Mobile/src/documents/payslipTemplate.ts, so the console and the phone
 // print the same document; this component only feeds it.
@@ -42,8 +42,11 @@ const PayslipSheet = forwardRef(function PayslipSheet({ slip, org = {}, title, s
     withheld: status === "withheld",
     payDate: s.payDate || payDate || null,
     employee: s.employee || {},
+    payType: s.payType || null,
     paidDays: s.paidDays,
+    basisDays: s.basisDays,
     lopDays: s.lopDays,
+    daysWorked: s.daysWorked,
     earnings: withYtd(s.earnings, s.ytdLines?.earnings),
     deductions: withYtd(s.deductions, s.ytdLines?.deductions),
     reimbursements: withYtd(s.reimbursements),

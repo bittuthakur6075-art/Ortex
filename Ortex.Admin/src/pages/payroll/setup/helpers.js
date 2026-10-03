@@ -1,7 +1,8 @@
 // Plain helpers shared by the payroll setup pages: money, month inputs, dates,
-// the IFSC / PAN shapes and what is missing before someone can be paid.
+// the IFSC shape, a pay type in words and what is missing before someone can be paid.
 
 import { formatCurrency } from "../../../lib/format"
+import { payTermsOf } from "../../../lib/payroll"
 
 export const money = (n) => formatCurrency(Number(n) || 0)
 
@@ -31,18 +32,21 @@ export function dateLabel(d) {
 }
 
 export const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/
-export const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/
 
 /** What is still missing before this person can be paid, in words. */
 export function missingFor(person) {
   const e = person.employee || {}
   const out = []
   if (!person.revisions?.length) out.push("salary")
-  if (!e.pan_last4) out.push("PAN")
   if (e.pay_mode === "bank" || !e.pay_mode) {
     if (!e.account_last4 || !e.ifsc) out.push("bank")
   }
-  if (e.pf_enabled && !e.uan) out.push("UAN")
-  if (e.esi_enabled && !e.esi_ip) out.push("ESI number")
   return out
+}
+
+/** "₹27,000 a month" or "₹800 a day" for a salary revision. */
+export function payWords(rev) {
+  const t = payTermsOf(rev)
+  if (!t) return ""
+  return `${money(t.rate)} ${t.type === "daily" ? "a day" : "a month"}`
 }

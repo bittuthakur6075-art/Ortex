@@ -6,15 +6,16 @@ import { Avatar, Badge, Button, Card, CardHeader, Chip, ChipGroup, Drawer, Empty
 import { exportCsv } from "../../lib/csv"
 import { formatDateTime } from "../../lib/format"
 import { listEmployees, listLoans, recordLoanRepayment, saveLoan } from "../../services/payroll"
+import { instalmentFor } from "../../lib/payroll"
 import { LoadError } from "./setup/common"
 import { dateLabel, fromMonthInput, money, monthLabel, thisMonthIST } from "./setup/helpers"
 import { ROW_LINK, rowOpens } from "./run/shared"
 
-// Payroll → Loans (Zoho Payroll's Loans): salary advances and loans, each
-// recovered by a fixed instalment in every pay run from its start month. A
-// loan closes itself once fully recovered (a trigger in migration 0040); it
-// can be paused for a month, and a repayment made outside payroll is recorded
-// here.
+// Payroll → Advances (the loans table): salary advances, each recovered in
+// the pay runs from its start month, in full or by instalment. An advance
+// closes itself once fully recovered (a trigger in migration 0040); it can be
+// paused, and a repayment made outside payroll is recorded here. A pay run can
+// change or skip one month's recovery.
 
 const FILTERS = [
   { value: "open", label: "Open" },
@@ -83,9 +84,9 @@ export default function Loans() {
   }
 
   const exportRows = () =>
-    exportCsv(`payroll-loans-${thisMonthIST()}.csv`, [
+    exportCsv(`payroll-advances-${thisMonthIST()}.csv`, [
       { header: "Employee", value: (l) => nameOf(l.user_id) },
-      { header: "Loan", value: (l) => l.name },
+      { header: "Type", value: (l) => l.name },
       { header: "Amount", value: (l) => Number(l.amount) },
       { header: "Instalment", value: (l) => Number(l.instalment) },
       { header: "Start month", value: (l) => monthLabel(l.start_month) },
@@ -108,24 +109,24 @@ export default function Loans() {
           ))}
         </ChipGroup>
         <div className="ml-auto flex w-full items-center gap-[10px] sm:w-auto">
-          <SearchInput className="min-w-0 flex-1" aria-label="Search loans" value={query} onChange={(e) => setQuery(e.target.value)} onClear={() => setQuery("")} placeholder="Search person or loan" />
+          <SearchInput className="min-w-0 flex-1" aria-label="Search advances" value={query} onChange={(e) => setQuery(e.target.value)} onClear={() => setQuery("")} placeholder="Search person or note" />
           <ExportButton onClick={exportRows} disabled={!shown.length} />
         </div>
       </div>
 
       <Card className="overflow-hidden">
         <CardHeader
-          title="Loans and advances"
-          description={outstanding > 0 ? `${money(outstanding)} still to recover in this view.` : "Recovered through payroll, one instalment a month."}
-          action={<Button size="sm" onClick={() => setCreating(true)} disabled={Boolean(error?.missing)}><Plus className="h-4 w-4" /> New loan</Button>}
+          title="Advances"
+          description={outstanding > 0 ? `${money(outstanding)} still to recover in this view.` : "Recovered through payroll, in full or one instalment a month."}
+          action={<Button size="sm" onClick={() => setCreating(true)} disabled={Boolean(error?.missing)}><Plus className="h-4 w-4" /> Record advance</Button>}
         />
         {loans === null ? (
           <div className="p-6"><PageLoader /></div>
         ) : !shown.length ? (
           <EmptyState
             icon={Wallet}
-            title={query ? "Nothing matches that search" : filter === "open" ? "No loans being recovered" : "Nothing here"}
-            description={filter === "open" && !query ? "A salary advance or loan is recovered from pay, a fixed instalment each month." : undefined}
+            title={query ? "Nothing matches that search" : filter === "open" ? "No advances being recovered" : "Nothing here"}
+            description={filter === "open" && !query ? "An advance is recovered from pay, in full or a fixed instalment each month." : undefined}
           />
         ) : (
           <div className="overflow-x-auto">
@@ -133,7 +134,7 @@ export default function Loans() {
               <thead className="mt-head">
                 <tr className="text-left">
                   <th>Employee</th>
-                  <th>Loan</th>
+                  <th>Type</th>
                   <th className="text-right">Amount</th>
                   <th className="text-right">Instalment</th>
                   <th>From</th>
@@ -170,7 +171,7 @@ export default function Loans() {
       </Card>
 
       {creating && (
-        <NewLoan
+        <NewAdvance
           people={people.filter((p) => p.active !== false && !["exited", "settled"].includes(p.employee?.status))}
           onClose={() => setCreating(false)}
           onSaved={async () => {
@@ -279,25 +280,29 @@ function LoanDetail({ loan, person }) {
   )
 }
 
-function NewLoan({ people, onClose, onSaved }) {
-  const [f, setF] = useState({ user_id: "", name: "Salary advance", amount: "", instalment: "", start: thisMonthIST(), disbursed_on: new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10), note: "" })
+/**
+ * Record an advance (a row in loans): the amount, the day it was paid, a note,
+ * and how it is recovered: in full in one pay run, or in N monthly
+ * instalments, from a month. Shared by Advances, a pay profile and the pay run.
+ */
+export function NewAdvance({ people, userId = "", start = thisMonthIST(), onClose, onSaved }) {
+  const [f, setF] = useState({ user_id: userId, amount: "", recovery: "full", months: "3", start, disbursed_on: new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10), note: "" })
   const [busy, setBusy] = useState(false)
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }))
   const amount = Number(f.amount) || 0
-  const instalment = Number(f.instalment) || 0
-  const months = amount > 0 && instalment > 0 ? Math.ceil(amount / instalment) : 0
+  const months = f.recovery === "full" ? 1 : Math.max(1, Math.floor(Number(f.months) || 0))
+  const instalment = instalmentFor(amount, months)
 
   const submit = async () => {
-    if (!f.user_id) return toast.error("Choose who the loan is for")
+    if (!f.user_id) return toast.error("Choose who the advance is for")
     if (!(amount > 0)) return toast.error("Enter the amount")
-    if (!(instalment > 0)) return toast.error("Enter the monthly instalment")
-    if (instalment > amount) return toast.error("The instalment cannot be more than the amount")
+    if (f.recovery === "instalments" && !(Number(f.months) >= 2)) return toast.error("Enter 2 or more instalments, or recover it in full")
     if (!f.start) return toast.error("Choose the first month to recover it")
     setBusy(true)
     try {
       await saveLoan({
         user_id: f.user_id,
-        name: f.name,
+        name: "Salary advance",
         amount,
         instalment,
         start_month: fromMonthInput(f.start),
@@ -305,7 +310,7 @@ function NewLoan({ people, onClose, onSaved }) {
         note: f.note.trim() || null,
         status: "active",
       })
-      toast.success("Loan added")
+      toast.success("Advance recorded")
       await onSaved()
     } catch (e) {
       toast.error(e.message)
@@ -317,45 +322,49 @@ function NewLoan({ people, onClose, onSaved }) {
     <Modal
       open
       onClose={onClose}
-      title="New loan"
+      title="Record an advance"
       footer={
         <div className="flex w-full justify-end gap-2">
           <Button size="sm" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button size="sm" onClick={submit} disabled={busy}>{busy ? "Saving…" : "Add loan"}</Button>
+          <Button size="sm" onClick={submit} disabled={busy}>{busy ? "Saving…" : "Record advance"}</Button>
         </div>
       }
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Employee" required className="sm:col-span-2">
-          <Select value={f.user_id} placeholder="Choose a person" onChange={(e) => set("user_id", e.target.value)}>
+          <Select value={f.user_id} placeholder="Choose a person" onChange={(e) => set("user_id", e.target.value)} disabled={Boolean(userId)}>
             {people.map((p) => (
               <option key={p.id} value={p.id}>{p.name || p.email}</option>
             ))}
           </Select>
         </Field>
-        <Field label="Type">
-          <Select value={f.name} onChange={(e) => set("name", e.target.value)}>
-            <option value="Salary advance">Salary advance</option>
-            <option value="Loan">Loan</option>
+        <Field label="Amount (₹)" required>
+          <Input type="number" min={1} value={f.amount} onChange={(e) => set("amount", e.target.value)} />
+        </Field>
+        <Field label="Paid on">
+          <Input type="date" value={f.disbursed_on} onChange={(e) => set("disbursed_on", e.target.value)} />
+        </Field>
+        <Field label="Recovery">
+          <Select value={f.recovery} onChange={(e) => set("recovery", e.target.value)}>
+            <option value="full">In full, in one pay run</option>
+            <option value="instalments">In monthly instalments</option>
           </Select>
         </Field>
-        <Field label="Amount (₹)" required>
-          <Input id="loan-amount" type="number" min={1} value={f.amount} onChange={(e) => set("amount", e.target.value)} />
-        </Field>
-        <Field label="Monthly instalment (₹)" required hint={months ? `Recovered over ${months} ${months === 1 ? "month" : "months"}.` : undefined}>
-          <Input id="loan-inst" type="number" min={1} value={f.instalment} onChange={(e) => set("instalment", e.target.value)} />
-        </Field>
+        {f.recovery === "instalments" ? (
+          <Field label="Instalments" required hint={amount > 0 && months > 1 ? `${money(instalment)} a month` : undefined}>
+            <Input type="number" min={2} max={60} value={f.months} onChange={(e) => set("months", e.target.value)} />
+          </Field>
+        ) : (
+          <div className="hidden sm:block" />
+        )}
         <Field label="Recover from" required hint="The first pay run to deduct it.">
-          <Input id="loan-start" type="month" value={f.start} onChange={(e) => set("start", e.target.value)} />
-        </Field>
-        <Field label="Disbursed on">
-          <Input id="loan-disb" type="date" value={f.disbursed_on} onChange={(e) => set("disbursed_on", e.target.value)} />
+          <Input type="month" value={f.start} onChange={(e) => set("start", e.target.value)} />
         </Field>
         <Field label="Note" className="sm:col-span-2">
-          <Textarea id="loan-note" rows={2} value={f.note} onChange={(e) => set("note", e.target.value)} placeholder="Medical emergency, paid by bank transfer" />
+          <Textarea rows={2} value={f.note} onChange={(e) => set("note", e.target.value)} placeholder="Medical emergency, paid by bank transfer" />
         </Field>
         <p className="text-xs text-muted-foreground sm:col-span-2">
-          An instalment gives way when deductions would pass half the month's wages (Code on Wages s.18); the shortfall carries forward.
+          Payroll can change or skip a month's recovery on the pay run. A recovery never takes net pay below zero; the rest carries forward.
         </p>
       </div>
     </Modal>

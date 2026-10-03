@@ -1,10 +1,12 @@
 import { Eye } from "../../../components/ui/Icons"
 import { Badge, Banner, Button, Drawer } from "../../../components/ui/Ui"
+import { PAY_TYPES, hoursWords } from "../../../lib/payroll"
 import { SLIP_STATUS, money } from "./shared"
 
-// One person's payslip in a pay run, taken apart: every earning, deduction and
-// employer contribution, the attendance it was paid on, the tax projection
-// behind the TDS, and anything the 50% cap carried forward.
+// One person's payslip in a pay run, taken apart: how they are paid, every
+// earning and deduction, overtime worked, and the attendance it was paid on.
+// An older slip prints whatever lines it was stored with (PF, ESI, TDS,
+// employer contributions, reimbursements).
 
 function Lines({ title, rows, total, totalLabel, empty = "None" }) {
   return (
@@ -22,8 +24,7 @@ function Lines({ title, rows, total, totalLabel, empty = "None" }) {
                 {r.full != null && r.full !== r.amount && <span className="block text-[12px] text-muted-foreground">of {money(r.full)} for the full month</span>}
                 {r.oneTime && (
                   <span className="block text-[12px] text-muted-foreground">
-                    {r.data?.auto ? "From attendance overtime" : "One-time"}
-                    {r.taxable === false ? ", not taxed" : ""}
+                    {r.code === "OVERTIME" ? (r.data?.auto === false ? "Overtime, amount entered" : "From attendance overtime") : "One-time"}
                   </span>
                 )}
               </span>
@@ -60,7 +61,6 @@ export default function SlipDrawer({ row, onClose, onPreview, onDownload, downlo
   if (!row) return null
   const d = row.data || {}
   const e = d.employee || {}
-  const tds = d.tds || {}
   const att = d.attendance
   const meta = SLIP_STATUS[row.status] || SLIP_STATUS.included
   return (
@@ -90,9 +90,12 @@ export default function SlipDrawer({ row, onClose, onPreview, onDownload, downlo
         <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
           <Badge tone={meta.tone}>{meta.label}</Badge>
           <span>
-            Paid {d.paidDays} of {d.basisDays} days
-            {Number(d.lopDays) > 0 ? `, ${d.lopDays} loss of pay` : ""}
-            {d.paidDaysOverride != null ? " (edited by payroll)" : ""}
+            {d.payType ? `${PAY_TYPES[d.payType]} ${money(d.rate)}${d.payType === "daily" ? " a day" : " a month"} · ` : ""}
+            {d.payType === "daily"
+              ? `${d.daysWorked} days worked${d.daysWorkedOverride != null ? " (edited by payroll)" : ""}`
+              : d.basisDays
+                ? `Paid ${d.paidDays} of ${d.basisDays} days${Number(d.lopDays) > 0 ? `, ${d.lopDays} loss of pay` : ""}${d.paidDaysOverride != null ? " (edited by payroll)" : ""}`
+                : "One-time items only"}
           </span>
         </div>
         {d.attendanceError && <Banner tone="warning">Attendance could not be read when this was calculated: {d.attendanceError}</Banner>}
@@ -102,32 +105,19 @@ export default function SlipDrawer({ row, onClose, onPreview, onDownload, downlo
         {(d.reimbursements || []).length > 0 && (
           <Lines title="Reimbursements (paid with salary, not taxed)" rows={d.reimbursements} total={d.reimbursementTotal} totalLabel="Total reimbursements" />
         )}
-        <Lines title="Employer contributions" rows={d.employer || []} total={d.employerTotal} totalLabel="Employer total" empty="No employer contributions this month." />
-        <p className="text-[13px] text-muted-foreground">
-          Cost to the company this month <span className="font-semibold text-foreground tabular">{money(d.costToCompany)}</span>. PF wages{" "}
-          {money(d.pf?.base)} (ceiling {money(d.pfCeiling)}).
-        </p>
+        {(d.employer || []).length > 0 && <Lines title="Employer contributions" rows={d.employer} total={d.employerTotal} totalLabel="Employer total" />}
+        {d.overtime && (
+          <p className="text-[13px] text-muted-foreground">
+            Overtime worked: <span className="font-medium text-foreground">{hoursWords(d.overtime.minutes || 0)}</span>
+            {d.overtime.mode === "manual" ? `, paid ${money(d.overtime.amount)} as entered by payroll.` : d.overtime.hourlyRate ? `, paid at ${money(d.overtime.hourlyRate)} an hour.` : "."}
+          </p>
+        )}
 
         {(d.carried || []).length > 0 && (
           <Banner tone="warning">
-            Carried to next month so deductions stay within half the pay: {d.carried.map((c) => `${c.name} ${money(c.amount)}`).join(", ")}.
+            Carried to next month so net pay does not go below zero: {d.carried.map((c) => `${c.name} ${money(c.amount)}`).join(", ")}.
           </Banner>
         )}
-
-        <section>
-          <h3 className="mb-1.5 text-[13px] font-semibold text-foreground">Income tax projection</h3>
-          {tds.monthly || tds.annualGross ? (
-            <div className="divide-y divide-border rounded-lg border border-border text-[13px]">
-              <Pair k="Regime" v={tds.regime === "old" ? "Old" : "New"} />
-              <Pair k="Projected gross for the year" v={money(tds.annualGross)} />
-              <Pair k="Taxable after deductions" v={money(tds.taxable)} />
-              <Pair k="Tax for the year, with cess" v={money(tds.annualTax)} />
-              <Pair k="TDS this month" v={money(tds.monthly)} strong />
-            </div>
-          ) : (
-            <p className="text-[13px] text-muted-foreground">No TDS for this person (turned off on their pay profile, or tax is nil).</p>
-          )}
-        </section>
 
         <section>
           <h3 className="mb-1.5 text-[13px] font-semibold text-foreground">Attendance when calculated</h3>
@@ -141,7 +131,7 @@ export default function SlipDrawer({ row, onClose, onPreview, onDownload, downlo
               ))}
             </div>
           ) : (
-            <p className="text-[13px] text-muted-foreground">No attendance for this month, so the full month was paid.</p>
+            <p className="text-[13px] text-muted-foreground">{d.payType === "monthly" ? "No attendance for this month, so the full month was paid." : "No attendance summary for this month."}</p>
           )}
         </section>
       </div>
@@ -154,15 +144,6 @@ function Tile({ label, value, strong }) {
     <div className="rounded-lg border border-border px-3 py-2.5">
       <div className="text-[12px] text-muted-foreground">{label}</div>
       <div className={strong ? "mt-0.5 text-base font-semibold text-foreground tabular" : "mt-0.5 text-sm font-medium text-foreground tabular"}>{value}</div>
-    </div>
-  )
-}
-
-function Pair({ k, v, strong }) {
-  return (
-    <div className="flex justify-between gap-3 px-3 py-2">
-      <span className="text-muted-foreground">{k}</span>
-      <span className={strong ? "font-semibold text-foreground tabular" : "text-foreground tabular"}>{v}</span>
     </div>
   )
 }
