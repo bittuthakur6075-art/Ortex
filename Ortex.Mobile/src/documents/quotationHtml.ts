@@ -1,4 +1,5 @@
 import { amountInWords, daysUntil, formatCurrency, formatDate } from "@/domain/format"
+import { taxRows } from "@/domain/pricing"
 import { dispatchBlock, registeredLines } from "@/domain/address"
 import { stateLabel } from "@/domain/gstStates"
 import type { Customer, Quotation } from "@/domain/schema"
@@ -99,10 +100,6 @@ export function quotationHtml(doc: Quotation, settings: Settings, logo?: string 
   const hsnCodes = [...new Set(lines.map((l) => l.hsn).filter(Boolean))]
   const number = doc.number || "Draft"
 
-  // Tax component as a percentage of the taxable value, derived so the printed
-  // rate always agrees with the money charged (Keystone: RatePercent).
-  const pct = (part?: number) =>
-    t.taxable > 0 ? String(Math.round(((part || 0) / t.taxable) * 10000) / 100) : "0"
 
   // NO DATE HERE. The meta block above already prints Date of issue and Valid
   // until as their own labelled rows, and repeating one of them beside the
@@ -180,14 +177,9 @@ export function quotationHtml(doc: Quotation, settings: Settings, logo?: string 
   const totals = [
     totalRow("Subtotal", formatCurrency(t.subTotal)),
     t.totalDiscount > 0 ? totalRow("Discount", `-${formatCurrency(t.totalDiscount)}`) : "",
-    t.interState
-      ? t.igst > 0
-        ? totalRow(`IGST (${pct(t.igst)}%)`, formatCurrency(t.igst))
-        : ""
-      : [
-          t.cgst > 0 ? totalRow(`CGST (${pct(t.cgst)}%)`, formatCurrency(t.cgst)) : "",
-          t.sgst > 0 ? totalRow(`SGST (${pct(t.sgst)}%)`, formatCurrency(t.sgst)) : "",
-        ].join(""),
+    taxRows(t)
+      .map((r) => totalRow(r.label, formatCurrency(r.amount)))
+      .join(""),
     t.roundOff ? totalRow("Round off", formatCurrency(t.roundOff)) : "",
     totalRow("Total", formatCurrency(t.grandTotal), true),
   ].join("")

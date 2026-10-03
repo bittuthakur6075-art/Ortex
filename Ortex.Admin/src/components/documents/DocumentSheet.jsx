@@ -1,4 +1,5 @@
 import { Fragment, forwardRef } from "react"
+import { taxRows } from "../../lib/pricing"
 import { formatCurrency, formatDate, amountInWords, daysUntil } from "../../lib/format"
 import { stateLabel } from "../../lib/gstStates"
 import { dispatchBlock, registeredLines } from "../../lib/address"
@@ -31,7 +32,6 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
   const number = doc.number || "Draft"
   // Tax component as a percentage of the taxable value, derived so the printed
   // rate always agrees with the money charged (Keystone: RatePercent, 0.## format).
-  const pct = (part) => (t.taxable > 0 ? String(Math.round(((part || 0) / t.taxable) * 10000) / 100) : "0")
   // The registered address (else the old single string). A dispatch address is
   // stacked under it in the same column, so the parties row keeps its two or
   // three columns. MIRRORED in Ortex.Mobile/src/documents/quotationHtml.ts.
@@ -217,14 +217,9 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
         <div className="doc-totals">
           <Row label="Subtotal" value={formatCurrency(t.subTotal)} />
           {t.totalDiscount > 0 && <Row label="Discount" value={`-${formatCurrency(t.totalDiscount)}`} />}
-          {t.interState ? (
-            t.igst > 0 && <Row label={`IGST (${pct(t.igst)}%)`} value={formatCurrency(t.igst)} />
-          ) : (
-            <>
-              {t.cgst > 0 && <Row label={`CGST (${pct(t.cgst)}%)`} value={formatCurrency(t.cgst)} />}
-              {t.sgst > 0 && <Row label={`SGST (${pct(t.sgst)}%)`} value={formatCurrency(t.sgst)} />}
-            </>
-          )}
+          {taxRows(t).map((r) => (
+            <Row key={r.label} label={r.label} value={formatCurrency(r.amount)} />
+          ))}
           {t.roundOff ? <Row label="Round off" value={formatCurrency(t.roundOff)} /> : null}
           {isInvoice ? (
             <>

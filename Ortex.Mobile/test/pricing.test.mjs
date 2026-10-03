@@ -91,3 +91,16 @@ test("a document discount reduces GST proportionally, not just the taxable value
   // line's adjusted tax to 2dp before summing, so it is not exactly 0.9x.
   assert.ok(Math.abs(discounted.gstTotal - plain.gstTotal * 0.9) < LINES.length * 0.01)
 })
+
+test("taxRows matches the console: one row per GST rate, never a blended rate", () => {
+  const mixed = [
+    { quantity: 500, rate: 42, gstRate: 18 },
+    { quantity: 300, rate: 35, gstRate: 5, discountPercent: 5 },
+  ]
+  for (const opts of [{}, { interState: true }]) {
+    const t = admin.computeDocument(mixed, opts)
+    assert.deepEqual(mobile.taxRows(mobile.computeDocument(mixed, opts)), admin.taxRows(t))
+  }
+  const single = [{ quantity: 2, rate: 99.5, gstRate: 12 }]
+  assert.deepEqual(mobile.taxRows(mobile.computeDocument(single)), admin.taxRows(admin.computeDocument(single)))
+})

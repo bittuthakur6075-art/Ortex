@@ -76,3 +76,28 @@ export function computeDocument(lines = [], { interState = false, extraDiscountP
     grandTotal: rounded,
   }
 }
+
+// The tax lines a document prints. One rate: the classic CGST/SGST or IGST rows
+// with the rate derived from the money (imported documents carry no taxByRate).
+// Several rates: one row per rate, as a GST tax invoice must show the rate of
+// each supply (CGST 9% / SGST 9%, CGST 2.5% / SGST 2.5%; or IGST 18%, IGST 5%).
+export function taxRows(t = {}) {
+  const pct = (part) => (t.taxable > 0 ? String(Math.round(((part || 0) / t.taxable) * 10000) / 100) : "0")
+  const rates = Object.keys(t.taxByRate || {}).map(Number).filter((r) => r > 0 && t.taxByRate[r] > 0).sort((a, b) => b - a)
+  if (rates.length <= 1) {
+    if (t.interState) return t.igst > 0 ? [{ label: `IGST (${pct(t.igst)}%)`, amount: t.igst }] : []
+    return [
+      t.cgst > 0 && { label: `CGST (${pct(t.cgst)}%)`, amount: t.cgst },
+      t.sgst > 0 && { label: `SGST (${pct(t.sgst)}%)`, amount: t.sgst },
+    ].filter(Boolean)
+  }
+  return rates.flatMap((r) => {
+    const amount = t.taxByRate[r]
+    if (t.interState) return [{ label: `IGST (${r}%)`, amount }]
+    const half = round2(amount / 2)
+    return [
+      { label: `CGST (${r / 2}%)`, amount: half },
+      { label: `SGST (${r / 2}%)`, amount: round2(amount - half) },
+    ]
+  })
+}
