@@ -28,7 +28,7 @@ export type Settings = {
   company: CompanySettings
   tax: { defaultGstRate: number; pricesIncludeTax: boolean }
   numbering: { quotationPrefix: string; invoicePrefix: string; paymentPrefix: string }
-  quotation: { validityDays: number; terms: string }
+  quotation: { validityDays: number; terms: string; invoiceTerms: string }
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -62,6 +62,8 @@ export const DEFAULT_SETTINGS: Settings = {
     validityDays: 15,
     terms:
       "1. Prices are subject to final artwork approval.\n2. 50% advance with the order, balance before dispatch.\n3. Delivery timeline confirmed on order.\n4. Taxes as applicable.",
+    invoiceTerms:
+      "1. Payment is due by the due date on this invoice. Please quote the invoice number with your payment.\n2. Any shortage or damage must be reported within 7 days of delivery.\n3. Goods once sold will not be taken back.\n4. Subject to Delhi jurisdiction. E&OE.",
   },
 }
 

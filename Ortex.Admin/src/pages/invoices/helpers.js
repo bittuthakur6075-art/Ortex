@@ -13,7 +13,7 @@ export const emptyDraft = (settings) => ({
   issueDate: new Date().toISOString(),
   dueDate: new Date(Date.now() + 15 * 86400000).toISOString(),
   notes: "",
-  terms: settings?.quotation?.terms ?? "",
+  terms: settings?.quotation?.invoiceTerms ?? "",
   status: "draft",
 })
 

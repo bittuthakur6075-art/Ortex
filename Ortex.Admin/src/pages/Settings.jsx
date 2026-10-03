@@ -95,6 +95,7 @@ const PATH_LABEL = {
   "numbering.paymentPrefix": "Payment prefix",
   "quotation.validityDays": "Validity",
   "quotation.terms": "Terms",
+  "quotation.invoiceTerms": "Invoice terms",
   "notifications.invoiceEmailEnabled": "Invoice email",
   "notifications.recipient": "Recipient",
   "notifications.sender": "Sender",
@@ -494,6 +495,22 @@ function DocumentsSection({ draft, set }) {
             }}
             value={draft.quotation.terms}
             onChange={(e) => set("quotation", "terms", e.target.value)}
+            className="min-h-[140px]"
+          />
+        </Row>
+      </Group>
+      <Group title="Invoice terms" description="Pre-filled on every new invoice, including one made from a quotation; each one can be edited.">
+        <Row label="Terms and conditions" hint="One term per line">
+          <Textarea
+            ai={{
+              purpose:
+                "Default terms and conditions printed on every GST tax invoice from Ortex Industries: payment due date, quoting the invoice number, reporting shortage or damage, returns and jurisdiction, one term per line. Never quotation conditions such as artwork approval or taxes as applicable",
+              context: () => ({ jurisdiction: draft.company.address }),
+              format: "lines",
+              maxChars: 900,
+            }}
+            value={draft.quotation.invoiceTerms}
+            onChange={(e) => set("quotation", "invoiceTerms", e.target.value)}
             className="min-h-[140px]"
           />
         </Row>

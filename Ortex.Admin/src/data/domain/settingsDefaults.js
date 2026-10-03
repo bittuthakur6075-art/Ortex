@@ -39,6 +39,10 @@ export const DEFAULT_SETTINGS = {
   quotation: {
     validityDays: 15,
     terms: "1. Prices are subject to final artwork approval.\n2. 50% advance with the order, balance before dispatch.\n3. Delivery timeline confirmed on order.\n4. Taxes as applicable.",
+    // An invoice's own terms: it is final and states the GST charged, so the
+    // quotation's conditions do not belong on it. Kept in this block because
+    // settings_staff (0024) shows staff only company, tax, numbering and quotation.
+    invoiceTerms: "1. Payment is due by the due date on this invoice. Please quote the invoice number with your payment.\n2. Any shortage or damage must be reported within 7 days of delivery.\n3. Goods once sold will not be taken back.\n4. Subject to Delhi jurisdiction. E&OE.",
   },
   notifications: {
     // Email a copy of every newly-generated invoice.
