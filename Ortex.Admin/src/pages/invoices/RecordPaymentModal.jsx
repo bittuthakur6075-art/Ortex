@@ -5,7 +5,8 @@ import { recordPayment, outstandingBalance, paymentDateIso } from "../../data/do
 import { PAYMENT_METHODS } from "../../data/domain/schema"
 import { formatCurrency, formatDate, toDateInput } from "../../lib/format"
 import { cn } from "../../lib/cn"
-import { normalizeReading, findDuplicate, matchInvoice } from "../../lib/paymentReader"
+import { normalizeReading, findDuplicate, matchInvoice, paymentDirection } from "../../lib/paymentReader"
+import { useSettings } from "../../hooks/useCollection"
 import ScreenshotReader from "./ScreenshotReader"
 import { Button, Input, Select, Field, Textarea, Drawer, Switch } from "../../components/ui/Ui"
 
@@ -22,8 +23,13 @@ const CONFIRM_ABOVE = 1e7
 //    "payout" for a vendor payment with no invoice at all.
 // Order on the page follows the decision: how much, who, when and how, the
 // proof (reference), then what it settles.
-export default function RecordPaymentModal({ type = "inflow", invoice, balance, invoices = [], payments = [], onClose, onDone }) {
+export default function RecordPaymentModal({ type: initialType = "inflow", invoice, balance, invoices = [], payments = [], onClose, onDone }) {
+  // Which way the money went. Starts as the button that opened the drawer; a
+  // screenshot that clearly says otherwise offers to switch it.
+  const [type, setType] = useState(initialType)
   const isPayout = type === "payout"
+  const settings = useSettings()
+  const lastRaw = useRef(null)
   const pinned = !!invoice
 
   const openInvoices = useMemo(() => {
@@ -63,9 +69,10 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
     setReading(null)
   }
 
-  const applyReading = (raw) => {
+  const applyReading = (raw, kind = type) => {
     clearReading()
-    const d = normalizeReading(raw, { type })
+    lastRaw.current = raw
+    const d = normalizeReading(raw, { type: kind })
     const values = {}
     const put = (k, v) => {
       setters[k](v)
@@ -79,10 +86,12 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
     if (d.note && !pinned) put("note", d.note)
     // A confident invoice match links it, unless one was chosen by hand.
     const handPicked = invoiceId && invoiceId !== reading?.values?.invoiceId
-    const match = !pinned && !isPayout && !handPicked ? matchInvoice(d, openInvoices) : null
+    const match = !pinned && kind !== "payout" && !handPicked ? matchInvoice(d, openInvoices) : null
     if (match) put("invoiceId", match.inv.id)
     const filled = Object.keys(values).filter((k) => k !== "note").map((k) => (k === "invoiceId" ? "invoice" : k))
-    setReading({ ...d, filled, values, match, text: raw.text || "" })
+    // Paid to us, or by us, according to the company's own name, UPI ID and account.
+    const direction = paymentDirection(raw, settings?.company)
+    setReading({ ...d, filled, values, match, direction, text: raw.text || "" })
   }
 
   const duplicate = useMemo(
@@ -112,6 +121,18 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
   const over = due !== null && amt > due
   const maxDate = todayIst()
 
+  // The screenshot says the money went the other way from what is being recorded.
+  const wrongWay = !!reading?.direction && reading.direction !== type
+  const wrongWayWords = reading?.direction === "payout"
+    ? `This screenshot shows money paid BY ${settings?.company?.name || "the company"}: it looks like a payout.`
+    : `This screenshot shows money paid TO ${settings?.company?.name || "the company"}: it looks like a payment received.`
+  const switchWay = () => {
+    const kind = reading.direction
+    setType(kind)
+    if (kind === "payout") setInvoiceId("")
+    if (lastRaw.current) applyReading(lastRaw.current, kind)
+  }
+
   // `close` is the drawer's animated close: the panel slides out, then onDone runs.
   const submit = async (close) => {
     if (savingRef.current) return
@@ -124,6 +145,7 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
     if (duplicate?.sure && !window.confirm(`${duplicate.payment.number || "A payment"} already has this reference. Record it again?`)) return
     if (reading?.serious && !window.confirm(reading.status === "failed" ? "This payment failed. Record it anyway?" : "This is not a payment screenshot. Record it anyway?")) return
     if (reading?.status === "pending" && !window.confirm("This payment is still pending. Record it anyway?")) return
+    if (wrongWay && !window.confirm(wrongWayWords + " Record it as " + (isPayout ? "a payout" : "money received") + " anyway?")) return
     savingRef.current = true
     setSaving(true)
     try {
@@ -172,6 +194,19 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
         <ScreenshotReader onRead={applyReading} onClear={clearReading} />
 
         {reading && <ReadingNotes reading={reading} amount={amt} onUseAlt={() => setAmount(reading.amountAlt)} />}
+
+        {wrongWay && (
+          <Notice tone="danger">
+            {wrongWayWords}{" "}
+            {pinned ? (
+              "A payment against this invoice is always money received."
+            ) : (
+              <button type="button" className="font-medium underline" onClick={switchWay}>
+                Record it as {reading.direction === "payout" ? "a payout" : "money received"}
+              </button>
+            )}
+          </Notice>
+        )}
 
         {duplicate && (
           <Notice tone="danger">

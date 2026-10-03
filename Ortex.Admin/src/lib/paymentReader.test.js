@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { parseAmount, referenceKind, pickReference, methodFor, parsePaidAt, normalizeReading, findDuplicate, matchInvoice, nameScore, parseReceiptText, parseReceiptDate, fixDigits, otsuThreshold, headlineAmount, mergeReadings, readingScore, pickHeadline, evenPolarity } from "./paymentReader"
+import { parseAmount, referenceKind, pickReference, methodFor, parsePaidAt, normalizeReading, findDuplicate, matchInvoice, nameScore, parseReceiptText, parseReceiptDate, fixDigits, otsuThreshold, headlineAmount, mergeReadings, readingScore, pickHeadline, evenPolarity, paymentDirection } from "./paymentReader"
 
 const now = new Date("2026-10-01T12:00:00+05:30").getTime()
 
@@ -379,5 +379,24 @@ describe("real screenshots, QA 2026-10-03", () => {
     expect([m.amount, m.amountAlt]).toEqual([72, null])
     // A pass that agrees with neither reading changes nothing.
     expect(mergeReadings(a, parseReceiptText("¥5.00\nCompleted", 90, {}, "¥5.00")).amount).toBe(2)
+  })
+})
+
+describe("paymentDirection: whose payment a screenshot shows", () => {
+  const company = { name: "Ortex Industries", upi: "ortex@okhdfcbank", bankAccount: "50100123451912" }
+  it("is money in when the company is the payee or its UPI ID is on screen", () => {
+    expect(paymentDirection({ payeeName: "ORTEX INDUSTRIES PVT LTD", payerName: "Bittu Kumar" }, company)).toBe("inflow")
+    expect(paymentDirection({ payerName: "Bittu Kumar", text: "To: Ortex\nUPI ID: ortex@okhdfcbank" }, company)).toBe("inflow")
+  })
+  it("is money out when the company is the payer or its account was debited", () => {
+    expect(paymentDirection({ payerName: "Ortex Industries", payeeName: "Shree Packaging" }, company)).toBe("payout")
+    expect(paymentDirection({ payeeName: "Preeti Kumari", text: "Ramshankar Prasad Thakur\nICICI Bank - 1912" }, company)).toBe("payout")
+  })
+  it("says nothing when the screenshot names neither side as the company, or both", () => {
+    expect(paymentDirection({ payeeName: "Umesh Gulati" }, company)).toBe(null)
+    expect(paymentDirection({ payeeName: "Ortex Industries", payerName: "Ortex Industries" }, company)).toBe(null)
+    expect(paymentDirection({ payeeName: "Ortex Industries" }, {})).toBe(null)
+    // A short or partial name never matches by accident.
+    expect(paymentDirection({ payeeName: "Ort" }, company)).toBe(null)
   })
 })

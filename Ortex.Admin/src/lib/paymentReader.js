@@ -573,3 +573,40 @@ export function evenPolarity(grey, width) {
   }
   return out
 }
+
+// ---- whose payment is it -----------------------------------------------------
+
+const squash = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "")
+// "Ortex Industries Pvt Ltd" and "ORTEX INDUSTRIES" are the same company.
+const SUFFIX = /(?:privatelimited|pvtltd|pvt|limited|ltd|llp|inc|co)$/
+
+/**
+ * Which way the money in a screenshot went, judged against the company's own
+ * details (Settings -> Company): "inflow" when it was paid TO the company,
+ * "payout" when it was paid BY the company, null when the screenshot does not
+ * say (it names neither side as us). The person still chooses; this only
+ * catches a payout screenshot recorded as money received, and the reverse.
+ *
+ * Us, as payee: the payee name is the company's, or the company's UPI ID is on
+ * the screen. Us, as payer: the payer name is the company's, or a bank line
+ * ends in the last 4 digits of the company's account (apps print the debited
+ * account as "ICICI Bank - 1912"). When both sides look like us, it says null.
+ */
+export function paymentDirection(raw, company = {}) {
+  const r = raw || {}
+  const text = String(r.text || "")
+  const name = squash(company.name).replace(SUFFIX, "")
+  const isUs = (who) => {
+    const w = squash(who).replace(SUFFIX, "")
+    return name.length >= 4 && w.length >= 4 && (w === name || w.startsWith(name) || name.startsWith(w))
+  }
+  const upi = String(company.upi || "").trim().toLowerCase()
+  const last4 = String(company.bankAccount || "").replace(/\D/g, "").slice(-4)
+
+  const toUs = isUs(r.payeeName) || (upi.includes("@") && text.toLowerCase().includes(upi))
+  const fromUs =
+    isUs(r.payerName) ||
+    (last4.length === 4 && new RegExp(String.raw`\b(?:bank|a\/c|account)\b[^\n]*?(?:x|\*|-|\s)${last4}\b`, "i").test(text))
+  if (toUs === fromUs) return null
+  return toUs ? "inflow" : "payout"
+}
