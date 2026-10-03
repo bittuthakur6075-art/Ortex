@@ -110,7 +110,7 @@ export default function OneTimeModal({ person, onSave, onClose }) {
           Add item
         </Button>
         <p className="text-[12px] text-muted-foreground">
-          One-time earnings are outside PF wages. Deductions give way to the 50% cap first and carry forward if they do not fit.
+          One-time earnings are outside PF wages. Deductions give way to the 50% cap first and carry forward if they do not fit. Overtime added here replaces the overtime worked out from attendance.
         </p>
       </div>
     </Modal>

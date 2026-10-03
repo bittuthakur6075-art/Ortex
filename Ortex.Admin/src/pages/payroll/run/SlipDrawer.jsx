@@ -18,8 +18,14 @@ function Lines({ title, rows, total, totalLabel, empty = "None" }) {
             <div key={`${r.code}-${i}`} className="flex items-start justify-between gap-3 px-3 py-2 text-[13px]">
               <span className="min-w-0 text-foreground">
                 {r.name}
+                {r.note && ` (${r.note})`}
                 {r.full != null && r.full !== r.amount && <span className="block text-[12px] text-muted-foreground">of {money(r.full)} for the full month</span>}
-                {r.oneTime && <span className="block text-[12px] text-muted-foreground">One-time{r.taxable === false ? ", not taxed" : ""}</span>}
+                {r.oneTime && (
+                  <span className="block text-[12px] text-muted-foreground">
+                    {r.data?.auto ? "From attendance overtime" : "One-time"}
+                    {r.taxable === false ? ", not taxed" : ""}
+                  </span>
+                )}
               </span>
               <span className="tabular text-foreground">{money(r.amount)}</span>
             </div>

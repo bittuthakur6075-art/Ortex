@@ -65,7 +65,8 @@ export function monthsLeftInFy(m) {
 // ---- defaults (Zoho-style settings; payroll_settings.doc) --------------------------------------
 
 export const DEFAULT_PAYROLL_SETTINGS = {
-  schedule: { basis: "actual", fixedDays: 26, payDay: 7 },
+  // payOvertime: a regular run adds attendance's overtime at the regular rate (overtimeItem).
+  schedule: { basis: "actual", fixedDays: 26, payDay: 7, payOvertime: true },
   epf: {
     enabled: true,
     employeeRate: 12,
@@ -318,6 +319,9 @@ export function computePayslip({
       taxable: o.taxable !== false,
       in_wages: false,
       oneTime: true,
+      // Overtime's "12h 30m at ₹100/h" and its figures, for the slip.
+      ...(o.note ? { note: o.note } : {}),
+      ...(o.data ? { data: o.data } : {}),
     }))
   const earnings = [...regular, ...extraEarnings]
   const gross = sum(earnings.map((e) => e.amount))
@@ -486,6 +490,65 @@ export function payableFrom(att, month) {
   if (att?.error) throw new Error(`Attendance for ${monthKey(month).slice(0, 7)} could not be read, so nothing was calculated: ${att.error}`)
   const byUser = new Map((att?.rows || []).map((r) => [r.user_id, Number(r.payable)]))
   return (userId) => (byUser.has(userId) ? { payable: byUser.get(userId), missing: false } : { payable: daysInMonth(month), missing: true })
+}
+
+// ---- overtime at the regular rate ---------------------------------------------------------------------
+
+const clock = (t) => (/^\d{1,2}:\d{2}$/.test(String(t || "")) ? Number(t.split(":")[0]) * 60 + Number(t.split(":")[1]) : null)
+
+/**
+ * The full-day shift's length in minutes from attendance settings' `shift`
+ * ({ start, end } "HH:MM"), 09:30 to 18:30 when unset. An end at or before the
+ * start runs past midnight, as attendance_recompute_day (0056) reads it. The
+ * half Saturday is ignored: the hourly rate is the full day's.
+ */
+export function shiftMinutes(shift) {
+  let start = clock(shift?.start)
+  let end = clock(shift?.end)
+  if (start == null || end == null) [start, end] = [570, 1110]
+  return end > start ? end - start : end + 1440 - start
+}
+
+/** "12h 30m", "10h", "45m". */
+export const hoursWords = (min) => {
+  const h = Math.floor(min / 60)
+  const m = Math.round(min % 60)
+  return [h ? `${h}h` : "", m ? `${m}m` : ""].filter(Boolean).join(" ") || "0m"
+}
+
+/**
+ * The month's overtime as a one-time earning, paid at the REGULAR rate (the
+ * owner's decision: no 1.5x or 2x, off days included). The rate is the per-day
+ * pay a loss-of-pay day deducts in computePayslip (the full-month gross over
+ * the basis days, actual or fixed) divided by the shift's hours. `rows` are
+ * the person's attendance_overtime days ({ day, minutes }); only days inside
+ * the month and the employed span count. Null when the switch is off, the run
+ * is off-cycle, payroll already added an OVERTIME item by hand (it wins), or
+ * there is nothing to pay.
+ */
+export function overtimeItem({ enabled = true, offCycle = false, oneTime = [], rows = [], month, doj, exitDate, monthlyGross, basisDays, shiftMin = 540, taxable = true }) {
+  if (!enabled || offCycle || oneTime.some((o) => o.code === "OVERTIME")) return null
+  const first = monthKey(month)
+  const last = `${first.slice(0, 8)}${String(daysInMonth(month)).padStart(2, "0")}`
+  const minutes = Math.round(
+    rows
+      .filter((r) => r.day >= first && r.day <= last && (!doj || r.day >= doj) && (!exitDate || r.day <= exitDate))
+      .reduce((s, r) => s + (Number(r.minutes) || 0), 0),
+  )
+  if (minutes <= 0) return null
+  const hourlyRate = (Number(monthlyGross) || 0) / Math.max(1, Number(basisDays) || 1) / (Math.max(1, shiftMin) / 60)
+  const amount = round((minutes / 60) * hourlyRate)
+  if (amount <= 0) return null
+  const rate = round2(hourlyRate)
+  return {
+    kind: "earning",
+    code: "OVERTIME",
+    name: "Overtime",
+    amount,
+    taxable,
+    note: `${hoursWords(minutes)} at ₹${rate.toLocaleString("en-IN")}/h`,
+    data: { minutes, hours: round2(minutes / 60), hourlyRate: rate, auto: true },
+  }
 }
 
 // ---- the run's totals and the month-on-month check ----------------------------------------------------

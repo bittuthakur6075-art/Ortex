@@ -12,9 +12,11 @@ import {
   DEFAULT_PAYROLL_SETTINGS,
   fyOf,
   monthKey,
+  overtimeItem,
   paidDaysFor,
   payableFrom,
   runTotals,
+  shiftMinutes,
   structureFromCtc,
   ytdLines,
 } from "../lib/payroll"
@@ -273,6 +275,39 @@ export async function attendanceFor(month) {
 }
 
 /**
+ * What overtime pay needs: the month's attendance_overtime rows per person
+ * (0056, readable by payroll since 0065), the full-day shift's minutes and the
+ * OVERTIME component's tax flag (0040). Throws when the rows or the shift
+ * cannot be read: a regular run must not silently drop overtime.
+ */
+async function overtimeFor(month) {
+  const from = monthKey(month)
+  const to = `${from.slice(0, 8)}${String(daysInMonth(month)).padStart(2, "0")}`
+  const refuse = (why) => {
+    throw new Error(
+      `Overtime for ${from.slice(0, 7)} could not be read, so nothing was calculated: ${why}. To calculate without overtime, turn off "Pay overtime automatically" in the payroll settings.`,
+    )
+  }
+  let rows = []
+  try {
+    rows = await all(() => supabase.from("attendance_overtime").select("user_id, day, minutes").gte("day", from).lte("day", to).order("day").order("user_id"))
+  } catch (e) {
+    refuse(e.missing ? "the overtime table is not on this database (migration 0056)" : e.message)
+  }
+  const [{ data: att, error }, { data: comp }] = await Promise.all([
+    supabase.from("attendance_settings").select("doc").eq("id", true).maybeSingle(),
+    supabase.from("salary_components").select("taxable").eq("code", "OVERTIME").maybeSingle(),
+  ])
+  if (error) refuse(error.message)
+  const byUser = new Map()
+  for (const r of rows) {
+    if (!byUser.has(r.user_id)) byUser.set(r.user_id, [])
+    byUser.get(r.user_id).push({ day: String(r.day).slice(0, 10), minutes: Number(r.minutes) || 0 })
+  }
+  return { byUser, shiftMin: shiftMinutes(att?.doc?.shift), taxable: comp ? comp.taxable !== false : true }
+}
+
+/**
  * Compute a draft run's payslips from the engine: revision in force, paid days
  * from attendance (or the edits already made in the run), one-time items and
  * statuses kept from the current draft, approved claims, active loans,
@@ -303,6 +338,9 @@ export async function computeRun(run, { edits = {} } = {}) {
   // used to pay everyone the full month). An off-cycle run pays no salary, so
   // it does not need attendance.
   const payableOf = payableFrom(offCycle ? { rows: att.rows } : att, month)
+  // Overtime at the regular rate, regular runs only (overtimeItem).
+  const payOvertime = !offCycle && settings.schedule?.payOvertime !== false
+  const ot = payOvertime ? await overtimeFor(month) : null
 
   const slips = []
   for (const person of people) {
@@ -340,6 +378,22 @@ export async function computeRun(run, { edits = {} } = {}) {
       })
       if (a.total > 0) oneTime.push({ kind: "earning", code: "ARREARS", name: "Arrears", amount: a.total, taxable: true, lines: a.lines })
     }
+    // Recomputed on every Calculate and never kept in oneTimeInput; an
+    // OVERTIME item payroll added by hand replaces it.
+    const overtime = overtimeItem({
+      enabled: payOvertime,
+      offCycle,
+      oneTime,
+      rows: ot?.byUser.get(person.user_id) || [],
+      month,
+      doj: e.doj,
+      exitDate: e.exit_date,
+      monthlyGross: (rev.earnings || []).reduce((t, x) => t + (Number(x.amount) || 0), 0),
+      basisDays: pd.basisDays,
+      shiftMin: ot?.shiftMin,
+      taxable: ot?.taxable,
+    })
+    if (overtime) oneTime.push(overtime)
 
     // The financial year so far, from payslips actually paid: taxable earnings
     // and the TDS already deducted (what the projection subtracts).

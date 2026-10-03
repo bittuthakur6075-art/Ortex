@@ -16,11 +16,13 @@ import {
   lwfFor,
   monthlyTds,
   monthsLeftInFy,
+  overtimeItem,
   paidDaysFor,
   payableFrom,
   pfCeilingFor,
   registerRows,
   rupeesInWords,
+  shiftMinutes,
   runTotals,
   structureFromCtc,
   varianceFlags,
@@ -319,5 +321,67 @@ describe("payableFrom", () => {
     const get = payableFrom({ rows: [{ user_id: "a", payable: "24.5" }], error: null }, "2026-09-01")
     expect(get("a")).toEqual({ payable: 24.5, missing: false })
     expect(get("b")).toEqual({ payable: 30, missing: true })
+  })
+})
+
+describe("overtime at the regular rate", () => {
+  const sep = { month: "2026-09-01", monthlyGross: 27000, basisDays: 30, shiftMin: 540 }
+  const rows = (...m) => m.map(([day, minutes]) => ({ day, minutes }))
+
+  it("reads the full-day shift from attendance settings, 9h by default", () => {
+    expect(shiftMinutes()).toBe(540)
+    expect(shiftMinutes({ start: "09:30", end: "18:30" })).toBe(540)
+    expect(shiftMinutes({ start: "10:00", end: "18:00" })).toBe(480)
+    expect(shiftMinutes({ start: "22:00", end: "06:00" })).toBe(480)
+  })
+
+  it("pays the LOP per-day amount over the shift's hours (actual days)", () => {
+    // ₹27,000 / 30 days = ₹900 a day; / 9h = ₹100 an hour; 10h = ₹1,000.
+    const ot = overtimeItem({ ...sep, rows: rows(["2026-09-05", 300], ["2026-09-06", 300]) })
+    expect(ot).toMatchObject({ code: "OVERTIME", kind: "earning", amount: 1000, note: "10h at ₹100/h" })
+    expect(ot.data).toEqual({ minutes: 600, hours: 10, hourlyRate: 100, auto: true })
+    // The same per-day amount an unpaid day costs on the slip.
+    const full = computePayslip({ month: sep.month, structure: { earnings: [{ code: "BASIC", amount: 27000 }] }, paidDays: 29, basisDays: 30, employee: { tds: false } })
+    expect(27000 - full.earnings[0].amount).toBe(900)
+  })
+
+  it("uses the fixed basis when set (26 days)", () => {
+    // ₹26,000 / 26 = ₹1,000 a day; / 8h = ₹125 an hour; 4h = ₹500.
+    const ot = overtimeItem({ month: "2026-10-01", monthlyGross: 26000, basisDays: 26, shiftMin: 480, rows: rows(["2026-10-04", 240]) })
+    expect(ot.amount).toBe(500)
+    expect(ot.data.hourlyRate).toBe(125)
+  })
+
+  it("rounds half hours to the rupee", () => {
+    // ₹28,000 / 30 / 9 = ₹103.70 an hour; 12h 30m = ₹1,296.30, paid ₹1,296.
+    const ot = overtimeItem({ ...sep, monthlyGross: 28000, rows: rows(["2026-09-07", 750]) })
+    expect(ot.amount).toBe(1296)
+    expect(ot.note).toBe("12h 30m at ₹103.7/h")
+  })
+
+  it("a manual OVERTIME item wins, and the switch turns it off", () => {
+    const r = rows(["2026-09-05", 120])
+    expect(overtimeItem({ ...sep, rows: r, oneTime: [{ code: "OVERTIME", kind: "earning", amount: 50 }] })).toBeNull()
+    expect(overtimeItem({ ...sep, rows: r, enabled: false })).toBeNull()
+    expect(overtimeItem({ ...sep, rows: [] })).toBeNull()
+  })
+
+  it("off-cycle runs pay no overtime", () => {
+    expect(overtimeItem({ ...sep, offCycle: true, rows: rows(["2026-09-05", 120]) })).toBeNull()
+  })
+
+  it("counts only days inside the month and the employed span", () => {
+    const r = rows(["2026-08-31", 600], ["2026-09-03", 60], ["2026-09-10", 60], ["2026-09-20", 60], ["2026-10-01", 600])
+    expect(overtimeItem({ ...sep, rows: r, doj: "2026-09-05", exitDate: "2026-09-15" }).data.minutes).toBe(60)
+    expect(overtimeItem({ ...sep, rows: r }).data.minutes).toBe(180)
+  })
+
+  it("rides the slip as a one-time earning outside PF wages, taxed as the component says", () => {
+    const ot = overtimeItem({ ...sep, rows: rows(["2026-09-05", 600]), taxable: true })
+    const slip = computePayslip({ month: sep.month, structure: { earnings: [{ code: "BASIC", amount: 27000, in_wages: true }] }, paidDays: 30, basisDays: 30, oneTime: [ot], employee: { tds: false } })
+    const line = slip.earnings.find((e) => e.code === "OVERTIME")
+    expect(line).toMatchObject({ amount: 1000, in_wages: false, taxable: true, note: "10h at ₹100/h" })
+    expect(slip.gross).toBe(28000)
+    expect(slip.wages).toBe(27000)
   })
 })

@@ -7,5 +7,5 @@ export type PayTableRow = { key: string; label: string; values: string[]; note?:
 export function payRows(items: PayLine[]): PayTableRow[] {
   return (items || [])
     .filter((x) => Number(x.amount) > 0)
-    .map((x, i) => ({ key: `${x.code}-${i}`, label: x.name, values: [money(x.amount)] }))
+    .map((x, i) => ({ key: `${x.code}-${i}`, label: x.name, values: [money(x.amount)], ...(x.note ? { note: x.note } : {}) }))
 }

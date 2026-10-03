@@ -16,6 +16,8 @@ export type PayLine = {
   name: string
   amount: number
   taxable?: boolean
+  /** e.g. "12h 30m at ₹103.70/h" on an overtime line worked out from attendance. */
+  note?: string
   oneTime?: boolean
   full?: number
 }

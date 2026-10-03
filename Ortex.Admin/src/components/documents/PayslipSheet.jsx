@@ -23,7 +23,8 @@ function monthLabel(month) {
 
 const key = (x) => `${x.code || ""}|${x.name || ""}`
 
-const withYtd = (xs, ytd) => (xs || []).map((x) => ({ name: x.name, amount: Number(x.amount) || 0, ytd: ytd ? (ytd[key(x)] ?? null) : null }))
+// A line's note (overtime's "12h 30m at ₹100/h") prints beside its name; the YTD key stays the bare name.
+const withYtd = (xs, ytd) => (xs || []).map((x) => ({ name: x.note ? `${x.name} (${x.note})` : x.name, amount: Number(x.amount) || 0, ytd: ytd ? (ytd[key(x)] ?? null) : null }))
 
 const PayslipSheet = forwardRef(function PayslipSheet({ slip, org = {}, title, status, payDate, className = "" }, ref) {
   const s = slip || {}

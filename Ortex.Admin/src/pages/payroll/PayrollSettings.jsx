@@ -184,6 +184,15 @@ function Schedule({ settings, onSave }) {
             ? `A month's pay covers ${d.fixedDays} days; each unpaid day costs 1/${d.fixedDays} of the monthly salary. Common in factories.`
             : "A month's pay covers every day of that month; each unpaid day costs 1/30 of September, 1/31 of October. The easiest to defend, because pay is exactly in proportion."}
         </p>
+        <div className="md:col-span-3">
+          <Check
+            id="sched-overtime"
+            checked={d.payOvertime !== false}
+            onChange={(v) => set("payOvertime", v)}
+            label="Pay overtime automatically"
+            hint="Each overtime hour from attendance is paid at the normal rate: one day's pay (the same amount an unpaid day costs) divided by the shift's hours, on holidays and weekly offs too."
+          />
+        </div>
       </div>
     </Card>
   )
