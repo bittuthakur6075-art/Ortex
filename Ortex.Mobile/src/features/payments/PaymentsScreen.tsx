@@ -19,11 +19,12 @@ import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import { gutter, radius, spacing } from "@/theme/tokens"
 import { textVariants } from "@/theme/typography"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import {
   AppScreen,
+  Button,
   DataNotice,
   EmptyState,
-  Fab,
   Icon,
   ListRefreshControl,
   ListRow,
@@ -76,9 +77,12 @@ function PaymentsLedger({ navigation }: StackScreenProps<"Payments">) {
   const totals = React.useMemo(() => paymentTotals(items), [items])
   const shown = React.useMemo(() => visiblePayments(items, filter, query), [items, filter, query])
 
-  const record = () => {
+  const insets = useSafeAreaInsets()
+  const [footerH, setFooterH] = React.useState(0)
+
+  const record = (type: "inflow" | "payout") => {
     feedback.tap()
-    navigation.navigate("PaymentNew")
+    navigation.navigate("PaymentNew", { type })
   }
 
   return (
@@ -89,15 +93,23 @@ function PaymentsLedger({ navigation }: StackScreenProps<"Payments">) {
       onBack={() => navigation.goBack()}
       inTabs={false}
       overlay={
-        <Fab
-          label="Record"
-          icon="add"
-          inTabs={false}
-          accessibilityLabel="Record a payment"
-          onPress={record}
-        />
+        <View
+          onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}
+          style={[
+            styles.footer,
+            { backgroundColor: t.surface, borderTopColor: t.border, paddingBottom: insets.bottom + spacing.sm },
+          ]}
+        >
+          <View style={styles.half}>
+            <Button label="Record payout" variant="danger-tonal" fullWidth onPress={() => record("payout")} />
+          </View>
+          <View style={styles.half}>
+            <Button label="Record payment" variant="success" fullWidth onPress={() => record("inflow")} />
+          </View>
+        </View>
       }
       list={{
+        contentContainerStyle: { paddingBottom: footerH + spacing.lg },
         // Virtualised: thousands of rows draw only what is on screen.
         data: loading || items.length === 0 ? [] : shown,
         keyExtractor: (p: unknown) => (p as Payment).id,
@@ -280,6 +292,18 @@ const styles = StyleSheet.create({
   well: { alignItems: "center", justifyContent: "center" },
   sheet: { gap: spacing.md, paddingBottom: spacing.md },
   sheetHead: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  footer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: "row",
+    gap: spacing.md,
+    paddingHorizontal: gutter,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  half: { flex: 1 },
   sheetHeadBody: { flex: 1, minWidth: 0, gap: spacing.xs },
   facts: { borderRadius: radius.card, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   fact: { flexDirection: "row", alignItems: "center", paddingVertical: 6, gap: spacing.md },

@@ -39,6 +39,8 @@ export type ButtonVariant =
   | "ghost"
   | "danger"
   | "outline-danger"
+  | "danger-tonal"
+  | "success"
   | "warning"
 export type ButtonSize = "sm" | "md" | "lg"
 
@@ -60,6 +62,11 @@ function variantStyle(c: Colors, variant: ButtonVariant, disabled: boolean) {
       return { bg: c.danger, border: "transparent", fg: "#FFFFFF" }
     case "outline-danger":
       return { bg: "transparent", border: c.danger, fg: c.danger }
+    case "danger-tonal":
+      // The tonal secondary in the error colour.
+      return { bg: c.dangerBg, border: "transparent", fg: c.dangerText }
+    case "success":
+      return { bg: c.success, border: "transparent", fg: "#FFFFFF" }
     case "warning":
       return { bg: c.warningBg, border: "transparent", fg: c.warning }
     default:
