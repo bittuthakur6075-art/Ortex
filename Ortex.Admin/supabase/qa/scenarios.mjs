@@ -1185,6 +1185,102 @@ await scenario("0074 pay push triggers and muted push categories", async () => {
   await run(null, "delete from push_devices where token = $1", [tok])
 })
 
+await scenario("Companies (0075, 0076)", async () => {
+  const AMAN = "00000000-0000-4000-8000-0000000000b1"
+  const sales = J(["enquiries", "customers", "quotations", "invoices", "payments"])
+  await run(null, "insert into auth.users (id, email, raw_user_meta_data) values ($1, 'aman@test.local', '{\"name\":\"AMAN\"}')", [AMAN])
+  eq("a new profile starts in Ortex", await val(null, "select companies from profiles where id = $1", [AMAN]), ["ortex"])
+  await run("service", "update profiles set role = 'sales', active = true, name = 'AMAN', modules = $2, companies = '[\"aman\"]' where id = $1", [AMAN, sales])
+  await run("service", "update profiles set modules = $2 where id = $1", [U.SALES, sales])
+  eq("existing rows are Ortex's", await val(null, "select count(*)::int from enquiries where company_id <> 'ortex'"), 0)
+
+  // Reading and writing across companies.
+  const enq = (who, doc, co) => val(who, `insert into enquiries (${co ? "company_id, " : ""}doc) values (${co ? "$2, " : ""}$1) returning id`, co ? [J(doc), co] : [J(doc)])
+  const aEnq = await enq(AMAN, { status: "new", customer: { name: "Ravi", phone: "9876511111" } })
+  const oEnq = await enq(U.SALES, { status: "new", customer: { name: "Ravi", phone: "9876511111" } })
+  eq("each lands in its writer's default company", await val(null, "select array_agg(company_id order by company_id) from enquiries where id in ($1, $2)", [aEnq, oEnq]), ["aman", "ortex"])
+  eq("Aman cannot read Ortex's enquiry", await val(AMAN, "select count(*)::int from enquiries where id = $1", [oEnq]), 0)
+  eq("Ortex cannot read Aman's", await val(U.SALES, "select count(*)::int from enquiries where id = $1", [aEnq]), 0)
+  like("Aman cannot insert into Ortex", await err(AMAN, "insert into enquiries (company_id, doc) values ('ortex', '{\"status\":\"new\"}')"), /row-level security/)
+  like("Ortex cannot insert into Aman", await err(U.SALES, "insert into customers (company_id, doc) values ('aman', '{\"name\":\"X\"}')"), /row-level security/)
+  eq("Aman cannot update Ortex's", (await run(AMAN, "update enquiries set doc = doc || '{\"status\":\"lost\"}' where id = $1", [oEnq])).affectedRows, 0)
+  eq("Aman sees only Aman in companies", (await run(AMAN, "select id from companies order by id")).rows.map((r) => r.id), ["aman"])
+  eq("the Super Admin sees all three", (await run(U.SUPER, "select id from companies order by sort")).rows.map((r) => r.id), ["ortex", "aman", "nidhi"])
+  eq("an Admin cannot edit a company", (await run(U.ADMIN, "update companies set name = 'X' where id = 'ortex'")).affectedRows, 0)
+
+  // The website.
+  like("anon cannot send an enquiry to Aman", await err("anon", "insert into enquiries (company_id, doc) values ('aman', '{\"status\":\"new\"}')"), /row-level security/)
+  eq("anon's enquiry without a company works", await err("anon", "insert into enquiries (doc) values ('{\"status\":\"new\",\"message\":\"co-anon\"}')"), null)
+  eq("and lands in Ortex", await val(null, "select company_id from enquiries where doc->>'message' = 'co-anon'"), "ortex")
+
+  // Numbers.
+  eq("no unkeyed series left", await val(null, "select count(*)::int from sequences where series !~ ':'"), 0)
+  const a1 = await val(AMAN, "select next_sequence('quotation', 'aman')")
+  const a2 = await val(AMAN, "select next_sequence('quotation')")
+  eq("Aman's series starts at 1 and the one-arg form continues it", [a1, a2], [1, 2])
+  const o = await val(null, "select value from sequences where series = 'ortex:quotation'")
+  eq("Ortex's one-arg call takes Ortex's next", await val(U.SALES, "select next_sequence('quotation')"), o)
+  like("Aman cannot take an Ortex number", await err(AMAN, "select next_sequence('quotation', 'ortex')"), /do not work in company "ortex"/)
+  like("an unknown company is refused", await err(U.SUPER, "select next_sequence('quotation', 'zzz')"), /Unknown company/)
+  like("the module check still applies", await err(U.STAFF1, "select next_sequence('invoice', 'ortex')"), /without the invoices module/)
+
+  // Customers per company.
+  const custs = () => val(null, "select array_agg(company_id order by company_id) from customers where national_digits(doc->>'phone') = '9876511111'")
+  eq("one customer per company for the same phone", await custs(), ["aman", "ortex"])
+  await enq(AMAN, { status: "new", customer: { name: "Ravi K", phone: "+91 98765 11111" } })
+  eq("a second Aman lead matches Aman's customer", await custs(), ["aman", "ortex"])
+
+  // Payments follow their invoice.
+  const aInv = await newInvoice(AMAN, { status: "sent", totals: { grandTotal: 500 } })
+  eq("Aman's invoice is Aman's", await val(null, "select company_id from invoices where id = $1", [aInv]), "aman")
+  const pay = await newPayment(U.SUPER, { number: "PAY-CO-1", amount: 100, invoiceId: aInv })
+  eq("a payment takes its invoice's company", await val(null, "select company_id from payments where id = $1", [pay]), "aman")
+  like("Ortex cannot record a payment against Aman's invoice", await err(U.SALES, "insert into payments (doc) values ($1)", [J({ type: "inflow", method: "UPI", amount: 5, invoiceId: aInv })]), /row-level security/)
+  eq("the same payment number may exist in another company", await err(U.SUPER, "insert into payments (doc) values ($1)", [J({ type: "payout", method: "UPI", amount: 5, number: "PAY-CO-1" })]), null)
+
+  // Who changes companies.
+  like("an Admin cannot change someone's companies", await err(U.ADMIN, "update profiles set companies = '[\"aman\"]' where id = $1", [U.SALES]), /Only the Super Admin can change which companies/)
+  like("nor anyone their own", await err(U.SALES, "update profiles set companies = '[\"ortex\",\"aman\"]' where id = $1", [U.SALES]), /Only the Super Admin/)
+  await run(U.SUPER, "update profiles set companies = '[\"ortex\",\"aman\"]' where id = $1", [U.ADMIN])
+  eq("the Super Admin can", await val(null, "select companies from profiles where id = $1", [U.ADMIN]), ["ortex", "aman"])
+  like("an Admin cannot move a record", await err(U.ADMIN, "update enquiries set company_id = 'aman' where id = $1", [oEnq]), /Only the Super Admin can move/)
+  await run(U.SUPER, "update enquiries set company_id = 'aman' where id = $1", [oEnq])
+  eq("the Super Admin moves an un-numbered record", await val(null, "select company_id from enquiries where id = $1", [oEnq]), "aman")
+  const nInv = await newInvoice(null, { number: "INV-CO-1", status: "sent", totals: { grandTotal: 10 } })
+  like("but not a numbered one", await err(U.SUPER, "update invoices set company_id = 'aman' where id = $1", [nInv]), /with a number \(INV-CO-1\) cannot move/)
+  await run(U.SUPER, "update profiles set companies = '[\"ortex\"]' where id = $1", [U.ADMIN])
+
+  // History.
+  eq("the move is in the log", await val(null, "select array[changes#>>'{company_id,from}', changes#>>'{company_id,to}'] from audit_log where row_id = $1 and action = 'update' order by id desc limit 1", [oEnq]), ["ortex", "aman"])
+  eq("audit rows carry the company", await val(null, "select company_id from audit_log where row_id = $1 and action = 'insert'", [aEnq]), "aman")
+  eq("Aman reads Aman's history", await val(AMAN, "select count(*)::int from audit_log where row_id = $1", [aEnq]), 1)
+  eq("Ortex does not", await val(U.SALES, "select count(*)::int from audit_log where row_id = $1", [aEnq]), 0)
+  eq("Aman does not read Ortex's", await val(AMAN, "select count(*)::int from audit_log where row_id = $1", [nInv]), 0)
+
+  // Document settings per company.
+  await run(null, "insert into settings (id, doc) values (true, $1) on conflict (id) do update set doc = settings.doc || excluded.doc",
+    [J({ company: { name: "Ortex Industries", gstin: "07ORTEX" }, tax: { defaultGstRate: 18 }, telecaller: { enabled: false } })])
+  eq("a Settings save is copied onto Ortex", await val(null, "select doc->'company'->>'gstin' from companies where id = 'ortex'"), "07ORTEX")
+  await run(U.SUPER, "update companies set doc = $1 where id = 'aman'", [J({ company: { name: "Aman Enterprise", gstin: "09AMAN" } })])
+  const ss = (who) => val(who, "select doc from settings_staff")
+  const sa = await ss(AMAN), so = await ss(U.SALES)
+  eq("settings_staff: Aman's company block", sa.company.gstin, "09AMAN")
+  eq("settings_staff: Ortex's for Ortex", so.company.gstin, "07ORTEX")
+  eq("same shape, global tax where the company has none", [Object.keys(sa).sort(), sa.tax.defaultGstRate], [["company", "documents", "numbering", "quotation", "tax"], 18])
+
+  // Anu.
+  await run(U.SUPER, "update companies set active = true where id = 'aman'")
+  const mgmt = await val(U.SUPER, "select anu_team_update('management')")
+  check("management update has a block per company", /Ortex Industries:\nLeads yesterday/.test(mgmt) && /Aman Enterprise:\nLeads yesterday/.test(mgmt), "two blocks", mgmt)
+  const aOnly = await val(AMAN, "select anu_team_update('sales')")
+  check("Aman's own update: Aman only, no heading", /Leads yesterday/.test(aOnly) && !/Ortex Industries|Aman Enterprise:/.test(aOnly), "one company", aOnly)
+  const oOnly = await val(U.SALES, "select anu_team_update('sales')")
+  check("Ortex's own update: no Aman", /Leads yesterday/.test(oOnly) && !/Aman Enterprise/.test(oOnly), "one company", oOnly)
+  await run(U.SUPER, "update companies set active = false where id = 'aman'")
+  check("the scheduled post covers active companies only", !/Aman Enterprise/.test(await val(null, "select anu_daily_update('management', $1::date)", [today])), "Ortex only", "")
+  await run("service", "update profiles set modules = '[]' where id = $1", [U.SALES])
+})
+
 // ---- report -----------------------------------------------------------------------------
 console.log("")
 let fails = 0

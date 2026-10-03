@@ -92,6 +92,11 @@ async function runAnon() {
     doc: { name: "RLS CHECK - safe to delete", email: "rls-check@example.invalid", message: "automated rls-check.mjs", status: "new", createdAt: new Date().toISOString() },
   }, { cleanup: false })
   record(role, "insert enquiries (lead capture)", true, r.ok, r.detail)
+  // 0076: the website writes into Ortex only.
+  r = await canInsert(anon, "enquiries", { company_id: "aman", doc: { name: "RLS CHECK", status: "new" } }, { cleanup: false })
+  record(role, "insert enquiries into another company", false, r.ok, r.detail)
+  r = await canRead(anon, "companies")
+  record(role, "read companies", false, r.ok, r.detail)
 
   r = await canInsert(anon, "customers", { doc: { name: "RLS CHECK" } })
   record(role, "insert customers", false, r.ok, r.detail)
@@ -160,6 +165,11 @@ async function runStaff() {
   const { data: after } = await staff.from(PROFILE_TABLE).select("role, modules, active").eq("id", session.user.id).single()
   const escalated = !isAdmin && (after?.role === "admin" || (after?.modules?.length ?? 0) > modules.length || (!active && after?.active === true))
   record(role, "self-escalate role/modules/active via profiles update", false, escalated, JSON.stringify(after))
+  // 0075: only a Super Admin changes someone's companies.
+  if (me?.role !== "super_admin") {
+    const { error: coErr } = await staff.from(PROFILE_TABLE).update({ companies: ["ortex", "aman", "nidhi"] }).eq("id", session.user.id)
+    record(role, "change own companies via profiles update", false, !coErr, coErr?.message ?? "")
+  }
 
   await staff.auth.signOut()
 }
