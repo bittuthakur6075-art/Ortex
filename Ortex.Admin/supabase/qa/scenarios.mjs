@@ -1119,6 +1119,17 @@ await scenario("0072 link an imported receipt to its invoice", async () => {
   await run("service", "update profiles set modules = '[]' where id = $1", [U.ACCT])
 })
 
+await scenario("0073 lead delete is admins only", async () => {
+  await run("service", "update profiles set modules = $2 where id = $1", [U.SALES, J(["enquiries"])])
+  const lead = await val(U.SALES, "insert into enquiries (doc) values ($1) returning id", [J({ status: "new", customer: { name: "Delete test", phone: "9876500073" } })])
+  eq("a Sales user with Leads can still edit a lead", (await run(U.SALES, "update enquiries set doc = doc || '{\"status\":\"contacted\"}' where id = $1", [lead])).affectedRows, 1)
+  await run(U.SALES, "delete from enquiries where id = $1", [lead])
+  eq("a Sales user with Leads cannot delete it", await val("service", "select count(*)::int from enquiries where id = $1", [lead]), 1)
+  await run(U.ADMIN, "delete from enquiries where id = $1", [lead])
+  eq("an admin can", await val("service", "select count(*)::int from enquiries where id = $1", [lead]), 0)
+  await run("service", "update profiles set modules = '[]' where id = $1", [U.SALES])
+})
+
 // ---- report -----------------------------------------------------------------------------
 console.log("")
 let fails = 0
