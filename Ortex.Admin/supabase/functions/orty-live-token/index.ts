@@ -6,9 +6,9 @@ import { clientIp, LIVE_LOCK, withinLimit } from "../_shared/guard.ts"
 // website's voice assistant (Anu, "Live Orty" in code) can open the realtime
 // WebSocket from the browser WITHOUT ever seeing the real Gemini API key. The
 // key stays here as a Supabase secret (GEMINI_API_KEY). Also used by the
-// console's Call agent test call (pages/telecaller/useLiveCall.js), and as the
-// fallback for staff Anu (console and phone) only while anu-staff-token is not
-// deployed. Anu in Team chat uses no language model and no token.
+// console's Call agent test call (pages/telecaller/useLiveCall.js). Staff Anu
+// (console and phone) uses anu-staff-token only; Anu in Team chat uses no
+// language model and no token.
 //
 // Public: called by anonymous website visitors. The token is single-use,
 // expires in minutes and is locked to one model (LIVE_LOCK in _shared/guard.ts), so exposure is minimal.
@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
   if (!apiKey) return json({ error: "Live assistant is not configured." }, 500)
 
   // Public, so bounded: a visitor gets a handful of sessions, and the whole site
-  // a daily ceiling, so nobody can script the Gemini quota staff Anu relies on.
+  // a daily ceiling, so nobody can script away the shared Gemini quota.
   const ip = clientIp(req)
   if (!(await withinLimit(`orty-live:ip:${ip}`, 6, 600)) || !(await withinLimit("orty-live:all", 400, 86400))) {
     return json({ error: "The voice assistant is busy right now. Please try again in a few minutes." }, 429)

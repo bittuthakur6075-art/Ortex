@@ -43,6 +43,14 @@ const SAMPLES = [
   "what's new",
   "hello",
   "Bright Corp",
+  "how many leads today",
+  "how are we doing this month",
+  "product XYZ not in stock?",
+  "check in with Ravi about QT-12",
+  "summary of all quotations",
+  "report on all leads",
+  "send all quotations expiring this week",
+  "who all came late today",
   "",
 ]
 
@@ -54,6 +62,19 @@ test("a few intents, stated plainly", () => {
   assert.deepEqual(intent.parseIntent("tell accounts that INV-7 is paid"), { intent: "send_team", team: "accounts", body: "INV-7 is paid" })
   assert.deepEqual(intent.parseIntent("Who is not in today?"), { intent: "attendance", team: null })
   assert.equal(intent.parseIntent("tell me about new leads").intent, "enquiries")
+  // Bare "all" is not Everyone, "how many" is not help, "not in" / "check in" alone are not attendance.
+  const cases = [
+    ["how many leads today", "enquiries"],
+    ["how are we doing this month", "sales_summary"],
+    ["product XYZ not in stock?", "products"],
+    ["check in with Ravi about QT-12", "quotation"],
+    ["summary of all quotations", "quotation"],
+    ["report on all leads", "enquiries"],
+    ["send all quotations expiring this week", "quotation"],
+    ["who all came late today", "attendance"],
+  ]
+  for (const [text, want] of cases) assert.equal(intent.parseIntent(text).intent, want, text)
+  assert.equal(intent.parseIntent("who all came late today").team, null)
 })
 
 test("replies are written in the same words on both", () => {

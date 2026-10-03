@@ -165,6 +165,8 @@ export function useAnuSession(profile: Profile | null) {
     webRef.current?.injectJavaScript(`window.anu && window.anu.cmd(${JSON.stringify(c)}); true;`)
   }, [])
 
+  /** A function, not an inline compare: TypeScript would narrow the ref across start()'s awaits. */
+  const stillConnecting = () => statusRef.current === "connecting"
   const setStat = (s: AnuStatus) => {
     statusRef.current = s
     setStatus(s)
@@ -543,14 +545,14 @@ export function useAnuSession(profile: Profile | null) {
         askingMic.current = true
         const permission = await requestRecordingPermissionsAsync().finally(() => (askingMic.current = false))
         // Done was tapped while we waited: stop here and never open the mic.
-        if (statusRef.current !== "connecting") return
+        if (!stillConnecting()) return
         if (!permission.granted) {
           setError(ERROR_TEXT["mic-denied"])
           setStat("error")
           return
         }
         const token = await mintToken()
-        if (statusRef.current !== "connecting") return
+        if (!stillConnecting()) return
         // A question typed or tapped while idle IS the opening line: one path.
         if (asked) setThinking(true)
         cmd({
@@ -574,7 +576,7 @@ export function useAnuSession(profile: Profile | null) {
           },
         })
       } catch (e) {
-        if (statusRef.current !== "connecting") return
+        if (!stillConnecting()) return
         setError((e as { say?: string })?.say || ERROR_TEXT[(e as Error)?.message] || ERROR_TEXT.token)
         setStat("error")
       }

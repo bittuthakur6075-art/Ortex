@@ -70,6 +70,25 @@ describe("lookups", () => {
   })
 })
 
+describe("words that used to be misread", () => {
+  it.each([
+    ["how many leads today", "enquiries"],
+    ["how are we doing this month", "sales_summary"],
+    ["product XYZ not in stock?", "products"],
+    ["check in with Ravi about QT-12", "quotation"],
+    ["summary of all quotations", "quotation"],
+    ["report on all leads", "enquiries"],
+    ["send all quotations expiring this week", "quotation"],
+    ["who all came late today", "attendance"],
+  ])("%s", (text, want) => {
+    expect(intent(text).intent).toBe(want)
+  })
+  it("does not read a bare all as Everyone", () => {
+    expect(intent("who all came late today")).toEqual({ intent: "attendance", team: null })
+    expect(teamOf("all quotations")).toBe(null)
+  })
+})
+
 describe("helpers", () => {
   it("names teams by their longest alias", () => {
     expect(teamOf("the sales team please")).toBe("sales")

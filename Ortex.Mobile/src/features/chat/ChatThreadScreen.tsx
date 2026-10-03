@@ -356,7 +356,7 @@ export default function ChatThreadScreen({ navigation, route }: StackScreenProps
         )}
 
         {/* The database refuses it too (chat_send, Admin migration 0069). */}
-        {conv.kind === "team" && conv.team === "everyone" && !isAdmin(profile) ? (
+        {conv?.kind === "team" && conv.team === "everyone" && !isAdmin(profile) ? (
           <Text style={[textVariants.small, styles.readOnly, { color: t.textTertiary, backgroundColor: t.surfaceInset, paddingBottom: Math.max(insets.bottom, spacing.sm) + spacing.sm }]}>
             Only admins can post here.
           </Text>

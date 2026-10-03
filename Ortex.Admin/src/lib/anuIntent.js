@@ -130,7 +130,7 @@ export function parseIntent(raw) {
 
   // "how many leads today" and "how are we doing" are questions about the
   // business, not about the console: they fall through to the rules below.
-  if (!has(t, /^hows+(many|much|ares+we)/) && has(t, /^(how|where|kaise|kaha|kahan|help|guide|explain)\b|\bhow\s+(do|to|can|should)\b|\bkaise\s+(kare|karu|karein|karte)\b|\bkahan\s+(hai|milega)\b/)) {
+  if (!has(t, /^how\s+(many|much|are\s+we)\b/) && has(t, /^(how|where|kaise|kaha|kahan|help|guide|explain)\b|\bhow\s+(do|to|can|should)\b|\bkaise\s+(kare|karu|karein|karte)\b|\bkahan\s+(hai|milega)\b/)) {
     return { intent: "help", topic: text }
   }
 
