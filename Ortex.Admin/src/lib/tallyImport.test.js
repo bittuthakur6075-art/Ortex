@@ -320,7 +320,7 @@ describe("planTallyImport", () => {
 
   it("a first import: everything new, console-made vouchers left out", () => {
     const plan = planTallyImport(parsed, empty, { syncedAt: SYNCED, categories: ["Acrylic products"] })
-    expect(countByStatus(plan.invoices)).toEqual({ new: 2, changed: 0, same: 0, console: 1, skipped: 0, problem: 0 })
+    expect(countByStatus(plan.invoices)).toEqual({ new: 2, changed: 0, link: 0, same: 0, console: 1, skipped: 0, problem: 0 })
     expect(plan.customers.map((r) => [r.title, r.status])).toEqual([
       ["Acme Corp Ltd", "new"], ["Delhi Schools Trust", "new"], ["Tech Innovators Corp", "new"],
     ])
@@ -344,7 +344,12 @@ describe("planTallyImport", () => {
   it("a repeat upload: already imported, or changed in Tally when ALTERID grew", () => {
     const first = planTallyImport(parsed, empty, { syncedAt: SYNCED })
     let n = 0
-    const saved = (rows) => rows.filter((r) => r.doc).map((r) => ({ ...r.doc, id: `id-${++n}` }))
+    const ids = new Map()
+    // Like the page's import: a receipt linked by key gets the id its invoice was saved under.
+    const saved = (rows) => rows.filter((r) => r.doc).map((r) => {
+      ids.set(r.key, `id-${++n}`)
+      return { ...r.doc, id: ids.get(r.key), ...(r.link ? { invoiceId: ids.get(r.link.invoiceKey) } : {}) }
+    })
     const existing = { customers: saved(first.customers), products: saved(first.products), invoices: saved(first.invoices), payments: [...saved(first.receipts), ...saved(first.payouts)] }
     const again = planTallyImport(parsed, existing, { syncedAt: SYNCED })
     for (const k of ["invoices", "receipts", "payouts", "products"]) expect(again[k].every((r) => r.status === "same" || r.status === "console")).toBe(true)
@@ -540,16 +545,44 @@ describe("reference and method (fix 4)", () => {
 })
 
 describe("a receipt imported before its invoice (fix 5)", () => {
-  it("says it can link, and writes nothing until Tally's ALTERID grows", () => {
-    const receipt = vch("Receipt", "r-287", { date: "20260415", number: "6", party: "Shah", body: entry("Shah", "5000.00", agstRef("287", "5000.00")) + entry("HDFC Bank", "-5000.00") })
-    const invoice = vch("Sales", "s-287", { date: "20260320", number: "287", party: "Shah", body: entry("Shah", "-5000.00") + entry("Sales", "5000.00") })
+  const receipt = vch("Receipt", "r-287", { date: "20260415", number: "6", party: "Shah", body: entry("Shah", "5000.00", agstRef("287", "5000.00")) + entry("HDFC Bank", "-5000.00") })
+  const invoice = vch("Sales", "s-287", { date: "20260320", number: "287", party: "Shah", body: entry("Shah", "-5000.00") + entry("Sales", "5000.00") })
+
+  it("plans a link that writes invoiceId alone, to the invoice made in the same run", () => {
     const first = planTallyImport(one(receipt), none(), { syncedAt: SYNCED })
     expect(first.receipts[0].reason).toMatch(/Bill 287 is not in the console/)
     const existing = save(first)
     const again = planTallyImport(one(invoice + receipt), existing, { syncedAt: SYNCED })
     expect(again.invoices[0]).toMatchObject({ status: "new", title: "287" })
-    expect(again.receipts[0]).toMatchObject({ status: "same", flagged: true, reason: "Can link to invoice 287: open and save this receipt in Tally, then export it again." })
-    expect(again.receipts[0].action).toBeUndefined()
+    expect(again.receipts[0]).toMatchObject({ status: "link", action: "link", title: "6", reason: "Links it to invoice 287.", invoiceNumber: "287", patch: { invoiceId: null }, link: { invoiceKey: "s-287" } })
+    expect(Object.keys(again.receipts[0].patch)).toEqual(["invoiceId"])
+    expect(countByStatus(again.receipts)).toMatchObject({ link: 1, same: 0 })
+    // The invoice already in the console: the link carries its id.
+    const both = { ...existing, invoices: [{ ...again.invoices[0].doc, id: "inv-287" }] }
+    expect(planTallyImport(one(invoice + receipt), both, { syncedAt: SYNCED }).receipts[0]).toMatchObject({ status: "link", patch: { invoiceId: "inv-287" }, link: null })
+    // Linked already: nothing to do.
+    const linked = { ...both, payments: both.payments.map((p) => ({ ...p, invoiceId: "inv-287" })) }
+    expect(planTallyImport(one(invoice + receipt), linked, { syncedAt: SYNCED }).receipts[0]).toMatchObject({ status: "same" })
+    expect(planTallyImport(one(invoice + receipt), linked, { syncedAt: SYNCED }).receipts[0].action).toBeUndefined()
+  })
+
+  it("an upload with the invoice alone links the receipt saved earlier, by the bill it named", () => {
+    const first = planTallyImport(one(receipt), none(), { syncedAt: SYNCED })
+    expect(first.receipts[0].doc).toMatchObject({ invoiceId: null, tallyBill: "287" })
+    const existing = save(first)
+    const later = planTallyImport(one(invoice), existing, { syncedAt: SYNCED })
+    expect(later.receipts).toHaveLength(1)
+    expect(later.receipts[0]).toMatchObject({ status: "link", action: "link", title: "6", amount: 5000, id: existing.payments[0].id, patch: { invoiceId: null }, link: { invoiceKey: "s-287" }, invoiceNumber: "287" })
+    // A console-made invoice with that number is not a Tally bill: no link.
+    const consoleMade = { ...existing, invoices: [{ id: "c-287", number: "287", customer: { company: "Shah" }, issueDate: "2026-03-20" }] }
+    expect(planTallyImport(one(""), consoleMade, { syncedAt: SYNCED }).receipts).toHaveLength(0)
+    // Once linked, nothing more.
+    const linked = { ...existing, payments: existing.payments.map((p) => ({ ...p, invoiceId: "inv-287" })) }
+    expect(planTallyImport(one(invoice), linked, { syncedAt: SYNCED }).receipts).toHaveLength(0)
+  })
+
+  it("a re-export after an edit in Tally is still a full change", () => {
+    const existing = save(planTallyImport(one(receipt), none(), { syncedAt: SYNCED }))
     // Saved again in Tally: a normal change that carries the link.
     const edited = planTallyImport(one(invoice + receipt.replace("<ALTERID>5</ALTERID>", "<ALTERID>9</ALTERID>")), existing, { syncedAt: SYNCED })
     expect(edited.receipts[0]).toMatchObject({ status: "changed", action: "update", link: { invoiceKey: "s-287" } })

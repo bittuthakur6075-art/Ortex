@@ -1082,6 +1082,43 @@ await scenario("0070 manual Tally import stamps", async () => {
   for (const who of [U.ACCT, U.STAFF1]) await run("service", "update profiles set modules = '[]' where id = $1", [who])
 })
 
+await scenario("0072 link an imported receipt to its invoice", async () => {
+  const stamp = (guid, alterId, over = {}) => ({ status: "synced", source: "tally", syncedAt: "2026-10-03T10:00:00.000Z", voucherRef: "1", guid, alterId, ...over })
+  const upd = (who, id, patch) => err(who, "update payments set doc = doc || $2 where id = $1", [id, J(patch)])
+  await run("service", "update profiles set modules = '[\"invoices\",\"payments\"]' where id = $1", [U.ACCT])
+  const inv = await newInvoice(U.ADMIN, { number: "TL-1", status: "sent", customer: { name: "Acme" }, totals: { grandTotal: 500 }, tally: stamp("g-tl-inv-1", 3) })
+  const inv2 = await newInvoice(U.ADMIN, { number: "TL-2", status: "sent", customer: { name: "Beta" }, totals: { grandTotal: 1000 }, tally: stamp("g-tl-inv-2", 3) })
+  const r1 = await newPayment(U.ADMIN, { number: "TL-R1", amount: 500, party: "Acme", invoiceId: null, tally: stamp("g-tl-r1", 5) })
+  const r2 = await newPayment(U.ADMIN, { number: "TL-R2", amount: 200, party: "Beta", invoiceId: null, tally: stamp("g-tl-r2", 5) })
+
+  like("accounts cannot link an imported receipt", await upd(U.ACCT, r1, { invoiceId: inv }), /already in Tally/)
+  like("an admin cannot change the amount while linking", await upd(U.ADMIN, r1, { invoiceId: inv, amount: 499 }), /already in Tally/)
+  like("nor the date", await upd(U.ADMIN, r1, { invoiceId: inv, date: "2026-10-01T06:30:00.000Z" }), /already in Tally/)
+  like("nor the stamp (same alterId)", await upd(U.ADMIN, r1, { invoiceId: inv, tally: stamp("g-tl-r1", 5, { voucherRef: "2" }) }), /already in Tally/)
+  like("an invoice that does not exist is refused", await upd(U.ADMIN, r1, { invoiceId: randomUUID() }), /invoice that does not exist/)
+  eq("still unlinked after the refusals", (await payDoc(r1)).invoiceId ?? null, null)
+
+  eq("admin links it (invoiceNumber and customer as the client sent them)", await upd(U.ADMIN, r1, { invoiceId: inv, invoiceNumber: "", customer: { name: "Old" } }), null)
+  const d = await payDoc(r1)
+  eq("linked; invoiceNumber and customer copied from the invoice; stamp kept", [d.invoiceId, d.invoiceNumber, d.customer, d.amount, d.tally.alterId], [inv, "TL-1", { name: "Acme" }, 500, 5])
+  eq("the invoice is now paid", [(await invDoc(inv)).status, (await invDoc(inv)).amountPaid], ["paid", 500])
+  eq("Super Admin links one too", await upd(U.SUPER, r2, { invoiceId: inv2 }), null)
+  eq("a part payment makes the invoice partial", [(await invDoc(inv2)).status, (await invDoc(inv2)).amountPaid], ["partial", 200])
+
+  like("already linked: moving it to another invoice is refused", await upd(U.ADMIN, r1, { invoiceId: inv2 }), /already in Tally/)
+  like("already linked: unlinking is refused", await upd(U.ADMIN, r1, { invoiceId: null }), /already in Tally/)
+  like("a linked imported receipt still cannot be deleted by an admin", await err(U.ADMIN, "delete from payments where id = $1", [r1]), /already in Tally/)
+
+  const c = await newPayment(U.ACCT, { number: "TL-C1", amount: 50, party: "Conn" })
+  await val("service", "select tally_mark('payments', $1, $2)", [c, J({ status: "synced", voucherRef: "TL-C1" })])
+  like("a console-made synced payment stays frozen for an admin", await upd(U.ADMIN, c, { invoiceId: inv2 }), /already in Tally/)
+
+  const out = await newPayment(U.ADMIN, { type: "payout", number: "TL-P1", amount: 40, party: "Vendor", tally: stamp("g-tl-p1", 2) })
+  like("an imported payout cannot be linked", await upd(U.ADMIN, out, { invoiceId: inv2 }), /already in Tally|payout cannot be linked/)
+  like("nor turned into an inflow to link it", await upd(U.ADMIN, out, { type: "inflow", invoiceId: inv2 }), /already in Tally/)
+  await run("service", "update profiles set modules = '[]' where id = $1", [U.ACCT])
+})
+
 // ---- report -----------------------------------------------------------------------------
 console.log("")
 let fails = 0

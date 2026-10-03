@@ -4,6 +4,7 @@ import { Upload, CheckCircle2, AlertTriangle } from "../../components/ui/Icons"
 import { repo } from "../../data/store/repository"
 import { currentUserId } from "../../lib/auth"
 import { syncInvoicePaid } from "../../data/domain/domain"
+import { hasSupabase } from "../../data/store/supabaseClient"
 import { Button, Badge, Banner, Drawer } from "../../components/ui/Ui"
 import { formatCurrency, formatDate } from "../../lib/format"
 import { decodeXmlBytes, parseTallyFiles, planTallyImport, countByStatus, STATUS } from "../../lib/tallyImport"
@@ -20,7 +21,7 @@ const KINDS = [
   { key: "receipts", label: "Receipts (money in)", collection: "payments" },
   { key: "payouts", label: "Payments out", collection: "payments" },
 ]
-const TONE = { new: "emerald", changed: "blue", same: "slate", console: "violet", skipped: "amber", problem: "rose" }
+const TONE = { new: "emerald", changed: "blue", link: "blue", same: "slate", console: "violet", skipped: "amber", problem: "rose" }
 const MAX_BYTES = 60 * 1024 * 1024
 const PARALLEL = 6
 
@@ -168,10 +169,20 @@ export default function TallyImport({ open, onClose }) {
     for (const kind of KINDS) {
       if (!include[kind.key]) continue
       const rows = plan[kind.key].filter((r) => r.action)
-      const res = { label: kind.label, created: 0, updated: 0, unlinked: 0, failed: [] }
+      const res = { label: kind.label, created: 0, updated: 0, linked: 0, unlinked: 0, failed: [] }
       let done = 0
       await inBatches(rows, async (r) => {
         try {
+          if (r.action === "link") {
+            // A receipt imported before its invoice: only invoiceId changes (0072).
+            const invoiceId = r.patch.invoiceId || invoiceIds.get(r.link?.invoiceKey)
+            if (!invoiceId) throw new Error(`Invoice ${r.invoiceNumber} was not imported, so it stays unlinked`)
+            // Demo mode has no database to copy the invoice number onto the receipt.
+            await repo.update(kind.collection, r.id, hasSupabase ? { invoiceId } : { invoiceId, invoiceNumber: r.invoiceNumber })
+            touched.add(invoiceId)
+            res.linked++
+            return
+          }
           let data = r.action === "create" ? r.doc : r.patch
           if (r.link?.invoiceKey) {
             const id = invoiceIds.get(r.link.invoiceKey)
@@ -193,9 +204,10 @@ export default function TallyImport({ open, onClose }) {
           if (data.invoiceId) touched.add(data.invoiceId)
         } catch (e) {
           res.failed.push({ title: r.title, error: e?.message || String(e) })
+        } finally {
+          done++
+          setBusy(`${kind.label}: ${done} of ${rows.length}`)
         }
-        done++
-        setBusy(`${kind.label}: ${done} of ${rows.length}`)
       })
       result.push(res)
     }
@@ -227,7 +239,7 @@ export default function TallyImport({ open, onClose }) {
     </div>
   ) : (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-[13px] text-muted-foreground">{busy || (plan ? `${toWrite} record(s) to create or update` : "No files yet")}</span>
+      <span className="text-[13px] text-muted-foreground">{busy || (plan ? `${toWrite} record(s) to create, update or link` : "No files yet")}</span>
       <div className="flex gap-2.5">
         <Button variant="outline" size="sm" onClick={reset} disabled={!files.length || !!busy}>Clear</Button>
         <Button size="sm" onClick={start} disabled={!toWrite || !!busy}>Import {toWrite || ""}</Button>
@@ -247,7 +259,7 @@ export default function TallyImport({ open, onClose }) {
             <div key={s.label} className="rounded-lg border border-border px-4 py-3 text-sm">
               <p className="font-medium text-foreground">{s.label}</p>
               <p className="text-muted-foreground">
-                {s.created} created, {s.updated} updated, {s.failed.length} failed
+                {s.created} created, {s.updated} updated{s.linked ? `, ${s.linked} linked to their invoice` : ""}, {s.failed.length} failed
                 {s.unlinked ? `. ${s.unlinked} saved unlinked because their invoice was not imported` : ""}
               </p>
               {s.failed.length > 0 && (

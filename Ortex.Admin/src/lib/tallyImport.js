@@ -494,6 +494,7 @@ export function parseTallyFiles(files, { masters: remembered, today = new Date()
 export const STATUS = {
   new: "New",
   changed: "Changed in Tally",
+  link: "Link to invoice",
   same: "Already imported",
   console: "Made in the console",
   skipped: "Left out",
@@ -677,7 +678,7 @@ function planInvoices(parsed, existing, syncedAt, snapshots) {
   const guids = byGuid(existing)
   const taken = new Map(existing.filter((i) => i.number).map((i) => [lower(i.number), { fy: fyOf(i.issueDate) }]))
   // Every invoice a receipt's Agst Ref may name: { ref, party, date, id | key }.
-  const targets = existing.map((i) => ({ refs: [lower(i.number), lower(i.tally?.voucherRef)], party: lower(i.customer?.company || i.customer?.name), date: (i.issueDate || "").slice(0, 10), id: i.id, number: i.number }))
+  const targets = existing.map((i) => ({ refs: [lower(i.number), lower(i.tally?.voucherRef)], party: lower(i.customer?.company || i.customer?.name), date: (i.issueDate || "").slice(0, 10), id: i.id, number: i.number, tally: i.tally?.source === "tally" }))
   const rows = [...parsed.invoices].sort(byDate).map((inv) => {
     const row = voucherRow(inv)
     const guessed = inv.guessedType ? `Voucher type "${inv.typeName}" read as Sales. ` : ""
@@ -695,7 +696,7 @@ function planInvoices(parsed, existing, syncedAt, snapshots) {
     const legacy = existing.find((i) => i.tally?.status === "synced" && !i.tally.guid && lower(i.tally.voucherRef || i.number) === lower(inv.number) && Math.abs((Number(i.totals?.grandTotal) || 0) - inv.totals.grandTotal) <= 0.5)
     if (legacy) return { ...row, status: "same", reason: "Imported earlier by the old Tally XML import", id: legacy.id }
     const number = uniqueNumber(inv.number, inv.date, taken)
-    targets.push({ refs: [lower(inv.number)], party: lower(inv.party), date: inv.date, key: row.key, number })
+    targets.push({ refs: [lower(inv.number)], party: lower(inv.party), date: inv.date, key: row.key, number, tally: true })
     const renamed = number !== inv.number ? `Number ${inv.number} is already used, saved as ${number}. ` : ""
     return { ...row, title: number, status: "new", reason: `${renamed}${guessed}`.trim(), flagged: !!renamed, action: "create", doc: invoiceDoc(inv, { number, customer, syncedAt }) }
   })
@@ -739,7 +740,7 @@ function planPayments(parsed, existing, syncedAt, snapshots, targets) {
     if (rec.splitOf) notes.push(`One of ${rec.splitOf} bills settled by this receipt.`)
     if (inflow) {
       if (target) notes.push(`Pays ${target.number}.`)
-      else if (rec.billRef) notes.push(`Bill ${rec.billRef} is not in the console: saved unlinked.`)
+      else if (rec.billRef) notes.push(`Bill ${rec.billRef} is not in the console: saved unlinked until it is imported.`)
       else notes.push("On Account: saved unlinked.")
       if (rec.billCount > 1) notes.push(`Settles ${rec.billCount} bills that do not add up to the receipt: linked to the first only.`)
     }
@@ -754,18 +755,17 @@ function planPayments(parsed, existing, syncedAt, snapshots, targets) {
       customer: inflow ? snapshots.get(lower(rec.party)) || { name: rec.party, company: rec.party } : null,
       invoiceId: target?.id || null,
       invoiceNumber: target ? target.number : "",
+      // The bill Tally names, so a later upload of that invoice alone can link it.
+      ...(inflow && rec.billRef ? { tallyBill: rec.billRef } : {}),
       tally: stampOf(rec.tally, syncedAt),
     }
     const link = target?.key ? { invoiceKey: target.key } : null
     const ex = guids.get(rec.tally.guid)
     if (ex) {
       if (!newer(rec, ex)) {
-        // Imported before its invoice. The database lets an admin change an
-        // imported payment only with a higher ALTERID (0070 payments_guard), so
-        // the link waits for the voucher to be saved again in Tally.
-        const canLink = target && !ex.invoiceId && ex.type !== "payout"
-        const reason = canLink ? `Can link to invoice ${target.number}: open and save this receipt in Tally, then export it again.` : ""
-        list.push({ ...row, title: ex.number, status: "same", id: ex.id, reason, flagged: !!canLink })
+        // Imported before its invoice: link it now. The database lets an admin
+        // set invoiceId alone on an unlinked imported receipt (0072).
+        list.push(target && !ex.invoiceId && ex.type === "inflow" ? linkRow(row, ex, target) : { ...row, title: ex.number, status: "same", id: ex.id })
         continue
       }
       list.push({ ...row, title: ex.number, status: "changed", reason: ["Changed in Tally since the last import.", ...notes].join(" "), action: "update", id: ex.id, patch: fields, link })
@@ -775,12 +775,32 @@ function planPayments(parsed, existing, syncedAt, snapshots, targets) {
     if (number !== rec.number) notes.unshift(`Number ${rec.number} is already used, saved as ${number}.`)
     list.push({ ...row, title: number, status: "new", reason: notes.join(" "), flagged: number !== rec.number, action: "create", doc: { number, ...fields }, link })
   }
+  // Receipts saved unlinked by an earlier upload whose bill arrives now, in an
+  // upload without the receipt itself: linked to an invoice that came from Tally.
+  const inFiles = new Set(all1.map((r) => r.tally.guid))
+  const fromTally = targets.filter((t) => t.tally)
+  for (const p of existing) {
+    if (p.type !== "inflow" || p.invoiceId || !p.tallyBill || p.tally?.source !== "tally" || inFiles.has(p.tally.guid)) continue
+    const date = String(p.date || "").slice(0, 10)
+    const target = findTarget(fromTally, { billRef: p.tallyBill, party: p.party, date })
+    if (target) rows.receipts.push(linkRow({ key: p.tally.guid, title: p.number, sub: p.party, date, amount: p.amount }, p, target))
+  }
   return rows
+}
+
+// An imported receipt saved unlinked, now linked: the patch is invoiceId alone
+// (all the database lets an admin change on it, 0072), null while the invoice
+// is still to be created in the same run (link.invoiceKey names it).
+function linkRow(row, ex, target) {
+  return {
+    ...row, title: ex.number, status: "link", reason: `Links it to invoice ${target.number}.`, action: "link", id: ex.id,
+    patch: { invoiceId: target.id || null }, link: target.key ? { invoiceKey: target.key } : null, invoiceNumber: target.number,
+  }
 }
 
 // existing: { customers, products, invoices, payments } as the repository lists
 // them. Returns rows per kind: { key, title, sub, date, amount, status, reason,
-// action "create" | "update" | undefined, id, doc | patch, link? }.
+// action "create" | "update" | "link" | undefined, id, doc | patch, link? }.
 export function planTallyImport(parsed, existing, { syncedAt = new Date().toISOString(), categories = [] } = {}) {
   const customers = planCustomers(parsed, existing.customers || [], syncedAt)
   const invoices = planInvoices(parsed, existing.invoices || [], syncedAt, customers.snapshots)
@@ -795,7 +815,7 @@ export function planTallyImport(parsed, existing, { syncedAt = new Date().toISOS
 }
 
 export function countByStatus(rows) {
-  const out = { new: 0, changed: 0, same: 0, console: 0, skipped: 0, problem: 0 }
+  const out = { new: 0, changed: 0, link: 0, same: 0, console: 0, skipped: 0, problem: 0 }
   for (const r of rows) out[r.status]++
   return out
 }
