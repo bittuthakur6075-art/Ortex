@@ -1,11 +1,12 @@
 // Edge Function: push-notify
 //
-// Sends a new lead to the phones of everyone allowed to see it, through Firebase
-// Cloud Messaging, so it arrives even when the field-sales app is closed.
+// Sends the phone app's alerts through Firebase Cloud Messaging, so they arrive
+// even when the app is closed: new leads (0031), leave and correction requests
+// and decisions (0038), Team chat (0047), payslips released and claims decided
+// (0074).
 //
-// Called by the `enquiries_push_notify` trigger (migration 0031) through pg_net
-// with `{ table: "enquiries", id }` and an `x-push-secret` header; never by a
-// browser. Deployed with --no-verify-jwt because pg_net sends no user JWT; the
+// Called by those migrations' triggers through pg_net with `{ table, id }` and
+// an `x-push-secret` header; never by a browser. Deployed with --no-verify-jwt because pg_net sends no user JWT; the
 // shared secret is the guard instead.
 //
 // WHO: active staff whose profile grants the lead's module (the console's own
@@ -15,6 +16,11 @@
 // src/domain/notifications.ts: `enq-new-<id>`, `voice-new-<id>`), sent as the
 // Android tag, so when the app is alive and posts its own richer copy (with
 // Call / WhatsApp buttons), the two replace each other instead of stacking.
+//
+// Every send goes through deliver(): active people only, every phone each of
+// them has registered, minus phones that muted the category in their
+// Notification settings (push_devices.muted, 0074); tokens FCM reports as gone
+// are deleted.
 //
 // Anu saves a call several times as it goes (each capture is a row), so a voice
 // row rings only when it is the FIRST capture from that number in 15 minutes.
@@ -26,7 +32,9 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { json } from "../_shared/http.ts"
-import { sendToTokens, serviceAccount } from "../_shared/fcm.ts"
+import { type PushMessage, sendToTokens, serviceAccount } from "../_shared/fcm.ts"
+import { secretsMatch } from "../_shared/guard.ts"
+import { claimPush, mutes, payslipPush } from "../_shared/pushText.ts"
 
 // Must equal VOICE_SOURCE in Ortex.Mobile/src/domain/voice.ts.
 const VOICE_SOURCE = "Voice assistant (Anu)"
@@ -34,21 +42,50 @@ const CAPTURE_WINDOW_MS = 15 * 60 * 1000
 // Must equal CHANNEL_LEADS in Ortex.Mobile/src/lib/push.ts.
 const CHANNEL_LEADS = "leads_v3"
 
-function secretsMatch(a: string, b: string): boolean {
-  const enc = new TextEncoder()
-  const ab = enc.encode(a)
-  const bb = enc.encode(b)
-  if (ab.length !== bb.length) return false
-  let diff = 0
-  for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i]
-  return diff === 0
-}
-
 const digits = (s: unknown) => String(s || "").replace(/\D/g, "").slice(-10)
 const pretty = (d: string) => (d.length === 10 ? `${d.slice(0, 5)} ${d.slice(5)}` : d)
 const clean = (s: unknown) => String(s || "").trim()
 
 type Doc = Record<string, any>
+type SA = NonNullable<ReturnType<typeof serviceAccount>>
+
+const TABLES = ["enquiries", "leave_requests", "regularisations", "chat_messages", "payslips", "reimbursement_claims"]
+
+/**
+ * Send one message to every phone of these people that wants this category.
+ * Inactive people are skipped; tokens FCM says are gone are deleted.
+ */
+// deno-lint-ignore no-explicit-any
+async function deliver(db: any, sa: SA, recipients: string[], category: string, msg: PushMessage) {
+  const ids = [...new Set(recipients.filter(Boolean))]
+  if (!ids.length) return { skipped: "nobody to tell" }
+  // "not false" rather than "true": a profile with no value counts as active.
+  const { data: people } = await db.from("profiles").select("id").in("id", ids).not("active", "is", false)
+  const active = (people || []).map((p: { id: string }) => p.id)
+  if (!active.length) return { skipped: "nobody active" }
+  let { data: devices, error } = await db.from("push_devices").select("token, muted").in("user_id", active)
+  // Before 0074 there is no muted column: send to every phone, as before.
+  if (error) ({ data: devices } = await db.from("push_devices").select("token").in("user_id", active))
+  const tokens = [
+    ...new Set(
+      ((devices || []) as { token: string; muted?: unknown }[]).filter((d) => !mutes(d.muted, category)).map((d) => d.token),
+    ),
+  ]
+  if (!tokens.length) return { skipped: "no registered phones" }
+  try {
+    const results = await sendToTokens(sa, tokens, msg)
+    const gone = results.filter((r) => r.unregistered).map((r) => r.token)
+    if (gone.length) await db.from("push_devices").delete().in("token", gone)
+    return {
+      sent: results.filter((r) => r.ok).length,
+      failed: results.filter((r) => !r.ok && !r.unregistered).map((r) => r.error),
+      removed: gone.length,
+    }
+  } catch (e) {
+    console.error("push-notify: send failed", e)
+    return { error: String((e as Error)?.message || e) }
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405)
@@ -61,8 +98,8 @@ Deno.serve(async (req) => {
   if (!sa) return json({ skipped: "FIREBASE_SERVICE_ACCOUNT is not set" })
 
   const { table, id } = (await req.json().catch(() => ({}))) as { table?: string; id?: string }
-  if (!id || !["enquiries", "leave_requests", "regularisations", "chat_messages"].includes(table || "")) {
-    return json({ error: "expected { table: 'enquiries' | 'leave_requests' | 'regularisations' | 'chat_messages', id }" }, 400)
+  if (!id || !TABLES.includes(table || "")) {
+    return json({ error: `expected { table: ${TABLES.join(" | ")}, id }` }, 400)
   }
 
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
@@ -70,6 +107,7 @@ Deno.serve(async (req) => {
   })
 
   if (table === "chat_messages") return json(await chatMessage(db, sa, id))
+  if (table === "payslips" || table === "reimbursement_claims") return json(await payAlert(db, sa, table, id))
 
   if (table === "leave_requests" || table === "regularisations") {
     return json(await attendanceApproval(db, sa, table, id))
@@ -132,10 +170,6 @@ Deno.serve(async (req) => {
     .map((p: Doc) => p.id as string)
   if (!allowed.length) return json({ skipped: "nobody has access" })
 
-  const { data: devices } = await db.from("push_devices").select("token").in("user_id", allowed)
-  const tokens = [...new Set((devices || []).map((d: { token: string }) => d.token))]
-  if (!tokens.length) return json({ skipped: "no registered phones" })
-
   // The words, as the app writes them.
   const name = clean(doc.customer?.name) || clean(doc.customer?.company) || "Unknown contact"
   const company = clean(doc.customer?.company)
@@ -151,30 +185,26 @@ Deno.serve(async (req) => {
       : `New enquiry · ${name}`
   const tag = voice ? `voice-new-${row.id}` : `enq-new-${row.id}`
 
-  const results = await sendToTokens(sa, tokens, {
-    title,
-    body: detail,
-    tag,
-    channelId: CHANNEL_LEADS,
-    // Read by Ortex.Mobile's response listener (lib/push.ts payloadFromResponse).
-    data: {
-      id: tag,
-      targetScreen: voice ? "VoiceCallDetail" : "EnquiryDetail",
-      targetId: String(row.id),
-      phone,
+  return json(
+    await deliver(db, sa, allowed, voice ? "voice" : "enquiries", {
       title,
-      remote: "1",
-    },
-  })
-
-  const gone = results.filter((r) => r.unregistered).map((r) => r.token)
-  if (gone.length) await db.from("push_devices").delete().in("token", gone)
-
-  return json({
-    sent: results.filter((r) => r.ok).length,
-    failed: results.filter((r) => !r.ok && !r.unregistered).map((r) => r.error),
-    removed: gone.length,
-  })
+      body: detail,
+      tag,
+      channelId: CHANNEL_LEADS,
+      visibility: "PUBLIC",
+      priority: "PRIORITY_MAX",
+      // Read by Ortex.Mobile's response listener (domain/pushTarget.ts pushRoute).
+      data: {
+        id: tag,
+        targetScreen: voice ? "VoiceCallDetail" : "EnquiryDetail",
+        targetId: String(row.id),
+        phone,
+        title,
+        remote: "1",
+        kind: "lead",
+      },
+    }),
+  )
 })
 
 // ---- attendance approvals (migration 0038) ------------------------------------------------------
@@ -198,7 +228,7 @@ const clockIST = (ts: string) => {
 }
 
 // deno-lint-ignore no-explicit-any
-async function attendanceApproval(db: any, sa: any, table: string, id: string) {
+async function attendanceApproval(db: any, sa: SA, table: string, id: string) {
   const { data: row } = await db.from(table).select("*").eq("id", id).maybeSingle()
   if (!row) return { skipped: "not found" }
 
@@ -280,13 +310,8 @@ async function attendanceApproval(db: any, sa: any, table: string, id: string) {
     return { skipped: "nothing to announce" }
   }
 
-  if (!recipients.length) return { skipped: "nobody to tell" }
-  const { data: devices } = await db.from("push_devices").select("token").in("user_id", recipients)
-  const tokens = [...new Set((devices || []).map((d: { token: string }) => d.token))]
-  if (!tokens.length) return { skipped: "no registered phones" }
-
   const tag = `${isLeave ? "leave" : "corr"}-${row.status}-${row.id}`
-  const results = await sendToTokens(sa, tokens as string[], {
+  return deliver(db, sa, recipients, "requests", {
     title,
     body,
     tag,
@@ -299,11 +324,9 @@ async function attendanceApproval(db: any, sa: any, table: string, id: string) {
       phone: "",
       title,
       remote: "1",
+      kind: "requests",
     },
   })
-  const gone = results.filter((r) => r.unregistered).map((r) => r.token)
-  if (gone.length) await db.from("push_devices").delete().in("token", gone)
-  return { sent: results.filter((r) => r.ok).length, removed: gone.length }
 }
 
 // ---- Team chat (migration 0047) ----------------------------------------------------
@@ -317,7 +340,7 @@ async function attendanceApproval(db: any, sa: any, table: string, id: string) {
 const CHAT_CHANNEL = "chat_v1" // Ortex.Mobile/src/lib/push.ts CHANNEL_CHAT
 
 // deno-lint-ignore no-explicit-any
-async function chatMessage(db: any, sa: any, id: string) {
+async function chatMessage(db: any, sa: SA, id: string) {
   const { data: m } = await db.from("chat_messages").select("*").eq("id", id).maybeSingle()
   if (!m || m.deleted_at || !["text", "bot"].includes(m.kind)) return { skipped: "nothing to announce" }
   const { data: conv } = await db.from("chat_conversations").select("id, kind, title").eq("id", m.conversation_id).maybeSingle()
@@ -347,19 +370,34 @@ async function chatMessage(db: any, sa: any, id: string) {
       ? String(m.attachment?.type || "").startsWith("image/") ? "Photo" : "Sent a file"
       : "New message"
 
-  const { data: devices } = await db.from("push_devices").select("token").in("user_id", recipients)
-  const tokens = [...new Set((devices || []).map((d: { token: string }) => d.token))]
-  if (!tokens.length) return { skipped: "no registered phones" }
-
   const tag = `chat-${conv.id}`
-  const results = await sendToTokens(sa, tokens as string[], {
+  return deliver(db, sa, recipients, "chat", {
     title,
     body,
     tag,
     channelId: CHAT_CHANNEL,
-    data: { id: `chat-msg-${m.id}`, targetScreen: "ChatThread", targetId: String(conv.id), phone: "", title, remote: "1", chat: "1" },
+    data: { id: `chat-msg-${m.id}`, targetScreen: "ChatThread", targetId: String(conv.id), phone: "", title, remote: "1", chat: "1", kind: "chat" },
   })
-  const gone = results.filter((r) => r.unregistered).map((r) => r.token)
-  if (gone.length) await db.from("push_devices").delete().in("token", gone)
-  return { sent: results.filter((r) => r.ok).length, removed: gone.length }
+}
+
+// ---- My pay (migration 0074) --------------------------------------------------------
+//
+// To the employee when their payslip is released (the run is paid, or a
+// withheld slip is released), and to the claimant when someone else approves
+// or rejects their reimbursement claim. Words in _shared/pushText.ts: never an
+// amount, since the shade shows on a locked phone.
+
+// deno-lint-ignore no-explicit-any
+async function payAlert(db: any, sa: SA, table: string, id: string) {
+  if (table === "payslips") {
+    const { data: slip } = await db.from("payslips").select("id, user_id, run_id, status, released_at").eq("id", id).maybeSingle()
+    if (!slip || !slip.released_at || slip.status !== "included") return { skipped: "not released" }
+    const { data: run } = await db.from("pay_runs").select("month").eq("id", slip.run_id).maybeSingle()
+    return deliver(db, sa, [slip.user_id], "pay", { ...payslipPush(slip, run?.month), channelId: REMINDERS_CHANNEL })
+  }
+  const { data: claim } = await db.from("reimbursement_claims").select("*").eq("id", id).maybeSingle()
+  if (!claim || !claim.decided_by || claim.decided_by === claim.user_id) return { skipped: "nothing to announce" }
+  const out = claimPush(claim)
+  if (!out) return { skipped: "not decided" }
+  return deliver(db, sa, [claim.user_id], "pay", { ...out, channelId: REMINDERS_CHANNEL })
 }

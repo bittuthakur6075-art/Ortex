@@ -1,69 +1,127 @@
 # Push notifications setup (Ortex.Mobile)
 
-The field-sales app has three kinds of notification. Only the third needs setup.
+The phone app has three kinds of notification. Only the third needs setup.
 
 | Kind | Arrives when the app is closed? | Needs setup |
 |---|---|---|
-| **Lead alerts, posted by the app** (`lib/push.ts`, `useNotificationEngine`) | No. The app must be running. | None |
-| **Daily motivation (9:00) and daily insights (9:30)** (`lib/dailyPush.ts`, `domain/dailyDigest.ts`) | Yes. Scheduled on Android's alarm clock, re-armed after a reboot. | None |
-| **Lead alerts, sent by the server** (`lib/remotePush.ts`, Admin `push-notify`) | Yes | The steps below |
+| **Alerts posted by the app** from what it hears over realtime (`lib/push.ts`, `useNotificationEngine`, `ChatNotifier`, `AttendanceApprovalAlerts`, `PayslipAlerts`) | No. The app must be running. | None |
+| **Daily motivation (9:00), daily insights (9:30), attendance reminders** (`lib/dailyPush.ts`, `lib/attendanceReminders.ts`) | Yes. Scheduled on the phone. | None |
+| **Alerts sent by the server** (`lib/remotePush.ts`, Admin `push-notify`) | Yes | The steps below |
 
-Until the steps below are done, the app behaves exactly as before. Without
-`google-services.json` the build still succeeds and registration fails soft.
-Without the Vault secrets the database trigger does nothing.
+Until the steps below are done the app behaves exactly as before: without
+`google-services.json` the build still succeeds and registration fails soft;
+without the Vault secrets the database triggers do nothing and every write
+goes through as usual.
 
-## 1. Firebase project (owner, about 5 minutes)
+## What the server sends
 
-1. Go to <https://console.firebase.google.com>, add a project (e.g. "Ortex Sales"). Analytics is not needed.
+| Alert | Who gets it | Tap opens | Setting on the phone | Migration |
+|---|---|---|---|---|
+| New enquiry (website, IndiaMART) | Active people with the `enquiries` module | `EnquiryDetail` | New enquiries | 0031, 0051 |
+| New voice lead (Anu call, first capture only) | Active people with `voice-leads` | `VoiceCallDetail` | Voice calls | 0031 |
+| Leave or correction request | Admins with the Team section (`attendance-team`), never the requester | `AttendanceApprovals` | Leave and corrections | 0038, 0065 |
+| Approved leave withdrawn by the person | The same admins | `AttendanceApprovals` | Leave and corrections | 0065 |
+| Your leave was approved / not approved / cancelled | The requester, when someone else decided | `LeaveRequest` | Leave and corrections | 0038 |
+| Your correction was approved / not approved | The requester, when someone else decided | `AttendanceDay` | Leave and corrections | 0038 |
+| Team chat message | Other members who have not muted the chat (never the private Anu thread) | `ChatThread` | Team chat | 0047 |
+| Your payslip for September 2026 is ready | The employee, when the run is paid or a withheld slip is released. **No amount.** | `Payslip` | My pay | 0074 |
+| Your claim was approved / not approved | The claimant, when someone else decided. **No amount.** | `PayClaims` | My pay | 0074 |
+
+Inactive people are never sent anything. Every phone a person is signed in on
+gets the alert. The master switch and each setting in Profile → Notifications
+also stop the server's copy: the phone saves its switched-off categories with
+its token (`push_devices.muted`, 0074) and re-sends them when they change. A
+phone on an app older than that release keeps getting everything until it
+updates.
+
+## Owner checklist, in order
+
+Do these on the build PC, from `C:\Code\Ortex\Ortex.Admin` unless said
+otherwise. The project ref is **`pfoeztiakqtemakfgpgs`**. On Windows
+PowerShell write `npx.cmd supabase ...` (script execution is disabled).
+
+### 1. Firebase project (about 5 minutes)
+
+1. Open <https://console.firebase.google.com>, **Add project** (e.g. "Ortex Sales"). Analytics is not needed.
 2. **Add app → Android**, package name **`com.ortexmobile`**. Download **`google-services.json`**.
-3. Put the file at `Ortex.Mobile/android/app/google-services.json`. It is gitignored. Keep a copy with the release keystore.
-4. **Project settings → Service accounts → Generate new private key**. This downloads a JSON file. Treat it as a password; never commit it.
+3. Put it at **`Ortex.Mobile\android\app\google-services.json`**. It is gitignored; keep a copy with the release keystore backup.
+4. **Project settings → Service accounts → Generate new private key**. A JSON file downloads. Treat it as a password; never commit it or paste it in chat.
 
-## 2. Database (from `Ortex.Admin/`)
+### 2. A shared secret
+
+Generate one random value and keep it for steps 3 and 4:
 
 ```bash
-npm run sb:db:push          # applies 0031_push_devices.sql (push_devices, register_push_device, the trigger)
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Then, in the Supabase SQL editor, give the trigger its target and a shared secret
-(generate one with `openssl rand -hex 32`):
+### 3. Database
+
+```bash
+npx.cmd supabase migration list   # 0074 should show as local only
+npx.cmd supabase db push          # applies 0074_push_pay_and_prefs.sql
+```
+
+Then in the Supabase dashboard → SQL editor, run once (the second line with
+the secret from step 2):
 
 ```sql
-select vault.create_secret('https://<project-ref>.supabase.co/functions/v1/push-notify', 'push_notify_url');
-select vault.create_secret('<the random secret>', 'push_notify_secret');
+select vault.create_secret('https://pfoeztiakqtemakfgpgs.supabase.co/functions/v1/push-notify', 'push_notify_url');
+select vault.create_secret('<the secret from step 2>', 'push_notify_secret');
 ```
 
-## 3. Edge function (from `Ortex.Admin/`)
+### 4. Edge function secrets and deploy
 
 ```bash
-supabase secrets set PUSH_NOTIFY_SECRET=<the same random secret>
-supabase secrets set FIREBASE_SERVICE_ACCOUNT="$(cat path/to/service-account.json)"
-supabase functions deploy push-notify --no-verify-jwt
+npx.cmd supabase secrets set PUSH_NOTIFY_SECRET=<the secret from step 2>
+```
+
+`FIREBASE_SERVICE_ACCOUNT` is the whole service-account JSON from step 1.4.
+The simplest way is the dashboard: **Edge Functions → Secrets → Add new
+secret**, name `FIREBASE_SERVICE_ACCOUNT`, paste the file's contents. From Git
+Bash instead:
+
+```bash
+npx supabase secrets set FIREBASE_SERVICE_ACCOUNT="$(cat /c/path/to/service-account.json)"
+```
+
+Then deploy (either order with step 3 is safe: the function falls back when
+0074 is missing, and an older function just refuses the new tables):
+
+```bash
+npx.cmd supabase functions deploy push-notify --no-verify-jwt
 ```
 
 `--no-verify-jwt` is required because pg_net sends no user token; the shared
-secret is the guard.
+secret in the `x-push-secret` header is the guard.
 
-## 4. App
+### 5. A new APK
 
-Rebuild the APK (the Firebase file is compiled in), install it, and sign in.
-The phone registers itself in `push_devices` after sign-in and removes itself
-on sign-out.
+`google-services.json` is compiled into the app, so the phones need a new
+build. From `Ortex.Mobile`: bump the version (`npm version minor`), add a
+release to `src/constants/whatsNew.ts` (alerts now arrive with the app
+closed; new settings Leave and corrections, My pay), then
+`npm run release:android`. Each phone registers itself in `push_devices` the
+next time it is opened signed in, and removes itself on sign-out.
 
-## Checking it works
+### 6. Check it works
 
-1. Sign in on the phone, then **close the app** (swipe it away).
-2. Submit an enquiry on the website.
-3. The phone should ring within a few seconds with "New enquiry · <name>".
-4. If it does not:
-   - `select * from push_devices;` should show a row for your account. If not, the build lacks `google-services.json` or 0031 is not applied.
-   - `select * from net._http_response order by created desc limit 5;` shows what the trigger's call returned.
-   - The function's logs in the Supabase dashboard show `sent`, `failed` or `skipped` with the reason.
+1. On the phone, sign in, allow notifications when asked, then **swipe the app away**.
+2. Submit an enquiry on the website. The phone should ring within seconds with "New enquiry · <name>". Tap it: the enquiry opens.
+3. Send that person a Team chat message from the console; decide a test leave request; each should arrive and open its screen.
+4. If nothing arrives:
+   - `select user_id, app_version, muted, updated_at from push_devices;` should show a row for the account. No row: the APK lacks `google-services.json`, or the phone has not been opened since the update.
+   - `select id, status_code, content from net._http_response order by created desc limit 5;` shows what the trigger's call returned (401 = the two secrets differ).
+   - The function's logs (dashboard → Edge Functions → push-notify) show `sent`, `failed`, `removed` or `skipped` with the reason (`nobody active`, `no registered phones`, a muted category).
+   - On Samsung, Profile → Notifications → Keep alerts working in the background (battery Unrestricted).
 
 ## Rules worth knowing
 
-- **Who gets a lead**: active staff whose profile grants the module (`enquiries` for web/IndiaMART, `voice-leads` for Anu calls); admins get both. This is the console's own `has_module_access` rule.
+- **Who gets a lead**: active people whose access reaches the module (`enquiries` for web/IndiaMART, `voice-leads` for Anu calls), the console's own `has_module_access` rule including the Super Admin's switches and hide list.
 - **Anu calls ring once**: a call is saved as several captures, so only the first capture from a number within 15 minutes rings.
-- **No duplicates**: the server uses the app's own notification id (`enq-new-<id>`, `voice-new-<id>`) as the Android tag. When the app is open it hides the server copy and posts its own, which has the Call/WhatsApp buttons.
-- **Battery**: on Samsung, set Ortex to *Unrestricted* battery use (Profile → Notifications → Keep alerts working in the background). Server push survives the app being closed; the app's own alerts do not.
-- **Daily insights are a snapshot**: they are scheduled while the app runs, so they show the figures as of the last time the app was open, and say so ("as of 6:40 PM").
+- **No duplicates (tags)**: each server push uses the phone's own notification id as its Android tag: `enq-new-<id>`, `voice-new-<id>`, `leave-<status>-<id>`, `corr-<status>-<id>`, `chat-<conversation>`, `payslip-<id>`, `claim-<status>-<id>`. A copy the phone posts itself replaces the server's and the other way round. With the app in the foreground the server's copy is hidden whenever the app posts its own (everything except claim decisions).
+- **Notification, not data-only**: the server sends FCM notification messages (with `data` for the tap) so a killed app is drawn by Android without starting any JavaScript; data-only messages would need a headless task, which battery managers often block. The data always carries `targetScreen`, `targetId` and `kind`; the phone maps them to a screen with `pushRoute()` and ignores a screen it does not know.
+- **Channels**: leads on `leads_v3` (public on the lock screen, loudest), everything else private on `reminders_v3` or `chat_v1`. They must equal the ids in `Ortex.Mobile/src/lib/push.ts`; a channel retired there (`RETIRED_CHANNELS`) must never be sent to.
+- **Lock screen privacy**: pay alerts name the month or the claim, never an amount.
+- **Dead tokens**: FCM answers for an uninstalled app or a rotated token (UNREGISTERED, SENDER_ID_MISMATCH, an invalid token) delete that `push_devices` row. The phone also replaces its row when FCM rotates the token.
+- **Battery**: on Samsung, set Ortex to *Unrestricted* battery use. Server push survives the app being closed; the app's own alerts do not.

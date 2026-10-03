@@ -141,7 +141,7 @@ export function AttendanceApprovalAlerts() {
   // Deciding needs the Team module as well as the role (0065), as the server checks.
   const admin = isAdmin(profile) && canAccess(profile, "attendance-team")
   const { prefs } = useNotificationStore()
-  const enabled = prefs.enabled
+  const enabled = prefs.enabled && prefs.requests !== false
 
   React.useEffect(() => {
     if (!uid || !enabled) return

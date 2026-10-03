@@ -78,6 +78,53 @@ export type PushMessage = {
   /** Android notification tag: a later message with the same tag replaces it. */
   tag: string
   channelId: string
+  /** PUBLIC shows the text on a locked phone (leads); PRIVATE, the default, hides it. */
+  visibility?: "PUBLIC" | "PRIVATE"
+  /** Leads ring over everything (MAX); the rest are HIGH. */
+  priority?: "PRIORITY_MAX" | "PRIORITY_HIGH"
+}
+
+/**
+ * The FCM v1 body for one token. A NOTIFICATION message (not data-only): with
+ * the app killed, Android draws it from the payload without starting any
+ * JavaScript, which data-only messages would need and OEM battery managers
+ * often block. `tag` is the id the phone uses for its own copy, so the two
+ * replace each other; `data` rides along for the tap (expo-notifications hands
+ * it to the app's response listener).
+ */
+export function fcmMessage(token: string, msg: PushMessage) {
+  return {
+    message: {
+      token,
+      notification: { title: msg.title, body: msg.body },
+      data: msg.data,
+      android: {
+        // HIGH delivers through Doze straight away.
+        priority: "HIGH",
+        notification: {
+          channel_id: msg.channelId,
+          tag: msg.tag,
+          // The silhouette in res/drawable (npm run icons); without it Android
+          // draws the launcher icon as a white square.
+          icon: "notification_icon",
+          color: "#2F50E4",
+          notification_priority: msg.priority || "PRIORITY_HIGH",
+          visibility: msg.visibility || "PRIVATE",
+        },
+      },
+    },
+  }
+}
+
+/**
+ * FCM's answer for a token that will never work again: the app was
+ * uninstalled or the token rotated (404 UNREGISTERED), it belongs to another
+ * Firebase project (403 SENDER_ID_MISMATCH), or it is malformed (400 naming
+ * the registration token; other 400s are payload errors and keep the token).
+ */
+export function tokenIsGone(status: number, text: string): boolean {
+  if (status === 404 || /UNREGISTERED|registration-token-not-registered|SENDER_ID_MISMATCH/i.test(text)) return true
+  return status === 400 && /registration token/i.test(text)
 }
 
 export type SendResult = { token: string; ok: boolean; unregistered: boolean; error?: string }
@@ -92,29 +139,11 @@ export async function sendToTokens(sa: ServiceAccount, tokens: string[], msg: Pu
       const res = await fetch(url, {
         method: "POST",
         headers: { Authorization: `Bearer ${bearer}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: {
-            token,
-            notification: { title: msg.title, body: msg.body },
-            data: msg.data,
-            android: {
-              // HIGH delivers through Doze straight away; a lead is time-critical.
-              priority: "HIGH",
-              notification: {
-                channel_id: msg.channelId,
-                tag: msg.tag,
-                color: "#2F50E4",
-                notification_priority: "PRIORITY_MAX",
-                visibility: "PUBLIC",
-              },
-            },
-          },
-        }),
+        body: JSON.stringify(fcmMessage(token, msg)),
       })
       if (res.ok) return { token, ok: true, unregistered: false }
       const text = await res.text()
-      // UNREGISTERED / NOT_FOUND: the app was uninstalled or the token rotated.
-      const unregistered = res.status === 404 || /UNREGISTERED|registration-token-not-registered/i.test(text)
+      const unregistered = tokenIsGone(res.status, text)
       return { token, ok: false, unregistered, error: `${res.status}: ${text.slice(0, 300)}` }
     }),
   )

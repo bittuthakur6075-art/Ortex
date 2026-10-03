@@ -3,6 +3,7 @@ import { AppState } from "react-native"
 
 import { canAccess } from "@/domain/modules"
 import type { AppNotification } from "@/domain/notifications"
+import { mutedPushCategories, pushRoute } from "@/domain/pushTarget"
 import type { Enquiry, Quotation } from "@/domain/schema"
 import { useNotifications } from "@/features/notifications/useNotifications"
 import { useCollection } from "@/hooks/useCollection"
@@ -18,15 +19,14 @@ import {
 } from "@/lib/notificationStore"
 import {
   actionFromResponse,
+  askPushPermission,
   configurePush,
-  ensurePushPermission,
   isRemoteLead,
   Notifications,
   payloadFromResponse,
   presentNotification,
   pushPermissionGranted,
   setBadge,
-  TEST_NOTIFICATION_ID,
 } from "@/lib/push"
 import { navigateWhenReady } from "@/navigation/navigationRef"
 import { useAuth } from "@/store/AuthContext"
@@ -71,18 +71,23 @@ export function useNotificationEngine() {
     void (async () => {
       await hydrateNotifications()
       await configurePush()
-      // A no-op when it is already granted, and when the rep has refused it in
-      // the OS for good; neither case is worth a second prompt.
-      await ensurePushPermission()
+      // Signed in by now (the engine mounts only then): explain, then ask. A
+      // no-op when already granted, refused for good, or put off this week.
+      await askPushPermission()
       if (!cancelled) setReady(true)
-      // Remote push, so leads reach this phone with the app closed. Soft: a
-      // build without Firebase keeps the local alerts only.
-      void registerPushDevice()
     })()
     return () => {
       cancelled = true
     }
   }, [])
+
+  // Remote push, so alerts reach this phone with the app closed, saved with the
+  // categories switched off here (the server cannot read the prefs otherwise).
+  // Re-sent when they change. Soft: a build without Firebase keeps local alerts.
+  const muted = mutedPushCategories(prefs).join(",")
+  React.useEffect(() => {
+    if (ready) void registerPushDevice(muted ? muted.split(",") : [])
+  }, [ready, muted])
 
   // ---- posting ------------------------------------------------------------
 
@@ -204,39 +209,38 @@ export function useNotificationEngine() {
 
   // ---- responding ---------------------------------------------------------
 
+  // A tap while the engine is mounted arrives on the listener. A tap that
+  // LAUNCHED the app (killed, or behind the sign-in or lock screen) fired before
+  // this listener existed, so it is read back once on mount; it is then cleared,
+  // so signing in again does not replay it.
   React.useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      // Scheduled notes (daily updates, attendance reminders) name a screen.
+    const respond = (response: Notifications.NotificationResponse) => {
+      Notifications.clearLastNotificationResponse()
+      const key = `${response.notification.request.identifier}|${response.notification.date}|${response.actionIdentifier}`
+      if (handled.has(key)) return
+      handled.add(key)
       const data = response.notification.request.content.data as Record<string, unknown> | undefined
-      if (data?.daily) {
-        if (typeof data.screen === "string") navigateWhenReady(data.screen as never)
-        return
-      }
       const payload = payloadFromResponse(response)
-      if (!payload) return
       const action = actionFromResponse(response)
-
-      // Tapping or acting on it IS reading it, on any of the three buttons.
-      markRead(payload.id)
-
-      if (action === "call" && payload.phone) {
-        void callNumber(payload.phone)
-        return
+      if (payload) {
+        // Tapping or acting on it IS reading it, on any of the three buttons.
+        markRead(payload.id)
+        if (action === "call" && payload.phone) {
+          void callNumber(payload.phone)
+          return
+        }
+        if (action === "whatsapp" && payload.phone) {
+          const item = feedRef.current.find((n) => n.id === payload.id)
+          void whatsapp(payload.phone, item ? greeting(item) : undefined)
+          return
+        }
       }
-      if (action === "whatsapp" && payload.phone) {
-        const item = feedRef.current.find((n) => n.id === payload.id)
-        void whatsapp(payload.phone, item ? greeting(item) : undefined)
-        return
-      }
-
-      // The sample from Settings has no record behind it.
-      if (payload.id === TEST_NOTIFICATION_ID) {
-        navigateWhenReady("Notifications")
-        return
-      }
-
-      navigateWhenReady(payload.target.screen, paramsFor(payload.target) as never)
-    })
+      const route = pushRoute(data)
+      if (route) navigateWhenReady(route.screen as never, route.params as never)
+    }
+    const sub = Notifications.addNotificationResponseReceivedListener(respond)
+    const launch = Notifications.getLastNotificationResponse()
+    if (launch) respond(launch)
     return () => sub.remove()
   }, [])
 
@@ -250,15 +254,9 @@ export function useNotificationEngine() {
   }, [unreadCount])
 }
 
-/**
- * Route params for a notification's target. Attendance approvals (server push,
- * migration 0038) open a day by its date, or the approvals list with none.
- */
-function paramsFor(target: { screen: string; id: string }): Record<string, string> | undefined {
-  if (target.screen === "AttendanceDay") return { day: target.id }
-  if (target.screen === "AttendanceApprovals") return undefined
-  return { id: target.id }
-}
+// Responses already acted on in this process: the launch response read back on
+// mount can also reach the listener.
+const handled = new Set<string>()
 
 /**
  * The message WhatsApp opens with. A rep returning a lead from the shade should

@@ -100,6 +100,10 @@ export type NotificationPrefs = {
   attendance: boolean
   /** A new Team chat message (features/chat/ChatNotifier.tsx, and server push). */
   chat: boolean
+  /** Leave and correction requests to decide, and decisions on your own (AttendanceApprovalAlerts, server push). */
+  requests: boolean
+  /** Your payslip is ready, your claim was decided (PayslipAlerts, server push). */
+  pay: boolean
 }
 
 export const DEFAULT_PREFS: NotificationPrefs = {
@@ -112,6 +116,8 @@ export const DEFAULT_PREFS: NotificationPrefs = {
   insights: true,
   attendance: true,
   chat: true,
+  requests: true,
+  pay: true,
 }
 
 /** Every switchable signal, for the settings screen. */
@@ -125,6 +131,8 @@ export const NOTIFICATION_SETTINGS: {
   { key: "stale", label: "Enquiries going cold", hint: "Still new after two days" },
   { key: "quotations", label: "Quotation validity", hint: "Sent quotes about to expire" },
   { key: "chat", label: "Team chat", hint: "Messages from colleagues, your team channel and Anu. Mute one chat from its page" },
+  { key: "requests", label: "Leave and corrections", hint: "Requests waiting for your decision, and decisions on yours" },
+  { key: "pay", label: "My pay", hint: "Your payslip is ready, your claim was approved or declined" },
 ]
 
 /** The scheduled morning notifications, for the settings screen's Daily section. */

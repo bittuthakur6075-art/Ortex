@@ -1,5 +1,6 @@
+import AsyncStorage from "@react-native-async-storage/async-storage"
 import * as Notifications from "expo-notifications"
-import { Platform } from "react-native"
+import { Alert, Platform } from "react-native"
 
 import type { AppNotification, NotificationActionId } from "@/domain/notifications"
 
@@ -13,8 +14,8 @@ import type { AppNotification, NotificationActionId } from "@/domain/notificatio
  * FCM/APNs credentials, no device-token table, no server fan-out and nothing new
  * to keep in step with the console. The cost is honest and worth stating: the
  * app must be running (foreground, or alive in the background) for a signal to
- * reach the shade. Waking a killed app needs FCM, which is a separate piece of
- * work — see docs in Ortex.Mobile/README.md.
+ * reach the shade. A killed app is reached by server push (lib/remotePush.ts,
+ * docs/guides/PUSH_SETUP.md), which uses the same ids as Android tags.
  *
  * Every notification carries its ACTIONS, because on a field-sales phone the
  * answer to "new lead from Rakesh, 5000 lanyards" is to ring Rakesh, and that
@@ -71,19 +72,22 @@ let configured = false
 
 // A tapped or actioned notification should open the app, not just dismiss.
 //
-// A REMOTE lead (lib/remotePush.ts, sent by the push-notify function) that lands
-// while the app is in the foreground is not shown: the engine posts its own copy
-// of the same lead, with the Call / WhatsApp buttons the server's cannot carry,
-// and reloads the collection on arrival so it does so even if realtime missed
-// the row. In the background Android draws the server's copy itself and this
-// handler is never asked.
+// A SERVER push (lib/remotePush.ts, sent by the push-notify function) that lands
+// while the app is in the foreground is not shown when the app posts its own
+// copy from realtime: leads (the engine, with the Call / WhatsApp buttons the
+// server's cannot carry; it reloads the collection on arrival so it does so even
+// if realtime missed the row), chat (ChatNotifier), leave and corrections
+// (AttendanceApprovalAlerts) and payslips (PayslipAlerts). A claim decision has
+// no local copy, so it shows. In the background Android draws the server's copy
+// itself and this handler is never asked.
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
-    const remote = isRemoteLead(notification)
+    const data = notification.request.content.data as Record<string, unknown> | undefined
+    const hide = data?.remote === "1" && data.kind !== "claim"
     return {
-      shouldShowBanner: !remote,
-      shouldShowList: !remote,
-      shouldPlaySound: !remote,
+      shouldShowBanner: !hide,
+      shouldShowList: !hide,
+      shouldPlaySound: !hide,
       shouldSetBadge: true,
     }
   },
@@ -92,7 +96,7 @@ Notifications.setNotificationHandler({
 /** A lead sent by the server (push-notify) rather than posted by this phone. */
 export function isRemoteLead(notification: Notifications.Notification): boolean {
   const data = notification.request.content.data as Record<string, unknown> | undefined
-  return data?.remote === "1"
+  return data?.remote === "1" && data.kind === "lead"
 }
 
 /**
@@ -169,6 +173,40 @@ export async function ensurePushPermission(): Promise<boolean> {
     if (!current.canAskAgain) return false
     const next = await Notifications.requestPermissionsAsync()
     return next.granted
+  } catch {
+    return false
+  }
+}
+
+const ASKED_KEY = "ortex.push.asked"
+const ASK_AGAIN_MS = 7 * 86400000
+
+/**
+ * The first ask after sign-in, with a reason before Android's bare prompt.
+ * Never on the login screen (the engine that calls this mounts only once signed
+ * in). "Not now" is remembered for a week, so a cold start does not nag; the
+ * Notifications settings screen asks straight away whenever the person wants.
+ */
+export async function askPushPermission(): Promise<boolean> {
+  try {
+    const current = await Notifications.getPermissionsAsync()
+    if (current.granted) return true
+    if (!current.canAskAgain) return false
+    const last = Number(await AsyncStorage.getItem(ASKED_KEY).catch(() => null)) || 0
+    if (Date.now() - last < ASK_AGAIN_MS) return false
+    await AsyncStorage.setItem(ASKED_KEY, String(Date.now())).catch(() => {})
+    const allow = await new Promise<boolean>((resolve) =>
+      Alert.alert(
+        "Allow notifications?",
+        "Ortex rings this phone for new leads, chat messages, leave decisions and payslips, even when the app is closed.",
+        [
+          { text: "Not now", style: "cancel", onPress: () => resolve(false) },
+          { text: "Allow", onPress: () => resolve(true) },
+        ],
+        { cancelable: true, onDismiss: () => resolve(false) },
+      ),
+    )
+    return allow ? ensurePushPermission() : false
   } catch {
     return false
   }
@@ -316,7 +354,7 @@ export async function presentChatNotification(m: {
     content: {
       title: m.title,
       body: m.body,
-      data: { id: `chat-msg-${m.messageId}`, targetScreen: "ChatThread", targetId: m.conversationId, phone: "", title: m.title, chat: "1" },
+      data: { id: `chat-msg-${m.messageId}`, targetScreen: "ChatThread", targetId: m.conversationId, phone: "", title: m.title, chat: "1", kind: "chat" },
       categoryIdentifier: CATEGORY_PLAIN,
       priority: Notifications.AndroidNotificationPriority.HIGH,
       color: "#2F50E4",

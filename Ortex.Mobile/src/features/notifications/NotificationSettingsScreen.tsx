@@ -179,9 +179,10 @@ export default function NotificationSettingsScreen({
 
       <Panel padded>
         <Text style={[textVariants.small, { color: t.textTertiary }]}>
-          Lead alerts are worked out on this phone from the leads it has already loaded, so they
-          arrive while the app is running. The daily updates are scheduled on the phone and arrive
-          even when it is closed; their figures are the ones the app saw when it last ran.
+          While the app is running, alerts are worked out on this phone from what it has loaded.
+          When it is closed, leads, chat, leave and pay alerts come from the Ortex server, and the
+          switches above apply to those too. The daily updates are scheduled on the phone; their
+          figures are the ones the app saw when it last ran.
           Invoices, payments and the sales pipeline stay in the console and are not announced here.
         </Text>
       </Panel>

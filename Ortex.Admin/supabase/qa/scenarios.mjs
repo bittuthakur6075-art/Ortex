@@ -1130,6 +1130,45 @@ await scenario("0073 lead delete is admins only", async () => {
   await run("service", "update profiles set modules = '[]' where id = $1", [U.SALES])
 })
 
+await scenario("0074 pay push triggers and muted push categories", async () => {
+  const calls = () => val(null, "select count(*)::int from net.calls")
+  const claim = () => val(U.STAFF1, "select claim_submit('Travel', 250, $1::date, 'push test', null)", [today])
+  const slip = await one(null, "select id from payslips where released_at is not null and status = 'included' limit 1")
+  check("a released payslip exists to replay", !!slip, "a row", slip)
+  const release = () => run(null, "update payslips set released_at = null where id = $1", [slip.id])
+    .then(() => run(null, "update payslips set released_at = now() where id = $1", [slip.id]))
+
+  // No Vault secrets: every write goes through, and nothing is called.
+  const before = await calls()
+  eq("claim approved with no Vault secrets", await err(U.PAY, "select claim_decide($1, true, null)", [await claim()]), null)
+  eq("claim rejected with no Vault secrets", await err(U.PAY, "select claim_decide($1, false, 'No bill')", [await claim()]), null)
+  await release()
+  eq("payslip released with no Vault secrets", await val(null, "select released_at is not null from payslips where id = $1", [slip.id]), true)
+  eq("nothing posted without the secrets", await calls(), before)
+
+  // With them, each event posts once; a claimant's own cancel posts nothing.
+  await run(null, "select vault.create_secret('https://example.invalid/functions/v1/push-notify', 'push_notify_url'), vault.create_secret('s3cret', 'push_notify_secret')")
+  const c = await claim()
+  await run(U.PAY, "select claim_decide($1, true, null)", [c])
+  await run(U.STAFF1, "select claim_cancel($1)", [await claim()])
+  await release()
+  const posted = (await run(null, "select body from net.calls order by id desc limit 2")).rows.map((r) => r.body)
+  eq("claim decision and payslip release each post once", await calls(), before + 2)
+  eq("bodies name the table and row", posted.reverse().map((b) => [b.table, b.id]), [["reimbursement_claims", c], ["payslips", slip.id]])
+  await run(null, "delete from vault.secrets where name in ('push_notify_url', 'push_notify_secret')")
+
+  // Registration: the old 3-argument call still works and keeps the mutes.
+  const tok = "t".repeat(40)
+  await run(U.STAFF1, "select register_push_device($1, 'android', '1.9.0', $2)", [tok, ["chat", "pay"]])
+  eq("muted saved", await val(null, "select muted from push_devices where token = $1", [tok]), ["chat", "pay"])
+  await run(U.STAFF1, "select register_push_device(p_token => $1, p_platform => 'android', p_app_version => '1.8.0')", [tok])
+  eq("an old app's call keeps the mutes", await val(null, "select muted from push_devices where token = $1", [tok]), ["chat", "pay"])
+  await run(U.STAFF2, "select register_push_device(p_token => $1, p_platform => 'android', p_app_version => '1.8.0')", [tok])
+  eq("a token moving to another person starts unmuted", await one(null, "select user_id, muted from push_devices where token = $1", [tok]), { user_id: U.STAFF2, muted: [] })
+  like("too many categories refused", await err(U.STAFF2, "select register_push_device($1, 'android', '1', $2)", [tok, Array(11).fill("x")]), /too many/)
+  await run(null, "delete from push_devices where token = $1", [tok])
+})
+
 // ---- report -----------------------------------------------------------------------------
 console.log("")
 let fails = 0

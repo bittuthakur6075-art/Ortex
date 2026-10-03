@@ -3,7 +3,7 @@ import React from "react"
 import { Platform } from "react-native"
 
 import { supabase } from "@/data/supabase"
-import { money, monthLabel, type PayslipData } from "@/features/pay/payFormat"
+import { monthLabel, type PayslipData } from "@/features/pay/payFormat"
 import { useNotificationStore } from "@/lib/notificationStore"
 import { CHANNEL_REMINDERS } from "@/lib/push"
 import { useAuth } from "@/store/AuthContext"
@@ -17,7 +17,7 @@ import { useAuth } from "@/store/AuthContext"
  * RootNavigator's authenticated branch.
  */
 
-type Row = { id?: string; user_id?: string; released_at?: string | null; net_pay?: number | string; data?: PayslipData }
+type Row = { id?: string; user_id?: string; released_at?: string | null; data?: PayslipData }
 
 // A release is announced once per app run, whatever later event touches the row.
 const announced = new Set<string>()
@@ -26,7 +26,7 @@ export default function PayslipAlerts() {
   const { session } = useAuth()
   const uid = session?.user?.id
   const { prefs } = useNotificationStore()
-  const enabled = prefs.enabled
+  const enabled = prefs.enabled && prefs.pay !== false
 
   React.useEffect(() => {
     if (!uid || !enabled) return
@@ -54,16 +54,16 @@ async function announce(row: Row) {
   const id = row.id!
   if (announced.has(id)) return
   announced.add(id)
-  const month = row.data?.month ? monthLabel(row.data.month) : "This month's"
-  const net = row.data?.netPay ?? row.net_pay
+  // No amount: the shade is readable on a locked phone. The same words and tag
+  // as the server push (push-notify, migration 0074), so the copies replace each other.
   const tag = `payslip-${id}`
   await Notifications.scheduleNotificationAsync({
     identifier: tag,
     content: {
-      title: `Your ${month} payslip is ready`,
-      body: net != null ? `Net pay ${money(net)}. Tap to see the breakup or download the PDF.` : "Tap to see it.",
+      title: row.data?.month ? `Your payslip for ${monthLabel(row.data.month)} is ready` : "Your payslip is ready",
+      body: "Tap to see the breakup or download the PDF.",
       color: "#2F50E4",
-      data: { id: tag, targetScreen: "Payslip", targetId: id, phone: "", title: "Payslip" },
+      data: { id: tag, targetScreen: "Payslip", targetId: id, phone: "", title: "Payslip", kind: "pay" },
     },
     trigger: Platform.OS === "android" ? { channelId: CHANNEL_REMINDERS } : null,
   }).catch(() => {})
