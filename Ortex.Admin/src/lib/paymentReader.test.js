@@ -412,3 +412,17 @@ describe("paymentDirection: other names and accounts that mean us", () => {
     expect(paymentDirection({ payeeName: "Ram" }, { name: "Ortex Industries", paymentAliases: ["", "Ram", "  "] })).toBe(null)
   })
 })
+
+describe("a ₹ fused into the first digit", () => {
+  it("keeps that digit when OCR boxed the ₹ and the 7 together", () => {
+    // Google Pay "₹72.00" read as "72.00" at low confidence: without the box
+    // width it reads as ₹2 (the 7 taken for the ₹), with it as ₹72.
+    expect(headlineAmount("72.00", 35, true)).toEqual({ amount: 2, alt: 72 })
+    expect(headlineAmount("72.00", 35, true, true)).toEqual({ amount: 72, alt: null })
+    const r = parseReceiptText("72.00\nCompleted\nSent to\nSaroj Kumar Sahu\n16 Aug 2026, 7:57 pm\nTransaction ID\n110452974474", 90, { "72.00": 35 }, "72.00", true)
+    expect([r.amount, r.amountAlt]).toEqual([72, null])
+  })
+  it("still doubts a normal-width leading 3 (a ₹ read as 3)", () => {
+    expect(headlineAmount("34,000.00", 41, true, false)).toEqual({ amount: 4000, alt: 34000 })
+  })
+})

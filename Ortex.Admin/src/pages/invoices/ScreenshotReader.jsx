@@ -73,6 +73,20 @@ function recogniser() {
 // `onClear` runs when the X removes the screenshot, so the form can drop what
 // it filled. One read at a time: a screenshot dropped or pasted while one is
 // being read is ignored, and a read that ends after X was pressed is discarded.
+/**
+ * Did OCR fuse the ₹ into the first digit? Its box is then about two digits
+ * wide (measured on a real Google Pay "₹72.00": 136px against 62px). Passed to
+ * the parser so it keeps that digit instead of taking it for a misread ₹.
+ */
+function firstSymbolWide(line) {
+  const symbols = (line?.words || []).flatMap((w) => w.symbols || []).filter((s) => /\S/.test(s.text))
+  const width = (s) => s.bbox.x1 - s.bbox.x0
+  const digits = symbols.slice(1).filter((s) => /\d/.test(s.text)).map(width).sort((a, b) => a - b)
+  if (!symbols.length || !/\d/.test(symbols[0].text) || digits.length < 2) return false
+  const median = digits[Math.floor(digits.length / 2)]
+  return median > 0 && width(symbols[0]) >= 1.6 * median
+}
+
 export default function ScreenshotReader({ onRead, onClear }) {
   const input = useRef(null)
   const [preview, setPreview] = useState("")
@@ -107,6 +121,9 @@ export default function ScreenshotReader({ onRead, onClear }) {
   const read = async (file) => {
     if (busyRef.current) return
     if (!file || !file.type.startsWith("image/")) return setError("Choose an image.")
+    // A new screenshot replaces the last one at once: what it filled goes now,
+    // not when the new reading arrives (which may find less).
+    callbacks.current.onClear?.()
     const ticket = ++seq.current
     busyRef.current = true
     setBusy(true)
@@ -123,7 +140,9 @@ export default function ScreenshotReader({ onRead, onClear }) {
         const lineConf = {}
         for (const line of lines) lineConf[line.text.replace(/\s+/g, "")] = Math.min(...line.words.map((w) => w.confidence))
         const headline = pickHeadline(lines.map((l) => ({ text: l.text, height: l.bbox.y1 - l.bbox.y0 })))
-        return { ...parseReceiptText(data.text, data.confidence, lineConf, headline), text: data.text }
+        const squash = (t) => String(t || "").replace(/\s+/g, "")
+        const wide = firstSymbolWide(lines.find((l) => squash(l.text) === squash(headline)))
+        return { ...parseReceiptText(data.text, data.confidence, lineConf, headline, wide), text: data.text }
       }
       // Greyscale first. Only for what is still missing: a thresholded pass,
       // then a small one for a headline amount too large to be recognised or unclear.

@@ -307,7 +307,7 @@ const INDIAN = /^(?:\d{1,3}|\d{1,2}(?:,\d{2})*,\d{3}|\d{1,7})(?:\.\d{1,2})?$/
  * or decimals ("453"): only for the line printed in the largest font, since
  * elsewhere a bare number is as likely a phone number or a pincode.
  */
-export function headlineAmount(line, wordConf = 100, bare = false) {
+export function headlineAmount(line, wordConf = 100, bare = false, firstWide = false) {
   const s = String(line || "").replace(/\s+/g, "")
   if (!/^[^\d,.]?[0-9,.]+$/.test(s)) return null
   const money = (v) => (bare || /[,.]/.test(v)) && INDIAN.test(v)
@@ -315,6 +315,9 @@ export function headlineAmount(line, wordConf = 100, bare = false) {
   const read = s.replace(/^[^\d,.]/, "")
   const glyph = /^[2378]/.test(read) && money(read.slice(1)) ? read.slice(1) : ""
   if (!money(read)) return glyph ? { amount: parseAmount(glyph), alt: null } : null
+  // OCR fused the ₹ and the first digit into one box about two digits wide: the
+  // digit it printed is real ("₹72" read as "72"), so nothing is stripped.
+  if (firstWide && !symbol) return { amount: parseAmount(read), alt: null }
   // A symbol already stood for the ₹, or the digit is not one it turns into.
   if (symbol || !glyph) return { amount: parseAmount(read), alt: null }
   const [amount, alt] = wordConf < 75 ? [glyph, read] : [read, glyph]
@@ -458,7 +461,7 @@ export function readingScore(r) {
  * OCR text of a payment screenshot -> the raw reading normalizeReading() takes.
  * `ocrConfidence` is Tesseract's 0..100 for the whole image.
  */
-export function parseReceiptText(text, ocrConfidence = 100, wordConf = {}, headline = "") {
+export function parseReceiptText(text, ocrConfidence = 100, wordConf = {}, headline = "", headlineWide = false) {
   const lines = String(text || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
   const all = lines.join("\n")
 
@@ -481,7 +484,7 @@ export function parseReceiptText(text, ocrConfidence = 100, wordConf = {}, headl
   let amountAlt = null
   // The figure in the largest font, from the recogniser's line boxes.
   if (!amount && headline) {
-    const hit = headlineAmount(headline, wordConf[headline.replace(/\s+/g, "")] ?? 100, true)
+    const hit = headlineAmount(headline, wordConf[headline.replace(/\s+/g, "")] ?? 100, true, headlineWide)
     if (hit) ({ amount, alt: amountAlt } = hit)
   }
   if (!amount) {
