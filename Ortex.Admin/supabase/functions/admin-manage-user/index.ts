@@ -17,7 +17,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
-import { requireStaff } from "../_shared/auth.ts"
+import { OWNER_ONLY, requireStaff } from "../_shared/auth.ts"
 import { consoleUrl, isMailerConfigured, sendMail } from "../_shared/mailer.ts"
 import { passwordResetEmail } from "../_shared/emails.ts"
 
@@ -42,16 +42,23 @@ Deno.serve(async (req) => {
 
     const admin = createClient(url, service)
     const { data: target } = await admin
-      .from("profiles").select("id, email, name, role, active").eq("id", id).maybeSingle()
+      .from("profiles").select("id, email, name, role, active, is_owner").eq("id", id).maybeSingle()
     if (!target) return json({ error: "That user no longer exists" }, 404)
 
-    // Migration 0032: the Super Admin is untouchable here (the database refuses
-    // too), and only the Super Admin acts on an Admin.
-    if (target.role === "super_admin" && id !== staff.userId) {
-      return json({ error: "The Super Admin account can only be changed by the Super Admin" }, 403)
+    // Migrations 0032 and 0067, checked before any auth.admin call (a ban or a
+    // password is not a profiles write, so the database cannot see it):
+    //   the Owner can never be disabled or deleted, by anyone, and only the
+    //   Owner resets their own password;
+    //   only the Owner acts on another Super Admin;
+    //   only a Super Admin acts on an Admin.
+    if (target.is_owner) {
+      if (action === "delete" || (action === "set-active" && !body?.active)) {
+        return json({ error: "The Owner cannot be disabled or deleted." }, 400)
+      }
+      if (id !== staff.userId) return json({ error: "Only the Owner can change the Owner's account." }, 403)
     }
-    if (target.role === "super_admin" && (action === "delete" || (action === "set-active" && !body?.active))) {
-      return json({ error: "The Super Admin cannot be disabled or deleted. Hand the role over first." }, 400)
+    if (target.role === "super_admin" && id !== staff.userId && !staff.isOwner) {
+      return json({ error: OWNER_ONLY }, 403)
     }
     if (target.role === "admin" && staff.role !== "super_admin") {
       return json({ error: "Only the Super Admin can change an Admin's account" }, 403)

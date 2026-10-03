@@ -26,7 +26,7 @@ import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { supabase } from "@/data/supabase"
-import { canAccess, isAdmin } from "@/domain/modules"
+import { canAccess, isAdmin, roleLabel } from "@/domain/modules"
 import { hasDefaults } from "@/domain/quotationDefaults"
 import { APP_CREDIT, APP_VERSION } from "@/constants/app"
 import { biometricAvailable } from "@/features/auth/useAppLock"
@@ -185,7 +185,7 @@ export default function ProfileScreen({ navigation }: StackScreenProps<"Profile"
           name={headName}
           email={email}
           photo={photo}
-          role={profile?.role}
+          role={profile?.role ? roleLabel(profile) : undefined}
           joined={profile?.created_at}
           onPhoto={() => setPhotoOpen(true)}
           onOpen={(screen) => navigation.navigate(screen)}

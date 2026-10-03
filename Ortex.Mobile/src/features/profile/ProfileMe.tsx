@@ -3,7 +3,6 @@ import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
 import { dayKey } from "@/domain/attendance"
-import { roleLabel } from "@/domain/modules"
 import { hoursShort } from "@/features/attendance/format"
 import { workedMs } from "@/features/attendance/progress"
 import { useAttendanceToday } from "@/features/attendance/useAttendance"
@@ -44,6 +43,7 @@ export default function ProfileMe({
   name: string
   email: string
   photo?: string
+  /** The role as shown, e.g. "Sales Executive" or "Super Admin · Owner". */
   role?: string
   joined?: string
   onPhoto: () => void
@@ -135,7 +135,7 @@ export default function ProfileMe({
           <View style={styles.roleRow}>
             {!!role && (
               <View style={[styles.role, { backgroundColor: t.primary10 }]}>
-                <Text style={[textVariants.captionStrong, { color: t.primary }]}>{roleLabel(role)}</Text>
+                <Text style={[textVariants.captionStrong, { color: t.primary }]}>{role}</Text>
               </View>
             )}
             {!!joined && (

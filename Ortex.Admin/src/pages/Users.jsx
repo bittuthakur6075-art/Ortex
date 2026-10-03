@@ -108,7 +108,7 @@ function People() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{p.email}</td>
                     <td className="px-4 py-3">
-                      <Badge tone={ROLE_TONE[p.role] || "blue"}>{roleLabel(p.role)}</Badge>
+                      <Badge tone={ROLE_TONE[p.role] || "blue"}>{roleLabel(p)}</Badge>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {(() => {

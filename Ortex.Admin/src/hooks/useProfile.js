@@ -13,7 +13,7 @@ import { useAuth, currentUserId } from "../lib/auth"
 import { ALL_MODULE_KEYS } from "../data/domain/modules"
 import { isAdmin } from "../lib/roles"
 
-const LOCAL_ADMIN = { role: "super_admin", modules: ALL_MODULE_KEYS, name: "Local", email: "" }
+const LOCAL_ADMIN = { role: "super_admin", is_owner: true, modules: ALL_MODULE_KEYS, name: "Local", email: "" }
 
 // Every mounted useProfile() subscribes here, so one save re-reads the row for
 // the whole app (header avatar, popover, /profile) instead of just the caller.

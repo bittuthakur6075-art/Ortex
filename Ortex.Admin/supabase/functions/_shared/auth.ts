@@ -19,6 +19,8 @@ export type Staff = {
   userId: string
   email: string | undefined
   role: string
+  /** profiles.is_owner (migration 0067): the one permanent Owner. */
+  isOwner: boolean
   /** Service-role client when the key is configured, otherwise the caller's own session. */
   db: Db
 }
@@ -27,6 +29,8 @@ export type Staff = {
 export const ALL_ROLES = ["super_admin", "admin", "accounts", "sales", "staff"]
 export const ADMIN_ROLES = ["super_admin", "admin"]
 export const isAdminRole = (role: unknown) => role === "admin" || role === "super_admin"
+/** The database's refusal for the same rule (0067, owner_only_message()). */
+export const OWNER_ONLY = "Only the Owner (Louis Sharma) can make or remove a Super Admin."
 
 /**
  * Resolve the caller to an active staff profile with one of `roles`.
@@ -52,11 +56,11 @@ export async function requireStaff(
     ? createClient(url, service)
     : createClient(url, anon, { global: { headers: { Authorization: authHeader } } })
   const { data: prof } = await reader
-    .from("profiles").select("role, active").eq("id", userData.user.id).maybeSingle()
+    .from("profiles").select("role, active, is_owner").eq("id", userData.user.id).maybeSingle()
   // Asking for "admin" admits the Super Admin too: they are an admin with more.
   const allowed = roles.includes("admin") ? [...roles, "super_admin"] : roles
   if (!prof || prof.active === false || !allowed.includes(prof.role)) {
     return json({ error: forbiddenMessage }, 403)
   }
-  return { userId: userData.user.id, email: userData.user.email, role: prof.role, db: reader }
+  return { userId: userData.user.id, email: userData.user.email, role: prof.role, isOwner: prof.is_owner === true, db: reader }
 }

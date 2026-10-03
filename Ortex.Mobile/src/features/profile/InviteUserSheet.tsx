@@ -2,7 +2,7 @@ import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
 import { supabase, errorMessage } from "@/data/supabase"
-import { DEFAULT_ROLE_MODULES, MODULES, ROLE_LABEL, isSuperAdmin } from "@/domain/modules"
+import { DEFAULT_ROLE_MODULES, MODULES, ROLE_LABEL, isOwner, isSuperAdmin } from "@/domain/modules"
 import { emailProblem } from "@/features/contacts/validateContact"
 import { feedback } from "@/lib/feedback"
 import { useAuth } from "@/store/AuthContext"
@@ -52,6 +52,12 @@ const ROLES = [
   { key: "staff", label: ROLE_LABEL.staff, description: "Attendance and leave only" },
 ]
 const ADMIN_CHOICE = { key: "admin", label: ROLE_LABEL.admin, description: "Everything except the Super Admin's settings" }
+// Only the Owner makes a Super Admin (migration 0067); the description is the warning.
+const SUPER_ADMIN_CHOICE = {
+  key: "super_admin",
+  label: ROLE_LABEL.super_admin,
+  description: "Can change every setting, see payroll and manage everyone except the Owner",
+}
 
 export default function InviteUserSheet({
   visible,
@@ -65,7 +71,11 @@ export default function InviteUserSheet({
   const t = useTheme()
   const toast = useToast()
   const { profile } = useAuth()
-  const roles = isSuperAdmin(profile) ? [...ROLES, ADMIN_CHOICE] : ROLES
+  const roles = isOwner(profile)
+    ? [...ROLES, ADMIN_CHOICE, SUPER_ADMIN_CHOICE]
+    : isSuperAdmin(profile)
+      ? [...ROLES, ADMIN_CHOICE]
+      : ROLES
 
   const [name, setName] = React.useState("")
   const [email, setEmail] = React.useState("")
@@ -116,7 +126,7 @@ export default function InviteUserSheet({
           modules: [],
           notify: true,
           moduleLabels:
-            role === "admin" ? ["Every module"] : MODULES.filter((m) => granted.includes(m.key)).map((m) => m.label),
+            role === "admin" || role === "super_admin" ? ["Every module"] : MODULES.filter((m) => granted.includes(m.key)).map((m) => m.label),
         },
       })
       // A function that refuses reports it in the BODY as well as the status, and

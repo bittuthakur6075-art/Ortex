@@ -17,9 +17,10 @@ export default function RowActions({ user, selfId, onEdit, onChanged }) {
   const [busy, setBusy] = useState(false)
   const ref = useRef(null)
   const isSelf = user.id === selfId
-  // Admins manage Accounts, Sales and Staff; only the Super Admin manages an
-  // Admin, and the Super Admin's own account (migration 0032). The server
-  // refuses the rest anyway, so an action it would refuse is not offered.
+  // Admins manage Accounts, Sales and Staff; a Super Admin manages Admins and
+  // their own account; only the Owner manages another Super Admin, and nobody
+  // the Owner (migrations 0032, 0067). The server refuses the rest anyway, so an
+  // action it would refuse is not offered.
   const viewer = useProfile()
   const canManage = canManageUser(viewer, user)
 

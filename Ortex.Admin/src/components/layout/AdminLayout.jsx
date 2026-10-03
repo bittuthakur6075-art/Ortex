@@ -304,7 +304,7 @@ function AccountMenu({ onSignOut, onNavigate }) {
   const ref = useRef(null)
   const email = profile?.email || currentEmail() || ""
   const name = profile?.name || email || "Account"
-  const role = profile ? roleLabel(profile.role) : ""
+  const role = profile ? roleLabel(profile) : ""
   const photo = profile?.avatar_url || ""
   useDismiss(open, setOpen, ref)
   const close = () => {

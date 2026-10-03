@@ -2,9 +2,12 @@
 // shared by the Users, Profile and Roles & permissions pages. Mirrored by
 // Ortex.Mobile/src/domain/modules.ts.
 //
-// There is exactly ONE Super Admin (the owner). They are an admin everywhere an
-// admin is asked for, and alone can manage admins, company settings, the
-// attendance rules and the role permissions. The database enforces all of it.
+// Any number of Super Admins (migration 0067), each with full access: an admin
+// everywhere an admin is asked for, and alone able to manage admins, company
+// settings, the attendance rules and the role permissions. One of them is the
+// Owner (profiles.is_owner, Louis Sharma, permanent): only the Owner makes or
+// removes a Super Admin, and nobody can change, deactivate or delete the Owner.
+// The database enforces all of it.
 
 import { MODULES } from "../data/domain/modules"
 
@@ -19,7 +22,7 @@ export const ROLE_LABEL = {
 }
 
 export const ROLE_DESCRIPTION = {
-  super_admin: "The owner. Everything, including admins, company settings and role permissions",
+  super_admin: "Full access. Everything, including admins, company settings, payroll and role permissions",
   admin: "Day-to-day operations. Everything except the Super Admin's settings",
   accounts: "Billing and payroll",
   sales: "Leads, customers and quotations",
@@ -37,22 +40,33 @@ const roleOf = (p) => (typeof p === "string" ? p : p?.role)
 /** Super Admin or Admin: every module, and every admin-only page. */
 export const isAdmin = (p) => roleOf(p) === "admin" || roleOf(p) === "super_admin"
 export const isSuperAdmin = (p) => roleOf(p) === "super_admin"
+/** The Owner: the one Super Admin nobody can change, and the only one who makes Super Admins. */
+export const isOwner = (p) => typeof p === "object" && p?.is_owner === true
 
 /** The roles this person may hand out when creating or editing a login. */
 export function assignableRoles(viewer) {
+  if (isOwner(viewer)) return ["super_admin", "admin", "accounts", "sales", "staff"]
   if (isSuperAdmin(viewer)) return ["admin", "accounts", "sales", "staff"]
   if (isAdmin(viewer)) return ["accounts", "sales", "staff"]
   return []
 }
 
-/** May `viewer` edit or act on `target`'s account? Mirrors 0032's trigger. */
+/**
+ * May `viewer` edit or act on `target`'s account? Mirrors the 0032/0067 triggers.
+ * A Super Admin's own account is theirs (name, password; never their own role or
+ * active flag), another Super Admin's only the Owner's, the Owner's nobody else's.
+ */
 export function canManageUser(viewer, target) {
   if (!isAdmin(viewer) || !target) return false
-  if (isSuperAdmin(target)) return isSuperAdmin(viewer) && viewer?.id === target.id
+  if (isSuperAdmin(target)) {
+    if (viewer?.id && viewer.id === target.id) return isSuperAdmin(viewer)
+    return isOwner(viewer) && !isOwner(target)
+  }
   if (isAdmin(target)) return isSuperAdmin(viewer)
   return true
 }
 
-export const roleLabel = (role) => ROLE_LABEL[role] || role
+/** A role, or a person's role: the Owner reads "Super Admin · Owner". */
+export const roleLabel = (who) => (isOwner(who) ? "Super Admin · Owner" : ROLE_LABEL[roleOf(who)] || roleOf(who))
 
 export const moduleLabel = (key) => MODULES.find((m) => m.key === key)?.label || key

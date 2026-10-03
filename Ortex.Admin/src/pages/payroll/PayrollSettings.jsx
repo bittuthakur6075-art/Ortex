@@ -72,7 +72,7 @@ export default function PayrollSettings() {
   return (
     <div className="space-y-5">
       <LoadError error={error} />
-      <Banner tone="info">Only you, the Super Admin, can change these. A change applies to pay runs calculated after it.</Banner>
+      <Banner tone="info">Only a Super Admin can change these. A change applies to pay runs calculated after it.</Banner>
       <Organisation settings={settings} onSave={save} />
       <Schedule settings={settings} onSave={save} />
       <Statutory settings={settings} onSave={save} />

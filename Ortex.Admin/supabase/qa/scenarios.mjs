@@ -84,7 +84,7 @@ await scenario("setup: profiles via signup trigger + service role", async () => 
   const roles = (await run(null, "select name, role, active from profiles order by name")).rows
   check("roles set", roles.every((r) => r.active), "all active", roles)
   like("admin cannot make someone super_admin",
-    await err(U.ADMIN, "update profiles set role = 'super_admin' where id = $1", [U.STAFF1]), /only one Super Admin|Only the Super Admin/)
+    await err(U.ADMIN, "update profiles set role = 'super_admin' where id = $1", [U.STAFF1]), /Only the Owner \(.+\) can make or remove a Super Admin/)
 })
 
 const today = await val(null, "select ((now() at time zone 'Asia/Kolkata')::date)::text")
@@ -869,6 +869,110 @@ await scenario("Payments second pass (0066 a-j)", async () => {
   eq("j: tally_mark on a legacy row failing the CHECK -> false, no error, row untouched", [j.ok, j.doc], [false, { type: "inflow", amount: "100" }])
 
   for (const id of [p, adv, legacy, acc, sacc]) await run(null, "delete from payments where id = $1", [id])
+})
+
+// ---- Owner and Super Admins (0067) ---------------------------------------------------------
+await scenario("Owner and Super Admins (0067)", async () => {
+  const CO = "00000000-0000-4000-8000-0000000000b1", CO2 = "00000000-0000-4000-8000-0000000000b2"
+  const NEW = "00000000-0000-4000-8000-0000000000b3"
+  for (const [id, n] of [[CO, "CO"], [CO2, "CO2"], [NEW, "NEW"]]) {
+    await run(null, "insert into auth.users (id, email, raw_user_meta_data) values ($1, $2, $3)", [id, `${n.toLowerCase()}@test.local`, JSON.stringify({ name: n })])
+  }
+  for (const id of [CO, CO2]) await run("service", "update profiles set role = 'admin', active = true where id = $1", [id])
+  const OWN = /Only the Owner \(.+\) can make or remove a Super Admin/
+  const prof = (id) => one(null, "select role, active, is_owner from profiles where id = $1", [id])
+
+  eq("the 0032 Super Admin is the Owner, and the only one", (await run(null, "select id from profiles where is_owner")).rows.map((r) => r.id), [U.SUPER])
+  eq("is_owner(): Owner true, Admin false", [await val(U.SUPER, "select is_owner()"), await val(U.ADMIN, "select is_owner()")], [true, false])
+  eq("the one-Super-Admin index is gone", await val(null, "select count(*)::int from pg_indexes where indexname = 'profiles_one_super_admin'"), 0)
+
+  // the Owner makes Super Admins
+  await run(U.SUPER, "update profiles set role = 'super_admin' where id = any($1)", [[CO, CO2]])
+  eq("the Owner promotes two Admins to Super Admin", [(await prof(CO)).role, (await prof(CO2)).role], ["super_admin", "super_admin"])
+  eq("a co-Super Admin passes is_super_admin, is_payroll, is_admin; not is_owner",
+    await one(CO, "select is_super_admin() sa, is_payroll() pay, is_admin() adm, is_owner() own"), { sa: true, pay: true, adm: true, own: false })
+
+  // a co-Super Admin keeps Super Admin powers
+  await run(null, "insert into settings (id, doc) values (true, '{}') on conflict (id) do nothing")
+  eq("co-Super Admin writes settings", (await run(CO, "update settings set doc = doc || '{\"qa67\":1}' where id")).affectedRows, 1)
+  eq("an Admin still cannot", (await run(U.ADMIN, "update settings set doc = doc || '{\"qa67\":2}' where id")).affectedRows, 0)
+  eq("co-Super Admin edits role grants", (await run(CO, "update role_permissions set modules = modules where role = 'staff'")).affectedRows, 1)
+  const unlock = await err(CO, "select attendance_unlock_month('2031-01-01', 'qa 0067')")
+  check("co-Super Admin may unlock a month", unlock === null || !/Only the Super Admin/.test(unlock), "not refused for role", unlock ?? "ok")
+  like("an Admin may not", await err(U.ADMIN, "select attendance_unlock_month('2031-01-01', 'qa 0067')"), /Only the Super Admin/)
+  await run(CO, "update profiles set modules_hidden = '[\"payments\"]' where id = $1", [U.SALES])
+  eq("co-Super Admin hides a module from a Sales person", (await one(null, "select modules_hidden from profiles where id = $1", [U.SALES])).modules_hidden, ["payments"])
+  await run(CO, "update profiles set modules_hidden = '[]' where id = $1", [U.SALES])
+  await run(CO, "update profiles set name = 'CO renamed' where id = $1", [CO])
+  eq("co-Super Admin edits their own name", (await one(null, "select name from profiles where id = $1", [CO])).name, "CO renamed")
+
+  // ...but not the Owner's powers
+  like("co-Super Admin cannot promote an Admin", await err(CO, "update profiles set role = 'super_admin' where id = $1", [U.ADMIN]), OWN)
+  like("co-Super Admin cannot create a Super Admin profile", await err(CO, "insert into profiles (id, email, role, active) values ($1, 'x', 'super_admin', true) on conflict (id) do update set role = 'super_admin'", [NEW]), OWN)
+  like("co-Super Admin cannot demote another Super Admin", await err(CO, "update profiles set role = 'admin' where id = $1", [CO2]), OWN)
+  like("co-Super Admin cannot deactivate another Super Admin", await err(CO, "update profiles set active = false where id = $1", [CO2]), OWN)
+  like("co-Super Admin cannot delete another Super Admin", await err(CO, "delete from profiles where id = $1", [CO2]), OWN)
+  like("co-Super Admin cannot demote themselves", await err(CO, "update profiles set role = 'admin' where id = $1", [CO]), OWN)
+  like("co-Super Admin cannot demote the Owner", await err(CO, "update profiles set role = 'admin' where id = $1", [U.SUPER]), /The Owner cannot be demoted or deactivated/)
+  like("co-Super Admin cannot deactivate the Owner", await err(CO, "update profiles set active = false where id = $1", [U.SUPER]), /The Owner cannot be demoted or deactivated/)
+  like("co-Super Admin cannot delete the Owner", await err(CO, "delete from profiles where id = $1", [U.SUPER]), /The Owner's account cannot be deleted/)
+  like("co-Super Admin cannot rename the Owner", await err(CO, "update profiles set name = 'x' where id = $1", [U.SUPER]), /Only the Owner can change the Owner's account/)
+  like("co-Super Admin cannot hide a module from the Owner", await err(CO, "update profiles set modules_hidden = '[\"payroll\"]' where id = $1", [U.SUPER]), /Only the Owner can change the Owner's account/)
+  like("co-Super Admin cannot make themselves Owner", await err(CO, "update profiles set is_owner = true where id = $1", [CO]), /The Owner cannot be changed/)
+  like("co-Super Admin cannot clear the Owner", await err(CO, "update profiles set is_owner = false where id = $1", [U.SUPER]), /The Owner cannot be changed/)
+  like("an Admin cannot rename the Owner", await err(U.ADMIN, "update profiles set name = 'x' where id = $1", [U.SUPER]), /Only the Owner can change the Owner's account/)
+  like("an Admin cannot promote to Super Admin", await err(U.ADMIN, "update profiles set role = 'super_admin' where id = $1", [U.STAFF2]), OWN)
+  like("an Admin still cannot grant admin", await err(U.ADMIN, "update profiles set role = 'admin' where id = $1", [U.STAFF2]), /Only the Super Admin can give someone the admin role/)
+  like("an Admin cannot deactivate a Super Admin", await err(U.ADMIN, "update profiles set active = false where id = $1", [CO]), OWN)
+  like("a Sales person cannot set is_owner on themselves", await err(U.SALES, "update profiles set is_owner = true where id = $1", [U.SALES]), /The Owner cannot be changed/)
+  like("nobody inserts a profile as Owner (the Owner included)", await err(U.SUPER, "insert into profiles (id, email, role, active, is_owner) values ($1, 'x', 'sales', true, true) on conflict (id) do update set is_owner = true", [NEW]), /The Owner cannot be changed/)
+  eq("the Owner is still one, unchanged", [await prof(U.SUPER), await val(null, "select count(*)::int from profiles where is_owner")], [{ role: "super_admin", active: true, is_owner: true }, 1])
+
+  // the Owner removes Super Admins, never themselves
+  await run(U.SUPER, "update profiles set active = false where id = $1", [CO])
+  eq("the Owner deactivates a co-Super Admin", (await prof(CO)).active, false)
+  await run(U.SUPER, "update profiles set active = true where id = $1", [CO])
+  await run(U.SUPER, "update profiles set role = 'admin' where id = $1", [CO2])
+  eq("the Owner demotes a co-Super Admin", (await prof(CO2)).role, "admin")
+  eq("the demoted one loses Super Admin powers", await one(CO2, "select is_super_admin() sa, is_payroll() pay"), { sa: false, pay: false })
+  await run(CO, "update profiles set active = false where id = $1", [CO2])
+  eq("a co-Super Admin manages an Admin", (await prof(CO2)).active, false)
+  like("the Owner cannot demote themselves", await err(U.SUPER, "update profiles set role = 'admin' where id = $1", [U.SUPER]), /The Owner cannot be demoted or deactivated/)
+  like("the Owner cannot deactivate themselves", await err(U.SUPER, "update profiles set active = false where id = $1", [U.SUPER]), /The Owner cannot be demoted or deactivated/)
+  like("the Owner cannot clear is_owner", await err(U.SUPER, "update profiles set is_owner = false where id = $1", [U.SUPER]), /The Owner cannot be changed/)
+  like("the Owner cannot give is_owner away", await err(U.SUPER, "update profiles set is_owner = true where id = $1", [CO]), /The Owner cannot be changed/)
+  like("the Owner cannot delete themselves", await err(U.SUPER, "delete from profiles where id = $1", [U.SUPER]), /The Owner's account cannot be deleted/)
+  const oldName = (await one(null, "select name from profiles where id = $1", [U.SUPER])).name
+  await run(U.SUPER, "update profiles set name = 'Louis Sharma' where id = $1", [U.SUPER])
+  eq("the Owner edits their own name", (await one(null, "select name from profiles where id = $1", [U.SUPER])).name, "Louis Sharma")
+  like("the refusal names the Owner", await err(CO, "update profiles set role = 'super_admin' where id = $1", [U.ADMIN]), /Only the Owner \(Louis Sharma\) can make or remove a Super Admin\./)
+  await run(null, "update profiles set name = $2 where id = $1", [U.SUPER, oldName])
+
+  // the service role (edge functions) and the auth cascade
+  like("service role cannot demote the Owner", await err("service", "update profiles set role = 'admin' where id = $1", [U.SUPER]), /The Owner cannot be demoted or deactivated/)
+  like("service role cannot deactivate the Owner", await err("service", "update profiles set active = false where id = $1", [U.SUPER]), /The Owner cannot be demoted or deactivated/)
+  like("service role cannot move is_owner", await err("service", "update profiles set is_owner = true where id = $1", [CO]), /The Owner cannot be changed/)
+  like("service role cannot delete the Owner", await err("service", "delete from profiles where id = $1", [U.SUPER]), /The Owner's account cannot be deleted/)
+  like("deleting the Owner's auth user is refused by the cascade", await err(null, "delete from auth.users where id = $1", [U.SUPER]), /The Owner's account cannot be deleted/)
+  await run("service", "update profiles set role = 'super_admin', active = true where id = $1", [CO2])
+  eq("service role (admin-create-user, after its Owner check) can make a Super Admin", (await prof(CO2)).role, "super_admin")
+  await run("service", "update profiles set role = 'sales', active = false, modules = '[]' where id = $1", [CO2])
+  eq("service role (admin-manage-user delete, after its Owner check) strips a Super Admin", (await prof(CO2)).role, "sales")
+
+  // no hand-over
+  like("transfer_super_admin: the Owner cannot call it", await err(U.SUPER, "select transfer_super_admin($1)", [CO]), /permission denied/)
+  like("transfer_super_admin: a co-Super Admin cannot call it", await err(CO, "select transfer_super_admin($1)", [U.SUPER]), /permission denied/)
+  like("transfer_super_admin refuses even from SQL", await err(null, "select transfer_super_admin($1)", [CO]), /The Owner cannot be changed/)
+  eq("the Owner is still the Owner", (await one(null, "select id from profiles where is_owner")).id, U.SUPER)
+
+  // staff_directory labels the Owner for everyone
+  eq("staff_directory carries is_owner", [await val(U.SALES, "select is_owner from staff_directory where id = $1", [U.SUPER]), await val(U.SALES, "select is_owner from staff_directory where id = $1", [CO])], [true, false])
+
+  // tidy: the extra people gone, settings as they were
+  await run(null, "update settings set doc = doc - 'qa67' where id")
+  await run(U.SUPER, "update profiles set role = 'sales', active = false where id = $1", [CO])
+  await run(null, "delete from auth.users where id = any($1)", [[CO, CO2, NEW]])
+  eq("one Super Admin again after tidy", await val(null, "select count(*)::int from profiles where role = 'super_admin'"), 1)
 })
 
 // ---- report -----------------------------------------------------------------------------

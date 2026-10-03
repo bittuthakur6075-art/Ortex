@@ -29,6 +29,8 @@ export type Profile = {
   moduleControls?: Record<string, ModuleControl>
   /** Modules the Super Admin hid from this person, whatever their role gives (migration 0055). */
   modules_hidden?: string[]
+  /** The Owner (migration 0067): one Super Admin, permanent. Written only by the database. */
+  is_owner?: boolean
   name?: string
   email?: string
   active?: boolean
@@ -138,6 +140,32 @@ export const isAdmin = (who: Profile | string | null | undefined) => {
 
 export const isSuperAdmin = (who: Profile | string | null | undefined) => roleOf(who) === "super_admin"
 
+/** The Owner: the one Super Admin nobody can change, and the only one who makes Super Admins. */
+export const isOwner = (who: Profile | string | null | undefined) => typeof who === "object" && who?.is_owner === true
+
+/** The roles this person may hand out when creating or editing a login (console lib/roles.js). */
+export function assignableRoles(viewer: Profile | null | undefined): Role[] {
+  if (isOwner(viewer)) return ["super_admin", "admin", "accounts", "sales", "staff"]
+  if (isSuperAdmin(viewer)) return ["admin", "accounts", "sales", "staff"]
+  if (isAdmin(viewer)) return ["accounts", "sales", "staff"]
+  return []
+}
+
+/**
+ * May `viewer` edit or act on `target`'s account? Mirrors the 0032/0067 triggers.
+ * A Super Admin's own account is theirs (name, password; never their own role or
+ * active flag), another Super Admin's only the Owner's, the Owner's nobody else's.
+ */
+export function canManageUser(viewer: Profile | null | undefined, target: Profile | null | undefined): boolean {
+  if (!isAdmin(viewer) || !target) return false
+  if (isSuperAdmin(target)) {
+    if (viewer?.id && viewer.id === target.id) return isSuperAdmin(viewer)
+    return isOwner(viewer) && !isOwner(target)
+  }
+  if (isAdmin(target)) return isSuperAdmin(viewer)
+  return true
+}
+
 /** The role's grants: the loaded `roleModules`, else the seed defaults. */
 export function roleModulesOf(profile: Profile | null | undefined): string[] {
   if (!profile) return []
@@ -200,4 +228,9 @@ export const ROLE_TONE: Record<string, "amber" | "violet" | "emerald" | "blue" |
 /** Display order: most access first. */
 export const ROLE_ORDER: Role[] = ["super_admin", "admin", "accounts", "sales", "staff"]
 
-export const roleLabel = (role?: string) => (role ? ROLE_LABEL[role] || role : "")
+/** A role, or a person's role: the Owner reads "Super Admin · Owner". */
+export const roleLabel = (who?: Profile | string | null) => {
+  if (isOwner(who)) return "Super Admin · Owner"
+  const role = roleOf(who)
+  return role ? ROLE_LABEL[role] || role : ""
+}

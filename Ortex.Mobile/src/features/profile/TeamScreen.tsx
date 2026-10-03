@@ -347,7 +347,7 @@ function PersonRow({
         )}
         <View style={styles.metaLine}>
           <Pill
-            label={roleLabel(person.role) || "No role"}
+            label={roleLabel(person) || "No role"}
             fg={tone.fg}
             bg={tone.bg}
           />
@@ -370,7 +370,7 @@ function PersonRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${name}, ${roleLabel(person.role)}${off ? ", deactivated" : ""}`}
+      accessibilityLabel={`${name}, ${roleLabel(person)}${off ? ", deactivated" : ""}`}
       style={({ pressed }) => ({ opacity: pressed ? state.pressedOpacity : 1 })}
     >
       {body}

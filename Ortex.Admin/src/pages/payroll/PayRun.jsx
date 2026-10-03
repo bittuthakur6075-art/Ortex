@@ -315,7 +315,7 @@ export default function PayRun() {
         </Banner>
       )}
       {status === "pending_approval" && submittedByMe && !isSuperAdmin(profile) && (
-        <Banner tone="info">You submitted this run, so someone else with payroll access, or the Super Admin, has to approve it.</Banner>
+        <Banner tone="info">You submitted this run, so someone else with payroll access, or a Super Admin, has to approve it.</Banner>
       )}
       {(draft || status === "pending_approval") && needsLock && state.locked === false && (
         <Banner tone="warning">

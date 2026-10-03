@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react"
 import { toast } from "sonner"
 import { ShieldCheck } from "../../components/ui/Icons"
-import { Button, Input, Select, Field, Modal } from "../../components/ui/Ui"
+import { Banner, Button, Input, Select, Field, Modal } from "../../components/ui/Ui"
 import { updateProfile, createUser, setUserActive } from "../../services/users"
 import { ASSIGNABLE_MODULES } from "../../data/domain/modules"
-import { assignableRoles, isAdmin, isSuperAdmin, moduleLabel, ROLE_DESCRIPTION, roleLabel } from "../../lib/roles"
+import { assignableRoles, isAdmin, isOwner, isSuperAdmin, moduleLabel, ROLE_DESCRIPTION, roleLabel } from "../../lib/roles"
 import { useProfile } from "../../hooks/useProfile"
 import { useRolePermissions } from "../../hooks/useRolePermissions"
 import { randomPassword } from "./helpers"
@@ -19,9 +19,11 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
   const { grants } = useRolePermissions()
   const isEdit = Boolean(user)
   const isSelf = isEdit && user.id === selfId
-  // The Super Admin's role only changes hands through the transfer; nobody
-  // edits it here, the Super Admin included.
-  const roleLocked = isSelf || isSuperAdmin(user)
+  // Nobody changes their own role, nobody changes the Owner's (permanent), and
+  // only the Owner makes or removes a Super Admin (migration 0067).
+  const roleLocked = isSelf || isOwner(user) || (isEdit && isSuperAdmin(user) && !isOwner(viewer))
+  // Nobody deactivates the Owner, themselves included.
+  const activeLocked = isSelf || isOwner(user)
   const roleChoices = roleLocked ? [user.role] : assignableRoles(viewer)
   const [email, setEmail] = useState(user?.email || "")
   const [password, setPassword] = useState(isEdit ? "" : randomPassword())
@@ -174,7 +176,14 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
               <option key={r} value={r}>{roleLabel(r)}</option>
             ))}
           </Select>
-          <p className="mt-1.5 text-xs text-muted-foreground">{ROLE_DESCRIPTION[role]}</p>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {isEdit && isOwner(user) ? "The Owner. Full access, and nobody can change this account's role or access." : ROLE_DESCRIPTION[role]}
+          </p>
+          {!roleLocked && isSuperAdmin(role) && (
+            <Banner tone="warning" className="mt-2">
+              A Super Admin can change every setting, see payroll and manage everyone except the Owner.
+            </Banner>
+          )}
         </Field>
 
         <div>
@@ -185,7 +194,7 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
             <p className="flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2.5 text-sm text-muted-foreground">
               <ShieldCheck className="h-4 w-4 text-primary" />
               {isSuperAdmin(role)
-                ? "The Super Admin has access to everything."
+                ? "A Super Admin has access to everything."
                 : "Admins open every module the Super Admin has not taken off the Admin role. The Super Admin sets this, and any extra for one Admin, on the Modules page."}
             </p>
           ) : (
@@ -245,9 +254,9 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
               className="h-4 w-4 rounded border-border accent-primary"
               checked={active}
               onChange={(e) => setActive(e.target.checked)}
-              disabled={isSelf}
+              disabled={activeLocked}
             />
-            Account active {isSelf
+            Account active {activeLocked
               ? <span className="text-xs text-muted-foreground">(can't disable yourself)</span>
               : <span className="text-xs text-muted-foreground">(unticking hides every module; use the row menu to block sign-in too)</span>}
           </label>

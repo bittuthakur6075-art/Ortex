@@ -5,7 +5,8 @@ import { Avatar, Badge, Banner, Button, EmptyState, PageLoader } from "../../com
 import { EditorHeader, Section, Tile, Tiles } from "../../components/editors/DocumentEditorShell"
 import { Clock, FileText, Pencil, ShieldCheck, Users as UsersIcon } from "../../components/ui/Icons"
 import { formatDateTime, relativeTime } from "../../lib/format"
-import { isAdmin, isSuperAdmin, moduleLabel, roleLabel, ROLE_TONE } from "../../lib/roles"
+import { canManageUser, isAdmin, isSuperAdmin, moduleLabel, roleLabel, ROLE_TONE } from "../../lib/roles"
+import { useProfile } from "../../hooks/useProfile"
 import { ALL_MODULE_KEYS, reachableModules } from "../../data/domain/modules"
 import { useModuleControls } from "../../hooks/useModuleControls"
 import { useRolePermissions } from "../../hooks/useRolePermissions"
@@ -92,6 +93,7 @@ export default function UserDetail() {
     return c
   }, [entries])
 
+  const viewer = useProfile()
   const { grants } = useRolePermissions()
   const { controls } = useModuleControls()
 
@@ -122,16 +124,18 @@ export default function UserDetail() {
         badge={<Badge tone={user.active ? "emerald" : "rose"}>{user.active ? "Active" : "Deactivated"}</Badge>}
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-              <Pencil variant="Linear" className="h-4 w-4" /> Edit role &amp; access
-            </Button>
+            {canManageUser(viewer, user) && (
+              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                <Pencil variant="Linear" className="h-4 w-4" /> Edit role &amp; access
+              </Button>
+            )}
             <RowActions user={user} selfId={selfId} onEdit={() => setEditing(true)} onChanged={load} />
           </div>
         }
       />
 
       <Tiles>
-        <Tile icon={ShieldCheck} label="Role" value={roleLabel(user.role)} sub={user.id === selfId ? "This is you" : undefined} />
+        <Tile icon={ShieldCheck} label="Role" value={roleLabel(user)} sub={user.id === selfId ? "This is you" : undefined} />
         <Tile icon={FileText} label="Records created" value={counts.insert} tone="success" />
         <Tile icon={Pencil} label="Records edited" value={counts.update} tone="info" />
         <Tile
@@ -156,7 +160,7 @@ export default function UserDetail() {
           <dl className="mt-5 space-y-3 text-[13px]">
             <div className="flex items-center justify-between gap-3">
               <dt className="text-muted-foreground">Role</dt>
-              <dd><Badge tone={ROLE_TONE[user.role] || "blue"}>{roleLabel(user.role)}</Badge></dd>
+              <dd><Badge tone={ROLE_TONE[user.role] || "blue"}>{roleLabel(user)}</Badge></dd>
             </div>
             <div className="flex items-center justify-between gap-3">
               <dt className="text-muted-foreground">Sign-in</dt>
@@ -175,7 +179,7 @@ export default function UserDetail() {
             {everything ? (
               <p className="mt-2 flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2.5 text-[13px] text-muted-foreground">
                 <ShieldCheck className="h-4 w-4 text-primary" />
-                {isSuperAdmin(user) ? "Everything, including the Super Admin's settings." : "Every module, by role."}
+                {isSuperAdmin(user) ? "Everything, including the Super Admin settings." : "Every module, by role."}
               </p>
             ) : modules.length === 0 ? (
               // Not the same as "no access": the Dashboard is always granted, so

@@ -11,12 +11,14 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
-import { requireStaff } from "../_shared/auth.ts"
+import { OWNER_ONLY, requireStaff } from "../_shared/auth.ts"
 
-// What a new login can be given, and by whom (migration 0032). Nobody is ever
-// CREATED as Super Admin: there is exactly one, and it only changes hands.
-const CREATABLE = ["admin", "accounts", "sales", "staff"]
+// What a new login can be given, and by whom (migrations 0032, 0067): any
+// Super Admin creates an Admin, only the Owner creates a Super Admin. Nobody is
+// ever created as the Owner.
+const CREATABLE = ["super_admin", "admin", "accounts", "sales", "staff"]
 const ROLE_LABEL: Record<string, string> = {
+  super_admin: "Super Admin",
   admin: "Admin",
   accounts: "Accounts",
   sales: "Sales Executive",
@@ -40,7 +42,10 @@ Deno.serve(async (req) => {
     const { email, password, name, role, modules, notify = true, moduleLabels = [] } = await req.json()
     if (!email || !password) return json({ error: "Email and password are required" }, 400)
     if (String(password).length < 6) return json({ error: "Password must be at least 6 characters" }, 400)
-    if (!CREATABLE.includes(role)) return json({ error: "Role must be Admin, Accounts, Sales Executive or Staff" }, 400)
+    if (!CREATABLE.includes(role)) {
+      return json({ error: "Role must be Super Admin, Admin, Accounts, Sales Executive or Staff" }, 400)
+    }
+    if (role === "super_admin" && !staff.isOwner) return json({ error: OWNER_ONLY }, 403)
     if (role === "admin" && staff.role !== "super_admin") {
       return json({ error: "Only the Super Admin can create an Admin" }, 403)
     }

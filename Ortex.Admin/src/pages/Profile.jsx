@@ -49,7 +49,7 @@ function ProfileHeader({ profile }) {
           <div className="truncate text-sm text-muted-foreground">{email}</div>
         </div>
         <Badge tone={ROLE_TONE[profile.role] || "blue"} className="sm:mb-2">
-          {roleLabel(profile.role)}
+          {roleLabel(profile)}
         </Badge>
       </div>
     </Card>

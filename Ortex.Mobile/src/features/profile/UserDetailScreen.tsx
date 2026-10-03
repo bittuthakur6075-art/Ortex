@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import type { HistoryEntry } from "@/data/repo"
 import { errorMessage } from "@/data/supabase"
 import { formatDate, formatDateTime, relativeTime } from "@/domain/format"
-import { MODULES, ROLE_TONE, isAdmin, isSuperAdmin, roleLabel, roleModulesOf, type Profile } from "@/domain/modules"
+import { MODULES, ROLE_TONE, canManageUser, isAdmin, isOwner, roleLabel, roleModulesOf, type Profile } from "@/domain/modules"
 import { QuickAction } from "@/features/leads/leadUi"
 import { useActorHistory } from "@/hooks/useActorHistory"
 import { invalidateDirectory } from "@/hooks/useRecordHistory"
@@ -162,11 +162,11 @@ export default function UserDetailScreen({ navigation, route }: StackScreenProps
   const active = user.active !== false
   const admin = isAdmin(user)
   const roleTone = t.tones[ROLE_TONE[user.role || ""] || "slate"]
-  // Migration 0032's rules, mirrored so the page never offers what the server
-  // refuses: the Super Admin is only ever changed by themselves and can never be
-  // disabled; only the Super Admin acts on an Admin.
-  const canManage = isSelf || isSuperAdmin(me) || !admin
-  const canToggle = canManage && !isSelf && user.role !== "super_admin"
+  // Migrations 0032 and 0067, mirrored so the page never offers what the server
+  // refuses: only a Super Admin acts on an Admin, only the Owner on another
+  // Super Admin, and nobody on the Owner, who can never be disabled.
+  const canManage = isSelf || canManageUser(me, user)
+  const canToggle = canManage && !isSelf && !isOwner(user)
   const name = user.name?.trim() || user.email || "Unnamed user"
   const hasPhone = String(user.phone || "").replace(/\D/g, "").length >= 10
   // What they reach: their role's grants plus their own extras. This page does
@@ -266,7 +266,7 @@ export default function UserDetailScreen({ navigation, route }: StackScreenProps
             <View style={styles.pills}>
               <Pill
                 icon={admin ? "lock" : "customer"}
-                label={roleLabel(user.role) || "No role"}
+                label={roleLabel(user) || "No role"}
                 fg={roleTone.fg}
                 bg={roleTone.bg}
               />
@@ -357,7 +357,7 @@ export default function UserDetailScreen({ navigation, route }: StackScreenProps
 
         {/* Access */}
         <Panel title="Access">
-          <InfoRow icon="gst" label="Role" value={roleLabel(user.role) || "No role"} />
+          <InfoRow icon="gst" label="Role" value={roleLabel(user) || "No role"} />
           <InfoRow
             icon={active ? "tick" : "warning"}
             label="Sign-in"
@@ -406,8 +406,8 @@ export default function UserDetailScreen({ navigation, route }: StackScreenProps
             subtitle={
               isSelf
                 ? "You can't disable your own account"
-                : user.role === "super_admin"
-                  ? "The Super Admin can't be disabled"
+                : isOwner(user)
+                  ? "The Owner can't be disabled"
                   : active
                     ? "Sign them out everywhere and block sign-in"
                     : "Let them sign in again"

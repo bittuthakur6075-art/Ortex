@@ -138,7 +138,7 @@ export default function AccountDetailsScreen({ navigation }: StackScreenProps<"A
             onEdit={() => startEdit("phone")}
           />
           <FactRow icon="mail" label="Sign-in email" value={email} />
-          <FactRow icon="gst" label="Role" value={roleLabel(profile?.role)} />
+          <FactRow icon="gst" label="Role" value={roleLabel(profile)} />
         </Section>
         <Text style={[textVariants.caption, styles.hint, { color: t.textTertiary }]}>
           Your sign-in email and role are managed by an admin in the Ortex console.

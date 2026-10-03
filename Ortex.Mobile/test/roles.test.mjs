@@ -95,3 +95,35 @@ test("a module hidden from a person closes it despite their role", () => {
   assert.equal(canAccess(p({ role: "admin", modules_hidden: ["invoices"] }), "invoices"), false)
   assert.equal(canAccess(p({ role: "super_admin", modules_hidden: ["invoices"] }), "invoices"), true)
 })
+
+// Migration 0067: an Owner plus any number of Super Admins. The phone's copy of
+// the console's rules; Ortex.Admin/src/lib/roles.test.js checks every pair against it.
+const { assignableRoles, canManageUser, isOwner } = await loadTs("domain/modules.ts")
+const PEOPLE = [
+  { id: "o", role: "super_admin", is_owner: true },
+  { id: "s", role: "super_admin" },
+  { id: "s2", role: "super_admin", is_owner: false },
+  { id: "a", role: "admin" },
+  { id: "a2", role: "admin" },
+  { id: "c", role: "accounts" },
+  { id: "r", role: "sales" },
+  { id: "t", role: "staff" },
+]
+
+test("the Owner reads apart and alone hands out Super Admin", () => {
+  assert.equal(isOwner(PEOPLE[0]), true)
+  assert.equal(isOwner(PEOPLE[1]), false)
+  assert.equal(roleLabel(PEOPLE[0]), "Super Admin · Owner")
+  assert.equal(roleLabel(PEOPLE[1]), "Super Admin")
+  assert.deepEqual(assignableRoles(PEOPLE[0]), ["super_admin", "admin", "accounts", "sales", "staff"])
+  assert.deepEqual(assignableRoles(PEOPLE[1]), ["admin", "accounts", "sales", "staff"])
+})
+
+test("nobody manages the Owner but the Owner, and only the Owner another Super Admin", () => {
+  assert.equal(canManageUser(PEOPLE[1], PEOPLE[0]), false)
+  assert.equal(canManageUser(PEOPLE[0], PEOPLE[0]), true)
+  assert.equal(canManageUser(PEOPLE[0], PEOPLE[1]), true)
+  assert.equal(canManageUser(PEOPLE[2], PEOPLE[1]), false)
+  assert.equal(canManageUser(PEOPLE[1], PEOPLE[3]), true)
+  assert.equal(canManageUser(PEOPLE[3], PEOPLE[4]), false)
+})

@@ -5,7 +5,7 @@ import { useCollections, useSettings } from "../hooks/useCollection"
 import { useProfile } from "../hooks/useProfile"
 import { canAccess } from "../data/domain/modules"
 import { paymentsOrStored } from "../lib/invoiceMoney"
-import { isAdmin, isSuperAdmin } from "../lib/roles"
+import { isAdmin, isSuperAdmin, roleLabel } from "../lib/roles"
 import { currentUserId } from "../lib/auth"
 import { RANGES, approvalItems, attentionItems, computeToday, dailySparks } from "../lib/analytics/today"
 import { loadOps } from "../services/dashboard"
@@ -51,7 +51,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [range, setRange] = useState("30d")
   const admin = isAdmin(profile)
-  const owner = isSuperAdmin(profile)
+  const superAdmin = isSuperAdmin(profile)
 
   const access = useMemo(
     () => ({
@@ -98,8 +98,8 @@ export default function Dashboard() {
   const [ops, setOps] = useState(null)
   const refreshOps = useCallback(async () => {
     if (!profile) return
-    setOps(await loadOps({ attendance: access.attendance, people: admin, decide: admin, payroll: access.payroll, bot: admin, locks: owner }))
-  }, [profile, access.attendance, access.payroll, admin, owner])
+    setOps(await loadOps({ attendance: access.attendance, people: admin, decide: admin, payroll: access.payroll, bot: admin, locks: superAdmin }))
+  }, [profile, access.attendance, access.payroll, admin, superAdmin])
   useEffect(() => {
     void refreshOps()
     if (!repo.subscribe) return undefined
@@ -182,7 +182,7 @@ export default function Dashboard() {
               {greeting()}
               {firstName ? `, ${firstName}` : ""}
             </h1>
-            {admin && <Pill tone="violet">{owner ? "Super Admin" : "Admin"}</Pill>}
+            {admin && <Pill tone="violet">{roleLabel(profile)}</Pill>}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {items.length === 0 ? (
@@ -225,7 +225,7 @@ export default function Dashboard() {
           {access.attendance && ops?.punches && <TeamToday ops={ops} pendingLeave={(ops.leave || []).length} pendingCorrections={(ops.corrections || []).length} />}
           {access.invoices && <Receivables t={t} invoices={data.invoices || []} payments={data.payments || []} />}
           {(access.enquiries || access.voice) && <LeadSources data={data} range={range} />}
-          {admin && ops?.profiles && <PeopleAccess ops={ops} superAdmin={owner} />}
+          {admin && ops?.profiles && <PeopleAccess ops={ops} superAdmin={superAdmin} />}
           {ops?.activity?.length > 0 && <Activity entries={ops.activity} names={ops.names} />}
         </aside>
       </div>
