@@ -25,7 +25,7 @@ export const accessFor = (canAccess, profile) => ({
   products: canAccess(profile, "products"),
 })
 
-export const denied = (what) => ({ ok: false, error: `${what} is not in this person's access. Tell them an admin can grant it in Users.` })
+export const denied = (what) => ({ ok: false, error: `${what} is not in this person's access. Tell them the Super Admin can turn it on for them in Control centre, Modules & roles.` })
 
 const rows = (name) => repo.list(name)
 

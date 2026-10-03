@@ -5,7 +5,7 @@ import { repo } from "../../data/store/repository"
 import { canAccess } from "../../data/domain/modules"
 import { ENQUIRY_STATUS } from "../../data/domain/schema"
 import { INPUT_RATE, OUTPUT_RATE, floatTo16BitPCM, int16ToBase64, base64ToInt16 } from "../../pages/telecaller/audio"
-import { voiceCallsFrom } from "../../pages/voice-leads/helpers"
+import { VOICE_SOURCE, voiceCallsFrom } from "../../pages/voice-leads/helpers"
 import { cardFor, draftLines, findCustomers, routeFor } from "../../lib/anu"
 import { accessFor, denied, runReadTool } from "./readTools"
 import { staffInstruction } from "./prompt"
@@ -47,16 +47,14 @@ const ERROR_TEXT = {
   backend: "Anu needs the Supabase backend, which is not configured here.",
 }
 
-/** A short-lived Live token. The staff-only function first, then the website's while it is not deployed. */
+/** A short-lived Live token from the staff-only function. A 429 carries its own wording. */
 async function mintToken() {
-  for (const fn of ["anu-staff-token", "orty-live-token"]) {
-    const { data, error } = await supabase.functions.invoke(fn, { body: {} })
-    if (!error && data?.token) return data.token
-    const status = error?.context?.status
-    // Fall through ONLY when the staff function is not deployed yet. A refusal
-    // (401/403) from it is an answer, not a reason to try the public one.
-    if (fn === "anu-staff-token" && (status === 404 || /failed to send a request/i.test(error?.message || ""))) continue
-    throw new Error("token")
+  const { data, error } = await supabase.functions.invoke("anu-staff-token", { body: {} })
+  if (!error && data?.token) return data.token
+  if (error?.context?.status === 429) {
+    let text = ""
+    try { text = (await error.context.json())?.error || "" } catch { /* not JSON */ }
+    if (text) throw Object.assign(new Error("limit"), { detail: text })
   }
   throw new Error("token")
 }
@@ -83,8 +81,8 @@ function activityLabel(name, args) {
     case "get_quotation": return "Opened a quotation's details"
     case "find_products": return `Searched the catalogue${q}`
     case "sales_summary": return `Summarised the last ${args.days || 30} days`
-    case "set_enquiry_status": return args.confirmed === true ? "Updated a lead's status" : "Proposed a status change"
-    case "start_quotation": return args.confirmed === true ? "Started a draft quotation" : "Proposed a draft quotation"
+    case "set_enquiry_status": return "Proposed a status change"
+    case "start_quotation": return "Proposed a draft quotation"
     case "open_record": return "Opened a record"
     default: return ""
   }
@@ -113,6 +111,8 @@ export function useAnuSession({ profile, navigate }) {
   const timerRef = useRef(0)
   const endWantedRef = useRef(false)
   const endTimerRef = useRef(0)
+  const queuedRef = useRef([]) // questions typed while connecting
+  const goneAwayRef = useRef(false) // the server announced it is closing the session
   const statusRef = useRef("idle")
   const mutedRef = useRef(false)
   const inBufRef = useRef("")
@@ -154,6 +154,7 @@ export function useAnuSession({ profile, navigate }) {
     clearInterval(timerRef.current)
     clearTimeout(endTimerRef.current)
     endWantedRef.current = false
+    queuedRef.current = []
     try { procRef.current?.disconnect() } catch { /* noop */ }
     try { streamRef.current?.getTracks().forEach((t) => t.stop()) } catch { /* noop */ }
     const session = sessionRef.current
@@ -230,7 +231,9 @@ export function useAnuSession({ profile, navigate }) {
   }
 
   // Runs one tool. Returns [response for Anu, cards to show under the step].
-  const runTool = async (name, args) => {
+  // `clicked` is true ONLY from confirmAction. A model's `confirmed: true` is
+  // ignored: tool results carry customer-written text, so a write needs a click.
+  const runTool = async (name, args, clicked = false) => {
     const a = accessRef.current
     const now = Date.now()
     switch (name) {
@@ -240,19 +243,19 @@ export function useAnuSession({ profile, navigate }) {
         const label = ENQUIRY_STATUS.find((s) => s.id === String(args.status))?.label
         if (!label) return [{ ok: false, error: "Unknown status." }]
         const record = cardsRef.current.get(`${kind}:${args.id}`)
-        if (args.confirmed !== true) {
+        if (!clicked) {
           setPendingAction({
             name, args,
             title: `Mark as ${label}`,
             detail: record ? `${record.title}${record.subtitle ? ` · ${record.subtitle}` : ""}` : kind === "voice_call" ? "An Anu call" : "An enquiry",
           })
-          return [{ ok: false, needs_confirmation: true, next: "Read the change back and ask for a yes, then call again with confirmed true. The console is also showing Confirm and Cancel." }]
+          return [{ ok: false, needs_confirmation: true, next: "Not saved yet. Read the change back and ask them to press Confirm on screen." }]
         }
         setPendingAction(null)
         const enquiries = await rows("enquiries")
         const ids = kind === "voice_call"
           ? (voiceCallsFrom(enquiries).find((c) => c.id === args.id)?.rows || []).map((r) => r.id)
-          : enquiries.some((e) => e.id === args.id) ? [String(args.id)] : []
+          : enquiries.some((e) => e.id === args.id && e.source !== VOICE_SOURCE) ? [String(args.id)] : []
         if (!ids.length) return [{ ok: false, error: "That record was not found. Search again first." }]
         try {
           // A folded Anu call is several rows; its status is all of them, as on its page.
@@ -265,14 +268,14 @@ export function useAnuSession({ profile, navigate }) {
       case "start_quotation": {
         if (!a.quotations) return [denied("Quotations")]
         const items = Array.isArray(args.items) ? args.items : []
-        if (args.confirmed !== true) {
+        if (!clicked) {
           setPendingAction({
             name, args,
             title: "Start a draft quotation",
             detail: [args.customer_name || cardsRef.current.get(`customer:${args.customer_id}`)?.title || "No customer named",
               items.map((i) => [i.quantity, i.product].filter(Boolean).join(" x ")).join(", ")].filter(Boolean).join(" · "),
           })
-          return [{ ok: false, needs_confirmation: true, next: "Read back the customer and each item with its quantity, get a yes, then call again with confirmed true. The console is also showing Confirm and Cancel." }]
+          return [{ ok: false, needs_confirmation: true, next: "Not opened yet. Read back the customer and each item with its quantity and ask them to press Confirm on screen." }]
         }
         setPendingAction(null)
         const [customers, products] = await Promise.all([a.customers ? rows("customers") : [], a.products ? rows("products") : []])
@@ -343,6 +346,12 @@ export function useAnuSession({ profile, navigate }) {
   }
 
   const handleMessage = (message) => {
+    // The server ends a session at its connection limit and says so first: a
+    // normal end, not a network fault.
+    if (message?.goAway && !goneAwayRef.current) {
+      goneAwayRef.current = true
+      push({ role: "tool", text: "Anu's session time is up. Start again to carry on.", tool: "cancel" })
+    }
     const calls = message?.toolCall?.functionCalls
     if (calls?.length) for (const fc of calls) void handleTool(fc)
     const sc = message?.serverContent
@@ -374,7 +383,14 @@ export function useAnuSession({ profile, navigate }) {
 
   const sendText = useCallback((text, { echo = true } = {}) => {
     const t = String(text || "").trim()
-    if (!t || !sessionRef.current) return false
+    if (!t) return false
+    // Typed while still connecting: hold it and send once the session is open.
+    if (!sessionRef.current && statusRef.current === "connecting") {
+      if (echo) push({ role: "user", text: t, typed: true })
+      queuedRef.current.push(t)
+      return true
+    }
+    if (!sessionRef.current) return false
     if (echo) {
       flush()
       push({ role: "user", text: t, typed: true })
@@ -404,7 +420,9 @@ export function useAnuSession({ profile, navigate }) {
     setMuted(false)
     mutedRef.current = false
     endWantedRef.current = false
+    goneAwayRef.current = false
     setStat("connecting")
+    queuedRef.current = []
 
     try {
       // Audio contexts first, inside the click, so autoplay policy lets them run.
@@ -444,26 +462,37 @@ export function useAnuSession({ profile, navigate }) {
           inputAudioTranscription: {},
           outputAudioTranscription: {},
           tools: ANU_TOOLS,
+          // Older turns are summarised away instead of the session ending at the audio context cap.
+          contextWindowCompression: { slidingWindow: {} },
         },
         callbacks: {
           onopen: () => {
+            if (statusRef.current !== "connecting") return // hung up while connecting
             setStat("live")
             timerRef.current = window.setInterval(() => setSeconds((s) => s + 1), 1000)
           },
           onmessage: (m) => handlerRef.current(m),
-          onerror: () => { setError(ERROR_TEXT.network); setStat("error"); stop("error") },
+          onerror: () => {
+            if (goneAwayRef.current) { stop("ended"); return }
+            setError(ERROR_TEXT.network); setStat("error"); stop("error")
+          },
           onclose: () => { if (sessionRef.current) stop("ended") },
         },
       })
+      // Hung up or unmounted while the socket was opening: never keep that session.
+      if (statusRef.current !== "live") { try { session.close() } catch { /* noop */ } return }
       sessionRef.current = session
 
       const first = firstName()
+      const queued = queuedRef.current
+      queuedRef.current = []
       if (question) {
         push({ role: "user", text: question, typed: true })
         sendText(`[${first} opened Anu in the console and asks:] ${question}`, { echo: false })
-      } else {
+      } else if (!queued.length) {
         sendText(`[${first} just opened Anu in the console. Greet them in one short Hinglish line.]`, { echo: false })
       }
+      for (const t of queued) sendText(t, { echo: false })
 
       const micSrc = inCtxRef.current.createMediaStreamSource(stream)
       const inAnalyser = inCtxRef.current.createAnalyser()
@@ -486,7 +515,7 @@ export function useAnuSession({ profile, navigate }) {
       procRef.current = proc
     } catch (e) {
       console.error("Anu failed to start:", e)
-      setError(ERROR_TEXT[e?.message] || ERROR_TEXT.token)
+      setError(e?.detail || ERROR_TEXT[e?.message] || ERROR_TEXT.token)
       setStat("error")
       stop("error")
     }
@@ -518,7 +547,7 @@ export function useAnuSession({ profile, navigate }) {
     let response
     let cards = []
     try {
-      ;[response, cards = []] = await runTool(action.name, { ...action.args, confirmed: true })
+      ;[response, cards = []] = await runTool(action.name, action.args, true)
     } catch (e) {
       response = { ok: false, error: e?.message || "unknown error" }
     }

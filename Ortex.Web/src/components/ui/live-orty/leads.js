@@ -28,8 +28,9 @@ const PLACEHOLDER_NAMES = new Set([
   "na", "n/a", "none", "anonymous", "user", "client", "aap", "ji",
 ])
 
-// Above this a quantity is repeated back rather than trusted (10 lakh pieces).
-const MAX_SANE_QTY = 1000000
+// Above this a quantity is repeated back rather than trusted (one lakh pieces,
+// the same line the prompt's "PRODUCTS AND QUANTITY" rule draws).
+const MAX_SANE_QTY = 100000
 
 // How an off-catalogue line is marked for the sales desk, in the notes rather
 // than a field of its own, so it shows up wherever notes are already read.

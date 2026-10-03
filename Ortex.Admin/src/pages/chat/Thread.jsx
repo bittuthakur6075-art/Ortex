@@ -9,6 +9,7 @@ import { useTypingSignal } from "../../hooks/useChatPresence"
 import { useAssistantChat } from "../../components/chat/useAssistantChat"
 import { TEAM_TITLES } from "../../lib/anuIntent"
 import { chat } from "../../services/chat"
+import { isAdmin } from "../../lib/roles"
 import { ConversationAvatar, ANU_PHOTO } from "./parts"
 import MessageBubble from "./MessageBubble"
 import Composer from "./Composer"
@@ -217,6 +218,10 @@ export default function Thread({ conv, meId, profile, presence, onBack, onInfo }
         )}
       </div>
 
+      {/* The database refuses it too (chat_send, migration 0069). */}
+      {conv.kind === "team" && conv.team === "everyone" && !isAdmin(profile) ? (
+        <p className="flex-none border-t border-border bg-card px-4 py-3.5 text-center text-[13px] text-muted-foreground">Only admins can post here.</p>
+      ) : (
       <Composer
         key={conv.id}
         onSend={send}
@@ -231,6 +236,7 @@ export default function Thread({ conv, meId, profile, presence, onBack, onInfo }
         allowFiles={!isAnu}
         placeholder={isAnu ? "Ask Anu about leads, quotations, or how to do something" : conv.kind === "direct" && peer?.active === false ? "This account is deactivated" : "Type a message"}
       />
+      )}
     </div>
   )
 }

@@ -151,13 +151,18 @@ export async function submitEnquiry({
     tracking: { userId, sessionId },
   }
 
-  // Asynchronously track the submission activity
+  // Asynchronously track the submission activity. Not for a voice call: Anu
+  // saves on every capture_lead, which logged one "Contact form submission"
+  // (with the caller's name and number) per detail she heard. The lead row
+  // itself is the record of the call.
   const isQuote = source === "Quote calculator"
-  trackActivity({
-    activityType: isQuote ? "Quote request" : "Contact form submission",
-    productId: productInterest,
-    metadata: { customer, productName: productInterest, message, reference },
-  }).catch((err) => console.error("Tracking failed:", err))
+  if (!call) {
+    trackActivity({
+      activityType: isQuote ? "Quote request" : "Contact form submission",
+      productId: productInterest,
+      metadata: { customer, productName: productInterest, message, reference },
+    }).catch((err) => console.error("Tracking failed:", err))
+  }
 
   let error = await insertEnquiry(doc)
   if (error && hasSupabase) {

@@ -1,14 +1,18 @@
 import { cors, json } from "../_shared/http.ts"
-import { clientIp, withinLimit } from "../_shared/guard.ts"
+import { clientIp, LIVE_LOCK, withinLimit } from "../_shared/guard.ts"
 // Edge Function: orty-live-token
 //
 // Mints a short-lived, single-use EPHEMERAL token for the Gemini Live API so the
-// website's voice assistant ("Live Orty") can open the realtime WebSocket from
-// the browser WITHOUT ever seeing the real Gemini API key. The key stays here as
-// a Supabase secret (GEMINI_API_KEY).
+// website's voice assistant (Anu, "Live Orty" in code) can open the realtime
+// WebSocket from the browser WITHOUT ever seeing the real Gemini API key. The
+// key stays here as a Supabase secret (GEMINI_API_KEY). Also used by the
+// console's Call agent test call (pages/telecaller/useLiveCall.js), and as the
+// fallback for staff Anu (console and phone) only while anu-staff-token is not
+// deployed. Anu in Team chat uses no language model and no token.
 //
-// Public: called by anonymous website visitors. The token is single-use and
-// expires in minutes, so exposure is minimal. Free-tier Live quota applies.
+// Public: called by anonymous website visitors. The token is single-use,
+// expires in minutes and is locked to one model (LIVE_LOCK in _shared/guard.ts), so exposure is minimal.
+// Free-tier Live quota applies.
 //
 // Deploy:
 //   supabase functions deploy orty-live-token
@@ -36,6 +40,7 @@ Deno.serve(async (req) => {
       uses: 1,
       newSessionExpireTime: new Date(now + 2 * 60 * 1000).toISOString(),
       expireTime: new Date(now + 30 * 60 * 1000).toISOString(),
+      ...LIVE_LOCK,
     }
 
     const r = await fetch(`https://generativelanguage.googleapis.com/v1alpha/auth_tokens?key=${apiKey}`, {

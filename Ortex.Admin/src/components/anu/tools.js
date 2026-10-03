@@ -4,8 +4,8 @@
 // console differences in the descriptions: opening a record or a draft does
 // NOT end the call here, because the panel stays docked beside the page it
 // opens. READ tools answer from the console's own collections (useAnuSession's
-// `runTool`); the two WRITE tools require `confirmed: true`, which the prompt
-// only allows after a yes, and the executor refuses without it.
+// `runTool`); the two WRITE tools only PROPOSE: the console shows Confirm and
+// Cancel, and nothing is written until the person clicks Confirm.
 
 const S = (description) => ({ type: "STRING", description })
 
@@ -67,22 +67,21 @@ export const ANU_TOOLS = [
       {
         name: "set_enquiry_status",
         description:
-          "Change the status of one enquiry or Anu call. Only after reading the change back and hearing a clear yes; send confirmed=true then. Without confirmation the reply asks you to confirm first.",
+          "Propose a status change for one enquiry or Anu call. Nothing is saved by this call: the console shows the change with Confirm and Cancel, and only the person's Confirm click saves it.",
         parameters: {
           type: "OBJECT",
           properties: {
             id: S("The enquiry or voice_call id from a previous result"),
             kind: { type: "STRING", format: "enum", enum: ["enquiry", "voice_call"], description: "The kind given with that result" },
             status: { type: "STRING", format: "enum", enum: ["new", "contacted", "qualified", "quoted", "won", "lost"], description: "The new status" },
-            confirmed: { type: "BOOLEAN", description: "true only after the person said yes to this exact change" },
           },
-          required: ["id", "kind", "status", "confirmed"],
+          required: ["id", "kind", "status"],
         },
       },
       {
         name: "start_quotation",
         description:
-          "Open a NEW quotation draft in the console, pre-filled with a customer and items, for the person to review and save. Only after they confirmed the customer and items. The editor opens beside you and the conversation carries on.",
+          "Propose a NEW quotation draft, pre-filled with a customer and items. Nothing opens from this call: the console shows it with Confirm and Cancel, and only the person's Confirm click opens the draft beside you for them to review and save.",
         parameters: {
           type: "OBJECT",
           properties: {
@@ -97,9 +96,8 @@ export const ANU_TOOLS = [
                 required: ["product"],
               },
             },
-            confirmed: { type: "BOOLEAN", description: "true only after the person agreed to the customer and items" },
           },
-          required: ["items", "confirmed"],
+          required: ["items"],
         },
       },
       {

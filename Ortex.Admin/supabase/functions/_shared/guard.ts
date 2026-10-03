@@ -18,12 +18,20 @@ export function secretsMatch(a: string, b: string): boolean {
 
 /** The caller's IP as Supabase's edge sees it. */
 export function clientIp(req: Request): string {
-  return (
-    req.headers.get("cf-connecting-ip") ||
-    (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
-    req.headers.get("x-real-ip") ||
-    "unknown"
-  )
+  // Supabase sits behind Cloudflare, which overwrites cf-connecting-ip and APPENDS the real IP to x-forwarded-for, so only those two are unforgeable (a client's own x-forwarded-for value stays on the left).
+  return req.headers.get("cf-connecting-ip") || (req.headers.get("x-forwarded-for") || "").split(",").pop()!.trim() || "unknown"
+}
+
+/**
+ * Spread into a Gemini Live `auth_tokens` body: the token opens only this model
+ * (the `LIVE_MODEL` of every client). `fieldMask: "model"` locks the model alone,
+ * so each client still sends its own system prompt, tools, speech and session
+ * settings; a constraint WITHOUT a field mask would lock every config field and
+ * silently drop them. Changing the model means changing it here too.
+ */
+export const LIVE_LOCK = {
+  bidiGenerateContentSetup: { model: "models/gemini-3.1-flash-live-preview" },
+  fieldMask: "model",
 }
 
 /**

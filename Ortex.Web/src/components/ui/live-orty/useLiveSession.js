@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { GoogleGenAI, Modality, StartSensitivity, ThinkingLevel } from "@google/genai"
 import { supabase, hasSupabase } from "../../../lib/supabaseClient"
-import { INPUT_RATE, OUTPUT_RATE, floatTo16BitPCM, int16ToBase64, base64ToInt16 } from "./audio"
+import { INPUT_RATE, OUTPUT_RATE, floatTo16BitPCM, int16ToBase64, base64ToInt16, downsample } from "./audio"
 import { VOICE_SYSTEM_INSTRUCTION, buildOpener } from "./prompt"
 import { LIVE_TOOLS } from "./tools"
 import { SPOKEN_FIELD, parseQuantity, validateLead, saveVoiceLead } from "./leads"
@@ -126,6 +126,8 @@ function endBlocker(reason, details) {
 // What a visitor sees when the call cannot start. Setup instructions are only
 // useful to a developer; a customer gets a plain sentence.
 function friendlyError(err) {
+  // The token function's own sentence, e.g. its "busy" reply to a 429.
+  if (err?.visitorMessage) return err.visitorMessage
   const name = err?.name || ""
   if (name === "NotAllowedError" || name === "SecurityError") {
     return "Microphone access is blocked. Please allow microphone access from your browser's address bar and try again."
@@ -179,6 +181,8 @@ export function useLiveSession() {
   const secondsRef = useRef(0)
   const endWantedRef = useRef(false)
   const endRefusalsRef = useRef(0)
+  // The server sent goAway: the socket closing after it is the call ending.
+  const goAwayRef = useRef(false)
   const callLeadRef = useRef(null)
   const turnDoneRef = useRef(true)
   const callIdRef = useRef(null)
@@ -460,6 +464,10 @@ export function useLiveSession() {
   }, [persistMemory])
 
   const handleMessage = useCallback((message) => {
+    // ponytail: no session resumption. A goAway (the connection's time limit,
+    // around 10 minutes) ends the call with the normal summary; resuming would
+    // need a second token and a reconnect with a sessionResumption handle.
+    if (message?.goAway) goAwayRef.current = true
     const calls = message?.toolCall?.functionCalls
     if (calls?.length) {
       // The reply pauses for the tool round trip; the audio after it is a new
@@ -489,7 +497,9 @@ export function useLiveSession() {
         try { sessionRef.current?.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response }] }) } catch { /* noop */ }
       }
       if (endWantedRef.current && sourcesRef.current.length === 0) {
-        window.setTimeout(() => { if (endWantedRef.current) finish() }, 1200)
+        // A goodbye that starts playing in the meantime ends the call from
+        // its own onended instead, so it is never cut off here.
+        window.setTimeout(() => { if (endWantedRef.current && !sourcesRef.current.length) finish() }, 1200)
       }
     }
     const sc = message?.serverContent
@@ -556,6 +566,7 @@ export function useLiveSession() {
     callLeadRef.current = null
     turnDoneRef.current = true
     endRefusalsRef.current = 0
+    goAwayRef.current = false
     callIdRef.current = newCallId()
     recPathRef.current = null
     if (!hasSupabase) {
@@ -609,25 +620,9 @@ export function useLiveSession() {
       outAnalyser.connect(out.destination)
       outAnalyserRef.current = outAnalyser
 
-      // The catalogue is read per call, so a product added or edited in the
-      // console is described on the next call without a deploy. It rides
-      // alongside the token fetch rather than delaying the connection.
-      const [{ data, error }, catalogue] = await Promise.all([
-        supabase.functions.invoke("orty-live-token", { body: {} }),
-        loadCatalogue(),
-      ])
-      catalogueRef.current = catalogue
-      // Follow console edits for the rest of the call (knowledge base, 0028).
-      unwatchCatalogueRef.current?.()
-      unwatchCatalogueRef.current = catalogue ? watchCatalogue() : null
-      if (import.meta.env.DEV) {
-        if (import.meta.env.DEV) console.info("[Anu] catalogue:", catalogue ? `${catalogue.products.length} products, ${catalogue.categories.length} categories` : "unavailable, using the prompt's general range")
-      }
-      // Closed while connecting: stop() already tore everything down.
-      if (outCtxRef.current !== out) return
-      if (error) throw error
-      if (data?.error || !data?.token) throw new Error(data?.error || "No token")
-
+      // The microphone FIRST, the token after it: a visitor who never allows
+      // the mic costs no token from the rate-limited pool, and the token's
+      // two-minute start window is not spent waiting on the permission prompt.
       // Ask for the voice-call processing explicitly. Anu plays through the
       // speakers on most laptops and phones, and without echo cancellation her
       // own voice reaches the mic, the model hears it as the customer talking
@@ -637,6 +632,46 @@ export function useLiveSession() {
       })
       if (outCtxRef.current !== out) { stream.getTracks().forEach((t) => t.stop()); return }
       streamRef.current = stream
+      // Chrome and Safari resample the mic into the 16 kHz context. Firefox
+      // will not connect a mic to a context at another rate than the device's,
+      // so there the context is rebuilt at the device's rate and sendMic
+      // downsamples to 16 kHz.
+      let micSrc
+      try {
+        micSrc = inCtxRef.current.createMediaStreamSource(stream)
+      } catch {
+        try { inCtxRef.current.close() } catch { /* noop */ }
+        inCtxRef.current = new AC()
+        inCtxRef.current.resume?.().catch(() => {})
+        micSrc = inCtxRef.current.createMediaStreamSource(stream)
+      }
+
+      // The catalogue is read per call, so a product added or edited in the
+      // console is described on the next call without a deploy. It rides
+      // alongside the token fetch rather than delaying the connection.
+      const [{ data, error }, catalogue] = await Promise.all([
+        supabase.functions.invoke("orty-live-token", { body: {} }),
+        loadCatalogue(),
+      ])
+      // Closed while connecting: stop() already tore everything down. Checked
+      // before the catalogue watch starts, which nothing would then stop.
+      if (outCtxRef.current !== out) return
+      if (error) {
+        // A non-2xx reply (the 429 "busy" one) comes back as an error with
+        // data null; the function's sentence for the visitor is in the body.
+        let msg = ""
+        try { msg = String((await error.context?.json())?.error || "") } catch { /* not JSON, or a network error */ }
+        if (outCtxRef.current !== out) return
+        throw Object.assign(new Error(msg || error.message), { visitorMessage: msg })
+      }
+      if (data?.error || !data?.token) throw new Error(data?.error || "No token")
+      catalogueRef.current = catalogue
+      // Follow console edits for the rest of the call (knowledge base, 0028).
+      unwatchCatalogueRef.current?.()
+      unwatchCatalogueRef.current = catalogue ? watchCatalogue() : null
+      if (import.meta.env.DEV) {
+        if (import.meta.env.DEV) console.info("[Anu] catalogue:", catalogue ? `${catalogue.products.length} products, ${catalogue.categories.length} categories` : "unavailable, using the prompt's general range")
+      }
 
       // Record both voices from the first second. The path is fixed now, so
       // every lead row saved during the call can point at it.
@@ -651,7 +686,12 @@ export function useLiveSession() {
         config: {
           responseModalities: [Modality.AUDIO],
           systemInstruction: VOICE_SYSTEM_INSTRUCTION + catalogueBlock(catalogue),
-          speechConfig: { languageCode: "hi-IN", voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } },
+          // No languageCode: pinning hi-IN fought the prompt's rule to switch
+          // to English when the customer does.
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } } },
+          // Without compression an audio session is cut off at about 15
+          // minutes of context; the sliding window keeps a long call going.
+          contextWindowCompression: { slidingWindow: {} },
           // Turn-taking: see END_OF_SPEECH_SILENCE_MS and START_OF_SPEECH_PREFIX_MS.
           realtimeInputConfig: {
             automaticActivityDetection: {
@@ -670,6 +710,8 @@ export function useLiveSession() {
         },
         callbacks: {
           onopen: () => {
+            // Closed while connecting: no "live" state and no timer for a dead call.
+            if (outCtxRef.current !== out) return
             setStatus("live")
             timerRef.current = window.setInterval(() => {
               secondsRef.current += 1
@@ -679,6 +721,10 @@ export function useLiveSession() {
           onmessage: handleMessage,
           onerror: () => {
             if (sessionRef.current !== live) return
+            // The server announced it was closing the connection (goAway, at
+            // its connection time limit): that is the call ending, not the
+            // visitor's internet failing, so it gets the normal summary.
+            if (goAwayRef.current) { finish(); return }
             closeRecording()
             stop()
             setErrorMsg("Your call was disconnected. Please check your internet connection and try again.")
@@ -689,6 +735,9 @@ export function useLiveSession() {
           onclose: () => { if (live && sessionRef.current === live) finish() },
         },
       })
+      // Closed while the socket was opening: hang it up before any (billed)
+      // opener is sent.
+      if (outCtxRef.current !== out) { try { session.close() } catch { /* noop */ } return }
       live = session
       sessionRef.current = session
       // Orty greets first, before the visitor says anything. If the customer has
@@ -701,7 +750,6 @@ export function useLiveSession() {
         })
       } catch { /* ignore */ }
 
-      const micSrc = inCtxRef.current.createMediaStreamSource(stream)
       const inAnalyser = inCtxRef.current.createAnalyser()
       inAnalyser.fftSize = 256
       micSrc.connect(inAnalyser)
@@ -712,7 +760,7 @@ export function useLiveSession() {
         if (!sessionRef.current) return
         try {
           sessionRef.current.sendRealtimeInput({
-            audio: { data: int16ToBase64(floatTo16BitPCM(float32)), mimeType: `audio/pcm;rate=${INPUT_RATE}` },
+            audio: { data: int16ToBase64(floatTo16BitPCM(downsample(float32, inCtx.sampleRate))), mimeType: `audio/pcm;rate=${INPUT_RATE}` },
           })
         } catch { /* closing */ }
       }
@@ -720,6 +768,9 @@ export function useLiveSession() {
       // ScriptProcessorNode ran on the main thread, where caption renders and
       // animation delayed and dropped mic blocks; it stays only as a fallback
       // for a browser without AudioWorklet.
+      // MIC_BUFFER is counted at 16 kHz; a device-rate context (Firefox) takes
+      // the same 64 ms in proportionally more samples.
+      const block = Math.round(MIC_BUFFER * inCtx.sampleRate / INPUT_RATE)
       let proc = null
       if (inCtx.audioWorklet && window.AudioWorkletNode) {
         try {
@@ -727,7 +778,7 @@ export function useLiveSession() {
           if (inCtxRef.current !== inCtx) return
           proc = new AudioWorkletNode(inCtx, "anu-mic", {
             numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1],
-            processorOptions: { blockSize: MIC_BUFFER },
+            processorOptions: { blockSize: block },
           })
           proc.port.onmessage = (e) => sendMic(e.data)
         } catch (err) {
@@ -736,7 +787,8 @@ export function useLiveSession() {
         }
       }
       if (!proc) {
-        proc = inCtx.createScriptProcessor(MIC_BUFFER, 1, 1)
+        // A ScriptProcessor buffer must be a power of two.
+        proc = inCtx.createScriptProcessor(2 ** Math.round(Math.log2(block)), 1, 1)
         proc.onaudioprocess = (e) => sendMic(e.inputBuffer.getChannelData(0))
       }
       micSrc.connect(proc)
@@ -783,6 +835,12 @@ export function useLiveSession() {
     const t = window.setTimeout(() => {
       if (autoOpenRef.current) return
       autoOpenRef.current = true
+      // Crawlers, Lighthouse and headless browsers would otherwise ring a call
+      // (and once asked for a token) on every visit; they get the launcher.
+      if (navigator.webdriver || /bot|crawl|spider|slurp|lighthouse|headless|prerender/i.test(navigator.userAgent)) {
+        setShowLauncher(true)
+        return
+      }
       try {
         if (sessionStorage.getItem(AUTO_OPEN_KEY)) { setShowLauncher(true); return }
         sessionStorage.setItem(AUTO_OPEN_KEY, String(Date.now()))

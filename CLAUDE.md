@@ -15,7 +15,7 @@ Keep each fact in ONE of these files. When something changes, correct the senten
 1. **`Ortex.Web`**: public marketing / lead-gen site (React 19, Vite 8, Tailwind v4, prerendered). Live at https://bizgift.ortexindustries.in.
 2. **`Ortex.Admin`**: the business console (React 19, Vite 8, Tailwind v4, Supabase). **Owns the database**: `supabase/migrations` and the Deno edge functions in `supabase/functions`.
 3. **`Ortex.Mobile`**: field-sales app (React Native 0.85 bare workflow, Expo SDK 56 modules, TypeScript). A **second client of the Admin's Supabase project**: same anon key, same `profiles` roles, same RLS, no edge function of its own. Any schema change it needs is a migration in `Ortex.Admin/supabase/migrations`.
-4. **`Ortex.Tally.Connector`**: standalone Node CLI (outbound Admin -> TallyPrime). Must run on the Windows PC where TallyPrime is open (Tally's XML gateway listens only on `localhost:9000`). Reads Supabase with a `service_role` key, pushes customers, products, invoices (Sales, New Ref), payments received (Receipt, Agst Ref against the invoice, On Account when unlinked) and payouts (Payment vouchers), each with `VOUCHERNUMBER` and a stable `REMOTEID` so a re-post does not duplicate, and writes `doc.tally` back through the service-role RPC `tally_mark()` (migration 0066), which changes only that key. That field is the only link between it and the console; clients cannot change it, and a payment already in Tally can be changed or deleted only by the Super Admin.
+4. **`Ortex.Tally.Connector`**: standalone Node CLI (outbound Admin -> TallyPrime). Runs on the **remote Windows server where TallyPrime runs** (Tally's XML gateway listens only on `localhost:9000`; never expose that port), as the scheduled task `OrtexTallyConnector`; update it there with `update.ps1` (backs up `config.json`, self-test, `npm run check-config`, restart), see its README. Reads Supabase with a `service_role` key, pushes customers, products, invoices (Sales, New Ref), payments received (Receipt, Agst Ref against the invoice, On Account when unlinked) and payouts (Payment vouchers), each with `VOUCHERNUMBER` and a stable `REMOTEID` so a re-post does not duplicate, and writes `doc.tally` back through the service-role RPC `tally_mark()` (migration 0066), which changes only that key. That field is the only link between it and the console; clients cannot change it, and a payment already in Tally can be changed or deleted only by the Super Admin.
 
 ## Environments: one Supabase project, and it is production
 
@@ -41,7 +41,7 @@ Never run destructive SQL, a test write or a bulk import against it casually.
 | `Ortex.Admin/src/lib/sessions.js` (Login sessions device names) | `Ortex.Mobile/src/domain/sessions.ts` (parity test `test/sessions.test.mjs`) |
 | `Ortex.Web/src/pages/Privacy.jsx`, `Terms.jsx` | `Ortex.Mobile/src/features/profile/legal.ts` (verbatim mirror) |
 | Anu's portrait `Ortex.Web/public/img/anu.jpg` | `Ortex.Admin/public/img/anu.jpg`, `Ortex.Mobile/assets/anu.jpg` |
-| Anu's filler names `PLACEHOLDER_NAMES` in `Ortex.Mobile/src/domain/voice.ts` | The copy inside migration 0029's `upsert_customer_from()` |
+| Anu's filler names `PLACEHOLDER_NAMES` in `Ortex.Mobile/src/domain/voice.ts` | The copy inside `upsert_customer_from()` (latest definition: migration 0050) |
 | A new public product/category field | The `products_public` / `categories_public` views (migration 0020), or the site never sees it |
 
 ## Roles and access (applies to every client)
@@ -82,12 +82,14 @@ Security lives in the database (RLS, security-definer RPCs, triggers). A client-
 ## Ortex.Tally.Connector
 
 ```bash
-# From Ortex.Tally.Connector/ (Windows PC with TallyPrime open)
+# From Ortex.Tally.Connector/ (on the Tally server, with TallyPrime open)
 cp config.example.json config.json
 npm run dry-run   # build XML into out/ without posting
 npm run once      # single sync pass
 npm start         # continuous
 npm run fixture   # XML builder self-test (also run in CI)
+npm run check-config   # config.json vs the example: missing settings, risky values (no secrets printed)
+# On the Tally server: powershell -ExecutionPolicy Bypass -File .\update.ps1 [-SkipPull] [-InstallTask]
 ```
 
 Invoices imported INTO the console from Tally XML are stamped `doc.tally.status = "synced"` so the connector never pushes them back.

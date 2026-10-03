@@ -221,7 +221,10 @@ export async function postToTeam(team: TeamKey, body: string): Promise<string> {
     await chat.postToTeam(team, body)
     return `Sent to ${TEAM_TITLES[team]}.`
   } catch (e) {
-    return `It did not send: ${(e as Error).message}`
+    const message = (e as Error).message
+    // Worded as the console's postToTeam says it.
+    if (message === "Only admins can post to Everyone.") return message
+    return `It did not send: ${message}`
   }
 }
 

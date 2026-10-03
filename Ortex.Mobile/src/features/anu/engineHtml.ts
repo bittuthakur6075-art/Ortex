@@ -47,7 +47,7 @@ export const ENGINE_HTML = String.raw`<!doctype html>
 (function () {
   var IN_RATE = 16000, OUT_RATE = 24000;
   var ws = null, micCtx = null, outCtx = null, stream = null, proc = null, sink = null, analyser = null;
-  var nextTime = 0, sources = [], muted = false, levelTimer = 0, micLevel = 0, closedByUs = false;
+  var nextTime = 0, sources = [], muted = false, levelTimer = 0, micLevel = 0, closedByUs = false, goingAway = false;
   var userText = "", anuText = "";
 
   function post(m) { try { window.ReactNativeWebView.postMessage(JSON.stringify(m)); } catch (e) {} }
@@ -109,6 +109,8 @@ export const ENGINE_HTML = String.raw`<!doctype html>
 
   function onServer(msg) {
     if (msg.setupComplete) { post({ type: "status", status: "live" }); return; }
+    // The server is about to close the session (its time limit): end the call, not an error.
+    if (msg.goAway) { goingAway = true; return; }
     if (msg.toolCall && msg.toolCall.functionCalls) {
       // Settle what was said so far, so the transcript reads: words, then the lookup.
       flush("user"); flush("anu");
@@ -151,7 +153,7 @@ export const ENGINE_HTML = String.raw`<!doctype html>
   }
 
   async function start(c) {
-    closedByUs = false; muted = false; userText = ""; anuText = "";
+    closedByUs = false; goingAway = false; muted = false; userText = ""; anuText = "";
     post({ type: "status", status: "connecting" });
     try {
       var AC = window.AudioContext || window.webkitAudioContext;
@@ -166,10 +168,13 @@ export const ENGINE_HTML = String.raw`<!doctype html>
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
       });
     } catch (e) {
+      if (closedByUs) { teardown(); return; }
       var denied = e && (e.name === "NotAllowedError" || e.name === "SecurityError");
       fail(denied ? "mic-denied" : "mic-failed");
       return;
     }
+    // Hung up while the mic was opening: release it and never dial out.
+    if (closedByUs) { teardown(); return; }
 
     ws = new WebSocket(c.url);
     ws.binaryType = "arraybuffer";
@@ -209,13 +214,13 @@ export const ENGINE_HTML = String.raw`<!doctype html>
         onServer(JSON.parse(text));
       } catch (e) {}
     };
-    ws.onerror = function () { if (!closedByUs) fail("network"); };
+    ws.onerror = function () { if (!closedByUs && !goingAway) fail("network"); };
     ws.onclose = function (ev) {
       if (closedByUs) return;
       ws = null;
       teardown();
       flush("user"); flush("anu");
-      post({ type: "status", status: ev && ev.code !== 1000 && ev.code !== 1005 ? "error" : "ended", message: ev && ev.reason ? "closed:" + ev.reason : "closed" });
+      post({ type: "status", status: !goingAway && ev && ev.code !== 1000 && ev.code !== 1005 ? "error" : "ended", message: ev && ev.reason ? "closed:" + ev.reason : "closed" });
     };
   }
 

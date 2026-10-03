@@ -1,6 +1,6 @@
 import { requestRecordingPermissionsAsync } from "expo-audio"
 import React from "react"
-import { Animated } from "react-native"
+import { Animated, AppState } from "react-native"
 import type { WebViewMessageEvent } from "react-native-webview"
 
 import { getCollectionSnapshot, loadCollection } from "@/data/collectionStore"
@@ -39,7 +39,7 @@ import {
 } from "@/domain/anuConversation"
 import { canAccess, type Profile } from "@/domain/modules"
 import { ENQUIRY_STATUS, newCustomer } from "@/domain/schema"
-import { voiceCallsFrom } from "@/domain/voice"
+import { VOICE_SOURCE, voiceCallsFrom } from "@/domain/voice"
 import { staffInstruction } from "@/features/anu/prompt"
 import { ANU_TOOLS } from "@/features/anu/tools"
 import type { RootStackParamList } from "@/navigation/types"
@@ -63,11 +63,10 @@ import type { RootStackParamList } from "@/navigation/types"
  * lines, Anu's replies and her lookups land in one `turns` transcript
  * (domain/anuConversation.ts, which also drops a spoken echo of a typed line).
  *
- * WRITES WAIT ON A TAP OR A YES. When Anu proposes set_enquiry_status or
- * start_quotation without `confirmed: true`, the tool still refuses (as
- * before) AND the screen shows Confirm / Cancel. A tap runs the write here with
- * `confirmed: true` and reports the result back to her as text; a spoken yes
- * that makes her call again confirmed clears the card.
+ * WRITES WAIT ON A TAP, NEVER ON THE MODEL. Tool results carry anonymous
+ * website text, so a `confirmed: true` from Anu is only a proposal: every
+ * set_enquiry_status or start_quotation call from her shows Confirm / Cancel,
+ * and only a tap runs the write here and reports the result back to her as text.
  */
 
 export type AnuStatus = "idle" | "connecting" | "live" | "ended" | "error"
@@ -91,28 +90,32 @@ const ERROR_TEXT: Record<string, string> = {
   token: "Anu could not start. Check your connection and try again.",
 }
 
-async function rows<T>(name: Collection): Promise<T[]> {
+/** A collection's rows; `stale` when the read failed and the cached copy was served instead. */
+async function read<T>(name: Collection): Promise<{ items: T[]; stale: boolean }> {
+  let stale = false
   try {
     await loadCollection(name)
   } catch {
-    /* the snapshot still holds the cached copy, which is better than nothing */
+    stale = true // the snapshot still holds the cached copy, which is better than nothing
   }
-  return getCollectionSnapshot<T>(name).items
+  return { items: getCollectionSnapshot<T>(name).items, stale }
 }
 
-/** A short-lived Live token. The staff-only function first, then the website's. */
+/** A short-lived Live token from the staff-only function. A 429 says why when its body can. */
 async function mintToken(): Promise<string> {
-  for (const fn of ["anu-staff-token", "orty-live-token"]) {
-    const { data, error } = await supabase.functions.invoke(fn, { body: {} })
-    const token = (data as { token?: string } | null)?.token
-    if (!error && token) return token
-    const status = (error as { context?: { status?: number } } | null)?.context?.status
-    // Fall through ONLY when the staff function is not deployed yet. A refusal
-    // (401/403) from it is an answer, not a reason to try the public one.
-    if (fn === "anu-staff-token" && (status === 404 || /failed to send a request/i.test(error?.message || ""))) continue
-    throw new Error("token")
+  const { data, error } = await supabase.functions.invoke("anu-staff-token", { body: {} })
+  const token = (data as { token?: string } | null)?.token
+  if (!error && token) return token
+  const failure = new Error("token") as Error & { say?: string }
+  const ctx = (error as { context?: Response } | null)?.context
+  if (ctx?.status === 429) {
+    try {
+      failure.say = String(((await ctx.json()) as { error?: string } | null)?.error || "") || undefined
+    } catch {
+      /* no readable body: the generic line */
+    }
   }
-  throw new Error("token")
+  throw failure
 }
 
 type ToolOutcome = { response: Record<string, unknown>; cards?: SurfacedCard[]; stats?: Stat[] }
@@ -144,6 +147,8 @@ export function useAnuSession(profile: Profile | null) {
   const speakingRef = React.useRef(false)
   const endWanted = React.useRef(false)
   const endTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** Android's permission dialog sends the app to "background"; that is not leaving. */
+  const askingMic = React.useRef(false)
 
   const access: Access = React.useMemo(
     () => ({
@@ -180,8 +185,18 @@ export function useAnuSession(profile: Profile | null) {
   const hangUp = React.useCallback(() => {
     if (endTimer.current) clearTimeout(endTimer.current)
     endWanted.current = false
+    // Done while connecting: start() sees this after its awaits and stops there.
+    if (statusRef.current === "connecting") setStat("ended")
     cmd({ type: "hangup" })
   }, [cmd])
+
+  // A call never carries on in the background: leaving the app hangs up.
+  React.useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      if (next === "background" && !askingMic.current && (statusRef.current === "live" || statusRef.current === "connecting")) hangUp()
+    })
+    return () => sub.remove()
+  }, [hangUp])
 
   // Hang up on unmount, so leaving the screen never leaves a mic open.
   // The ref is captured now: by the time an unmount cleanup runs, React has
@@ -202,7 +217,28 @@ export function useAnuSession(profile: Profile | null) {
     error: `${what} is not in this person's access. Tell them an admin can grant it in the Ortex console.`,
   })
 
-  const runTool = async (name: string, args: Record<string, unknown>): Promise<ToolOutcome> => {
+  /**
+   * `fromTap` is true only from the on-screen Confirm: a write never runs on the
+   * model's say-so. A read served from the cache marks the result `stale`.
+   */
+  const runTool = async (name: string, args: Record<string, unknown>, fromTap = false): Promise<ToolOutcome> => {
+    let stale = false
+    const rows = async <T,>(collection: Collection): Promise<T[]> => {
+      const r = await read<T>(collection)
+      stale ||= r.stale
+      return r.items
+    }
+    const outcome = await runToolWith(name, args, fromTap, rows)
+    if (stale) outcome.response.stale = true
+    return outcome
+  }
+
+  const runToolWith = async (
+    name: string,
+    args: Record<string, unknown>,
+    fromTap: boolean,
+    rows: <T>(collection: Collection) => Promise<T[]>,
+  ): Promise<ToolOutcome> => {
     const now = Date.now()
     switch (name) {
       case "get_briefing": {
@@ -272,13 +308,13 @@ export function useAnuSession(profile: Profile | null) {
         const statusId = String(args.status)
         const label = ENQUIRY_STATUS.find((s) => s.id === statusId)?.label
         if (!label) return { response: { ok: false, error: "Unknown status." } }
-        if (args.confirmed !== true) {
+        if (!fromTap) {
           setPendingAction(pendingActionFor(name, args, known.current))
           return {
             response: {
               ok: false,
               needs_confirmation: true,
-              next: "Read the change back and ask for a yes, then call again with confirmed true. The screen is also showing Confirm and Cancel.",
+              next: "Not saved yet. Read the change back and ask them to tap Confirm on the screen. Only that tap saves it.",
             },
           }
         }
@@ -287,7 +323,7 @@ export function useAnuSession(profile: Profile | null) {
         const ids =
           kind === "voice_call"
             ? (voiceCallsFrom(enquiries).find((c) => c.id === args.id)?.rows || []).map((r) => r.id)
-            : enquiries.some((e) => e.id === args.id)
+            : enquiries.some((e) => e.id === args.id && e.source !== VOICE_SOURCE)
               ? [String(args.id)]
               : []
         if (!ids.length) return { response: { ok: false, error: "That record was not found. Search again first." } }
@@ -303,13 +339,13 @@ export function useAnuSession(profile: Profile | null) {
       }
       case "start_quotation": {
         if (!access.quotations) return { response: denied("Quotations") }
-        if (args.confirmed !== true) {
+        if (!fromTap) {
           setPendingAction(pendingActionFor(name, args, known.current))
           return {
             response: {
               ok: false,
               needs_confirmation: true,
-              next: "Read back the customer and each item with its quantity, get a yes, then call again with confirmed true. The screen is also showing Confirm and Cancel.",
+              next: "Not opened yet. Read back the customer and each item with its quantity, and ask them to tap Confirm on the screen. Only that tap opens the draft.",
             },
           }
         }
@@ -504,13 +540,17 @@ export function useAnuSession(profile: Profile | null) {
       endWanted.current = false
       setStat("connecting")
       try {
-        const permission = await requestRecordingPermissionsAsync()
+        askingMic.current = true
+        const permission = await requestRecordingPermissionsAsync().finally(() => (askingMic.current = false))
+        // Done was tapped while we waited: stop here and never open the mic.
+        if (statusRef.current !== "connecting") return
         if (!permission.granted) {
           setError(ERROR_TEXT["mic-denied"])
           setStat("error")
           return
         }
         const token = await mintToken()
+        if (statusRef.current !== "connecting") return
         // A question typed or tapped while idle IS the opening line: one path.
         if (asked) setThinking(true)
         cmd({
@@ -527,12 +567,15 @@ export function useAnuSession(profile: Profile | null) {
             systemInstruction: { parts: [{ text: staffInstruction(profile) }] },
             tools: ANU_TOOLS,
             realtimeInputConfig: { automaticActivityDetection: { silenceDurationMs: SILENCE_MS } },
+            // A long call slides its oldest turns out instead of hitting the context limit.
+            contextWindowCompression: { slidingWindow: {} },
             inputAudioTranscription: {},
             outputAudioTranscription: {},
           },
         })
       } catch (e) {
-        setError(ERROR_TEXT[(e as Error)?.message] || ERROR_TEXT.token)
+        if (statusRef.current !== "connecting") return
+        setError((e as { say?: string })?.say || ERROR_TEXT[(e as Error)?.message] || ERROR_TEXT.token)
         setStat("error")
       }
     },
@@ -554,7 +597,7 @@ export function useAnuSession(profile: Profile | null) {
     setThinking(true)
     let outcome: ToolOutcome
     try {
-      outcome = await runTool(action.name, { ...action.args, confirmed: true })
+      outcome = await runTool(action.name, { ...action.args, confirmed: true }, true)
     } catch (e) {
       outcome = { response: { ok: false, error: (e as Error)?.message || "unknown error" } }
     }

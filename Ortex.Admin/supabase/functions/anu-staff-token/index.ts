@@ -19,6 +19,7 @@
 
 import { cors, json } from "../_shared/http.ts"
 import { requireStaff } from "../_shared/auth.ts"
+import { LIVE_LOCK, withinLimit } from "../_shared/guard.ts"
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors })
@@ -26,6 +27,11 @@ Deno.serve(async (req) => {
 
   const staff = await requireStaff(req)
   if (staff instanceof Response) return staff
+
+  // Per person, so one leaked session cannot drain the Live quota everyone shares.
+  if (!(await withinLimit(`anu-staff:user:${staff.userId}`, 20, 3600))) {
+    return json({ error: "You have started Anu many times this hour. Please wait a little and try again." }, 429)
+  }
 
   const apiKey = Deno.env.get("GEMINI_API_KEY")
   if (!apiKey) return json({ error: "Anu is not configured." }, 500)
@@ -38,6 +44,7 @@ Deno.serve(async (req) => {
       uses: 1,
       newSessionExpireTime: new Date(now + 2 * 60 * 1000).toISOString(),
       expireTime: new Date(now + 30 * 60 * 1000).toISOString(),
+      ...LIVE_LOCK,
     }
     const r = await fetch(`https://generativelanguage.googleapis.com/v1alpha/auth_tokens?key=${apiKey}`, {
       method: "POST",

@@ -17,10 +17,10 @@ import { SquircleBackground } from "@/ui/Squircle"
  * Anu's card on Home (Figma "Ask Anu"): her face, one line on what she does, a
  * round talk button, and three questions that open Anu and ask straight away.
  *
- * The questions are the role's own: Staff cannot open quotes or sales, so they
- * are asked about leave, pay and hours; admins about the business, who is out
- * and what waits on them. Flat card, no shadow or glow, Hinglish to match her
- * voice.
+ * The questions are ones her tools can answer for that person: sales and
+ * admins about leads, quotes and the month; everyone else what she can do, plus
+ * the catalogue or customers when they hold those modules. Flat card, no shadow
+ * or glow, Hinglish to match her voice.
  */
 
 const PHOTO = require("../../../assets/anu.jpg")
@@ -32,15 +32,15 @@ const SALES: Ask[] = [
   { label: "Expire hone wale quotes", ask: "Kaunse quotations jaldi expire hone wale hain?", icon: "quote" },
   { label: "Is mahine ki sales", ask: "Is mahine sales kaisi chal rahi hai?", icon: "insights" },
 ]
-const STAFF: Ask[] = [
-  { label: "Meri kitni leave bachi hai?", ask: "Meri kitni leave bachi hai?", icon: "calendar" },
-  { label: "Salary kab aayegi?", ask: "Meri salary kab aayegi?", icon: "money" },
-  { label: "Is hafte mere ghante", ask: "Is hafte maine kitne ghante kaam kiya?", icon: "clock" },
-]
+// Without lead or quote access Anu can only search the catalogue and customers,
+// so each of those asks shows only with its module; the help ask always does.
+const HELP: Ask = { label: "Anu kya kar sakti hai?", ask: "Tum mere liye kya kya kar sakti ho?", icon: "assistant" }
+const PRODUCTS: Ask = { label: "Lanyard ka rate", ask: "Satin lanyard ka rate kya hai?", icon: "product" }
+const CUSTOMERS: Ask = { label: "Customer dhoondo", ask: "Mujhe ek customer dhoondna hai", icon: "customer" }
 const ADMIN: Ask[] = [
-  { label: "Aaj ka business kaisa hai?", ask: "Aaj ka business kaisa hai?", icon: "insights" },
-  { label: "Aaj kaun absent hai?", ask: "Aaj kaun absent hai?", icon: "team" },
-  { label: "Mere pending approvals", ask: "Mere pending approvals kya hain?", icon: "tick" },
+  { label: "Aaj kya pending hai?", ask: "Aaj kya pending hai?", icon: "bell" },
+  { label: "Is mahine ki sales", ask: "Is mahine sales kaisi chal rahi hai?", icon: "insights" },
+  { label: "Expire hone wale quotes", ask: "Kaunse quotations jaldi expire hone wale hain?", icon: "quote" },
 ]
 
 export default function AnuHomeCard() {
@@ -51,7 +51,7 @@ export default function AnuHomeCard() {
     ? ADMIN
     : canAccess(profile, "quotations") || canAccess(profile, "enquiries") || canAccess(profile, "voice-leads")
     ? SALES
-    : STAFF
+    : [HELP, ...(canAccess(profile, "products") ? [PRODUCTS] : []), ...(canAccess(profile, "customers") ? [CUSTOMERS] : [])]
 
   const open = (ask?: string) => {
     feedback.tap()

@@ -24,6 +24,8 @@ pnpm-debug.log*
 
 # Tally connector runtime files
 Ortex.Tally.Connector/config.json
+Ortex.Tally.Connector/config.backup-*.json
+Ortex.Tally.Connector/logs/
 Ortex.Tally.Connector/out
 
 # Build archives / screenshots must never be committed

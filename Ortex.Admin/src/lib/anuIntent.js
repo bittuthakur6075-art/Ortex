@@ -24,7 +24,7 @@ export const TEAM_ALIASES = {
   accounts: ["accounts team", "accounts", "account team", "accounting", "finance"],
   staff: ["staff", "factory", "production", "workers"],
   management: ["management", "managers", "admins", "admin team", "bosses"],
-  everyone: ["everyone", "everybody", "all staff", "whole team", "all team", "all", "company", "sabko", "sab log", "sab"],
+  everyone: ["everyone", "everybody", "all staff", "whole team", "all team", "company", "sabko", "sab log"],
 }
 
 export const TEAM_TITLES = { sales: "Sales team", accounts: "Accounts team", staff: "Staff", management: "Management", everyone: "Everyone" }
@@ -117,7 +117,7 @@ export function parseIntent(raw) {
   if (/^(hi|hello|hey|hii+|namaste|namaskar|good\s+(morning|afternoon|evening)|yo)\b[\s!.]*$/.test(t)) return { intent: "greet" }
   if (/^(thanks|thank\s+you|thx|ok|okay|great|shukriya|dhanyavaad|theek hai)\b[\s!.]*$/.test(t)) return { intent: "thanks" }
 
-  if (has(t, /\b(attendance|haazri|hajri|haajri|present|absent|checked\s*in|check\s*in|check-in|checked\s*out|check\s*out|who'?s\s+in|who\s+is\s+(in|not\s+in|absent|late|on\s+leave)|not\s+in|late\s+today|came\s+late|on\s+leave|leave\s+today|kaun\s+(aaya|nahi|nhi)|kon\s+(aaya|nahi)|chutti)\b/)) {
+  if (has(t, /\b(attendance|haazri|hajri|haajri|present|absent|checked\s*in|checked\s*out|check\s*-?\s*(in|out)\s+(today|status|time|report)|(didn'?t|did\s+not|hasn'?t|has\s+not|not)\s+check(ed)?\s*-?\s*(in|out)|who'?s\s+(not\s+)?in|who\s+(is|are)\s+(in|not\s+in|absent|late|on\s+leave)|not\s+in\s+(yet|today|office)|late\s+today|came\s+late|on\s+leave|leave\s+today|kaun\s+(aaya|nahi|nhi)|kon\s+(aaya|nahi)|chutti)\b/)) {
     return { intent: "attendance", team: teamOf(t) }
   }
 
@@ -128,7 +128,9 @@ export function parseIntent(raw) {
 
   if (has(t, /\b(what'?s\s+new|whats\s+new|what\s+is\s+new|new\s+features?|release\s+notes|changelog|kya\s+naya|console\s+updates?|app\s+updates?)\b/)) return { intent: "whats_new" }
 
-  if (has(t, /^(how|where|kaise|kaha|kahan|help|guide|explain)\b|\bhow\s+(do|to|can|should)\b|\bkaise\s+(kare|karu|karein|karte)\b|\bkahan\s+(hai|milega)\b/)) {
+  // "how many leads today" and "how are we doing" are questions about the
+  // business, not about the console: they fall through to the rules below.
+  if (!has(t, /^hows+(many|much|ares+we)/) && has(t, /^(how|where|kaise|kaha|kahan|help|guide|explain)\b|\bhow\s+(do|to|can|should)\b|\bkaise\s+(kare|karu|karein|karte)\b|\bkahan\s+(hai|milega)\b/)) {
     return { intent: "help", topic: text }
   }
 

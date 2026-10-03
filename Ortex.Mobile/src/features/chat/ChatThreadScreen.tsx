@@ -20,6 +20,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { TEAM_TITLES } from "@/domain/anuIntent"
+import { isAdmin } from "@/domain/modules"
 import {
   clock,
   conversationTitle,
@@ -354,6 +355,12 @@ export default function ChatThreadScreen({ navigation, route }: StackScreenProps
           />
         )}
 
+        {/* The database refuses it too (chat_send, Admin migration 0069). */}
+        {conv.kind === "team" && conv.team === "everyone" && !isAdmin(profile) ? (
+          <Text style={[textVariants.small, styles.readOnly, { color: t.textTertiary, backgroundColor: t.surfaceInset, paddingBottom: Math.max(insets.bottom, spacing.sm) + spacing.sm }]}>
+            Only admins can post here.
+          </Text>
+        ) : (<>
         {replyTo ? (
           <View style={[styles.replyBar, { backgroundColor: t.surface, borderTopColor: t.border }]}>
             <View style={[styles.replyQuote, { borderLeftColor: t.primary, backgroundColor: t.surfaceInset }]}>
@@ -386,6 +393,7 @@ export default function ChatThreadScreen({ navigation, route }: StackScreenProps
             <Icon name="send" size={20} color={text.trim() ? t.textOnPrimary : t.textFaint} variant="Bold" />
           </Pressable>
         </View>
+        </>)}
       </View>
     </View>
   )
@@ -592,6 +600,7 @@ const styles = StyleSheet.create({
   error: { borderRadius: 12, padding: spacing.md, marginTop: spacing.sm },
   replyBar: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingLeft: gutter, paddingRight: spacing.sm, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth },
   replyQuote: { flex: 1, borderLeftWidth: 3, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+  readOnly: { textAlign: "center", paddingHorizontal: gutter, paddingTop: spacing.md },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, paddingHorizontal: spacing.sm, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth },
   input: { flex: 1, minHeight: 44, maxHeight: 140, borderRadius: 22, paddingHorizontal: 16, paddingTop: 11, paddingBottom: 11, fontFamily: fontFamily.regular, fontSize: 15 },
   sendBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },

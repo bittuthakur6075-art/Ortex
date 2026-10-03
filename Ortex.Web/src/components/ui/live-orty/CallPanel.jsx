@@ -54,6 +54,10 @@ export default function CallPanel({ call }) {
   const { status, speaking, audioBlocked, errorMsg, seconds, caption, ended, readLevel, unlockAudio, endCall, dismiss, start, minimize } = call
   const view = ended ? "ended" : status === "error" ? "error" : "live"
   const mood = view === "ended" ? "ended" : view === "error" ? "error" : status === "connecting" ? "connecting" : speaking ? "speaking" : "listening"
+  // Screen readers hear only the call's milestones. The visible status line
+  // flips between speaking and listening every turn, which read aloud would
+  // talk over Anu herself.
+  const announce = view === "ended" ? "Call ended" : view === "error" ? "Call could not connect" : status === "connecting" ? "Connecting you to Anu" : status === "live" ? "Call connected" : ""
 
   return (
     <motion.div
@@ -68,6 +72,7 @@ export default function CallPanel({ call }) {
       <div className="pointer-events-none absolute inset-0 rounded-[32px] ring-1 ring-inset ring-white/[0.08]" />
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.12, duration: 0.25 } }} className="relative flex flex-col">
+        <p className="sr-only" aria-live="polite">{announce}</p>
         <Header view={view} status={status} seconds={seconds} onMinimize={minimize} onClose={dismiss} />
 
         <AnimatePresence mode="wait" initial={false}>
@@ -176,7 +181,7 @@ function IconButton({ label, onClick, children }) {
 
 function StatusLine({ text, dot, pulse }) {
   return (
-    <div className="relative mt-1 h-6 w-full overflow-hidden" aria-live="polite">
+    <div className="relative mt-1 h-6 w-full overflow-hidden">
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.div
           key={text}

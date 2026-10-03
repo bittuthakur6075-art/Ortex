@@ -12,7 +12,7 @@
  * Tested in test/anu.test.mjs.
  */
 
-import { formatCurrency, formatDate } from "@/domain/format"
+import { formatDate, formatNumber } from "@/domain/format"
 import {
   ENQUIRY_STATUS,
   QUOTATION_STATUS,
@@ -97,7 +97,9 @@ export function spokenAge(ts: string | undefined, now: number): string {
 }
 
 const who = (c?: Partial<Customer>) => c?.company || c?.name || "an unnamed customer"
-const money = (n: unknown) => formatCurrency(Number(n) || 0)
+// Whole rupees, as the console's lib/anu.js: paise read aloud is noise on a call. The Indian
+// grouping is format.ts's own, since Hermes may lack the en-IN locale.
+export const money = (n: unknown) => `₹${formatNumber(Math.round(Number(n) || 0))}`
 const isWon = (s: string) => s === "accepted" || s === "invoiced"
 
 // ---- briefing ----------------------------------------------------------------

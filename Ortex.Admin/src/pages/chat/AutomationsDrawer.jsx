@@ -39,6 +39,9 @@ export default function AutomationsDrawer({ open, onClose, superAdmin }) {
   const patch = (job, change) => setDoc((d) => ({ ...d, [job]: { ...(d?.[job] || {}), ...change } }))
 
   const save = async () => {
+    // The database skips a job whose time is not HH:MM (0069), so never save one.
+    const bad = JOBS.find((j) => doc[j.key] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(doc[j.key].time || ""))
+    if (bad) return toast.error(`Set a time for ${bad.title}.`)
     setSaving(true)
     const { error: e } = await supabase.from("anu_bot_settings").update({ doc, updated_at: new Date().toISOString() }).eq("id", true)
     setSaving(false)

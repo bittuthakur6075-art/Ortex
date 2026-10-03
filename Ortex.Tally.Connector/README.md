@@ -49,6 +49,40 @@ npm start         # keep running, sync every sync.intervalSeconds (default 5 min
 Always start with `dry-run` and open the files in `./out/` to confirm the XML
 matches your Tally masters before posting for real.
 
+## 4. On the Tally server (how Ortex runs it)
+
+TallyPrime runs on a **remote Windows server**, so the connector lives there
+too, next to Tally. Never open Tally's port 9000 to the internet so the
+connector can run elsewhere: the gateway has no password, and anyone who
+reaches it can read and change the books.
+
+**Start with Windows** (one time, on the server, in this folder):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\update.ps1 -InstallTask
+```
+
+That registers the scheduled task `OrtexTallyConnector`: it starts at boot,
+restarts itself if it stops, and writes its output to `logs\connector.log`.
+
+**Update after a release:**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\update.ps1             # a git checkout: pulls the code
+powershell -ExecutionPolicy Bypass -File .\update.ps1 -SkipPull   # files copied in by hand
+```
+
+It backs up `config.json` (to `config.backup-<time>.json`, git-ignored: it
+holds the service key), gets the new code, runs `npm ci`, the offline
+self-test (`npm run fixture`) and the config check (`npm run check-config`),
+and restarts the task only if all of them pass. `npm run check-config` alone
+lists the settings a newer connector knows about that this server's
+`config.json` lacks, and warns about risky ones (payouts on with no payout
+ledger, a Tally URL on another machine). It never prints the service key.
+
+After an update that changes the vouchers, run `npm run dry-run` and check
+`out\` before the next real pass, ideally against a copy of the company first.
+
 ## How balancing works
 
 Each sales voucher debits the party (customer) and credits `Sales` + GST

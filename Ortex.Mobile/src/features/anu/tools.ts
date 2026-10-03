@@ -2,8 +2,9 @@
  * Anu's staff tools, as Gemini Live function declarations.
  *
  * READ tools answer from the phone's own collections (see useAnuSession's
- * `runTool`); the two WRITE tools require `confirmed: true`, which the prompt
- * only allows after a spoken yes, and the executor refuses without it.
+ * `runTool`); the two WRITE tools only PROPOSE: the executor puts a Confirm card
+ * on screen and nothing is saved until the person taps it, whatever `confirmed`
+ * the model sends (tool results carry anonymous website text).
  */
 
 const S = (description: string) => ({ type: "STRING", description })
@@ -66,14 +67,14 @@ export const ANU_TOOLS = [
       {
         name: "set_enquiry_status",
         description:
-          "Change the status of one enquiry or Anu call. Only after reading the change back and hearing a clear yes; send confirmed=true then. Without confirmation the reply asks you to confirm first.",
+          "Propose a status change for one enquiry or Anu call. Nothing is saved by this call: it shows Confirm and Cancel on screen, and only the person's tap on Confirm saves it. Read the change back and ask them to tap Confirm.",
         parameters: {
           type: "OBJECT",
           properties: {
             id: S("The enquiry or voice_call id from a previous result"),
             kind: { type: "STRING", format: "enum", enum: ["enquiry", "voice_call"], description: "The kind given with that result" },
             status: { type: "STRING", format: "enum", enum: ["new", "contacted", "qualified", "quoted", "won", "lost"], description: "The new status" },
-            confirmed: { type: "BOOLEAN", description: "true only after the person said yes to this exact change" },
+            confirmed: { type: "BOOLEAN", description: "true if the person has said yes; it does not save anything, the on-screen Confirm does" },
           },
           required: ["id", "kind", "status", "confirmed"],
         },
@@ -81,7 +82,7 @@ export const ANU_TOOLS = [
       {
         name: "start_quotation",
         description:
-          "Open a NEW quotation draft on screen, pre-filled with a customer and items, for the person to review and save. Only after they confirmed the customer and items. The call ends and the editor opens.",
+          "Propose a NEW quotation draft, pre-filled with a customer and items. This call shows Confirm and Cancel on screen; only the person's tap on Confirm opens the draft for them to review and save.",
         parameters: {
           type: "OBJECT",
           properties: {
@@ -96,7 +97,7 @@ export const ANU_TOOLS = [
                 required: ["product"],
               },
             },
-            confirmed: { type: "BOOLEAN", description: "true only after the person agreed to the customer and items" },
+            confirmed: { type: "BOOLEAN", description: "true if the person agreed; it does not open anything, the on-screen Confirm does" },
           },
           required: ["items", "confirmed"],
         },

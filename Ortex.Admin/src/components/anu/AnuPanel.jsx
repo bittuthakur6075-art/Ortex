@@ -518,7 +518,6 @@ function Composer({ idle = false }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder={idle ? "Type a question, or tap the mic" : connecting ? "Connecting…" : "Type instead of speaking"}
-          disabled={connecting}
           className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-subtle-foreground disabled:opacity-60"
           aria-label="Message Anu"
         />

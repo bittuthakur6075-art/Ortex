@@ -49,7 +49,7 @@ export const PRODUCT_RANGE = [
   { kind: "standee", name: "Acrylic desk standees and name holders", moq: "25 to 50", materials: "acrylic", note: "also paperweights and dashboard idols",
     line: "Acrylic products: desk standees, name and card holders, paperweights, photo frames, dashboard idols. Minimum 25 to 50." },
   { kind: "trophy", name: "Trophies and awards", moq: "50 to 100 in MDF, 25 to 50 in acrylic", materials: "MDF and acrylic", note: "custom shapes and engraved titles",
-    line: "MDF products: award trophies, examination pads, custom-shape fridge magnets. Minimum 50 to 100." },
+    line: "MDF products: award trophies and examination pads. Minimum 50 to 100." },
   { kind: "lanyard", name: "Lanyards and ID card holders", moq: "100", materials: "full-colour sublimation polyester and satin, with acrylic or PVC ID card holders", note: "hooks, clips and safety breakaways to choice",
     line: "Lanyards and ID: full-colour sublimation and satin lanyards, and ID card holders. Minimum 100." },
   { kind: "badge", name: "Badges", moq: "50 to 200", materials: "metal name badges with magnet, plastic pin badges, button badges and LED badges", note: "",
