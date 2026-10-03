@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Smartphone } from "../../components/ui/Icons"
 import { Card } from "../../components/ui/Ui"
-import { clockIST, counted, durationWords, onDutySince } from "../../lib/attendance"
+import { clockIST, counted, countFromFor, durationWords, onDutySince, weeklyOffOf } from "../../lib/attendance"
 import { cn } from "../../lib/cn"
 
 // My attendance → Today: the live view of the person's own day (Zoho People
@@ -19,21 +19,27 @@ function atIST(day, hhmm) {
   return Date.parse(`${day}T00:00:00Z`) - IST + (h * 60 + (m || 0)) * MIN
 }
 
-/** Worked stretches [start, end] in ms from counted punches; an open one runs to `now`. */
-function stretches(punches, now) {
+/**
+ * Worked stretches [start, end] in ms from counted punches; an open one runs to
+ * `now`. An in before `floor` (the shift start, countFromFor) counts from it,
+ * the same rule as summarizeDay. Kept here rather than calling summarizeDay
+ * because the bar needs each stretch and the clock needs seconds, and
+ * summarizeDay returns whole minutes.
+ */
+function stretches(punches, now, floor) {
   const list = counted(punches).sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
   const out = []
   let open = null
   for (const p of list) {
     const t = Date.parse(p.at)
     if (p.kind === "in") {
-      if (open === null) open = t
+      if (open === null) open = floor != null && t < floor ? floor : t
     } else if (open !== null) {
-      out.push([open, t])
+      if (t > open) out.push([open, t])
       open = null
     }
   }
-  if (open !== null) out.push([open, now])
+  if (open !== null && now > open) out.push([open, now])
   return out
 }
 
@@ -43,7 +49,7 @@ function hms(ms) {
   return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`
 }
 
-export default function TodayCard({ day, punches, settings }) {
+export default function TodayCard({ day, punches, settings, holiday = false }) {
   const onDuty = Boolean(onDutySince(punches || []))
   const [now, setNow] = useState(Date.now())
 
@@ -60,13 +66,14 @@ export default function TodayCard({ day, punches, settings }) {
   const model = useMemo(() => {
     const cfg = settings || {}
     const dow = new Date(`${day}T12:00:00Z`).getUTCDay()
-    const off = (cfg.weeklyOff || [0]).includes(dow)
+    const off = holiday || weeklyOffOf(cfg).includes(dow)
+    const countFrom = countFromFor(cfg, day, holiday)
     let start = atIST(day, cfg.shift?.start || "09:30")
     let end = atIST(day, cfg.shift?.end || "18:30")
     if (end <= start) end += 24 * 60 * MIN
     if (dow === 6 && cfg.saturday === "half") end = start + (end - start) / 2
     const target = off ? 0 : end - start
-    const segs = stretches(punches || [], now)
+    const segs = stretches(punches || [], now, countFrom ? atIST(day, countFrom) : null)
     const worked = segs.reduce((s, [a, b]) => s + (b - a), 0)
     const valid = counted(punches || []).sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
     const firstIn = valid.find((p) => p.kind === "in")
@@ -75,7 +82,7 @@ export default function TodayCard({ day, punches, settings }) {
     const lo = Math.min(start, ...segs.map((s) => s[0]))
     const hi = Math.max(end, ...segs.map((s) => s[1]), onDuty ? now : 0)
     return { off, start, end, target, segs, worked, firstIn, lastOut, lo, hi }
-  }, [day, punches, settings, now, onDuty])
+  }, [day, punches, settings, holiday, now, onDuty])
 
   const { off, target, worked, firstIn, lastOut } = model
   const ratio = target ? worked / target : 0
@@ -84,7 +91,7 @@ export default function TodayCard({ day, punches, settings }) {
   const tone = overtime ? "warning" : done ? "success" : "primary"
 
   let words
-  if (!firstIn) words = off ? "Weekly off" : "Not started"
+  if (!firstIn) words = off ? (holiday ? "Holiday" : "Weekly off") : "Not started"
   else if (off) words = `${durationWords(worked / MIN)} on a day off`
   else if (overtime) words = `Overtime ${durationWords((worked - target) / MIN)}`
   else if (done) words = "Shift complete"

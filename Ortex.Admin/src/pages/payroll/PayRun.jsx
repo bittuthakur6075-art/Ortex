@@ -69,7 +69,8 @@ export default function PayRun() {
         prev,
         settings,
         directory: directory || {},
-        locked: (locks.rows || []).some((r) => String(r.month).slice(0, 7) === month),
+        // null = the lock list could not be read: let the server decide.
+        locked: locks.error ? null : (locks.rows || []).some((r) => String(r.month).slice(0, 7) === month),
       })
     } catch (error) {
       setState({ loading: false, error })
@@ -85,6 +86,9 @@ export default function PayRun() {
     () => [...(run?.payslips || [])].sort((a, b) => String(a.data?.employee?.name || "").localeCompare(String(b.data?.employee?.name || ""))),
     [run],
   )
+  // Paid a full month only because attendance had no row for them, and still
+  // being paid in this run on that guess (not skipped, not set by hand).
+  const fullMonthGuess = rows.filter((r) => r.status === "included" && r.data?.attendanceMissing && r.data?.paidDaysOverride == null)
   const slips = useMemo(() => rows.map((r) => flatSlip(r, run)), [rows, run])
   const prevSlips = useMemo(() => (state.prev?.payslips || []).map((r) => flatSlip(r, state.prev)), [state.prev])
 
@@ -151,14 +155,29 @@ export default function PayRun() {
         const out = await computeRun(run, { edits })
         await saveRun(run.id, out.slips, out.totals)
         setEdits({})
-        if (out.attendanceError) toast.warning(`Attendance could not be read, so full months were paid: ${out.attendanceError}`)
         if (!out.slips.length) toast.warning("Nobody to pay: add pay profiles and salaries under Employees first.")
       },
       "Payslips calculated and saved",
     )
 
+  // A regular run is paid on locked attendance: submitting or approving it is
+  // refused until the month is locked (read again here, not from page load).
+  const needsLock = run.kind === "regular"
   const transition = async (action, success, extra) => {
-    const ok = await act(action, () => transitionRun(run.id, action, extra), success)
+    const ok = await act(
+      action,
+      async () => {
+        if (needsLock && (action === "submit" || action === "approve")) {
+          const locks = await lockedMonths()
+          if (locks.error) throw new Error(`Could not check the attendance lock: ${locks.error}`)
+          if (!(locks.rows || []).some((r) => String(r.month).slice(0, 7) === String(run.month).slice(0, 7))) {
+            throw new Error(`Attendance for ${monthWords(run.month)} is not locked. Lock it in the Register first.`)
+          }
+        }
+        await transitionRun(run.id, action, extra)
+      },
+      success,
+    )
     if (ok) setDialog(null)
   }
 
@@ -232,8 +251,16 @@ export default function PayRun() {
               </Button>
               <Button
                 onClick={() => transition("submit", "Submitted for approval")}
-                disabled={Boolean(busy) || dirty || !rows.length}
-                title={dirty ? "Calculate first to apply your changes" : !rows.length ? "Calculate the payslips first" : undefined}
+                disabled={Boolean(busy) || dirty || !rows.length || (needsLock && state.locked === false)}
+                title={
+                  dirty
+                    ? "Calculate first to apply your changes"
+                    : !rows.length
+                      ? "Calculate the payslips first"
+                      : needsLock && state.locked === false
+                        ? "Lock this month's attendance first"
+                        : undefined
+                }
               >
                 {busy === "submit" ? "Submitting…" : "Submit for approval"}
               </Button>
@@ -249,8 +276,14 @@ export default function PayRun() {
               </Button>
               <Button
                 onClick={() => transition("approve", "Pay run approved")}
-                disabled={Boolean(busy) || (submittedByMe && !isSuperAdmin(profile))}
-                title={submittedByMe && !isSuperAdmin(profile) ? "You submitted this run, so someone else approves it" : undefined}
+                disabled={Boolean(busy) || (submittedByMe && !isSuperAdmin(profile)) || (needsLock && state.locked === false)}
+                title={
+                  submittedByMe && !isSuperAdmin(profile)
+                    ? "You submitted this run, so someone else approves it"
+                    : needsLock && state.locked === false
+                      ? "Lock this month's attendance first"
+                      : undefined
+                }
               >
                 <CheckCircle2 className="h-4 w-4" /> {busy === "approve" ? "Approving…" : "Approve"}
               </Button>
@@ -284,13 +317,19 @@ export default function PayRun() {
       {status === "pending_approval" && submittedByMe && !isSuperAdmin(profile) && (
         <Banner tone="info">You submitted this run, so someone else with payroll access, or the Super Admin, has to approve it.</Banner>
       )}
-      {draft && !state.locked && (
+      {(draft || status === "pending_approval") && needsLock && state.locked === false && (
         <Banner tone="warning">
           Attendance for {monthWords(run.month)} is not locked; paid days may change.{" "}
           <Link to="/attendance?tab=register" className="font-medium underline">
             Lock it in the Register
           </Link>{" "}
-          before you submit.
+          before this run is submitted or approved.
+        </Banner>
+      )}
+      {fullMonthGuess.length > 0 && (
+        <Banner tone="warning">
+          {fullMonthGuess.length} {fullMonthGuess.length === 1 ? "person has" : "people have"} no
+          attendance for {monthWords(run.month)}, so the full month was paid. Check their paid days.
         </Banner>
       )}
       {draft && run.kind !== "regular" && (
@@ -399,6 +438,11 @@ export default function PayRun() {
                           {[d.employee?.employee_code, d.employee?.designation].filter(Boolean).join(" · ") || "-"}
                           {oneTime.length > 0 && ` · ${oneTime.length} one-time`}
                         </div>
+                        {d.attendanceMissing && (
+                          <div className="mt-0.5 flex items-center gap-1 text-[12px] font-medium text-warning-text">
+                            <AlertTriangle className="h-3.5 w-3.5" /> No attendance this month: full month paid
+                          </div>
+                        )}
                       </td>
                       <td className="text-right tabular" onClick={draft ? stop : undefined}>
                         <div className="flex items-center justify-end gap-2">

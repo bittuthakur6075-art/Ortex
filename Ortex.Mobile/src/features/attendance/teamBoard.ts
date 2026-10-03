@@ -26,19 +26,29 @@ export type BoardRules = {
   day: string
   now: number
   shiftStart?: string
+  /** Minutes after the shift start before a check-in is late (the server's default, 15). */
   graceMin?: number
+  /** When check-in opens (08:30 by default): with no shift start, the hour someone is due. */
+  checkInFrom?: string
   off: string | null
 }
 
+const HHMM = /^\d{1,2}:\d{2}$/
 const at = (day: string, hhmm: string) => Date.parse(`${day}T${hhmm.padStart(5, "0")}:00+05:30`)
 
 export function boardRow(p: TeamPerson, r: BoardRules): BoardRow {
   const s = p.summary
-  const start = r.shiftStart ? at(r.day, r.shiftStart) : NaN
-  const due = start + (r.graceMin || 0) * 60000
+  const start = r.shiftStart && HHMM.test(r.shiftStart) ? at(r.day, r.shiftStart) : NaN
+  // With no shift start nobody can be late, but nobody stays "expected" all
+  // day either: once check-in opens, no check-in is "not checked in".
+  const due = Number.isFinite(start)
+    ? start + (r.graceMin ?? 15) * 60000
+    : at(r.day, r.checkInFrom && HHMM.test(r.checkInFrom) ? r.checkInFrom : "08:30")
+  // As the server counts it: whole minutes from the shift start, rounded up,
+  // only past the grace, never on a day off or a day with any leave on it.
   const lateMin =
-    s.firstIn && !r.off && Date.parse(s.firstIn) > due
-      ? Math.round((Date.parse(s.firstIn) - start) / 60000)
+    s.firstIn && Number.isFinite(start) && !r.off && !p.leave && Date.parse(s.firstIn) > due
+      ? Math.ceil((Date.parse(s.firstIn) - start) / 60000)
       : 0
   const base = { ...p, lateMin, review: s.flagged > 0 }
   if (s.firstIn && p.onDuty) {
@@ -58,7 +68,7 @@ export function boardRow(p: TeamPerson, r: BoardRules): BoardRow {
   if (r.off) return { ...base, status: "off", line: r.off }
   if (p.autoPresent) return { ...base, status: "auto", line: "Present by default" }
   if (!(r.now >= due)) {
-    const when = r.shiftStart ? `Shift starts ${clockIST(start)}` : "No check-in yet"
+    const when = Number.isFinite(start) ? `Shift starts ${clockIST(start)}` : `Check-in opens ${clockIST(due)}`
     return { ...base, status: "expected", line: when }
   }
   return { ...base, status: "notIn", line: "Not checked in" }

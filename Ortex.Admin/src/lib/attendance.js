@@ -1,11 +1,28 @@
-// Attendance, the pure half (docs/pm/ATTENDANCE_LEAVE_PLAN.md). MIRRORED
-// line for line from Ortex.Mobile/src/domain/attendance.ts (generated with tsc): edit both.
+// Attendance, the pure half. The source is Ortex.Mobile/src/domain/attendance.ts;
+// Ortex.Admin/src/lib/attendance.js is GENERATED from it by
+// `npm run gen:attendance` in Ortex.Mobile. Edit the TS, never the JS.
 //
 // The server (migration 0043, attendance_punch) is the authority on the code,
-// the time and whether a punch counts. These functions only turn its rows and its
-// answers into what a person reads: a day's first in and last out, the hours in
-// between, the flags in words, and a sentence for every refusal. Everything
-// takes `now` so a test is not a race with the clock.
+// the time and whether a punch counts. These functions only turn its rows and
+// its answers into what a person reads: a day's first in and last out, the
+// hours in between, the flags in words, and a sentence for every refusal.
+// Everything takes `now` so a test is not a race with the clock.
+//
+// Attendance is marked by SCANNING the rotating code on the office screen
+// (0043). The selfie and the geofence of 0033 are gone from the flow. The
+// selfie went entirely on 2026-09-30 (Admin migration 0060): the column, the
+// photos and the screens that drew them. The location fields stay on Punch,
+// because rows made before 2026-09-20 still carry them.
+/**
+ * The prefix every Ortex attendance code carries (attendance_qr_payload,
+ * migration 0043). The scanner checks it on the phone so a stray QR code on a
+ * parcel or a poster is ignored without a round trip to the server, which is
+ * also what keeps the camera from firing a request per frame.
+ */
+export const QR_PREFIX = "ORTEX-ATT1:"
+/** Is this scanned string one of ours? */
+export const isAttendanceCode = (payload) =>
+  typeof payload === "string" && payload.startsWith(QR_PREFIX) && payload.length > QR_PREFIX.length
 export const TIMEZONE = "Asia/Kolkata"
 const MINUTE = 60000
 const IST_OFFSET_MIN = 330
@@ -55,12 +72,12 @@ export function summarizeDay(day, punches, now = Date.now(), countFrom) {
       openAt = null
     }
   }
-  const open = openAt !== null
-  // An open in still counts up to now, but never past the end of its own day.
-  if (openAt !== null) {
-    const dayEnd = new Date(`${day}T00:00:00+05:30`).getTime() + 24 * 60 * MINUTE
-    worked += Math.max(0, (Math.min(now, dayEnd) - openAt) / MINUTE)
-  }
+  // An open in counts up to now while its own day runs. Once the day is over it
+  // counts nothing: midnight closes it as an absence with no check-out (0056).
+  const over = day < dayKey(now)
+  const open = openAt !== null && !over
+  const noCheckout = openAt !== null && over
+  if (open) worked += Math.max(0, (now - openAt) / MINUTE)
   const ins = valid.filter((p) => p.kind === "in")
   const outs = valid.filter((p) => p.kind === "out")
   return {
@@ -69,6 +86,7 @@ export function summarizeDay(day, punches, now = Date.now(), countFrom) {
     lastOut: outs.length ? outs[outs.length - 1].at : null,
     workedMin: Math.round(worked),
     open,
+    noCheckout,
     punches: all,
     flagged: all.filter((p) => p.review === "flagged").length,
     field: valid.some((p) => p.mode === "field"),
@@ -84,6 +102,24 @@ export function summarizeDays(punches, now = Date.now()) {
     by.get(k).push(p)
   }
   return [...by.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1)).map(([day, list]) => summarizeDay(day, list, now))
+}
+/**
+ * The weekly offs, read the way the server reads `weeklyOff`
+ * (attendance_recompute_day): Sunday when it is not set, no day at all when it
+ * is set to an empty list. Every screen goes through this so none guesses.
+ */
+export const weeklyOffOf = (s = {}) => (Array.isArray(s.weeklyOff) ? s.weeklyOff : [0])
+/**
+ * The shift start to count a day's hours from (an "HH:MM" IST wall time), or
+ * undefined on a day with no shift to be early for: a weekly off, a holiday, or
+ * no shift set. Passed to summarizeDay (and the phone's workedMs) so every
+ * screen agrees with attendance_recompute_day (0056).
+ */
+export function countFromFor(s, day, holiday = false) {
+  if (holiday) return undefined
+  if (weeklyOffOf(s).includes(dayOfWeek(day))) return undefined
+  const start = s.shift?.start
+  return start && /^\d{1,2}:\d{2}$/.test(start) ? start.padStart(5, "0") : undefined
 }
 /** The latest punch that counts decides whether the person is on duty now. */
 export function onDutySince(punches, now = Date.now()) {
@@ -101,6 +137,8 @@ export const FLAG_LABEL = {
   low_accuracy: "Weak location",
   mock_location: "Fake location detected",
   no_code: "Marked without scanning a code",
+  own_code: "Scanned a code they opened themselves",
+  other_site: "Scanned at a station not assigned to them",
   no_checkout: "Did not check out",
   auto_present: "Marked present automatically",
   regularised: "Corrected on request",
@@ -128,16 +166,6 @@ export function resultSentence(r) {
   return r.message || "That did not go through. Try again."
 }
 /**
- * The prefix every Ortex attendance code carries (attendance_qr_payload,
- * migration 0043). The scanner checks it on the phone so a stray QR code on a
- * parcel or a poster is ignored without a round trip to the server, which is
- * also what keeps the camera from firing a request per frame.
- */
-export const QR_PREFIX = "ORTEX-ATT1:"
-/** Is this scanned string one of ours? */
-export const isAttendanceCode = (payload) =>
-  typeof payload === "string" && payload.startsWith(QR_PREFIX) && payload.length > QR_PREFIX.length
-/**
  * Whether a refusal is worth pointing the camera again for. A dead code means
  * "look up, the screen has a new one"; being already clocked in does not, and
  * offering Scan again there would just walk the person into the same wall.
@@ -146,14 +174,16 @@ export const canRescan = (status) =>
   status === "wrong_code" || status === "used_code" || status === "expired_code" || status === "no_code"
 /** The Super Admin's override wins over the computed status. */
 export const effectiveStatus = (d) => d.override_status || d.status
+/**
+ * A day left open: checked in, never out. Since 0056 the server writes it as A
+ * flagged no_checkout (MP before that, still on older rows). An override means
+ * someone has already dealt with it.
+ */
+export const missedCheckout = (d) => !d.override_status && (d.status === "MP" || !!d.flags?.includes("no_checkout"))
 export const STATUS_LABEL = {
   P: "Present",
   HD: "Half day",
   A: "Absent",
-  // DELIBERATE DIVERGENCE from Ortex.Mobile/src/domain/attendance.ts, which
-  // still says "On duty (field)". The bracket was the only one in the set and
-  // it read as a footnote rather than a status. The phone is not being touched
-  // this release; put it back in step when it is.
   OD: "On duty",
   WO: "Weekly off",
   H: "Holiday",
@@ -277,7 +307,7 @@ const addDays = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 864000
  */
 export function leaveDaysBetween(from, to, fromHalf, toHalf, rules = {}) {
   if (!from || !to || to < from) return 0
-  const off = new Set(rules.weeklyOff ?? [0])
+  const off = new Set(weeklyOffOf(rules))
   const hol = new Set(rules.holidays ?? [])
   let n = 0
   for (let d = from; d <= to; d = addDays(d, 1)) {

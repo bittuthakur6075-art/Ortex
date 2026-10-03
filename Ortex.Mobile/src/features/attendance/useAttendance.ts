@@ -6,6 +6,7 @@ import React from "react"
 import {
   dayKey,
   effectiveStatus,
+  missedCheckout,
   onDutySince,
   summarizeDay,
   type AttendanceDay,
@@ -13,20 +14,20 @@ import {
   type DaySummary,
   type Punch,
 } from "@/domain/attendance"
-import { isAdmin } from "@/domain/modules"
+import { canAccess, isAdmin } from "@/domain/modules"
 import { daysFromPunches } from "@/features/attendance/days"
 import { countFromFor, punchWindowClosed, weekStart } from "@/features/attendance/progress"
 import {
-  flaggedPunches,
   holidays,
   loadSettings,
   myDays,
+  learnServerClock,
   myPunches,
-  pendingCorrections,
+  pendingApprovalsCount,
+  serverNow,
   type AttendanceSettings,
   type Holiday,
 } from "@/lib/attendance"
-import { pendingLeave } from "@/lib/leave"
 import type { RootStackParamList } from "@/navigation/types"
 import { useAuth } from "@/store/AuthContext"
 import { useToast } from "@/ui"
@@ -47,20 +48,33 @@ export function useAttendanceToday() {
   const [serverPunches, setPunches] = React.useState<Punch[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
-  const [now, setNow] = React.useState(() => Date.now())
+  // False until the settings have been read once: until then "Shift not set"
+  // would be a guess, not a fact.
+  const [settingsLoaded, setSettingsLoaded] = React.useState(false)
+  const [now, setNow] = React.useState(() => serverNow())
+  // Days off this week and next that are real holidays (optional ones are
+  // working days), so hours on a holiday count whole, as the server counts them.
+  const [holidayDays, setHolidayDays] = React.useState<string[]>([])
 
   const reload = React.useCallback(async () => {
     try {
-      const from = dayKey(Date.now() - DAY_MS)
-      const [s, p] = await Promise.all([loadSettings(), myPunches({ from })])
+      const from = dayKey(serverNow() - DAY_MS)
+      const [s, p, h] = await Promise.all([
+        loadSettings(),
+        myPunches({ from }),
+        holidays({ from, to: dayKey(serverNow() + DAY_MS) }).catch(() => [] as Holiday[]),
+        learnServerClock(),
+      ])
       setSettings(s)
+      setHolidayDays(h.filter((x) => x.kind !== "optional").map((x) => x.day))
+      setSettingsLoaded(true)
       setPunches(p)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load your attendance.")
     } finally {
       setLoading(false)
-      setNow(Date.now())
+      setNow(serverNow())
     }
   }, [])
 
@@ -71,7 +85,7 @@ export function useAttendanceToday() {
   )
 
   React.useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30000)
+    const id = setInterval(() => setNow(serverNow()), 30000)
     return () => clearInterval(id)
   }, [])
 
@@ -81,42 +95,45 @@ export function useAttendanceToday() {
 
   const today = dayKey(now)
   const since = onDutySince(punches, now)
+  const countFrom = countFromFor(settings, today, holidayDays.includes(today))
   const summary: DaySummary = React.useMemo(
-    () => summarizeDay(today, punches.filter((p) => (p.day || dayKey(p.at)) === today), now, countFromFor(settings, today)),
-    [punches, today, now, settings],
+    () => summarizeDay(today, punches.filter((p) => (p.day || dayKey(p.at)) === today), now, countFrom),
+    [punches, today, now, countFrom],
   )
 
-  return { settings, punches, summary, onDutySince: since, loading, error, reload, now }
+  return { settings, settingsLoaded, punches, summary, onDutySince: since, loading, error, reload, now, countFrom }
 }
 
 /**
  * What the Home card and the Attendance page say beyond today (phase 2):
- * yesterday's missed clock-out (with a one-tap correction), the next holiday,
- * and, for an admin, how many corrections and flagged punches wait. Every
- * piece fails soft: before migration 0034 is applied these are simply absent.
+ * yesterday's missed clock-out (with a one-tap correction), the next holiday
+ * (optional holidays are not days off, so they are not it), and, for an admin,
+ * how many decisions wait. Every piece fails soft: before migration 0034 is
+ * applied these are simply absent.
  */
 export function useAttendanceNotices() {
   const { profile } = useAuth()
-  const admin = isAdmin(profile)
-  const [missedYesterday, setMissedYesterday] = React.useState<string | null>(null)
+  // Deciding needs the Team module as well as the role (0065), as the server checks.
+  const admin = isAdmin(profile) && canAccess(profile, "attendance-team")
+  const [missed, setMissed] = React.useState<{ day: string; inAt: string | null } | null>(null)
   const [nextHoliday, setNextHoliday] = React.useState<Holiday | null>(null)
   const [pending, setPending] = React.useState(0)
 
   const reload = React.useCallback(async () => {
-    const yesterday = dayKey(Date.now() - DAY_MS)
-    const today = dayKey(Date.now())
-    const soon = dayKey(Date.now() + 120 * DAY_MS)
-    const [days, hols, corrections, flagged, leave] = await Promise.all([
+    const now = serverNow()
+    const yesterday = dayKey(now - DAY_MS)
+    const today = dayKey(now)
+    const soon = dayKey(now + 120 * DAY_MS)
+    const [days, hols, count] = await Promise.all([
       myDays({ from: yesterday, to: yesterday }).catch(() => [] as AttendanceDay[]),
       holidays({ from: today, to: soon }).catch(() => [] as Holiday[]),
-      admin ? pendingCorrections().catch(() => []) : Promise.resolve([]),
-      admin ? flaggedPunches().catch(() => []) : Promise.resolve([]),
-      admin ? pendingLeave().catch(() => []) : Promise.resolve([]),
+      admin ? pendingApprovalsCount().catch(() => 0) : Promise.resolve(0),
     ])
     const y = days[0]
-    setMissedYesterday(y && effectiveStatus(y) === "MP" ? y.day : null)
-    setNextHoliday(hols[0] ?? null)
-    setPending(corrections.length + flagged.length + leave.length)
+    // Since 0056 an unclosed day is A flagged no_checkout (MP on older rows).
+    setMissed(y && missedCheckout(y) ? { day: y.day, inAt: y.first_in ?? null } : null)
+    setNextHoliday(hols.find((h) => h.kind !== "optional") ?? null)
+    setPending(count)
   }, [admin])
 
   useFocusEffect(
@@ -125,7 +142,7 @@ export function useAttendanceNotices() {
     }, [reload]),
   )
 
-  return { missedYesterday, nextHoliday, pending, admin, reload }
+  return { missedYesterday: missed?.day ?? null, missed, nextHoliday, pending, admin, reload }
 }
 
 const noticeKey = (uid: string) => `@ortex/attendance-notice/${uid}`
@@ -147,19 +164,24 @@ export async function markNoticeSeen(uid?: string | null): Promise<void> {
 /**
  * The one door into clocking in: the privacy notice (and permissions) the first
  * time on this handset for this person, the camera flow after that. Outside
- * the check-in window (8:50 AM to 9 PM; a check-out has none) it says so instead.
+ * the check-in window (8:30 AM to 9 PM by default; a check-out has none) it
+ * says so instead.
  */
 export function useStartClock() {
   const { session } = useAuth()
   const toast = useToast()
   const uid = session?.user?.id
+  // A double tap would otherwise open the camera twice, one over the other.
+  const lastTap = React.useRef(0)
   return React.useCallback(
     async (
       navigation: Pick<NativeStackNavigationProp<RootStackParamList>, "navigate">,
       kind: "in" | "out",
       settings: AttendanceSettings,
     ) => {
-      const closed = punchWindowClosed(settings, Date.now(), kind)
+      if (Date.now() - lastTap.current < 1000) return
+      lastTap.current = Date.now()
+      const closed = punchWindowClosed(settings, serverNow(), kind)
       if (closed) return toast.show({ message: closed, tone: "danger" })
       if (await noticeSeen(uid)) navigation.navigate("AttendanceClock", { kind })
       else navigation.navigate("AttendanceNotice", { kind })
@@ -182,8 +204,8 @@ export function useWeekDays(): { rows: WeekRow[]; loading: boolean; reload: () =
   const [loading, setLoading] = React.useState(true)
 
   const load = React.useCallback(async () => {
-    const from = weekStart(Date.now())
-    const to = dayKey(Date.now())
+    const from = weekStart(serverNow())
+    const to = dayKey(serverNow())
     try {
       const days = await myDays({ from, to })
       if (days.length) {

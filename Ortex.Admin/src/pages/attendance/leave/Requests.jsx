@@ -17,6 +17,20 @@ import { LeaveStatusBadge, TypeChip } from "./leaveUi"
 // their own request; the database refuses it too, so those rows cannot even be
 // ticked.
 
+/**
+ * Of `list`, the requests still waiting, read fresh from the server: one
+ * decided elsewhere a moment ago is skipped, not decided twice.
+ */
+async function stillPending(list) {
+  const fresh = await listLeaveRequests({ status: "pending" })
+  if (fresh.error) throw new Error(fresh.error)
+  const ids = new Set((fresh.rows || []).map((r) => r.id))
+  const keep = list.filter((r) => ids.has(r.id))
+  const skipped = list.length - keep.length
+  if (skipped) toast.info(skipped === 1 ? "One request was already decided, so it was skipped" : `${skipped} requests were already decided, so they were skipped`)
+  return keep
+}
+
 const STATUSES = [
   { value: "pending", label: "Waiting" },
   { value: "approved", label: "Approved" },
@@ -35,9 +49,14 @@ export default function Requests({ ctx, canDecide }) {
   const [declining, setDeclining] = useState(null) // array of requests
   const [busy, setBusy] = useState(false)
 
+  // The newest 1000 for the history, plus every pending request on its own
+  // read, so a waiting request can never drop off the end of the list.
   const load = useCallback(async () => {
-    const res = await listLeaveRequests({})
-    setState({ loading: false, ...res })
+    const [recent, pending] = await Promise.all([listLeaveRequests({}), listLeaveRequests({ status: "pending" })])
+    const byId = new Map((recent.rows || []).map((r) => [r.id, r]))
+    for (const r of pending.rows || []) byId.set(r.id, r)
+    const rows = [...byId.values()].sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+    setState({ loading: false, missing: recent.missing || pending.missing, error: recent.error || pending.error, rows })
   }, [])
 
   useEffect(() => {
@@ -83,10 +102,16 @@ export default function Requests({ ctx, canDecide }) {
       return n
     })
 
-  const approve = async (list) => {
+  const approve = async (asked) => {
     setBusy(true)
     let ok = 0
     const errors = []
+    let list = []
+    try {
+      list = await stillPending(asked)
+    } catch (e) {
+      errors.push(e.message)
+    }
     for (const r of list) {
       try {
         await decideLeave(r.id, true, null)
@@ -255,8 +280,12 @@ function RequestDrawer({ request: r, ctx, all, canDecide, deciding, selfId, onCl
   const [bal, setBal] = useState(null)
   const [docUrl, setDocUrl] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelNote, setCancelNote] = useState("")
 
   useEffect(() => {
+    setCancelling(false)
+    setCancelNote("")
     if (!r) return
     let alive = true
     setBal(null)
@@ -280,12 +309,13 @@ function RequestDrawer({ request: r, ctx, all, canDecide, deciding, selfId, onCl
   const canCancelApproved = canDecide && r.status === "approved" && !own
 
   const cancelApproved = async () => {
-    const note = window.prompt("Why is this leave being cancelled? The person sees this.")
-    if (note === null) return
+    const note = cancelNote.trim()
+    if (note.length < 3) return toast.error("Say why the leave is being cancelled")
     setBusy(true)
     try {
       await cancelLeave(r.id, note)
       toast.success("Leave cancelled. The days are back in the balance.")
+      setCancelling(false)
       onChanged()
     } catch (e) {
       toast.error(e.message)
@@ -315,7 +345,7 @@ function RequestDrawer({ request: r, ctx, all, canDecide, deciding, selfId, onCl
           )
         ) : canCancelApproved ? (
           <div className="flex w-full justify-end">
-            <Button variant="outline" size="sm" onClick={cancelApproved} disabled={busy}>
+            <Button variant="outline" size="sm" onClick={() => setCancelling(true)} disabled={busy}>
               Cancel leave
             </Button>
           </div>
@@ -386,11 +416,30 @@ function RequestDrawer({ request: r, ctx, all, canDecide, deciding, selfId, onCl
                 </div>
                 <div className="text-[12px] text-muted-foreground">{r.decided_at ? formatDateTime(r.decided_at) : ""}</div>
                 {r.decision_note && <div className="mt-1 text-[13px] text-muted-foreground">{r.decision_note}</div>}
+                {r.cancel_note && <div className="mt-1 text-[13px] text-muted-foreground">Cancelled: {r.cancel_note}</div>}
               </li>
             )}
           </ol>
         </div>
       </div>
+      <Modal
+        open={cancelling}
+        onClose={() => !busy && setCancelling(false)}
+        width="max-w-md"
+        title="Cancel this leave"
+        footer={
+          <div className="flex w-full justify-end gap-2">
+            <Button size="sm" variant="outline" onClick={() => setCancelling(false)} disabled={busy}>Keep it</Button>
+            <Button size="sm" onClick={cancelApproved} disabled={busy || cancelNote.trim().length < 3}>
+              {busy ? "Cancelling…" : "Cancel leave"}
+            </Button>
+          </div>
+        }
+      >
+        <Field label="Reason" required hint="The person sees this. The days go back into their balance.">
+          <Textarea id="leave-cancel-note" rows={3} value={cancelNote} onChange={(e) => setCancelNote(e.target.value)} placeholder="For example: the client visit moved, so they are working that day" />
+        </Field>
+      </Modal>
     </Drawer>
   )
 }
@@ -411,7 +460,13 @@ function DeclineModal({ list, ctx, onClose, onDone }) {
     setBusy(true)
     let ok = 0
     const errors = []
-    for (const r of list) {
+    let todo = []
+    try {
+      todo = await stillPending(list)
+    } catch (e) {
+      errors.push(e.message)
+    }
+    for (const r of todo) {
       try {
         await decideLeave(r.id, false, note.trim())
         ok += 1

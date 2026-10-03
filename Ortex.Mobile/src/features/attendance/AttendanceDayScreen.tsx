@@ -72,7 +72,6 @@ export default function AttendanceDayScreen({ navigation, route }: StackScreenPr
   const [locked, setLocked] = React.useState(false)
   const [settings, setSettings] = React.useState<AttendanceSettings | null>(null)
   const [error, setError] = React.useState<string | null>(null)
-  const [photo, setPhoto] = React.useState<string | null>(null)
   const [cancelling, setCancelling] = React.useState<string | null>(null)
   // The moment this day was read: where an open session on today ends on the bar.
   const [now, setNow] = React.useState(() => Date.now())
@@ -188,7 +187,15 @@ export default function AttendanceDayScreen({ navigation, route }: StackScreenPr
                   icon="back"
                   tone="out"
                   label="Check-out"
-                  value={summary.open ? "Still on duty" : summary.lastOut ? clockIST(summary.lastOut) : "None"}
+                  value={
+                    summary.open
+                      ? "Still on duty"
+                      : summary.noCheckout
+                      ? "No check-out"
+                      : summary.lastOut
+                      ? clockIST(summary.lastOut)
+                      : "None"
+                  }
                 />
               </View>
 
@@ -222,7 +229,7 @@ export default function AttendanceDayScreen({ navigation, route }: StackScreenPr
                     ? Math.max(0, Math.round((new Date(s.out!.at).getTime() - new Date(s.in!.at).getTime()) / 60000))
                     : null
                   const range = s.in
-                    ? `${clockIST(s.in.at)} to ${s.out ? clockIST(s.out.at) : summary.open && i === sessions.length - 1 ? "now" : "no clock-out"}`
+                    ? `${clockIST(s.in.at)} to ${s.out ? clockIST(s.out.at) : summary.open && i === sessions.length - 1 ? "now" : "no check-out"}`
                     : `Clock out at ${clockIST(s.out!.at)}`
                   const lastSession = i === sessions.length - 1
                   const punches = [s.in, s.out].filter(Boolean) as Punch[]
@@ -297,7 +304,7 @@ export default function AttendanceDayScreen({ navigation, route }: StackScreenPr
                   navigation.navigate("AttendanceCorrection", {
                     day,
                     inAt: summary.firstIn,
-                    outAt: summary.open ? null : summary.lastOut,
+                    outAt: summary.open || summary.noCheckout ? null : summary.lastOut,
                   })
                 }}
               />

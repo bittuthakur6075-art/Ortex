@@ -40,7 +40,7 @@ const DAY_LONG = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "nume
 export const dayLabel = (day: string) => DAY_LONG.format(new Date(`${day}T00:00:00Z`)).replace(",", "")
 
 /** An IST wall time on a day, as an ISO timestamp the server stores. */
-export const istISO = (day: string, hhmm: string) => `${day}T${hhmm}:00+05:30`
+export const istISO = (day: string, hhmm: string) => `${day}T${hhmm.padStart(5, "0")}:00+05:30`
 
 /** HH:MM (24 h) → 9:30 AM. */
 export function clock12(hhmm: string): string {

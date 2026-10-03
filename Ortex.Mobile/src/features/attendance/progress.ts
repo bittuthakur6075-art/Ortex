@@ -3,7 +3,7 @@
 // and kept out of domain/attendance.ts (which is mirrored to the console).
 // Everything takes `now`, so the tests are not a race with the clock.
 
-import { clockIST, counted, dayKey, type AttendanceDay, type Punch } from "@/domain/attendance"
+import { clockIST, counted, countFromFor, dayKey, type AttendanceDay, type Punch } from "@/domain/attendance"
 
 const MINUTE = 60000
 const DEFAULT_SHIFT_MIN = 9 * 60
@@ -81,17 +81,8 @@ export function workedMs(
  */
 type WindowSettings = ShiftSettings & { checkInFrom?: string; closeAt?: string }
 
-/**
- * The shift start to count a day's hours from, or undefined on a day with no
- * shift to be early for. Passed to workedMs and summarizeDay so both agree with
- * attendance_recompute_day (0056).
- */
-export function countFromFor(s: WindowSettings & { weeklyOff?: number[] }, day: string, holiday = false): string | undefined {
-  if (holiday) return undefined
-  const off = s.weeklyOff?.length ? s.weeklyOff : [0]
-  if (off.includes(istWeekday(day))) return undefined
-  return hhmmOk(s.shift?.start) ? s.shift!.start! : undefined
-}
+// Moved to domain/attendance.ts so the console counts hours the same way.
+export { countFromFor }
 
 /** Today's check-in window in epoch ms, IST. */
 export function punchWindow(s: WindowSettings, now: number): { open: number; close: number } {
@@ -201,7 +192,12 @@ export function dayTimeline(day: string, punches: Punch[], s: ShiftSettings, now
       openAt = null
     }
   }
-  if (openAt !== null) pairs.push({ from: openAt, to: Math.max(openAt, now), open: true })
+  // An open in grows to now only while its own day runs; a past day left open
+  // ended at the check-in (no check-out, 0056), so it draws a tick, not a bar.
+  if (openAt !== null) {
+    const running = day >= dayKey(now)
+    pairs.push({ from: openAt, to: running ? Math.max(openAt, now) : openAt, open: running })
+  }
 
   const times = pairs.flatMap((p) => [p.from, p.to])
   const startMs = Math.min(shiftStart, ...times)

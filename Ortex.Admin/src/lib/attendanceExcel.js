@@ -99,7 +99,9 @@ const COLUMNS = [
   { key: "field", header: "On duty", code: "OD", width: 10.5, numFmt: COUNT },
   { key: "half_days", header: "Half day", code: "HD", width: 10.5, numFmt: COUNT },
   { key: "absent", header: "Absent", code: "A", width: 10.5, numFmt: COUNT },
-  { key: "missed", header: "Missed punch", code: "MP", width: 12, numFmt: COUNT },
+  // Days left open: A flagged "Did not check out" (and MP on older rows). No
+  // letter of its own in the grid, so no code under the word.
+  { key: "missed", header: "No check-out", width: 12, numFmt: COUNT },
   { key: "weekly_off", header: "Weekly off", code: "WO", width: 11.5, numFmt: COUNT },
   { key: "holidays", header: "Holiday", code: "H", width: 10.5, numFmt: COUNT },
   { key: "leave", header: "Leave", code: "L", width: 10.5, numFmt: COUNT },
@@ -176,7 +178,7 @@ function titleBlock(ws, { company, line2, line3, span }) {
   return 6
 }
 
-const stamp = () => new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+const stamp = () => new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" })
 
 function summarySheet(wb, { month, summary, overtime, locked, company, columns, roleLabel }) {
   const rows = summary || []
@@ -424,11 +426,11 @@ function legendSheet(wb, withOvertime) {
   const notes = {
     P: "A full day worked.",
     HD: "Worked, but under the half-day threshold in Attendance settings.",
-    A: "No attendance, or a check-in that was never closed before midnight.",
+    A: "No attendance, or a check-in never checked out before midnight (marked Did not check out, counted in No check-out). A correction fixes it.",
     OD: "Every punch that day was made in the field, away from a station.",
     WO: "Weekly off.",
     H: "A company holiday.",
-    MP: "A punch is missing and the day is waiting for a correction.",
+    MP: "An older status for a day left open, used before 30 Sep 2026. Such days are now A, Did not check out.",
     L: "Approved leave.",
     LOP: "Leave without pay.",
   }
@@ -463,10 +465,10 @@ function legendSheet(wb, withOvertime) {
     "Hours worked are the minutes between each check-in and check-out, shown to one decimal.",
     "A check-in before the shift starts counts FROM the shift start, so arriving early does not bank time.",
     "A day that was never checked out is an absence, with the check-in kept on the record. A correction is the way to fix it.",
-    "Payable days = P + OD + WO + H + L, half of each HD and MP, less the late penalty.",
+    "Payable days = P + OD + WO + H + L, half of each HD (and of MP on older records), less the late penalty.",
     withOvertime
       ? "Overtime is the time past the shift on a working day, and every worked minute on a holiday or a weekly off."
-      : "Overtime is recorded but not shown here: it appears only in a file exported by an admin.",
+      : "Overtime is recorded but not shown here: it appears only in a file exported by someone who may see overtime (Register or Payroll).",
     "A dash means nothing to count. A blank square on the Days sheet means no record for that day.",
   ]
   for (const line of lines) {

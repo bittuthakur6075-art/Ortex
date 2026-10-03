@@ -55,6 +55,35 @@ for (const [side, a] of both) {
     assert.equal(s.workedMin, 120)
   })
 
+  test(`${side}: a past day left open pays nothing for the open stretch (0056)`, () => {
+    const s = a.summarizeDay(
+      "2026-09-19",
+      [punch({ at: ist(9, 0) }), punch({ id: "o", kind: "out", at: ist(12, 0) }), punch({ id: "i", at: ist(13, 0) })],
+      new Date(ist(10, 0, 20)).getTime(),
+    )
+    assert.equal(s.open, false)
+    assert.equal(s.noCheckout, true)
+    assert.equal(s.workedMin, 180)
+  })
+
+  test(`${side}: weekly off and count-from read settings as the server does`, () => {
+    assert.deepEqual(a.weeklyOffOf({}), [0])
+    assert.deepEqual(a.weeklyOffOf({ weeklyOff: [] }), [])
+    const s = { shift: { start: "9:30" } }
+    assert.equal(a.countFromFor(s, "2026-09-19"), "09:30") // Saturday
+    assert.equal(a.countFromFor(s, "2026-09-20"), undefined) // Sunday, default off
+    assert.equal(a.countFromFor({ ...s, weeklyOff: [] }, "2026-09-20"), "09:30")
+    assert.equal(a.countFromFor(s, "2026-09-19", true), undefined)
+    assert.equal(a.countFromFor({}, "2026-09-19"), undefined)
+  })
+
+  test(`${side}: a missed check-out is A + no_checkout now, MP on old rows`, () => {
+    assert.equal(a.missedCheckout({ status: "A", flags: ["no_checkout"] }), true)
+    assert.equal(a.missedCheckout({ status: "MP" }), true)
+    assert.equal(a.missedCheckout({ status: "A", flags: ["short_hours"] }), false)
+    assert.equal(a.missedCheckout({ status: "A", flags: ["no_checkout"], override_status: "P" }), false)
+  })
+
   test(`${side}: on duty since the latest counted in, until midnight IST (0049)`, () => {
     const list = [punch({ at: ist(9, 0) })]
     assert.equal(a.onDutySince(list, new Date(ist(12, 0)).getTime()), ist(9, 0))

@@ -8,7 +8,7 @@ import { ActionAdvisory, DayDone } from "@/features/attendance/attendanceUi"
 import { LiveTimer, ShiftBar } from "@/features/attendance/LiveProgress"
 import {
   autoPresentClock,
-  countFromFor,
+  istMs,
   progressWords,
   punchWindow,
   punchWindowLabel,
@@ -48,7 +48,7 @@ const CLOSING_SOON_MIN = 30
  * with the live time inside and the facts beside it, this week as the date
  * strip, at most one problem with its fix, the one control, and the punch
  * window as the last line, so nobody learns the rule from a refusal. Check-in
- * is open from 8:50 AM to 9 PM (`punchWindow`, migration 0049); outside it the
+ * is open from 8:30 AM to 9 PM by default (`punchWindow`, 0049/0056); outside it the
  * slider says when it opens. Check-out has no window, but an open day resets at
  * midnight, so the last half hour before midnight warns.
  */
@@ -56,14 +56,14 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
   const t = useTheme()
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const startClock = useStartClock()
-  const { settings, punches, summary, onDutySince, loading, now } = useAttendanceToday()
+  const { settings, settingsLoaded, punches, summary, onDutySince, loading, error, now, countFrom } = useAttendanceToday()
   const notices = useAttendanceNotices()
   const { session } = useAuth()
   const [expanded, setExpanded] = React.useState(false)
 
   const today = dayKey(now)
   const shiftMin = shiftMinutes(settings, today)
-  const worked = workedMs(today, punches, now, countFromFor(settings, today))
+  const worked = workedMs(today, punches, now, countFrom)
 
   // THIS WEEK, from the same hook as the Attendance page, so the two strips
   // can never disagree.
@@ -92,9 +92,10 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
   const shiftStart = settings.shift?.start ? shiftClock(settings.shift.start) : ""
   const shiftEnd = settings.shift?.end ? shiftClock(settings.shift.end) : ""
   // The bar's end labels already show the shift, so the lines never repeat it.
-  const noShift = shift ? null : "Shift not set"
-  const shiftFrom = settings.shift?.start ? Date.parse(`${today}T${settings.shift.start}:00+05:30`) : NaN
-  const shiftTo = settings.shift?.end ? Date.parse(`${today}T${settings.shift.end}:00+05:30`) : NaN
+  // Unread settings (a failed read) are not "not set": say the read failed.
+  const noShift = shift ? null : settingsLoaded ? "Shift not set" : error ? "Could not load your shift" : null
+  const shiftFrom = settings.shift?.start ? istMs(today, settings.shift.start) : NaN
+  const shiftTo = settings.shift?.end ? istMs(today, settings.shift.end) : NaN
   // Where now falls in the shift, for the bar's tick; none once the day is done.
   const elapsed = dayDone || !(shiftTo > shiftFrom) ? undefined : (now - shiftFrom) / (shiftTo - shiftFrom)
   // Marked present by the Super Admin (0056): the server counts every working
@@ -106,7 +107,7 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
   const autoRunning = autoDay && auto.running
   const shownMs = autoDay ? auto.ms : worked.ms
   const fraction = shiftMin > 0 ? shownMs / MINUTE / shiftMin : 0
-  const shiftBegun = !!settings.shift?.start && now >= Date.parse(`${today}T${settings.shift.start}:00+05:30`)
+  const shiftBegun = !!settings.shift?.start && now >= istMs(today, settings.shift.start)
 
   // The state: a pill, the bar's colour, and at most two lines that say the
   // rest. Each line adds something the pill and the bar do not already say.
@@ -271,7 +272,11 @@ export default function AttendanceHomeCard({ collapse = false }: { collapse?: bo
             tone="warning"
             icon="warning"
             onPress={open(() =>
-              navigation.navigate("AttendanceCorrection", { day: notices.missedYesterday! }),
+              navigation.navigate("AttendanceCorrection", {
+                day: notices.missed!.day,
+                inAt: notices.missed!.inAt,
+                outAt: null,
+              }),
             )}
           >
             You did not clock out yesterday. Request a correction

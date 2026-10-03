@@ -162,7 +162,7 @@ export default function LeaveRequestScreen({ navigation, route }: StackScreenPro
                   tone={req.status === "approved" ? "success" : req.status === "rejected" ? "danger" : "muted"}
                   title={`${decidedWord}${decider && req.status !== "cancelled" ? ` by ${decider}` : ""}`}
                   detail={req.decided_at ? WHEN.format(new Date(req.decided_at)) : undefined}
-                  note={req.decision_note || undefined}
+                  note={(req.status === "cancelled" && req.cancel_note) || req.decision_note || undefined}
                   last
                 />
               )}

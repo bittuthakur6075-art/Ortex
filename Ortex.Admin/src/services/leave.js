@@ -175,6 +175,12 @@ export async function uploadLeaveDocument(userId, file) {
   return path
 }
 
+/** Best effort: remove a certificate whose request never went in. */
+export async function removeLeaveDocument(path) {
+  if (!supabase || !path) return
+  await supabase.storage.from(BUCKET).remove([path]).catch(() => {})
+}
+
 export async function leaveDocumentUrl(path) {
   if (!supabase || !path) return null
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600)

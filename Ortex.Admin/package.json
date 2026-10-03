@@ -27,7 +27,8 @@
     "sb:db:diff": "supabase db diff --linked",
     "sb:secrets": "supabase secrets list",
     "sb:provision": "node scripts/provision-supabase.mjs",
-    "icons": "node scripts/icons.mjs"
+    "icons": "node scripts/icons.mjs",
+    "test:db": "node supabase/qa/scenarios.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.21.0",
@@ -50,6 +51,7 @@
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/vite": "^4.3.2",
     "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",

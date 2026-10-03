@@ -12,16 +12,21 @@ import { gutter, radius, spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
 import { AppScreen, Button, IconButton, Panel, Switch, TextField, useToast } from "@/ui"
 
+const pad = (hhmm: string) => hhmm.padStart(5, "0")
+
 /**
  * "I forgot to clock out at 6:30": the person's own request to correct one day
- * (regularise_request, migration 0034). An admin decides it; approving applies
- * the times as punches, so the day recomputes from the same source as any
- * other. Asked on the phone only, like every other attendance write.
+ * (regularise_request, migration 0034). An admin decides it; approving puts
+ * the times in place of the punches they correct (0065), so the day recomputes
+ * from the same source as any other. Asked on the phone only, like every other
+ * attendance write.
  *
  * There is no native time picker in this app, so a time is stepped: 15 minutes
- * or an hour at a time, from a sensible start (what the day already knows, or
- * the shift). Times stay on the day itself; anything past midnight is an
- * admin's to sort out, and the form says so rather than guessing a date.
+ * or an hour at a time, from what the day already knows. A check-in that was
+ * never recorded starts unchosen: pre-filling the shift start would, once
+ * approved, erase a late mark nobody asked to erase. Times stay on the day
+ * itself; anything past midnight is an admin's to sort out, and the form says
+ * so rather than guessing a date.
  */
 export default function AttendanceCorrectionScreen({ navigation, route }: StackScreenProps<"AttendanceCorrection">) {
   const { day, inAt, outAt } = route.params
@@ -30,7 +35,9 @@ export default function AttendanceCorrectionScreen({ navigation, route }: StackS
 
   const [useIn, setUseIn] = React.useState(!inAt)
   const [useOut, setUseOut] = React.useState(true)
-  const [inTime, setInTime] = React.useState(inAt ? istHHMM(inAt) : "09:30")
+  // Null until chosen: the stepper then starts from the shift start.
+  const [inTime, setInTime] = React.useState<string | null>(inAt ? istHHMM(inAt) : null)
+  const [inBase, setInBase] = React.useState("09:30")
   const [outTime, setOutTime] = React.useState(outAt ? istHHMM(outAt) : "18:30")
   const [reason, setReason] = React.useState("")
   const [left, setLeft] = React.useState<{ used: number; cap: number } | null>(null)
@@ -44,14 +51,14 @@ export default function AttendanceCorrectionScreen({ navigation, route }: StackS
       const month = day.slice(0, 7)
       const last = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate()
       const [s, mine] = await Promise.all([
-        loadSettings(),
+        loadSettings().catch(() => null),
         myCorrections({ from: `${month}-01`, to: `${month}-${String(last).padStart(2, "0")}` }).catch(() => []),
       ])
       if (!alive) return
-      if (!inAt && s.shift?.start) setInTime(s.shift.start)
-      if (!outAt && s.shift?.end) setOutTime(s.shift.end)
+      if (s?.shift?.start) setInBase(pad(s.shift.start))
+      if (!outAt && s?.shift?.end) setOutTime(pad(s.shift.end))
       const used = mine.filter((c) => c.status === "pending" || c.status === "approved").length
-      setLeft({ used, cap: s.correctionsPerMonth ?? 3 })
+      setLeft({ used, cap: s?.correctionsPerMonth ?? 3 })
     })()
     return () => {
       alive = false
@@ -65,8 +72,9 @@ export default function AttendanceCorrectionScreen({ navigation, route }: StackS
 
   const problem = (() => {
     if (!useIn && !useOut) return "Choose the time you came in, the time you left, or both."
-    if (useIn && useOut && outTime <= inTime) return "The time you left must be after the time you came in."
-    if (isToday && ((useIn && inTime > nowHHMM) || (useOut && outTime > nowHHMM))) return "A time today cannot be later than now."
+    if (useIn && !inTime) return "Choose the time you came in."
+    if (useIn && useOut && inTime && outTime <= inTime) return "The time you left must be after the time you came in."
+    if (isToday && ((useIn && inTime && inTime > nowHHMM) || (useOut && outTime > nowHHMM))) return "A time today cannot be later than now."
     if (reason.trim().length < 3) return "Say briefly what happened, so the admin can approve it."
     if (left && left.used >= left.cap) return `You have used all ${left.cap} corrections for this month.`
     return null
@@ -83,7 +91,7 @@ export default function AttendanceCorrectionScreen({ navigation, route }: StackS
     try {
       await requestCorrection({
         day,
-        inAt: useIn ? istISO(day, inTime) : null,
+        inAt: useIn && inTime ? istISO(day, inTime) : null,
         outAt: useOut ? istISO(day, outTime) : null,
         reason,
       })
@@ -125,6 +133,7 @@ export default function AttendanceCorrectionScreen({ navigation, route }: StackS
             enabled={useIn}
             onToggle={setUseIn}
             value={inTime}
+            base={inBase}
             onChange={setInTime}
           />
           <View style={[styles.rule, { backgroundColor: t.divider }]} />
@@ -176,19 +185,22 @@ function TimeRow({
   enabled,
   onToggle,
   value,
+  base,
   onChange,
 }: {
   label: string
   hint: string
   enabled: boolean
   onToggle: (v: boolean) => void
-  value: string
+  /** Null: not chosen yet. The first step moves from `base`. */
+  value: string | null
+  base?: string
   onChange: (v: string) => void
 }) {
   const t = useTheme()
   const step = (m: number) => {
     feedback.tap()
-    onChange(stepClock(value, m))
+    onChange(stepClock(value ?? base ?? "09:30", m))
   }
   return (
     <View style={{ gap: spacing.sm }}>
@@ -205,7 +217,7 @@ function TimeRow({
           <IconButton name="minus" size={16} onPress={() => step(-15)} accessibilityLabel={`${label}: 15 minutes earlier`} />
           <View style={[styles.time, { backgroundColor: t.fieldBg }]}>
             <Text style={[styles.timeText, { color: t.text }]} accessibilityLiveRegion="polite">
-              {clock12(value)}
+              {value ? clock12(value) : "Choose"}
             </Text>
           </View>
           <IconButton name="add" size={16} onPress={() => step(15)} accessibilityLabel={`${label}: 15 minutes later`} />

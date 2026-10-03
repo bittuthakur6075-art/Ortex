@@ -1,8 +1,10 @@
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@env"
 import { Platform } from "react-native"
 
 import { APP_VERSION } from "@/constants/app"
-import { errorMessage, hasSupabase, supabase } from "@/data/supabase"
+import { errorMessage, supabase } from "@/data/supabase"
 import {
+  countFromFor,
   dayKey,
   onDutySince,
   summarizeDay,
@@ -10,11 +12,48 @@ import {
   type Punch,
   type PunchKind,
   type PunchResult,
+  weeklyOffOf,
 } from "@/domain/attendance"
 import type { StaffDirectory } from "@/data/repo"
 import { istWeekday } from "@/features/attendance/progress"
 import type { TeamPerson } from "@/features/attendance/teamBoard"
 import { loadDirectory } from "@/hooks/useRecordHistory"
+
+/**
+ * The server's clock less the phone's, learned from attendance_punch answers.
+ * A phone set to the wrong date would otherwise draw yesterday's day, refuse a
+ * check-in the server allows and hide the check-out. Only a quick round trip is
+ * trusted, so a slow network cannot skew it. In memory: each session learns it
+ * first from learnServerClock() (a Date header), then from every punch.
+ */
+let clockOffset = 0
+const TRUSTED_RTT_MS = 3000
+
+/** Now, by the server's clock as far as this phone has learned it. */
+export const serverNow = () => Date.now() + clockOffset
+
+/**
+ * Learn the server's clock before the first punch, from the Date header of a
+ * cheap request (whole seconds, enough for a check-in window). Once a session;
+ * a punch's own answer, which is finer, replaces it. Never throws.
+ */
+let clockLearned = false
+export async function learnServerClock(): Promise<void> {
+  if (clockLearned || !SUPABASE_URL) return
+  try {
+    const sentAt = Date.now()
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/health`, { method: "GET", headers: { apikey: SUPABASE_ANON_KEY || "" } })
+    const back = Date.now()
+    const at = Date.parse(res.headers.get("date") || "")
+    if (Number.isFinite(at) && back - sentAt < TRUSTED_RTT_MS) {
+      // The header drops the milliseconds: add half a second back on average.
+      clockOffset = at + 500 - (sentAt + back) / 2
+      clockLearned = true
+    }
+  } catch {
+    // Offline: the phone's clock it is until the next try or punch.
+  }
+}
 
 /**
  * Attendance, the data half: the scanned code and the server functions of
@@ -28,8 +67,6 @@ import { loadDirectory } from "@/hooks/useRecordHistory"
  * date, and the code that displayed them, were deleted on 2026-09-30
  * (Ortex.Admin migration 0060).
  */
-
-const TTL_SECONDS = 3600
 
 /** A v4 uuid for a punch: made once per attempt so a retry never punches twice. */
 export function newPunchId(): string {
@@ -89,6 +126,7 @@ export const baseDevice = () => ({ platform: Platform.OS, appVersion: APP_VERSIO
  */
 export async function punch(a: PunchArgs): Promise<PunchResult> {
   let res
+  const sentAt = Date.now()
   try {
     res = await supabase.rpc("attendance_punch", {
       p_id: a.id,
@@ -106,7 +144,17 @@ export async function punch(a: PunchArgs): Promise<PunchResult> {
     if (isNetworkFailure(error) && !(error as { code?: string }).code) throw new NetworkError("No connection.")
     throw new Error(errorMessage(error, "Your clock-in was not saved. Try again."))
   }
-  return data as PunchResult
+  const r = data as PunchResult
+  const back = Date.now()
+  // A replay carries the first punch's time, not the server's now.
+  if (r?.at && !r.repeat && back - sentAt < TRUSTED_RTT_MS) {
+    const at = Date.parse(r.at)
+    if (Number.isFinite(at)) {
+      clockOffset = at - (sentAt + back) / 2
+      clockLearned = true
+    }
+  }
+  return r
 }
 
 /** The signed-in person's own punches, newest first, between two IST days. */
@@ -146,11 +194,15 @@ export type AttendanceSettings = {
   weeklyOff?: number[]
 }
 
-/** The Super Admin's attendance settings (readable by all staff). */
+/**
+ * The Super Admin's attendance settings (readable by all staff). No row reads
+ * as {} (nothing set yet); a failed read THROWS, because defaults in its place
+ * would remind people on the wrong shift, and remind the present-by-default.
+ */
 export async function loadSettings(): Promise<AttendanceSettings> {
   const { data, error } = await supabase.from("attendance_settings").select("doc").maybeSingle()
-  if (error || !data) return {}
-  return (data.doc || {}) as AttendanceSettings
+  if (error) throw new Error(errorMessage(error, "Could not load the attendance settings."))
+  return ((data?.doc as AttendanceSettings | null) || {}) as AttendanceSettings
 }
 
 /** 09:30 → 9:30 AM, for the shift line. */
@@ -312,6 +364,22 @@ export async function decideCorrection(id: string, approve: boolean, note?: stri
   if (error) throw fail(error, "The decision was not saved. Try again.")
 }
 
+/**
+ * How many decisions wait for an admin (corrections, flagged punches of the
+ * last 30 days, leave), as count-only reads: the badge needs a number, not rows.
+ */
+export async function pendingApprovalsCount(): Promise<number> {
+  const since = dayKey(Date.now() - 30 * 86400000)
+  const head = { count: "exact" as const, head: true }
+  const answers = await Promise.all([
+    supabase.from("regularisations").select("id", head).eq("status", "pending"),
+    supabase.from("attendance_punches").select("id", head).eq("review", "flagged").gte("day", since),
+    supabase.from("leave_requests").select("id", head).eq("status", "pending"),
+  ])
+  for (const a of answers) if (a.error) throw fail(a.error, "Could not count the approvals.")
+  return answers.reduce((n, a) => n + (a.count || 0), 0)
+}
+
 export type FlaggedPunch = Punch & { person: string; avatarUrl: string }
 
 /** Punches waiting for review from the last 30 days, newest first. */
@@ -349,48 +417,63 @@ export type TeamDay = {
  * active account (and anyone who punched), with today's punches, approved
  * leave and the "present by default" list, plus whether today is a day off.
  */
-export async function teamToday(now = Date.now()): Promise<TeamDay> {
+export async function teamToday(now = serverNow()): Promise<TeamDay> {
   const today = dayKey(now)
-  const [punches, profiles, dir, leave, settings, hols] = await Promise.all([
+  // profiles already carries the name and photo; the staff directory would be
+  // a second read of the same people.
+  const [punches, profiles, leave, settings, hols] = await Promise.all([
     supabase.from("attendance_punches").select("*").eq("day", today).limit(1000),
     supabase.from("profiles").select("id, name, email, avatar_url, active, phone"),
-    loadDirectory(),
-    supabase.from("leave_requests").select("*").eq("status", "approved").lte("from_day", today).gte("to_day", today),
+    supabase
+      .from("leave_requests")
+      .select("user_id, type_code, from_day, to_day, from_half, to_half")
+      .eq("status", "approved")
+      .lte("from_day", today)
+      .gte("to_day", today),
     loadSettings(),
-    holidays({ from: today, to: today }).catch(() => [] as Holiday[]),
+    holidays({ from: today, to: today }),
   ])
+  // A failed read must say so: a board quietly missing people reads as "all in".
   if (punches.error) throw fail(punches.error, "Could not load today's attendance.")
+  if (profiles.error) throw fail(profiles.error, "Could not load the team.")
+  if (leave.error) throw fail(leave.error, "Could not load today's leave.")
   const by = new Map<string, Punch[]>()
   for (const p of (punches.data || []) as Punch[]) {
     if (!by.has(p.user_id)) by.set(p.user_id, [])
     by.get(p.user_id)!.push(p)
   }
   type Leave = { user_id: string; type_code: string; from_day: string; to_day: string; from_half: string; to_half: string }
+  const halfToday = (l: Leave) => (l.from_day === today && l.from_half === "second") || (l.to_day === today && l.to_half === "first")
+  // Two approved rows for one person (a morning half and an afternoon half, say):
+  // a full-day row wins, so nobody on leave all day reads as half in.
   const onLeave = new Map<string, Leave>()
-  for (const l of (leave.data || []) as Leave[]) onLeave.set(l.user_id, l)
+  for (const l of (leave.data || []) as Leave[]) {
+    const seen = onLeave.get(l.user_id)
+    if (!seen || (halfToday(seen) && !halfToday(l))) onLeave.set(l.user_id, l)
+  }
   type Row = { id: string; name: string | null; email: string | null; avatar_url: string | null; active: boolean; phone?: string | null }
   const rows = (profiles.data || []) as Row[]
   const ids = new Set([...rows.filter((p) => p.active).map((p) => p.id), ...by.keys()])
   const auto = new Set(settings.autoPresent || [])
+  // An optional holiday is one people may take, not a day the office is shut.
+  const holiday = hols.find((h) => h.kind !== "optional")
+  const isHoliday = !!holiday
   const people = [...ids].map((userId): TeamMember => {
     const prof = rows.find((p) => p.id === userId)
     const list = by.get(userId) || []
     const l = onLeave.get(userId)
     return {
       userId,
-      name: prof?.name?.trim() || dir[userId]?.name || prof?.email || "A colleague",
-      avatarUrl: prof?.avatar_url || dir[userId]?.avatarUrl || "",
+      name: prof?.name?.trim() || prof?.email || "A colleague",
+      avatarUrl: prof?.avatar_url || "",
       phone: prof?.phone || "",
-      summary: summarizeDay(today, list, now),
+      summary: summarizeDay(today, list, now, countFromFor(settings, today, isHoliday)),
       onDuty: Boolean(onDutySince(list, now)),
-      leave: l
-        ? { code: l.type_code, half: (l.from_day === today && l.from_half === "second") || (l.to_day === today && l.to_half === "first") }
-        : null,
+      leave: l ? { code: l.type_code, half: halfToday(l) } : null,
       autoPresent: auto.has(userId),
     }
   })
-  const weeklyOff = settings.weeklyOff?.length ? settings.weeklyOff : [0]
-  const off = hols[0]?.name || (weeklyOff.includes(istWeekday(today)) ? "Weekly off" : null)
+  const off = holiday?.name || (weeklyOffOf(settings).includes(istWeekday(today)) ? "Weekly off" : null)
   return { people, settings, off }
 }
 

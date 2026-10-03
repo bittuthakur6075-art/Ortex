@@ -158,19 +158,23 @@ export function todayIST(now = Date.now()) {
 // ---- phase 2: days, corrections, holidays, the payroll lock (migration 0034) ----------------
 
 /**
- * Overtime minutes per person for a date range (0056). The table is readable by
- * admins only, so anyone else gets an empty map rather than an error: the
- * caller hides the column instead of showing a row of failures.
+ * Overtime minutes per person for a date range (0056). Readable by admins
+ * (0056) and, from 0065, by attendance-register and payroll; RLS hands anyone
+ * else no rows, so the caller hides the column. Paged: a month of everyone's
+ * days passes 1000 rows.
  */
 export async function overtimeByUser({ from, to } = {}) {
   if (!hasSupabase) return { byUser: {}, missing: true }
-  let q = supabase.from("attendance_overtime").select("user_id, day, minutes")
-  if (from) q = q.gte("day", from)
-  if (to) q = q.lte("day", to)
-  const { data, error } = await q
-  if (error) return { byUser: {}, ...fail(error) }
   const byUser = {}
-  for (const r of data || []) byUser[r.user_id] = (byUser[r.user_id] || 0) + Number(r.minutes || 0)
+  for (let offset = 0; ; offset += PAGE) {
+    let q = supabase.from("attendance_overtime").select("user_id, day, minutes").order("day").order("user_id").range(offset, offset + PAGE - 1)
+    if (from) q = q.gte("day", from)
+    if (to) q = q.lte("day", to)
+    const { data, error } = await q
+    if (error) return { byUser: {}, ...fail(error) }
+    for (const r of data || []) byUser[r.user_id] = (byUser[r.user_id] || 0) + Number(r.minutes || 0)
+    if (!data || data.length < PAGE) break
+  }
   return { byUser, missing: false }
 }
 
@@ -246,6 +250,13 @@ export async function listCorrections({ status, from, to } = {}) {
   const { data, error } = await q
   if (error) return { rows: [], ...fail(error) }
   return { rows: data || [], missing: false }
+}
+
+/** How many rows of `table` (regularisations, leave_requests) wait for a decision: a count, no rows downloaded. */
+export async function countPending(table) {
+  if (!hasSupabase) return 0
+  const { count, error } = await supabase.from(table).select("id", { count: "exact", head: true }).eq("status", "pending")
+  return error ? 0 : count || 0
 }
 
 export async function decideCorrection(id, approve, note) {

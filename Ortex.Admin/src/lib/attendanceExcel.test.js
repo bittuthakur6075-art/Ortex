@@ -88,10 +88,11 @@ describe("attendance workbook", () => {
     for (let c = 1; c <= 16; c += 1) heads.push(text(ws.getCell(6, c)))
     expect(heads[0]).toBe("Person")
     expect(heads[2]).toContain("Present")
-    expect(heads[6]).toContain("Missed punch")
+    expect(heads[6]).toContain("No check-out")
     expect(heads[13]).toContain("Hours worked")
     // The grid's letter rides along under the word.
-    expect(heads[6]).toContain("MP")
+    expect(heads[2]).toContain("P")
+    expect(heads[5]).toContain("A")
   })
 
   it("writes the figures, with hours converted from minutes", async () => {
@@ -161,6 +162,7 @@ describe("attendance workbook", () => {
     const all = []
     ws.eachRow((row) => row.eachCell((c) => all.push(String(c.value ?? ""))))
     const text = all.join(" ")
+    expect(text).toContain("Did not check out")
     expect(text).toContain("Missed punch")
     expect(text).toContain("counts FROM the shift start")
     expect(text).toContain("Payable days")

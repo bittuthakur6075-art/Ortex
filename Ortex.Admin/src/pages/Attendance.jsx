@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { useSearchParams } from "react-router-dom"
+import { Navigate, useSearchParams } from "react-router-dom"
 import {
   Calendar,
   CalendarClock,
@@ -21,8 +21,7 @@ import { isAdmin } from "../lib/roles"
 import Today from "./attendance/Today"
 import Register from "./attendance/Register"
 import Corrections from "./attendance/Corrections"
-import { listCorrections } from "../services/attendance"
-import { listLeaveRequests } from "../services/leave"
+import { countPending } from "../services/attendance"
 import { repo } from "../data/store/repository"
 import Mine from "./attendance/Mine"
 import Leave from "./attendance/Leave"
@@ -47,17 +46,20 @@ import Reports from "./payroll/Reports"
 // section (most staff) sees no section bar at all.
 //
 //   My records  everyone: own attendance, leave, payslips
-//   Team        admins and "attendance-team" (Accounts); Corrections and
-//               leave decisions are admins'; QR code per canShowGateCode
+//   Team        "attendance-team" (Accounts, and Admins unless the Modules
+//               page says otherwise); Corrections and leave decisions are
+//               admins'; QR code per canShowGateCode
 //   Payroll     is_payroll() ("payroll"), never implied by admin
-//   Settings    the Super Admin
+// The attendance and leave rules are in the Control centre (Super Admin).
 const SECTIONS = [
   { value: "team", label: "Team", icon: Users, subtitle: "Who is in today, the monthly register, and requests waiting for a decision." },
   { value: "me", label: "My records", icon: CalendarClock, subtitle: "Your attendance, leave and payslips. Attendance is marked in the phone app." },
   { value: "payroll", label: "Payroll", icon: IndianRupee, subtitle: "Salaries from attendance: pay runs, payslips, PF, ESI and TDS, bank and statutory files." },
 ]
 
-const team = (p) => isAdmin(p) || canAccess(p, "attendance-team")
+// canAccess, not isAdmin: it honours module switches and per-person hides,
+// and lets Admins in wherever the Modules page does.
+const team = (p) => canAccess(p, "attendance-team")
 const payroll = (p) => canAccess(p, "payroll")
 
 const PAGES = [
@@ -70,7 +72,7 @@ const PAGES = [
     render: () => <Register />,
     allow: (p) => team(p) || canAccess(p, "attendance-register"),
   },
-  { section: "team", value: "corrections", label: "Corrections", icon: FileText, render: () => <Corrections />, allow: (p) => isAdmin(p), count: "corrections" },
+  { section: "team", value: "corrections", label: "Corrections", icon: FileText, render: () => <Corrections />, allow: (p) => isAdmin(p) && canAccess(p, "attendance-team"), count: "corrections" },
   { section: "team", value: "leave-requests", label: "Leave requests", icon: Sun, render: () => <Leave view="requests" />, allow: team, count: "leave" },
   { section: "team", value: "leave-calendar", label: "Leave calendar", icon: Calendar, render: () => <Leave view="calendar" />, allow: team },
   { section: "team", value: "leave-balances", label: "Leave balances", icon: Wallet, render: () => <Leave view="balances" />, allow: (p) => team(p) || canAccess(p, "leave-balances") },
@@ -121,7 +123,9 @@ export default function Attendance({ scope = "team" }) {
     corrections: allowed.some((t) => t.count === "corrections"),
     leave: allowed.some((t) => t.count === "leave"),
   })
-  if (!current) return null
+  if (!profile) return null
+  // Nothing in this scope for this person: their own records, not a blank page.
+  if (!current) return scope === "me" ? null : <Navigate to="/my-records" replace />
   const section = sections.find((s) => s.value === current.section)
   const pages = allowed.filter((t) => t.section === section.value)
   const go = (tab) => setParams({ tab }, { replace: true })
@@ -152,13 +156,11 @@ function usePendingCounts({ corrections, leave }) {
   useEffect(() => {
     if (!corrections && !leave) return undefined
     let alive = true
-    const size = (r) => (r.missing ? 0 : (r.rows || []).length)
+    // Counts only (head: true): every realtime event used to download every
+    // pending row just to measure the list.
     const read = () =>
-      Promise.all([
-        corrections ? listCorrections({ status: "pending" }) : { rows: [] },
-        leave ? listLeaveRequests({ status: "pending" }) : { rows: [] },
-      ]).then(([c, l]) => {
-        if (alive) setN({ corrections: size(c), leave: size(l) })
+      Promise.all([corrections ? countPending("regularisations") : 0, leave ? countPending("leave_requests") : 0]).then(([c, l]) => {
+        if (alive) setN({ corrections: c, leave: l })
       })
     void read()
     let t = null

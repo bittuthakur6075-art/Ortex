@@ -34,6 +34,17 @@ describe("attendance rate", () => {
     expect(s.avgHours).toBe(6.7)
   })
 
+  it("counts a day with no check-out (A + no_checkout, or old MP) as missed, unless overridden", () => {
+    const s = summarise([
+      row("2026-09-17", "A", { worked_min: 0, flags: ["no_checkout"] }),
+      row("2026-09-18", "MP", { worked_min: 0 }),
+      row("2026-09-19", "A", { worked_min: 0, flags: ["no_checkout"], override_status: "P" }),
+      row("2026-09-20", "A", { worked_min: 0 }),
+    ])
+    expect(s.missed).toBe(2)
+    expect(s.absent).toBe(2)
+  })
+
   it("uses the Super Admin's override over the computed status", () => {
     const s = summarise([row("2026-09-17", "A", { override_status: "P" })])
     expect(s.rate).toBe(100)

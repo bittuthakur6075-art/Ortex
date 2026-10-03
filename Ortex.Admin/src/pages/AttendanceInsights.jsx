@@ -125,10 +125,10 @@ function Tiles({ r, noun }) {
       hint: now.latePct == null ? "No days in" : `${now.latePct}% of days in`,
     },
     {
-      label: "Missed clock-outs",
+      label: "No check-out",
       value: String(now.missed),
       change: changeWords(now.missed, before.missed, { noun, better: "down" }),
-      hint: "Counted as half until corrected",
+      hint: "Absent until a correction fixes it",
     },
     {
       label: "Days on leave",
@@ -270,7 +270,7 @@ const COLUMNS = [
   { key: "present", label: "Present", align: "right" },
   { key: "lates", label: "Late", align: "right" },
   { key: "absent", label: "Absent", align: "right" },
-  { key: "missed", label: "Missed out", align: "right" },
+  { key: "missed", label: "No check-out", align: "right" },
   { key: "leave", label: "Leave", align: "right" },
   { key: "avgHours", label: "Avg hours", align: "right" },
 ]
@@ -296,7 +296,7 @@ function People({ r, range }) {
         { header: "Days present", value: (p) => p.present },
         { header: "Late marks", value: (p) => p.lates },
         { header: "Absent", value: (p) => p.absent },
-        { header: "Missed clock-outs", value: (p) => p.missed },
+        { header: "No check-out", value: (p) => p.missed },
         { header: "Leave days", value: (p) => p.leave },
         { header: "Average hours", value: (p) => (p.avgHours == null ? "" : p.avgHours) },
       ],

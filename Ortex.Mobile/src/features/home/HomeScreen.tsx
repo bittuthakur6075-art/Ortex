@@ -7,6 +7,7 @@ import Icon from "@/ui/Icon"
 
 import { RANGES, delta, rangeFor, type AttentionItem, type Delta, type RangeKey } from "@/domain/dashboard"
 import { formatCurrency, formatNumber } from "@/domain/format"
+import { canAccess } from "@/domain/modules"
 import AnuHomeCard from "@/features/anu/AnuHomeCard"
 import AttendanceHomeCard from "@/features/attendance/AttendanceHomeCard"
 import { useAttendanceNotices } from "@/features/attendance/useAttendance"
@@ -216,7 +217,9 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
             Staff, whose day is the clock. */}
         <AttendanceHomeCard collapse={!staff} />
 
-        {admin ? <ApprovalsCard onAll={() => navigation.navigate("AttendanceApprovals")} /> : null}
+        {admin && canAccess(profile, "attendance-team") ? (
+          <ApprovalsCard onAll={() => navigation.navigate("AttendanceApprovals")} />
+        ) : null}
 
         {!staff ? (
           loading ? (

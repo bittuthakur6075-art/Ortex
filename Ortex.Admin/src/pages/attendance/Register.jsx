@@ -21,11 +21,11 @@ import {
 } from "../../components/ui/Ui"
 import { useProfile } from "../../hooks/useProfile"
 import { canAccess } from "../../data/domain/modules"
-import { isAdmin, isSuperAdmin, roleLabel, ROLE_TONE } from "../../lib/roles"
+import { isSuperAdmin, roleLabel, ROLE_TONE } from "../../lib/roles"
 import { currentUserId } from "../../lib/auth"
 import { repo } from "../../data/store/repository"
 import { exportCsv } from "../../lib/csv"
-import { durationWords, effectiveStatus, STATUS_LABEL } from "../../lib/attendance"
+import { countFromFor, durationWords, effectiveStatus, flagWords, missedCheckout, STATUS_LABEL, weeklyOffOf } from "../../lib/attendance"
 import {
   getSettings,
   overtimeByUser,
@@ -53,17 +53,33 @@ import StatusDayDrawer from "./StatusDayDrawer"
 const FILTERS = [
   { value: "all", label: "All" },
   { value: "absent", label: "With absences" },
-  { value: "missed", label: "With missed punches" },
+  { value: "missed", label: "With no check-out" },
 ]
+
+/**
+ * `missed` per person = days left open (A + no_checkout, or an older MP) and
+ * not yet overridden, counted from the day rows the way missedCheckout() reads
+ * them, so the Register agrees with Today and Insights whatever the summary
+ * function counts.
+ */
+function withNoCheckout(summary, days) {
+  const n = {}
+  for (const d of days) if (missedCheckout(d)) n[d.user_id] = (n[d.user_id] || 0) + 1
+  return summary.map((r) => ({ ...r, missed: n[r.user_id] || 0 }))
+}
+
+const lockedSet = (locks) => new Set((locks.rows || []).map((r) => String(r.month).slice(0, 7)))
 
 export default function Register() {
   const viewer = useProfile()
   const selfId = currentUserId()
-  const canLock = isAdmin(viewer) || canAccess(viewer, "attendance-register")
+  // canAccess honours module switches and per-person hides (and passes admins
+  // where the Modules page lets them in).
+  const canLock = canAccess(viewer, "attendance-register")
   const superAdmin = isSuperAdmin(viewer)
-  // Overtime is an admin figure (0056): the table refuses everyone else, so the
-  // column is not rendered for them either.
-  const seesOvertime = isAdmin(viewer)
+  // Overtime (0056) is for the Register and payroll; RLS returns no rows to
+  // anyone else, so the column is not rendered for them either.
+  const seesOvertime = canLock || canAccess(viewer, "payroll")
   const thisMonth = todayIST().slice(0, 7)
   const [month, setMonth] = useState(thisMonth)
   const [filter, setFilter] = useState("all")
@@ -93,11 +109,12 @@ export default function Register() {
       loading: false,
       missing: summary.missing || dayRows.missing || locks.missing,
       error: summary.error || dayRows.error || locks.error,
-      summary: summary.rows,
+      summary: withNoCheckout(summary.rows || [], dayRows.rows || []),
       days: dayRows.rows,
       lock: (locks.rows || []).find((r) => String(r.month).slice(0, 7) === month) || null,
       holidays: new Set((holidays.rows || []).filter((h) => h.active && h.kind !== "optional").map((h) => h.day)),
-      weeklyOff: new Set(settings.doc?.weeklyOff || [0]),
+      weeklyOff: new Set(weeklyOffOf(settings.doc || {})),
+      settingsDoc: settings.doc || {},
       directory: directory || {},
       overtime: overtime.byUser || {},
     })
@@ -158,7 +175,7 @@ export default function Register() {
       { header: "On duty", value: (r) => r.field },
       { header: "Half days", value: (r) => r.half_days },
       { header: "Absent", value: (r) => r.absent },
-      { header: "Missed punches", value: (r) => r.missed },
+      { header: "No check-out", value: (r) => r.missed },
       { header: "Weekly offs", value: (r) => r.weekly_off },
       { header: "Holidays", value: (r) => r.holidays },
       { header: "Leave", value: (r) => r.leave },
@@ -177,7 +194,7 @@ export default function Register() {
   // One sheet per month, styled, with the day grid and a legend. The month on
   // screen is already loaded; every month is gathered here, oldest first, so
   // the workbook reads like a ledger.
-  const monthData = async (m) => {
+  const monthData = async (m, locks) => {
     const list = daysOf(m)
     const [summary, dayRows, holidays, ot] = await Promise.all([
       monthSummary(m),
@@ -187,13 +204,13 @@ export default function Register() {
     ])
     return {
       month: m,
-      summary: summary.rows || [],
+      summary: withNoCheckout(summary.rows || [], dayRows.rows || []),
       days: dayRows.rows || [],
       dayList: list,
       holidays: new Set((holidays.rows || []).filter((h) => h.active && h.kind !== "optional").map((h) => h.day)),
       weeklyOff: state.weeklyOff,
       overtime: ot.byUser || {},
-      locked: false,
+      locked: locks.has(m),
     }
   }
 
@@ -227,12 +244,13 @@ export default function Register() {
   const exportExcelAll = async () => {
     setExcel("all")
     try {
-      const first = await firstAttendanceMonth()
+      const [first, locks] = await Promise.all([firstAttendanceMonth(), lockedMonths()])
+      const lockSet = lockedSet(locks)
       const list = monthsBetween(first || thisMonth, thisMonth)
       const built = []
       for (const m of list) {
         setExcelStep(`${built.length + 1} of ${list.length}`)
-        const one = await monthData(m)
+        const one = await monthData(m, lockSet)
         // A month nobody worked would be an empty sheet, which only makes the
         // workbook longer to read.
         if (one.summary.length) built.push(one)
@@ -305,7 +323,7 @@ export default function Register() {
       </div>
 
       <Card className="overflow-hidden">
-        <CardHeader title={`Summary · ${monthLabel(month)}`} description="Payable days = P + OD + WO + H + L, half of each HD and MP, less the late penalty" />
+        <CardHeader title={`Summary · ${monthLabel(month)}`} description="Payable days = P + OD + WO + H + L, half of each HD (and MP on older records), less the late penalty. No out = days with no check-out, absent until corrected." />
         <div className="flex flex-wrap items-center gap-[10px] px-5 pb-4">
           <ChipGroup>
             {FILTERS.map((f) => (
@@ -337,7 +355,7 @@ export default function Register() {
           <EmptyState icon={CalendarClock} title="Nobody to show" description={q.trim() ? "No one by that name this month." : "No attendance for this month matches the filter."} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1040px] text-sm">
+            <table className="w-full min-w-[1140px] text-sm">
               <thead className="mt-head">
                 <tr className="text-left">
                   <th>Person</th>
@@ -346,9 +364,11 @@ export default function Register() {
                   <th className="text-right" title={STATUS_LABEL.OD}>OD</th>
                   <th className="text-right" title={STATUS_LABEL.HD}>HD</th>
                   <th className="text-right" title={STATUS_LABEL.A}>A</th>
-                  <th className="text-right" title={STATUS_LABEL.MP}>MP</th>
+                  <th className="text-right" title="Days with no check-out, absent until a correction fixes them">No out</th>
                   <th className="text-right" title={STATUS_LABEL.WO}>WO</th>
                   <th className="text-right" title={STATUS_LABEL.H}>H</th>
+                  <th className="text-right" title={STATUS_LABEL.L}>L</th>
+                  <th className="text-right" title={STATUS_LABEL.LOP}>LOP</th>
                   <th className="text-right">Lates</th>
                   <th className="text-right">Penalty</th>
                   <th className="text-right">Worked</th>
@@ -375,6 +395,8 @@ export default function Register() {
                       <td className={cn("text-right tabular", r.missed > 0 && "font-semibold text-warning-text")}>{r.missed}</td>
                       <td className="text-right tabular">{r.weekly_off}</td>
                       <td className="text-right tabular">{r.holidays}</td>
+                      <td className="text-right tabular">{Number(r.leave) || 0}</td>
+                      <td className={cn("text-right tabular", Number(r.lop) > 0 && "text-destructive-text")}>{Number(r.lop) || 0}</td>
                       <td className={cn("text-right tabular", r.lates > 0 && "text-warning-text")}>{r.lates}</td>
                       <td className="text-right tabular">{Number(r.late_penalty) || "-"}</td>
                       <td className="text-right tabular">{durationWords(Number(r.worked_min))}</td>
@@ -439,7 +461,7 @@ export default function Register() {
                           <button
                             type="button"
                             onClick={() => setCell({ userId: r.user_id, day })}
-                            title={`${r.name}, ${dayLabel(day, true)}: ${s ? STATUS_LABEL[s] : "no record"}${e?.late ? `, late by ${e.late_min} min` : ""}`}
+                            title={`${r.name}, ${dayLabel(day, true)}: ${s ? STATUS_LABEL[s] : "no record"}${e?.late ? `, late by ${e.late_min} min` : ""}${e?.flags?.length ? `, ${flagWords(e.flags).join(", ").toLowerCase()}` : ""}`}
                             className={cn(
                               "relative grid h-8 w-8 place-items-center rounded text-[11px] font-semibold transition-opacity hover:opacity-80",
                               s ? toneFor(s) : "text-subtle-foreground",
@@ -467,6 +489,7 @@ export default function Register() {
         userId={cell?.userId}
         day={cell?.day}
         entry={open}
+        countFrom={cell ? countFromFor(state.settingsDoc || {}, cell.day, state.holidays.has(cell.day)) : undefined}
         selfId={selfId}
         canOverride={superAdmin}
         locked={locked}

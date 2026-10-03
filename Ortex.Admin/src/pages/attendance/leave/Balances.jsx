@@ -23,16 +23,17 @@ export default function Balances({ ctx, canAdjust, ownId = null }) {
   const [adjusting, setAdjusting] = useState(null) // { userId, code }
   const [ledger, setLedger] = useState(null) // { userId, balance }
 
-  const people = useMemo(
-    () => Object.keys(ctx.directory || {}).sort((a, b) => nameOf(ctx, a).localeCompare(nameOf(ctx, b))),
-    [ctx],
-  )
+  // Keyed on the ids, not on ctx: ctx is a new object on every parent render,
+  // and each change re-ran one balances RPC per person.
+  const idsKey = Object.keys(ctx.directory || {}).sort().join(",")
+  const ids = useMemo(() => (idsKey ? idsKey.split(",") : []), [idsKey])
+  const people = [...ids].sort((a, b) => nameOf(ctx, a).localeCompare(nameOf(ctx, b)))
   const types = useMemo(() => (ctx.types || []).filter((t) => t.accrual !== "none"), [ctx.types])
 
   const load = useCallback(async () => {
-    const res = await balancesFor(people)
+    const res = await balancesFor(ids)
     setState({ loading: false, ...res })
-  }, [people])
+  }, [ids])
 
   useEffect(() => {
     void load()
@@ -147,7 +148,7 @@ export default function Balances({ ctx, canAdjust, ownId = null }) {
         target={adjusting}
         ctx={ctx}
         types={types}
-        availableOf={(code) => (adjusting ? bal(adjusting.userId, code)?.available ?? 0 : 0)}
+        balanceOf={(code) => (adjusting ? bal(adjusting.userId, code)?.balance ?? 0 : 0)}
         onClose={() => setAdjusting(null)}
         onDone={() => {
           setAdjusting(null)
@@ -166,14 +167,16 @@ export default function Balances({ ctx, canAdjust, ownId = null }) {
   )
 }
 
-function AdjustModal({ target, ctx, types, availableOf, onClose, onDone }) {
+function AdjustModal({ target, ctx, types, balanceOf, onClose, onDone }) {
   const [code, setCode] = useState("")
   // "change": add or remove days. "set": type the balance it should be, and
   // the difference goes into the ledger as one adjustment.
   const [mode, setMode] = useState("change")
   const [setTo, setSetTo] = useState("")
   const [changeBy, setDelta] = useState(1)
-  const current = code ? availableOf(code) : 0
+  // "Set balance" sets the BALANCE (what the ledger sums to), not what is
+  // available after pending requests, so the delta is taken against it.
+  const current = code ? balanceOf(code) : 0
   const delta = mode === "set" ? Math.round(((Number(setTo) || 0) - current) * 2) / 2 : changeBy
   const [note, setNote] = useState("")
   const [busy, setBusy] = useState(false)
@@ -234,7 +237,7 @@ function AdjustModal({ target, ctx, types, availableOf, onClose, onDone }) {
           </Select>
         </Field>
         {mode === "set" ? (
-          <Field label="New balance" required hint={`Available now: ${num(current)}. The difference, ${delta > 0 ? "+" : ""}${num(delta)}, is written to the ledger.`}>
+          <Field label="New balance" required hint={`Balance now: ${num(current)} (before any waiting requests). The difference, ${delta > 0 ? "+" : ""}${num(delta)}, is written to the ledger.`}>
             <Input
               id="adjust-set-to"
               inputMode="decimal"

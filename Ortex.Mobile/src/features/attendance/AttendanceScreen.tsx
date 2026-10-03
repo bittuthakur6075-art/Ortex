@@ -12,7 +12,7 @@ import MonthAttendance from "@/features/attendance/MonthAttendance"
 import {
   autoPresentClock,
   dayTimeline,
-  countFromFor,
+  istMs,
   progressWords,
   shiftEnded,
   shiftMinutes,
@@ -60,7 +60,8 @@ const TODAY = new Intl.DateTimeFormat("en-IN", {
 export default function AttendanceScreen({ navigation }: StackScreenProps<"Attendance">) {
   const t = useTheme()
   const startClock = useStartClock()
-  const { settings, punches, summary, onDutySince, loading, error, reload, now } = useAttendanceToday()
+  const { settings, settingsLoaded, punches, summary, onDutySince, loading, error, reload, now, countFrom } =
+    useAttendanceToday()
   const notices = useAttendanceNotices()
   const { session } = useAuth()
   const [monthKey, setMonthKey] = React.useState(0)
@@ -72,7 +73,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
 
   const today = dayKey(now)
   const shiftMin = shiftMinutes(settings, today)
-  const worked = workedMs(today, punches, now, countFromFor(settings, today))
+  const worked = workedMs(today, punches, now, countFrom)
   const timeline = dayTimeline(today, punches, settings, now)
   const holiday = nextHolidayDay
   const liveMin = Math.round(worked.ms / 60000)
@@ -112,8 +113,8 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
   const autoDay = !!auto && !onDutySince && !dayDone && auto.to > auto.from
   const shownMs = autoDay ? auto.ms : worked.ms
   const running = !!onDutySince || (autoDay && auto.running)
-  const shiftFrom = settings.shift?.start ? Date.parse(`${today}T${settings.shift.start}:00+05:30`) : NaN
-  const shiftTo = settings.shift?.end ? Date.parse(`${today}T${settings.shift.end}:00+05:30`) : NaN
+  const shiftFrom = settings.shift?.start ? istMs(today, settings.shift.start) : NaN
+  const shiftTo = settings.shift?.end ? istMs(today, settings.shift.end) : NaN
   // Where now falls in the shift, the bar's tick (as on the Home card); none once the day is done.
   const elapsed = dayDone || !(shiftTo > shiftFrom) ? undefined : (now - shiftFrom) / (shiftTo - shiftFrom)
   const autoState = autoDay
@@ -132,7 +133,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
   return (
     <AppScreen
       title="Attendance"
-      subtitle={TODAY.format(new Date())}
+      subtitle={TODAY.format(new Date(now))}
       back
       onBack={() => navigation.goBack()}
       inTabs={false}
@@ -159,7 +160,13 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
           icon="warning"
           onPress={() => {
             feedback.tap()
-            navigation.navigate("AttendanceCorrection", { day: notices.missedYesterday! })
+            // The recorded check-in goes with it, so approving the check-out
+            // cannot quietly replace a late check-in with the shift start.
+            navigation.navigate("AttendanceCorrection", {
+              day: notices.missed!.day,
+              inAt: notices.missed!.inAt,
+              outAt: null,
+            })
           }}
         >
           You did not clock out yesterday. Request a correction
@@ -186,7 +193,7 @@ export default function AttendanceScreen({ navigation }: StackScreenProps<"Atten
                   style={[textVariants.caption, styles.shift, { color: t.textTertiary }]}
                   numberOfLines={1}
                 >
-                  {shift ? `General shift · ${shift}` : "Shift not set"}
+                  {shift ? `General shift · ${shift}` : settingsLoaded ? "Shift not set" : ""}
                 </Text>
               </View>
 

@@ -3,9 +3,10 @@ import React from "react"
 import { AppState, Platform } from "react-native"
 
 import { supabase } from "@/data/supabase"
-import { isAdmin } from "@/domain/modules"
+import { counted, weeklyOffOf } from "@/domain/attendance"
+import { canAccess, isAdmin } from "@/domain/modules"
 import { loadDirectory } from "@/hooks/useRecordHistory"
-import { holidays, loadSettings } from "@/lib/attendance"
+import { holidays, loadSettings, myPunches, serverNow } from "@/lib/attendance"
 import { cancelAttendanceReminders, planAttendanceReminders } from "@/lib/attendanceReminders"
 import { myRequests } from "@/lib/leave"
 import { useNotificationStore } from "@/lib/notificationStore"
@@ -43,30 +44,40 @@ export function AttendanceReminderPlanner() {
     let alive = true
     const plan = async () => {
       try {
-        const today = istDay(Date.now())
+        const now = serverNow()
+        const today = istDay(now)
         const until = new Date(Date.parse(`${today}T00:00:00Z`) + 8 * 86400000).toISOString().slice(0, 10)
-        const [cfg, hol, leave] = await Promise.all([
+        // Every read must succeed: a plan made from defaults or a missing list
+        // would nag the wrong shift, the present-by-default, someone on leave
+        // or someone already checked in. A failed read throws, and the
+        // schedule already on the phone stays as it is.
+        const [cfg, hol, leave, punches] = await Promise.all([
           loadSettings(),
-          holidays({ from: today, to: until }).catch(() => []),
-          myRequests().catch(() => []),
+          holidays({ from: today, to: until }),
+          myRequests(),
+          myPunches({ from: today, to: today }),
         ])
         if (!alive) return
         // Present without punching (0056): nothing to remind them of.
         if (cfg.autoPresent?.includes(uid)) return void cancelAttendanceReminders()
-        const doc = cfg as typeof cfg & { weeklyOff?: number[] }
-        await planAttendanceReminders({
-          shiftStart: cfg.shift?.start,
-          shiftEnd: cfg.shift?.end,
-          graceMin: cfg.graceMin,
-          weeklyOff: Array.isArray(doc.weeklyOff) ? doc.weeklyOff : [0],
-          saturday: cfg.saturday,
-          holidays: hol.filter((h) => h.active && h.kind !== "optional").map((h) => h.day),
-          leave: leave
-            .filter((l) => l.status === "approved")
-            .map((l) => ({ from: l.from_day, to: l.to_day, fromHalf: l.from_half, toHalf: l.to_half })),
-        })
+        const last = counted(punches).sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0]
+        await planAttendanceReminders(
+          {
+            shiftStart: cfg.shift?.start,
+            shiftEnd: cfg.shift?.end,
+            graceMin: cfg.graceMin,
+            weeklyOff: weeklyOffOf(cfg),
+            saturday: cfg.saturday,
+            holidays: hol.filter((h) => h.active && h.kind !== "optional").map((h) => h.day),
+            leave: leave
+              .filter((l) => l.status === "approved")
+              .map((l) => ({ from: l.from_day, to: l.to_day, fromHalf: l.from_half, toHalf: l.to_half })),
+            lastPunchToday: last?.kind ?? null,
+          },
+          now,
+        )
       } catch {
-        /* reminders are a nicety: a failed plan tries again on the next foreground */
+        /* reminders are a nicety: a failed plan keeps the old one and tries again on the next foreground */
       }
     }
     void plan()
@@ -127,7 +138,8 @@ const dayWords = (iso?: string) => {
 export function AttendanceApprovalAlerts() {
   const { session, profile } = useAuth()
   const uid = session?.user?.id
-  const admin = isAdmin(profile)
+  // Deciding needs the Team module as well as the role (0065), as the server checks.
+  const admin = isAdmin(profile) && canAccess(profile, "attendance-team")
   const { prefs } = useNotificationStore()
   const enabled = prefs.enabled
 

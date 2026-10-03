@@ -5,8 +5,9 @@ import { useProfile } from "../../hooks/useProfile"
 import { isAdmin, roleLabel, ROLE_TONE } from "../../lib/roles"
 import { currentUserId } from "../../lib/auth"
 import { repo } from "../../data/store/repository"
-import { clockIST, durationWords, flagWords, onDutySince, summarizeDay } from "../../lib/attendance"
-import { listDays, listFlagged, listPunches, todayIST } from "../../services/attendance"
+import { clockIST, countFromFor, durationWords, flagWords, missedCheckout, onDutySince, summarizeDay, weeklyOffOf } from "../../lib/attendance"
+import { getSettings, listDays, listFlagged, listHolidays, listPunches, todayIST } from "../../services/attendance"
+import { listLeaveRequests } from "../../services/leave"
 import { listProfiles } from "../../services/users"
 import { DayDrawer, FlagBadges, ReviewButtons, StatStrip } from "./parts"
 import { dayLabel, openRow } from "./format"
@@ -26,7 +27,7 @@ export default function Today() {
   const load = useCallback(async () => {
     const today = todayIST()
     const yesterday = todayIST(Date.now() - 86400000)
-    const [punches, flagged, directory, profiles, days] = await Promise.all([
+    const [punches, flagged, directory, profiles, days, settings, holidays, leave] = await Promise.all([
       listPunches({ from: today, to: today }),
       listFlagged(30),
       repo.staffDirectory ? repo.staffDirectory().catch(() => ({})) : {},
@@ -36,7 +37,14 @@ export default function Today() {
       // Day statuses (0034): late marks today, missed clock-outs yesterday.
       // Absent before 0034 is pushed, and then the two tiles are left out.
       listDays({ from: yesterday, to: today }),
+      // Who is expected today: not on a weekly off or holiday, not on approved
+      // leave, not marked present without punching.
+      getSettings().catch(() => ({ doc: {} })),
+      listHolidays({ from: today, to: today }),
+      listLeaveRequests({ status: "approved", from: today, to: today }),
     ])
+    const doc = settings?.doc || {}
+    const holidayToday = (holidays.rows || []).some((h) => h.active !== false && h.kind !== "optional")
     setState({
       loading: false,
       missing: punches.missing || flagged.missing,
@@ -46,13 +54,26 @@ export default function Today() {
       directory: directory || {},
       profiles,
       lateToday: days.missing ? null : days.rows.filter((d) => d.day === today && d.late).length,
-      missedYesterday: days.missing ? null : days.rows.filter((d) => d.day === yesterday && (d.override_status || d.status) === "MP").length,
+      missedYesterday: days.missing ? null : days.rows.filter((d) => d.day === yesterday && missedCheckout(d)).length,
+      day: today,
+      countFrom: countFromFor(doc, today, holidayToday),
+      dayOff: holidayToday || weeklyOffOf(doc).includes(new Date(`${today}T00:00:00Z`).getUTCDay()),
+      // Half a day of leave still leaves a half day to come in for, as the
+      // phone's team board counts it.
+      notExpected: new Set([
+        ...(doc.autoPresent || []),
+        ...(leave.rows || [])
+          .filter((r) => !(r.from_day === today && r.from_half === "second") && !(r.to_day === today && r.to_half === "first"))
+          .map((r) => r.user_id),
+      ]),
     })
   }, [admin])
 
+  // Reload when the IST day changes (the minute ticker below moves `now`).
+  const istDay = todayIST(now)
   useEffect(() => {
     void load()
-  }, [load])
+  }, [load, istDay])
 
   // Live: the console's shared realtime channel fires on any public change.
   useEffect(() => {
@@ -81,11 +102,11 @@ export default function Today() {
       if (!by.has(p.user_id)) by.set(p.user_id, [])
       by.get(p.user_id).push(p)
     }
-    const day = todayIST()
+    const day = state.day
     return [...by.entries()]
       .map(([userId, list]) => {
         const d = state.directory[userId] || {}
-        const s = summarizeDay(day, list, now)
+        const s = summarizeDay(day, list, now, state.countFrom)
         return {
           userId,
           name: d.name || "Unknown",
@@ -102,9 +123,10 @@ export default function Today() {
 
   const notInYet = useMemo(() => {
     if (!state.profiles) return null
+    if (state.dayOff) return [] // a weekly off or a holiday: nobody is expected
     const seen = new Set(people.filter((p) => p.summary.firstIn).map((p) => p.userId))
-    return state.profiles.filter((p) => p.active && !seen.has(p.id))
-  }, [state.profiles, people])
+    return state.profiles.filter((p) => p.active && !seen.has(p.id) && !state.notExpected.has(p.id))
+  }, [state.profiles, state.dayOff, state.notExpected, people])
 
 
   if (state.loading) return <PageLoader />
@@ -122,11 +144,11 @@ export default function Today() {
         items={[
           { icon: UserCheck, label: "On duty now", value: people.filter((p) => p.onDuty).length, tone: "text-success-text" },
           { icon: CalendarClock, label: "Clocked in today", value: people.filter((p) => p.summary.firstIn).length },
-          notInYet && { icon: Users, label: "Not in yet", value: notInYet.length, tone: "text-muted-foreground" },
+          notInYet && { icon: Users, label: state.dayOff ? "Not in yet (day off)" : "Not in yet", value: notInYet.length, tone: "text-muted-foreground" },
           { icon: MapPin, label: "Field today", value: people.filter((p) => p.summary.field).length, tone: "text-info-text" },
           { icon: AlertTriangle, label: "Needs review", value: state.flagged.length, tone: "text-warning-text" },
           state.lateToday != null && { icon: Clock, label: "Late today", value: state.lateToday, tone: "text-warning-text" },
-          state.missedYesterday != null && { icon: CalendarClock, label: "Missed clock-out, yesterday", value: state.missedYesterday, tone: "text-destructive-text" },
+          state.missedYesterday != null && { icon: CalendarClock, label: "No check-out, yesterday", value: state.missedYesterday, tone: "text-destructive-text" },
         ]}
       />
 
@@ -178,7 +200,7 @@ export default function Today() {
 
       {notInYet && notInYet.length > 0 && (
         <Card>
-          <CardHeader title="Not in yet" description="Active accounts with no clock-in today" />
+          <CardHeader title="Not in yet" description="Active accounts with no clock-in today, leaving out approved leave and always present" />
           <div className="flex flex-wrap gap-2 px-5 pb-5">
             {notInYet.map((p) => (
               <span key={p.id} className="flex items-center gap-2 rounded-btn bg-muted px-2.5 py-1.5 text-[13px] text-foreground">

@@ -1,0 +1,611 @@
+// Attendance DB flow, driven as real users against a throwaway PGlite build.
+// Run: npm run test:db (in Ortex.Admin). Exit code 1 if any check fails. Needs no
+// database: every migration is applied to a throwaway PGlite (Postgres in WASM)
+// over shim.sql, which stands in for Supabase (auth, storage, cron, net, vault).
+import "./clock.mjs"
+import { buildDb, SUPER_ID } from "./db.mjs"
+import { randomUUID } from "node:crypto"
+
+const t0 = Date.now()
+const { db, applied, failed, patched } = await buildDb()
+console.log(`migrations: ${applied.length} applied, ${failed.length} failed (${((Date.now() - t0) / 1000).toFixed(1)}s)`)
+for (const f of failed) console.log("  FAILED", f.file, f.error)
+for (const p of patched) console.log("  patched", p)
+
+// ---- harness ---------------------------------------------------------------------------
+// who: null = migration superuser, "anon", "service", or a user uuid (authenticated).
+async function run(who, sql, params = []) {
+  await db.query("begin")
+  try {
+    if (who === "anon") {
+      await db.query("set local role anon")
+      await db.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ role: "anon" })])
+    } else if (who === "service") {
+      await db.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ role: "service_role" })])
+      await db.query("set local role service_role")
+    } else if (who) {
+      await db.query("select set_config('request.jwt.claims', $1, true), set_config('request.jwt.claim.sub', $2, true)",
+        [JSON.stringify({ sub: who, role: "authenticated" }), who])
+      await db.query("set local role authenticated")
+    }
+    const r = await db.query(sql, params)
+    await db.query("commit")
+    return r
+  } catch (e) {
+    await db.query("rollback")
+    throw e
+  }
+}
+const one = async (who, sql, params) => (await run(who, sql, params)).rows[0]
+const val = async (who, sql, params) => Object.values((await one(who, sql, params)) ?? {})[0]
+async function err(who, sql, params) {
+  try { await run(who, sql, params); return null } catch (e) { return e.message }
+}
+
+const results = []
+let current = ""
+function check(name, ok, expected, actual) {
+  results.push({ scenario: current, name, ok: !!ok, expected, actual: typeof actual === "string" ? actual : JSON.stringify(actual) })
+}
+const eq = (name, actual, expected) => check(name, JSON.stringify(actual) === JSON.stringify(expected), JSON.stringify(expected), actual)
+const like = (name, actual, re) => check(name, actual != null && re.test(String(actual)), String(re), actual ?? "null (no error)")
+async function scenario(name, fn) {
+  current = name
+  try { await fn() } catch (e) { check("unexpected exception", false, "no exception", e.message) }
+}
+
+// ---- people ------------------------------------------------------------------------------
+const U = {
+  SUPER: SUPER_ID,
+  ADMIN: "00000000-0000-4000-8000-0000000000a1",
+  ACCT: "00000000-0000-4000-8000-0000000000a2",
+  SALES: "00000000-0000-4000-8000-0000000000a3",
+  STAFF1: "00000000-0000-4000-8000-0000000000a4",
+  STAFF2: "00000000-0000-4000-8000-0000000000a5",
+  PAY: "00000000-0000-4000-8000-0000000000a6",
+  INACT: "00000000-0000-4000-8000-0000000000a7",
+}
+const setup = [
+  ["ADMIN", "admin", []], ["ACCT", "accounts", []], ["SALES", "sales", []],
+  ["STAFF1", "staff", []], ["STAFF2", "staff", []], ["PAY", "staff", ["payroll"]], ["INACT", "staff", []],
+]
+for (const [k] of setup) {
+  await run(null, "insert into auth.users (id, email, raw_user_meta_data) values ($1, $2, $3)",
+    [U[k], `${k.toLowerCase()}@test.local`, JSON.stringify({ name: k, role: "admin" })])
+}
+await scenario("setup: profiles via signup trigger + service role", async () => {
+  const p = await one(null, "select role, active from profiles where id = $1", [U.STAFF1])
+  eq("signup trigger makes an inactive sales profile (metadata role ignored)", p, { role: "sales", active: false })
+  for (const [k, role, mods] of setup) {
+    await run("service", "update profiles set role = $2, active = true, name = $3, modules = $4, created_at = '2026-01-01' where id = $1",
+      [U[k], role, k, JSON.stringify(mods)])
+  }
+  await run(null, "update profiles set created_at = '2026-01-01' where id = $1", [U.SUPER])
+  const roles = (await run(null, "select name, role, active from profiles order by name")).rows
+  check("roles set", roles.every((r) => r.active), "all active", roles)
+  like("admin cannot make someone super_admin",
+    await err(U.ADMIN, "update profiles set role = 'super_admin' where id = $1", [U.STAFF1]), /only one Super Admin|Only the Super Admin/)
+})
+
+const today = await val(null, "select ((now() at time zone 'Asia/Kolkata')::date)::text")
+const ist = (d, hm) => `${d} ${hm}:00+05:30`
+const SITE = randomUUID()
+await run(null, "insert into work_sites (id, name, lat, lng) values ($1, 'Head office', 28.6, 77.2)", [SITE])
+const setCfg = (patch) => run(null, "update attendance_settings set doc = doc || $1::jsonb where id", [JSON.stringify(patch)])
+const dropCfg = (key) => run(null, "update attendance_settings set doc = doc - $1 where id", [key])
+await setCfg({ checkInFrom: "00:00", closeAt: "23:59", requireCode: true })
+const punch = (who, kind, payload = null, id = randomUUID(), note = null, device = {}) =>
+  one(who, "select attendance_punch($1, $2, $3, $4, $5) as r", [id, kind, payload, note, JSON.stringify(device)]).then((x) => ({ id, ...x.r }))
+const show = async (who = U.ADMIN) => (await one(who, "select attendance_qr_show($1) as r", [SITE])).r
+const qrRow = () => one(null, "select * from attendance_qr where site_id = $1", [SITE])
+const pRow = (id) => one(null, "select * from attendance_punches where id = $1", [id])
+const dayRow = (u, d) => one(null, "select status, flags, worked_min, late, late_min, first_in, last_out, leave_type from attendance_days where user_id = $1 and day = $2", [u, d])
+const otRow = (u, d) => one(null, "select minutes, basis from attendance_overtime where user_id = $1 and day = $2", [u, d])
+const rawPunch = (u, kind, at, extra = {}) => run(null,
+  `insert into attendance_punches (id, user_id, kind, at, day, mode, flags, review)
+   values ($1, $2, $3, $4::timestamptz, (($4::timestamptz) at time zone 'Asia/Kolkata')::date, $5, $6, $7) returning id`,
+  [extra.id ?? randomUUID(), u, kind, at, extra.mode ?? "office", extra.flags ?? [], extra.review ?? "ok"]).then((r) => r.rows[0].id)
+const recompute = (u, d) => run(null, "select attendance_recompute_day($1, $2)", [u, d])
+
+// ---- QR ----------------------------------------------------------------------------------
+let staff1In
+await scenario("QR code", async () => {
+  like("staff cannot call attendance_qr_show", await err(U.STAFF1, "select attendance_qr_show($1)", [SITE]), /Only the Super Admin and admins/)
+  like("accounts (no attendance-qr) cannot show", await err(U.ACCT, "select attendance_qr_show($1)", [SITE]), /Only the Super Admin and admins/)
+  like("anon cannot show", await err("anon", "select attendance_qr_show($1)", [SITE]), /permission denied/)
+  eq("out without in -> not_in", (await punch(U.STAFF2, "out")).status, "not_in")
+  const s = await show(U.ADMIN)
+  eq("admin shows a code", [s.status, s.payload.startsWith("ORTEX-ATT1:")], ["ok", true])
+  eq("attendance_qr.shown_by = admin", (await qrRow()).shown_by, U.ADMIN)
+  const p = await punch(U.STAFF1, "in", s.payload)
+  staff1In = p.id
+  eq("staff punches with it -> ok/office/site", [p.status, p.mode, p.site], ["ok", "office", "Head office"])
+  const row = await pRow(p.id)
+  eq("punch.qr_shown_by = admin, qr_site_id = site", [row.qr_shown_by, row.qr_site_id, row.review], [U.ADMIN, SITE, "ok"])
+  const q = await qrRow()
+  eq("code burned: new token, shown_by cleared, last_user = staff1",
+    [q.token !== s.payload.slice(11), q.shown_by, q.last_user_id, q.last_kind], [true, null, U.STAFF1, "in"])
+  eq("same code again -> used_code", (await punch(U.STAFF2, "in", s.payload)).status, "used_code")
+  eq("garbage -> wrong_code", (await punch(U.STAFF2, "in", "hello")).status, "wrong_code")
+  eq("well-formed unknown token -> used_code", (await punch(U.STAFF2, "in", "ORTEX-ATT1:deadbeef")).status, "used_code")
+  const s2 = await show(U.SUPER)
+  eq("Super Admin claims the fresh code (shown_by)", (await qrRow()).shown_by, U.SUPER)
+  const s2b = await show(U.ADMIN)
+  eq("second screen does not re-claim (shown_by stays)", [(await qrRow()).shown_by, s2b.payload === s2.payload], [U.SUPER, true])
+  await run(null, "update attendance_qr set expires_at = now() - interval '1 second' where site_id = $1", [SITE])
+  eq("expired -> expired_code", (await punch(U.STAFF2, "in", s2.payload)).status, "expired_code")
+  const s3 = await show(U.ADMIN)
+  check("expired code rotates on next show", s3.payload !== s2.payload, "new payload", s3.payload)
+  eq("staff2 punches in with fresh code", (await punch(U.STAFF2, "in", s3.payload)).status, "ok")
+})
+
+// ---- once a day ---------------------------------------------------------------------------
+await scenario("Once a day + replay", async () => {
+  eq("second in while open -> already_in", (await punch(U.STAFF1, "in", (await show()).payload)).status, "already_in")
+  eq("office out with no code (requireCode) -> no_code", (await punch(U.STAFF1, "out")).status, "no_code")
+  const o = await punch(U.STAFF1, "out", (await show()).payload)
+  eq("out with code -> ok", o.status, "ok")
+  eq("in again after out -> day_done", (await punch(U.STAFF1, "in", (await show()).payload)).status, "day_done")
+  eq("second out -> not_in", (await punch(U.STAFF1, "out", (await show()).payload)).status, "not_in")
+  const r = await punch(U.STAFF1, "in", "whatever", staff1In)
+  eq("replay of same p_id -> same result with mode", [r.status, r.repeat, r.mode, r.kind], ["ok", true, "office", "in"])
+  like("replay of another user's p_id refused", await err(U.STAFF2, "select attendance_punch($1, 'in', null)", [staff1In]), /punch id is taken/)
+  const d = await dayRow(U.STAFF1, today)
+  eq("today's day row is P", d?.status, "P")
+})
+
+// ---- field / requireCode --------------------------------------------------------------
+await scenario("Field punch and requireCode", async () => {
+  const f = await punch(U.SALES, "in")
+  eq("sales with no code -> flagged no_code, mode field", [f.status, f.flags, f.mode], ["flagged", ["no_code"], "field"])
+  eq("row review = flagged", (await pRow(f.id)).review, "flagged")
+  await run(U.ADMIN, "select attendance_review($1, 'rejected', 'not at customer')", [f.id])
+  const rp = await punch(U.SALES, "in", null, f.id)
+  eq("replay of a rejected punch -> refused + message + mode", [rp.status, rp.mode, !!rp.message], ["refused", "field", true])
+  eq("office staff, no code, requireCode -> no_code", (await punch(U.PAY, "in")).status, "no_code")
+  await setCfg({ requireCode: false })
+  const n = await punch(U.PAY, "in")
+  eq("office staff, no code, requireCode=false -> flagged no_code", [n.status, n.flags], ["flagged", ["no_code"]])
+  await setCfg({ requireCode: true })
+})
+
+// ---- window ---------------------------------------------------------------------------
+await scenario("Check-in window", async () => {
+  await setCfg({ checkInFrom: "23:59", closeAt: "23:59" })
+  const a = await punch(U.ACCT, "in", (await show()).payload)
+  eq("check-in before checkInFrom -> outside_hours", [a.status, a.message], ["outside_hours", "Check-in opens at 11:59 PM."])
+  await setCfg({ checkInFrom: "00:00", closeAt: "00:00" })
+  const b = await punch(U.ACCT, "in", (await show()).payload)
+  like("check-in after closeAt -> outside_hours", `${b.status} ${b.message}`, /^outside_hours Check-in closed/)
+  eq("check-out outside the window allowed", (await punch(U.STAFF2, "out", (await show()).payload)).status, "ok")
+  await setCfg({ checkInFrom: "00:00", closeAt: "23:59" })
+})
+
+await scenario("Note and device limits", async () => {
+  const p = await punch(U.ACCT, "in", (await show()).payload, randomUUID(), "x".repeat(600), { blob: "y".repeat(3000) })
+  eq("punch ok", p.status, "ok")
+  const r = await pRow(p.id)
+  eq("note cut to 500, device > 2KB stored as {}", [r.note.length, r.device], [500, {}])
+})
+
+// ---- recompute (past days, punches inserted as the superuser) ---------------------------
+await scenario("Recompute rules", async () => {
+  const S = U.STAFF1
+  await rawPunch(S, "in", ist("2026-09-01", "09:00"))
+  let d = await dayRow(S, "2026-09-01")
+  eq("in only, past -> A + no_checkout, worked 0", [d.status, d.flags, d.worked_min], ["A", ["no_checkout"], 0])
+
+  await rawPunch(S, "in", ist("2026-09-02", "09:00")); await rawPunch(S, "out", ist("2026-09-02", "18:30"))
+  d = await dayRow(S, "2026-09-02")
+  eq("early arrival counted from shift start (540 min, not 570)", [d.status, d.worked_min, d.late], ["P", 540, false])
+  eq("first_in keeps the real time", new Date(d.first_in).toISOString(), new Date(ist("2026-09-02", "09:00")).toISOString())
+  eq("no overtime on an exact shift", await otRow(S, "2026-09-02"), undefined)
+
+  await rawPunch(S, "in", ist("2026-09-03", "09:50")); await rawPunch(S, "out", ist("2026-09-03", "18:30"))
+  d = await dayRow(S, "2026-09-03")
+  eq("09:50 is late (grace 15), late_min 20", [d.status, d.late, d.late_min], ["P", true, 20])
+  await rawPunch(S, "in", ist("2026-09-04", "09:44")); await rawPunch(S, "out", ist("2026-09-04", "18:30"))
+  d = await dayRow(S, "2026-09-04")
+  eq("09:44 within grace -> not late", [d.status, d.late], ["P", false])
+
+  await rawPunch(S, "in", ist("2026-09-05", "09:30")); await rawPunch(S, "out", ist("2026-09-05", "11:00"))
+  d = await dayRow(S, "2026-09-05")
+  eq("90 min < absentBelowMin 120 -> A short_hours", [d.status, d.flags], ["A", ["short_hours"]])
+  await rawPunch(S, "in", ist("2026-09-07", "09:30")); await rawPunch(S, "out", ist("2026-09-07", "13:00"))
+  d = await dayRow(S, "2026-09-07")
+  eq("210 min < halfDayBelowMin 270 -> HD", [d.status, d.worked_min], ["HD", 210])
+
+  await rawPunch(S, "in", ist("2026-09-06", "10:00")); await rawPunch(S, "out", ist("2026-09-06", "14:00"))
+  d = await dayRow(S, "2026-09-06")
+  eq("Sunday work stays WO with worked_off_day", [d.status, d.flags, d.worked_min], ["WO", ["worked_off_day"], 240])
+  eq("off-day overtime = every minute", await otRow(S, "2026-09-06"), { minutes: 240, basis: "off_day" })
+
+  await rawPunch(S, "in", ist("2026-09-08", "09:30"))
+  const out8 = await rawPunch(S, "out", ist("2026-09-08", "20:30"))
+  eq("overtime past the shift created", await otRow(S, "2026-09-08"), { minutes: 120, basis: "shift" })
+  await run(null, "update attendance_punches set review = 'rejected' where id = $1", [out8])
+  d = await dayRow(S, "2026-09-08")
+  eq("out rejected -> A no_checkout and overtime removed", [d.status, d.flags, await otRow(S, "2026-09-08")], ["A", ["no_checkout"], undefined])
+
+  const fut = await val(null, "select (($1::date) + 3)::text", [today])
+  await run(null, "insert into attendance_overtime (user_id, day, minutes, basis, computed_at) values ($1, $2, 30, 'shift', now())", [S, fut])
+  await recompute(S, fut)
+  eq("future day: early return removes overtime", await otRow(S, fut), undefined)
+
+  await setCfg({ autoPresent: [U.STAFF2] })
+  await recompute(U.STAFF2, "2026-09-11")
+  d = await dayRow(U.STAFF2, "2026-09-11")
+  eq("autoPresent -> P, shift minutes, flag", [d.status, d.worked_min, d.flags], ["P", 540, ["auto_present"]])
+  await recompute(U.STAFF2, "2026-09-13")
+  eq("autoPresent never on a Sunday (WO)", (await dayRow(U.STAFF2, "2026-09-13")).status, "WO")
+  await dropCfg("autoPresent")
+  await recompute(U.STAFF2, "2026-09-11")
+
+  // inactive person
+  await recompute(U.INACT, "2026-09-14"); await recompute(U.INACT, "2026-09-13")
+  await run("service", "update profiles set active = false where id = $1", [U.INACT])
+  await recompute(U.INACT, "2026-09-14"); await recompute(U.INACT, "2026-09-13")
+  eq("inactive: past days kept (A, WO)", [(await dayRow(U.INACT, "2026-09-14"))?.status, (await dayRow(U.INACT, "2026-09-13"))?.status], ["A", "WO"])
+  await run(null, "insert into attendance_days (user_id, day, status) values ($1, $2, 'A') on conflict do nothing", [U.INACT, today])
+  await recompute(U.INACT, today)
+  eq("inactive: today deleted", await dayRow(U.INACT, today), undefined)
+  await recompute(U.INACT, "2026-01-01")
+  check("before joining date: no row", (await dayRow(U.INACT, "2025-12-31")) === undefined, "undefined", "ok")
+})
+
+await scenario("Holidays", async () => {
+  await run(null, "select attendance_close_day_all('2026-09-09')")
+  eq("no punches on Wed 9 Sep -> A", (await dayRow(U.STAFF2, "2026-09-09")).status, "A")
+  const before = await val(null, "select count(*)::int from audit_log where table_name = 'holidays'")
+  const hid = (await one(U.ADMIN, "insert into holidays (day, name, kind) values ('2026-09-09', 'Test Day', 'national') returning id")).id
+  eq("holiday insert turns A into H (trigger)", (await dayRow(U.STAFF2, "2026-09-09")).status, "H")
+  const a = await one(null, "select action, actor, label from audit_log where table_name = 'holidays' and row_id = $1 order by id desc", [hid])
+  eq("audit_log insert row with actor", a, { action: "insert", actor: U.ADMIN, label: "Test Day, 2026-09-09" })
+  await run(U.ADMIN, "update holidays set kind = 'optional' where id = $1", [hid])
+  eq("switching it to optional -> back to A", (await dayRow(U.STAFF2, "2026-09-09")).status, "A")
+  await run(U.ADMIN, "update holidays set kind = 'national' where id = $1", [hid])
+  eq("back to national -> H", (await dayRow(U.STAFF2, "2026-09-09")).status, "H")
+  await run(U.ADMIN, "delete from holidays where id = $1", [hid])
+  eq("delete reverts to A", (await dayRow(U.STAFF2, "2026-09-09")).status, "A")
+  eq("3 updates/inserts/deletes + insert audited", (await val(null, "select count(*)::int from audit_log where table_name = 'holidays'")) - before, 4)
+  await run(U.ADMIN, "insert into holidays (day, name, kind) values ('2026-09-10', 'Optional', 'optional')")
+  eq("optional holiday is not an off day -> A", (await dayRow(U.STAFF2, "2026-09-10")).status, "A")
+  // moving a holiday recomputes both days
+  const h2 = (await one(U.ADMIN, "insert into holidays (day, name, kind) values ('2026-09-16', 'Moved', 'festival') returning id")).id
+  await run(U.ADMIN, "update holidays set day = '2026-09-17' where id = $1", [h2])
+  eq("moved holiday: old day A, new day H", [(await dayRow(U.STAFF2, "2026-09-16")).status, (await dayRow(U.STAFF2, "2026-09-17")).status], ["A", "H"])
+  await run(U.ADMIN, "delete from holidays where id = $1", [h2])
+  like("staff cannot write holidays", await err(U.STAFF1, "insert into holidays (day, name) values ('2026-09-18', 'x')"), /row-level security/)
+})
+
+// ---- corrections -------------------------------------------------------------------------
+await scenario("Corrections", async () => {
+  const S = U.STAFF1
+  like("future time refused", await err(S, "select regularise_request($1, now() + interval '1 hour', null, 'forgot')", [today]), /already passed/)
+  const r1 = await val(S, "select regularise_request('2026-09-01', null, $1, 'forgot to check out')", [ist("2026-09-01", "18:30")])
+  like("requester (admin? no, staff) cannot decide", await err(S, "select regularise_decide($1, true)", [r1]), /Only an admin/)
+  await run(U.ADMIN, "select regularise_decide($1, true, 'ok')", [r1])
+  let d = await dayRow(S, "2026-09-01")
+  eq("approved out -> P, 540", [d.status, d.worked_min], ["P", 540])
+
+  const r2 = await val(S, "select regularise_request('2026-09-03', $1, $2, 'wrong times')", [ist("2026-09-03", "09:25"), ist("2026-09-03", "19:00")])
+  await run(U.ADMIN, "select regularise_decide($1, true)", [r2])
+  const old = (await run(null, "select kind, review, review_note from attendance_punches where user_id = $1 and day = '2026-09-03' and not ('regularised' = any(flags)) order by kind", [S])).rows
+  eq("originals rejected 'Replaced by correction'", old, [
+    { kind: "in", review: "rejected", review_note: "Replaced by correction" },
+    { kind: "out", review: "rejected", review_note: "Replaced by correction" }])
+  d = await dayRow(S, "2026-09-03")
+  eq("day recomputed: not late, out 19:00", [d.status, d.late, new Date(d.last_out).toISOString()], ["P", false, new Date(ist("2026-09-03", "19:00")).toISOString()])
+
+  const ra = await val(U.ADMIN, "select regularise_request('2026-09-02', $1, null, 'my own')", [ist("2026-09-02", "09:30")])
+  like("admin cannot decide own correction", await err(U.ADMIN, "select regularise_decide($1, true)", [ra]), /Another admin/)
+  await run(U.ADMIN, "select regularise_cancel($1)", [ra])
+  eq("cancel -> cancelled", await val(null, "select status from regularisations where id = $1", [ra]), "cancelled")
+  like("cancel again refused", await err(U.ADMIN, "select regularise_cancel($1)", [ra]), /no longer be cancelled/)
+
+  const extra = []
+  for (const day of ["2026-09-04", "2026-09-05", "2026-09-07"])
+    extra.push(await val(S, "select regularise_request($1, $2, null, 'cap test')", [day, ist(day, "09:30")]))
+  like("cap: 6th correction in the month refused (5)", await err(S, "select regularise_request('2026-09-02', $1, null, 'cap')", [ist("2026-09-02", "09:30")]), /used all 5/)
+  like("second pending for the same day refused", await err(S, "select regularise_request('2026-09-04', $1, null, 'dup')", [ist("2026-09-04", "09:30")]), /already have a correction waiting|used all/)
+  for (const id of extra) await run(S, "select regularise_cancel($1)", [id])
+  like("(17) cancelled ones still count toward the cap", await err(S, "select regularise_request('2026-09-02', $1, null, 'after cancel')", [ist("2026-09-02", "09:30")]), /used all 5 corrections .*rejected and cancelled ones count too/)
+})
+
+// ---- leave ---------------------------------------------------------------------------------
+await scenario("Leave", async () => {
+  await run(null, "select leave_grant_year(2026)")
+  const bal = async (u, code) => one(u, "select balance::float, available::float, taken_year::float from leave_balances($1) where code = $2", [u, code])
+  eq("CL granted 7", (await bal(U.STAFF2, "CL")).balance, 7)
+  const a = (await one(U.STAFF2, "select leave_apply('CL', '2026-09-15', '2026-09-15', 'full', 'full', 'fever') as r")).r
+  await run(U.ADMIN, "select leave_decide($1, true)", [a.id])
+  eq("approved CL day -> L", (await dayRow(U.STAFF2, "2026-09-15")).status, "L")
+  eq("CL taken_year 1, balance 6", [(await bal(U.STAFF2, "CL")).taken_year, (await bal(U.STAFF2, "CL")).balance], [1, 6])
+
+  const own = (await one(U.ADMIN, "select leave_apply('CL', ($1::date + 10), ($1::date + 10), 'full', 'full', 'own') as r", [today])).r
+  like("admin cannot decide own leave", await err(U.ADMIN, "select leave_decide($1, true)", [own.id]), /Another admin/)
+  await run(U.ADMIN, "select leave_cancel($1)", [own.id])
+
+  const f = (await one(U.STAFF2, "select leave_apply('CL', ($1::date + 17), ($1::date + 17), 'full', 'full', 'trip') as r", [today])).r
+  await run(U.SUPER, "select leave_decide($1, true)", [f.id])
+  await run(U.STAFF2, "select leave_cancel($1, 'plans changed')", [f.id])
+  const lr = await one(null, "select status, cancelled_by from leave_requests where id = $1", [f.id])
+  eq("own approved future leave cancelled, cancelled_by = self", lr, { status: "cancelled", cancelled_by: U.STAFF2 })
+  eq("reversal row +1", await val(null, "select delta::float from leave_ledger where ref_id = $1 and reason = 'reversal'", [f.id]), 1)
+  like("cancel twice refused", await err(U.STAFF2, "select leave_cancel($1)", [f.id]), /no longer be cancelled/)
+  eq("CL after cancel: balance 6, taken_year 1", [(await bal(U.STAFF2, "CL")).balance, (await bal(U.STAFF2, "CL")).taken_year], [6, 1])
+
+  await run(U.SUPER, "select leave_adjust($1, 'EL', 2, 'opening balance')", [U.STAFF2])
+  const adj = await val(null, "select id from leave_ledger where user_id = $1 and type_code = 'EL' and reason = 'adjust'", [U.STAFF2])
+  like("admin without leave-balances cannot undo", await err(U.ADMIN, "select leave_undo_adjust($1, 'x')", [adj]), /do not have access to manage leave balances/)
+  await run(U.SUPER, "select leave_undo_adjust($1, 'typo')", [adj])
+  const el = await bal(U.STAFF2, "EL")
+  eq("undo: EL balance 0, taken_year NOT inflated (0)", [el.balance, el.taken_year], [0, 0])
+  like("undo twice refused", await err(U.SUPER, "select leave_undo_adjust($1, 'again')", [adj]), /already been undone/)
+  const grant = await val(null, "select id from leave_ledger where user_id = $1 and type_code = 'CL' and reason = 'grant' and period is not null", [U.STAFF2])
+  like("yearly grant cannot be undone", await err(U.SUPER, "select leave_undo_adjust($1, 'no')", [grant]), /Only a manual adjustment/)
+  await run(U.SUPER, "select leave_adjust($1, 'CO', 1, 'comp-off for 6 Sep')", [U.STAFF2])
+  const co = await val(null, "select id from leave_ledger where user_id = $1 and type_code = 'CO' and reason = 'grant'", [U.STAFF2])
+  check("manual CO grant (no period) can be undone", (await err(U.SUPER, "select leave_undo_adjust($1, 'wrong day')", [co])) === null, "null", "ok")
+  eq("CO taken_year after undo = 0", (await bal(U.STAFF2, "CO")).taken_year, 0)
+  eq("unique index leave_ledger_reversal_once exists", await val(null, "select count(*)::int from pg_indexes where indexname = 'leave_ledger_reversal_once'"), 1)
+  like("duplicate reversal blocked by the index", await err(null, "insert into leave_ledger (user_id, type_code, delta, reason, ref_id) values ($1, 'EL', -2, 'reversal', $2)", [U.STAFF2, adj]), /duplicate key|unique/)
+  eq("leave_expire_comp_off runs", typeof (await val(null, "select leave_expire_comp_off()")), "number")
+})
+
+// ---- lock + payroll ----------------------------------------------------------------------
+let regRun
+await scenario("Lock refusals and payroll before lock", async () => {
+  const pend = await val(U.STAFF2, "select regularise_request('2026-09-02', $1, null, 'pending one')", [ist("2026-09-02", "09:30")])
+  const flagged = await rawPunch(U.SALES, "in", ist("2026-09-02", "11:00"), { mode: "field", flags: ["no_code"], review: "flagged" })
+  like("staff cannot lock", await err(U.STAFF1, "select attendance_lock_month('2026-09-01')"), /cannot lock/)
+  like("current month cannot be locked", await err(U.ACCT, "select attendance_lock_month($1)", [today]), /once it is over/)
+  like("lock refused with 1 flagged + 1 pending", await err(U.ACCT, "select attendance_lock_month('2026-09-01')"),
+    /1 flagged punch is waiting for review and 1 correction is waiting for a decision/)
+
+  regRun = await val(U.PAY, "select payroll_run_create('2026-09-01', 'regular')")
+  await run(U.PAY, "select payroll_run_save($1, $2, '{}')", [regRun, JSON.stringify([{ user_id: U.STAFF1, data: {}, gross: 1, net_pay: 1 }])])
+  like("regular run submit refused while month unlocked", await err(U.PAY, "select payroll_run_transition($1, 'submit')", [regRun]), /Lock attendance for September 2026 first/)
+  const off = await val(U.PAY, "select payroll_run_create('2026-09-01', 'off_cycle', 'bonus')")
+  await run(U.PAY, "select payroll_run_save($1, $2, '{}')", [off, JSON.stringify([{ user_id: U.STAFF1, data: {}, gross: 1, net_pay: 1 }])])
+  check("off-cycle run submits on an unlocked month", (await err(U.PAY, "select payroll_run_transition($1, 'submit')", [off])) === null, "null", "ok")
+
+  await run(U.ADMIN, "select regularise_decide($1, false, 'no')", [pend])
+  await run(U.ADMIN, "select attendance_review($1, 'accepted', 'at customer')", [flagged])
+  check("lock succeeds after resolving", (await err(U.ACCT, "select attendance_lock_month('2026-09-01', 'Sept payroll')")) === null, "null", "ok")
+  eq("attendance_months row", await one(null, "select locked_by, note from attendance_months where month = '2026-09-01'"), { locked_by: U.ACCT, note: "Sept payroll" })
+})
+
+await scenario("Locked month guard", async () => {
+  like("punch insert into locked month refused", await err(null,
+    "insert into attendance_punches (id, user_id, kind, at, day, mode) values (gen_random_uuid(), $1, 'in', '2026-09-21 04:00Z', '2026-09-21', 'office')", [U.STAFF1]), /locked for payroll/)
+  like("correction in locked month refused", await err(U.STAFF1, "select regularise_request('2026-09-21', $1, null, 'late')", [ist("2026-09-21", "09:30")]), /locked for payroll/)
+  like("override in locked month refused", await err(U.SUPER, "select attendance_override_day($1, '2026-09-21', 'P', 'reason')", [U.STAFF1]), /Unlock September 2026 first/)
+  like("leave in locked month refused", await err(U.STAFF2, "select leave_apply('CL', '2026-09-22', '2026-09-22', 'full', 'full', 'x')"), /locked for payroll/)
+  like("review of a locked punch refused", await err(U.ADMIN, "select attendance_review(id, 'rejected') from attendance_punches where user_id = $1 and day = '2026-09-02' limit 1", [U.STAFF1]), /locked for payroll/)
+  const before = await dayRow(U.STAFF1, "2026-09-05")
+  await recompute(U.STAFF1, "2026-09-05")
+  eq("recompute leaves locked days alone", await dayRow(U.STAFF1, "2026-09-05"), before)
+  const nAud = await val(null, "select count(*)::int from audit_log where table_name = 'holidays'")
+  check("holiday added in a locked month does not error", (await err(U.ADMIN, "insert into holidays (day, name) values ('2026-09-24', 'Late add')")) === null, "null", "ok")
+  eq("... and the locked day is unchanged (A)", (await dayRow(U.STAFF2, "2026-09-24")).status, "A")
+  await run(U.ADMIN, "delete from holidays where day = '2026-09-24'")
+  eq("(audit rows for the insert + delete)", (await val(null, "select count(*)::int from audit_log where table_name = 'holidays'")) - nAud, 2)
+})
+
+await scenario("Payroll summary + transitions after lock", async () => {
+  like("staff cannot read the month summary", await err(U.STAFF1, "select * from attendance_month_summary('2026-09-01')"), /cannot see everyone/)
+  const rows = (await run(U.PAY, "select * from attendance_month_summary('2026-09-01')")).rows
+  check("payroll-only user reads the summary", rows.length >= 7, ">= 7 rows", rows.length)
+  const s1 = rows.find((r) => r.user_id === U.STAFF1)
+  const days = (await run(null, "select coalesce(override_status, status) s, late, flags from attendance_days where user_id = $1 and day >= '2026-09-01' and day < '2026-10-01'", [U.STAFF1])).rows
+  const c = (x) => days.filter((d) => d.s === x).length
+  const lates = days.filter((d) => d.late).length
+  const payable = Math.max(0, c("P") + c("OD") + c("WO") + c("H") + c("L") + 0.5 * (c("HD") + c("MP")) - Math.floor(lates / 3) * 0.5)
+  const missed = c("MP") + days.filter((d) => d.s === "A" && d.flags.includes("no_checkout")).length
+  eq("STAFF1 payable matches P+OD+WO+H+L+0.5*(HD+MP)-late penalty", Number(s1.payable), payable)
+  eq("STAFF1 missed counts no_checkout (Sep 8)", s1.missed, missed)
+  check("missed >= 1", s1.missed >= 1, ">=1", s1.missed)
+  eq("locked flag", s1.locked, true)
+  const s2 = rows.find((r) => r.user_id === U.STAFF2)
+  eq("STAFF2 leave counted", s2.leave, 1)
+
+  check("regular run submits after lock", (await err(U.PAY, "select payroll_run_transition($1, 'submit')", [regRun])) === null, "null", "ok")
+  like("submitter cannot approve own run", await err(U.PAY, "select payroll_run_transition($1, 'approve')", [regRun]), /Someone other than/)
+  check("Super Admin approves", (await err(U.SUPER, "select payroll_run_transition($1, 'approve')", [regRun])) === null, "null", "ok")
+})
+
+await scenario("Unlock", async () => {
+  like("admin cannot unlock", await err(U.ADMIN, "select attendance_unlock_month('2026-09-01', 'need to fix')"), /Only the Super Admin/)
+  like("accounts cannot unlock", await err(U.ACCT, "select attendance_unlock_month('2026-09-01', 'need to fix')"), /Only the Super Admin/)
+  like("short reason refused", await err(U.SUPER, "select attendance_unlock_month('2026-09-01', 'x')"), /Give a reason/)
+  await run(U.SUPER, "select attendance_unlock_month('2026-09-01', 'fix a punch')")
+  const a = await one(null, "select actor, action, changes, label from audit_log where table_name = 'attendance_months' order by id desc limit 1")
+  eq("unlock audited with reason and who locked", [a.actor, a.action, a.changes.reason, a.changes.lockedBy, a.label],
+    [U.SUPER, "delete", "fix a punch", U.ACCT, "Attendance for September 2026 unlocked"])
+  eq("month no longer locked", await val(null, "select attendance_month_locked('2026-09-01')"), false)
+  eq("admin reads attendance_months audit (register)", await val(U.ADMIN, "select count(*)::int from audit_log where table_name = 'attendance_months'"), 1)
+  eq("staff does not", await val(U.STAFF1, "select count(*)::int from audit_log where table_name = 'attendance_months'"), 0)
+})
+
+// ---- RLS ----------------------------------------------------------------------------------
+await scenario("RLS and internal functions", async () => {
+  const S = U.STAFF1
+  await run(U.SUPER, "update attendance_settings set doc = doc || '{\"graceMin\": 15}'::jsonb where id")
+  await run(U.SUPER, "update attendance_settings set doc = doc || '{\"graceMin\": 10}'::jsonb where id")
+  await run(U.SUPER, "update attendance_settings set doc = doc || '{\"graceMin\": 15}'::jsonb where id")
+  eq("staff sees only own punches", await val(S, "select count(*)::int from attendance_punches where user_id <> $1", [S]), 0)
+  check("staff sees own punches", (await val(S, "select count(*)::int from attendance_punches where user_id = $1", [S])) > 0, ">0", "")
+  eq("staff sees only own days", await val(S, "select count(*)::int from attendance_days where user_id <> $1", [S]), 0)
+  like("staff cannot insert a punch", await err(S, "insert into attendance_punches (id, user_id, kind, at, day, mode) values (gen_random_uuid(), $1, 'in', now(), current_date, 'office')", [S]), /row-level security/)
+  eq("staff update of own day touches 0 rows", (await run(S, "update attendance_days set status = 'P' where user_id = $1", [S])).affectedRows, 0)
+  like("staff cannot insert a day", await err(S, "insert into attendance_days (user_id, day, status) values ($1, '2026-08-03', 'P')", [S]), /row-level security/)
+  eq("staff update of own punch touches 0 rows", (await run(S, "update attendance_punches set review = 'accepted' where user_id = $1", [S])).affectedRows, 0)
+  like("staff cannot insert attendance_qr", await err(S, "insert into attendance_qr (site_id, token, expires_at) values ($1, 'x', now())", [SITE]), /row-level security|duplicate/)
+  eq("staff reads no attendance_qr rows", await val(S, "select count(*)::int from attendance_qr"), 0)
+  check("overtime exists for STAFF1", (await val(null, "select count(*)::int from attendance_overtime where user_id = $1", [S])) > 0, ">0", "")
+  eq("staff reads no attendance_overtime (own included)", await val(S, "select count(*)::int from attendance_overtime"), 0)
+  check("accounts (register/payroll) reads overtime", (await val(U.ACCT, "select count(*)::int from attendance_overtime")) > 0, ">0", "")
+  check("payroll-only reads overtime", (await val(U.PAY, "select count(*)::int from attendance_overtime")) > 0, ">0", "")
+  for (const [name, sql] of [
+    ["module_access_for", `select module_access_for('${U.ADMIN}', 'attendance-team')`],
+    ["attendance_recompute_day", `select attendance_recompute_day('${S}', '2026-09-01')`],
+    ["attendance_close_day_all", "select attendance_close_day_all('2026-09-01')"],
+    ["audit_row_plain", "select audit_row_plain()"],
+    ["attendance_qr_next", `select attendance_qr_next('${SITE}', null)`],
+    ["attendance_locate", `select * from attendance_locate('${S}', null, null)`],
+    ["leave_recompute_range", `select leave_recompute_range('${S}', '2026-09-01', '2026-09-02')`],
+  ]) {
+    like(`staff cannot call ${name}`, await err(S, sql), /permission denied/)
+    like(`anon cannot call ${name}`, await err("anon", sql), /permission denied/)
+  }
+  eq("service role: module_access_for(admin, attendance-team)", await val("service", `select module_access_for('${U.ADMIN}', 'attendance-team')`), true)
+  eq("service role: module_access_for(staff, attendance-team)", await val("service", `select module_access_for('${S}', 'attendance-team')`), false)
+  check("attendance_settings audit rows exist", (await val(null, "select count(*)::int from audit_log where table_name = 'attendance_settings' and actor is not null")) >= 2, ">=2 (15->10->15; a no-op update is skipped)", "")
+  eq("staff reads no attendance_settings audit", await val(S, "select count(*)::int from audit_log where table_name = 'attendance_settings'"), 0)
+  check("admin reads attendance_settings audit", (await val(U.ADMIN, "select count(*)::int from audit_log where table_name = 'attendance_settings'")) > 0, ">0", "")
+  eq("staff reads no holidays audit (attendance-holidays)", await val(S, "select count(*)::int from audit_log where table_name = 'holidays'"), 0)
+  for (const t of ["attendance_punches", "attendance_days", "attendance_overtime", "attendance_qr", "regularisations", "leave_requests", "leave_ledger", "audit_log", "attendance_settings", "holidays", "work_sites"])
+    eq(`anon reads 0 rows of ${t}`, await val("anon", `select count(*)::int from ${t}`), 0)
+  like("anon cannot punch", await err("anon", "select attendance_punch(gen_random_uuid(), 'in', null)"), /permission denied/)
+  like("anon cannot insert a punch", await err("anon", `insert into attendance_punches (id, user_id, kind, at, day, mode) values (gen_random_uuid(), '${S}', 'in', now(), current_date, 'office')`), /row-level security|permission denied/)
+  like("anon cannot request a correction", await err("anon", "select regularise_request(current_date, now(), null, 'xxx')"), /permission denied/)
+  like("anon cannot insert holidays", await err("anon", "insert into holidays (day, name) values ('2026-11-01', 'x')"), /row-level security|permission denied/)
+  like("signed-in but inactive user cannot punch", await err(U.INACT, "select attendance_punch(gen_random_uuid(), 'in', null)"), /active account/)
+})
+
+// ---- second pass of 0065 (fixes 15-25 in its header) ---------------------------------------
+await scenario("Second pass: lock, leave and pay (15, 23, 24)", async () => {
+  // September is unlocked here (Unlock scenario); regRun is approved.
+  const lv = (await one(U.STAFF2, "select leave_apply('CL', '2026-09-25', '2026-09-25', 'full', 'full', 'pending over lock') as r")).r
+  like("(15) lock refused while a leave request is pending in the month",
+    await err(U.ACCT, "select attendance_lock_month('2026-09-01', 'relock')"), /September 2026 cannot be locked yet: 1 leave request is waiting for a decision/)
+  like("(24) approved regular run cannot be paid while its month is unlocked",
+    await err(U.PAY, "select payroll_run_transition($1, 'pay')", [regRun]), /Lock attendance for September 2026 first.*pay this pay run/)
+  const src = await val(null, "select prosrc from pg_proc where proname = 'attendance_lock_month'")
+  check("(23) lock_month recomputes before it takes the table locks",
+    src.indexOf("attendance_close_day_all") > 0 && src.indexOf("attendance_close_day_all") < src.indexOf("lock table"), "recompute first", "")
+  check("(23) lock order regularisations, leave_requests, attendance_punches",
+    /lock table public\.regularisations, public\.leave_requests, public\.attendance_punches/.test(src), "unchanged", "")
+  await run(U.ADMIN, "select leave_decide($1, false, 'no')", [lv.id])
+  check("lock succeeds once the leave is decided", (await err(U.ACCT, "select attendance_lock_month('2026-09-01', 'relock')")) === null, "null", "ok")
+  check("(24) ... and the regular run can then be paid", (await err(U.PAY, "select payroll_run_transition($1, 'pay')", [regRun])) === null, "null", "ok")
+  // A request that reached a locked month anyway (filed before 0065).
+  const stray = (await one(null, `insert into leave_requests (user_id, type_code, from_day, to_day, days, reason)
+                                   values ($1, 'CL', '2026-09-28', '2026-09-28', 1, 'stray') returning id`, [U.STAFF2])).id
+  like("(15) leave_decide refuses a request in a locked month", await err(U.ADMIN, "select leave_decide($1, true)", [stray]), /locked for payroll/)
+  eq("(15) no ledger row written", await val(null, "select count(*)::int from leave_ledger where ref_id = $1", [stray]), 0)
+  const multi = (await one(null, `insert into leave_requests (user_id, type_code, from_day, to_day, days, reason)
+                                  values ($1, 'CL', '2026-08-31', '2026-09-01', 2, 'spans') returning id`, [U.STAFF2])).id
+  like("(15) refused when only a later day of the request is locked", await err(U.ADMIN, "select leave_decide($1, false)", [multi]), /September 2026 is locked/)
+  await run(null, "delete from leave_requests where id in ($1, $2)", [stray, multi])
+})
+
+await scenario("Second pass: Team section required (16)", async () => {
+  const mon1 = `${today.slice(0, 8)}01`
+  const corr = await val(U.STAFF1, "select regularise_request($1, $2, null, 'team check')", [mon1, ist(mon1, "09:30")])
+  const lvp = (await one(U.STAFF2, "select leave_apply('CL', ($1::date + 19), ($1::date + 19), 'full', 'full', 'team check') as r", [today])).r
+  const lva = (await one(U.STAFF2, "select leave_apply('CL', ($1::date + 21), ($1::date + 21), 'full', 'full', 'team check 2') as r", [today])).r
+  await run(U.SUPER, "select leave_decide($1, true)", [lva.id])
+  const pun = await val(null, "select id from attendance_punches where user_id = $1 and day = $2 limit 1", [U.SALES, today])
+  await run(U.SUPER, "update profiles set modules_hidden = '[\"attendance-team\"]' where id = $1", [U.ADMIN])
+  eq("Admin without Team: has_module_access false", await val(U.ADMIN, "select has_module_access('attendance-team')"), false)
+  like("(16) regularise_decide refused", await err(U.ADMIN, "select regularise_decide($1, true)", [corr]), /Only an admin with the Team section/)
+  like("(16) leave_decide refused", await err(U.ADMIN, "select leave_decide($1, true)", [lvp.id]), /Only an admin with the Team section/)
+  like("(16) leave_cancel of someone else's leave refused", await err(U.ADMIN, "select leave_cancel($1, 'x')", [lva.id]), /cannot cancel someone else/)
+  like("(16) attendance_review refused", await err(U.ADMIN, "select attendance_review($1, 'accepted')", [pun]), /Only an admin with the Team section/)
+  await run(U.SUPER, "update profiles set modules_hidden = '[]' where id = $1", [U.ADMIN])
+  check("(16) with Team back, Admin decides", (await err(U.ADMIN, "select regularise_decide($1, false, 'no')", [corr])) === null, "null", "ok")
+  like("(16) Accounts (not an admin) still cannot review", await err(U.ACCT, "select attendance_review($1, 'accepted')", [pun]), /Only an admin/)
+  await run(U.ADMIN, "select leave_decide($1, false)", [lvp.id])
+  await run(U.SUPER, "select leave_cancel($1)", [lva.id])
+})
+
+await scenario("Second pass: cap, text limits, cancel_note (17, 18, 19)", async () => {
+  const mon1 = `${today.slice(0, 8)}01`
+  const prevCap = await val(null, "select doc -> 'correctionsPerMonth' from attendance_settings where id")
+  await setCfg({ correctionsPerMonth: 2 })
+  const c1 = await val(U.PAY, "select regularise_request($1, $2, null, $3)", [mon1, ist(mon1, "09:30"), "r".repeat(600)])
+  eq("(18) correction reason cut to 500", await val(null, "select length(reason) from regularisations where id = $1", [c1]), 500)
+  await run(U.ADMIN, "select regularise_decide($1, false, 'no')", [c1])
+  const c2 = await val(U.PAY, "select regularise_request($1, $2, null, 'second')", [mon1, ist(mon1, "09:31")])
+  await run(U.PAY, "select regularise_cancel($1)", [c2])
+  like("(17) a rejected and a cancelled one use up a cap of 2", await err(U.PAY, "select regularise_request($1, $2, null, 'third')", [mon1, ist(mon1, "09:32")]), /used all 2 corrections/)
+  await setCfg({ correctionsPerMonth: prevCap })
+
+  const a = (await one(U.STAFF2, "select leave_apply('CL', ($1::date + 25), ($1::date + 25), 'full', 'full', $2) as r", [today, "l".repeat(700)])).r
+  eq("(18) leave reason cut to 500 (the column allows 500)", await val(null, "select length(reason) from leave_requests where id = $1", [a.id]), 500)
+  await run(U.ADMIN, "select leave_decide($1, true, 'enjoy')", [a.id])
+  await run(U.STAFF2, "select leave_cancel($1, $2)", [a.id, "c".repeat(600)])
+  const r1 = await one(null, "select status, decision_note, length(cancel_note) n, cancelled_by from leave_requests where id = $1", [a.id])
+  eq("(19) own cancel keeps the approver's decision_note; cancel_note holds theirs, cut to 500 (18)", r1,
+    { status: "cancelled", decision_note: "enjoy", n: 500, cancelled_by: U.STAFF2 })
+  const b = (await one(U.STAFF2, "select leave_apply('CL', ($1::date + 26), ($1::date + 26), 'full', 'full', 'trip') as r", [today])).r
+  await run(U.ADMIN, "select leave_decide($1, true, 'fine')", [b.id])
+  await run(U.SUPER, "select leave_cancel($1, 'office closed')", [b.id])
+  eq("(19) admin cancel writes both notes", await one(null, "select decision_note, cancel_note from leave_requests where id = $1", [b.id]),
+    { decision_note: "office closed", cancel_note: "office closed" })
+  const c = (await one(U.STAFF2, "select leave_apply('CL', ($1::date + 28), ($1::date + 28), 'full', 'full', 'trip') as r", [today])).r
+  await run(U.STAFF2, "select leave_cancel($1)", [c.id])
+  eq("(19) own cancel of a pending request with no note: both null", await one(null, "select decision_note, cancel_note from leave_requests where id = $1", [c.id]),
+    { decision_note: null, cancel_note: null })
+})
+
+await scenario("Second pass: QR viewers and stations (21, 22)", async () => {
+  await run(null, "update attendance_qr set expires_at = now() - interval '1 second' where site_id = $1", [SITE])
+  const s = await show(U.ADMIN)
+  eq("(21) a new code starts with only its first viewer", (await qrRow()).viewers, [U.ADMIN])
+  const x1 = await val(null, "select xmin::text from attendance_qr where site_id = $1", [SITE])
+  await show(U.ADMIN)
+  eq("(21) the same screen again writes nothing (xmin unchanged)", await val(null, "select xmin::text from attendance_qr where site_id = $1", [SITE]), x1)
+  await show(U.SUPER)
+  const q = await qrRow()
+  eq("(21) a second account joins viewers; shown_by stays the first", [q.viewers, q.shown_by], [[U.ADMIN, U.SUPER], U.ADMIN])
+  const p = await punch(U.ADMIN, "in", s.payload)
+  eq("(21) a viewer punching with that code -> flagged own_code", [p.status, p.flags], ["flagged", ["own_code"]])
+  const pr = await pRow(p.id)
+  eq("(21) punch row flagged, qr_shown_by kept", [pr.review, pr.qr_shown_by], ["flagged", U.ADMIN])
+  eq("(21) burned: the next code has no viewers", (await qrRow()).viewers, [])
+  const s2 = await show(U.SUPER)
+  const p2 = await punch(U.PAY, "out", s2.payload)
+  eq("(21) a non-viewer is not flagged", [p2.status, p2.flags], ["ok", []])
+
+  const SITE_B = randomUUID()
+  await run(null, "insert into work_sites (id, name, lat, lng) values ($1, 'Warehouse', 28.5, 77.1)", [SITE_B])
+  await run(null, "insert into attendance_people (user_id, mode, site_ids) values ($1, 'office', $2) on conflict (user_id) do update set site_ids = excluded.site_ids", [U.ACCT, [SITE_B]])
+  await run(null, "delete from attendance_punches where user_id = $1 and day = $2", [U.ACCT, today])
+  const p3 = await punch(U.ACCT, "in", (await show(U.ADMIN)).payload)
+  eq("(22) person limited to Warehouse scanning Head office -> flagged other_site", [p3.status, p3.flags, p3.site], ["flagged", ["other_site"], "Head office"])
+  const sb = (await one(U.ADMIN, "select attendance_qr_show($1) as r", [SITE_B])).r
+  const p4 = await punch(U.ACCT, "out", sb.payload)
+  eq("(22) their own station -> no flag", [p4.status, p4.flags, p4.site], ["ok", [], "Warehouse"])
+})
+
+await scenario("Second pass: leave-documents delete (25)", async () => {
+  const ins = (name) => run(null, "insert into storage.objects (bucket_id, name) values ('leave-documents', $1)", [name])
+  const mine = `${U.STAFF1}/orphan.pdf`, used = `${U.STAFF1}/cert.pdf`, other = `${U.STAFF2}/theirs.pdf`
+  for (const n of [mine, used, other]) await ins(n)
+  await run(U.STAFF1, "select leave_apply('CL', ($1::date + 30), ($1::date + 30), 'full', 'full', 'with doc', $2)", [today, used])
+  const del = async (who, n) => (await run(who, "delete from storage.objects where bucket_id = 'leave-documents' and name = $1", [n])).affectedRows
+  eq("(25) own unreferenced file: deleted", await del(U.STAFF1, mine), 1)
+  eq("(25) own file a leave request names: kept", await del(U.STAFF1, used), 0)
+  eq("(25) someone else's file: kept", await del(U.STAFF1, other), 0)
+  eq("(25) an admin cannot delete it either", await del(U.ADMIN, other), 0)
+  eq("(25) anon cannot", await del("anon", other), 0)
+  eq("two files left", await val(null, "select count(*)::int from storage.objects where bucket_id = 'leave-documents'"), 2)
+})
+
+// ---- report -----------------------------------------------------------------------------
+console.log("")
+let fails = 0
+const byScn = new Map()
+for (const r of results) byScn.set(r.scenario, [...(byScn.get(r.scenario) ?? []), r])
+for (const [s, rs] of byScn) {
+  const f = rs.filter((r) => !r.ok)
+  fails += f.length
+  console.log(`${f.length ? "FAIL" : "PASS"}  ${s}  (${rs.length - f.length}/${rs.length})`)
+  for (const r of rs) if (r.name.startsWith("OBSERVATION")) console.log(`      - ${r.name}: ${r.actual}`)
+  for (const r of f) console.log(`      x ${r.name}\n        expected: ${r.expected}\n        actual:   ${r.actual}`)
+}
+console.log(`\n${results.length - fails}/${results.length} checks passed. Concurrency not tested: PGlite is one connection.`)
+process.exit(fails ? 1 : 0)

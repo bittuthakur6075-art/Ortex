@@ -1,5 +1,6 @@
-// Attendance, the pure half (docs/pm/ATTENDANCE_LEAVE_PLAN.md). MIRRORED
-// line for line by Ortex.Admin/src/lib/attendance.js: edit both.
+// Attendance, the pure half. The source is Ortex.Mobile/src/domain/attendance.ts;
+// Ortex.Admin/src/lib/attendance.js is GENERATED from it by
+// `npm run gen:attendance` in Ortex.Mobile. Edit the TS, never the JS.
 //
 // The server (migration 0043, attendance_punch) is the authority on the code,
 // the time and whether a punch counts. These functions only turn its rows and
@@ -114,8 +115,13 @@ export type DaySummary = {
   lastOut: string | null
   /** Minutes between each in and the out after it; an open in runs to `now`. */
   workedMin: number
-  /** Clocked in with no clock out yet. */
+  /** Clocked in with no clock out yet, on a day that is still running. */
   open: boolean
+  /**
+   * Clocked in and never out on a day that is over. The server makes that day
+   * an absence flagged no_checkout (0056) and pays the open stretch nothing.
+   */
+  noCheckout: boolean
   punches: Punch[]
   flagged: number
   field: boolean
@@ -146,12 +152,12 @@ export function summarizeDay(day: string, punches: Punch[], now = Date.now(), co
       openAt = null
     }
   }
-  const open = openAt !== null
-  // An open in still counts up to now, but never past the end of its own day.
-  if (openAt !== null) {
-    const dayEnd = new Date(`${day}T00:00:00+05:30`).getTime() + 24 * 60 * MINUTE
-    worked += Math.max(0, (Math.min(now, dayEnd) - openAt) / MINUTE)
-  }
+  // An open in counts up to now while its own day runs. Once the day is over it
+  // counts nothing: midnight closes it as an absence with no check-out (0056).
+  const over = day < dayKey(now)
+  const open = openAt !== null && !over
+  const noCheckout = openAt !== null && over
+  if (open) worked += Math.max(0, (now - openAt!) / MINUTE)
   const ins = valid.filter((p) => p.kind === "in")
   const outs = valid.filter((p) => p.kind === "out")
   return {
@@ -160,6 +166,7 @@ export function summarizeDay(day: string, punches: Punch[], now = Date.now(), co
     lastOut: outs.length ? outs[outs.length - 1].at : null,
     workedMin: Math.round(worked),
     open,
+    noCheckout,
     punches: all,
     flagged: all.filter((p) => p.review === "flagged").length,
     field: valid.some((p) => p.mode === "field"),
@@ -180,6 +187,31 @@ export function summarizeDays(punches: Punch[], now = Date.now()): DaySummary[] 
     .map(([day, list]) => summarizeDay(day, list, now))
 }
 
+/**
+ * The weekly offs, read the way the server reads `weeklyOff`
+ * (attendance_recompute_day): Sunday when it is not set, no day at all when it
+ * is set to an empty list. Every screen goes through this so none guesses.
+ */
+export const weeklyOffOf = (s: { weeklyOff?: number[] | null } = {}): number[] =>
+  Array.isArray(s.weeklyOff) ? s.weeklyOff : [0]
+
+/**
+ * The shift start to count a day's hours from (an "HH:MM" IST wall time), or
+ * undefined on a day with no shift to be early for: a weekly off, a holiday, or
+ * no shift set. Passed to summarizeDay (and the phone's workedMs) so every
+ * screen agrees with attendance_recompute_day (0056).
+ */
+export function countFromFor(
+  s: { shift?: { start?: string }; weeklyOff?: number[] | null },
+  day: string,
+  holiday = false,
+): string | undefined {
+  if (holiday) return undefined
+  if (weeklyOffOf(s).includes(dayOfWeek(day))) return undefined
+  const start = s.shift?.start
+  return start && /^\d{1,2}:\d{2}$/.test(start) ? start.padStart(5, "0") : undefined
+}
+
 /** The latest punch that counts decides whether the person is on duty now. */
 export function onDutySince(punches: Punch[], now = Date.now()): string | null {
   const valid = counted(punches).sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
@@ -197,6 +229,8 @@ export const FLAG_LABEL: Record<string, string> = {
   low_accuracy: "Weak location",
   mock_location: "Fake location detected",
   no_code: "Marked without scanning a code",
+  own_code: "Scanned a code they opened themselves",
+  other_site: "Scanned at a station not assigned to them",
   no_checkout: "Did not check out",
   auto_present: "Marked present automatically",
   regularised: "Corrected on request",
@@ -257,11 +291,19 @@ export type AttendanceDay = {
 export const effectiveStatus = (d: Pick<AttendanceDay, "status" | "override_status">): DayStatus =>
   d.override_status || d.status
 
+/**
+ * A day left open: checked in, never out. Since 0056 the server writes it as A
+ * flagged no_checkout (MP before that, still on older rows). An override means
+ * someone has already dealt with it.
+ */
+export const missedCheckout = (d: Pick<AttendanceDay, "status" | "override_status" | "flags">): boolean =>
+  !d.override_status && (d.status === "MP" || !!d.flags?.includes("no_checkout"))
+
 export const STATUS_LABEL: Record<DayStatus, string> = {
   P: "Present",
   HD: "Half day",
   A: "Absent",
-  OD: "On duty (field)",
+  OD: "On duty",
   WO: "Weekly off",
   H: "Holiday",
   MP: "Missed punch",
@@ -390,6 +432,8 @@ export type LeaveRequest = {
   decided_by?: string | null
   decided_at?: string | null
   decision_note?: string | null
+  /** The person's own reason when they cancelled it (0065). */
+  cancel_note?: string | null
   created_at: string
 }
 
@@ -434,7 +478,7 @@ export function leaveDaysBetween(
   rules: { weeklyOff?: number[]; holidays?: string[]; sandwich?: boolean } = {},
 ): number {
   if (!from || !to || to < from) return 0
-  const off = new Set(rules.weeklyOff ?? [0])
+  const off = new Set(weeklyOffOf(rules))
   const hol = new Set(rules.holidays ?? [])
   let n = 0
   for (let d = from; d <= to; d = addDays(d, 1)) {

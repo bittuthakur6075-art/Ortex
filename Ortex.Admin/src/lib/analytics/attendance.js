@@ -8,9 +8,12 @@
 //     have off: P, OD, HD, A or MP. Weekly offs, holidays and leave (L, LOP)
 //     are not working days, so taking approved leave never lowers a rate;
 //   · ATTENDANCE RATE = (P + OD + half of each HD) / working person-days. A
-//     missed clock-out (MP) is a working day that earns nothing until corrected;
+//     day with no check-out is an absence (A, flagged no_checkout; MP on older
+//     rows) and earns nothing until a correction fixes it;
 //   · a WORKED day is P, OD or HD with hours on it; average hours are over those.
 // A day's status is the Super Admin's override when there is one.
+
+import { missedCheckout } from "../attendance"
 
 export const RANGE_DAYS = { "7d": 7, "30d": 30, "90d": 90 }
 
@@ -62,7 +65,7 @@ export function summarise(rows) {
       workedMin += d.worked_min || 0
     }
     if (d.late) lates += 1
-    if (s === "MP") missed += 1
+    if (missedCheckout(d)) missed += 1
     if (s === "A") absent += 1
     leave += leaveOn(d)
   }

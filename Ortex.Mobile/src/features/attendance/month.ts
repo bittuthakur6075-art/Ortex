@@ -4,7 +4,7 @@
 // holiday, leave, absent: a tinted strip with the word), plus the bar geometry.
 // Phone-only; domain/attendance.ts is mirrored to the console and stays as is.
 
-import { effectiveStatus, type AttendanceDay, type DayStatus } from "@/domain/attendance"
+import { effectiveStatus, weeklyOffOf, type AttendanceDay, type DayStatus } from "@/domain/attendance"
 import { istWeekday } from "@/features/attendance/progress"
 
 export type MonthEntry =
@@ -24,19 +24,20 @@ const addDay = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z
 
 /**
  * Every day of the month up to today, newest first. A day with a row is what the
- * server says; a day without one is a Sunday (weekend) or a listed holiday when
- * it is one, and otherwise "empty" (nothing recorded, never guessed absent).
+ * server says; a day without one is a weekly off or a listed holiday when it
+ * is one, and otherwise "empty" (nothing recorded, never guessed absent). An
+ * optional holiday is not a day off, so it never fills a day here.
  */
 export function monthEntries(
   bounds: { from: string; to: string },
   rows: AttendanceDay[],
-  holidays: { day: string; name: string }[],
+  holidays: { day: string; name: string; kind?: string }[],
   today: string,
   /** IST weekdays off (0 = Sunday), the Super Admin's setting. */
-  weeklyOff: number[] = [0],
+  weeklyOff: number[] = weeklyOffOf(),
 ): MonthEntry[] {
   const byDay = new Map(rows.map((r) => [r.day, r]))
-  const hol = new Map(holidays.map((h) => [h.day, h.name]))
+  const hol = new Map(holidays.filter((h) => h.kind !== "optional").map((h) => [h.day, h.name]))
   const last = bounds.to < today ? bounds.to : today
   const out: MonthEntry[] = []
   for (let d = last; d >= bounds.from; d = addDay(d, -1)) {

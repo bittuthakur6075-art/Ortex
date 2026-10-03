@@ -1,6 +1,6 @@
 import React from "react"
 
-import { dayKey, type LeaveRequest } from "@/domain/attendance"
+import { dayKey, weeklyOffOf, type LeaveRequest } from "@/domain/attendance"
 import { dayLabel } from "@/features/attendance/format"
 import { holidays as loadHolidays, loadSettings, type Holiday } from "@/lib/attendance"
 
@@ -48,7 +48,7 @@ export function useLeaveRules() {
     ])
     const doc = s as { weeklyOff?: number[]; sandwich?: boolean }
     setRules({
-      weeklyOff: Array.isArray(doc.weeklyOff) ? doc.weeklyOff : [0],
+      weeklyOff: weeklyOffOf(doc),
       sandwich: Boolean(doc.sandwich),
       holidays: h,
     })

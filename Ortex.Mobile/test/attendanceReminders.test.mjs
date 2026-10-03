@@ -64,3 +64,27 @@ test("half-day leave moves the reminder to the worked half; half Saturdays end e
   // Saturday half day: 09:30 + 4h30 = 14:00.
   assert.equal(at("out", "2026-09-26"), istAt("2026-09-26", 14 * 60))
 })
+
+test("today's punches: checked in drops today's clock-in nudge, checked out drops both", () => {
+  const inPlan = planReminders({ ...RULES, lastPunchToday: "in" }, NOW)
+  assert.equal(days(inPlan, "in")[0], "2026-09-22")
+  assert.equal(days(inPlan, "out")[0], "2026-09-21")
+  const outPlan = planReminders({ ...RULES, lastPunchToday: "out" }, NOW)
+  assert.equal(days(outPlan, "in")[0], "2026-09-22")
+  assert.equal(days(outPlan, "out")[0], "2026-09-22")
+  // Only today: tomorrow's reminders are untouched.
+  assert.equal(days(outPlan, "in").length, 5)
+})
+
+test("a kind dismissed today on this phone stays dismissed", () => {
+  const plan = planReminders({ ...RULES, dismissedToday: ["in"] }, NOW)
+  assert.equal(days(plan, "in")[0], "2026-09-22")
+  assert.equal(days(plan, "out")[0], "2026-09-21")
+})
+
+test("weekly off read as the server reads it: [] is no weekly off at all", () => {
+  const plan = planReminders({ ...RULES, weeklyOff: [] }, NOW)
+  assert.equal(days(plan, "in").length, 7)
+  const unset = planReminders({ ...RULES, weeklyOff: undefined }, NOW)
+  assert.equal(days(unset, "in").length, 6)
+})

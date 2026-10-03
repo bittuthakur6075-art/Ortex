@@ -74,7 +74,7 @@ export default function QrCodeDisplay() {
 
 /** The code as a tab: the code and its countdown on the left, the station and today at the gate on the right. */
 function GateTab({ gate, onFull }) {
-  const scans = useScansToday(gate.code?.lastScan?.at || gate.siteId)
+  const scans = useScansToday(gate.siteId, gate.code?.lastScan?.at)
   const live = gate.state === "ok"
   const stale = gate.state === "stale" || gate.state === "error"
   const station = gate.code?.siteName || gate.station?.name || gate.stations[0]?.name
@@ -198,24 +198,33 @@ function LastScan({ scan, fresh }) {
 
 // ---- the gate display (full screen) --------------------------------------------
 
-/** Today's scans for the "Just now" feed and the "in today" count. */
-function useScansToday(trigger) {
+/**
+ * Today's scans AT THIS STATION (qr_site_id) for the "Just now" feed and the
+ * "in today" count, leaving out punches an admin did not accept. The IST day
+ * is re-read every 30s, so a screen left up overnight starts again at midnight.
+ */
+function useScansToday(siteId, lastScanAt) {
   const [state, setState] = useState({ rows: [], names: {}, total: null })
+  const [day, setDay] = useState(todayIST)
+  useEffect(() => {
+    const t = setInterval(() => setDay(todayIST()), 30000)
+    return () => clearInterval(t)
+  }, [])
   useEffect(() => {
     let alive = true
-    const day = todayIST()
     void Promise.all([
       listPunches({ from: day, to: day }).catch(() => ({ rows: [] })),
       repo.staffDirectory ? repo.staffDirectory().catch(() => ({})) : {},
       listProfiles().catch(() => null),
     ]).then(([punches, names, profiles]) => {
       if (!alive) return
-      setState({ rows: punches.rows || [], names: names || {}, total: profiles ? profiles.filter((p) => p.active !== false).length : null })
+      const rows = (punches.rows || []).filter((p) => p.qr_site_id === siteId && p.review !== "rejected")
+      setState({ rows, names: names || {}, total: profiles ? profiles.filter((p) => p.active !== false).length : null })
     })
     return () => {
       alive = false
     }
-  }, [trigger])
+  }, [siteId, lastScanAt, day])
   return useMemo(() => {
     const recent = [...state.rows].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 5)
     const inToday = new Set(state.rows.filter((p) => p.kind === "in").map((p) => p.user_id)).size
@@ -268,7 +277,7 @@ function GateDisplay({ gate, onExit }) {
   useWakeLock()
   const now = useClock()
   const size = useCodeSize()
-  const scans = useScansToday(gate.code?.lastScan?.at || gate.siteId)
+  const scans = useScansToday(gate.siteId, gate.code?.lastScan?.at)
   const live = gate.state === "ok"
   const stale = gate.state === "stale" || gate.state === "error"
   const hit = gate.justScanned

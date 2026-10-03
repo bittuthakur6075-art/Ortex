@@ -12,27 +12,37 @@ import { STATUS_ORDER, toneFor } from "./format"
 // override the status with a reason while the month is unlocked; that override
 // is logged in the database and wins until cleared.
 
-export default function StatusDayDrawer({ open, onClose, person, userId, day, entry, selfId, canOverride, locked, onChanged }) {
+export default function StatusDayDrawer({ open, onClose, person, userId, day, entry, countFrom, selfId, canOverride, locked, onChanged }) {
   const [punches, setPunches] = useState([])
   const [status, setStatus] = useState("")
   const [reason, setReason] = useState("")
   const [busy, setBusy] = useState(false)
 
+  // The punches follow the day's row (a reload after a correction); the form
+  // resets only when the drawer opens on another person or day, so a reload
+  // of the Register never wipes a half-typed reason.
+  const entryStamp = entry ? `${entry.updated_at || ""}|${entry.status}|${entry.override_status || ""}` : ""
   useEffect(() => {
     if (!open || !userId || !day) return undefined
     let alive = true
-    setPunches([])
     listPunches({ from: day, to: day, userId }).then((r) => {
       if (alive) setPunches(r.rows || [])
     })
-    setStatus(entry?.override_status || "")
-    setReason(entry?.override_reason || "")
     return () => {
       alive = false
     }
-  }, [open, userId, day, entry])
+  }, [open, userId, day, entryStamp])
 
-  const summary = day ? summarizeDay(day, punches) : null
+  const formKey = open && userId && day ? `${userId}|${day}` : ""
+  const [formFor, setFormFor] = useState("")
+  if (formKey !== formFor) {
+    setFormFor(formKey)
+    setPunches([])
+    setStatus(entry?.override_status || "")
+    setReason(entry?.override_reason || "")
+  }
+
+  const summary = day ? summarizeDay(day, punches, Date.now(), countFrom) : null
   const shown = entry ? effectiveStatus(entry) : null
 
   const save = async (clear) => {
@@ -41,6 +51,10 @@ export default function StatusDayDrawer({ open, onClose, person, userId, day, en
     setBusy(true)
     try {
       await overrideDay(userId, day, clear ? null : status, clear ? null : reason.trim())
+      if (clear) {
+        setStatus("")
+        setReason("")
+      }
       toast.success(clear ? "Override cleared. The day is recalculated." : "Override saved")
       onChanged?.()
     } catch (e) {

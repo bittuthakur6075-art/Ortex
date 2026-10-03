@@ -20,7 +20,7 @@ export default function UpcomingHolidays({ holidays, className }) {
     <Card className={cn("overflow-hidden", className)}>
       <CardHeader title="Upcoming holidays" />
       {upcoming.length === 0 ? (
-        <p className="px-5 pb-5 text-sm text-muted-foreground">None added yet. The Super Admin adds them under Settings.</p>
+        <p className="px-5 pb-5 text-sm text-muted-foreground">None added yet. Admins add them under Attendance, Holidays.</p>
       ) : (
         <ul className="border-t border-border">
           {upcoming.map((h, i) => {

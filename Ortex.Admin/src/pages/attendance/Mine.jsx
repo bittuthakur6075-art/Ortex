@@ -6,14 +6,16 @@ import { currentUserId } from "../../lib/auth"
 import { repo } from "../../data/store/repository"
 import {
   clockIST,
+  countFromFor,
+  dayKey,
   durationWords,
   effectiveStatus,
   monthGrid,
   monthTotals,
   STATUS_LABEL,
-  summarizeDays,
+  summarizeDay,
 } from "../../lib/attendance"
-import { getSettings, listDays, listPunches, todayIST } from "../../services/attendance"
+import { getSettings, listDays, listHolidays, listPunches, todayIST } from "../../services/attendance"
 import { cn } from "../../lib/cn"
 import { FlagBadges, StatStrip } from "./parts"
 import { dayLabel, daysOf, toneFor, openRow } from "./format"
@@ -41,11 +43,14 @@ export default function Mine() {
   const load = useCallback(async () => {
     if (!selfId) return
     const days = daysOf(month)
-    const [punches, dayRows, todays, settings] = await Promise.all([
-      listPunches({ from: days[0], to: days[days.length - 1], userId: selfId }),
-      listDays({ from: days[0], to: days[days.length - 1], userId: selfId }),
+    const last = days[days.length - 1]
+    const [punches, dayRows, todays, settings, holidays] = await Promise.all([
+      listPunches({ from: days[0], to: last, userId: selfId }),
+      listDays({ from: days[0], to: last, userId: selfId }),
       listPunches({ from: today, to: today, userId: selfId }),
       getSettings(),
+      // The month, and today for the live card.
+      listHolidays({ from: days[0], to: today > last ? today : last }),
     ])
     setState({
       loading: false,
@@ -57,6 +62,7 @@ export default function Mine() {
       days: dayRows.rows,
       todays: todays.rows,
       settings: settings.doc || {},
+      holidays: new Set((holidays.rows || []).filter((h) => h.active && h.kind !== "optional").map((h) => h.day)),
     })
   }, [month, selfId, today])
 
@@ -78,7 +84,20 @@ export default function Mine() {
     }
   }, [load])
 
-  const summaries = useMemo(() => summarizeDays(state.rows || []), [state.rows])
+  // One summary per day, newest first, each counted from that day's shift
+  // start (none on a weekly off or a holiday), as the server counts it.
+  const summaries = useMemo(() => {
+    const by = new Map()
+    for (const p of state.rows || []) {
+      const k = p.day || dayKey(p.at)
+      if (!by.has(k)) by.set(k, [])
+      by.get(k).push(p)
+    }
+    const now = Date.now()
+    return [...by.entries()]
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .map(([day, list]) => summarizeDay(day, list, now, countFromFor(state.settings || {}, day, state.holidays?.has(day))))
+  }, [state.rows, state.settings, state.holidays])
   const totals = useMemo(() => monthTotals(state.days || [], state.settings?.lateRule || {}), [state.days, state.settings])
   const weeks = useMemo(() => {
     const [y, m] = month.split("-").map(Number)
@@ -92,13 +111,13 @@ export default function Mine() {
   }
 
   const present = totals.counts.P + totals.counts.OD
-  const absences = totals.counts.A + totals.counts.MP
+  const absences = totals.counts.A + totals.counts.MP // A includes days with no check-out
 
   return (
     <div className="space-y-5">
       {state.error && <Banner tone="danger">{state.error}</Banner>}
 
-      <TodayCard day={today} punches={state.todays || []} settings={state.settings} />
+      <TodayCard day={today} punches={state.todays || []} settings={state.settings} holiday={Boolean(state.holidays?.has(today))} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <MonthSwitcher month={month} onChange={setMonth} max={thisMonth} />
@@ -115,7 +134,7 @@ export default function Mine() {
             { icon: Clock, label: "Hours worked", value: durationWords(totals.workedMin) },
             {
               icon: AlertTriangle,
-              label: totals.lates ? `Absent or missed · ${totals.lates} late` : "Absent or missed",
+              label: totals.lates ? `Absent or no check-out · ${totals.lates} late` : "Absent or no check-out",
               value: absences,
               tone: "text-warning-text",
             },
@@ -221,6 +240,7 @@ export default function Mine() {
         userId={selfId}
         day={openDay}
         entry={openDay ? byDay.get(openDay) || null : null}
+        countFrom={openDay ? countFromFor(state.settings || {}, openDay, state.holidays?.has(openDay)) : undefined}
         selfId={selfId}
         canOverride={false}
         locked={false}

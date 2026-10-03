@@ -12,7 +12,7 @@ import { useLeaveContext } from "./leave/common"
 // ("mine", under My records). Admins decide requests; admins and anyone with
 // "Everyone's records" (Accounts) see the calendar and every balance (under
 // Team); whoever holds `leave-balances` (the Super Admin, and the Admins
-// the Super Admin picks on the Modules page, 0059) manages balances. The policy itself is in Settings.
+// the Super Admin picks on the Modules page, 0059) manages balances. The policy itself is in the Control centre.
 // The hub (Attendance.jsx) picks the view and checks who may open it.
 
 export default function Leave({ view = "mine" }) {

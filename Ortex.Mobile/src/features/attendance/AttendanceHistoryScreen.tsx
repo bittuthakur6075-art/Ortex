@@ -1,6 +1,8 @@
+import { useFocusEffect } from "@react-navigation/native"
 import React from "react"
 
 import MonthAttendance from "@/features/attendance/MonthAttendance"
+import { serverNow } from "@/lib/attendance"
 import type { StackScreenProps } from "@/navigation/types"
 import { AppScreen, ListRefreshControl } from "@/ui"
 
@@ -14,7 +16,16 @@ import { AppScreen, ListRefreshControl } from "@/ui"
 export default function AttendanceHistoryScreen({ navigation }: StackScreenProps<"AttendanceHistory">) {
   const [refreshing, setRefreshing] = React.useState(false)
   const [refreshKey, setRefreshKey] = React.useState(0)
-  const [now] = React.useState(() => Date.now())
+  // Re-read on focus and every minute, so a page left open past midnight
+  // moves to the new day.
+  const [now, setNow] = React.useState(() => serverNow())
+  useFocusEffect(
+    React.useCallback(() => {
+      setNow(serverNow())
+      const id = setInterval(() => setNow(serverNow()), 60000)
+      return () => clearInterval(id)
+    }, []),
+  )
 
   return (
     <AppScreen

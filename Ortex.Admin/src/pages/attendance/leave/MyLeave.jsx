@@ -114,6 +114,7 @@ export default function MyLeave({ ctx }) {
                         <td className="max-w-[260px] text-muted-foreground">
                           {r.reason}
                           {r.decision_note && <div className="mt-1 text-[12px]">Note: {r.decision_note}</div>}
+                          {r.cancel_note && <div className="mt-1 text-[12px]">Cancelled: {r.cancel_note}</div>}
                         </td>
                         <td>
                           <div className="flex flex-col items-start gap-1">

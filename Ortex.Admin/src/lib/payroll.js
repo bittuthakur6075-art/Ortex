@@ -476,6 +476,18 @@ export function paidDaysFor({ month, payable, doj, exitDate, basis = "actual", f
   return { basisDays, employedDays, paidDays: round2(Math.max(0, Math.min(basisDays, base - lop))) }
 }
 
+/**
+ * Payable days per person from attendance_month_summary ({ rows, error }).
+ * A summary that could not be read REFUSES the run (throws) rather than paying
+ * everyone the full month. A person with no row gets the full month, marked
+ * `missing` so the run screen can say so.
+ */
+export function payableFrom(att, month) {
+  if (att?.error) throw new Error(`Attendance for ${monthKey(month).slice(0, 7)} could not be read, so nothing was calculated: ${att.error}`)
+  const byUser = new Map((att?.rows || []).map((r) => [r.user_id, Number(r.payable)]))
+  return (userId) => (byUser.has(userId) ? { payable: byUser.get(userId), missing: false } : { payable: daysInMonth(month), missing: true })
+}
+
 // ---- the run's totals and the month-on-month check ----------------------------------------------------
 
 export function runTotals(payslips) {

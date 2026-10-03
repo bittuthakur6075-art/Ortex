@@ -5,7 +5,11 @@
 // A reminder is for a WORKING day: never on a weekly off, a holiday, or a day
 // fully covered by approved leave. A half day of leave keeps the reminder for
 // the half being worked (the morning-leave half shifts the clock-in reminder to
-// the afternoon start, which is the shift's midpoint).
+// the afternoon start, which is the shift's midpoint). Today's reminders also
+// look at today's punches: checked in means no "clock in" nudge, checked out
+// means neither.
+
+import { weeklyOffOf } from "@/domain/attendance"
 
 export type ReminderRules = {
   shiftStart?: string // "09:30"
@@ -16,6 +20,10 @@ export type ReminderRules = {
   holidays?: string[] // YYYY-MM-DD
   /** Approved leave: whole or half days. */
   leave?: { from: string; to: string; fromHalf?: "full" | "second"; toHalf?: "full" | "first" }[]
+  /** The latest punch that counts today (IST), if any. */
+  lastPunchToday?: "in" | "out" | null
+  /** Kinds already dismissed today (a punch made on this phone). */
+  dismissedToday?: ("in" | "out")[]
 }
 
 export type PlannedReminder = { kind: "in" | "out"; day: string; at: number }
@@ -44,10 +52,13 @@ export function planReminders(rules: ReminderRules, now: number, days = 7): Plan
   let end = toMinutes(rules.shiftEnd, 18 * 60 + 30)
   if (end <= start) end += 24 * 60
   const grace = rules.graceMin ?? 15
-  const off = new Set(rules.weeklyOff ?? [0])
+  const off = new Set(weeklyOffOf(rules))
   const hol = new Set(rules.holidays ?? [])
   const out: PlannedReminder[] = []
   const today = istDay(now)
+  const doneToday = new Set(rules.dismissedToday ?? [])
+  if (rules.lastPunchToday) doneToday.add("in")
+  if (rules.lastPunchToday === "out") doneToday.add("out")
   for (let i = 0; i < days; i++) {
     const day = new Date(Date.parse(`${today}T00:00:00Z`) + i * DAY_MS).toISOString().slice(0, 10)
     const dow = new Date(`${day}T00:00:00Z`).getUTCDay()
@@ -69,8 +80,9 @@ export function planReminders(rules: ReminderRules, now: number, days = 7): Plan
 
     const inAt = istAt(day, dayStart + grace + 5)
     const outAt = istAt(day, dayEnd)
-    if (inAt > now) out.push({ kind: "in", day, at: inAt })
-    if (outAt > now) out.push({ kind: "out", day, at: outAt })
+    const done = day === today ? doneToday : null
+    if (inAt > now && !done?.has("in")) out.push({ kind: "in", day, at: inAt })
+    if (outAt > now && !done?.has("out")) out.push({ kind: "out", day, at: outAt })
   }
   return out
 }

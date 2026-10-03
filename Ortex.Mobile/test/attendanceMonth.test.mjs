@@ -61,3 +61,30 @@ test("the weekly off follows the setting, not every Sunday", () => {
   assert.equal(by["2026-09-05"].label, "Weekly off")
   assert.equal(by["2026-09-06"].kind, "empty")
 })
+
+test("an optional holiday is not a day off: the day stays empty", () => {
+  const e = monthEntries(bounds, [], [{ day: "2026-09-07", name: "Onam", kind: "optional" }], "2026-09-08")
+  const by = Object.fromEntries(e.map((x) => [x.day, x]))
+  assert.equal(by["2026-09-07"].kind, "empty")
+})
+
+// days.ts: day rows from punches alone (before attendance_days exists).
+const { daysFromPunches } = await loadTs("features/attendance/days.ts")
+
+test("a past day left open is absent, flagged no_checkout, as the server writes it", () => {
+  const p = (id, kind, at, day) => ({ id, user_id: "u", kind, at, day, mode: "office", review: "ok" })
+  const rows = daysFromPunches(
+    [
+      p("1", "in", "2026-09-07T04:00:00Z", "2026-09-07"),
+      p("2", "in", "2026-09-08T04:00:00Z", "2026-09-08"),
+      p("3", "out", "2026-09-08T12:00:00Z", "2026-09-08"),
+    ],
+    "2026-09-09",
+  )
+  const by = Object.fromEntries(rows.map((r) => [r.day, r]))
+  assert.equal(by["2026-09-07"].status, "A")
+  assert.deepEqual(by["2026-09-07"].flags, ["no_checkout"])
+  assert.equal(by["2026-09-07"].worked_min, 0)
+  assert.equal(by["2026-09-08"].status, "P")
+  assert.deepEqual(by["2026-09-08"].flags, [])
+})

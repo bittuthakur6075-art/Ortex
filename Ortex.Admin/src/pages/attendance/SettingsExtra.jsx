@@ -12,12 +12,15 @@ import {
 } from "../../services/attendance"
 import { dayLabel, daysOf } from "./format"
 
-// Holidays (migration 0034) and the Super Admin's Maintenance section of
-// Attendance → Settings. Holidays change what a day with no clock-in counts as
-// (H, not A). They are managed by whoever holds the `attendance-holidays`
-// module (0057: every Admin by default, set on the Modules page), on Attendance
-// → Team → Holidays; the Super Admin also sees them under Settings.
+// Holidays (migration 0034) and the Super Admin's Maintenance section of the
+// attendance rules in the Control centre. Holidays change what a day with no
+// clock-in counts as (H, not A). They are managed by whoever holds the
+// `attendance-holidays` module (0057: every Admin by default, set on the
+// Modules page), on Attendance → Team → Holidays, and nowhere else.
 // Maintenance runs by hand what the nightly jobs run anyway.
+
+// The national days migration 0034 filled in, by month and day.
+const PREFILLED = ["01-26", "08-15", "10-02"]
 
 const KIND_LABEL = { national: "National", festival: "Festival", optional: "Optional" }
 const KIND_TONE = { national: "violet", festival: "blue", optional: "slate" }
@@ -56,9 +59,11 @@ export function Holidays() {
         description={`${year} and ${year + 1}. A holiday with no clock-in counts as H, not absent. Optional holidays are listed but not given to everyone.`}
         action={<Button size="sm" onClick={() => setEditing({})}><Plus className="h-4 w-4" /> Add holiday</Button>}
       />
-      <div className="px-5 pb-4">
-        <Banner tone="info">Republic Day, Independence Day and Gandhi Jayanti are filled in for you. Add Diwali, Holi and your other festival days.</Banner>
-      </div>
+      {state.rows.some((h) => PREFILLED.includes(h.day.slice(5))) && (
+        <div className="px-5 pb-4">
+          <Banner tone="info">Republic Day, Independence Day and Gandhi Jayanti are filled in for you. Add Diwali, Holi and your other festival days.</Banner>
+        </div>
+      )}
       {state.error && <Banner tone="danger" className="mx-5 mb-4">{state.error}</Banner>}
       {state.rows.length === 0 ? (
         <EmptyState icon={Calendar} title="No holidays yet" description="Add the festival holidays for the year." />

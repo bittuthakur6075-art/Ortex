@@ -44,25 +44,38 @@ export function useGateCode({ enabled = true } = {}) {
   const [left, setLeft] = useState(0)
   const [justScanned, setJustScanned] = useState(null)
   const timer = useRef(null)
+  const flash = useRef(null)
   const lastScanAt = useRef(undefined)
+  const alive = useRef(true)
 
   // ---- stations ---------------------------------------------------------------
-  useEffect(() => {
-    if (!enabled) return undefined
-    let alive = true
-    void listStations().then((r) => {
-      if (!alive) return
-      if (r.missing) {
-        setMissing(true)
-        setDetail(r.detail || "")
-      } else if (r.error) setError(r.error)
-      setStations(r.rows || [])
-      setSiteId((cur) => cur || r.rows?.[0]?.id || "")
-    })
-    return () => {
-      alive = false
+  // A station remembered in this browser that is no longer in the list (removed,
+  // switched off) falls back to the first one. Returns the id it settled on.
+  const readStations = useCallback(async (current) => {
+    const r = await listStations()
+    if (!alive.current) return current
+    if (r.missing) {
+      setMissing(true)
+      setDetail(r.detail || "")
+    } else if (r.error) {
+      setError(r.error)
+      return current
     }
-  }, [enabled])
+    const rows = r.rows || []
+    setStations(rows)
+    const next = rows.some((x) => x.id === current) ? current : rows[0]?.id || ""
+    setSiteId(next)
+    return next
+  }, [])
+
+  useEffect(() => {
+    alive.current = true
+    if (enabled) void readStations(readSite())
+    return () => {
+      alive.current = false
+      clearTimeout(flash.current)
+    }
+  }, [enabled, readStations])
 
   useEffect(() => {
     if (!siteId) return
@@ -89,6 +102,11 @@ export function useGateCode({ enabled = true } = {}) {
       return
     }
     if (r.code?.status === "no_site") {
+      // The station went away under us: read the list again and move to one
+      // that exists (the siteId change reloads the code). Only when there is no
+      // other station does it stay an error.
+      const next = await readStations(siteId)
+      if (next && next !== siteId) return
       setCode(null)
       setError(r.code.message)
       setState("error")
@@ -98,7 +116,7 @@ export function useGateCode({ enabled = true } = {}) {
     setCode(r.code)
     setState("ok")
     setLeft(r.code.secondsLeft ?? 0)
-  }, [siteId])
+  }, [siteId, readStations])
 
   // Re-ask when this code runs out, using the server's own countdown.
   useEffect(() => {
@@ -141,19 +159,22 @@ export function useGateCode({ enabled = true } = {}) {
   }, [enabled])
 
   // A scan that lands while the screen is up. The first code read only records
-  // where we are, so opening the page never greets an old scan.
+  // where we are, so opening the page never greets an old scan. The 6s clear
+  // lives in a ref keyed on the scan, NOT in this effect's cleanup: the code
+  // refetches right after a scan, and a cleanup here cancelled the clear and
+  // left "Welcome" on screen.
+  const scanAt = code?.lastScan?.at || null
   useEffect(() => {
-    const at = code?.lastScan?.at || null
     if (lastScanAt.current === undefined) {
-      if (code) lastScanAt.current = at
-      return undefined
+      if (code) lastScanAt.current = scanAt
+      return
     }
-    if (!at || at === lastScanAt.current) return undefined
-    lastScanAt.current = at
+    if (!scanAt || scanAt === lastScanAt.current) return
+    lastScanAt.current = scanAt
     setJustScanned(code.lastScan)
-    const t = setTimeout(() => setJustScanned(null), SCAN_FLASH_MS)
-    return () => clearTimeout(t)
-  }, [code])
+    clearTimeout(flash.current)
+    flash.current = setTimeout(() => setJustScanned(null), SCAN_FLASH_MS)
+  }, [scanAt, code])
 
   const rotateSec = code?.rotateSec || 30
   return {

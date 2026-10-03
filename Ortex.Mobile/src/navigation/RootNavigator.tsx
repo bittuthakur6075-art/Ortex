@@ -131,7 +131,7 @@ export default function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
           what is new to the notification shade and turns a tap there back into a
           screen. Inside the container so it can navigate. */}
       <NotificationEngine />
-      {/* Attendance's background work: offline clock-ins, reminders, approval
+      {/* Attendance's background work: clock-in and clock-out reminders, approval
           alerts. Also render nothing, and live only while someone is signed in. */}
       <AttendanceReminderPlanner />
       <AttendanceApprovalAlerts />

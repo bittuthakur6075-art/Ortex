@@ -2,7 +2,7 @@ import { useFocusEffect } from "@react-navigation/native"
 import React from "react"
 import { Pressable, StyleSheet, Text, View } from "react-native"
 
-import { clockIST } from "@/domain/attendance"
+import { clockIST, dayKey } from "@/domain/attendance"
 import { dayLabel, SECTION_TITLE } from "@/features/attendance/format"
 import { ShiftBar } from "@/features/attendance/LiveProgress"
 import { shiftMinutes } from "@/features/attendance/progress"
@@ -15,8 +15,7 @@ import {
   type BoardStatus,
 } from "@/features/attendance/teamBoard"
 
-import { todayIST } from "@/features/leave/leaveFormat"
-import { teamToday, type TeamDay } from "@/lib/attendance"
+import { serverNow, teamToday, type TeamDay } from "@/lib/attendance"
 import { callNumber } from "@/lib/contact"
 import type { StackScreenProps } from "@/navigation/types"
 import { useTheme } from "@/store/ThemeContext"
@@ -60,7 +59,7 @@ export default function TeamAttendanceScreen({ navigation }: StackScreenProps<"T
   const [data, setData] = React.useState<TeamDay | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [refreshing, setRefreshing] = React.useState(false)
-  const [now, setNow] = React.useState(() => Date.now())
+  const [now, setNow] = React.useState(() => serverNow())
 
   const load = React.useCallback(async () => {
     try {
@@ -69,7 +68,7 @@ export default function TeamAttendanceScreen({ navigation }: StackScreenProps<"T
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load today's attendance.")
     } finally {
-      setNow(Date.now())
+      setNow(serverNow())
     }
   }, [])
 
@@ -81,7 +80,7 @@ export default function TeamAttendanceScreen({ navigation }: StackScreenProps<"T
     }, [load]),
   )
 
-  const today = todayIST()
+  const today = dayKey(now)
   const settings = data?.settings
   const rows = React.useMemo(
     () =>
@@ -91,6 +90,7 @@ export default function TeamAttendanceScreen({ navigation }: StackScreenProps<"T
           now,
           shiftStart: settings?.shift?.start,
           graceMin: settings?.graceMin,
+          checkInFrom: settings?.checkInFrom,
           off: data?.off ?? null,
         }),
       ),

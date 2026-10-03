@@ -66,7 +66,6 @@ export default function AttendanceApprovalsScreen({ navigation }: StackScreenPro
   const [busy, setBusy] = React.useState<string | null>(null)
   const [decline, setDecline] = React.useState<Decline | null>(null)
   const [note, setNote] = React.useState("")
-  const [photo, setPhoto] = React.useState<string | null>(null)
 
   const load = React.useCallback(async () => {
     try {

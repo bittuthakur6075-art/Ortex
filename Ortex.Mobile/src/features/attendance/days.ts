@@ -6,23 +6,24 @@
 import { summarizeDays, type AttendanceDay, type DayStatus, type Punch } from "@/domain/attendance"
 
 /**
- * A day with a counted clock-in is present (field, if every punch was), and an
- * in left open on a past day is a missed punch. No absences and no late marks,
- * because those need the rules the server applies.
+ * A day with a counted clock-in is present (field, if any punch was), and an
+ * in left open on a past day is what the server makes it since 0056: absent,
+ * flagged no_checkout. No other absences and no late marks, because those need
+ * the rules the server applies.
  */
 export function daysFromPunches(punches: Punch[], today: string): AttendanceDay[] {
-  return summarizeDays(punches)
+  return summarizeDays(punches, Math.min(Date.now(), Date.parse(`${today}T23:59:59.999+05:30`)))
     .filter((d) => d.firstIn)
     .map((d) => ({
       user_id: "",
       day: d.day,
-      status: (d.open && d.day < today ? "MP" : d.field ? "OD" : "P") as DayStatus,
+      status: (d.noCheckout ? "A" : d.field ? "OD" : "P") as DayStatus,
       first_in: d.firstIn,
       last_out: d.lastOut,
       worked_min: d.workedMin,
       late: false,
       late_min: 0,
-      flags: [],
+      flags: d.noCheckout ? ["no_checkout"] : [],
     }))
 }
 

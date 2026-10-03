@@ -12,7 +12,8 @@
     "release:android": "node scripts/release-android.mjs",
     "test": "node --test --no-warnings \"test/*.test.mjs\"",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"*.{js,json}\"",
-    "icons": "node scripts/icons.mjs"
+    "icons": "node scripts/icons.mjs",
+    "gen:attendance": "tsc src/domain/attendance.ts --target es2022 --module esnext --skipLibCheck --outDir ../Ortex.Admin/src/lib && prettier --no-semi --print-width 120 --write ../Ortex.Admin/src/lib/attendance.js"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

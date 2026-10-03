@@ -93,3 +93,27 @@ test("sections in acting order; overdue before expected; counts", () => {
   assert.equal(c.late, 1)
   assert.equal(c.leave, 1)
 })
+
+test("grace defaults to the server's 15 minutes; late minutes round up from the shift start", () => {
+  const noGrace = { graceMin: undefined }
+  // 9:44 is inside the default grace.
+  assert.equal(b.boardRow(person("a", { summary: sum({ firstIn: ist(9, 44) }), onDuty: true }), rules(11, 0, noGrace)).lateMin, 0)
+  // 9:46:30 is 16.5 minutes after 9:30: late by 17, as attendance_recompute_day counts it.
+  const firstIn = new Date(Date.parse(ist(9, 46)) + 30000).toISOString()
+  assert.equal(b.boardRow(person("a", { summary: sum({ firstIn }), onDuty: true }), rules(11, 0, noGrace)).lateMin, 17)
+})
+
+test("never late on a day with leave, half days included", () => {
+  const p = person("a", { summary: sum({ firstIn: ist(14, 0) }), onDuty: true, leave: { code: "CL", half: true } })
+  assert.equal(b.boardRow(p, rules(15, 0)).lateMin, 0)
+})
+
+test("with no shift start, nobody stays expected past the check-in window's opening", () => {
+  const noShift = { shiftStart: undefined }
+  assert.equal(b.boardRow(person("e"), rules(8, 0, noShift)).status, "expected")
+  assert.equal(b.boardRow(person("e"), rules(8, 31, noShift)).status, "notIn")
+  assert.equal(b.boardRow(person("e"), rules(8, 31, { ...noShift, checkInFrom: "9:00" })).status, "expected")
+  assert.equal(b.boardRow(person("e"), rules(9, 1, { ...noShift, checkInFrom: "9:00" })).status, "notIn")
+  // No shift: no late mark either.
+  assert.equal(b.boardRow(person("a", { summary: sum({ firstIn: ist(11, 0) }), onDuty: true }), rules(12, 0, noShift)).lateMin, 0)
+})

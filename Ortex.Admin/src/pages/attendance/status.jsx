@@ -16,9 +16,10 @@ export function StatusLegend({ className, codes = STATUS_ORDER }) {
       {codes.map((c) => (
         <span key={c} className="inline-flex items-center gap-1.5">
           <span className={cn("inline-grid h-5 min-w-7 place-items-center rounded px-1 text-[11px] font-semibold", toneFor(c))}>{c}</span>
-          {STATUS_LABEL[c]}
+          {c === "MP" ? `${STATUS_LABEL[c]} (older records)` : STATUS_LABEL[c]}
         </span>
       ))}
+      {codes.includes("A") && <span>A with no check-out: the day was left open, absent until a correction fixes it</span>}
       <span className="inline-flex items-center gap-1.5">
         <span className="inline-block h-2 w-2 rounded-full bg-warning" /> Late
       </span>

@@ -17,6 +17,7 @@ import {
   monthlyTds,
   monthsLeftInFy,
   paidDaysFor,
+  payableFrom,
   pfCeilingFor,
   registerRows,
   rupeesInWords,
@@ -307,5 +308,16 @@ describe("ytdLines", () => {
     expect(y.earnings["BASIC|Basic"]).toBe(29500)
     expect(y.earnings["BONUS|Bonus"]).toBe(2000)
     expect(y.deductions["EPF|EPF (employee)"]).toBe(2400)
+  })
+})
+
+describe("payableFrom", () => {
+  it("refuses the run when attendance could not be read", () => {
+    expect(() => payableFrom({ rows: [], error: "permission denied" }, "2026-09-01")).toThrow(/could not be read.*permission denied/)
+  })
+  it("uses the summary, and marks a person with no row", () => {
+    const get = payableFrom({ rows: [{ user_id: "a", payable: "24.5" }], error: null }, "2026-09-01")
+    expect(get("a")).toEqual({ payable: 24.5, missing: false })
+    expect(get("b")).toEqual({ payable: 30, missing: true })
   })
 })

@@ -214,13 +214,33 @@ async function attendanceApproval(db: any, sa: any, table: string, id: string) {
   let targetScreen: string
   const targetId = String(row.id)
 
+  // The admins who can decide it: an admin role (leave_decide / regularise_decide
+  // check is_admin) who can also open the Team section, attendance-team, under
+  // the Super Admin's switches and hide list (module_access_for, migration
+  // 0065). Never the requester.
+  const deciders = async () => {
+    // deno-lint-ignore no-explicit-any
+    const admins = (people || []).filter((p: any) => p.active !== false && (p.role === "admin" || p.role === "super_admin") && p.id !== row.user_id)
+    const checks = await Promise.all(
+      // deno-lint-ignore no-explicit-any
+      admins.map((p: any) => db.rpc("module_access_for", { p_user: p.id, p_module: "attendance-team" })),
+    )
+    // Before 0065 is pushed the RPC is missing (PostgREST PGRST202, Postgres
+    // 42883): fall back to every admin, as before. Any other error drops that
+    // admin, so a failing check never widens who is told.
+    // deno-lint-ignore no-explicit-any
+    return admins.filter((p: any, i: number) => {
+      const err = checks[i].error
+      if (!err) return checks[i].data === true
+      if (err.code === "PGRST202" || err.code === "42883") return true
+      console.error("push-notify: module_access_for failed for", p.id, err.code, err.message)
+      return false
+      // deno-lint-ignore no-explicit-any
+    }).map((p: any) => p.id as string)
+  }
+
   if (row.status === "pending") {
-    // To the admins, never the requester.
-    recipients = (people || [])
-      // deno-lint-ignore no-explicit-any
-      .filter((p: any) => p.active !== false && (p.role === "admin" || p.role === "super_admin") && p.id !== row.user_id)
-      // deno-lint-ignore no-explicit-any
-      .map((p: any) => p.id)
+    recipients = await deciders()
     targetScreen = "AttendanceApprovals"
     if (isLeave) {
       const range = row.from_day === row.to_day ? dayWords(row.from_day) : `${dayWords(row.from_day)} to ${dayWords(row.to_day)}`
@@ -231,6 +251,16 @@ async function attendanceApproval(db: any, sa: any, table: string, id: string) {
       title = `Correction request · ${who}`
       body = `${dayWords(row.day)}: ${times}. ${clean(row.reason)}`
     }
+  } else if (isLeave && row.status === "cancelled" && row.cancelled_by && row.cancelled_by === row.user_id && row.decided_by !== row.user_id) {
+    // Someone withdrew leave an admin had already approved (leave_cancel stamps
+    // cancelled_by since 0065; a pending request withdrawn has decided_by = the
+    // person): the admins need to know, the person does not.
+    recipients = await deciders()
+    const range = row.from_day === row.to_day ? dayWords(row.from_day) : `${dayWords(row.from_day)} to ${dayWords(row.to_day)}`
+    title = `Leave cancelled · ${who}`
+    // Their own reason is cancel_note (0065); decision_note stays the approver's.
+    body = `${row.type_code} · ${range}${row.cancel_note ? `. ${clean(row.cancel_note)}` : ""}`
+    targetScreen = "AttendanceApprovals"
   } else if (["approved", "rejected", "cancelled"].includes(row.status) && row.decided_by && row.decided_by !== row.user_id) {
     // To the person who asked, when someone else decided.
     recipients = [row.user_id]
@@ -238,7 +268,8 @@ async function attendanceApproval(db: any, sa: any, table: string, id: string) {
     if (isLeave) {
       const range = row.from_day === row.to_day ? dayWords(row.from_day) : `${dayWords(row.from_day)} to ${dayWords(row.to_day)}`
       title = `Your leave was ${verdict}`
-      body = `${row.type_code} · ${range}${row.decision_note ? `. ${clean(row.decision_note)}` : ""}`
+      const note = row.status === "cancelled" ? row.cancel_note || row.decision_note : row.decision_note
+      body = `${row.type_code} · ${range}${note ? `. ${clean(note)}` : ""}`
       targetScreen = "LeaveRequest"
     } else {
       title = `Your correction was ${verdict}`

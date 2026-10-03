@@ -13,6 +13,7 @@ import {
   fyOf,
   monthKey,
   paidDaysFor,
+  payableFrom,
   runTotals,
   structureFromCtc,
   ytdLines,
@@ -290,7 +291,6 @@ export async function computeRun(run, { edits = {} } = {}) {
     listClaims({ status: "approved" }),
     paidSlipsBefore(month),
   ])
-  const payable = new Map(att.rows.map((r) => [r.user_id, Number(r.payable)]))
   const existing = new Map((run.payslips || []).map((p) => [p.user_id, p]))
   // An off-cycle run (a bonus, an incentive, a settlement top-up) pays only the
   // one-time items payroll adds to it: no monthly salary, loans, claims or
@@ -299,6 +299,10 @@ export async function computeRun(run, { edits = {} } = {}) {
   // catches the tax up.
   const offCycle = run.kind && run.kind !== "regular"
   const monthEnd = `${month.slice(0, 8)}${String(daysInMonth(month)).padStart(2, "0")}`
+  // A regular run refuses to compute when attendance could not be read (it
+  // used to pay everyone the full month). An off-cycle run pays no salary, so
+  // it does not need attendance.
+  const payableOf = payableFrom(offCycle ? { rows: att.rows } : att, month)
 
   const slips = []
   for (const person of people) {
@@ -312,9 +316,10 @@ export async function computeRun(run, { edits = {} } = {}) {
 
     const prev = existing.get(person.user_id)
     const edit = edits[person.user_id] || {}
+    const pay = payableOf(person.user_id)
     const pd = paidDaysFor({
       month,
-      payable: payable.has(person.user_id) ? payable.get(person.user_id) : daysInMonth(month),
+      payable: pay.payable,
       doj: e.doj,
       exitDate: e.exit_date,
       basis: settings.schedule.basis,
@@ -380,6 +385,8 @@ export async function computeRun(run, { edits = {} } = {}) {
         paidDaysOverride: edit.paidDays ?? prev?.data?.paidDaysOverride ?? null,
         attendance: att.rows.find((r) => r.user_id === person.user_id) || null,
         attendanceError: att.error,
+        // No summary row for this person: paid the full month, flagged on the run screen.
+        attendanceMissing: !offCycle && pay.missing,
         employee: {
           name: person.name || person.email,
           email: person.email,

@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from "expo-camera"
 import React from "react"
-import { Linking, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native"
+import { BackHandler, Linking, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import Svg, { Path, Rect } from "react-native-svg"
 
@@ -60,9 +60,22 @@ export default function AttendanceClockScreen({ navigation, route }: StackScreen
   // Latches on the first accepted frame; see the header note.
   const sent = React.useRef(false)
   const lastPayload = React.useRef<string | null>(null)
+  // One request at a time: a double tap on Try again or the field button
+  // lands twice before the "saving" render can hide them.
+  const inFlight = React.useRef(false)
+
+  // Android's back button must not leave mid-save: the answer would land on a
+  // closed screen and the person would not know whether they are clocked in.
+  React.useEffect(() => {
+    if (step !== "saving") return
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => true)
+    return () => sub.remove()
+  }, [step])
 
   const submit = React.useCallback(
     async (payload: string | null, withNote = "") => {
+      if (inFlight.current) return
+      inFlight.current = true
       setStep("saving")
       setFailure(null)
       lastPayload.current = payload
@@ -72,7 +85,8 @@ export default function AttendanceClockScreen({ navigation, route }: StackScreen
         if (res.status === "ok") feedback.unlocked()
         else if (res.status === "flagged") feedback.warn()
         else feedback.error()
-        if (res.status === "ok" || res.status === "flagged") void cancelTodayReminder(kind)
+        // The punch's own time decides the day, not when the answer arrived.
+        if (res.status === "ok" || res.status === "flagged") void cancelTodayReminder(res.kind || kind, res.at)
         // Nothing that counts was recorded, so the next attempt is a new punch.
         if (res.status !== "ok" && res.status !== "flagged") {
           punchId.current = newPunchId()
@@ -89,6 +103,8 @@ export default function AttendanceClockScreen({ navigation, route }: StackScreen
         )
         sent.current = false
         setStep("result")
+      } finally {
+        inFlight.current = false
       }
     },
     [kind],
@@ -148,6 +164,7 @@ export default function AttendanceClockScreen({ navigation, route }: StackScreen
           onDone={close}
           onScanAgain={rescan}
           onRetry={() => void submit(lastPayload.current, note)}
+          onSwitch={(other) => navigation.replace("AttendanceClock", { kind: other })}
           bottom={insets.bottom}
         />
       )}
@@ -292,6 +309,7 @@ function ResultStep({
   onDone,
   onScanAgain,
   onRetry,
+  onSwitch,
   bottom,
 }: {
   kind: "in" | "out"
@@ -300,6 +318,7 @@ function ResultStep({
   onDone: () => void
   onScanAgain: () => void
   onRetry: () => void
+  onSwitch: (kind: "in" | "out") => void
   bottom: number
 }) {
   const t = useTheme()
@@ -319,6 +338,14 @@ function ResultStep({
   // A dead code means "look up, the screen has a new one". Being already
   // clocked in does not, so it gets Close rather than Scan again.
   const again = !good && !failure && result ? canRescan(result.status) : false
+  // The server knows better than this phone's clock (a wrong date shows the
+  // wrong control): "already in" offers the check-out, "not in" the check-in.
+  const switchTo =
+    !failure && result?.status === "already_in" && kind === "in"
+      ? ("out" as const)
+      : !failure && result?.status === "not_in" && kind === "out"
+      ? ("in" as const)
+      : null
 
   return (
     <View style={styles.flex}>
@@ -346,6 +373,9 @@ function ResultStep({
           <>
             {failure ? <Button label="Try again" fullWidth onPress={onRetry} /> : null}
             {again ? <Button label="Scan again" fullWidth={!failure} variant={failure ? "ghost" : "primary"} onPress={onScanAgain} /> : null}
+            {switchTo ? (
+              <Button label={switchTo === "out" ? "Check out instead" : "Check in instead"} fullWidth onPress={() => onSwitch(switchTo)} />
+            ) : null}
             <Button label="Close" variant="ghost" fullWidth onPress={onDone} />
           </>
         )}

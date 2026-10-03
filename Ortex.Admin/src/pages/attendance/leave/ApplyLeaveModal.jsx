@@ -5,7 +5,7 @@ import { Banner, Button, Field, Input, Modal, Select, Textarea } from "../../../
 import { currentUserId } from "../../../lib/auth"
 import { balanceAfter, daysWords, leaveDaysBetween } from "../../../lib/attendance"
 import { todayIST } from "../../../services/attendance"
-import { applyLeave, uploadLeaveDocument } from "../../../services/leave"
+import { applyLeave, removeLeaveDocument, uploadLeaveDocument } from "../../../services/leave"
 import { dayRules, num } from "./common"
 
 // Apply for leave (Remote's "Requesting a time off" flow, as one dialog): the
@@ -59,26 +59,32 @@ export default function ApplyLeaveModal({ open, onClose, ctx, balances, onApplie
     if (to < from) return setError("The last day is before the first day")
     if (reason.trim().length < 3) return setError("Give a short reason")
     setBusy(true)
+    let attachment = null
     try {
-      let attachment = null
       if (file) attachment = await uploadLeaveDocument(currentUserId(), file)
       const res = await applyLeave({ type: code, from, to, fromHalf, toHalf, reason: reason.trim(), attachment })
+      attachment = null
       toast.success(`Leave requested: ${daysWords(Number(res?.days ?? days))}. An admin will review it.`)
       reset()
       onApplied?.()
     } catch (e) {
       setError(e.message || "Could not apply")
+      // The request was refused after the certificate went up: take it down
+      // again, or it sits in the bucket tied to nothing.
+      if (attachment) void removeLeaveDocument(attachment)
     }
     setBusy(false)
+  }
+
+  const close = () => {
+    reset()
+    onClose()
   }
 
   return (
     <Modal
       open={open}
-      onClose={() => {
-        reset()
-        onClose()
-      }}
+      onClose={close}
       width="max-w-xl"
       title="Apply for leave"
       footer={
@@ -94,7 +100,7 @@ export default function ApplyLeaveModal({ open, onClose, ctx, balances, onApplie
             )}
           </span>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button size="sm" variant="outline" onClick={close}>Cancel</Button>
             <Button size="sm" onClick={submit} disabled={busy || days <= 0}>{busy ? "Sending…" : "Send request"}</Button>
           </div>
         </div>

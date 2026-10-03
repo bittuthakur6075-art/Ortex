@@ -1,5 +1,7 @@
 # Attendance & Leave: research and plan
 
+> **Superseded in part (2026-10-03).** This is the plan as written on 2026-09-19. The selfie, the geofence and the offline clock-in queue described below are gone: attendance is marked only by scanning the rotating code on the office screen (Admin migration 0043; selfies removed in 0060). The current rules are in `Ortex.Admin/CLAUDE.md` (Attendance, leave and payroll) and `Ortex.Mobile/CLAUDE.md` (Attendance). Read what follows as history and research, not as a description of the code.
+
 Status (2026-09-19): **phases 0, 1 and 2 are built and live**.
 
 - **Phase 0 (roles):** migration 0032.

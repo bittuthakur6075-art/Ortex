@@ -4,6 +4,7 @@ import { Animated, Easing, StyleSheet, Text, View } from "react-native"
 
 import { clockIST } from "@/domain/attendance"
 import { hms, type Timeline, type WeekColumn } from "@/features/attendance/progress"
+import { serverNow } from "@/lib/attendance"
 import { useTheme } from "@/store/ThemeContext"
 import { spacing } from "@/theme/tokens"
 import { font, textVariants } from "@/theme/typography"
@@ -45,11 +46,12 @@ export function LiveTimer({
   short?: boolean
 }) {
   const focused = useIsFocused()
-  const [now, setNow] = React.useState(() => Date.now())
+  // The server clock, as `baseAt` is: the hooks read time through serverNow().
+  const [now, setNow] = React.useState(() => serverNow())
   React.useEffect(() => {
     if (!running || !focused) return
-    setNow(Date.now())
-    const id = setInterval(() => setNow(Date.now()), 1000)
+    setNow(serverNow())
+    const id = setInterval(() => setNow(serverNow()), 1000)
     return () => clearInterval(id)
   }, [running, focused])
   const ms = running ? baseMs + Math.max(0, now - baseAt) : baseMs

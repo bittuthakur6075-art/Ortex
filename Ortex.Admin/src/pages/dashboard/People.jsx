@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { Link } from "react-router-dom"
 import { Phone, ShieldCheck } from "../../components/ui/Icons"
-import { summarizeDay } from "../../lib/attendance"
+import { missedCheckout, summarizeDay } from "../../lib/attendance"
 import { upcomingDeadlines, dueWords, shortDate } from "../../lib/payrollDeadlines"
 import { monthWords, nextAction, thisMonthIST } from "../payroll/run/shared"
 import { ROLES, roleLabel } from "../../lib/roles"
@@ -38,7 +38,7 @@ export function TeamToday({ ops, pendingLeave, pendingCorrections }) {
       leave: onLeave.size,
       notIn,
       review: (ops.flagged || []).length,
-      missed: (ops.days || []).filter((d) => d.day === ops.yesterday && status(d) === "MP").length,
+      missed: (ops.days || []).filter((d) => d.day === ops.yesterday && missedCheckout(d)).length,
     }
   }, [ops])
 
@@ -66,7 +66,7 @@ export function TeamToday({ ops, pendingLeave, pendingCorrections }) {
       </div>
       <div className="grid grid-cols-3 gap-2">
         <Flag to="/attendance?tab=today" tone="amber" value={v.review} label="Needs review" />
-        <Flag to="/attendance?tab=register" tone="rose" value={v.missed} label="Missed clock-out" />
+        <Flag to="/attendance?tab=register" tone="rose" value={v.missed} label="No check-out" />
         <Flag to="/attendance?tab=leave-requests" tone="violet" value={pendingLeave} label="Leave pending" />
       </div>
       {v.notIn && v.notIn.length > 0 && (

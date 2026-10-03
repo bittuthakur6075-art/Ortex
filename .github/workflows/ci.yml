@@ -46,6 +46,9 @@ jobs:
       # Same reason: build:staging needs no credentials and runs on demo data.
       - run: npm run build:staging
       - run: npm run check:functions   # Deno 2 fetched via npx
+      # Every migration applied to a throwaway PGlite, then the attendance,
+      # leave and payroll flow played as real users (supabase/qa, no database).
+      - run: npm run test:db
 
   mobile:
     name: Ortex.Mobile — lint + typecheck + tests + bundle

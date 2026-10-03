@@ -36,7 +36,9 @@ export default function AttendanceNoticeScreen({ navigation, route }: StackScree
   const [blocked, setBlocked] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    void loadSettings().then((s) => setNotice(s.notice || FALLBACK_NOTICE))
+    void loadSettings()
+      .then((s) => setNotice(s.notice || FALLBACK_NOTICE))
+      .catch(() => setNotice(FALLBACK_NOTICE))
   }, [])
 
   const proceed = async () => {

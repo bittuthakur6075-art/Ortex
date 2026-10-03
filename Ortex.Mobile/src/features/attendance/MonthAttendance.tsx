@@ -11,6 +11,7 @@ import {
   STATUS_LABEL,
   type AttendanceDay,
   type DayStatus,
+  weeklyOffOf,
 } from "@/domain/attendance"
 import { SummaryTiles, type SummaryTileData } from "@/features/attendance/attendanceUi"
 import { DayRowsSkeleton, TilesSkeleton } from "@/features/attendance/AttendanceSkeletons"
@@ -63,7 +64,8 @@ export default function MonthAttendance({
   onLoaded?: () => void
 }) {
   const t = useTheme()
-  const [today] = React.useState(() => dayKey(Date.now()))
+  // From the page's ticking clock, so the month moves on at midnight.
+  const today = dayKey(now)
   const [ym, setYm] = React.useState(() => ({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) }))
   const [days, setDays] = React.useState<AttendanceDay[] | null>(null)
   const [hols, setHols] = React.useState<Holiday[]>([])
@@ -76,17 +78,24 @@ export default function MonthAttendance({
   const bounds = monthBounds(ym.y, ym.m)
   const isCurrent = today.slice(0, 7) === bounds.from.slice(0, 7)
 
+  // Each load's ticket: a slower answer for a month already switched away
+  // from must not overwrite the month on screen.
+  const ticket = React.useRef(0)
   const load = React.useCallback(async () => {
+    const mine = ++ticket.current
+    const current = () => mine === ticket.current
     const b = monthBounds(ym.y, ym.m)
     const [s, h] = await Promise.all([
       loadSettings().catch(() => ({} as AttendanceSettings)),
       loadHolidays({ from: b.from, to: b.to }).catch(() => [] as Holiday[]),
     ])
+    if (!current()) return
     setSettings(s)
     setHols(h)
     void myRequests()
       .then((reqs) => {
-        const nowKey = dayKey(Date.now())
+        if (!current()) return
+        const nowKey = today
         const set = new Set<string>()
         for (const r of reqs) {
           if (r.status !== "approved" || r.to_day <= nowKey) continue
@@ -99,15 +108,21 @@ export default function MonthAttendance({
         }
         setFutureLeave(set)
       })
-      .catch(() => setFutureLeave(new Set()))
+      .catch(() => {
+        if (current()) setFutureLeave(new Set())
+      })
     try {
-      setDays(await myDays({ from: b.from, to: b.to }))
+      const rows = await myDays({ from: b.from, to: b.to })
+      if (!current()) return
+      setDays(rows)
       setNotice(null)
     } catch (e) {
+      if (!current()) return
       const msg = e instanceof Error ? e.message : "Could not load your attendance."
       if (msg === NOT_SET_UP) {
         const p = await myPunches({ from: b.from, to: b.to }).catch(() => [])
-        setDays(daysFromPunches(p, dayKey(Date.now())))
+        if (!current()) return
+        setDays(daysFromPunches(p, today))
         setNotice(
           "Absences, late marks and payable days appear once attendance rules are set up on the server.",
         )
@@ -116,7 +131,7 @@ export default function MonthAttendance({
         setDays((d) => d ?? [])
       }
     }
-  }, [ym])
+  }, [ym, today])
 
   React.useEffect(() => {
     setDays(null)
@@ -137,7 +152,9 @@ export default function MonthAttendance({
     void loadRef.current().finally(() => onLoadedRef.current?.())
   }, [refreshKey])
 
-  const weeklyOff = React.useMemo(() => (settings.weeklyOff?.length ? settings.weeklyOff : [0]), [settings.weeklyOff])
+  const weeklyOff = React.useMemo(() => weeklyOffOf(settings), [settings])
+  // An optional holiday is one people may take, not a day off: it never fills a cell.
+  const offHols = React.useMemo(() => hols.filter((h) => h.kind !== "optional"), [hols])
   const entries = React.useMemo(
     () => monthEntries(monthBounds(ym.y, ym.m), days || [], hols, today, weeklyOff),
     [ym, days, hols, today, weeklyOff],
@@ -150,7 +167,7 @@ export default function MonthAttendance({
     if (futureLeave.size) set.add("L")
     return [...set]
   }, [days, entries, futureLeave])
-  const holidayByDay = React.useMemo(() => new Map(hols.map((h) => [h.day, h.name])), [hols])
+  const holidayByDay = React.useMemo(() => new Map(offHols.map((h) => [h.day, h.name])), [offHols])
 
   const shiftMonth = (delta: number) => {
     feedback.select()
@@ -172,7 +189,7 @@ export default function MonthAttendance({
     { label: "Present", value: `${c.P + c.OD}`, status: "P" },
     { label: "Absent", value: `${c.A}`, status: "A" },
     { label: "Leave", value: `${c.L}`, status: "L" },
-    { label: "Holidays", value: `${c.H || hols.filter((h) => h.day <= today).length}`, status: "H" },
+    { label: "Holidays", value: `${c.H || offHols.filter((h) => h.day <= today).length}`, status: "H" },
     {
       label: "Late Marks",
       value: `${totals.lates}`,

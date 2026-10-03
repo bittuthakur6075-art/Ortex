@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { repo } from "../../../data/store/repository"
 import { getSettings, listHolidays, todayIST } from "../../../services/attendance"
 import { listLeaveTypes } from "../../../services/leave"
+import { weeklyOffOf } from "../../../lib/attendance"
 import { dayLabel, TONE_CLASS } from "../format"
 
 // Shared pieces of the Leave tab: the context every sub-view needs (types,
@@ -25,7 +26,7 @@ export function useLeaveContext() {
       missing: Boolean(types.missing),
       error: types.error || null,
       types: types.rows || [],
-      weeklyOff: Array.isArray(doc.weeklyOff) ? doc.weeklyOff : [0],
+      weeklyOff: weeklyOffOf(doc),
       sandwich: Boolean(doc.sandwich),
       holidays: (holidays.rows || []).filter((h) => h.active !== false),
       directory: directory || {},
@@ -39,7 +40,7 @@ export function useLeaveContext() {
 
 /** Day-count rules for leaveDaysBetween, from the context. Optional holidays never count. */
 export const dayRules = (ctx) => ({
-  weeklyOff: ctx.weeklyOff || [0],
+  weeklyOff: ctx.weeklyOff || weeklyOffOf(),
   holidays: (ctx.holidays || []).filter((h) => h.kind !== "optional").map((h) => h.day),
   sandwich: Boolean(ctx.sandwich),
 })

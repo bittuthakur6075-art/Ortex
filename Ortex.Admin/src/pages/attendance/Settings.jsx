@@ -21,7 +21,7 @@ import {
   Textarea,
 } from "../../components/ui/Ui"
 import { roleLabel, ROLE_TONE } from "../../lib/roles"
-import { durationWords } from "../../lib/attendance"
+import { durationWords, weeklyOffOf } from "../../lib/attendance"
 import {
   defaultModeFor,
   deleteSite,
@@ -36,7 +36,7 @@ import { listProfiles } from "../../services/users"
 import { Maintenance } from "./SettingsExtra"
 import LeavePolicy from "./LeavePolicy"
 
-// Attendance → Settings, the Super Admin's: stations, the rules, and how each
+// The attendance rules (Control centre, Super Admin): stations, the rules, and how each
 // person clocks in. Every input the module needs lives here, shipped with
 // defaults (migrations 0033 and 0043), and the database refuses these writes
 // from anyone but the Super Admin.
@@ -365,15 +365,43 @@ function SiteEditor({ site, onClose, onSaved }) {
 
 // ---- rules ------------------------------------------------------------------------------
 
+// Number rules: [key, fallback, min, max, words, whole]. `whole` marks keys the
+// server reads with ::int, where 15.5 would break every punch and recompute. Inputs hold what was typed
+// and are checked on Save, so an emptied box is refused, not saved as 0.
+const NUMBER_RULES = [
+  ["graceMin", 15, 0, 120, "Grace period", true],
+  ["halfDayBelowMin", 270, 0, 1440, "Half day threshold"],
+  ["absentBelowMin", 120, 0, 1440, "Absent threshold"],
+  ["correctionsPerMonth", 5, 0, 31, "Corrections allowed a month", true],
+  ["qrRotateSec", 30, 10, 300, "Code change interval", true],
+]
+const LATE_RULES = [
+  ["count", 3, 1, 31, "Lates before a deduction", true],
+  ["deductDays", 0.5, 0, 5, "Days deducted"],
+]
+
+const sameValue = (a, b) => JSON.stringify(a) === JSON.stringify(b)
+
+/** Typed value -> number within [min, max], or an error sentence. */
+function checkNumber(raw, min, max, words, whole = false) {
+  if (raw === "" || raw == null || !Number.isFinite(Number(raw))) return { error: `${words}: enter a number` }
+  const n = Number(raw)
+  if (n < min || n > max) return { error: `${words} must be between ${min} and ${max}` }
+  if (whole && !Number.isInteger(n)) return { error: `${words} must be a whole number` }
+  return { value: n }
+}
+
 function Rules() {
   const [state, setState] = useState({ loading: true })
   const [doc, setDoc] = useState(null)
+  const [loaded, setLoaded] = useState({}) // the doc as read, to send only what changed
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     void getSettings().then((res) => {
       setState({ loading: false, ...res })
       setDoc(res.doc || {})
+      setLoaded(res.doc || {})
     })
   }, [])
 
@@ -382,14 +410,42 @@ function Rules() {
 
   const set = (k, v) => setDoc((d) => ({ ...d, [k]: v }))
   const shift = doc.shift || {}
-  const weeklyOff = Array.isArray(doc.weeklyOff) ? doc.weeklyOff : []
+  const weeklyOff = weeklyOffOf(doc)
   const num = (k, fallback) => (doc[k] ?? fallback)
+  const lateRule = doc.lateRule || {}
 
   const save = async () => {
+    // Check every number, then send ONLY the keys this form changed, so
+    // Always present and the sandwich rule (saved elsewhere) are never
+    // overwritten with what was on screen when this page opened.
+    const next = { ...doc }
+    for (const [k, fallback, min, max, words, whole] of NUMBER_RULES) {
+      const r = checkNumber(num(k, fallback), min, max, words, whole)
+      if (r.error) return toast.error(r.error)
+      if (doc[k] !== undefined) next[k] = r.value
+    }
+    if (doc.lateRule) {
+      const lr = { ...doc.lateRule }
+      for (const [k, fallback, min, max, words, whole] of LATE_RULES) {
+        const r = checkNumber(lr[k] ?? fallback, min, max, words, whole)
+        if (r.error) return toast.error(r.error)
+        if (lr[k] !== undefined) lr[k] = r.value
+      }
+      next.lateRule = lr
+    }
+    if (Number(num("halfDayBelowMin", 270)) <= Number(num("absentBelowMin", 120))) {
+      return toast.error("The half day threshold must be more than the absent threshold")
+    }
+    if (doc.checkInFrom === "" || doc.closeAt === "") return toast.error("Enter when check-in opens and closes")
+    if ((next.checkInFrom || "08:30") >= (next.closeAt || "21:00")) return toast.error("Check-in must open before it closes")
+    const patch = {}
+    for (const k of Object.keys(next)) if (!sameValue(next[k], loaded[k])) patch[k] = next[k]
+    if (!Object.keys(patch).length) return toast.success("Nothing changed")
     setBusy(true)
     try {
-      const saved = await saveSettings(doc)
+      const saved = await saveSettings(patch)
       setDoc(saved)
+      setLoaded(saved)
       toast.success("Attendance rules saved. They apply from now on.")
     } catch (e) {
       toast.error(e.message)
@@ -398,8 +454,8 @@ function Rules() {
   }
 
   const minutesField = (k, label, fallback, hint) => (
-    <Field label={`${label} (${durationWords(num(k, fallback))})`} hint={hint}>
-      <Input id={`rule-${k}`} type="number" min={0} value={num(k, fallback)} onChange={(e) => set(k, Number(e.target.value))} />
+    <Field label={`${label} (${durationWords(Number(num(k, fallback)) || 0)})`} hint={hint}>
+      <Input id={`rule-${k}`} type="number" min={0} max={1440} value={num(k, fallback)} onChange={(e) => set(k, e.target.value)} />
     </Field>
   )
 
@@ -449,12 +505,35 @@ function Rules() {
           </Select>
         </Field>
         <Field label="Grace period (minutes)" hint="Clocking in later than this after the shift starts is a late mark.">
-          <Input id="rule-grace" type="number" min={0} max={120} value={num("graceMin", 15)} onChange={(e) => set("graceMin", Number(e.target.value))} />
+          <Input id="rule-grace" type="number" min={0} max={120} value={num("graceMin", 15)} onChange={(e) => set("graceMin", e.target.value)} />
         </Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Lates before a deduction" hint="Every this many late marks in a month...">
+            <Input
+              id="rule-late-count"
+              type="number"
+              min={1}
+              max={31}
+              value={lateRule.count ?? 3}
+              onChange={(e) => set("lateRule", { ...lateRule, count: e.target.value })}
+            />
+          </Field>
+          <Field label="Days deducted" hint="...takes this many days off the payable days.">
+            <Input
+              id="rule-late-deduct"
+              type="number"
+              min={0}
+              max={5}
+              step={0.5}
+              value={lateRule.deductDays ?? 0.5}
+              onChange={(e) => set("lateRule", { ...lateRule, deductDays: e.target.value })}
+            />
+          </Field>
+        </div>
         {minutesField("halfDayBelowMin", "Half day if worked under, minutes", 270)}
         {minutesField("absentBelowMin", "Absent if worked under, minutes", 120)}
         <Field label="Corrections allowed a month" hint="How many days one person may ask to have corrected in a calendar month. Pending requests count against it.">
-          <Input id="rule-corrections" type="number" min={0} max={31} value={num("correctionsPerMonth", 5)} onChange={(e) => set("correctionsPerMonth", Number(e.target.value))} />
+          <Input id="rule-corrections" type="number" min={0} max={31} value={num("correctionsPerMonth", 5)} onChange={(e) => set("correctionsPerMonth", e.target.value)} />
         </Field>
         <Field
           label="Closes at midnight as"
@@ -472,7 +551,7 @@ function Rules() {
             min={10}
             max={300}
             value={num("qrRotateSec", 30)}
-            onChange={(e) => set("qrRotateSec", Number(e.target.value))}
+            onChange={(e) => set("qrRotateSec", e.target.value)}
           />
         </Field>
         <label className="flex items-start gap-2.5 self-center text-sm text-foreground">
