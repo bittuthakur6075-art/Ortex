@@ -77,13 +77,14 @@ let configured = false
 // copy from realtime: leads (the engine, with the Call / WhatsApp buttons the
 // server's cannot carry; it reloads the collection on arrival so it does so even
 // if realtime missed the row), chat (ChatNotifier), leave and corrections
-// (AttendanceApprovalAlerts) and payslips (PayslipAlerts). A claim decision has
-// no local copy, so it shows. In the background Android draws the server's copy
-// itself and this handler is never asked.
+// (AttendanceApprovalAlerts) and payslips (PayslipAlerts). Claim decisions and
+// flagged punches have no local copy, so they show. In the background Android
+// draws the server's copy itself and this handler is never asked.
+const LOCAL_COPY_KINDS = ["lead", "chat", "requests", "payslip"]
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     const data = notification.request.content.data as Record<string, unknown> | undefined
-    const hide = data?.remote === "1" && data.kind !== "claim"
+    const hide = data?.remote === "1" && LOCAL_COPY_KINDS.includes(String(data.kind))
     return {
       shouldShowBanner: !hide,
       shouldShowList: !hide,

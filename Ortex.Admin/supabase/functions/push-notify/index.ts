@@ -2,8 +2,8 @@
 //
 // Sends the phone app's alerts through Firebase Cloud Messaging, so they arrive
 // even when the app is closed: new leads (0031), leave and correction requests
-// and decisions (0038), Team chat (0047), payslips released and claims decided
-// (0074).
+// and decisions (0038), Team chat (0047), payslips released, claims decided and
+// suspicious punches to review (0074).
 //
 // Called by those migrations' triggers through pg_net with `{ table, id }` and
 // an `x-push-secret` header; never by a browser. Deployed with --no-verify-jwt because pg_net sends no user JWT; the
@@ -49,7 +49,7 @@ const clean = (s: unknown) => String(s || "").trim()
 type Doc = Record<string, any>
 type SA = NonNullable<ReturnType<typeof serviceAccount>>
 
-const TABLES = ["enquiries", "leave_requests", "regularisations", "chat_messages", "payslips", "reimbursement_claims"]
+const TABLES = ["enquiries", "leave_requests", "regularisations", "chat_messages", "payslips", "reimbursement_claims", "attendance_punches"]
 
 /**
  * Send one message to every phone of these people that wants this category.
@@ -108,6 +108,7 @@ Deno.serve(async (req) => {
 
   if (table === "chat_messages") return json(await chatMessage(db, sa, id))
   if (table === "payslips" || table === "reimbursement_claims") return json(await payAlert(db, sa, table, id))
+  if (table === "attendance_punches") return json(await flaggedPunch(db, sa, id))
 
   if (table === "leave_requests" || table === "regularisations") {
     return json(await attendanceApproval(db, sa, table, id))
@@ -227,6 +228,58 @@ const clockIST = (ts: string) => {
   return `${h % 12 || 12}:${String(d.getUTCMinutes()).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`
 }
 
+// The admins who can decide a request or a flagged punch: an admin role
+// (leave_decide / regularise_decide / attendance_review check is_admin) who can
+// also open the Team section, attendance-team, under the Super Admin's switches
+// and hide list (module_access_for, migration 0065). Never the person it is about.
+// deno-lint-ignore no-explicit-any
+async function decidersFor(db: any, people: any[], about: string): Promise<string[]> {
+  const admins = people.filter((p) => p.active !== false && (p.role === "admin" || p.role === "super_admin") && p.id !== about)
+  const checks = await Promise.all(admins.map((p) => db.rpc("module_access_for", { p_user: p.id, p_module: "attendance-team" })))
+  // Before 0065 is pushed the RPC is missing (PostgREST PGRST202, Postgres
+  // 42883): fall back to every admin, as before. Any other error drops that
+  // admin, so a failing check never widens who is told.
+  return admins
+    .filter((p, i) => {
+      const err = checks[i].error
+      if (!err) return checks[i].data === true
+      if (err.code === "PGRST202" || err.code === "42883") return true
+      console.error("push-notify: module_access_for failed for", p.id, err.code, err.message)
+      return false
+    })
+    .map((p) => p.id as string)
+}
+
+// A punch the server flagged as suspicious (migration 0074 sends only own_code
+// and other_site; a field rep's routine no_code punch would ring every admin
+// twice a day per rep). Same screen and same switch as leave and corrections.
+const FLAG_WORDS: Record<string, string> = {
+  own_code: "scanned a code they opened themselves",
+  other_site: "scanned at a station not assigned to them",
+  no_code: "marked without scanning a code",
+}
+
+// deno-lint-ignore no-explicit-any
+async function flaggedPunch(db: any, sa: SA, id: string) {
+  const { data: row } = await db.from("attendance_punches").select("id, user_id, kind, at, flags, review").eq("id", id).maybeSingle()
+  if (!row || row.review !== "flagged") return { skipped: "not flagged" }
+  const { data: people } = await db.from("profiles").select("id, name, email, role, active")
+  // deno-lint-ignore no-explicit-any
+  const person = (people || []).find((p: any) => p.id === row.user_id)
+  const who = clean(person?.name) || clean(person?.email).split("@")[0] || "Someone"
+  const title = `Punch to review · ${who}`
+  const flags = ((row.flags || []) as string[]).map((f) => FLAG_WORDS[f] || f).join(", ")
+  const body = `${row.kind === "out" ? "Check-out" : "Check-in"} at ${clockIST(row.at)}${flags ? `: ${flags}` : ""}`
+  const tag = `punch-flagged-${row.id}`
+  return deliver(db, sa, await decidersFor(db, people || [], row.user_id), "requests", {
+    title,
+    body,
+    tag,
+    channelId: REMINDERS_CHANNEL,
+    data: { id: tag, targetScreen: "AttendanceApprovals", targetId: String(row.id), phone: "", title, remote: "1", kind: "punch" },
+  })
+}
+
 // deno-lint-ignore no-explicit-any
 async function attendanceApproval(db: any, sa: SA, table: string, id: string) {
   const { data: row } = await db.from(table).select("*").eq("id", id).maybeSingle()
@@ -244,30 +297,7 @@ async function attendanceApproval(db: any, sa: SA, table: string, id: string) {
   let targetScreen: string
   const targetId = String(row.id)
 
-  // The admins who can decide it: an admin role (leave_decide / regularise_decide
-  // check is_admin) who can also open the Team section, attendance-team, under
-  // the Super Admin's switches and hide list (module_access_for, migration
-  // 0065). Never the requester.
-  const deciders = async () => {
-    // deno-lint-ignore no-explicit-any
-    const admins = (people || []).filter((p: any) => p.active !== false && (p.role === "admin" || p.role === "super_admin") && p.id !== row.user_id)
-    const checks = await Promise.all(
-      // deno-lint-ignore no-explicit-any
-      admins.map((p: any) => db.rpc("module_access_for", { p_user: p.id, p_module: "attendance-team" })),
-    )
-    // Before 0065 is pushed the RPC is missing (PostgREST PGRST202, Postgres
-    // 42883): fall back to every admin, as before. Any other error drops that
-    // admin, so a failing check never widens who is told.
-    // deno-lint-ignore no-explicit-any
-    return admins.filter((p: any, i: number) => {
-      const err = checks[i].error
-      if (!err) return checks[i].data === true
-      if (err.code === "PGRST202" || err.code === "42883") return true
-      console.error("push-notify: module_access_for failed for", p.id, err.code, err.message)
-      return false
-      // deno-lint-ignore no-explicit-any
-    }).map((p: any) => p.id as string)
-  }
+  const deciders = () => decidersFor(db, people || [], row.user_id)
 
   if (row.status === "pending") {
     recipients = await deciders()

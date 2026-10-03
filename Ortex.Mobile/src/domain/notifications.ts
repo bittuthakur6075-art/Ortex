@@ -131,7 +131,7 @@ export const NOTIFICATION_SETTINGS: {
   { key: "stale", label: "Enquiries going cold", hint: "Still new after two days" },
   { key: "quotations", label: "Quotation validity", hint: "Sent quotes about to expire" },
   { key: "chat", label: "Team chat", hint: "Messages from colleagues, your team channel and Anu. Mute one chat from its page" },
-  { key: "requests", label: "Leave and corrections", hint: "Requests waiting for your decision, and decisions on yours" },
+  { key: "requests", label: "Leave and corrections", hint: "Requests and flagged punches waiting for your decision, and decisions on yours" },
   { key: "pay", label: "My pay", hint: "Your payslip is ready, your claim was approved or declined" },
 ]
 

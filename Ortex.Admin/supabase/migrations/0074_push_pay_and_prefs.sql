@@ -9,12 +9,14 @@
 --      rung for something its owner turned off. A phone on an older app version
 --      sends no list and keeps whatever its row had.
 --
---   2. Two new alerts, same Vault-gated wiring as 0031 / 0038 / 0047: a no-op
+--   2. Three new alerts, same Vault-gated wiring as 0031 / 0038 / 0047: a no-op
 --      until `push_notify_url` and `push_notify_secret` exist, and the write
 --      that fires it never fails because of it.
 --        * payslips: an employee's payslip is released (paid). The message says
 --          only the month, never an amount (it shows on a locked phone).
 --        * reimbursement_claims: the claimant's claim is approved or rejected.
+--        * attendance_punches: a punch flagged own_code or other_site, to the
+--          admins who review punches.
 
 alter table public.push_devices add column if not exists muted text[] not null default '{}';
 
@@ -53,9 +55,9 @@ $$;
 revoke all on function public.register_push_device(text, text, text, text[]) from public, anon;
 grant execute on function public.register_push_device(text, text, text, text[]) to authenticated;
 
--- ---- payslips and claims -------------------------------------------------------------------
+-- ---- payslips, claims and flagged punches ---------------------------------------------------
 
-create or replace function public.pay_push_notify()
+create or replace function public.row_push_notify()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
   v_url text;
@@ -73,22 +75,30 @@ begin
       body := jsonb_build_object('table', tg_table_name, 'id', new.id)
     );
   exception when others then
-    -- Never block paying a run or deciding a claim.
-    raise warning 'pay_push_notify: %', sqlerrm;
+    -- Never block paying a run, deciding a claim or a punch.
+    raise warning 'row_push_notify: %', sqlerrm;
   end;
   return new;
 end $$;
 
-revoke all on function public.pay_push_notify() from public, anon, authenticated;
+revoke all on function public.row_push_notify() from public, anon, authenticated;
 
 -- Released by payroll_run_transition('pay') or the release of a withheld slip.
 drop trigger if exists payslips_push_notify on public.payslips;
 create trigger payslips_push_notify after update of released_at on public.payslips
   for each row when (old.released_at is null and new.released_at is not null and new.status = 'included')
-  execute function public.pay_push_notify();
+  execute function public.row_push_notify();
 
 -- Decided by claim_decide (a claimant's own cancel is not announced).
 drop trigger if exists reimbursement_claims_push_notify on public.reimbursement_claims;
 create trigger reimbursement_claims_push_notify after update of status on public.reimbursement_claims
   for each row when (new.status in ('approved', 'rejected') and old.status is distinct from new.status)
-  execute function public.pay_push_notify();
+  execute function public.row_push_notify();
+
+-- A punch flagged as suspicious goes to the admins who review punches (the
+-- phone's AttendanceApprovals). Only own_code and other_site: a field rep's
+-- no_code punch is routine and would ring every admin twice a day per rep.
+drop trigger if exists attendance_punches_push_notify on public.attendance_punches;
+create trigger attendance_punches_push_notify after insert on public.attendance_punches
+  for each row when (new.review = 'flagged' and new.flags && array['own_code', 'other_site'])
+  execute function public.row_push_notify();

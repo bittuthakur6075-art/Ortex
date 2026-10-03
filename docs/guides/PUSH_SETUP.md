@@ -23,7 +23,8 @@ goes through as usual.
 | Approved leave withdrawn by the person | The same admins | `AttendanceApprovals` | Leave and corrections | 0065 |
 | Your leave was approved / not approved / cancelled | The requester, when someone else decided | `LeaveRequest` | Leave and corrections | 0038 |
 | Your correction was approved / not approved | The requester, when someone else decided | `AttendanceDay` | Leave and corrections | 0038 |
-| Team chat message | Other members who have not muted the chat (never the private Anu thread) | `ChatThread` | Team chat | 0047 |
+| Team chat message: direct, group and every team channel (Sales, Accounts, Staff, Management, Everyone), Anu's daily team posts included | Other members who have not muted that chat (never the private Anu thread) | `ChatThread` | Team chat | 0047 |
+| Punch to review: a code they opened themselves, or a station not theirs | Admins with the Team section, never the person | `AttendanceApprovals` | Leave and corrections | 0074 |
 | Your payslip for September 2026 is ready | The employee, when the run is paid or a withheld slip is released. **No amount.** | `Payslip` | My pay | 0074 |
 | Your claim was approved / not approved | The claimant, when someone else decided. **No amount.** | `PayClaims` | My pay | 0074 |
 
@@ -119,9 +120,10 @@ next time it is opened signed in, and removes itself on sign-out.
 
 - **Who gets a lead**: active people whose access reaches the module (`enquiries` for web/IndiaMART, `voice-leads` for Anu calls), the console's own `has_module_access` rule including the Super Admin's switches and hide list.
 - **Anu calls ring once**: a call is saved as several captures, so only the first capture from a number within 15 minutes rings.
-- **No duplicates (tags)**: each server push uses the phone's own notification id as its Android tag: `enq-new-<id>`, `voice-new-<id>`, `leave-<status>-<id>`, `corr-<status>-<id>`, `chat-<conversation>`, `payslip-<id>`, `claim-<status>-<id>`. A copy the phone posts itself replaces the server's and the other way round. With the app in the foreground the server's copy is hidden whenever the app posts its own (everything except claim decisions).
+- **No duplicates (tags)**: each server push uses the phone's own notification id as its Android tag: `enq-new-<id>`, `voice-new-<id>`, `leave-<status>-<id>`, `corr-<status>-<id>`, `chat-<conversation>`, `payslip-<id>`, `claim-<status>-<id>`, `punch-flagged-<id>`. A copy the phone posts itself replaces the server's and the other way round. With the app in the foreground the server's copy is hidden whenever the app posts its own (everything except claim decisions and flagged punches).
 - **Notification, not data-only**: the server sends FCM notification messages (with `data` for the tap) so a killed app is drawn by Android without starting any JavaScript; data-only messages would need a headless task, which battery managers often block. The data always carries `targetScreen`, `targetId` and `kind`; the phone maps them to a screen with `pushRoute()` and ignores a screen it does not know.
 - **Channels**: leads on `leads_v3` (public on the lock screen, loudest), everything else private on `reminders_v3` or `chat_v1`. They must equal the ids in `Ortex.Mobile/src/lib/push.ts`; a channel retired there (`RETIRED_CHANNELS`) must never be sent to.
+- **Not sent, on purpose**: a field rep's routine no-code punch (it would ring every admin twice a day per rep), new claims and pay runs to approve (decided only in the console, so a tap has no screen to open), and quotation events (customers do not act in the app).
 - **Lock screen privacy**: pay alerts name the month or the claim, never an amount.
 - **Dead tokens**: FCM answers for an uninstalled app or a rotated token (UNREGISTERED, SENDER_ID_MISMATCH, an invalid token) delete that `push_devices` row. The phone also replaces its row when FCM rotates the token.
 - **Battery**: on Samsung, set Ortex to *Unrestricted* battery use. Server push survives the app being closed; the app's own alerts do not.

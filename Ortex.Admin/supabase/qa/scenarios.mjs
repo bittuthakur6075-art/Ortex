@@ -1155,6 +1155,22 @@ await scenario("0074 pay push triggers and muted push categories", async () => {
   const posted = (await run(null, "select body from net.calls order by id desc limit 2")).rows.map((r) => r.body)
   eq("claim decision and payslip release each post once", await calls(), before + 2)
   eq("bodies name the table and row", posted.reverse().map((b) => [b.table, b.id]), [["reimbursement_claims", c], ["payslips", slip.id]])
+
+  // Every team channel posts (a person's message and Anu's bot post alike).
+  const n0 = await calls()
+  for (const team of ["sales", "accounts", "staff", "management", "everyone"]) {
+    await run(null, "insert into chat_messages (conversation_id, sender_id, kind, body) values (anu_team_conversation($1), $2, 'text', 'hi team')", [team, U.ADMIN])
+  }
+  await run(null, "insert into chat_messages (conversation_id, sender_id, kind, body) values (anu_team_conversation('sales'), null, 'bot', 'Daily update')")
+  eq("each team channel message and Anu's team post posts once", await calls(), n0 + 6)
+
+  // A suspicious punch posts; a field rep's routine no_code punch does not.
+  const n1 = await calls()
+  await rawPunch(U.STAFF2, "in", ist("2026-09-03", "09:00"), { flags: ["own_code"], review: "flagged" })
+  await rawPunch(U.SALES, "in", ist("2026-09-03", "09:00"), { flags: ["no_code"], review: "flagged", mode: "field" })
+  await rawPunch(U.STAFF2, "out", ist("2026-09-03", "18:00"))
+  eq("only the own_code punch posts", await calls(), n1 + 1)
+  eq("punch body names the table", (await one(null, "select body->>'table' t from net.calls order by id desc limit 1")).t, "attendance_punches")
   await run(null, "delete from vault.secrets where name in ('push_notify_url', 'push_notify_secret')")
 
   // Registration: the old 3-argument call still works and keeps the mutes.
