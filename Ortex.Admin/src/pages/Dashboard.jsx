@@ -4,6 +4,7 @@ import { FileText, Sparkles, TrendingUp, Wallet } from "../components/ui/Icons"
 import { useCollections, useSettings } from "../hooks/useCollection"
 import { useProfile } from "../hooks/useProfile"
 import { canAccess } from "../data/domain/modules"
+import { paymentsOrStored } from "../lib/invoiceMoney"
 import { isAdmin, isSuperAdmin } from "../lib/roles"
 import { currentUserId } from "../lib/auth"
 import { RANGES, approvalItems, attentionItems, computeToday, dailySparks } from "../lib/analytics/today"
@@ -84,7 +85,13 @@ export default function Dashboard() {
       ].filter(Boolean),
     [access],
   )
-  const { data, loading } = useCollections(names)
+  const { data: raw, loading } = useCollections(names)
+  // Without the payments module RLS returns no payments: each invoice's stored
+  // amountPaid stands in (undated, so it never counts as cash in a period).
+  const data = useMemo(
+    () => (raw.invoices ? { ...raw, payments: paymentsOrStored(raw.invoices, raw.payments || [], access.payments) } : raw),
+    [raw, access.payments],
+  )
   const settings = useSettings()
 
   // ---- the reads outside quote-to-cash, kept live like the collections ----

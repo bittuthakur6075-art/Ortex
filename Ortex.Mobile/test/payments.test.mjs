@@ -41,3 +41,40 @@ test("blocker says the one missing thing", () => {
   assert.equal(p.amountOf("1,23,456.50"), 123456.5)
   assert.equal(p.amountOf("abc"), 0)
 })
+
+test("decimal comma is refused, not read as a hundred times the money", () => {
+  const d = { type: "inflow", amount: "", party: "Amit", method: "UPI", date: "2026-10-02", reference: "", note: "" }
+  for (const s of ["1500,50", "1500,5", "1,23,456,50"]) {
+    assert.equal(p.decimalComma(s), true, s)
+    assert.equal(p.amountOf(s), 0, s)
+    assert.match(p.paymentBlocker({ ...d, amount: s }), /full stop/)
+  }
+  for (const s of ["1,500", "1,50,050", "1500.50", "1,23,456.50"]) assert.equal(p.decimalComma(s), false, s)
+  assert.equal(p.amountOf("1,50,050"), 150050)
+})
+
+test("amount limits: the crore confirmation and the database ceiling", () => {
+  const d = { type: "inflow", amount: "", party: "Amit", method: "UPI", date: "2026-10-02", reference: "", note: "" }
+  assert.equal(p.BIG_AMOUNT, 1e7)
+  assert.equal(p.paymentBlocker({ ...d, amount: "9999999999.99" }), null)
+  assert.match(p.paymentBlocker({ ...d, amount: "10000000000" }), /too large/)
+})
+
+test("payment day is the IST day of the stored instant", () => {
+  // 00:10 IST on 3 Oct is still 2 Oct in UTC.
+  assert.equal(p.paymentDay("2026-10-02T18:40:00.000Z"), "03 Oct 2026")
+  assert.equal(p.paymentDay(new Date("2026-10-02T12:00:00+05:30").toISOString()), "02 Oct 2026")
+  assert.equal(p.paymentDay("nonsense"), "-")
+})
+
+test("justSaved finds the row a lost answer wrote, and only a fresh one", () => {
+  const now = Date.parse("2026-10-02T07:00:00Z")
+  const d = { type: "inflow", amount: "1,500.50", party: " amit ", method: "UPI", date: "2026-10-02", reference: "", note: "" }
+  const row = { id: "9", number: "PAY-9", type: "inflow", amount: 1500.5, method: "UPI", date: "2026-10-02T06:30:00.000Z", reference: "", party: "Amit", note: "", createdAt: "2026-10-02T06:59:30Z" }
+  assert.equal(p.justSaved(d, [row], now)?.id, "9")
+  assert.equal(p.justSaved(d, [{ ...row, createdAt: "2026-10-02T06:50:00Z" }], now), null)
+  assert.equal(p.justSaved({ ...d, amount: "1500" }, [row], now), null)
+  assert.equal(p.justSaved({ ...d, amount: "1", reference: "UTR 123456" }, [{ ...row, reference: "utr123456" }], now)?.id, "9")
+  // A row already in the ledger before Save is never taken for this one.
+  assert.equal(p.justSaved(d, [row], now, new Set(["9"])), null)
+})

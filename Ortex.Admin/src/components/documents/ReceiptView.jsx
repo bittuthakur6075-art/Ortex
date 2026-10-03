@@ -4,23 +4,28 @@ import { Button } from "../ui/Ui"
 import { useRef } from "react"
 import { buildSheetPdf } from "./documentPdf"
 
-// Printable payment acknowledgement. Auto-titles itself:
-//   • "Receipt Voucher" , advance received before an invoice exists (GST Rule 50)
-//   • "Payment Receipt" , money received against an issued invoice
+// Printable payment acknowledgement. Titles itself:
+//   • "Receipt Voucher": a payment recorded as an advance (`payment.advance`),
+//     with a customer and no invoice yet (GST Rule 50)
+//   • "Payment Receipt": everything else, with or without an invoice
 //
-// `allocation` (optional) = { cumulative, balance } lets the receipt show how
-// this payment sits against the invoice total.
+// `allocation` (optional, receiptAllocation() in lib/invoiceMoney.js) =
+// { cumulative, balance, partial } as of THIS payment, so a later payment
+// does not change an earlier receipt. The payment's note is internal and is
+// not printed.
 export default function ReceiptView({ open, onClose, payment, invoice, settings, allocation }) {
   // Hooks must run unconditionally, so the ref is created before the early return.
   const receiptRef = useRef(null)
   if (!open || !payment) return null
   const c = settings.company
-  const isAdvance = !payment.invoiceId
+  const isAdvance = !payment.invoiceId && !!payment.advance && !!(payment.customer || payment.party)
   const heading = isAdvance ? "Receipt Voucher" : "Payment Receipt"
   const against = payment.invoiceNumber
     ? `Invoice ${payment.invoiceNumber}${invoice?.issueDate ? ` dated ${formatDate(invoice.issueDate)}` : ""}`
-    : "Advance against order"
-  const isPartial = allocation && allocation.balance > 0.5
+    : isAdvance
+      ? "Advance against order"
+      : "On account"
+  const isPartial = !!allocation?.partial
 
 
   // The same A4 path as quotations, invoices and payslips. It used its own
@@ -149,14 +154,7 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
 
         {/* Signature */}
         <div className="mt-8 flex items-end justify-between">
-          <div className="text-xs text-[#6b7280]">
-            {payment.note && (
-              <>
-                <span className="font-semibold text-[#0b1220]">Remarks: </span>
-                {payment.note}
-              </>
-            )}
-          </div>
+          <div />
           <div className="text-right">
             <div className="mb-8 text-sm font-semibold">For {c.name}</div>
             <div className="border-t border-[#6b7280] px-6 pt-1 text-xs text-[#6b7280]">Authorised signatory</div>

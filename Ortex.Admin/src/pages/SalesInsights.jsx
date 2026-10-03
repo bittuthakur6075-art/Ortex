@@ -3,6 +3,7 @@ import { ArrowUpRight, Clock } from "../components/ui/Icons"
 import { useCollections } from "../hooks/useCollection"
 import { useProfile } from "../hooks/useProfile"
 import { canAccess } from "../data/domain/modules"
+import { paymentsOrStored } from "../lib/invoiceMoney"
 import { QUOTATION_STATUS, statusMeta } from "../data/domain/schema"
 import { VOICE_SOURCE } from "./voice-leads/helpers"
 import { computeAnalytics } from "../lib/analytics/dashboard"
@@ -69,7 +70,12 @@ export default function SalesInsights({ embedded = false }) {
     const enquiries = (data.enquiries || []).filter((e) => (e.source === VOICE_SOURCE ? access.voice : access.enquiries))
     return computeSales({ enquiries, quotations: data.quotations || [] }, range)
   }, [data, range, access])
-  const money6 = useMemo(() => (access.invoices ? computeAnalytics(data, "30d") : null), [data, access.invoices])
+  // Without the payments module, each invoice's stored amountPaid stands in.
+  const canPay = canAccess(profile, "payments")
+  const money6 = useMemo(
+    () => (access.invoices ? computeAnalytics({ ...data, payments: paymentsOrStored(data.invoices || [], data.payments || [], canPay) }, "30d") : null),
+    [data, access.invoices, canPay],
+  )
 
   if (loading) return <PageLoader />
 

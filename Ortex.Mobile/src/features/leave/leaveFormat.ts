@@ -2,7 +2,7 @@ import React from "react"
 
 import { dayKey, weeklyOffOf, type LeaveRequest } from "@/domain/attendance"
 import { dayLabel } from "@/features/attendance/format"
-import { holidays as loadHolidays, loadSettings, type Holiday } from "@/lib/attendance"
+import { holidays as loadHolidays, loadSettings, serverNow, type Holiday } from "@/lib/attendance"
 
 // Leave helpers shared by the leave screens and the attendance pages (phase 3).
 // Phone-only, so not in domain/attendance.ts, which is mirrored to the console.
@@ -13,7 +13,8 @@ export const DAY_MS = 86400000
 export const addDays = (day: string, n: number) =>
   new Date(Date.parse(`${day}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10)
 
-export const todayIST = () => dayKey(Date.now())
+/** Today in IST by the server's clock, so a phone set to the wrong date still picks the right day. */
+export const todayIST = () => dayKey(serverNow())
 
 /**
  * A request's dates in words: "Fri 2 Oct", "Fri 2 Oct, afternoon",

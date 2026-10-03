@@ -5,7 +5,9 @@ import {
   MoneyIn, MoneyOut, WalletMoney, Bank, Cash, CreditCard, CardPos, Cheque, Smartphone, Wallet, ReceiptText, Trash2, Search,
 } from "../components/ui/Icons"
 import { useCollection, useSettings, useSorting } from "../hooks/useCollection"
-import { removePayment, paidForInvoice, invoiceBalance } from "../data/domain/domain"
+import { removePayment, receiptAllocation } from "../data/domain/domain"
+import { useProfile } from "../hooks/useProfile"
+import { isSuperAdmin } from "../lib/roles"
 import ReceiptView from "../components/documents/ReceiptView"
 import { formatDate, formatCurrency, round2 } from "../lib/format"
 import { exportCsv } from "../lib/csv"
@@ -33,6 +35,8 @@ export default function Payments() {
   const { items, loading } = useCollection("payments")
   const { items: invoices } = useCollection("invoices")
   const settings = useSettings()
+  const profile = useProfile()
+  const superAdmin = isSuperAdmin(profile)
   const [query, setQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
   const [newPayment, setNewPayment] = useState(null) // "inflow" | "payout" | null
@@ -53,14 +57,21 @@ export default function Payments() {
     const s = query.trim().toLowerCase()
     if (s) {
       rows = rows.filter((p) =>
-        [p.number, p.party, p.invoiceNumber, p.method, p.reference, p.note].filter(Boolean).some((v) => v.toLowerCase().includes(s)),
+        [p.number, p.party, p.customer?.name, p.invoiceNumber, p.method, p.reference, p.note].some((v) => v != null && String(v).toLowerCase().includes(s)),
       )
     }
     const { key, desc } = sort
     return [...rows].sort((a, b) => {
       let valA = a[key]
       let valB = b[key]
-      if (key === "date") {
+      if (key === "party") {
+        // The name the row shows.
+        valA = a.party || a.customer?.name || ""
+        valB = b.party || b.customer?.name || ""
+      } else if (key === "amount") {
+        valA = Number(valA) || 0
+        valB = Number(valB) || 0
+      } else if (key === "date") {
         valA = valA ? new Date(valA).getTime() : 0
         valB = valB ? new Date(valB).getTime() : 0
       }
@@ -74,8 +85,8 @@ export default function Payments() {
   const totals = useMemo(() => {
     const ins = items.filter((p) => p.type === "inflow")
     const outs = items.filter((p) => p.type === "payout")
-    const inflow = round2(ins.reduce((s, p) => s + p.amount, 0))
-    const payout = round2(outs.reduce((s, p) => s + p.amount, 0))
+    const inflow = round2(ins.reduce((s, p) => s + (Number(p.amount) || 0), 0))
+    const payout = round2(outs.reduce((s, p) => s + (Number(p.amount) || 0), 0))
     return { inflow, payout, net: round2(inflow - payout), count: { all: items.length, inflow: ins.length, payout: outs.length } }
   }, [items])
 
@@ -99,9 +110,18 @@ export default function Payments() {
   }
 
   const remove = async (p) => {
-    if (!window.confirm(`Delete ${p.number}? This cannot be undone.`)) return
-    await removePayment(p)
-    toast.success("Payment deleted")
+    const inTally = p.tally?.status === "synced"
+    const what = `${p.number}, ${formatCurrency(p.amount)}${p.invoiceNumber ? ` against ${p.invoiceNumber}` : ""}`
+    const ask = inTally
+      ? `Delete payment ${what}? It is already in Tally: delete it in Tally too, or the books will not match. This cannot be undone.`
+      : `Delete payment ${what}? This cannot be undone.`
+    if (!window.confirm(ask)) return
+    try {
+      await removePayment(p)
+      toast.success("Payment deleted")
+    } catch (e) {
+      toast.error(e?.message || "Could not delete the payment")
+    }
   }
 
   const receiptInvoice = receiptFor?.invoiceId ? invoices.find((i) => i.id === receiptFor.invoiceId) : null
@@ -221,9 +241,12 @@ export default function Payments() {
                               <ReceiptText className="h-4 w-4" />
                             </Button>
                           )}
-                          <Button onClick={() => remove(p)} variant="dangerGhost" size="sm" icon className="text-muted-foreground" title="Delete" aria-label="Delete">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {/* Migration 0066 refuses it for anyone else: a payment in Tally is changed there. */}
+                          {(p.tally?.status !== "synced" || superAdmin) && (
+                            <Button onClick={() => remove(p)} variant="dangerGhost" size="sm" icon className="text-muted-foreground" title="Delete" aria-label="Delete">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -252,11 +275,7 @@ export default function Payments() {
           payment={receiptFor}
           settings={settings}
           invoice={receiptInvoice}
-          allocation={
-            receiptInvoice
-              ? { cumulative: paidForInvoice(receiptFor.invoiceId, items), balance: invoiceBalance(receiptInvoice, items) }
-              : null
-          }
+          allocation={receiptAllocation(receiptFor, receiptInvoice, items)}
         />
       )}
     </div>

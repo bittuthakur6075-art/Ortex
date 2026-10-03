@@ -595,6 +595,282 @@ await scenario("Second pass: leave-documents delete (25)", async () => {
   eq("two files left", await val(null, "select count(*)::int from storage.objects where bucket_id = 'leave-documents'"), 2)
 })
 
+// ---- payments (0066) -----------------------------------------------------------------------
+const J = (o) => JSON.stringify(o)
+const newInvoice = async (who, doc) => (await one(who, "insert into invoices (doc) values ($1) returning id", [J(doc)])).id
+const newPayment = async (who, doc) => (await one(who, "insert into payments (doc) values ($1) returning id", [J({ type: "inflow", method: "UPI", ...doc })])).id
+const invDoc = (id) => val(null, "select doc from invoices where id = $1", [id])
+const payDoc = (id) => val(null, "select doc from payments where id = $1", [id])
+let qaInv
+
+await scenario("Payments: invoice paid status in SQL (0066 1)", async () => {
+  qaInv = await newInvoice(U.ACCT, { number: "INV-QA-1", status: "sent", totals: { grandTotal: 1000 }, amountPaid: 0, dueDate: "2026-10-20T00:00:00Z" })
+  const p1 = await newPayment(U.ACCT, { number: "PAY-QA-1", amount: 400, date: "2026-10-01T06:30:00.000Z", invoiceId: qaInv })
+  let d = await invDoc(qaInv)
+  eq("400 of 1000 -> partial, no paidAt", [d.amountPaid, d.status, d.paidAt ?? null], [400, "partial", null])
+  const p2 = await newPayment(U.ACCT, { number: "PAY-QA-2", amount: 599.6, date: "2026-10-03T06:30:00.000Z", invoiceId: qaInv })
+  d = await invDoc(qaInv)
+  eq("0.40 left is within 0.50 -> paid, paidAt = latest payment date", [d.amountPaid, d.status, d.paidAt], [999.6, "paid", "2026-10-03T06:30:00.000Z"])
+  await run(U.ACCT, "update invoices set doc = $2 where id = $1", [qaInv, J({ ...d, amountPaid: 0, status: "sent", paidAt: undefined, notes: "edited on a stale screen" })])
+  d = await invDoc(qaInv)
+  eq("a stale whole-doc save cannot put amountPaid/status back", [d.amountPaid, d.status, d.notes], [999.6, "paid", "edited on a stale screen"])
+  await run(U.ACCT, "update invoices set doc = jsonb_set(doc, '{totals,grandTotal}', '2000') where id = $1", [qaInv])
+  eq("raising the grand total re-derives partial", (await invDoc(qaInv)).status, "partial")
+  await run(U.ACCT, "update invoices set doc = jsonb_set(doc, '{totals,grandTotal}', '1000') where id = $1", [qaInv])
+  await run(U.ACCT, "delete from payments where id = $1", [p2])
+  d = await invDoc(qaInv)
+  eq("deleting one payment -> partial again, paidAt removed", [d.amountPaid, d.status, d.paidAt ?? null], [400, "partial", null])
+  await run(U.ACCT, "delete from payments where id = $1", [p1])
+  d = await invDoc(qaInv)
+  eq("deleting the last payment -> back to sent, amountPaid 0", [d.amountPaid, d.status], [0, "sent"])
+
+  const inv2 = await newInvoice(U.ACCT, { number: "INV-QA-2", status: "sent", totals: { grandTotal: 500 } })
+  const p3 = await newPayment(U.ACCT, { number: "PAY-QA-3", amount: 500, invoiceId: qaInv })
+  await run(U.ACCT, "update payments set doc = doc || $2 where id = $1", [p3, J({ invoiceId: inv2 })])
+  eq("moving a payment recomputes both invoices", [(await invDoc(qaInv)).status, (await invDoc(inv2)).status], ["sent", "paid"])
+  await run(U.ACCT, "delete from payments where id = $1", [p3])
+  await run("service", "update profiles set modules = '[\"payments\"]' where id = $1", [U.STAFF2])
+  like("staff with payments only cannot read invoices", String(await val(U.STAFF2, "select count(*)::int from invoices")), /^0$/)
+  const p4 = await newPayment(U.STAFF2, { number: "PAY-QA-4", amount: 1000, invoiceId: qaInv })
+  eq("a payments-only person still updates the invoice cache (definer)", (await invDoc(qaInv)).status, "paid")
+  await run(U.STAFF2, "delete from payments where id = $1", [p4])
+  await run("service", "update profiles set modules = '[]' where id = $1", [U.STAFF2])
+  eq("draft stays draft whatever is paid", (await invDoc(await newInvoice(U.ACCT, { status: "draft", totals: { grandTotal: 10 } }))).status, "draft")
+})
+
+await scenario("Payments: validation, numbers, created_at (0066 2, 3, 7)", async () => {
+  like("payout cannot carry an invoiceId", await err(U.ACCT, "insert into payments (doc) values ($1)", [J({ type: "payout", amount: 10, invoiceId: qaInv })]), /payout cannot be linked/)
+  like("unknown invoiceId refused", await err(U.ACCT, "insert into payments (doc) values ($1)", [J({ type: "inflow", amount: 10, invoiceId: randomUUID() })]), /invoice that does not exist/)
+  like("garbage invoiceId refused", await err(U.ACCT, "insert into payments (doc) values ($1)", [J({ type: "inflow", amount: 10, invoiceId: "INV-1" })]), /invoice that does not exist/)
+  for (const [label, amount] of [["0", 0], ["negative", -5], ["a string", "100"], ["1e10", 1e10], ["missing", undefined]]) {
+    like(`amount ${label} refused`, await err(U.ACCT, "insert into payments (doc) values ($1)", [J({ type: "inflow", amount })]), /amount must be a number/)
+  }
+  like("missing type refused", await err(U.ACCT, "insert into payments (doc) values ($1)", [J({ amount: 5 })]), /inflow or a payout/)
+  await db.query("begin")
+  let chk = null
+  try {
+    await db.query("set local session_replication_role = replica")
+    await db.query("insert into payments (doc) values ('{\"amount\":\"5\"}')")
+  } catch (e) { chk = e.message }
+  await db.query("rollback")
+  like("the CHECK holds with the triggers off (string amount, no type)", chk, /payments_doc_valid/)
+  const blank = await newPayment(U.ACCT, { type: "payout", amount: 1, number: "", party: "Tea" })
+  check("blank invoiceId and blank number are fine", !!blank, "inserted", blank)
+  await newPayment(U.ACCT, { type: "payout", amount: 1, number: "" })
+  await newPayment(U.ACCT, { number: "PAY-QA-DUP", amount: 10 })
+  like("duplicate payment number refused", await err(U.ACCT, "insert into payments (doc) values ($1)", [J({ type: "inflow", number: "PAY-QA-DUP", amount: 20 })]), /payments_number_key/)
+  const r = await one(U.ACCT, "insert into payments (doc, created_at) values ($1, '2020-01-01') returning id, created_at::text c", [J({ type: "inflow", amount: 5 })])
+  check("created_at forced to now() for a person", r.c.startsWith("2026-10"), "2026-10...", r.c)
+  await run(U.ACCT, "update payments set created_at = '2020-01-01' where id = $1", [r.id])
+  check("created_at cannot be moved on update", (await val(null, "select created_at::text from payments where id = $1", [r.id])).startsWith("2026-10"), "2026-10...", "moved")
+  const s = await one("service", "insert into payments (doc, created_at) values ($1, '2025-01-01') returning created_at::text c", [J({ type: "inflow", amount: 5 })])
+  eq("the service keeps its created_at", s.c.slice(0, 10), "2025-01-01")
+})
+
+await scenario("Payments: Tally stamp, tally_mark, synced freeze (0066 4, 5, 6)", async () => {
+  const p = await newPayment(U.ACCT, { number: "PAY-QA-T1", amount: 50, party: "A", tally: { status: "synced" } })
+  eq("a forged tally on insert is stripped", (await payDoc(p)).tally ?? null, null)
+  like("tally_mark refused for a signed-in user", await err(U.ADMIN, "select tally_mark('payments', $1, '{\"status\":\"synced\"}')", [p]), /permission denied/)
+  like("tally_mark refused for anon", await err("anon", "select tally_mark('payments', $1, '{\"status\":\"synced\"}')", [p]), /permission denied/)
+  like("tally_mark refuses a table off the list", await err("service", "select tally_mark('profiles', $1, '{}')", [p]), /unknown table/)
+  eq("tally_mark on a missing row -> false", await val("service", "select tally_mark('payments', $1, '{}')", [randomUUID()]), false)
+  eq("tally_mark by the service -> true", await val("service", "select tally_mark('payments', $1, $2)", [p, J({ status: "synced", voucherRef: "R1" })]), true)
+  eq("stamp written, rest untouched", [(await payDoc(p)).tally, (await payDoc(p)).amount], [{ status: "synced", voucherRef: "R1" }, 50])
+  await run(U.ACCT, "update payments set doc = doc || $2 where id = $1", [p, J({ note: "seen", tally: { status: "error" } })])
+  eq("a person changing tally is reverted; the note lands", [(await payDoc(p)).tally.status, (await payDoc(p)).note], ["synced", "seen"])
+  await run(U.ACCT, "update payments set doc = doc - 'tally' where id = $1", [p])
+  eq("a whole doc without tally keeps the stored stamp", (await payDoc(p)).tally?.status, "synced")
+  for (const [k, v] of [["amount", 51], ["type", "payout"], ["date", "2026-09-01"], ["party", "B"]]) {
+    like(`synced: accounts cannot change ${k}`, await err(U.ACCT, "update payments set doc = doc || $2 where id = $1", [p, J({ [k]: v })]), /already in Tally/)
+  }
+  like("synced: an admin cannot change the invoice link", await err(U.ADMIN, "update payments set doc = doc || $2 where id = $1", [p, J({ invoiceId: qaInv })]), /already in Tally/)
+  like("synced: accounts cannot delete", await err(U.ACCT, "delete from payments where id = $1", [p]), /already in Tally/)
+  like("synced: an admin cannot delete", await err(U.ADMIN, "delete from payments where id = $1", [p]), /already in Tally/)
+  await run(U.SUPER, "update payments set doc = doc || '{\"amount\": 52}' where id = $1", [p])
+  eq("synced: the Super Admin can change the amount", (await payDoc(p)).amount, 52)
+  eq("synced: the Super Admin can delete", (await run(U.SUPER, "delete from payments where id = $1", [p])).affectedRows, 1)
+
+  const imp = { number: "TALLY-1", status: "sent", totals: { grandTotal: 100 } }
+  const i1 = await newInvoice(U.ADMIN, { ...imp, tally: { status: "synced", syncedAt: "2026-10-01T00:00:00Z", voucherRef: "TALLY-1" } })
+  eq("an invoice in the Tally import's shape keeps its stamp (admin)", (await invDoc(i1)).tally, { status: "synced", syncedAt: "2026-10-01T00:00:00Z", voucherRef: "TALLY-1" })
+  const i2 = await newInvoice(U.ACCT, { ...imp, number: "TALLY-2", tally: { status: "synced", voucherRef: "X", error: "" } })
+  eq("any other tally on a new invoice is stripped", (await invDoc(i2)).tally ?? null, null)
+  const i3 = await newInvoice(U.ACCT, { ...imp, number: "INV-QA-3", tally: null })
+  eq("createInvoice's tally: null is dropped", Object.hasOwn(await invDoc(i3), "tally"), false)
+  await run(U.ACCT, "update invoices set doc = doc || '{\"tally\":{\"status\":\"error\"}}' where id = $1", [i1])
+  eq("an invoice's stamp cannot be changed by a person", (await invDoc(i1)).tally.status, "synced")
+  await run(U.ACCT, "update invoices set doc = doc || '{\"tally\":{\"status\":\"synced\"}}' where id = $1", [i3])
+  eq("nor added by one", Object.hasOwn(await invDoc(i3), "tally"), false)
+})
+
+await scenario("Payments: numbering, invoice delete, Anu, realtime (0066 8-11)", async () => {
+  like("staff without invoices cannot take an invoice number", await err(U.STAFF1, "select next_sequence('invoice')"), /without the invoices module/)
+  check("accounts can", Number.isInteger(await val(U.ACCT, "select next_sequence('invoice')")), "an int", "")
+  check("accounts can take a payment number", Number.isInteger(await val(U.ACCT, "select next_sequence('payment')")), "an int", "")
+  like("accounts cannot take a quotation number", await err(U.ACCT, "select next_sequence('quotation')"), /quotations module/)
+  like("an unknown series is refused", await err(U.SUPER, "select next_sequence('bogus')"), /Unknown number series/)
+  check("the Super Admin can", Number.isInteger(await val(U.SUPER, "select next_sequence('quotation')")), "an int", "")
+  check("the service role can", Number.isInteger(await val("service", "select next_sequence('payment')")), "an int", "")
+  like("anon cannot", await err("anon", "select next_sequence('payment')"), /Active session|permission denied/)
+
+  const p = await newPayment(U.ACCT, { number: "PAY-QA-DEL", amount: 10, invoiceId: qaInv })
+  like("an invoice with payments cannot be deleted", await err(U.ACCT, "delete from invoices where id = $1", [qaInv]), /This invoice has payments/)
+  like("not even by the service", await err(null, "delete from invoices where id = $1", [qaInv]), /This invoice has payments/)
+  await run(U.ACCT, "delete from payments where id = $1", [p])
+  eq("once its payments are gone it can", (await run(U.ACCT, "delete from invoices where id = $1", [qaInv])).affectedRows, 1)
+
+  eq("safe_num", await one(null, "select safe_num('12.5') a, safe_num('1,000') b, safe_num('abc') c, safe_num('1e30') d, safe_num(null) e"),
+    { a: "12.5", b: null, c: null, d: null, e: null })
+  await newInvoice(null, { number: "INV-QA-BAD", status: "sent", totals: { grandTotal: "lots" }, dueDate: "2026-09-01T00:00:00Z" })
+  await run(null, "insert into quotations (doc) values ('{\"status\":\"sent\",\"totals\":{\"grandTotal\":\"n/a\"}}')")
+  // A legacy payment with a text amount: only possible with the CHECK and triggers out of the way, inside one rolled-back transaction.
+  await db.query("begin")
+  let txt = null
+  try {
+    await db.query("set local session_replication_role = replica")
+    await db.query("alter table payments drop constraint payments_doc_valid")
+    await db.query("insert into payments (doc, created_at) values ('{\"type\":\"inflow\",\"amount\":\"1,200\",\"invoiceId\":null}', now() - interval '1 day')")
+    txt = (await db.query("select anu_daily_update('management', $1::date) t", [today])).rows[0].t
+  } catch (e) { txt = "ERROR " + e.message }
+  await db.query("rollback")
+  like("anu_daily_update survives malformed amounts and totals", txt, /Overdue invoices: .*\n[\s\S]*Payments received yesterday/)
+  eq("the CHECK is back after the rollback", await val(null, "select count(*)::int from pg_constraint where conname = 'payments_doc_valid'"), 1)
+  const full = await val(U.ACCT, "select anu_team_update('accounts')")
+  like("accounts' own update has the money lines", full, /Overdue invoices[\s\S]*Payments received yesterday/)
+  await run(U.SUPER, "update profiles set modules_hidden = '[\"payments\"]' where id = $1", [U.ACCT])
+  const noPay = await val(U.ACCT, "select anu_team_update('accounts')")
+  check("without payments: no payments line, invoices stay", /Overdue invoices/.test(noPay) && !/Payments received/.test(noPay), "invoices only", noPay)
+  await run(U.SUPER, "update profiles set modules_hidden = '[\"payments\",\"invoices\"]' where id = $1", [U.ACCT])
+  check("without either: no money at all", !/Overdue invoices|Payments received/.test(await val(U.ACCT, "select anu_team_update('accounts')")), "no money", "")
+  await run(U.SUPER, "update profiles set modules_hidden = '[]' where id = $1", [U.ACCT])
+  like("anu_daily_update is not callable directly", await err(U.ADMIN, "select anu_daily_update('accounts', current_date)"), /permission denied/)
+
+  const pub = (await run(null, "select tablename from pg_publication_tables where pubname = 'supabase_realtime'")).rows.map((r) => r.tablename)
+  check("realtime publishes payments, invoices and the shared doc tables",
+    ["payments", "invoices", "products", "categories", "customers", "enquiries", "quotations", "work"].every((t) => pub.includes(t)), "all", pub)
+})
+
+// Runs sql inside one transaction after `prep` statements, rolled back unless commit.
+async function inTx(prep, sql, params = [], commit = false) {
+  await db.query("begin")
+  try {
+    for (const [q, p] of prep) await db.query(q, p ?? [])
+    const r = await db.query(sql, params)
+    await db.query(commit ? "commit" : "rollback")
+    return r
+  } catch (e) {
+    await db.query("rollback")
+    throw e
+  }
+}
+
+await scenario("Payments second pass (0066 a-j)", async () => {
+  const stamp = { status: "synced", syncedAt: "2026-10-02T00:00:00Z", voucherRef: "T-9" }
+  const base = { status: "sent", totals: { grandTotal: 100 } }
+  // b. the Tally import shape needs an admin
+  eq("b: a non-admin's new invoice in the import shape loses it", Object.hasOwn(await invDoc(await newInvoice(U.ACCT, { ...base, number: "SP-1", tally: stamp })), "tally"), false)
+  const plain = await newInvoice(U.ACCT, { ...base, number: "SP-2" })
+  await run(U.ACCT, "update invoices set doc = doc || $2 where id = $1", [plain, J({ tally: stamp })])
+  eq("b: a non-admin cannot stamp a console-made invoice", Object.hasOwn(await invDoc(plain), "tally"), false)
+  await run(U.ADMIN, "update invoices set doc = doc || $2 where id = $1", [plain, J({ tally: { ...stamp, error: "" } })])
+  eq("b: an admin's other shape is stripped on update", Object.hasOwn(await invDoc(plain), "tally"), false)
+  await run(U.ADMIN, "update invoices set doc = doc || $2 where id = $1", [plain, J({ notes: "Imported from Tally XML", tally: stamp })])
+  eq("b: an admin's overwrite from Tally XML stamps a console-made invoice", (await invDoc(plain)).tally, stamp)
+  await run(U.ADMIN, "update invoices set doc = doc || $2 where id = $1", [plain, J({ tally: { ...stamp, voucherRef: "T-10" } })])
+  eq("b: an existing stamp is kept, even against an admin", (await invDoc(plain)).tally.voucherRef, "T-9")
+  const nulled = await newInvoice(null, { ...base, number: "SP-3", tally: null })
+  await run(U.ADMIN, "update invoices set doc = doc || $2 where id = $1", [nulled, J({ tally: stamp })])
+  eq("b: a stored tally: null counts as no stamp", (await invDoc(nulled)).tally, stamp)
+
+  // c. invoiceId normalised, invoiceNumber and customer from the invoice
+  const inv = await newInvoice(U.ACCT, { ...base, number: "SP-INV", customer: { name: "Real Co", phone: "9000000001" } })
+  const p = await newPayment(U.ACCT, { number: "SP-P1", amount: 10, invoiceId: `  ${inv.toUpperCase()} `, invoiceNumber: "WRONG", customer: { name: "Someone else" } })
+  let d = await payDoc(p)
+  eq("c: invoiceId trimmed and lower-cased; invoiceNumber and customer from the invoice", [d.invoiceId, d.invoiceNumber, d.customer], [inv, "SP-INV", { name: "Real Co", phone: "9000000001" }])
+  eq("c: the normalised link still settles the invoice", (await invDoc(inv)).amountPaid, 10)
+  await run(U.ACCT, "update invoices set doc = doc || $2 where id = $1", [inv, J({ number: "SP-INV-B", customer: { name: "Renamed Co" } })])
+  await run(U.ACCT, "update payments set doc = doc || $2 where id = $1", [p, J({ note: "any edit", invoiceNumber: "X" })])
+  d = await payDoc(p)
+  eq("c: every update re-derives them (no early return)", [d.invoiceNumber, d.customer.name, d.note], ["SP-INV-B", "Renamed Co", "any edit"])
+  await run(U.ACCT, "update payments set doc = doc || $2 where id = $1", [p, J({ invoiceId: "" })])
+  d = await payDoc(p)
+  eq("c: unlinking clears invoiceNumber and stores a null invoiceId", [Object.hasOwn(d, "invoiceNumber"), d.invoiceId], [false, null])
+  const adv = await newPayment(U.ACCT, { number: "SP-P2", amount: 5, invoiceNumber: "INV-STALE" })
+  eq("c: a payment with no invoice has no invoiceNumber", Object.hasOwn(await payDoc(adv), "invoiceNumber"), false)
+  const gone = randomUUID()
+  const legacy = (await inTx([["set local session_replication_role = replica"]],
+    "insert into payments (doc) values ($1) returning id", [J({ type: "inflow", amount: 7, number: "SP-LEGACY", invoiceId: gone })], true)).rows[0].id
+  await run(U.ACCT, "update payments set doc = doc || '{\"note\":\"kept\"}' where id = $1", [legacy])
+  eq("c: a row whose invoice is gone can still be edited", (await payDoc(legacy)).note, "kept")
+  eq("c: ... and stamped by the connector", await val("service", "select tally_mark('payments', $1, $2)", [legacy, J(stamp)]), true)
+  like("c: moving it to another missing invoice is refused", await err(U.SUPER, "update payments set doc = doc || $2 where id = $1", [legacy, J({ invoiceId: randomUUID() })]), /invoice that does not exist/)
+
+  // d. account
+  const acc = await newPayment(U.ACCT, { number: "SP-P3", amount: 5, account: "Petty Cash" })
+  eq("d: a person's new payment loses account", Object.hasOwn(await payDoc(acc), "account"), false)
+  const sacc = await newPayment("service", { number: "SP-P4", amount: 5, account: "HDFC" })
+  await run(U.ADMIN, "update payments set doc = doc || $2 where id = $1", [sacc, J({ account: "Petty Cash", note: "n" })])
+  eq("d: an update keeps the stored account", [(await payDoc(sacc)).account, (await payDoc(sacc)).note], ["HDFC", "n"])
+  await run(U.ADMIN, "update payments set doc = doc || $2 where id = $1", [acc, J({ account: "Petty Cash" })])
+  eq("d: nor can one be added", Object.hasOwn(await payDoc(acc), "account"), false)
+
+  // e. ids
+  like("e: a payment's id cannot change", await err(U.ACCT, "update payments set id = $2 where id = $1", [acc, randomUUID()]), /payment's id cannot be changed/)
+  like("e: an invoice's id cannot change", await err(U.ACCT, "update invoices set id = $2 where id = $1", [plain, randomUUID()]), /invoice's id cannot be changed/)
+  like("e: not even for the service", await err("service", "update payments set id = $2 where id = $1", [acc, randomUUID()]), /payment's id cannot be changed/)
+
+  // a. a forged JWT claim is not the service
+  const forged = (await inTx([
+    ["select set_config('request.jwt.claims', $1, true), set_config('request.jwt.claim.sub', $2, true)", [J({ sub: U.ACCT, role: "service_role" }), U.ACCT]],
+    ["set local role authenticated"],
+  ], "insert into payments (doc) values ($1) returning doc", [J({ type: "inflow", amount: 3, number: "SP-FORGED", tally: stamp, account: "X" })])).rows[0].doc
+  eq("a: a session claiming service_role in its JWT is still a person", [forged.tally ?? null, forged.account ?? null], [null, null])
+  eq("a: the service role is still the service", (await payDoc(sacc)).account, "HDFC")
+
+  // f. synced freeze on more fields
+  await val("service", "select tally_mark('payments', $1, $2)", [adv, J(stamp)])
+  for (const [k, v] of [["customer", { name: "B" }], ["number", "SP-P2X"], ["reference", "UTR9"], ["invoiceNumber", "INV-9"]]) {
+    like(`f: synced: accounts cannot change ${k}`, await err(U.ACCT, "update payments set doc = doc || $2 where id = $1", [adv, J({ [k]: v })]), /already in Tally/)
+  }
+  await run(U.ACCT, "update payments set doc = doc || '{\"note\":\"ok\"}' where id = $1", [adv])
+  eq("f: synced: a note still saves", (await payDoc(adv)).note, "ok")
+
+  // g. anon
+  for (const t of ["payments", "invoices", "customers", "quotations"]) {
+    like(`g: anon cannot select ${t}`, await err("anon", `select count(*) from ${t}`), /permission denied/)
+  }
+  await run("anon", "insert into enquiries (doc) values ($1)", [J({ status: "new", message: "hi", customer: { name: "Anon QA", email: "anon-qa@test.local", phone: "9876500011" } })])
+  eq("g: the website's anon enquiry still saves and makes its customer", await val(null, "select count(*)::int from customers where doc ->> 'email' = 'anon-qa@test.local'"), 1)
+
+  // h. helpers
+  like("h: anon cannot call safe_num", await err("anon", "select safe_num('1')"), /permission denied/)
+  like("h: anon cannot call is_service_caller", await err("anon", "select is_service_caller()"), /permission denied/)
+  eq("h: a signed-in person can (the invoker triggers need it)", await val(U.ACCT, "select is_service_caller()"), false)
+
+  // i. doc_merge
+  await val("service", "select tally_mark('invoices', $1, $2)", [inv, J({ status: "synced", voucherRef: "SP-INV-B" })])
+  const merged = await val("service", "select doc_merge('invoices', $1, $2)", [inv, J({ feedback: { rating: 5 } })])
+  eq("i: doc_merge keeps a stamp written meanwhile and returns the row", [merged.id, merged.doc.feedback.rating, merged.doc.tally.status], [inv, 5, "synced"])
+  eq("i: a missing row -> null", await val("service", "select doc_merge('leads', $1, '{}')", [randomUUID()]), null)
+  like("i: a table off the list is refused", await err("service", "select doc_merge('payments', $1, '{}')", [p]), /unknown table/)
+  like("i: a patch that is not an object is refused", await err("service", "select doc_merge('leads', $1, '[]')", [p]), /must be an object/)
+  like("i: a signed-in person cannot call it", await err(U.ADMIN, "select doc_merge('invoices', $1, '{}')", [inv]), /permission denied/)
+
+  // j. legacy row that fails the CHECK
+  const def = await val(null, "select pg_get_constraintdef(oid) from pg_constraint where conname = 'payments_doc_valid'")
+  const j = (await inTx([
+    ["set local session_replication_role = replica"],
+    ["alter table payments drop constraint payments_doc_valid"],
+    ["insert into payments (id, doc) values ('00000000-0000-4000-8000-00000000bad1', '{\"type\":\"inflow\",\"amount\":\"100\"}')"],
+    [`alter table payments add constraint payments_doc_valid ${def}`],
+    ["set local session_replication_role = origin"],
+    ["set local role service_role"],
+  ], "select tally_mark('payments', '00000000-0000-4000-8000-00000000bad1', $1) ok, (select doc from payments where id = '00000000-0000-4000-8000-00000000bad1') doc", [J(stamp)])).rows[0]
+  eq("j: tally_mark on a legacy row failing the CHECK -> false, no error, row untouched", [j.ok, j.doc], [false, { type: "inflow", amount: "100" }])
+
+  for (const id of [p, adv, legacy, acc, sacc]) await run(null, "delete from payments where id = $1", [id])
+})
+
 // ---- report -----------------------------------------------------------------------------
 console.log("")
 let fails = 0

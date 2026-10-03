@@ -19,6 +19,6 @@ export function loadConfig() {
     throw new Error("config: supabase.url and supabase.serviceKey are required")
   }
   cfg.ledgers = cfg.ledgers || {}
-  cfg.sync = { customers: true, products: true, invoices: true, payments: true, intervalSeconds: 300, ...cfg.sync }
+  cfg.sync = { customers: true, products: true, invoices: true, payments: true, payouts: false, intervalSeconds: 300, retryAfterMinutes: 60, ...cfg.sync }
   return cfg
 }

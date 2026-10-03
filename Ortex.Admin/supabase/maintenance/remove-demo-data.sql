@@ -187,15 +187,18 @@ order by table_name, label;
 --
 -- ONLY safe while no real document has been issued: an invoice number that has
 -- gone to a customer is spent, and reissuing it is a GST problem. The guard
--- below refuses to run if any invoice or quotation remains.
+-- below refuses to run if any invoice, quotation or payment remains (0066 made
+-- payment numbers unique, so a reset under a live payment would make the next
+-- payment fail on a number that already exists).
 -- ─────────────────────────────────────────────────────────────────────────
 
 -- do $$
 -- declare n int;
 -- begin
---   select (select count(*) from public.invoices) + (select count(*) from public.quotations) into n;
+--   select (select count(*) from public.invoices) + (select count(*) from public.quotations)
+--        + (select count(*) from public.payments) into n;
 --   if n > 0 then
---     raise exception 'Refusing to reset: % quotation/invoice row(s) still exist. Reusing a spent number is a compliance problem.', n;
+--     raise exception 'Refusing to reset: % quotation/invoice/payment row(s) still exist. Reusing a spent number is a compliance problem.', n;
 --   end if;
 --   delete from public.sequences where series in ('quotation','invoice','payment');
 --   update public.settings

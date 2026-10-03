@@ -18,9 +18,13 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
   const isInvoice = type === "invoice"
   const kind = isInvoice ? "tax invoice" : "quotation"
   const psState = doc.shipTo?.stateCode || doc.customer?.stateCode
-  const paid = isInvoice && doc.status === "paid"
-  const cancelled = doc.status === "cancelled"
-  const balance = isInvoice ? Math.max(0, (t.grandTotal || 0) - (doc.amountPaid || 0)) : t.grandTotal || 0
+  // The live status and paid amount when the caller derived them from the
+  // payments (useInvoiceList's _status / _paid), else what is stored.
+  const status = doc._status ?? doc.status
+  const amountPaid = Number(doc._paid ?? doc.amountPaid) || 0
+  const paid = isInvoice && status === "paid"
+  const cancelled = status === "cancelled"
+  const balance = isInvoice ? Math.max(0, (t.grandTotal || 0) - amountPaid) : t.grandTotal || 0
   const hsnCodes = [...new Set(lines.map((l) => l.hsn).filter(Boolean))]
   const number = doc.number || "Draft"
   // Tax component as a percentage of the taxable value, derived so the printed
@@ -39,9 +43,11 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
       const d = doc.validUntil ? daysUntil(doc.validUntil) : null
       return d != null && d < 0 ? `${total} quoted, now expired` : `${total} quoted`
     }
-    if (paid) return `${total} paid on ${formatDate(doc.paidAt || doc.issueDate)}`
-    if (doc.amountPaid > 0) return `${formatCurrency(balance)} due, ${formatCurrency(doc.amountPaid)} received`
-    return `${total} ${doc.status === "overdue" ? "overdue" : "due"}${doc.dueDate ? ` by ${formatDate(doc.dueDate)}` : ""}`
+    // paidAt is written by migration 0066 when the last payment settles it;
+    // without it the date is left out rather than guessed.
+    if (paid) return doc.paidAt ? `${total} paid on ${formatDate(doc.paidAt)}` : `${total} paid`
+    if (amountPaid > 0) return `${formatCurrency(balance)} due, ${formatCurrency(amountPaid)} received`
+    return `${total} ${status === "overdue" ? "overdue" : "due"}${doc.dueDate ? ` by ${formatDate(doc.dueDate)}` : ""}`
   })()
 
   return (

@@ -2,9 +2,10 @@
 // already holds.
 //
 // NOT a mirror of a console file. The console's Dashboard (Admin
-// lib/analytics/dashboard.js) is built around invoices and payments, which the
-// phone deliberately never loads, so a line-for-line port would be a page of
-// empty tiles. What IS shared is the vocabulary, and it is kept identical on
+// lib/analytics/dashboard.js) is built around invoices and payments. The phone
+// never loads invoices, and loads payments only on the Payments page (the
+// `payments` module), never for Home, so a line-for-line port would be a page
+// of empty tiles. What IS shared is the vocabulary, and it is kept identical on
 // purpose so a number on the phone and a number on the console never disagree
 // about what a word means:
 //   · "won" is a quotation that is accepted or invoiced;

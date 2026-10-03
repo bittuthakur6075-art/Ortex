@@ -3,6 +3,7 @@
 // No store access here - callers pass the rows they already hold.
 
 import { round2 } from "./format"
+import { paidForInvoice, outstandingBalance, isSettled } from "./invoiceMoney"
 
 // A customer with no order in this many days reads as dormant.
 export const DORMANT_AFTER_DAYS = 90
@@ -23,25 +24,20 @@ const timeOf = (ts) => {
 }
 
 // Money received against one invoice (inflows only).
-export function receivedAgainst(invoiceId, payments = []) {
-  return round2(
-    payments
-      .filter((p) => p.invoiceId === invoiceId && p.type === "inflow")
-      .reduce((s, p) => s + (Number(p.amount) || 0), 0),
-  )
-}
+export const receivedAgainst = (invoiceId, payments = []) => paidForInvoice(invoiceId, payments)
 
 // Overdue beats dormant beats new: the badge should show the thing that needs
 // acting on first.
 export function customerStatus({ orders, overdue, daysSinceOrder }) {
-  if (overdue > 0.5) return "overdue"
+  if (!isSettled(overdue)) return "overdue"
   if (!orders) return "new"
   if (daysSinceOrder != null && daysSinceOrder >= DORMANT_AFTER_DAYS) return "dormant"
   return "active"
 }
 
 // Lifetime figures for one customer. `invoices` should already be filtered to
-// that customer; cancelled invoices are ignored throughout.
+// that customer; cancelled invoices are ignored throughout, and a draft is
+// business in the making but owes nothing yet.
 export function customerStats(invoices = [], payments = [], now = Date.now()) {
   const live = invoices.filter((i) => i.status !== "cancelled")
   let business = 0
@@ -51,8 +47,8 @@ export function customerStats(invoices = [], payments = [], now = Date.now()) {
 
   for (const inv of live) {
     business = round2(business + grandOf(inv))
-    const balance = round2(grandOf(inv) - receivedAgainst(inv.id, payments))
-    if (balance > 0.5) {
+    const balance = outstandingBalance(inv, payments)
+    if (balance > 0) {
       outstanding = round2(outstanding + balance)
       const due = timeOf(inv.dueDate)
       if (due != null && due < now) overdue = round2(overdue + balance)

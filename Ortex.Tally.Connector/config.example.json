@@ -15,13 +15,20 @@
     "roundOff": "Round Off",
     "debtorsGroup": "Sundry Debtors",
     "stockGroup": "Primary",
-    "receiptAccount": "Cash"
+    "receiptAccount": "Cash",
+    "payoutAccount": "Cash",
+    "payoutDefault": "Miscellaneous Expenses",
+    "partyMap": {
+      "Walk-in customer": "Cash Sales Debtor"
+    }
   },
   "sync": {
     "customers": true,
     "products": true,
     "invoices": true,
     "payments": true,
-    "intervalSeconds": 300
+    "payouts": false,
+    "intervalSeconds": 300,
+    "retryAfterMinutes": 60
   }
 }

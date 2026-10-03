@@ -18,6 +18,7 @@ import { canAccess } from "../data/domain/modules"
 import { formatCurrency, formatDate } from "./format"
 import { VOICE_SOURCE, prettyPhone } from "../pages/voice-leads/helpers"
 import { voiceCalls } from "./analytics/today"
+import { invoiceBalance, paidForInvoice, paymentsOrStored, resolveInvoiceStatus } from "./invoiceMoney"
 
 export const DAY_MS = 86400000
 
@@ -223,14 +224,18 @@ export function buildFeed(data = {}, { access = ALL_ACCESS, now = Date.now() } =
   }
 
   if (access.invoices) {
+    // Live status and balance from the payments (or, without the payments
+    // module, each invoice's stored amountPaid), never the stored status.
+    const paid = paymentsOrStored(data.invoices || [], data.payments || [], !!access.payments)
     for (const inv of data.invoices || []) {
-      if (!inv.dueDate || ["paid", "cancelled", "draft"].includes(inv.status)) continue
+      const status = resolveInvoiceStatus(inv, paid)
+      if (!inv.dueDate || ["paid", "cancelled", "draft"].includes(status)) continue
       const days = daysUntilAt(inv.dueDate, now)
       if (days === null) continue
-      const overdue = inv.status === "overdue" || days < 0
+      const overdue = days < 0
       if (!overdue && days > 3) continue
       const name = partyName(inv.customer)
-      const due = Math.max(0, (inv.totals?.grandTotal || 0) - (inv.amountPaid || 0))
+      const due = Math.max(0, invoiceBalance(inv, paid))
       out.push({
         id: `inv-due-${inv.id}-${inv.dueDate}`,
         kind: "invoice-due",
@@ -239,7 +244,7 @@ export function buildFeed(data = {}, { access = ALL_ACCESS, now = Date.now() } =
         when: inv.dueDate,
         urgent: overdue,
         title: ["Invoice ", b(inv.number), " for ", b(name), " ", ...(overdue ? ["is ", b(`overdue by ${plural(Math.max(1, -days), "day")}`)] : days === 0 ? ["is ", b("due today")] : ["is due in ", b(plural(days, "day"))])],
-        amount: { label: "Balance due", value: due, sub: inv.status === "partial" ? "Partially paid" : "Unpaid" },
+        amount: { label: "Balance due", value: due, sub: paidForInvoice(inv.id, paid) > 0 ? "Partially paid" : "Unpaid" },
         primary: { label: "View invoice", to: "/billing?tab=invoices" },
       })
     }

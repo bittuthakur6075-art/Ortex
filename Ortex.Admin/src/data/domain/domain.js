@@ -6,10 +6,24 @@
 import { repo } from "../store/repository"
 import { computeDocument } from "../../lib/pricing"
 import { documentNumber, uid } from "../../lib/id"
-import { round2, daysUntil } from "../../lib/format"
+import { round2 } from "../../lib/format"
 import { stageProbability } from "./schema"
 import { notifyInvoiceCreated } from "../../services/notify"
 import { nationalDigits } from "../../lib/validateCustomer"
+import { hasSupabase } from "../store/supabaseClient"
+import { paidForInvoice, resolveInvoiceStatus } from "../../lib/invoiceMoney"
+
+export {
+  SETTLE_TOLERANCE,
+  isSettled,
+  paidByInvoice,
+  paidForInvoice,
+  invoiceBalance,
+  resolveInvoiceStatus,
+  outstandingBalance,
+  paymentsOrStored,
+  receiptAllocation,
+} from "../../lib/invoiceMoney"
 
 // Intra-state (CGST+SGST) vs inter-state (IGST) is decided by comparing the
 // customer's state code to the company's registered state code.
@@ -18,12 +32,15 @@ export function isInterState(companyStateCode, customerStateCode) {
   return String(companyStateCode).trim() !== String(customerStateCode).trim()
 }
 
+const FALLBACK_PREFIX = { quotation: "QTN", invoice: "INV", payment: "PAY" }
+
 // Reserve the next human-facing document number for a series and bump its
 // counter. Prefix comes from settings so the business can rebrand references.
 async function generateNumber(series) {
   const settings = await repo.getSettings()
   const seq = await repo.nextSequence(series)
-  const prefix = settings.numbering[`${series}Prefix`] || series.toUpperCase()
+  // A blank prefix falls back to the phone's (Ortex.Mobile/src/lib/payments.ts).
+  const prefix = String(settings.numbering?.[`${series}Prefix`] ?? "").trim() || FALLBACK_PREFIX[series] || series.toUpperCase()
   return documentNumber(prefix, seq)
 }
 
@@ -178,13 +195,30 @@ export async function emailInvoice(invoiceId) {
   return notifyInvoiceCreated(invoice, { ...settings, notifications: { ...settings.notifications, invoiceEmailEnabled: true } })
 }
 
+// What an edit may never write: the payment-derived fields (migration 0066's
+// trigger owns them; a form holds a stale copy) and the list's `_`-prefixed
+// view fields, and `tally`, which the connector owns (a form's copy may be
+// older than its last sync). The status chips write `status` on their own.
+export function editableInvoicePatch(patch) {
+  const out = {}
+  for (const [k, v] of Object.entries(patch || {})) {
+    if (k.startsWith("_") || ["status", "amountPaid", "paidAt", "tally"].includes(k)) continue
+    out[k] = v
+  }
+  return out
+}
+
 export async function updateInvoice(id, patch) {
   const settings = await repo.getSettings()
   const existing = await repo.get("invoices", id)
   if (!existing) return null
-  const merged = { ...existing, ...patch }
-  const totals = totalsFor(merged.lines || [], settings, merged.customer, merged.extraDiscountPercent, merged.shipTo)
-  return repo.update("invoices", id, { ...patch, totals })
+  const safe = editableInvoicePatch(patch)
+  const merged = { ...existing, ...safe }
+  // Tally imports carry aggregate totals and no lines: keep those.
+  const totals = merged.lines?.length
+    ? totalsFor(merged.lines, settings, merged.customer, merged.extraDiscountPercent, merged.shipTo)
+    : merged.totals || totalsFor([], settings, merged.customer, merged.extraDiscountPercent, merged.shipTo)
+  return repo.update("invoices", id, { ...safe, totals })
 }
 
 // ---- enquiry -> quotation --------------------------------------------------
@@ -322,67 +356,59 @@ export async function markLeadQuoted(leadId, quotationId) {
 }
 
 // ---- payments + reconciliation ---------------------------------------------
+// The money math (paid, balance, live status, SETTLE_TOLERANCE) is pure and
+// lives in lib/invoiceMoney.js, re-exported at the top of this file.
 
-// Sum of inflow payments recorded against an invoice.
-export function paidForInvoice(invoiceId, payments) {
-  return round2(
-    payments
-      .filter((p) => p.invoiceId === invoiceId && p.type === "inflow")
-      .reduce((s, p) => s + (Number(p.amount) || 0), 0),
-  )
-}
-
-export function invoiceBalance(invoice, payments) {
-  return round2((invoice.totals?.grandTotal || 0) - paidForInvoice(invoice.id, payments))
-}
-
-// Derived, current status of an invoice from its payments + due date. Kept
-// separate from the stored status so it's always live (e.g. becomes overdue as
-// time passes) without a background job.
-export function resolveInvoiceStatus(invoice, payments) {
-  if (invoice.status === "cancelled" || invoice.status === "draft") return invoice.status
-  const balance = invoiceBalance(invoice, payments)
-  const grand = invoice.totals?.grandTotal || 0
-  if (grand > 0 && balance <= 0) return "paid"
-  const paid = paidForInvoice(invoice.id, payments)
-  if (paid > 0) return "partial"
-  if (invoice.dueDate && daysUntil(invoice.dueDate) < 0) return "overdue"
-  return invoice.status
+// A day from <input type="date"> ("2026-10-03") is stored as noon IST, the
+// phone's convention (Ortex.Mobile/src/lib/payments.ts), so it reads as the
+// same day in every timezone. A full timestamp is kept as given.
+export function paymentDateIso(day) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(day || ""))) return new Date(`${day}T12:00:00+05:30`).toISOString()
+  return day || new Date().toISOString()
 }
 
 export async function recordPayment(draft) {
   const number = await generateNumber("payment")
+  const type = draft.type || "inflow"
   const payment = await repo.create("payments", {
     number,
-    type: draft.type || "inflow",
+    type,
     amount: round2(draft.amount),
     method: draft.method || "UPI",
-    date: draft.date || new Date().toISOString(),
+    date: paymentDateIso(draft.date),
     reference: draft.reference || "",
     note: draft.note || "",
-    // inflow: link to an invoice + customer snapshot; payout: a party name.
-    invoiceId: draft.invoiceId || null,
-    invoiceNumber: draft.invoiceNumber || "",
+    // inflow: link to an invoice + customer snapshot; payout: a party name
+    // and never an invoice (migration 0066 refuses one).
+    invoiceId: type === "payout" ? null : draft.invoiceId || null,
+    invoiceNumber: type === "payout" ? "" : draft.invoiceNumber || "",
+    ...(draft.advance ? { advance: true } : {}),
     party: draft.party || draft.customer?.name || "",
     customer: draft.customer || null,
+  }).catch((e) => {
+    // Payment numbers are unique (0066); two people saving at once can collide.
+    if (/payments_number_key/.test(`${e?.message} ${e?.details}`)) throw new Error("That payment number is already taken. Try again.")
+    throw e
   })
 
-  // Keep the linked invoice's cached amountPaid/status in sync for list views.
   if (payment.type === "inflow" && payment.invoiceId) await syncInvoicePaid(payment.invoiceId)
   return payment
 }
 
-// Recompute an invoice's cached amountPaid/status from its current payments.
+// Recompute an invoice's cached amountPaid / status / paidAt from its payments.
+// ONLY in browser demo mode: on Supabase migration 0066's trigger does this in
+// the same transaction as the payment, and a browser write could race it.
 export async function syncInvoicePaid(invoiceId) {
+  if (hasSupabase) return null
   const invoice = await repo.get("invoices", invoiceId)
   if (!invoice) return null
   const all = await repo.list("payments")
-  const patch = { amountPaid: paidForInvoice(invoice.id, all), status: resolveInvoiceStatus(invoice, all) }
-  // A stored "paid"/"partial" whose payments were removed falls back to "sent".
-  if (patch.amountPaid === 0 && ["paid", "partial"].includes(invoice.status)) {
-    patch.status = resolveInvoiceStatus({ ...invoice, status: "sent" }, all)
-  }
-  return repo.update("invoices", invoice.id, patch)
+  const amountPaid = paidForInvoice(invoice.id, all)
+  const derived = resolveInvoiceStatus(invoice, all)
+  // Like the trigger: only paid / partial / sent are stored, never overdue.
+  const status = derived === "overdue" ? "sent" : derived
+  const paidAt = status === "paid" ? invoice.paidAt || new Date().toISOString() : null
+  return repo.update("invoices", invoice.id, { amountPaid, status, paidAt })
 }
 
 // Delete a payment and re-sync the invoice it was allocated to (if any).

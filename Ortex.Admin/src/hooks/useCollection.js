@@ -1,22 +1,69 @@
 import { useState, useEffect, useCallback, useRef } from "react"
+import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { onAutoRefresh } from "../data/store/autoRefresh"
 import { PRODUCT_CATEGORIES } from "../data/domain/schema"
 import { DEFAULT_SETTINGS } from "../data/domain/settingsDefaults"
 
-// Subscribes a component to a collection and re-fetches whenever ANY store
-// change fires (create/update/remove in this or another tab). Coarse but
-// correct, data volumes here are tiny. Returns { items, loading, reload }.
+// Billing and the tab inside it both ask for invoices and payments on the same
+// change: requests for one collection started within SHARE_MS share one fetch.
+// Only that short window, so a load after a change never joins an older fetch.
+const SHARE_MS = 50
+const inflight = new Map()
+function listOnce(name) {
+  if (!inflight.has(name)) {
+    const req = repo.list(name)
+    inflight.set(name, req)
+    const drop = () => inflight.get(name) === req && inflight.delete(name)
+    setTimeout(drop, SHARE_MS)
+    req.then(drop, drop)
+  }
+  return inflight.get(name)
+}
+
+// Store changes arrive in bursts (a payment insert fires the payment and the
+// invoice its trigger updates). Wait this long after the last one, then load.
+const DEBOUNCE_MS = 300
+
+// Reload `load` on store changes, debounced. apiStore passes the changed table
+// name, so only hooks holding that collection reload; localStore passes an
+// Event (no name), which reloads everyone.
+function useStoreRefresh(load, names) {
+  const key = names.join(",")
+  useEffect(() => {
+    let timer = null
+    const later = (table) => {
+      if (typeof table === "string" && !key.split(",").includes(table)) return
+      clearTimeout(timer)
+      timer = setTimeout(load, DEBOUNCE_MS)
+    }
+    const unsub = repo.subscribe(later)
+    const unsubAuto = onAutoRefresh(() => later())
+    return () => {
+      clearTimeout(timer)
+      unsub()
+      unsubAuto()
+    }
+  }, [load, key])
+}
+
+// Subscribes a component to a collection and re-fetches it when that table
+// changes (debounced, in this or another tab). A slower, older response never
+// overwrites a newer one. Returns { items, loading, error, reload }.
 export function useCollection(name) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const mounted = useRef(true)
+  const latest = useRef(0)
 
-  const load = useCallback(async () => {
+  // `fresh` (only from reload(), right after a write) never joins a fetch that
+  // may have started before that write committed.
+  const load = useCallback(async (fresh) => {
+    const ticket = ++latest.current
     try {
-      const rows = await repo.list(name)
-      if (mounted.current) {
+      const rows = await (fresh === true ? repo.list(name) : listOnce(name))
+      if (mounted.current && ticket === latest.current) {
         setItems(rows)
         setError(null)
         setLoading(false)
@@ -25,7 +72,7 @@ export function useCollection(name) {
       // Without this, a failed fetch (network / RLS deny) left loading=true
       // forever and the list view spun with no error.
       console.error(`Failed to load collection "${name}":`, e)
-      if (mounted.current) {
+      if (mounted.current && ticket === latest.current) {
         setError(e)
         setLoading(false)
       }
@@ -35,16 +82,14 @@ export function useCollection(name) {
   useEffect(() => {
     mounted.current = true
     load()
-    const unsub = repo.subscribe(load)
-    const unsubAuto = onAutoRefresh(load)
     return () => {
       mounted.current = false
-      unsub()
-      unsubAuto()
     }
   }, [load])
+  useStoreRefresh(load, [name])
 
-  return { items, loading, error, reload: load }
+  const reload = useCallback(() => load(true), [load])
+  return { items, loading, error, reload }
 }
 
 // Load many collections at once (dashboard/analytics). `names` must be stable.
@@ -53,11 +98,13 @@ export function useCollections(names) {
   const [data, setData] = useState({})
   const [loading, setLoading] = useState(true)
   const mounted = useRef(true)
+  const latest = useRef(0)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (fresh) => {
+    const ticket = ++latest.current
     try {
-      const lists = await Promise.all(names.map((n) => repo.list(n)))
-      if (mounted.current) {
+      const lists = await Promise.all(names.map((n) => (fresh === true ? repo.list(n) : listOnce(n))))
+      if (mounted.current && ticket === latest.current) {
         const next = {}
         names.forEach((n, i) => (next[n] = lists[i]))
         setData(next)
@@ -65,7 +112,7 @@ export function useCollections(names) {
       }
     } catch (e) {
       console.error("Failed to load collections:", e)
-      if (mounted.current) setLoading(false)
+      if (mounted.current && ticket === latest.current) setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
@@ -73,16 +120,14 @@ export function useCollections(names) {
   useEffect(() => {
     mounted.current = true
     load()
-    const unsub = repo.subscribe(load)
-    const unsubAuto = onAutoRefresh(load)
     return () => {
       mounted.current = false
-      unsub()
-      unsubAuto()
     }
   }, [load])
+  useStoreRefresh(load, names)
 
-  return { data, loading, reload: load }
+  const reload = useCallback(() => load(true), [load])
+  return { data, loading, reload }
 }
 
 // Category master with a built-in fallback so category dropdowns are never
@@ -104,7 +149,9 @@ export function useSettings() {
     } catch (e) {
       // Fall back to defaults so the Settings page renders instead of hanging
       // on <PageLoader/> forever when the fetch fails.
+      // Said out loud: a page drawn from the defaults shows a placeholder GSTIN.
       console.error("Failed to load settings:", e)
+      toast.error(`Company settings could not be loaded: ${e?.message || e}`, { id: "settings-load" })
       if (mounted.current) setSettings(DEFAULT_SETTINGS)
     }
   }, [])
@@ -112,7 +159,12 @@ export function useSettings() {
   useEffect(() => {
     mounted.current = true
     load()
-    const unsub = repo.subscribe(load)
+    // Only a change to settings itself; apiStore names the table, localStore
+    // passes an Event (no name), which still reloads.
+    const unsub = repo.subscribe((table) => {
+      if (typeof table === "string" && table !== "settings") return
+      load()
+    })
     const unsubAuto = onAutoRefresh(load)
     return () => {
       mounted.current = false

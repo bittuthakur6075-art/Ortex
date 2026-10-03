@@ -1,16 +1,22 @@
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { AlertTriangle, Sparkles } from "../../components/ui/Icons"
-import { recordPayment, invoiceBalance } from "../../data/domain/domain"
+import { recordPayment, outstandingBalance, paymentDateIso } from "../../data/domain/domain"
 import { PAYMENT_METHODS } from "../../data/domain/schema"
-import { toDateInput, formatCurrency, formatDate } from "../../lib/format"
+import { formatCurrency, formatDate, toDateInput } from "../../lib/format"
 import { cn } from "../../lib/cn"
 import { normalizeReading, findDuplicate, matchInvoice } from "../../lib/paymentReader"
 import ScreenshotReader from "./ScreenshotReader"
-import { Button, Input, Select, Field, Textarea, Drawer } from "../../components/ui/Ui"
+import { Button, Input, Select, Field, Textarea, Drawer, Switch } from "../../components/ui/Ui"
+
+// Today's date in India, yyyy-mm-dd: the latest a payment can be dated.
+const todayIst = () => new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10)
+// Above this a typo (an extra zero) is likelier than a real receipt: ask.
+const CONFIRM_ABOVE = 1e7
 
 // One payment form for both entry points:
-//  - Invoice editor: pass `invoice` (+ `balance`). The receipt is pinned to it.
+//  - Invoice editor: pass `invoice` (+ `balance`, + `payments` for the
+//    duplicate check). The receipt is pinned to it.
 //  - Payments page: pass `invoices` + `payments`, the user picks an open
 //    invoice (optional) and the receipt reconciles against it; or `type`
 //    "payout" for a vendor payment with no invoice at all.
@@ -23,42 +29,64 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
   const openInvoices = useMemo(() => {
     if (pinned || isPayout) return []
     return invoices
-      .filter((inv) => !["draft", "cancelled"].includes(inv.status))
-      .map((inv) => ({ inv, balance: invoiceBalance(inv, payments) }))
+      .map((inv) => ({ inv, balance: outstandingBalance(inv, payments) }))
       .filter((r) => r.balance > 0)
       .sort((a, b) => (a.inv.number || "").localeCompare(b.inv.number || ""))
   }, [invoices, payments, pinned, isPayout])
 
   const [invoiceId, setInvoiceId] = useState(invoice?.id || "")
   const linked = pinned ? invoice : openInvoices.find((r) => r.inv.id === invoiceId)?.inv || null
-  const due = pinned ? balance : linked ? invoiceBalance(linked, payments) : null
+  const due = pinned ? balance : linked ? outstandingBalance(linked, payments) : null
 
-  const [amount, setAmount] = useState(pinned ? balance : "")
-  const [method, setMethod] = useState(PAYMENT_METHODS[0])
-  const [date, setDate] = useState(toDateInput(new Date().toISOString()))
-  const [reference, setReference] = useState("")
-  const [party, setParty] = useState("")
-  const [note, setNote] = useState("")
-  // What the last screenshot said: its warnings, and the fields it filled.
+  const blank = { amount: pinned ? balance : "", method: PAYMENT_METHODS[0], date: todayIst(), reference: "", party: "", note: "", invoiceId: invoice?.id || "" }
+  const [amount, setAmount] = useState(blank.amount)
+  const [method, setMethod] = useState(blank.method)
+  const [date, setDate] = useState(blank.date)
+  const [reference, setReference] = useState(blank.reference)
+  const [party, setParty] = useState(blank.party)
+  const [note, setNote] = useState(blank.note)
+  const [advance, setAdvance] = useState(false)
+  // What the last screenshot said: its warnings, and the values it put in.
   const [reading, setReading] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
+
+  const current = { amount, method, date, reference, party, note, invoiceId }
+  const setters = { amount: setAmount, method: setMethod, date: setDate, reference: setReference, party: setParty, note: setNote, invoiceId: setInvoiceId }
+
+  // Undo what the previous screenshot filled, but keep any field the person
+  // has since typed over.
+  const clearReading = () => {
+    for (const [k, v] of Object.entries(reading?.values || {})) {
+      if (String(current[k]) === String(v)) setters[k](blank[k])
+    }
+    setReading(null)
+  }
 
   const applyReading = (raw) => {
+    clearReading()
     const d = normalizeReading(raw, { type })
-    const filled = []
-    if (d.amount) { setAmount(d.amount); filled.push("amount") }
-    if (d.date) { setDate(toDateInput(d.date)); filled.push("date") }
-    if (d.method !== "Other") { setMethod(d.method); filled.push("method") }
-    if (d.reference) { setReference(d.reference); filled.push("reference") }
-    if (d.party && !pinned) { setParty(d.party); filled.push("party") }
-    if (d.note && !pinned) setNote(d.note)
-    // A confident invoice match links it, unless one was already chosen.
-    const match = !pinned && !isPayout && !invoiceId ? matchInvoice(d, openInvoices) : null
-    if (match) { setInvoiceId(match.inv.id); filled.push("invoice") }
-    setReading({ ...d, filled, match, text: raw.text || "" })
+    const values = {}
+    const put = (k, v) => {
+      setters[k](v)
+      values[k] = v
+    }
+    if (d.amount) put("amount", d.amount)
+    if (d.date) put("date", toDateInput(d.date))
+    if (d.method !== "Other") put("method", d.method)
+    if (d.reference) put("reference", d.reference)
+    if (d.party && !pinned) put("party", d.party)
+    if (d.note && !pinned) put("note", d.note)
+    // A confident invoice match links it, unless one was chosen by hand.
+    const handPicked = invoiceId && invoiceId !== reading?.values?.invoiceId
+    const match = !pinned && !isPayout && !handPicked ? matchInvoice(d, openInvoices) : null
+    if (match) put("invoiceId", match.inv.id)
+    const filled = Object.keys(values).filter((k) => k !== "note").map((k) => (k === "invoiceId" ? "invoice" : k))
+    setReading({ ...d, filled, values, match, text: raw.text || "" })
   }
 
   const duplicate = useMemo(
-    () => findDuplicate({ type, amount: Number(amount) || null, date: date ? new Date(date).toISOString() : null, reference, party: party || linked?.customer?.name }, payments),
+    () => findDuplicate({ type, amount: Number(amount) || null, date: date ? paymentDateIso(date) : null, reference, party: party || linked?.customer?.name }, payments),
     [type, amount, date, reference, party, linked, payments],
   )
 
@@ -82,28 +110,44 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
 
   const amt = Number(amount) || 0
   const over = due !== null && amt > due
+  const maxDate = todayIst()
 
   // `close` is the drawer's animated close: the panel slides out, then onDone runs.
   const submit = async (close) => {
+    if (savingRef.current) return
     if (amt <= 0) return toast.error("Enter the amount")
+    if (!date) return toast.error("Enter the date")
+    if (date > maxDate) return toast.error("The date cannot be after today")
     const partyName = party.trim()
     if (!pinned && !linked && !partyName) return toast.error(isPayout ? "Enter who was paid" : "Enter who paid")
+    if (amt > CONFIRM_ABOVE && !window.confirm(`Is ${formatCurrency(amt)} correct?`)) return
     if (duplicate?.sure && !window.confirm(`${duplicate.payment.number || "A payment"} already has this reference. Record it again?`)) return
     if (reading?.serious && !window.confirm(reading.status === "failed" ? "This payment failed. Record it anyway?" : "This is not a payment screenshot. Record it anyway?")) return
-    await recordPayment({
-      type,
-      amount: amt,
-      method,
-      date: new Date(date).toISOString(),
-      reference,
-      note,
-      party: partyName,
-      invoiceId: linked?.id,
-      invoiceNumber: linked?.number,
-      customer: linked?.customer,
-    })
-    toast.success(isPayout ? "Payout recorded" : "Payment recorded")
-    close(onDone)
+    if (reading?.status === "pending" && !window.confirm("This payment is still pending. Record it anyway?")) return
+    savingRef.current = true
+    setSaving(true)
+    try {
+      await recordPayment({
+        type,
+        amount: amt,
+        method,
+        date,
+        reference,
+        note,
+        party: partyName,
+        invoiceId: linked?.id,
+        invoiceNumber: linked?.number,
+        customer: linked?.customer,
+        ...(advance && !isPayout && !linked ? { advance: true } : {}),
+      })
+      toast.success(isPayout ? "Payout recorded" : "Payment recorded")
+      close(onDone)
+    } catch (e) {
+      // The database's own words (migration 0066 refuses bad amounts, unknown invoices, ...).
+      toast.error(e?.message || "Could not save the payment")
+      savingRef.current = false
+      setSaving(false)
+    }
   }
 
   return (
@@ -118,14 +162,14 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
           <Button variant="outline" size="sm" onClick={() => close()}>
             Cancel
           </Button>
-          <Button size="sm" onClick={() => submit(close)}>
-            {amt > 0 ? `Save ${formatCurrency(amt).replace(/\.00$/, "")}` : "Save"}
+          <Button size="sm" disabled={saving} onClick={() => submit(close)}>
+            {saving ? "Saving…" : amt > 0 ? `Save ${formatCurrency(amt).replace(/\.00$/, "")}` : "Save"}
           </Button>
         </div>
       )}
     >
       <div className="space-y-5">
-        <ScreenshotReader onRead={applyReading} />
+        <ScreenshotReader onRead={applyReading} onClear={clearReading} />
 
         {reading && <ReadingNotes reading={reading} amount={amt} onUseAlt={() => setAmount(reading.amountAlt)} />}
 
@@ -168,8 +212,8 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
         )}
 
         <div className="grid grid-cols-2 gap-4">
-          <Field label={label("Date", "date")}>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <Field label={label("Date", "date")} required>
+            <Input type="date" required max={maxDate} value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
           <Field label={label("Method", "method")}>
             <Select value={method} onChange={(e) => setMethod(e.target.value)}>
@@ -206,7 +250,8 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
                 purpose: isPayout
                   ? "Short internal note on a vendor payout: what it was for"
                   : "Short internal note on a received customer payment: what it covers",
-                context: () => ({ type, reference, invoiceId: invoiceId || undefined }),
+                // Never the UTR: the writer's free tier may keep prompts.
+                context: () => ({ type, invoiceNumber: linked?.number || undefined }),
                 format: "short",
                 maxChars: 200,
               }}
@@ -216,6 +261,16 @@ export default function RecordPaymentModal({ type = "inflow", invoice, balance, 
               rows={2}
             />
           </Field>
+        )}
+
+        {!isPayout && !linked && (
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[13px] text-foreground">
+              Advance against an order
+              <span className="block text-xs text-muted-foreground">Its receipt prints as a Receipt Voucher</span>
+            </span>
+            <Switch checked={advance} onChange={setAdvance} label="Advance against an order" />
+          </div>
         )}
       </div>
     </Drawer>

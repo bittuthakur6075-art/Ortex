@@ -160,11 +160,20 @@ export async function getDoc(db: Db, table: string, id: string): Promise<Doc | n
   return data ? { ...(data as Row).doc, id: (data as Row).id, createdAt: (data as Row).created_at } : null
 }
 
+// Merged server-side by doc_merge (migration 0066), so a key written meanwhile
+// (a Tally stamp on an invoice) survives. Read-modify-write only on a database
+// without it.
 export async function patchDoc(db: Db, table: string, id: string, patch: Doc): Promise<Doc | null> {
+  const { id: _pi, createdAt: _pc, ...p } = patch
+  const merged = await db.rpc("doc_merge", { p_table: table, p_id: id, p_patch: p })
+  if (!merged.error) {
+    const r = merged.data as Row | null
+    return r ? { ...r.doc, id: r.id, createdAt: r.created_at } : null
+  }
+  if (merged.error.code !== "PGRST202" && merged.error.code !== "42883") throw new Error(`${table} update: ${merged.error.message}`)
   const existing = await getDoc(db, table, id)
   if (!existing) return null
   const { id: _i, createdAt: _c, ...doc } = existing
-  const { id: _pi, createdAt: _pc, ...p } = patch
   const { data, error } = await db.from(table).update({ doc: { ...doc, ...p } }).eq("id", id).select("*").single()
   if (error) throw new Error(`${table} update: ${error.message}`)
   return { ...(data as Row).doc, id: (data as Row).id, createdAt: (data as Row).created_at }

@@ -18,7 +18,7 @@ export const HELP = [
   { id: "invoice-new", module: "invoices", path: "/billing?tab=invoices", title: "Create an invoice",
     steps: ["Open Billing, Invoices and press New invoice.", "Pick the customer and add the lines, exactly as for a quotation.", "Invoices can also be imported from TallyPrime XML with Import."] },
   { id: "payment", module: "payments", path: "/billing?tab=payments", title: "Record a payment",
-    steps: ["Open Billing, Payments and press Record payment.", "Choose the invoice it pays, the amount, date and mode. The invoice's balance updates straight away."] },
+    steps: ["Open Billing, Payments and press Record payment (or Record payout for money paid out). From an open invoice, press Record payment at the top.", "Drop, paste or click to add a UPI or bank screenshot: it is read on your computer and fills the amount, date, method, reference and payer, each marked with a sparkle. Check them; the X removes the screenshot and what it filled.", "Enter or check the Amount, Received from, Date, Method and Reference, and pick the Invoice it pays if it is not already chosen.", "Press Save. The invoice's balance and status update by themselves."] },
   { id: "enquiries", module: "enquiries", path: "/crm?tab=enquiries", title: "Work a website enquiry",
     steps: ["Open Enquiries in the sidebar. New ones from the website and the quote calculator arrive at the top.", "Open one: the advice at the top says what to ask before you call.", "Move its status as you go (contacted, qualified, quoted) and use Convert to quotation when they are ready for a price."] },
   { id: "voice", module: "voice-leads", path: "/crm?tab=voice", title: "Return a call Anu took on the website",

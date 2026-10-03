@@ -82,26 +82,31 @@ export function initials(name) {
     .toUpperCase() || "?"
 }
 
-// Convert an amount to indian-format words for invoices (e.g. "Rupees One
-// Thousand Two Hundred Only"). Handles up to crores.
+// Convert an amount to indian-format words for invoices and receipts, e.g.
+// "Rupees One Thousand Two Hundred and Fifty Paise Only". Crores of crores
+// recurse ("One Hundred Twenty Crore"), never "undefined".
+// MIRRORED in Ortex.Mobile/src/domain/format.ts: edit both.
 export function amountInWords(num) {
-  const n = Math.floor(Number(num) || 0)
-  if (n === 0) return "Rupees Zero Only"
+  const totalPaise = Math.round(Math.abs(Number(num) || 0) * 100)
+  const n = Math.floor(totalPaise / 100)
+  const paise = totalPaise % 100
   const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
     "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"]
   const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
   const twoDigits = (x) => (x < 20 ? ones[x] : `${tens[Math.floor(x / 10)]}${x % 10 ? " " + ones[x % 10] : ""}`)
   const threeDigits = (x) =>
     `${x >= 100 ? ones[Math.floor(x / 100)] + " Hundred" + (x % 100 ? " " : "") : ""}${x % 100 ? twoDigits(x % 100) : ""}`
-
-  let result = ""
-  const crore = Math.floor(n / 1e7)
-  const lakh = Math.floor((n % 1e7) / 1e5)
-  const thousand = Math.floor((n % 1e5) / 1e3)
-  const rest = n % 1e3
-  if (crore) result += `${twoDigits(crore)} Crore `
-  if (lakh) result += `${twoDigits(lakh)} Lakh `
-  if (thousand) result += `${twoDigits(thousand)} Thousand `
-  if (rest) result += threeDigits(rest)
-  return `Rupees ${result.trim()} Only`
+  const words = (x) => {
+    let result = ""
+    const crore = Math.floor(x / 1e7)
+    const lakh = Math.floor((x % 1e7) / 1e5)
+    const thousand = Math.floor((x % 1e5) / 1e3)
+    const rest = x % 1e3
+    if (crore) result += `${words(crore)} Crore `
+    if (lakh) result += `${twoDigits(lakh)} Lakh `
+    if (thousand) result += `${twoDigits(thousand)} Thousand `
+    if (rest) result += threeDigits(rest)
+    return result.trim()
+  }
+  return `Rupees ${n ? words(n) : "Zero"}${paise ? ` and ${twoDigits(paise)} Paise` : ""} Only`
 }

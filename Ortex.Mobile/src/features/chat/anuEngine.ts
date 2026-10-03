@@ -70,6 +70,7 @@ const HELP: { title: string; module: string; steps: string[] }[] = [
   { title: "Mark attendance", module: "attendance", steps: ["On Home, slide to check in and scan the QR code on the office screen.", "Out in the field? Check in without a code; the office reviews it.", "A missed check-out is fixed with a correction from the day's page."] },
   { title: "Apply for leave", module: "attendance", steps: ["Open Profile, Leave, and tap Apply.", "Pick the type and dates. An admin approves it and you get a notification."] },
   { title: "See your payslip", module: "payslips", steps: ["Open Profile, My pay. A payslip appears once that month's pay run is marked paid."] },
+  { title: "Record a payment", module: "payments", steps: ["On Home, open Payments, then tap Record. Choose Received or Paid out.", "Enter the amount, who paid or was paid, the method, the day and the UTR. A UTR already in the ledger is called out, and Save asks before recording it again.", "Linking it to an invoice, editing or printing a receipt is done in the console."] },
   { title: "Use Team chat", module: "chat", steps: ["Open the Chat tab. Tap + to message a colleague or make a group.", "Your team's channel is there too: Anu posts the daily update and attendance in it.", "Long-press your own message to delete it for everyone."] },
   { title: "Reach another team", module: "chat", steps: ["Ask Anu in Chat, for example: tell accounts that INV-12 is paid.", "She shows it to you first and sends it under your name when you tap Send. Only admins can post to Everyone."] },
 ]

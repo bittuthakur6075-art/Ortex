@@ -1,10 +1,10 @@
-// Growth analytics, pure functions over the raw collections. Everything the
-// dashboard shows is derived here so the math is testable and lives in one
-// place. Revenue/margin figures are GST-exclusive (taxable value); tax is
-// tracked separately, per the growth spec.
+// Money analytics for Insights → Sales (computeAnalytics), pure functions over
+// the raw collections, so the math is testable and lives in one place. The
+// Dashboard's own figures are lib/analytics/today.js. Revenue and margin
+// figures are GST-exclusive (taxable value); tax is tracked separately.
 
 import { round2, daysUntil } from "../format"
-import { resolveInvoiceStatus, invoiceBalance } from "../../data/domain/domain"
+import { resolveInvoiceStatus, outstandingBalance } from "../invoiceMoney"
 import { inRange, periodBounds } from "./period"
 
 export function computeAnalytics({ products = [], enquiries = [], quotations = [], invoices = [], payments = [] }, period = "mtd") {
@@ -12,9 +12,10 @@ export function computeAnalytics({ products = [], enquiries = [], quotations = [
 
   // ---- cash collected (north-star) ----
   const inflows = payments.filter((p) => p.type === "inflow")
-  const cashCollected = round2(inflows.filter((p) => inRange(p.date, from, to)).reduce((s, p) => s + p.amount, 0))
+  const amountOf = (p) => Number(p.amount) || 0
+  const cashCollected = round2(inflows.filter((p) => inRange(p.date, from, to)).reduce((s, p) => s + amountOf(p), 0))
   const payouts = round2(
-    payments.filter((p) => p.type === "payout" && inRange(p.date, from, to)).reduce((s, p) => s + p.amount, 0),
+    payments.filter((p) => p.type === "payout" && inRange(p.date, from, to)).reduce((s, p) => s + amountOf(p), 0),
   )
 
   // ---- revenue (taxable) from invoices in period, excluding cancelled ----
@@ -23,12 +24,12 @@ export function computeAnalytics({ products = [], enquiries = [], quotations = [
     liveInvoices.filter((i) => inRange(i.issueDate, from, to)).reduce((s, i) => s + (i.totals?.taxable || 0), 0),
   )
 
-  // ---- receivables + AR aging ----
+  // ---- receivables + AR aging (drafts owe nothing yet) ----
   let outstanding = 0
   const arAging = { current: 0, "1-30": 0, "31-60": 0, "60+": 0 }
   liveInvoices.forEach((inv) => {
-    const bal = invoiceBalance(inv, payments)
-    if (bal <= 0.5) return
+    const bal = outstandingBalance(inv, payments)
+    if (!bal) return
     outstanding = round2(outstanding + bal)
     const d = daysUntil(inv.dueDate)
     if (d === null || d >= 0) arAging.current = round2(arAging.current + bal)
@@ -42,7 +43,7 @@ export function computeAnalytics({ products = [], enquiries = [], quotations = [
   const revenue90 = round2(
     liveInvoices.filter((i) => inRange(i.issueDate, ninetyAgo, to)).reduce((s, i) => s + (i.totals?.taxable || 0), 0),
   )
-  const totalOutstanding = round2(liveInvoices.reduce((s, i) => s + Math.max(0, invoiceBalance(i, payments)), 0))
+  const totalOutstanding = round2(liveInvoices.reduce((s, i) => s + outstandingBalance(i, payments), 0))
   const dso = revenue90 > 0 ? Math.round((totalOutstanding / revenue90) * 90) : 0
 
   // ---- quotation win rate + pipeline ----
@@ -143,7 +144,7 @@ export function computeAnalytics({ products = [], enquiries = [], quotations = [
       liveInvoices.filter((inv) => inRange(inv.issueDate, start.getTime(), end.getTime())).reduce((s, inv) => s + (inv.totals?.taxable || 0), 0),
     )
     const collected = round2(
-      inflows.filter((p) => inRange(p.date, start.getTime(), end.getTime())).reduce((s, p) => s + p.amount, 0),
+      inflows.filter((p) => inRange(p.date, start.getTime(), end.getTime())).reduce((s, p) => s + amountOf(p), 0),
     )
     trend.push({ label: start.toLocaleDateString("en-IN", { month: "short" }), revenue: rev, collected })
   }

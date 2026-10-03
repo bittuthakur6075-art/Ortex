@@ -20,9 +20,11 @@ import {
 } from "../components/ui/Icons"
 import { repo } from "../data/store/repository"
 import { useCollection } from "../hooks/useCollection"
-import { sameCustomer, resolveInvoiceStatus } from "../data/domain/domain"
+import { sameCustomer, resolveInvoiceStatus, outstandingBalance, paymentsOrStored, isSettled } from "../data/domain/domain"
+import { useProfile } from "../hooks/useProfile"
+import { canAccess } from "../data/domain/modules"
 import { newCustomer, INVOICE_STATUS, QUOTATION_STATUS, ENQUIRY_STATUS } from "../data/domain/schema"
-import { customerStats, purchasedItems, receivedAgainst, whatsappNumber, CUSTOMER_STATUS, DORMANT_AFTER_DAYS } from "../lib/customerStats"
+import { customerStats, purchasedItems, whatsappNumber, CUSTOMER_STATUS, DORMANT_AFTER_DAYS } from "../lib/customerStats"
 import { formatCurrency, formatDate, formatNumber, relativeTime } from "../lib/format"
 import { stateLabel } from "../lib/gstStates"
 import { findDuplicate, normaliseCustomer, validateCustomer } from "../lib/validateCustomer"
@@ -40,8 +42,12 @@ export default function CustomerDetail() {
   const { items: customers, loading } = useCollection("customers")
   const { items: invoices } = useCollection("invoices")
   const { items: quotations } = useCollection("quotations")
-  const { items: payments } = useCollection("payments")
+  const { items: readPayments } = useCollection("payments")
   const { items: enquiries } = useCollection("enquiries")
+  const profile = useProfile()
+  const canPay = canAccess(profile, "payments")
+  // Without the payments module, each invoice's stored amountPaid stands in.
+  const payments = useMemo(() => paymentsOrStored(invoices, readPayments, canPay), [invoices, readPayments, canPay])
 
   const record = customers.find((c) => c.id === id) || null
   // The edit buffer only wins once it belongs to the customer on screen, so a
@@ -57,7 +63,7 @@ export default function CustomerDetail() {
       invoices: invs,
       quotations: quotations.filter((q) => sameCustomer(record, q.customer)).sort(byNewest),
       payments: payments
-        .filter((p) => p.type === "inflow" && (invoiceIds.has(p.invoiceId) || sameCustomer(record, p.customer)))
+        .filter((p) => p.type === "inflow" && !p.stored && (invoiceIds.has(p.invoiceId) || sameCustomer(record, p.customer)))
         .sort((a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0)),
       enquiries: enquiries
         .filter((e) => sameCustomer(record, e.customer))
@@ -153,10 +159,10 @@ export default function CustomerDetail() {
         <Tile icon={TrendingUp} label="Lifetime business" value={formatCurrency(stats.business)} sub={`${linked.quotations.length} quotation${linked.quotations.length === 1 ? "" : "s"} raised`} />
         <Tile
           icon={Wallet}
-          tone={stats.overdue > 0.5 ? "danger" : stats.outstanding > 0.5 ? "warning" : "success"}
+          tone={!isSettled(stats.overdue) ? "danger" : !isSettled(stats.outstanding) ? "warning" : "success"}
           label="Outstanding"
           value={formatCurrency(stats.outstanding)}
-          sub={stats.overdue > 0.5 ? `${formatCurrency(stats.overdue)} past due` : "Nothing past due"}
+          sub={!isSettled(stats.overdue) ? `${formatCurrency(stats.overdue)} past due` : "Nothing past due"}
         />
         <Tile icon={ReceiptText} tone="info" label="Orders" value={formatNumber(stats.orders)} sub="Invoices raised" />
         <Tile icon={IndianRupee} tone="slate" label="Average order" value={formatCurrency(stats.avgOrder)} />
@@ -271,8 +277,9 @@ export default function CustomerDetail() {
                 badge: <StatusBadge list={INVOICE_STATUS} status={resolveInvoiceStatus(inv, payments)} />,
                 amount: inv.totals?.grandTotal,
                 note: (() => {
-                  const balance = (Number(inv.totals?.grandTotal) || 0) - receivedAgainst(inv.id, payments)
-                  return balance > 0.5 && inv.status !== "cancelled" ? `${formatCurrency(balance)} due` : "Settled"
+                  if (inv.status === "draft") return "Draft"
+                  const balance = outstandingBalance(inv, payments)
+                  return balance > 0 ? `${formatCurrency(balance)} due` : "Settled"
                 })(),
               })}
             />

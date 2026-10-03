@@ -230,7 +230,8 @@ describe("real-world fixes", () => {
   })
 
   it("31,200 or 1,200: the word's confidence decides, the other stays one click away", () => {
-    expect(headlineAmount("31,200", 96)).toEqual({ amount: 31200, alt: null })
+    // Even a confident read keeps the other one: the glyph may still be the ₹.
+    expect(headlineAmount("31,200", 96)).toEqual({ amount: 31200, alt: 1200 })
     expect(headlineAmount("31,200", 82)).toEqual({ amount: 31200, alt: 1200 })
     expect(headlineAmount("31,200", 40)).toEqual({ amount: 1200, alt: 31200 })
     // 45,000 does not start with a digit ₹ turns into.
@@ -238,6 +239,20 @@ describe("real-world fixes", () => {
     const d = normalizeReading(parseReceiptText("Payment failed\n31,200\nUPI Ref No 427100000001", 90, { "31,200": 40 }), { now })
     expect(d).toMatchObject({ amount: 1200, amountAlt: 31200 })
     expect(d.warnings.join(" ")).toMatch(/₹1,200 or ₹31,200/)
+  })
+
+  it("77,500 at high confidence still asks: it may be ₹7,500", () => {
+    expect(headlineAmount("77,500", 95)).toEqual({ amount: 77500, alt: 7500 })
+    const d = normalizeReading(parseReceiptText("77,500\nUPI Ref No 427100000001", 95, { "77,500": 95 }), { now })
+    expect(d).toMatchObject({ amount: 77500, amountAlt: 7500 })
+    expect(d.warnings.join(" ")).toMatch(/Check the amount/)
+  })
+
+  it("Rs and INR only as words: never inside 'partners' or 'hrs'", () => {
+    const d = parseReceiptText("Our partners 24x7 support\nPaid ₹1,180\nUPI Ref No 427100000001", 95)
+    expect(normalizeReading(d, { now }).amount).toBe(1180)
+    expect(parseReceiptText("Delivered in 2 hrs 30 min", 95).amount).toBeFalsy()
+    expect(parseReceiptText("Amount Rs500", 95).amount).toBe(500)
   })
 
   it("M/S stays in a business name", () => {
@@ -330,5 +345,39 @@ describe("evenPolarity", () => {
   it("flips a dark-mode screen as a whole", () => {
     const dark = Uint8ClampedArray.from([30, 30, 30, 240])
     expect([...evenPolarity(dark, 4)]).toEqual([255, 255, 255, 17])
+  })
+})
+
+describe("real screenshots, QA 2026-10-03", () => {
+  it("does not read the hour of a time as a two-digit year, and dates Paytm's year-less receipts", () => {
+    expect(parseReceiptDate("15 Mar, 07:22 PM | Ref. No: 601000757058", now)).toBe("2026-03-15T19:22:00+05:30")
+    expect(parseReceiptDate("16 Aug, 06:27 PM | Ref No: 6228 4395 5349", now)).toBe("2026-08-16T18:27:00+05:30")
+    // A day later in the year than today is last year's.
+    expect(parseReceiptDate("15 Dec, 10:00 AM", now)).toBe("2025-12-15T10:00:00+05:30")
+    // Two-digit years still work.
+    expect(parseReceiptDate("30 Sep 26, 6:42 pm", now)).toBe("2026-09-30T18:42:00+05:30")
+  })
+
+  it("reads Paytm's unlabelled payee (above the UPI id) and payer (above the bank line)", () => {
+    const r = parseReceiptText("Paytm\nArya Book Shop\npaytmqr61uwja@ptys\n420\nFour Hundred Twenty Rupees\nPaid Successfully\nBittu Kumar\n© Punjab National Bank - 9269\n16 Aug, 06:27 PM | Ref No: 6228 4395 5349", 88, {}, "420")
+    expect(r.payeeName).toBe("Arya Book Shop")
+    expect(r.payerName).toBe("Bittu Kumar")
+    expect(r.app).toBe("Paytm")
+    expect(r.amount).toBe(420)
+    expect(r.reference).toBe("622843955349")
+    const p = parseReceiptText("Paytm\nPreeti Kumari\n9667606137@pthdfc on Paytm\n10,000\nTen Thousand Rupees\nPaid Successfully\nTicket booking\nRamshankar Prasad Thakur\n¢ ICICI Bank - 1912\n18 Sep, 07:41 AM | Ref No: 2159 4602 2027", 87, {}, "10,000")
+    expect(p.payeeName).toBe("Preeti Kumari")
+    expect(p.payerName).toBe("Ramshankar Prasad Thakur")
+  })
+
+  it("lets a later pass with one clear headline settle an ambiguous one", () => {
+    // ₹72.00 read as "72.00" (low confidence) -> 2 or 72; the 400px pass reads "¥72.00".
+    const a = parseReceiptText("72.00\nCompleted\nSent to\nSaroj Kumar Sahu\n16 Aug 2026, 7:57 pm\nTransaction ID\n110452974474", 90, { "72.00": 35 }, "72.00")
+    expect([a.amount, a.amountAlt]).toEqual([2, 72])
+    const b = parseReceiptText("¥72.00\nCompleted", 90, {}, "¥72.00")
+    const m = mergeReadings(a, b)
+    expect([m.amount, m.amountAlt]).toEqual([72, null])
+    // A pass that agrees with neither reading changes nothing.
+    expect(mergeReadings(a, parseReceiptText("¥5.00\nCompleted", 90, {}, "¥5.00")).amount).toBe(2)
   })
 })

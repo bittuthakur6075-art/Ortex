@@ -1,6 +1,7 @@
 import { Eye } from "../../components/ui/Icons"
 import { INVOICE_STATUS } from "../../data/domain/schema"
 import { formatDate, formatCurrency } from "../../lib/format"
+import { isSettled } from "../../lib/invoiceMoney"
 import { Button, Card, CardHeader, StatusBadge, Money, SortTh } from "../../components/ui/Ui"
 import TallyBadge from "./TallyBadge"
 
@@ -36,7 +37,7 @@ export default function InvoiceTable({ rows, sort, onSort, onEdit, onPreview, ti
                     <Money value={i.totals?.grandTotal} />
                   </td>
                   <td className="px-4 py-3 text-right tabular">
-                    {i._balance > 0.5 ? <span className="font-medium text-warning-text">{formatCurrency(i._balance)}</span> : <span className="text-[hsl(var(--success))]">Settled</span>}
+                    {!isSettled(i._balance) ? <span className="font-medium text-warning-text">{formatCurrency(i._balance)}</span> : <span className="text-[hsl(var(--success))]">Settled</span>}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge list={INVOICE_STATUS} status={i._status} />
@@ -51,7 +52,8 @@ export default function InvoiceTable({ rows, sort, onSort, onEdit, onPreview, ti
                     <Button
                       onClick={(ev) => {
                         ev.stopPropagation()
-                        onPreview(i)
+                        // The sheet prints the live status and paid amount, not the stored ones.
+                        onPreview({ ...i, status: i._status, amountPaid: i._paid })
                       }}
                       variant="ghost" size="sm" icon className="text-muted-foreground"
                       title="Preview"

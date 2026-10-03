@@ -4,7 +4,10 @@ import { Users, Plus, AlertTriangle } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { useCollection, useSorting } from "../hooks/useCollection"
-import { sameCustomer } from "../data/domain/domain"
+import { sameCustomer, paymentsOrStored } from "../data/domain/domain"
+import { isSettled } from "../lib/invoiceMoney"
+import { useProfile } from "../hooks/useProfile"
+import { canAccess } from "../data/domain/modules"
 import { newCustomer } from "../data/domain/schema"
 import { customerStats, CUSTOMER_STATUS } from "../lib/customerStats"
 import { formatCurrency, formatDate } from "../lib/format"
@@ -45,7 +48,10 @@ export default function Customers({ embedded = false }) {
   const { items, loading } = useCollection("customers")
   const { items: invoices } = useCollection("invoices")
   const { items: quotations } = useCollection("quotations")
-  const { items: payments } = useCollection("payments")
+  const { items: readPayments } = useCollection("payments")
+  const profile = useProfile()
+  const canPay = canAccess(profile, "payments")
+  const payments = useMemo(() => paymentsOrStored(invoices, readPayments, canPay), [invoices, readPayments, canPay])
   const [query, setQuery] = useState("")
   const [creating, setCreating] = useState(false)
   const location = useLocation()
@@ -209,7 +215,7 @@ export default function Customers({ embedded = false }) {
                       <Money value={c._business} />
                     </td>
                     <td className="px-4 py-3 text-right tabular">
-                      {c._outstanding > 0.5 ? (
+                      {!isSettled(c._outstanding) ? (
                         <span className="font-medium text-warning-text">{formatCurrency(c._outstanding)}</span>
                       ) : (
                         <span className="text-muted-foreground">-</span>

@@ -72,7 +72,7 @@ export const ALL_MODULE_KEYS = ASSIGNABLE_MODULES.map((m) => m.key)
 /**
  * What each role gets until the Super Admin changes it, and what the apps fall
  * back to when role_permissions cannot be read (0032 not pushed yet). Must
- * equal the seed in migration 0032.
+ * equal the seed in migration 0032 plus 0040's payroll grant for Accounts.
  */
 export const DEFAULT_ROLE_MODULES = {
   sales: ["voice-leads", "enquiries", "customers", "quotations"],

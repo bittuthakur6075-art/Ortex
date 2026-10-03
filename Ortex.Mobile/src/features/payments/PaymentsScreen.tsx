@@ -1,11 +1,17 @@
 import React from "react"
 import { StyleSheet, Text, View } from "react-native"
 
-import { formatCurrency, formatDate } from "@/domain/format"
-import { isAdmin } from "@/domain/modules"
+import { formatCurrency } from "@/domain/format"
+import { canAccess } from "@/domain/modules"
 import type { Payment } from "@/domain/schema"
 import { StatStrip } from "@/features/pay/payUi"
-import { METHOD_ICON, paymentTotals, visiblePayments, type PaymentFilter } from "@/features/payments/payments"
+import {
+  METHOD_ICON,
+  paymentDay,
+  paymentTotals,
+  visiblePayments,
+  type PaymentFilter,
+} from "@/features/payments/payments"
 import { useCollection } from "@/hooks/useCollection"
 import { feedback } from "@/lib/feedback"
 import type { StackScreenProps } from "@/navigation/types"
@@ -33,15 +39,34 @@ import CountChips from "@/ui/CountChips"
 const rupees = (n: number) => formatCurrency(n).replace(/\.00$/, "")
 
 /**
- * Payments, for the Super Admin and Admins: the console's Billing -> Payments
+ * Payments, for whoever holds the `payments` module (the database's gate, so
+ * Accounts too): the console's Billing -> Payments
  * on the phone. Received, paid out and net on one strip, then All / Received /
  * Paid out and a search, then the ledger newest first: who, how (the method's
  * glyph and the UTR) and the signed amount. A row opens its details; Record
  * opens the form.
  */
-export default function PaymentsScreen({ navigation }: StackScreenProps<"Payments">) {
-  const t = useTheme()
+export default function PaymentsScreen(props: StackScreenProps<"Payments">) {
   const { profile } = useAuth()
+  // Gate before the ledger is fetched: no module, no read, no false "No payments yet".
+  if (!canAccess(profile, "payments")) {
+    return (
+      <AppScreen title="Payments" back onBack={() => props.navigation.goBack()} inTabs={false}>
+        <Panel>
+          <EmptyState
+            icon="lock"
+            title="Not in your access"
+            hint="Payments need the Payments module. An admin can grant it."
+          />
+        </Panel>
+      </AppScreen>
+    )
+  }
+  return <PaymentsLedger {...props} />
+}
+
+function PaymentsLedger({ navigation }: StackScreenProps<"Payments">) {
+  const t = useTheme()
   const { items, loading, error, fromCache, cachedAt, reload } = useCollection<Payment>("payments")
   const [filter, setFilter] = React.useState<PaymentFilter>("all")
   const [query, setQuery] = React.useState("")
@@ -50,16 +75,6 @@ export default function PaymentsScreen({ navigation }: StackScreenProps<"Payment
 
   const totals = React.useMemo(() => paymentTotals(items), [items])
   const shown = React.useMemo(() => visiblePayments(items, filter, query), [items, filter, query])
-
-  if (!isAdmin(profile)) {
-    return (
-      <AppScreen title="Payments" back onBack={() => navigation.goBack()} inTabs={false}>
-        <Panel>
-          <EmptyState icon="lock" title="Admins only" hint="Payments are open to the Super Admin and Admins." />
-        </Panel>
-      </AppScreen>
-    )
-  }
 
   const record = () => {
     feedback.tap()
@@ -73,10 +88,51 @@ export default function PaymentsScreen({ navigation }: StackScreenProps<"Payment
       back
       onBack={() => navigation.goBack()}
       inTabs={false}
-      overlay={<Fab label="Record" icon="add" inTabs={false} accessibilityLabel="Record a payment" onPress={record} />}
+      overlay={
+        <Fab
+          label="Record"
+          icon="add"
+          inTabs={false}
+          accessibilityLabel="Record a payment"
+          onPress={record}
+        />
+      }
       list={{
-        data: [],
-        renderItem: () => null,
+        // Virtualised: thousands of rows draw only what is on screen.
+        data: loading || items.length === 0 ? [] : shown,
+        keyExtractor: (p: unknown) => (p as Payment).id,
+        ItemSeparatorComponent: RowSeparator,
+        ListEmptyComponent:
+          loading || items.length === 0 ? null : (
+            <Panel>
+              <Text style={[textVariants.small, styles.empty, { color: t.textTertiary }]}>
+                No payments match.
+              </Text>
+            </Panel>
+          ),
+        renderItem: ({ item }: { item: unknown }) => {
+          const p = item as Payment
+          const inflow = p.type === "inflow"
+          return (
+            <View style={{ backgroundColor: t.surface }}>
+              <ListRow
+                leading={<MethodWell method={p.method} />}
+                title={p.party || p.customer?.name || "Unnamed"}
+                subtitle={[paymentDay(p.date), p.method, p.reference].filter(Boolean).join(" · ")}
+                value={`${inflow ? "+" : "−"}${rupees(p.amount)}`}
+                valueSub={
+                  <Text style={[textVariants.caption, { color: inflow ? t.successText : t.dangerText }]}>
+                    {inflow ? "Received" : "Paid out"}
+                  </Text>
+                }
+                onPress={() => {
+                  feedback.tap()
+                  setOpen(p)
+                }}
+              />
+            </View>
+          )
+        },
         refreshControl: (
           <ListRefreshControl
             refreshing={refreshing}
@@ -94,9 +150,15 @@ export default function PaymentsScreen({ navigation }: StackScreenProps<"Payment
       {loading ? (
         <SkeletonList count={5} />
       ) : items.length === 0 ? (
-        <Panel>
-          <EmptyState icon="wallet" title="No payments yet" hint="Record a payment received or a payout made. It shows in the console too." />
-        </Panel>
+        error ? null : (
+          <Panel>
+            <EmptyState
+              icon="wallet"
+              title="No payments yet"
+              hint="Record a payment received or a payout made. It shows in the console too."
+            />
+          </Panel>
+        )
       ) : (
         <>
           <View style={[styles.top, { backgroundColor: t.surface }]}>
@@ -124,38 +186,6 @@ export default function PaymentsScreen({ navigation }: StackScreenProps<"Payment
             }}
           />
           <RowSeparator />
-
-          {shown.length === 0 ? (
-            <Panel>
-              <Text style={[textVariants.small, styles.empty, { color: t.textTertiary }]}>No payments match.</Text>
-            </Panel>
-          ) : (
-            <Panel>
-              {shown.map((p, i) => {
-                const inflow = p.type === "inflow"
-                return (
-                  <React.Fragment key={p.id}>
-                    {i > 0 && <RowSeparator />}
-                    <ListRow
-                      leading={<MethodWell method={p.method} />}
-                      title={p.party || p.customer?.name || "Unnamed"}
-                      subtitle={[formatDate(p.date), p.method, p.reference].filter(Boolean).join(" · ")}
-                      value={`${inflow ? "+" : "−"}${rupees(p.amount)}`}
-                      valueSub={
-                        <Text style={[textVariants.caption, { color: inflow ? t.successText : t.dangerText }]}>
-                          {inflow ? "Received" : "Paid out"}
-                        </Text>
-                      }
-                      onPress={() => {
-                        feedback.tap()
-                        setOpen(p)
-                      }}
-                    />
-                  </React.Fragment>
-                )
-              })}
-            </Panel>
-          )}
         </>
       )}
 
@@ -165,23 +195,39 @@ export default function PaymentsScreen({ navigation }: StackScreenProps<"Payment
             <View style={styles.sheetHead}>
               <MethodWell method={open.method} size={48} />
               <View style={styles.sheetHeadBody}>
-                <Text style={[textVariants.statLarge, { color: t.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                <Text
+                  style={[textVariants.statLarge, { color: t.text }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
                   {formatCurrency(open.amount)}
                 </Text>
-                <Text style={[textVariants.small, { color: open.type === "inflow" ? t.successText : t.dangerText }]}>
+                <Text
+                  style={[
+                    textVariants.small,
+                    { color: open.type === "inflow" ? t.successText : t.dangerText },
+                  ]}
+                >
                   {open.type === "inflow" ? "Received" : "Paid out"}
                 </Text>
               </View>
             </View>
             <View style={[styles.facts, { backgroundColor: t.surfaceInset }]}>
-              <Fact label={open.type === "inflow" ? "From" : "To"} value={open.party || open.customer?.name || "-"} />
-              <Fact label="Date" value={formatDate(open.date)} />
+              <Fact
+                label={open.type === "inflow" ? "From" : "To"}
+                value={open.party || open.customer?.name || "-"}
+              />
+              <Fact label="Date" value={paymentDay(open.date)} />
               <Fact label="Method" value={open.method} />
               {open.reference ? <Fact label="Reference" value={open.reference} /> : null}
               {open.invoiceNumber ? <Fact label="Invoice" value={open.invoiceNumber} /> : null}
             </View>
-            {open.note ? <Text style={[textVariants.body, { color: t.textSecondary }]}>{open.note}</Text> : null}
-            <Text style={[textVariants.caption, { color: t.textTertiary }]}>Edit, delete or print a receipt in the console.</Text>
+            {open.note ? (
+              <Text style={[textVariants.body, { color: t.textSecondary }]}>{open.note}</Text>
+            ) : null}
+            <Text style={[textVariants.caption, { color: t.textTertiary }]}>
+              Edit, delete or print a receipt in the console.
+            </Text>
           </View>
         ) : (
           <View />
@@ -196,8 +242,18 @@ export function MethodWell({ method, size = 38 }: { method: string; size?: numbe
   const t = useTheme()
   const tone = t.tones.slate
   return (
-    <View style={[styles.well, { width: size, height: size, borderRadius: radius.pill, backgroundColor: tone.bg }]}>
-      <Icon name={METHOD_ICON[method] || "wallet"} size={Math.round(size * 0.48)} color={tone.fg} variant="Bulk" />
+    <View
+      style={[
+        styles.well,
+        { width: size, height: size, borderRadius: radius.pill, backgroundColor: tone.bg },
+      ]}
+    >
+      <Icon
+        name={METHOD_ICON[method] || "wallet"}
+        size={Math.round(size * 0.48)}
+        color={tone.fg}
+        variant="Bulk"
+      />
     </View>
   )
 }
@@ -207,7 +263,10 @@ function Fact({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.fact}>
       <Text style={[textVariants.small, { color: t.textTertiary }]}>{label}</Text>
-      <Text style={[textVariants.smallStrong, { color: t.text, flex: 1, textAlign: "right" }]} numberOfLines={2}>
+      <Text
+        style={[textVariants.smallStrong, { color: t.text, flex: 1, textAlign: "right" }]}
+        numberOfLines={2}
+      >
         {value}
       </Text>
     </View>

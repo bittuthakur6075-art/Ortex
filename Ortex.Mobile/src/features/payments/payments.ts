@@ -1,8 +1,12 @@
-// Payments on the phone (Super Admin and Admins): what the console's Billing ->
-// Payments holds, and recording a payment received or a payout made.
+// Payments on the phone (whoever holds the `payments` module): what the
+// console's Billing -> Payments holds, and recording a payment received or a
+// payout made.
 //
-// Pure (tested in test/payments.test.mjs); the write is lib/payments.ts.
+// Pure (tested in test/payments.test.mjs, with parity against the console in
+// test/payments.parity.test.mjs); the write is lib/payments.ts.
 
+import { dayKey } from "@/domain/attendance"
+import { formatDate } from "@/domain/format"
 import type { Payment } from "@/domain/schema"
 import type { IconName } from "@/ui"
 
@@ -36,7 +40,12 @@ export function paymentTotals(items: Payment[]) {
       outs++
     }
   }
-  return { inflow: round2(inflow), payout: round2(payout), net: round2(inflow - payout), count: { all: items.length, inflow: ins, payout: outs } }
+  return {
+    inflow: round2(inflow),
+    payout: round2(payout),
+    net: round2(inflow - payout),
+    count: { all: items.length, inflow: ins, payout: outs },
+  }
 }
 
 /** Newest first, by the payment's own date; filtered by direction and a search. */
@@ -44,11 +53,22 @@ export function visiblePayments(items: Payment[], filter: PaymentFilter, query =
   const q = query.trim().toLowerCase()
   return items
     .filter((p) => filter === "all" || p.type === filter)
-    .filter((p) => !q || [p.number, p.party, p.customer?.name, p.invoiceNumber, p.method, p.reference, p.note].some((v) => String(v || "").toLowerCase().includes(q)))
+    .filter(
+      (p) =>
+        !q ||
+        [p.number, p.party, p.customer?.name, p.invoiceNumber, p.method, p.reference, p.note].some((v) =>
+          String(v || "")
+            .toLowerCase()
+            .includes(q),
+        ),
+    )
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 }
 
-const alnum = (s: unknown) => String(s ?? "").toUpperCase().replace(/[^0-9A-Z]/g, "")
+const alnum = (s: unknown) =>
+  String(s ?? "")
+    .toUpperCase()
+    .replace(/[^0-9A-Z]/g, "")
 
 /** A payment already in the ledger with this UTR / transaction reference (spaces and case ignored). */
 export function sameReference(reference: string, items: Payment[]): Payment | null {
@@ -67,15 +87,74 @@ export type PaymentDraft = {
   note: string
 }
 
+/** Above this, Save asks once more (₹1 crore). */
+export const BIG_AMOUNT = 1e7
+/** The database refuses this and above (Admin migration 0066). */
+export const MAX_AMOUNT = 1e10
+
+/**
+ * "1500,50" is a decimal comma, not "1,50,050": a comma followed by only one or
+ * two digits at the end is never Indian digit grouping (the last group is
+ * three), so it is refused instead of read as a hundred times the money.
+ */
+export const decimalComma = (s: string) => /,\d{1,2}$/.test(String(s).trim())
+
 /** The amount typed as a number ("1,23,456.50" -> 123456.5), or 0. */
 export const amountOf = (s: string) => {
+  if (decimalComma(s)) return 0
   const n = Number(String(s).replace(/,/g, ""))
   return Number.isFinite(n) && n > 0 ? round2(n) : 0
 }
 
+/** The day a stored payment belongs to, in IST whatever the phone's zone ("02 Oct 2026"). */
+export function paymentDay(iso: string): string {
+  const t = new Date(iso).getTime()
+  if (Number.isNaN(t)) return "-"
+  return formatDate(`${dayKey(t)}T12:00:00`)
+}
+
+/**
+ * After a save that failed or got no answer: the row it may have written anyway,
+ * created in the last two minutes (server time) with the same UTR, or the same
+ * direction, amount, party and day.
+ */
+/**
+ * `before` holds the ids that were already in the ledger when Save was pressed,
+ * so an older, genuine payment that looks the same is never taken for this one.
+ */
+export function justSaved(
+  d: PaymentDraft,
+  items: Payment[],
+  now: number,
+  before: ReadonlySet<string> = new Set(),
+): Payment | null {
+  const amount = amountOf(d.amount)
+  const party = d.party.trim().toLowerCase()
+  return (
+    items.find((p) => {
+      if (before.has(p.id)) return false
+      const at = Date.parse(String(p.createdAt || ""))
+      if (!(at >= now - 120000)) return false
+      if (sameReference(d.reference, [p])) return true
+      const day = new Date(p.date).getTime()
+      return (
+        p.type === d.type &&
+        round2(p.amount) === amount &&
+        String(p.party || "")
+          .trim()
+          .toLowerCase() === party &&
+        !Number.isNaN(day) &&
+        dayKey(day) === d.date
+      )
+    }) || null
+  )
+}
+
 /** The one thing stopping Save, said in words, or null. */
 export function paymentBlocker(d: PaymentDraft): string | null {
+  if (decimalComma(d.amount)) return "Use a full stop for paise: 1500.50, not 1500,50."
   if (!amountOf(d.amount)) return "Enter the amount."
+  if (amountOf(d.amount) >= MAX_AMOUNT) return "That amount is too large to record."
   if (!d.party.trim()) return d.type === "payout" ? "Enter who was paid." : "Enter who paid."
   if (!d.method) return "Choose how it was paid."
   return null

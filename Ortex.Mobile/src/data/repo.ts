@@ -209,16 +209,27 @@ export const repo = {
   async fetch<T>(name: Collection, { limit = Infinity }: { limit?: number } = {}): Promise<Fetched<T>> {
     const PAGE = 1000
     const rows: T[] = []
+    // A total order (created_at, then id) so pages never overlap or skip on ties
+    // such as a bulk import's shared created_at; a row inserted mid-paging shifts
+    // the next page by one, and the id set drops that repeat.
+    const seen = new Set<string>()
     try {
-      for (let from = 0; rows.length < limit; from += PAGE) {
-        const size = Math.min(PAGE, limit - rows.length)
+      // `from` moves by what was asked for, not a whole PAGE: with a finite limit
+      // a short request followed by a dropped repeat must not jump a page ahead.
+      for (let from = 0, size = 0; rows.length < limit; from += size) {
+        size = Math.min(PAGE, limit - rows.length)
         const { data, error } = await supabase
           .from(name)
           .select("*")
           .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
           .range(from, from + size - 1)
         if (error) throw error
-        rows.push(...(data as Row[]).map((r) => fromRow<T>(r) as T))
+        for (const r of data as Row[]) {
+          if (seen.has(r.id)) continue
+          seen.add(r.id)
+          rows.push(fromRow<T>(r) as T)
+        }
         if (data.length < size) break // short page => no more rows
       }
     } catch (error) {

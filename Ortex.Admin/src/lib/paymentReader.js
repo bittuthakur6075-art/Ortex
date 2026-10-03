@@ -239,10 +239,10 @@ const MON = "(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*"
 const pad = (n) => String(n).padStart(2, "0")
 
 /** The first date (and the time beside it) printed, as ISO in IST; "" if none. */
-export function parseReceiptDate(text) {
+export function parseReceiptDate(text, now = Date.now()) {
   const t = String(text || "").replace(/\s+/g, " ")
   let y, mo, d, m
-  if ((m = t.match(new RegExp(String.raw`\b(\d{1,2})(?:st|nd|rd|th)?[\s-]*${MON}[\s,'-]*(\d{4}|\d{2})\b`, "i")))) {
+  if ((m = t.match(new RegExp(String.raw`\b(\d{1,2})(?:st|nd|rd|th)?[\s-]*${MON}[\s,'-]*(\d{4}|\d{2})\b(?![:.]\d)`, "i")))) {
     ;[d, mo, y] = [+m[1], MONTHS[m[2].toLowerCase()], +m[3]]
   } else if ((m = t.match(new RegExp(String.raw`\b${MON}\s+(\d{1,2}),?\s+(\d{4})\b`, "i")))) {
     ;[mo, d, y] = [MONTHS[m[1].toLowerCase()], +m[2], +m[3]]
@@ -251,6 +251,12 @@ export function parseReceiptDate(text) {
   } else if ((m = t.match(/\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})\b/))) {
     // Indian banks print day first.
     ;[d, mo, y] = [+m[1], +m[2] - 1, +m[3]]
+  } else if ((m = t.match(new RegExp(String.raw`\b(\d{1,2})(?:st|nd|rd|th)?[\s-]*${MON}\b`, "i")))) {
+    // Paytm prints no year for this year's payments ("15 Mar, 07:22 PM"): the latest year not in the future.
+    ;[d, mo] = [+m[1], MONTHS[m[2].toLowerCase()]]
+    const ist = new Date(now + 330 * 60000)
+    y = ist.getUTCFullYear()
+    if (mo > ist.getUTCMonth() || (mo === ist.getUTCMonth() && d > ist.getUTCDate() + 1)) y--
   } else return ""
   if (y < 100) y += 2000
   if (mo < 0 || mo > 11 || d < 1 || d > 31) return ""
@@ -293,8 +299,10 @@ const INDIAN = /^(?:\d{1,3}|\d{1,2}(?:,\d{2})*,\d{3}|\d{1,7})(?:\.\d{1,2})?$/
  *  - "311,800": Indian apps never group a number that way (it would be
  *    "3,11,800"), so the 3 was the rupee sign: 11,800, certain.
  *  - "31,200": both 31,200 and 1,200 are valid. Tesseract's confidence in the
- *    word decides (a misread glyph pulls it down), and `alt` keeps the other
- *    reading for the person to pick with one click.
+ *    word decides which comes first (a misread glyph pulls it down), and `alt`
+ *    ALWAYS keeps the other reading, whatever the confidence, so the drawer
+ *    says "Check the amount" and offers it in one click: Tesseract can be 95%
+ *    sure of "77,500" when the screen said "₹7,500".
  * `wordConf` is Tesseract's 0..100 for this word. `bare` accepts a number with no comma
  * or decimals ("453"): only for the line printed in the largest font, since
  * elsewhere a bare number is as likely a phone number or a pincode.
@@ -308,7 +316,7 @@ export function headlineAmount(line, wordConf = 100, bare = false) {
   const glyph = /^[2378]/.test(read) && money(read.slice(1)) ? read.slice(1) : ""
   if (!money(read)) return glyph ? { amount: parseAmount(glyph), alt: null } : null
   // A symbol already stood for the ₹, or the digit is not one it turns into.
-  if (symbol || !glyph || wordConf >= 90) return { amount: parseAmount(read), alt: null }
+  if (symbol || !glyph) return { amount: parseAmount(read), alt: null }
   const [amount, alt] = wordConf < 75 ? [glyph, read] : [read, glyph]
   return { amount: parseAmount(amount), alt: parseAmount(alt) }
 }
@@ -325,14 +333,23 @@ function labelled(lines, re) {
   return ""
 }
 
+/** Paytm prints names with no label: the line just above `re`'s first line, if it is a bare name. */
+function above(lines, re) {
+  const i = lines.findIndex((l) => re.test(l))
+  const l = i > 0 ? lines[i - 1] : ""
+  return /\d|@|:|success|paid|payment/i.test(l) ? "" : l
+}
+
 const REF_LABEL = /\b(?:utr|rrn|upi\s*ref(?:erence)?|bank\s*ref(?:erence)?|ref(?:erence)?\s*(?:no|number|id)|transaction\s*(?:id|ref(?:erence)?|no|number)|txn\s*(?:id|no))\b\.?(?:\s*(?:no|number|id)\b\.?)?/i
 // The wording of Google Pay, PhonePe, Paytm, BHIM, Amazon Pay, CRED, WhatsApp, MobiKwik and the bank apps.
 const PAYEE_LABEL = /^(?:paid\s+(?:successfully\s+)?to|(?:money\s+)?sent\s+(?:successfully\s+)?to|transferred\s+to|payment\s+to|to|beneficiary(?:\s+name)?|payee(?:\s+name)?|receiver(?:\s+name)?|recipient)\b/i
 const PAYER_LABEL = /^(?:from|received\s+from|paid\s+(?:by|from)|sent\s+by|payer(?:\s+name)?|sender(?:\s+name)?|remitter(?:\s+name)?)\b/i
 const NOTE_LABEL = /^(?:message|remarks?|note|purpose|description|narration)\b/i
 const AMOUNT_NOISE = /balance|cashback|reward|fee|charge|limit|avl|available/i
-// ₹ often comes out of OCR as %, & or ¥.
-const AMOUNT = /(?:₹|rs\.?|inr|[%&¥](?=\s?\d))\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i
+// ₹ often comes out of OCR as %, & or ¥. "Rs" and "INR" must not touch a
+// letter (a digit may follow: "Rs500"), or "partners 24x7" and "hrs 30" read
+// as amounts.
+const AMOUNT = /(?:₹|(?<![a-z])rs\.?(?![a-z])|(?<![a-z])inr(?![a-z])|[%&¥](?=\s?\d))\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i
 
 // The app a screenshot came from: its name on screen first (the branding),
 // then the sender's UPI handle (`@ybl` is PhonePe, `@okicici` Google Pay).
@@ -368,7 +385,7 @@ const APPS = [
 const HANDLES = [
   [/@ok(?:icici|sbi|hdfcbank|axis)\b/i, "Google Pay"],
   [/@(?:ybl|ibl|axl)\b/i, "PhonePe"],
-  [/@(?:paytm|pt(?:yes|axis|hdfc|sbi))\b/i, "Paytm"],
+  [/@(?:paytm|pt(?:yes|ys|axis|hdfc|sbi))\b/i, "Paytm"],
   [/@(?:apl|yapl|rapl)\b/i, "Amazon Pay"],
   [/@upi\b/i, "BHIM"],
   [/@axisb\b/i, "CRED"],
@@ -420,6 +437,11 @@ export function mergeReadings(a, b) {
   for (const [k, v] of Object.entries(b)) {
     const empty = out[k] === undefined || out[k] === "" || out[k] === 0 || (Array.isArray(out[k]) && !out[k].length) || (k === "status" && out[k] === "unknown") || (k === "method" && out[k] === "Other")
     if (empty) out[k] = v
+  }
+  // A later pass that reads the headline one way only settles an ambiguous one.
+  if (a.amountAlt && b.amount && !b.amountAlt && [a.amount, a.amountAlt].includes(b.amount)) {
+    out.amount = b.amount
+    out.amountAlt = null
   }
   if (Array.isArray(b.otherRefs)) out.otherRefs = [...new Set([...(a.otherRefs || []), ...b.otherRefs])]
   out.isPaymentProof = !!(out.amount && (out.reference || out.otherRefs?.length || out.status === "success"))
@@ -492,8 +514,8 @@ export function parseReceiptText(text, ocrConfidence = 100, wordConf = {}, headl
     app: appFor(all, lines),
     reference: labelledRef,
     otherRefs: scanned,
-    payerName: cleanName(labelled(lines, PAYER_LABEL)),
-    payeeName: cleanName(labelled(lines, PAYEE_LABEL)),
+    payerName: cleanName(labelled(lines, PAYER_LABEL)) || cleanName(above(lines, /\bbank\b.*[-–]\s*[xX*]*\d{4}\b/i)),
+    payeeName: cleanName(labelled(lines, PAYEE_LABEL)) || cleanName(above(lines, /\S@[a-z]{2,}\b/i)),
     note: labelled(lines, NOTE_LABEL).slice(0, 120),
     confidence: Math.round((Math.min(Math.max(ocrConfidence, 0), 100) / 100) * (amount ? 1 : 0.5) * (reference ? 1 : 0.7) * 100) / 100,
   }

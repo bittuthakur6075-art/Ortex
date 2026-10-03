@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { Upload, CheckCircle2, AlertTriangle } from "../ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../../data/store/repository"
-import { createInvoice } from "../../data/domain/domain"
+import { createInvoice, editableInvoicePatch } from "../../data/domain/domain"
 import { Button, Modal, Badge } from "../ui/Ui"
 import { formatCurrency, formatDate } from "../../lib/format"
 import { stateNameToCode } from "../../lib/gstStates"
@@ -359,7 +359,9 @@ export default function TallyInvoiceImport({ open, onClose, onImportDone }) {
         if (existing) {
           const action = duplicateActions[idx]
           if (action === "overwrite") {
-            await repo.update("invoices", existing.id, inv)
+            // Status and amountPaid belong to the payments (migration 0066's
+            // trigger), so an overwrite keeps them; it re-stamps doc.tally.
+            await repo.update("invoices", existing.id, { ...editableInvoicePatch(inv), tally: inv.tally })
             updatedCount++
           }
         } else {

@@ -8,7 +8,7 @@
 // other rows' ids, exactly as they did in localStore.
 
 import { supabase } from "./supabaseClient"
-import { mergeSettings, DEFAULT_SETTINGS } from "../domain/settingsDefaults"
+import { mergeSettings } from "../domain/settingsDefaults"
 
 const SETTINGS_ROW_ID = true // single-row settings table (id boolean primary key)
 
@@ -68,7 +68,8 @@ function _ensureChannel() {
       // Team chat (0045) has its own channel in services/chat.js. A message or
       // a read receipt must not re-fetch every collection on the page.
       if (String(payload?.table || "").startsWith("chat_")) return
-      _subscribers.forEach((cb) => cb())
+      // The table name lets useCollection reload only the collections it holds.
+      _subscribers.forEach((cb) => cb(payload?.table))
     })
     .subscribe()
 }
@@ -116,12 +117,15 @@ export const apiStore = {
         .from(name)
         .select("*")
         .order("created_at", { ascending: false })
+        .order("id", { ascending: true }) // a total order, so pages neither skip nor repeat a row
         .range(from, from + size - 1)
       if (error) throw error
       rows.push(...data.map(fromRow))
       if (data.length < size) break // short page => no more rows
     }
-    return rows
+    // A row inserted between two page reads shifts the next page by one.
+    const seen = new Set()
+    return rows.filter((r) => !seen.has(r.id) && seen.add(r.id))
   },
 
   // Exact row count without transferring the rows.
@@ -236,10 +240,26 @@ export const apiStore = {
     return out
   },
 
+  // `settings` is admin-only (0050) and RLS answers a non-admin with NO row, not
+  // an error. Accounts and Sales then read the `settings_staff` view (0024: the
+  // company, tax, numbering and quotation blocks only), as the phone does. An
+  // empty read from both is an ERROR: merged over the defaults it once printed
+  // the placeholder GSTIN on real invoices.
   async getSettings() {
-    const { data, error } = await supabase.from("settings").select("doc").eq("id", SETTINGS_ROW_ID).maybeSingle()
+    let { data, error } = await supabase.from("settings").select("doc").eq("id", SETTINGS_ROW_ID).maybeSingle()
     if (error) throw error
-    return mergeSettings(data?.doc || null)
+    if (!data?.doc) {
+      ;({ data, error } = await supabase.from("settings_staff").select("doc").maybeSingle())
+      if (error) throw error
+    }
+    if (!data?.doc) {
+      // No row at all: an admin is looking at a fresh project and must be able
+      // to open Settings and create it. Anyone else would print placeholders.
+      const { data: admin } = await supabase.rpc("is_admin")
+      if (admin === true) return mergeSettings(null)
+      throw new Error("Company settings are not readable by this account.")
+    }
+    return mergeSettings(data.doc)
   },
 
   async saveSettings(next) {

@@ -108,6 +108,8 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
 
   const staff = !access.leads && !access.quotes
   const admin = access.admin
+  // The database's gate (Accounts hold it; an Admin can have it switched off).
+  const payments = canAccess(profile, "payments")
   const today = new Date(now)
   const fullName = (profile?.name || "").trim().replace(/\s+/g, " ")
   // An initial ("S L Thakur") is no name to greet: show the whole name instead.
@@ -127,7 +129,10 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
         { icon: "calendar" as const, label: "Apply Leave", onPress: () => navigation.navigate("LeaveApply") },
         { icon: "invoice" as const, label: "New Claim", onPress: () => navigation.navigate("PayClaimNew") },
         { icon: "clock" as const, label: "Fix a Punch", onPress: () => navigation.navigate("Attendance") },
-        { icon: "enquiry" as const, label: "Team Chat", onPress: () => navigation.navigate("Chat") },
+        // Accounts record payments; their chat is in the app bar.
+        payments
+          ? { icon: "wallet" as const, label: "Payments", onPress: () => navigation.navigate("Payments") }
+          : { icon: "enquiry" as const, label: "Team Chat", onPress: () => navigation.navigate("Chat") },
       ]
     : admin
     ? [
@@ -409,13 +414,15 @@ export default function HomeScreen({ navigation }: TabScreenProps<"Home">) {
                   subtitle="Who is in today, and who is not yet"
                   onPress={() => navigation.navigate("TeamAttendance")}
                 />
-                <CardRow
-                  icon="wallet"
-                  tone="primary"
-                  title="Payments"
-                  subtitle="Received and paid out, record one"
-                  onPress={() => navigation.navigate("Payments")}
-                />
+                {payments ? (
+                  <CardRow
+                    icon="wallet"
+                    tone="primary"
+                    title="Payments"
+                    subtitle="Received and paid out, record one"
+                    onPress={() => navigation.navigate("Payments")}
+                  />
+                ) : null}
                 <CardRow
                   icon="money"
                   tone="success"

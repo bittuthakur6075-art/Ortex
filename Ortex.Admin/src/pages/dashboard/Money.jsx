@@ -3,7 +3,7 @@ import { TrendingUp } from "../../components/ui/Icons"
 import { formatCurrency } from "../../lib/format"
 import { DAY, monthlyCash, partyName, weeklyCash } from "../../lib/analytics/today"
 import { cn } from "../../lib/cn"
-import { invoiceBalance, resolveInvoiceStatus } from "../../data/domain/domain"
+import { invoiceBalance, isSettled, resolveInvoiceStatus } from "../../lib/invoiceMoney"
 import { Dot, Initials, Kicker, Panel, PanelLink, PairBars, Pill, Row, Rows, Seg, SplitBar, Tile, money } from "./parts"
 
 // ---- Cash flow ----------------------------------------------------------------
@@ -71,7 +71,7 @@ export function Receivables({ t, invoices, payments }) {
         if (["paid", "cancelled", "draft"].includes(status) || !inv.dueDate) return null
         const late = Math.floor((now - new Date(inv.dueDate).getTime()) / DAY)
         const balance = invoiceBalance(inv, payments)
-        return late > 0 && balance > 0.5 ? { id: inv.id, name: partyName(inv.customer), number: inv.number, late, balance } : null
+        return late > 0 && !isSettled(balance) ? { id: inv.id, name: partyName(inv.customer), number: inv.number, late, balance } : null
       })
       .filter(Boolean)
       .sort((a, b) => b.balance - a.balance)

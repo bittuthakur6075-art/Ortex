@@ -70,23 +70,49 @@ function recogniser() {
   return worker
 }
 
-export default function ScreenshotReader({ onRead }) {
+// `onClear` runs when the X removes the screenshot, so the form can drop what
+// it filled. One read at a time: a screenshot dropped or pasted while one is
+// being read is ignored, and a read that ends after X was pressed is discarded.
+export default function ScreenshotReader({ onRead, onClear }) {
   const input = useRef(null)
   const [preview, setPreview] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   const [over, setOver] = useState(false)
   const [progress, setProgress] = useState(0)
+  const busyRef = useRef(false)
+  const seq = useRef(0)
+  const previewRef = useRef("")
+  // The latest callbacks: a read finishes seconds later, after the form has moved on.
+  const callbacks = useRef({ onRead, onClear })
+  useEffect(() => {
+    callbacks.current = { onRead, onClear }
+  })
+  // The preview's object URL dies with the drawer.
+  useEffect(() => () => previewRef.current && URL.revokeObjectURL(previewRef.current), [])
+
+  const showPreview = (url) => {
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current)
+    previewRef.current = url
+    setPreview(url)
+  }
+
+  const clear = () => {
+    seq.current++
+    showPreview("")
+    setError("")
+    callbacks.current.onClear?.()
+  }
 
   const read = async (file) => {
+    if (busyRef.current) return
     if (!file || !file.type.startsWith("image/")) return setError("Choose an image.")
+    const ticket = ++seq.current
+    busyRef.current = true
     setBusy(true)
     setError("")
     setProgress(0)
-    setPreview((old) => {
-      if (old) URL.revokeObjectURL(old)
-      return URL.createObjectURL(file)
-    })
+    showPreview(URL.createObjectURL(file))
     try {
       const ocr = await recogniser()
       const pass = async (threshold, width = 0) => {
@@ -100,20 +126,26 @@ export default function ScreenshotReader({ onRead }) {
         return { ...parseReceiptText(data.text, data.confidence, lineConf, headline), text: data.text }
       }
       // Greyscale first. Only for what is still missing: a thresholded pass,
-      // then a small one for a headline amount too large to be recognised.
+      // then a small one for a headline amount too large to be recognised or unclear.
       const passes = [await pass(false)]
       if (readingScore(passes[0]) < 4) passes.push(await pass(true))
       let reading = passes.reduce(mergeReadings)
-      if (!reading.amount) {
+      // Also when the amount is ambiguous (a ₹ read as a 7 or 3): the small pass
+      // often sees the symbol, and mergeReadings settles on the one it confirms.
+      if (!reading.amount || reading.amountAlt) {
         passes.push(await pass(false, HEADLINE_WIDTH))
         reading = mergeReadings(reading, passes.at(-1))
       }
-      onRead({ ...reading, text: passes.map((p) => p.text.trim()).join("\n\n--- next pass ---\n\n") })
+      if (ticket === seq.current) callbacks.current.onRead({ ...reading, text: passes.map((p) => p.text.trim()).join("\n\n--- next pass ---\n\n") })
     } catch (e) {
       console.error("screenshot reader", e)
+      // A broken worker would fail every later read: end it, start afresh next time.
+      const dead = worker
       worker = null
-      setError("Could not read that image. Try a clearer one, or type it in.")
+      dead?.then((w) => w.terminate()).catch(() => {})
+      if (ticket === seq.current) setError("Could not read that image. Try a clearer one, or type it in.")
     }
+    busyRef.current = false
     setBusy(false)
   }
 
@@ -170,7 +202,7 @@ export default function ScreenshotReader({ onRead }) {
         {preview && !busy && (
           <button
             type="button"
-            onClick={() => { setPreview(""); setError("") }}
+            onClick={clear}
             aria-label="Remove screenshot"
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >

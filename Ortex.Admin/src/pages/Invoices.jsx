@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { ReceiptIndianRupee, Plus, Search } from "../components/ui/Icons"
@@ -8,6 +8,10 @@ import TallyInvoiceImport from "../components/editors/TallyInvoiceImport"
 import { Button, ExportButton, ToolbarButton, EmptyState, PageLoader } from "../components/ui/Ui"
 import { emptyDraft, exportInvoicesCsv } from "./invoices/helpers"
 import useInvoiceList from "./invoices/useInvoiceList"
+import { useProfile } from "../hooks/useProfile"
+import { isAdmin } from "../lib/roles"
+import { canAccess } from "../data/domain/modules"
+import { paymentsOrStored } from "../data/domain/domain"
 import InvoiceFilters from "./invoices/InvoiceFilters"
 import InvoiceTable from "./invoices/InvoiceTable"
 import InvoiceEditor from "./invoices/InvoiceEditor"
@@ -16,8 +20,12 @@ export default function Invoices() {
   const { items, loading } = useCollection("invoices")
   const { items: products } = useCollection("products")
   const { items: customers } = useCollection("customers")
-  const { items: payments } = useCollection("payments")
+  const { items: readPayments } = useCollection("payments")
   const settings = useSettings()
+  const profile = useProfile()
+  // Without the payments module RLS returns none: use each invoice's stored amountPaid.
+  const canPay = canAccess(profile, "payments")
+  const payments = useMemo(() => paymentsOrStored(items, readPayments, canPay), [items, readPayments, canPay])
 
   const [query, setQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -64,6 +72,7 @@ export default function Invoices() {
           products={products}
           customers={customers}
           payments={payments}
+          canPay={canPay}
           settings={settings}
           onClose={() => setEditing(null)}
           onPreview={(inv) => setPreview(inv)}
@@ -83,7 +92,9 @@ export default function Invoices() {
         actions={
           <>
             <ExportButton onClick={handleExport} disabled={!filtered.length} />
-            <ToolbarButton onClick={() => setImporting(true)}>Import Tally XML</ToolbarButton>
+            {/* Admins only: the database keeps an import's "already in Tally" stamp
+                for an admin alone (0066), so anyone else's import would be posted twice. */}
+            {isAdmin(profile) && <ToolbarButton onClick={() => setImporting(true)}>Import Tally XML</ToolbarButton>}
           </>
         }
       />

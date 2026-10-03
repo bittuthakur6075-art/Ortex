@@ -4,7 +4,7 @@ import { ReceiptIndianRupee, Wallet } from "../components/ui/Icons"
 import { useProfile } from "../hooks/useProfile"
 import { useCollections } from "../hooks/useCollection"
 import { canAccess } from "../data/domain/modules"
-import { invoiceBalance, resolveInvoiceStatus } from "../data/domain/domain"
+import { outstandingBalance, paymentsOrStored } from "../data/domain/domain"
 import PageHeader, { HeaderBand } from "../components/layout/PageHeader"
 import { Tabs } from "../components/ui/Ui"
 import Invoices from "./Invoices"
@@ -31,19 +31,17 @@ export default function Billing() {
   const counts = useMemo(() => {
     const invoices = data.invoices || []
     const payments = data.payments || []
+    const paid = paymentsOrStored(invoices, payments, canAccess(profile, "payments"))
     const now = new Date()
     const thisMonth = (ts) => {
       const d = ts ? new Date(ts) : null
       return !!d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
     }
     return {
-      invoices: invoices.filter((inv) => {
-        const status = resolveInvoiceStatus(inv, payments)
-        return !["draft", "cancelled", "paid"].includes(status) && invoiceBalance(inv, payments) > 0
-      }).length,
+      invoices: invoices.filter((inv) => outstandingBalance(inv, paid) > 0).length,
       payments: payments.filter((p) => thisMonth(p.date)).length,
     }
-  }, [data])
+  }, [data, profile])
 
   if (!current) return null
 

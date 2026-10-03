@@ -123,11 +123,14 @@ export function initials(name?: string): string {
   )
 }
 
-// Convert an amount to Indian-format words for documents (e.g. "Rupees One
-// Thousand Two Hundred Only"). Handles up to crores.
+// Convert an amount to Indian-format words for documents, e.g. "Rupees One
+// Thousand Two Hundred and Fifty Paise Only". Crores of crores recurse ("One
+// Hundred Twenty Crore"), never "undefined".
+// MIRRORED from Ortex.Admin/src/lib/format.js: edit both.
 export function amountInWords(num: unknown): string {
-  const n = Math.floor(Number(num) || 0)
-  if (n === 0) return "Rupees Zero Only"
+  const totalPaise = Math.round(Math.abs(Number(num) || 0) * 100)
+  const n = Math.floor(totalPaise / 100)
+  const paise = totalPaise % 100
   const ones = [
     "",
     "One",
@@ -157,15 +160,17 @@ export function amountInWords(num: unknown): string {
     `${x >= 100 ? ones[Math.floor(x / 100)] + " Hundred" + (x % 100 ? " " : "") : ""}${
       x % 100 ? twoDigits(x % 100) : ""
     }`
-
-  let result = ""
-  const crore = Math.floor(n / 1e7)
-  const lakh = Math.floor((n % 1e7) / 1e5)
-  const thousand = Math.floor((n % 1e5) / 1e3)
-  const rest = n % 1e3
-  if (crore) result += `${twoDigits(crore)} Crore `
-  if (lakh) result += `${twoDigits(lakh)} Lakh `
-  if (thousand) result += `${twoDigits(thousand)} Thousand `
-  if (rest) result += threeDigits(rest)
-  return `Rupees ${result.trim()} Only`
+  const words = (x: number): string => {
+    let result = ""
+    const crore = Math.floor(x / 1e7)
+    const lakh = Math.floor((x % 1e7) / 1e5)
+    const thousand = Math.floor((x % 1e5) / 1e3)
+    const rest = x % 1e3
+    if (crore) result += `${words(crore)} Crore `
+    if (lakh) result += `${twoDigits(lakh)} Lakh `
+    if (thousand) result += `${twoDigits(thousand)} Thousand `
+    if (rest) result += threeDigits(rest)
+    return result.trim()
+  }
+  return `Rupees ${n ? words(n) : "Zero"}${paise ? ` and ${twoDigits(paise)} Paise` : ""} Only`
 }

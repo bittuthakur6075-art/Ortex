@@ -15,7 +15,7 @@
 // collapse, which is the one thing a comparison must never do by accident.
 
 import { round2 } from "../format"
-import { invoiceBalance, resolveInvoiceStatus } from "../../data/domain/domain"
+import { invoiceBalance, isSettled, resolveInvoiceStatus } from "../invoiceMoney"
 import { VOICE_SOURCE, displayName, flagsFor, groupIntoCalls, itemsFor, parseMessage } from "../../pages/voice-leads/helpers"
 
 export const DAY = 86400000
@@ -107,7 +107,7 @@ export function attentionItems(
       const status = resolveInvoiceStatus(inv, payments)
       if (["paid", "cancelled", "draft"].includes(status) || !inv.dueDate) continue
       const balance = invoiceBalance(inv, payments)
-      if (balance <= 0.5) continue
+      if (isSettled(balance)) continue
       const days = Math.floor((now - ms(inv.dueDate)) / DAY)
       if (Number.isNaN(days)) continue
       const base = { group: "money", title: partyName(inv.customer), amount: balance, phone: inv.customer?.phone || "", to: "/billing?tab=invoices", state: { openId: inv.id } }
@@ -462,8 +462,8 @@ export function computeToday({ enquiries = [], quotations = [], invoices = [], p
   // ---- open quotations by age (now, not windowed) ----
   const quoteAging = [
     { key: "0-7", label: "Under a week", max: 7, tone: "emerald", count: 0, value: 0 },
-    { key: "8-15", label: "1–2 weeks", max: 15, tone: "amber", count: 0, value: 0 },
-    { key: "16-30", label: "2–4 weeks", max: 30, tone: "amber", count: 0, value: 0 },
+    { key: "8-15", label: "1 to 2 weeks", max: 15, tone: "amber", count: 0, value: 0 },
+    { key: "16-30", label: "2 to 4 weeks", max: 30, tone: "amber", count: 0, value: 0 },
     { key: "30+", label: "Over a month", max: Infinity, tone: "rose", count: 0, value: 0 },
   ]
   for (const q of quotations) {
@@ -477,15 +477,15 @@ export function computeToday({ enquiries = [], quotations = [], invoices = [], p
   // ---- receivables (now, not windowed) ----
   const receivables = [
     { key: "current", label: "Not yet due", tone: "emerald", count: 0, value: 0 },
-    { key: "1-30", label: "1–30 days late", tone: "amber", count: 0, value: 0 },
-    { key: "31-60", label: "31–60 days late", tone: "orange", count: 0, value: 0 },
+    { key: "1-30", label: "1 to 30 days late", tone: "amber", count: 0, value: 0 },
+    { key: "31-60", label: "31 to 60 days late", tone: "orange", count: 0, value: 0 },
     { key: "60+", label: "Over 60 days late", tone: "rose", count: 0, value: 0 },
   ]
   let outstanding = 0
   for (const inv of live) {
     if (inv.status === "draft") continue
     const bal = invoiceBalance(inv, payments)
-    if (bal <= 0.5) continue
+    if (isSettled(bal)) continue
     outstanding = round2(outstanding + bal)
     const late = inv.dueDate ? Math.floor((now - ms(inv.dueDate)) / DAY) : 0
     const b = late <= 0 || Number.isNaN(late) ? receivables[0] : late <= 30 ? receivables[1] : late <= 60 ? receivables[2] : receivables[3]

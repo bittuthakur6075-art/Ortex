@@ -1,6 +1,9 @@
 import { useState, useMemo } from "react"
 import { Users, Flame, TrendingUp, Search, Sparkles, MessageCircle, IndianRupee, Trophy, Clock } from "../components/ui/Icons"
 import { useCollections } from "../hooks/useCollection"
+import { useProfile } from "../hooks/useProfile"
+import { canAccess } from "../data/domain/modules"
+import { paymentsOrStored } from "../lib/invoiceMoney"
 import { computeGrowthAnalytics, computeAttribution } from "../lib/analytics/growth"
 import { computeVelocity, computeCohorts } from "../lib/analytics/velocity"
 import { computeMessagingImpact } from "../lib/analytics/messaging"
@@ -23,6 +26,15 @@ export default function Growth({ embedded = false }) {
     "whatsapp_logs",
   ])
   const [period, setPeriod] = useState("mtd")
+  const profile = useProfile()
+  // Without the payments module the payment rows read back empty: paid status
+  // then comes from each invoice's stored amountPaid (kept by the database).
+  // Velocity needs dated payments, so it keeps the real rows.
+  const canPay = canAccess(profile, "payments")
+  const paid = useMemo(
+    () => paymentsOrStored(data.invoices || [], data.payments || [], canPay),
+    [data.invoices, data.payments, canPay],
+  )
 
   const g = useMemo(
     () =>
@@ -32,12 +44,12 @@ export default function Growth({ embedded = false }) {
           enquiries: data.enquiries || [],
           quotations: data.quotations || [],
           invoices: data.invoices || [],
-          payments: data.payments || [],
+          payments: paid,
           products: data.products || [],
         },
         period,
       ),
-    [data, period],
+    [data, period, paid],
   )
 
   const attr = useMemo(
@@ -48,12 +60,12 @@ export default function Growth({ embedded = false }) {
           enquiries: data.enquiries || [],
           quotations: data.quotations || [],
           invoices: data.invoices || [],
-          payments: data.payments || [],
+          payments: paid,
           products: data.products || [],
         },
         period,
       ),
-    [data, period],
+    [data, period, paid],
   )
 
   // P3 metrics are lifetime views over the document chain (not period-scoped):

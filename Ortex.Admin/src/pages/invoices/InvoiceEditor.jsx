@@ -8,6 +8,8 @@ import {
   paidForInvoice,
   invoiceBalance,
   resolveInvoiceStatus,
+  isSettled,
+  receiptAllocation,
   emailInvoice,
   isInterState,
 } from "../../data/domain/domain"
@@ -31,7 +33,10 @@ import RecordPaymentModal from "./RecordPaymentModal"
 // Full-page invoice editor: form on the left in the order people fill it in
 // (customer → dates → line items → terms → extras), the live A4 document on
 // the right, money tiles above when editing, and a sticky action footer.
-export default function InvoiceEditor({ draft, products, customers, payments, settings, onClose, onPreview }) {
+// `canPay`: may this person open payments? Without it `payments` holds stand-ins
+// built from each invoice's stored amountPaid (paymentsOrStored) and Record
+// payment is hidden.
+export default function InvoiceEditor({ draft, products, customers, payments, canPay = true, settings, onClose, onPreview }) {
   const isEdit = !!draft.id
   const [form, setForm] = useState(draft)
   const [payOpen, setPayOpen] = useState(false)
@@ -62,7 +67,7 @@ export default function InvoiceEditor({ draft, products, customers, payments, se
   const interState = isInterState(settings.company.stateCode, form.shipTo?.stateCode || form.customer.stateCode)
   const hasState = Boolean(form.shipTo?.stateCode || form.customer.stateCode)
 
-  const linkedPayments = isEdit ? payments.filter((p) => p.invoiceId === form.id && p.type === "inflow") : []
+  const linkedPayments = isEdit ? payments.filter((p) => p.invoiceId === form.id && p.type === "inflow" && !p.stored) : []
   const paid = isEdit ? paidForInvoice(form.id, payments) : 0
   const derivedStatus = isEdit ? resolveInvoiceStatus(form, payments) : form.status
   const dueIn = form.dueDate ? daysUntil(form.dueDate) : null
@@ -72,28 +77,34 @@ export default function InvoiceEditor({ draft, products, customers, payments, se
   // aggregate totals without lines; keep those rather than recomputing to zero.
   const liveDoc = useMemo(() => {
     const totals = form.lines?.length ? computeDocument(form.lines, { interState, extraDiscountPercent: form.extraDiscountPercent }) : form.totals
-    return { ...form, totals, amountPaid: paid, status: derivedStatus }
+    return { ...form, totals, amountPaid: paid, status: derivedStatus, _paid: paid, _status: derivedStatus }
   }, [form, interState, paid, derivedStatus])
   const grand = liveDoc.totals?.grandTotal || 0
   const balance = isEdit ? invoiceBalance({ ...form, totals: liveDoc.totals }, payments) : grand
-  const settled = isEdit && balance <= 0.5
+  const settled = isEdit && isSettled(balance)
+  const hasPayments = paid > 0
 
   const save = async () => {
     if (!form.customer.name.trim() && !form.customer.company?.trim()) return toast.error("Choose or add a customer")
     if (!form.lines.length) return toast.error("Add at least one line item")
     // The editor's line items are the source of truth. Drop any aggregate
     // `totals` carried in from a Tally import so createInvoice recomputes them.
+    // updateInvoice never writes status, amountPaid, paidAt, tally or `_` view fields.
     const { totals: _staleTotals, ...payload } = form
-    if (isEdit) {
-      await updateInvoice(form.id, payload)
-      toast.success("Invoice updated")
-    } else {
-      const created = await createInvoice(payload)
-      toast.success(`Invoice ${created.number} created`)
-      const m = notifyMessage(created._notify)
-      if (m) toast[m.tone === "error" ? "error" : "message"](m.text)
+    try {
+      if (isEdit) {
+        await updateInvoice(form.id, payload)
+        toast.success("Invoice updated")
+      } else {
+        const created = await createInvoice(payload)
+        toast.success(`Invoice ${created.number} created`)
+        const m = notifyMessage(created._notify)
+        if (m) toast[m.tone === "error" ? "error" : "message"](m.text)
+      }
+      onClose()
+    } catch (e) {
+      toast.error(e?.message || "Could not save the invoice")
     }
-    onClose()
   }
 
   const emailCopy = async () => {
@@ -102,15 +113,33 @@ export default function InvoiceEditor({ draft, products, customers, payments, se
   }
 
   const setStatus = async (status) => {
-    set({ status })
-    if (isEdit) await repo.update("invoices", form.id, { status })
+    if (status === form.status) return
+    if (hasPayments && (status === "cancelled" || status === "draft")) {
+      const ask = `${formatCurrency(paid)} has been received against this invoice. Mark it ${status === "cancelled" ? "cancelled" : "as a draft"} anyway? The payments stay recorded; refund or move them separately.`
+      if (!window.confirm(ask)) return
+    }
+    try {
+      if (isEdit) await repo.update("invoices", form.id, { status })
+      set({ status })
+    } catch (e) {
+      toast.error(e?.message || "Could not change the status")
+    }
   }
 
   const remove = async () => {
-    if (!window.confirm("Delete this invoice? Linked payments are kept.")) return
-    await repo.remove("invoices", form.id)
-    toast.success("Invoice deleted")
-    onClose()
+    // The database refuses it too (migration 0066).
+    if (hasPayments) {
+      window.alert("This invoice has payments, so it cannot be deleted. Mark it cancelled instead, or delete its payments first.")
+      return
+    }
+    if (!window.confirm(`Delete invoice ${form.number}? This cannot be undone.`)) return
+    try {
+      await repo.remove("invoices", form.id)
+      toast.success("Invoice deleted")
+      onClose()
+    } catch (e) {
+      toast.error(e?.message || "Could not delete the invoice")
+    }
   }
 
   const partyLabel = form.customer?.company || form.customer?.name
@@ -136,7 +165,7 @@ export default function InvoiceEditor({ draft, products, customers, payments, se
                 <Button variant="outline" size="md" onClick={emailCopy}>
                   <Mail className="h-4 w-4" /> Email copy
                 </Button>
-                {balance > 0.5 && derivedStatus !== "cancelled" && (
+                {canPay && !settled && !["draft", "cancelled"].includes(derivedStatus) && (
                   <Button variant="success" size="md" onClick={() => setPayOpen(true)}>
                     <IndianRupee className="h-4 w-4" /> Record payment
                   </Button>
@@ -177,7 +206,7 @@ export default function InvoiceEditor({ draft, products, customers, payments, se
             <CustomerPicker value={form.customer} onChange={(customer) => set({ customer })} customers={customers} />
             {hasState && (
               <p className={cn("mt-3 text-xs font-medium", interState ? "text-primary" : "text-success-text")}>
-                {interState ? "Inter-state supply - IGST will be applied." : "Intra-state supply - CGST + SGST will be applied."}
+                {interState ? "Inter-state supply: IGST will be applied." : "Intra-state supply: CGST + SGST will be applied."}
               </p>
             )}
           </Section>
@@ -307,10 +336,10 @@ export default function InvoiceEditor({ draft, products, customers, payments, se
         }
       />
 
-      {payOpen && <RecordPaymentModal invoice={form} balance={balance} onClose={() => setPayOpen(false)} onDone={() => setPayOpen(false)} />}
+      {payOpen && <RecordPaymentModal invoice={form} balance={balance} payments={payments} onClose={() => setPayOpen(false)} onDone={() => setPayOpen(false)} />}
 
       {receiptFor && (
-        <ReceiptView open onClose={() => setReceiptFor(null)} payment={receiptFor} settings={settings} invoice={form} allocation={{ cumulative: paid, balance }} />
+        <ReceiptView open onClose={() => setReceiptFor(null)} payment={receiptFor} settings={settings} invoice={form} allocation={receiptAllocation(receiptFor, { ...form, totals: liveDoc.totals }, payments)} />
       )}
     </div>
   )

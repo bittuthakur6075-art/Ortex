@@ -5,6 +5,7 @@
 //   node src/index.js --once             # one sync pass into Tally
 //   node src/index.js                    # loop every sync.intervalSeconds
 
+import { createClient } from "@supabase/supabase-js"
 import { loadConfig } from "./config.js"
 import { makeSource } from "./source.js"
 import { runSync } from "./sync.js"
@@ -15,7 +16,7 @@ const once = args.has("--once") || dryRun
 
 async function main() {
   const cfg = loadConfig()
-  const source = makeSource(cfg)
+  const source = makeSource(createClient(cfg.supabase.url, cfg.supabase.serviceKey, { auth: { persistSession: false } }))
 
   const pass = () => runSync(cfg, source, { dryRun }).catch((e) => console.error("Sync error:", e.message))
 
