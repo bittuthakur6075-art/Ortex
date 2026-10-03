@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { ImageIcon, X } from "../../components/ui/Icons"
 import { cn } from "../../lib/cn"
-import { evenPolarity, mergeReadings, otsuThreshold, parseReceiptText, pickHeadline, readingScore } from "../../lib/paymentReader"
+import { combineReadings, evenPolarity, looksLikeRupee, otsuThreshold, parseReceiptText, pickHeadline } from "../../lib/paymentReader"
 
 // Drop, paste or pick a UPI / bank-transfer screenshot. It is read IN THE
 // BROWSER: the image is cleaned for recognition, Tesseract's LSTM network turns
@@ -87,6 +87,18 @@ function firstSymbolWide(line) {
   return median > 0 && width(symbols[0]) >= 1.6 * median
 }
 
+/** The first glyph of the headline, from the prepared image: a ₹ read as a digit? Null if it cannot tell. */
+function firstGlyphRupee(canvas, line) {
+  const first = (line?.words || []).flatMap((w) => w.symbols || []).find((s) => /\S/.test(s.text))
+  if (!first || !/\d/.test(first.text)) return null
+  const { x0, y0, x1, y1 } = first.bbox
+  if (x1 - x0 < 1 || y1 - y0 < 1) return null
+  const px = canvas.getContext("2d").getImageData(x0, y0, x1 - x0, y1 - y0).data
+  const grey = new Uint8ClampedArray(px.length / 4)
+  for (let i = 0; i < grey.length; i++) grey[i] = px[i * 4]
+  return looksLikeRupee(grey, x1 - x0)
+}
+
 export default function ScreenshotReader({ onRead, onClear }) {
   const input = useRef(null)
   const [preview, setPreview] = useState("")
@@ -132,29 +144,32 @@ export default function ScreenshotReader({ onRead, onClear }) {
     showPreview(URL.createObjectURL(file))
     try {
       const ocr = await recogniser()
-      const pass = async (threshold, width = 0) => {
-        onProgress = setProgress
-        const { data } = await ocr.recognize(await prepare(file, threshold, width), {}, { blocks: true })
+      const pass = async (threshold, width = 0, progress = setProgress) => {
+        onProgress = progress
+        const canvas = await prepare(file, threshold, width)
+        const { data } = await ocr.recognize(canvas, {}, { blocks: true })
         const lines = (data.blocks || []).flatMap((b) => b.paragraphs.flatMap((p) => p.lines))
         // Confidence per line (its weakest word), so the parser can doubt a misread ₹.
         const lineConf = {}
         for (const line of lines) lineConf[line.text.replace(/\s+/g, "")] = Math.min(...line.words.map((w) => w.confidence))
         const headline = pickHeadline(lines.map((l) => ({ text: l.text, height: l.bbox.y1 - l.bbox.y0 })))
         const squash = (t) => String(t || "").replace(/\s+/g, "")
-        const wide = firstSymbolWide(lines.find((l) => squash(l.text) === squash(headline)))
-        return { ...parseReceiptText(data.text, data.confidence, lineConf, headline, wide), text: data.text }
+        const headLine = lines.find((l) => squash(l.text) === squash(headline))
+        const wide = firstSymbolWide(headLine)
+        const rupee = firstGlyphRupee(canvas, headLine)
+        return { ...parseReceiptText(data.text, data.confidence, lineConf, headline, wide, rupee), text: data.text }
       }
-      // Greyscale first. Only for what is still missing: a thresholded pass,
-      // then a small one for a headline amount too large to be recognised or unclear.
-      const passes = [await pass(false)]
-      if (readingScore(passes[0]) < 4) passes.push(await pass(true))
-      let reading = passes.reduce(mergeReadings)
-      // Also when the amount is ambiguous (a ₹ read as a 7 or 3): the small pass
-      // often sees the symbol, and mergeReadings settles on the one it confirms.
-      if (!reading.amount || reading.amountAlt) {
-        passes.push(await pass(false, HEADLINE_WIDTH))
-        reading = mergeReadings(reading, passes.at(-1))
+      // The complete pass, every time: greyscale, thresholded (low-contrast
+      // text), and the headline at two small sizes (the recogniser skips very
+      // large text, and a small pass often sees the ₹ a full-size one turns
+      // into a 3 or 7). combineReadings() votes field by field.
+      const plan = [[false], [true], [false, HEADLINE_WIDTH], [false, HEADLINE_WIDTH * 2]]
+      const passes = []
+      for (const [i, [threshold, width]] of plan.entries()) {
+        passes.push(await pass(threshold, width, (p) => setProgress((i + p) / plan.length)))
+        if (ticket !== seq.current) break
       }
+      const reading = combineReadings(passes)
       if (ticket === seq.current) callbacks.current.onRead({ ...reading, text: passes.map((p) => p.text.trim()).join("\n\n--- next pass ---\n\n") })
     } catch (e) {
       console.error("screenshot reader", e)

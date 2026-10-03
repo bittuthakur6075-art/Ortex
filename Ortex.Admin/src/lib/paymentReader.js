@@ -308,7 +308,7 @@ const INDIAN = /^(?:\d{1,3}|\d{1,2}(?:,\d{2})*,\d{3}|\d{1,7})(?:\.\d{1,2})?$/
  * or decimals ("453"): only for the line printed in the largest font, since
  * elsewhere a bare number is as likely a phone number or a pincode.
  */
-export function headlineAmount(line, wordConf = 100, bare = false, firstWide = false) {
+export function headlineAmount(line, wordConf = 100, bare = false, firstWide = false, firstRupee = null) {
   const s = String(line || "").replace(/\s+/g, "")
   if (!/^[^\d,.]?[0-9,.]+$/.test(s)) return null
   const money = (v) => (bare || /[,.]/.test(v)) && INDIAN.test(v)
@@ -319,10 +319,34 @@ export function headlineAmount(line, wordConf = 100, bare = false, firstWide = f
   // OCR fused the ₹ and the first digit into one box about two digits wide: the
   // digit it printed is real ("₹72" read as "72"), so nothing is stripped.
   if (firstWide && !symbol) return { amount: parseAmount(read), alt: null }
+  // The first glyph's pixels settle it (looksLikeRupee): two full-width bars are a ₹.
+  if (!symbol && glyph && firstRupee !== null) return { amount: parseAmount(firstRupee ? glyph : read), alt: null }
   // A symbol already stood for the ₹, or the digit is not one it turns into.
   if (symbol || !glyph) return { amount: parseAmount(read), alt: null }
   const [amount, alt] = wordConf < 75 ? [glyph, read] : [read, glyph]
   return { amount: parseAmount(amount), alt: parseAmount(alt) }
+}
+
+/**
+ * Is this glyph a ₹ the recogniser read as a digit? `grey` is its box (0..255,
+ * `width` per row, dark ink on light). A ₹ has two bars across its full width
+ * in its upper half; a 3 has none, a 7 one, a 2 one at the bottom (measured on
+ * a Google Pay "₹4,000.00" read as "34,000.00" at 95% confidence, so neither
+ * confidence nor box width can tell). Null when the box is too small to judge.
+ */
+export function looksLikeRupee(grey, width) {
+  const height = Math.floor(grey.length / width)
+  if (width < 6 || height < 12) return null
+  let bars = 0
+  let inBar = false
+  for (let y = 0; y < height * 0.55; y++) {
+    let ink = 0
+    for (let x = 0; x < width; x++) if (grey[y * width + x] < 128) ink++
+    const full = ink >= 0.8 * width
+    if (full && !inBar) bars++
+    inBar = full
+  }
+  return bars >= 2
 }
 
 /** The value after a label on the same line, else the next line (apps print both ways). */
@@ -431,38 +455,56 @@ function cleanName(s) {
 // Apps print the payer's bank after the name ("RAMSHANKAR THAKUR ICICI Bank"); it is not part of it.
 const BANK_TAIL = /(?:^|\s)(?:icici|hdfc|sbi|axis|kotak|pnb|bob|canara|idfc|indusind|federal|union|yes|au|rbl|paytm|airtel|jio|state|bank)(?:\s+(?:bank|payments?|ltd|limited|of india))*\s*$/i
 
+// The value most readings agree on; a tie goes to the earliest (the cleaner image).
+function vote(values) {
+  const count = new Map()
+  for (const v of values) if (v !== undefined && v !== null && v !== "" && v !== 0) count.set(v, (count.get(v) || 0) + 1)
+  let best = null
+  let top = 0
+  for (const [v, n] of count) if (n > top) [best, top] = [v, n]
+  return best
+}
+
 /**
- * Two readings of the same screenshot (greyscale, then thresholded) -> one:
- * the first wins field by field, the second fills what the first missed.
+ * Every pass over the same screenshot (greyscale, thresholded, the headline at
+ * two small sizes) -> one reading. Each field takes the value most passes
+ * agree on, ties to the earlier pass. The amount: a pass that read it one way
+ * only (it saw the ₹, or the first digit is certain) settles an ambiguous one
+ * when it agrees with either of its readings; otherwise every pass's first
+ * choice is one vote, and an ambiguous winner keeps its other reading as
+ * `amountAlt` for the drawer to offer.
  */
-export function mergeReadings(a, b) {
-  if (!b) return a
-  const out = { ...a }
-  for (const [k, v] of Object.entries(b)) {
-    const empty = out[k] === undefined || out[k] === "" || out[k] === 0 || (Array.isArray(out[k]) && !out[k].length) || (k === "status" && out[k] === "unknown") || (k === "method" && out[k] === "Other")
-    if (empty) out[k] = v
+export function combineReadings(readings) {
+  const rs = readings.filter(Boolean)
+  if (!rs.length) return null
+  const out = { ...rs[0] }
+  for (const k of new Set(rs.flatMap(Object.keys))) {
+    if (["amount", "amountAlt", "otherRefs", "confidence", "isPaymentProof"].includes(k)) continue
+    const best = vote(rs.map((r) => r[k]).filter((v) => !(k === "status" && v === "unknown") && !(k === "method" && v === "Other")))
+    if (best !== null) out[k] = best
   }
-  // A later pass that reads the headline one way only settles an ambiguous one.
-  if (a.amountAlt && b.amount && !b.amountAlt && [a.amount, a.amountAlt].includes(b.amount)) {
-    out.amount = b.amount
-    out.amountAlt = null
+
+  const sure = rs.filter((r) => r.amount && !r.amountAlt).map((r) => r.amount)
+  const unsure = rs.filter((r) => r.amount && r.amountAlt)
+  const settled = vote(sure.filter((a) => unsure.some((r) => r.amount === a || r.amountAlt === a)))
+  if (settled) [out.amount, out.amountAlt] = [settled, null]
+  else {
+    out.amount = vote(rs.map((r) => r.amount)) || 0
+    out.amountAlt = unsure.find((r) => r.amount === out.amount)?.amountAlt ?? null
   }
-  if (Array.isArray(b.otherRefs)) out.otherRefs = [...new Set([...(a.otherRefs || []), ...b.otherRefs])]
-  out.isPaymentProof = !!(out.amount && (out.reference || out.otherRefs?.length || out.status === "success"))
-  out.confidence = Math.max(a.confidence || 0, b.confidence || 0)
+
+  out.otherRefs = [...new Set(rs.flatMap((r) => r.otherRefs || []))]
+  out.isPaymentProof = !!(out.amount && (out.reference || out.otherRefs.length || out.status === "success"))
+  out.confidence = Math.max(...rs.map((r) => r.confidence || 0))
   return out
 }
 
-/** How many of the fields that matter a reading found: amount, reference, date, a name. */
-export function readingScore(r) {
-  return [r?.amount, r?.reference || r?.otherRefs?.length, r?.paidAt, r?.payerName || r?.payeeName].filter(Boolean).length
-}
 
 /**
  * OCR text of a payment screenshot -> the raw reading normalizeReading() takes.
  * `ocrConfidence` is Tesseract's 0..100 for the whole image.
  */
-export function parseReceiptText(text, ocrConfidence = 100, wordConf = {}, headline = "", headlineWide = false) {
+export function parseReceiptText(text, ocrConfidence = 100, wordConf = {}, headline = "", headlineWide = false, headlineRupee = null) {
   const lines = String(text || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
   const all = lines.join("\n")
 
@@ -485,7 +527,7 @@ export function parseReceiptText(text, ocrConfidence = 100, wordConf = {}, headl
   let amountAlt = null
   // The figure in the largest font, from the recogniser's line boxes.
   if (!amount && headline) {
-    const hit = headlineAmount(headline, wordConf[headline.replace(/\s+/g, "")] ?? 100, true, headlineWide)
+    const hit = headlineAmount(headline, wordConf[headline.replace(/\s+/g, "")] ?? 100, true, headlineWide, headlineRupee)
     if (hit) ({ amount, alt: amountAlt } = hit)
   }
   if (!amount) {
