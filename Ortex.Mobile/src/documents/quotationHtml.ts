@@ -1,4 +1,5 @@
 import { amountInWords, daysUntil, formatCurrency, formatDate } from "@/domain/format"
+import { dispatchBlock, registeredLines } from "@/domain/address"
 import { stateLabel } from "@/domain/gstStates"
 import type { Customer, Quotation } from "@/domain/schema"
 import type { Settings } from "@/domain/settings"
@@ -130,12 +131,18 @@ export function quotationHtml(doc: Quotation, settings: Settings, logo?: string 
   if (doc.showSeller && doc.sellerName) meta.push({ k: "Seller Name", v: doc.sellerName })
   if (doc.paymentTerms) meta.push({ k: "Payment terms", v: doc.paymentTerms })
 
-  const supplierAddress = (c.address || "")
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => `<div>${esc(l)}</div>`)
-    .join("")
+  // The registered address (else the old single string). A dispatch address is
+  // stacked under it in the same column, so the parties row keeps its two or
+  // three columns. MIRROR of the console's DocumentSheet.
+  const registered = registeredLines(c)
+  const structured = !!c.registeredAddress && registered.length > 0
+  const supplierAddress = registered.map((l) => `<div>${esc(l)}</div>`).join("")
+  const dispatch = dispatchBlock(c)
+  const dispatchHtml = dispatch
+    ? `<div class="doc-party-sub"><div class="doc-party-label">${esc(dispatch.title)}</div>${dispatch.lines
+        .map((l) => `<div>${esc(l)}</div>`)
+        .join("")}</div>`
+    : ""
 
   const lineRows = lines.length
     ? lines
@@ -236,6 +243,7 @@ export function quotationHtml(doc: Quotation, settings: Settings, logo?: string 
   .doc-parties.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .doc-party { font-size: 9pt; line-height: 1.5; }
   .doc-party-label, .doc-party-name { font-weight: 600; }
+  .doc-party-sub { margin-top: 6pt; }
 
   /* Headline: the amount, stated once at reading size. */
   .doc-headline { margin-top: 24.5pt; font-size: 13.5pt; font-weight: 600; line-height: 1.5; }
@@ -305,7 +313,9 @@ export function quotationHtml(doc: Quotation, settings: Settings, logo?: string 
         ${supplierAddress}
         ${c.email ? `<div>${esc(c.email)}</div>` : ""}
         ${c.phone ? `<div>${esc(c.phone)}</div>` : ""}
-        ${c.stateCode ? `<div>State: ${esc(stateLabel(c.stateCode))}</div>` : ""}
+        ${c.gstin ? `<div>GSTIN ${esc(c.gstin)}</div>` : ""}
+        ${c.stateCode && !structured ? `<div>State: ${esc(stateLabel(c.stateCode))}</div>` : ""}
+        ${dispatchHtml}
       </div>
       <div class="doc-party">
         <div class="doc-party-label">Quotation for</div>

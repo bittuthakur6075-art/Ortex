@@ -15,6 +15,7 @@
 
 import { repo } from "../data/store/repository"
 import { formatCurrency, formatDate } from "../lib/format"
+import { registeredLines } from "../lib/address"
 
 const EMAILJS_ENDPOINT = "https://api.emailjs.com/api/v1.0/email/send"
 
@@ -51,6 +52,7 @@ function composeInvoiceEmail(invoice, settings) {
     `Grand total   : ${formatCurrency(t.grandTotal)}`,
     ``,
     `- ${c.name}${c.gstin ? ` · GSTIN ${c.gstin}` : ""}`,
+    registeredLines(c).join(", ") || null,
     c.phone ? `${c.phone} · ${c.email}` : c.email || "",
     ``,
     `(Open the console → Invoices → ${invoice.number} → Preview to print/PDF the full tax invoice.)`,
@@ -98,6 +100,7 @@ function composeQuotationEmail(quotation, settings) {
     quotation.notes ? `` : null,
     `Regards,`,
     `${c.name}${c.gstin ? ` · GSTIN ${c.gstin}` : ""}`,
+    registeredLines(c).join(", ") || null,
     c.phone ? `${c.phone} · ${c.email}` : c.email || "",
   ]
     .filter((l) => l !== null)

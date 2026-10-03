@@ -6,6 +6,8 @@
 // deep merge so a settings blob saved before a key existed still yields a
 // complete object rather than an undefined lookup mid-quotation.
 
+import type { Address } from "@/domain/address"
+
 export type CompanySettings = {
   name: string
   tagline: string
@@ -24,6 +26,9 @@ export type CompanySettings = {
   logoText: string
   /** A public storage URL of the company's logo, uploaded on the console's Companies page (Admin 0075); "" for none. */
   logoUrl: string
+  /** Structured addresses (domain/address.ts); absent until the owner splits the old `address`. */
+  registeredAddress?: Address | null
+  dispatchAddress?: Address | null
 }
 
 export type Settings = {

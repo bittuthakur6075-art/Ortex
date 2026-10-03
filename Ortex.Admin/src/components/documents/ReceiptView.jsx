@@ -3,6 +3,7 @@ import { createPortal } from "react-dom"
 import { toast } from "sonner"
 import { Printer, X, CheckCircle2, Download } from "../ui/Icons"
 import { formatCurrency, formatDate, amountInWords } from "../../lib/format"
+import { registeredLines } from "../../lib/address"
 import { buildSheetPdf } from "./documentPdf"
 import CompanyMark from "./CompanyMark"
 
@@ -95,8 +96,9 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
             <CompanyMark companyId={payment?.companyId} company={c} className="mb-2 h-10 w-auto" />
             {c.name && <div className="text-sm font-semibold">{c.name}</div>}
             <div className="mt-2 text-xs leading-relaxed text-[#4b5563]">
-              {c.address}
-              <br />
+              {registeredLines(c).map((line, i) => (
+                <div key={i}>{line}</div>
+              ))}
               {c.phone} · {c.email}
               {c.gstin && (
                 <>

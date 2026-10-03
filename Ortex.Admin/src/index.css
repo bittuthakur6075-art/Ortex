@@ -660,6 +660,7 @@ input[type="search"]::-webkit-search-decoration {
 .doc-parties.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .doc-party { font-size: 9pt; color: var(--ink); line-height: 1.5; }
 .doc-party-label, .doc-party-name { font-weight: 600; }
+.doc-party-sub { margin-top: 6pt; }
 
 /* Headline: the amount, stated once at reading size. */
 .doc-headline { margin-top: 24.5pt; font-size: 13.5pt; font-weight: 600; line-height: 1.5; color: var(--ink); }

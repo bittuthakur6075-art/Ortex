@@ -4,6 +4,7 @@ import { ActionBar } from "../components/layout/PageHeader"
 import { Button, Card, CardHeader, EmptyState, PageLoader, Segmented } from "../components/ui/Ui"
 import { useProfile } from "../hooks/useProfile"
 import { useSettings } from "../hooks/useCollection"
+import { registeredLines } from "../lib/address"
 import { fyOf } from "../lib/payroll"
 import { getPayrollSettings, myPayslips } from "../services/payroll"
 import { LoadError } from "./payroll/setup/common"
@@ -41,7 +42,7 @@ export default function MyPayslips() {
     return {
       ...o,
       name: o.name || company?.name || "Ortex Industries",
-      address: o.address || company?.address || "",
+      address: o.address || registeredLines(company).join("\n"),
     }
   }, [state.org, company])
 

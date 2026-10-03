@@ -32,7 +32,8 @@ import { GST_STATES, stateLabel } from "../lib/gstStates"
 import AttendanceSettings from "./attendance/Settings"
 import PayrollSettings from "./payroll/PayrollSettings"
 import Modules from "./Modules"
-import { Banner, Button, Input, Select, Switch, Textarea, PageLoader } from "../components/ui/Ui"
+import { Banner, Button, Field, Input, Select, Switch, Textarea, PageLoader } from "../components/ui/Ui"
+import { DISPATCH_LABEL, addressFromLegacy, hasAddress, isValidPincode, registeredLines } from "../lib/address"
 import { UnsavedContext } from "../hooks/useUnsaved"
 import { cn } from "../lib/cn"
 import { useCompany, reloadCompanies } from "../hooks/useCompany"
@@ -117,6 +118,8 @@ const PATH_LABEL = {
   "company.email": "Email",
   "company.phone": "Phone",
   "company.address": "Address",
+  "company.registeredAddress": "Registered address",
+  "company.dispatchAddress": "Dispatch address",
   "company.bankName": "Bank name",
   "company.bankAccount": "Account number",
   "company.bankIfsc": "IFSC",
@@ -281,7 +284,7 @@ export default function Settings() {
     setParams(id === "company" ? {} : { section: id }, { replace: true })
   }
   // A list changes by index (company.paymentAliases.2): name the list.
-  const changedWords = allChanges.map((p) => PATH_LABEL[p] || PATH_LABEL[p.replace(/\.\d+$/, "")] || p.split(".").pop()).filter((v, i, a) => a.indexOf(v) === i)
+  const changedWords = allChanges.map((p) => PATH_LABEL[p] || PATH_LABEL[p.replace(/\.\d+$/, "")] || PATH_LABEL[p.split(".").slice(0, 2).join(".")] || p.split(".").pop()).filter((v, i, a) => a.indexOf(v) === i)
 
   const indiamartOn = !!draft.integrations.indiamart.enabled && !!draft.integrations.indiamart.crmKey
   const editing = companiesOn && cedit ? { draft: cedit.draft, set: setC } : { draft, set }
@@ -500,9 +503,6 @@ function CompanySection({ draft, set, picker, perCompany, companyId }) {
             <Row label="Phone">
               <Input value={c.phone} onChange={(e) => set("company", "phone", e.target.value)} />
             </Row>
-            <Row label="Address">
-              <Textarea value={c.address} onChange={(e) => set("company", "address", e.target.value)} className="min-h-[76px]" />
-            </Row>
             <Row label="Website" hint="Optional">
               <Input value={c.website || ""} onChange={(e) => set("company", "website", e.target.value)} />
             </Row>
@@ -512,6 +512,8 @@ function CompanySection({ draft, set, picker, perCompany, companyId }) {
               </Row>
             )}
           </Group>
+
+          <AddressesGroup company={c} set={set} defaultState={gstState || String(c.stateCode || "")} />
 
           <Group title="Bank details" description="Shown on quotations and invoices so customers can pay.">
             <Row label="Bank name">
@@ -573,9 +575,90 @@ function CompanySection({ draft, set, picker, perCompany, companyId }) {
   )
 }
 
+// The registered address and an optional branch / dispatch address
+// (companies.doc.company.registeredAddress / dispatchAddress, lib/address.js).
+// The old single `address` stays printed until the registered one is filled in.
+function AddressesGroup({ company: c, set, defaultState }) {
+  const legacy = String(c.address || "").trim()
+  const hasRegistered = hasAddress(c.registeredAddress)
+  const blank = { line1: "", line2: "", city: "", stateCode: defaultState, pincode: "" }
+  return (
+    <Group title="Addresses" description="Printed on quotations, invoices and receipts. The state decides nothing about GST: that is the State above.">
+      {legacy && (
+        <Row label="Old address (from before)" hint={hasRegistered ? "No longer printed: the registered address below is." : "Printed until the registered address below is filled in."}>
+          <p className="whitespace-pre-line text-ui text-muted-foreground">{legacy}</p>
+          {!hasRegistered && (
+            <Button size="sm" variant="outline" className="mt-2" onClick={() => set("company", "registeredAddress", { ...addressFromLegacy(legacy), stateCode: defaultState })}>
+              Convert
+            </Button>
+          )}
+        </Row>
+      )}
+      <Row label="Registered address" hint="As on the GST certificate">
+        <AddressFields value={c.registeredAddress} defaultState={defaultState} onChange={(a) => set("company", "registeredAddress", a)} />
+      </Row>
+      <Row label="Branch or dispatch" hint="Optional: where goods leave from, when that is not the registered address">
+        {c.dispatchAddress ? (
+          <>
+            <AddressFields value={c.dispatchAddress} defaultState={defaultState} withLabel onChange={(a) => set("company", "dispatchAddress", a)} />
+            <Button size="sm" variant="outline" className="mt-3" onClick={() => set("company", "dispatchAddress", undefined)}>
+              Remove
+            </Button>
+          </>
+        ) : (
+          <>
+            <p className="text-ui text-muted-foreground">Same as registered.</p>
+            <Button size="sm" variant="outline" className="mt-2" onClick={() => set("company", "dispatchAddress", { label: DISPATCH_LABEL, ...blank })}>
+              Add branch or dispatch address
+            </Button>
+          </>
+        )}
+      </Row>
+    </Group>
+  )
+}
+
+function AddressFields({ value, onChange, defaultState, withLabel = false }) {
+  const a = value || {}
+  // The first edit stamps the GSTIN's state, so a filled address always has one.
+  const put = (k, v) => onChange({ ...a, stateCode: a.stateCode || defaultState, [k]: v })
+  const pin = String(a.pincode || "").trim()
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {withLabel && (
+        <Field label="Name on documents" hint="Printed as Dispatch from: this name" className="sm:col-span-2">
+          <Input value={a.label || ""} onChange={(e) => put("label", e.target.value)} placeholder={DISPATCH_LABEL} />
+        </Field>
+      )}
+      <Field label="Address line 1" className="sm:col-span-2">
+        <Input value={a.line1 || ""} onChange={(e) => put("line1", e.target.value)} placeholder="Building, street" />
+      </Field>
+      <Field label="Address line 2" hint="Optional" className="sm:col-span-2">
+        <Input value={a.line2 || ""} onChange={(e) => put("line2", e.target.value)} placeholder="Area, landmark" />
+      </Field>
+      <Field label="City">
+        <Input value={a.city || ""} onChange={(e) => put("city", e.target.value)} />
+      </Field>
+      <Field label="PIN code" error={pin && !isValidPincode(pin) ? "A PIN code is 6 digits and does not start with 0" : undefined}>
+        <Input value={a.pincode || ""} inputMode="numeric" maxLength={6} onChange={(e) => put("pincode", e.target.value.replace(/\D/g, ""))} />
+      </Field>
+      <Field label="State" className="sm:col-span-2">
+        <Select value={String(a.stateCode || defaultState || "").padStart(2, "0")} onChange={(e) => put("stateCode", e.target.value === "00" ? "" : e.target.value)}>
+          <option value="00">Choose a state</option>
+          {Object.entries(GST_STATES).map(([code, name]) => (
+            <option key={code} value={code}>
+              {code} · {name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+    </div>
+  )
+}
+
 function DocumentPreview({ company: c, companyId, prefix }) {
   const acct = String(c.bankAccount || "")
-  const lines = [c.address, [c.gstin && `GSTIN ${c.gstin}`, c.phone].filter(Boolean).join(" · ")].filter(Boolean)
+  const lines = [registeredLines(c).join(", "), [c.gstin && `GSTIN ${c.gstin}`, c.phone].filter(Boolean).join(" · ")].filter(Boolean)
   return (
     <div className="squircle flex flex-col gap-3.5 rounded-card bg-card p-5">
       <div className="flex items-center gap-2">
@@ -872,7 +955,7 @@ function DocumentsSection({ draft, set, picker, perCompany }) {
             ai={{
               purpose:
                 `Default terms and conditions printed on every GST tax invoice from ${draft.company.name || "the company"}: payment due date, quoting the invoice number, reporting shortage or damage, returns and jurisdiction, one term per line. Never quotation conditions such as artwork approval or taxes as applicable`,
-              context: () => ({ jurisdiction: draft.company.address }),
+              context: () => ({ jurisdiction: registeredLines(draft.company).join(", ") }),
               format: "lines",
               maxChars: 900,
             }}

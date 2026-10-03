@@ -1,3 +1,4 @@
+import { registeredLines } from "@/domain/address"
 import type { Settings } from "@/domain/settings"
 import { DOCUMENT_FONT_WOFF2_BASE64 } from "@/documents/documentFont"
 import { PAYSLIP_CSS, payslipBody, type TemplateLine } from "@/documents/payslipTemplate"
@@ -22,10 +23,7 @@ const withYtd = (xs: PayLine[] | undefined, ytd: Record<string, number> | undefi
 
 export function payslipHtml(slip: Payslip, settings: Settings | null): string {
   const d = slip.data
-  const address = (settings?.company?.address || "")
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
+  const address = registeredLines(settings?.company)
   const body = payslipBody({
     company: { name: settings?.company?.name?.trim() || "Ortex Industries", address, logo: ORTEX_WORDMARK_DATA_URI },
     month: monthLabel(d.month),

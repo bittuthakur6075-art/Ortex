@@ -1,6 +1,7 @@
 import { Fragment, forwardRef } from "react"
 import { formatCurrency, formatDate, amountInWords, daysUntil } from "../../lib/format"
 import { stateLabel } from "../../lib/gstStates"
+import { dispatchBlock, registeredLines } from "../../lib/address"
 import CompanyMark from "./CompanyMark"
 
 // The A4 sheet for a quotation or tax invoice, the printable document
@@ -31,7 +32,12 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
   // Tax component as a percentage of the taxable value, derived so the printed
   // rate always agrees with the money charged (Keystone: RatePercent, 0.## format).
   const pct = (part) => (t.taxable > 0 ? String(Math.round(((part || 0) / t.taxable) * 10000) / 100) : "0")
-  const supplierAddress = (c.address || "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  // The registered address (else the old single string). A dispatch address is
+  // stacked under it in the same column, so the parties row keeps its two or
+  // three columns. MIRRORED in Ortex.Mobile/src/documents/quotationHtml.ts.
+  const supplierAddress = registeredLines(c)
+  const structured = !!c.registeredAddress && supplierAddress.length > 0
+  const dispatch = dispatchBlock(c)
 
   const headline = (() => {
     const total = formatCurrency(t.grandTotal || 0)
@@ -126,7 +132,17 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
           ))}
           {c.email && <div>{c.email}</div>}
           {c.phone && <div>{c.phone}</div>}
-          {c.stateCode && <div>State: {stateLabel(c.stateCode)}</div>}
+          {c.gstin && <div>GSTIN {c.gstin}</div>}
+          {/* A structured address already ends with the state's name. */}
+          {c.stateCode && !structured && <div>State: {stateLabel(c.stateCode)}</div>}
+          {dispatch && (
+            <div className="doc-party-sub">
+              <div className="doc-party-label">{dispatch.title}</div>
+              {dispatch.lines.map((line, i) => (
+                <div key={i}>{line}</div>
+              ))}
+            </div>
+          )}
         </div>
         <div className="doc-party">
           <div className="doc-party-label">{isInvoice ? "Bill to" : "Quotation for"}</div>
