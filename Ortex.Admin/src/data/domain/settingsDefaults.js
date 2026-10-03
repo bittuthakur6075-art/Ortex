@@ -38,11 +38,16 @@ export const DEFAULT_SETTINGS = {
   },
   quotation: {
     validityDays: 15,
-    terms: "1. Prices are subject to final artwork approval.\n2. 50% advance with the order, balance before dispatch.\n3. Delivery timeline confirmed on order.\n4. Taxes as applicable.",
-    // An invoice's own terms: it is final and states the GST charged, so the
-    // quotation's conditions do not belong on it. Kept in this block because
-    // settings_staff (0024) shows staff only company, tax, numbering and quotation.
+    terms: "1. This quotation is valid until the date shown above.\n2. Prices are for the quantities and specifications quoted; GST is charged at the rates shown.\n3. Production starts on artwork approval and a 50% advance; the balance is payable before dispatch.\n4. The delivery timeline is confirmed with the order.",
+  },
+  // The words printed on each document (Control centre -> Documents). Staff
+  // read this block through settings_staff (migration 0071).
+  documents: {
+    // An invoice is final and states the GST charged, so the quotation's conditions do not belong on it.
     invoiceTerms: "1. Payment is due by the due date on this invoice. Please quote the invoice number with your payment.\n2. Any shortage or damage must be reported within 7 days of delivery.\n3. Goods once sold will not be taken back.\n4. Subject to Delhi jurisdiction. E&OE.",
+    quotationFooter: "Thank you for your enquiry. This is a computer-generated quotation and needs no signature.",
+    invoiceFooter: "Thank you for your business.",
+    receiptFooter: "Thank you for your payment. This is a computer-generated receipt.",
   },
   notifications: {
     // Email a copy of every newly-generated invoice.
@@ -94,6 +99,7 @@ export function mergeSettings(saved) {
     tax: { ...DEFAULT_SETTINGS.tax, ...saved.tax },
     numbering: { ...DEFAULT_SETTINGS.numbering, ...saved.numbering },
     quotation: { ...DEFAULT_SETTINGS.quotation, ...saved.quotation },
+    documents: { ...DEFAULT_SETTINGS.documents, ...saved.documents },
     notifications: {
       ...DEFAULT_SETTINGS.notifications,
       ...saved.notifications,

@@ -95,7 +95,10 @@ const PATH_LABEL = {
   "numbering.paymentPrefix": "Payment prefix",
   "quotation.validityDays": "Validity",
   "quotation.terms": "Terms",
-  "quotation.invoiceTerms": "Invoice terms",
+  "documents.invoiceTerms": "Invoice terms",
+  "documents.quotationFooter": "Quotation closing line",
+  "documents.invoiceFooter": "Invoice closing line",
+  "documents.receiptFooter": "Receipt closing line",
   "notifications.invoiceEmailEnabled": "Invoice email",
   "notifications.recipient": "Recipient",
   "notifications.sender": "Sender",
@@ -452,7 +455,7 @@ function DocumentsSection({ draft, set }) {
   const n = draft.numbering
   const fy = fyCode()
   return (
-    <SectionHead title="Documents" description="Defaults for every new quotation and invoice.">
+    <SectionHead title="Documents" description="Defaults and printed wording for quotations, invoices and receipts.">
       <Group title="Tax">
         <Row label="Default GST" hint="For new lines; each line can change it">
           <Select value={draft.tax.defaultGstRate} onChange={(e) => set("tax", "defaultGstRate", Number(e.target.value))}>
@@ -498,8 +501,11 @@ function DocumentsSection({ draft, set }) {
             className="min-h-[140px]"
           />
         </Row>
+        <Row label="Closing line" hint="At the foot of every quotation">
+          <Input value={draft.documents.quotationFooter} onChange={(e) => set("documents", "quotationFooter", e.target.value)} />
+        </Row>
       </Group>
-      <Group title="Invoice terms" description="Pre-filled on every new invoice, including one made from a quotation; each one can be edited.">
+      <Group title="Invoice terms" description="Pre-filled on every new invoice, including one made from a quotation; each one can be edited. The invoice always prints Tax Invoice, Reverse charge and a signature block, as GST Rule 46 asks.">
         <Row label="Terms and conditions" hint="One term per line">
           <Textarea
             ai={{
@@ -509,10 +515,18 @@ function DocumentsSection({ draft, set }) {
               format: "lines",
               maxChars: 900,
             }}
-            value={draft.quotation.invoiceTerms}
-            onChange={(e) => set("quotation", "invoiceTerms", e.target.value)}
+            value={draft.documents.invoiceTerms}
+            onChange={(e) => set("documents", "invoiceTerms", e.target.value)}
             className="min-h-[140px]"
           />
+        </Row>
+        <Row label="Closing line" hint="At the foot of every invoice">
+          <Input value={draft.documents.invoiceFooter} onChange={(e) => set("documents", "invoiceFooter", e.target.value)} />
+        </Row>
+      </Group>
+      <Group title="Payment receipts" description="Receipts and receipt vouchers for money received.">
+        <Row label="Closing line" hint="At the foot of every receipt">
+          <Input value={draft.documents.receiptFooter} onChange={(e) => set("documents", "receiptFooter", e.target.value)} />
         </Row>
       </Group>
     </SectionHead>

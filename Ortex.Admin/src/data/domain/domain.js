@@ -145,7 +145,7 @@ export async function convertQuotationToInvoice(quotationId) {
     dueDate,
     notes: q.notes || "",
     // The invoice's own terms, not the quotation's conditions (its payment terms carry over above).
-    terms: settings.quotation.invoiceTerms,
+    terms: settings.documents.invoiceTerms,
     quotationId: q.id,
     quotationNumber: q.number,
     amountPaid: 0,
@@ -177,7 +177,7 @@ export async function createInvoice(draft) {
     issueDate,
     dueDate,
     notes: draft.notes || "",
-    terms: draft.terms ?? settings.quotation.invoiceTerms,
+    terms: draft.terms ?? settings.documents.invoiceTerms,
     quotationId: draft.quotationId || null,
     amountPaid: 0,
     tally: draft.tally || null,

@@ -16,7 +16,7 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
   const t = doc.totals || {}
   const lines = doc.lines || []
   const isInvoice = type === "invoice"
-  const kind = isInvoice ? "tax invoice" : "quotation"
+  const docs = settings.documents || {}
   const psState = doc.shipTo?.stateCode || doc.customer?.stateCode
   // The live status and paid amount when the caller derived them from the
   // payments (useInvoiceList's _status / _paid), else what is stored.
@@ -54,7 +54,8 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
     <div ref={ref} className={`doc-sheet print-area ${className}`}>
       {/* Masthead: document title left (bottom-aligned), brand mark right (24pt) */}
       <div className="doc-head">
-        <div className="doc-title">{isInvoice ? "Invoice" : "Quotation"}</div>
+        {/* GST Rule 46 asks for the words "Tax Invoice" on the invoice itself. */}
+        <div className="doc-title">{isInvoice ? "Tax Invoice" : "Quotation"}</div>
         <img src="/logo.svg" alt={c.name} className="doc-logo" />
       </div>
 
@@ -83,8 +84,15 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
         )}
         <span className="k">Place of supply</span>
         <span className="v">{psState ? stateLabel(psState) : "-"}</span>
-        <span className="k">GST registration</span>
+        <span className="k">GSTIN</span>
         <span className="v">{c.gstin || "-"}</span>
+        {/* Rule 46(p): whether tax is payable on reverse charge. Ortex's own supplies never are. */}
+        {isInvoice && (
+          <>
+            <span className="k">Reverse charge</span>
+            <span className="v">No</span>
+          </>
+        )}
         {/* WHO QUOTED IT, as a labelled row with the rest of the facts rather
             than a sentence in the footer: it is the same kind of thing as the
             place of supply, and a reader looking for "who do I ring" scans this
@@ -152,7 +160,7 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
           {lines.length === 0 && (
             <tr>
               <td>
-                <div className="doc-item-name">{isInvoice ? "Tax invoice" : "Quotation"} (aggregate)</div>
+                <div className="doc-item-name">{isInvoice ? "Tax Invoice" : "Quotation"} (aggregate)</div>
                 <div className="doc-item-detail">Imported document without itemised lines</div>
               </td>
               <td>-</td>
@@ -211,7 +219,6 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
       {/* Notes: HSN/SAC, the document's own declaration, then its text. */}
       <div className="doc-notes">
         {hsnCodes.length > 0 && <p>HSN/SAC: {hsnCodes.join(", ")}</p>}
-        <p>{isInvoice ? "Tax invoice" : "Quotation"}</p>
         <p>Amount in words: {amountInWords(t.grandTotal || 0)}</p>
         {(doc.terms || c.bankName) && (
           <div className="doc-terms-row">
@@ -254,10 +261,17 @@ const DocumentSheet = forwardRef(function DocumentSheet({ doc, settings, type, c
           </>
         )}
         {isInvoice && doc.tally?.voucherNumber && <p className="ref">Tally voucher: {doc.tally.voucherNumber}</p>}
+        {/* Rule 46(q): the supplier's signature. */}
+        {isInvoice && (
+          <div className="doc-sign">
+            <p>For {c.name}</p>
+            <p className="doc-sign-line">Authorised signatory</p>
+          </div>
+        )}
       </div>
 
       <div className="doc-foot">
-        <span>This is a computer-generated {kind} and does not require a signature.</span>
+        <span>{(isInvoice ? docs.invoiceFooter : docs.quotationFooter) || ""}</span>
         <span>Page 1 of 1</span>
       </div>
     </div>
@@ -277,7 +291,7 @@ function Party({ party, placeholder }) {
       {party.address && <div>{party.address}</div>}
       {party.email && <div>{party.email}</div>}
       {party.phone && <div>{party.phone}</div>}
-      {party.gstin && <div>IN GST&nbsp;&nbsp;{party.gstin}</div>}
+      {party.gstin && <div>GSTIN {party.gstin}</div>}
       {party.stateCode && <div>State: {stateLabel(party.stateCode)}</div>}
     </>
   )

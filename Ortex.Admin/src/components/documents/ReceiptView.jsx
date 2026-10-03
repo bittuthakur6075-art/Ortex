@@ -102,7 +102,7 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
             <span className="text-sm font-semibold">Received with thanks</span>
           </div>
           <p className="mt-3 leading-relaxed text-[#0b1220]">
-            Received from <span className="font-semibold">{payment.party || payment.customer?.name || "Not Specified"}</span>
+            Received from <span className="font-semibold">{payment.party || payment.customer?.name || "Not specified"}</span>
             {payment.customer?.company ? ` (${payment.customer.company})` : ""} a sum of{" "}
             <span className="font-semibold">{formatCurrency(payment.amount)}</span>{" "}
             <span className="italic text-[#4b5563]">({amountInWords(payment.amount)})</span> vide{" "}
@@ -160,7 +160,7 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
             <div className="border-t border-[#6b7280] px-6 pt-1 text-xs text-[#6b7280]">Authorised signatory</div>
           </div>
         </div>
-        <div className="mt-auto pt-6 text-center text-[10px] text-[#9ca3af]">This is a computer-generated receipt.</div>
+        <div className="mt-auto pt-6 text-center text-[10px] text-[#9ca3af]">{settings.documents?.receiptFooter}</div>
       </div>
     </div>
   )

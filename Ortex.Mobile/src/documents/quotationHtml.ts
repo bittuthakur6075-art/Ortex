@@ -40,7 +40,7 @@ function party(p: Customer | null | undefined, placeholder = false): string {
     p.address ? `<div>${esc(p.address)}</div>` : "",
     p.email ? `<div>${esc(p.email)}</div>` : "",
     p.phone ? `<div>${esc(p.phone)}</div>` : "",
-    p.gstin ? `<div>IN GST&nbsp;&nbsp;${esc(p.gstin)}</div>` : "",
+    p.gstin ? `<div>GSTIN ${esc(p.gstin)}</div>` : "",
     p.stateCode ? `<div>State: ${esc(stateLabel(p.stateCode))}</div>` : "",
   ]
     .filter(Boolean)
@@ -103,7 +103,7 @@ export function quotationHtml(doc: Quotation, settings: Settings): string {
     { k: "Date of issue", v: formatDate(doc.issueDate) },
     { k: "Valid until", v: doc.validUntil ? formatDate(doc.validUntil) : "-" },
     { k: "Place of supply", v: psState ? stateLabel(psState) : "-" },
-    { k: "GST registration", v: c.gstin || "-" },
+    { k: "GSTIN", v: c.gstin || "-" },
   ]
   // WHO QUOTED IT, as a labelled row with the rest of the facts rather than a
   // sentence in the footer: it is a fact about the document, the same kind of
@@ -323,7 +323,6 @@ export function quotationHtml(doc: Quotation, settings: Settings): string {
 
     <div class="doc-notes">
       ${hsnCodes.length ? `<p>HSN/SAC: ${esc(hsnCodes.join(", "))}</p>` : ""}
-      <p>Quotation</p>
       <p>Amount in words: ${esc(amountInWords(t.grandTotal || 0))}</p>
       ${
         doc.terms || c.bankName
@@ -336,7 +335,7 @@ export function quotationHtml(doc: Quotation, settings: Settings): string {
     </div>
 
     <div class="doc-foot">
-      <span>This is a computer-generated quotation and does not require a signature.</span>
+      <span>${esc(settings.documents?.quotationFooter || "")}</span>
       <span>Page 1 of 1</span>
     </div>
   </div>

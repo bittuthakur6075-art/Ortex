@@ -28,7 +28,8 @@ export type Settings = {
   company: CompanySettings
   tax: { defaultGstRate: number; pricesIncludeTax: boolean }
   numbering: { quotationPrefix: string; invoicePrefix: string; paymentPrefix: string }
-  quotation: { validityDays: number; terms: string; invoiceTerms: string }
+  quotation: { validityDays: number; terms: string }
+  documents: { invoiceTerms: string; quotationFooter: string; invoiceFooter: string; receiptFooter: string }
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -61,9 +62,14 @@ export const DEFAULT_SETTINGS: Settings = {
   quotation: {
     validityDays: 15,
     terms:
-      "1. Prices are subject to final artwork approval.\n2. 50% advance with the order, balance before dispatch.\n3. Delivery timeline confirmed on order.\n4. Taxes as applicable.",
+      "1. This quotation is valid until the date shown above.\n2. Prices are for the quantities and specifications quoted; GST is charged at the rates shown.\n3. Production starts on artwork approval and a 50% advance; the balance is payable before dispatch.\n4. The delivery timeline is confirmed with the order.",
+  },
+  documents: {
     invoiceTerms:
       "1. Payment is due by the due date on this invoice. Please quote the invoice number with your payment.\n2. Any shortage or damage must be reported within 7 days of delivery.\n3. Goods once sold will not be taken back.\n4. Subject to Delhi jurisdiction. E&OE.",
+    quotationFooter: "Thank you for your enquiry. This is a computer-generated quotation and needs no signature.",
+    invoiceFooter: "Thank you for your business.",
+    receiptFooter: "Thank you for your payment. This is a computer-generated receipt.",
   },
 }
 

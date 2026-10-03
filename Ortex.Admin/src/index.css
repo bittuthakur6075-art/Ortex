@@ -681,6 +681,9 @@ input[type="search"]::-webkit-search-decoration {
 .doc-notes h4 { font-size: 9pt; font-weight: 600; margin-top: 11.5pt; }
 .doc-notes p { white-space: pre-wrap; }
 .doc-notes .ref { margin-top: 11.5pt; font-size: 7.5pt; }
+/* The supplier's signature on a tax invoice (GST Rule 46): right, with room to sign above the rule. */
+.doc-sign { margin-top: 18pt; margin-left: auto; width: 180pt; text-align: right; font-weight: 600; }
+.doc-sign-line { margin-top: 30pt; padding-top: 3pt; border-top: 0.75pt solid var(--rule); font-size: 7.5pt; font-weight: 400; }
 /* Terms left, bank details right in a tinted box so the payee is found at a glance. */
 .doc-terms-row { display: flex; align-items: flex-start; gap: 20pt; }
 .doc-terms { flex: 1; min-width: 0; }
