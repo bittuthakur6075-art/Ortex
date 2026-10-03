@@ -10,6 +10,38 @@
 
 export const RELEASES = [
   {
+    id: "1.57.0",
+    version: "1.57.0",
+    date: "2026-10-03",
+    title: "A quicker way to build a quotation",
+    items: [
+      {
+        kind: "improved",
+        title: "One place to add items",
+        detail:
+          "Under the item table there is now a single Add item bar. Search the catalogue to bring in a product with its HSN, rate and GST, or type any name for something that is not in the catalogue. Press / anywhere on the page to jump to it. Each line takes one row, and its boxes look like plain text until you point at them.",
+      },
+      {
+        kind: "new",
+        title: "Save a custom item to the catalogue",
+        detail:
+          "If you quoted something that is not in the catalogue, Save to catalogue on that line keeps it as a draft product, with the HSN, rate and GST you typed, ready for next time. It is hidden from the website until someone publishes it. You need access to the Catalogue to see it.",
+      },
+      {
+        kind: "improved",
+        title: "Terms in a few clicks",
+        detail:
+          "Validity is 7, 15 or 30 days with one click, and the date the customer sees is shown under it. Payment terms have the usual choices as buttons, and Custom takes anything else. Terms and the note under the totals sit side by side as tabs, and Reset to my defaults puts your own wording back.",
+      },
+      {
+        kind: "improved",
+        title: "Totals and checks you can act on",
+        detail:
+          "The Totals card shows the amount each GST rate is charged on and your average discount. On a new quotation, Create and send, Create as draft and Preview sit right under the total. Ready to send lists everything still missing in one place, problems first, with a Fix or Review link that takes you to the field. Ctrl+S saves and Ctrl+Enter sends.",
+      },
+    ],
+  },
+  {
     id: "1.56.0",
     version: "1.56.0",
     date: "2026-09-30",

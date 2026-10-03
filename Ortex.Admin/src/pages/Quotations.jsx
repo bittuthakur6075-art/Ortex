@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
-import { ArrowLeft, FileText, Eye, FileCheck2, Trash2, AlertTriangle, Send, MessageCircle, Mail, Printer, MoreHorizontal, Clock, PhoneOutgoing, Calendar, Copy, CheckCircle2, ArrowRight } from "../components/ui/Icons"
+import { ArrowLeft, ArrowDownLeft, FileText, Eye, FileCheck2, Trash2, AlertTriangle, Send, MessageCircle, Mail, Printer, MoreHorizontal, Clock, PhoneOutgoing, Calendar, Copy, CheckCircle2, ArrowRight } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { useCollection, useSettingsFor } from "../hooks/useCollection"
@@ -15,8 +15,9 @@ import useDocumentValidation from "../hooks/useDocumentValidation"
 import FixSummary from "../components/editors/FixSummary"
 import { currentUserId } from "../lib/auth"
 import { createQuotation, updateQuotation, markEnquiryQuoted, markLeadQuoted, isInterState, sameCustomer } from "../data/domain/domain"
-import { QUOTATION_STATUS, LOST_REASONS, newCustomer, newLine } from "../data/domain/schema"
-import { toDateInput, amountInWords } from "../lib/format"
+import { QUOTATION_STATUS, LOST_REASONS, newCustomer, newProduct } from "../data/domain/schema"
+import { canAccess } from "../data/domain/modules"
+import { amountInWords } from "../lib/format"
 import { stateName } from "../lib/gstStates"
 import { computeDocument } from "../lib/pricing"
 import { cn } from "../lib/cn"
@@ -27,15 +28,16 @@ import LineItemsEditor from "../components/editors/LineItemsEditor"
 import DocumentView from "../components/documents/DocumentView"
 import { callContact } from "../components/sales/ContactCard"
 import { RecordActivity } from "../components/ui/RecordActivity"
-import ListTextarea from "../components/ui/ListTextarea"
 import { isAdmin as isAdminRole } from "../lib/roles"
-import { Button, Input, Field, Chip, Modal, Banner, PageLoader } from "../components/ui/Ui"
+import { Avatar, Button, Chip, Kbd, Modal, Banner, PageLoader } from "../components/ui/Ui"
 import { ActionMenu, StatusDropdown } from "../components/sales/ListParts"
 import { StatusTimeline, StickyActionBar } from "../components/sales/StatusTimeline"
 import QuotationList from "./quotations/QuotationList"
 import SendScreen from "./quotations/SendScreen"
 import { downloadPdf, duplicateDraft, extendValidity, setQuoteStatus, startWhatsAppShare } from "./quotations/actions"
 import { useConvertConfirm } from "./quotations/ConvertDialog"
+import TermsCard from "./quotations/TermsCard"
+import { averageDiscount, readyItems, taxBases } from "./quotations/model"
 
 const emptyDraft = (settings, companyId = "") => ({
   id: null,
@@ -43,7 +45,8 @@ const emptyDraft = (settings, companyId = "") => ({
   companyId,
   customer: newCustomer(),
   shipTo: null,
-  lines: [newLine()],
+  // Empty: items come in through the add bar under the table.
+  lines: [],
   extraDiscountPercent: 0,
   paymentTerms: "",
   issueDate: new Date().toISOString(),
@@ -81,6 +84,11 @@ export default function Quotations() {
   const newDraft = (patch = {}) => {
     const companyId = patch.companyId ?? defaultCompany
     return { ...withDefaults(emptyDraft(settingsOf(companyId), companyId), quoteDefaults), ...patch }
+  }
+  // What "Reset to my defaults" puts back, for the company a quotation is for.
+  const defaultsOf = (companyId) => {
+    const { paymentTerms, terms, notes, validityDays } = newDraft({ companyId })
+    return { paymentTerms, terms, notes, validityDays }
   }
   const location = useLocation()
   const navigate = useNavigate()
@@ -152,6 +160,7 @@ export default function Quotations() {
           quotations={items}
           invoices={invoices}
           settingsOf={settingsOf}
+          defaultsOf={defaultsOf}
           profile={profile}
           onClose={() => setEditing(null)}
           onOpen={(q) => setEditing(q)}
@@ -202,7 +211,7 @@ const PICKABLE = QUOTATION_STATUS.filter((s) => !["expired", "invoiced"].include
 // left and sticky totals, send history, pre-send checks and the customer on the
 // right. Saving stays explicit (the sticky bar), because a quotation is a
 // document a customer receives, not a live record.
-function QuotationEditor({ draft, products, customers: allCustomers, enquiries, quotations, invoices, settingsOf, profile, onClose, onOpen, onPreview, onSend }) {
+function QuotationEditor({ draft, products, customers: allCustomers, enquiries, quotations, invoices, settingsOf, defaultsOf, profile, onClose, onOpen, onPreview, onSend }) {
   const isEdit = !!draft.id
   // Deleting a quotation is admin-only IN THE DATABASE as of migration 0022
   // (`admin_quotations_delete`). Without this check a Sales Executive still sees
@@ -493,6 +502,93 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
   const log = [...(form.sendLog || [])].reverse()
   const bad = checks.filter((x) => !x.ok)
 
+  // ---- V3 builder: rail, jumps, shortcuts ----------------------------------
+  const guide = Number(settings?.quotation?.discountGuidePct ?? 5)
+  const ready = readyItems({ checks, errors: v.shown, warnings: v.warnings, lines: form.lines, guide })
+  const readyOk = ready.filter((x) => x.tone === "ok").length
+  const bases = taxBases(t)
+  const avgDisc = averageDiscount(t)
+
+  // Scroll to and focus the field a Fix / Review link is about, opening the
+  // folded part that holds it first.
+  const jumpTo = (path) => {
+    if (!path) return
+    if (path.startsWith("customer.")) setOpen((o) => ({ ...o, customer: true }))
+    if (path.startsWith("shipTo.")) setOpen((o) => ({ ...o, ship: true }))
+    setTab("details")
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const el = v.rootRef.current?.querySelector(`[data-path="${path}"]`)
+        if (!el) return
+        el.scrollIntoView({ block: "center", behavior: "smooth" })
+        const control = el.matches("input, textarea, button") ? el : el.querySelector("input, textarea, button")
+        control?.focus({ preventScroll: true })
+      }),
+    )
+  }
+
+  // A custom line kept for next time: a DRAFT product, off the website, with
+  // the line's HSN, unit, rate and GST. Writing products needs the Catalogue
+  // module in the database too; this only decides whether to offer it.
+  const saveToCatalogue = canAccess(profile, "products")
+    ? async (line) => {
+        try {
+          const p = await repo.create("products", newProduct({ name: line.description.trim(), hsn: line.hsn || "", unit: line.unit || "pcs", basePrice: Number(line.rate) || 0, gstRate: Number(line.gstRate) || 0, status: "draft", showOnWebsite: false }))
+          toast.success(`${p.name} saved to the catalogue as a draft`)
+          return p
+        } catch (e) {
+          toast.error(e?.message || "Could not save it to the catalogue")
+          return null
+        }
+      }
+    : undefined
+
+  const [createMenu, setCreateMenu] = useState(null)
+  const createAnd = async (then) => {
+    const saved = await persist()
+    if (!saved) return
+    onOpen({ ...saved })
+    then?.(saved)
+  }
+  const createSections = [
+    {
+      items: [
+        { icon: Eye, label: "Create and preview", onSelect: () => createAnd((q) => onPreview(q)) },
+        { icon: Printer, label: "Create and download PDF", onSelect: () => createAnd((q) => downloadPdf(q, settings)) },
+        { icon: FileText, label: "Create as draft", hint: "Send later", onSelect: () => createAnd() },
+      ],
+    },
+  ]
+
+  // "/" adds an item, Ctrl+S saves, Ctrl+Enter saves and sends. Never while a
+  // dialog is open, and "/" never while typing.
+  const keys = useRef(null)
+  keys.current = {
+    save: () => (dirty || !isEdit) && save(),
+    send: () => !["invoiced", "rejected"].includes(status) && (status === "accepted" ? convert() : saveThenSend()),
+  }
+  useEffect(() => {
+    const onKey = (e) => {
+      if (document.querySelector('[role="dialog"]')) return
+      const mod = e.ctrlKey || e.metaKey
+      if (mod && e.key.toLowerCase() === "s") {
+        e.preventDefault()
+        keys.current.save()
+      } else if (mod && e.key === "Enter") {
+        e.preventDefault()
+        keys.current.send()
+      } else if (e.key === "/" && !mod && !e.target.closest?.("input, textarea, select, [contenteditable='true']")) {
+        const add = v.rootRef.current?.querySelector("[data-add-item] [role='combobox']")
+        if (add) {
+          e.preventDefault()
+          add.click()
+        }
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [v.rootRef])
+
   const moreSections = [
     {
       items: [
@@ -529,7 +625,31 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
         </span>
       </div>
 
-      {/* Header */}
+      {/* Header. A new quotation (V3 builder) has no status or send history
+          yet: its title, the company it is for and Preview; every create
+          action lives with the total in the rail. */}
+      {!isEdit ? (
+        <header className="flex flex-wrap items-end gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-[26px] font-semibold leading-8 tracking-[-0.01em] text-foreground">New quotation</h1>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[12.5px] text-muted-foreground">
+              <span>Its number is given when you create it</span>
+              {lead && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <Link to={`/enquiries/${lead.id}`} className="font-medium text-primary hover:underline">
+                    From lead {lead.reference || lead.customer?.name}
+                  </Link>
+                </>
+              )}
+            </p>
+          </div>
+          <CompanyField value={form.companyId} onChange={pickCompany} className="w-64" />
+          <Button variant="outline" onClick={() => onPreview(liveDoc)}>
+            <Eye className="h-4 w-4" /> Preview
+          </Button>
+        </header>
+      ) : (
       <section className="squircle rounded-card bg-card px-5 pb-4 pt-5">
         <div className="flex flex-wrap items-start gap-4">
           <span className="squircle grid h-[52px] w-[52px] flex-none place-items-center rounded-xl bg-primary/10 text-primary">
@@ -591,6 +711,7 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
           </div>
         )}
       </section>
+      )}
 
       {/* Next action */}
       {fu && fu.label && fu.group !== "closed" && (
@@ -664,50 +785,66 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
             </Box>
           ) : (
             <>
-              <CompanyField value={form.companyId} onChange={pickCompany} disabled={isEdit} className={cn("rounded-card bg-card p-[18px]", isEdit && "hidden")} />
-              <Box attached={isEdit} title="Customer and supply" action={<TextBtn onClick={() => toggle("customer")}>{open.customer ? "Done" : partyLabel ? "Change customer" : "Add customer"}</TextBtn>}>
+              <Box
+                attached={isEdit}
+                title="Customer and place of supply"
+                sub="Who it is for, and where the goods go. The state decides the GST."
+                action={<TextBtn onClick={() => toggle("customer")}>{open.customer ? "Done" : partyLabel ? "Change" : "Add customer"}</TextBtn>}
+              >
                 {(open.customer || shownUnder("customer.")) && (
                   <div className="mb-4">
                     <CustomerPicker value={form.customer} onChange={(customer) => set({ customer })} customers={customers} errors={errorsUnder(v.shown, "customer")} warnings={errorsUnder(v.shownWarnings, "customer")} />
                   </div>
                 )}
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <PartyBox title="Bill to" onEdit={() => toggle("customer")}>
-                    {partyLabel ? (
-                      <>
-                        <b className="block text-foreground">{c.company || c.name}</b>
-                        {c.company && c.name && <span className="block">{[c.name, c.phone].filter(Boolean).join(" · ")}</span>}
-                        {c.address && <span className="block whitespace-pre-line">{c.address}</span>}
-                        {c.gstin && <span className="block">GSTIN {c.gstin}</span>}
-                      </>
-                    ) : (
-                      <span className="text-subtle-foreground">No customer yet</span>
-                    )}
-                  </PartyBox>
-                  <PartyBox title="Ship to" onEdit={() => toggle("ship")}>
+                {partyLabel ? (
+                  <div className="flex items-center gap-3">
+                    <Avatar name={partyLabel} className="h-10 w-10" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[14px] font-semibold text-foreground">{c.company || c.name}</p>
+                      <p className="flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted-foreground">
+                        <span>{[c.company && c.name, c.phone, c.email].filter(Boolean).join(" · ") || "No phone or email yet"}</span>
+                        {c.gstin && (
+                          <span className="inline-flex items-center gap-1">
+                            · GSTIN {c.gstin}
+                            {!v.errors["customer.gstin"] && <CheckCircle2 className="h-3.5 w-3.5 text-success-text" aria-label="GSTIN check digit valid" />}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  !open.customer && <p className="text-[13px] text-muted-foreground">No customer yet. Add one to set the place of supply.</p>
+                )}
+                <div className="squircle mt-4 grid grid-cols-1 overflow-hidden rounded-xl bg-muted text-[12.5px] leading-5 md:grid-cols-2">
+                  <div className="px-4 py-3 md:border-r md:border-line">
+                    <p className="flex items-center justify-between text-muted-foreground">
+                      Ship to <TextBtn onClick={() => toggle("ship")}>{open.ship ? "Done" : "Change"}</TextBtn>
+                    </p>
                     {form.shipTo ? (
                       <>
-                        <b className="block text-foreground">{form.shipTo.company || form.shipTo.name}</b>
-                        {form.shipTo.address && <span className="block whitespace-pre-line">{form.shipTo.address}</span>}
+                        <b className="block font-medium text-foreground">{form.shipTo.company || form.shipTo.name || "Delivery address"}</b>
+                        {form.shipTo.address && <span className="block truncate text-muted-foreground">{form.shipTo.address}</span>}
                       </>
                     ) : (
-                      <b className="block text-foreground">Same as billing</b>
+                      <>
+                        <b className="block font-medium text-foreground">Same as billing</b>
+                        {c.address && <span className="block truncate text-muted-foreground">{c.address}</span>}
+                      </>
                     )}
-                  </PartyBox>
-                  <div className={cn("squircle rounded-xl px-3.5 py-3 text-[12.5px] leading-5", supplyState ? "bg-success/[0.07]" : "bg-warning/10")}>
-                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Place of supply</p>
+                  </div>
+                  <div className={cn("px-4 py-3", !supplyState && "bg-warning/10")}>
+                    <p className="text-muted-foreground">Place of supply</p>
                     {supplyState ? (
                       <>
-                        <b className="block text-foreground">
+                        <b className="block font-medium text-foreground">
                           {stateName(supplyState) || "State"} ({supplyState})
                         </b>
-                        <span className="block text-muted-foreground">
-                          {interState ? `Inter-state from ${stateName(settings.company.stateCode) || "your state"} (${settings.company.stateCode})` : "Same state as yours"}
+                        <span className="block font-medium text-success-text">
+                          {interState ? `Inter-state from ${stateName(settings.company.stateCode) || "your state"} · IGST applies` : "Same state as yours · CGST + SGST apply"}
                         </span>
-                        <span className="block font-medium text-success-text">{interState ? "IGST applies" : "CGST + SGST apply"}</span>
                       </>
                     ) : (
-                      <span className="text-warning-text">Add the customer&apos;s state or GSTIN to decide IGST or CGST + SGST.</span>
+                      <span className="block text-warning-text">Add the customer&apos;s state or GSTIN to decide IGST or CGST + SGST.</span>
                     )}
                   </div>
                 </div>
@@ -718,34 +855,11 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
                 )}
               </Box>
 
-              <Box title="Details">
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-                  <Field label="Issue date" data-path="issueDate" error={v.shown.issueDate}>
-                    <Input type="date" value={toDateInput(form.issueDate)} onChange={(e) => set({ issueDate: e.target.value ? new Date(e.target.value).toISOString() : "" })} />
-                  </Field>
-                  <Field label="Validity" data-path="validityDays" error={v.shown.validityDays} warning={v.shownWarnings.validityDays}>
-                    <Input type="number" min="1" value={form.validityDays} onChange={(e) => set({ validityDays: Number(e.target.value) })} />
-                  </Field>
-                  <Field label="Valid until" hint={left == null ? undefined : left < 0 ? `Lapsed ${-left} days ago` : `${left} days left`}>
-                    <Input readOnly value={liveDoc.validUntil ? dm(liveDoc.validUntil) + " " + new Date(liveDoc.validUntil).getFullYear() : ""} />
-                  </Field>
-                  <Field label="Payment terms" data-path="paymentTerms" error={v.shown.paymentTerms}>
-                    <Input value={form.paymentTerms} onChange={(e) => set({ paymentTerms: e.target.value })} placeholder="e.g. 50% advance" />
-                  </Field>
-                  <Field label="Seller">
-                    <Input value={form.sellerName || ""} onChange={(e) => set({ sellerName: e.target.value })} placeholder="Enter seller name" />
-                  </Field>
-                </div>
-                {/* WHO QUOTED IT, on the sheet the customer keeps. Prefilled with the
-                    signed-in user's name on a new quotation, never re-stamped on
-                    edit, and editable either way. */}
-                <label className="mt-3 flex items-center gap-2 text-[13px] text-foreground">
-                  <input type="checkbox" className="h-4 w-4 rounded border-border accent-primary" checked={form.showSeller !== false} onChange={(e) => set({ showSeller: e.target.checked })} />
-                  Show the seller name on the PDF
-                </label>
-              </Box>
-
-              <Box title="Line items" sub="Pick a product to fill HSN, rate and GST, or type a name to quote something that is not in the catalogue.">
+              <Box
+                title="Items"
+                sub="Pick from the catalogue to fill HSN, rate and GST, or type any name for a one-off item."
+                action={lead?.lines?.length > 0 && <TextBtn onClick={() => set({ lines: [...form.lines.filter((l) => l.description?.trim() || l.productId), ...lead.lines] })}>Import from lead</TextBtn>}
+              >
                 <LineItemsEditor
                   lines={form.lines}
                   onChange={(lines) => set({ lines })}
@@ -756,52 +870,11 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
                   showTotals={false}
                   errors={v.shown}
                   warnings={v.shownWarnings}
+                  onSaveToCatalogue={saveToCatalogue}
                 />
               </Box>
 
-              <FoldBox
-                title="Terms and conditions"
-                sub={`${(form.terms || "").split("\n").filter((l) => l.trim()).length} clauses · printed at the foot`}
-                open={open.terms}
-                onToggle={() => toggle("terms")}
-              >
-                <ListTextarea
-                  ai={{
-                    purpose: "Terms and conditions printed at the foot of a sales quotation from Ortex Industries: validity, payment, artwork approval, production and delivery, one term per line",
-                    context: () => ({
-                      validityDays: form.validityDays,
-                      validUntil: form.validUntil,
-                      paymentTerms: form.paymentTerms,
-                      items: (form.lines || []).map((l) => l.description).filter(Boolean).slice(0, 10),
-                    }),
-                    format: "lines",
-                    maxChars: 900,
-                  }}
-                  value={form.terms}
-                  onChange={(e) => set({ terms: e.target.value })}
-                  placeholder="Enter terms and conditions"
-                  className="min-h-[110px]"
-                />
-              </FoldBox>
-
-              <FoldBox title="Notes on the quotation" sub={form.notes?.trim() ? `“${form.notes.trim().split("\n")[0].slice(0, 80)}”` : "Printed under the totals"} open={open.notes} onToggle={() => toggle("notes")}>
-                <ListTextarea
-                  ai={{
-                    format: "paragraph",
-                    purpose: "Short note printed under the totals of a sales quotation, for example what is included, a free mockup offer or a thank you",
-                    context: () => ({
-                      validUntil: form.validUntil,
-                      paymentTerms: form.paymentTerms,
-                      items: (form.lines || []).map((l) => l.description).filter(Boolean).slice(0, 10),
-                    }),
-                    maxChars: 300,
-                  }}
-                  value={form.notes}
-                  onChange={(e) => set({ notes: e.target.value })}
-                  placeholder="Enter notes"
-                  className="min-h-[80px]"
-                />
-              </FoldBox>
+              <TermsCard form={form} set={set} v={v} validUntil={liveDoc.validUntil} left={left} defaults={defaultsOf(form.companyId)} />
             </>
           )}
         </div>
@@ -824,7 +897,7 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
                     aria-label="Extra discount percent"
                     data-path="extraDiscountPercent"
                     aria-invalid={v.shown.extraDiscountPercent ? true : undefined}
-                    className="h-6 w-12 rounded-md border border-line bg-card px-1.5 text-right text-xs text-foreground outline-none focus:border-primary"
+                    className="h-6 w-12 rounded-md border border-line bg-card px-1.5 text-right text-xs text-foreground outline-none focus:border-primary aria-invalid:border-destructive"
                   />
                   %
                 </dt>
@@ -834,38 +907,78 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
               <Line label="Taxable value" value={rupees2(t.taxable)} />
               {Object.entries(t.taxByRate || {})
                 .sort((a, b) => Number(b[0]) - Number(a[0]))
-                .map(([rate, amt]) =>
-                  interState ? (
-                    <Line key={rate} label={`IGST ${rate}%`} value={rupees2(amt)} />
-                  ) : (
-                    <Line key={rate} label={`CGST + SGST ${rate}%`} value={rupees2(amt)} />
-                  ),
-                )}
+                .map(([rate, amt]) => (
+                  <Line key={rate} label={`${interState ? "IGST" : "CGST + SGST"} ${rate}% on ${rupees(bases[rate])}`} value={rupees2(amt)} />
+                ))}
               {t.roundOff !== 0 && <Line label="Round off" value={`${t.roundOff > 0 ? "+" : "−"}${rupees2(Math.abs(t.roundOff))}`} />}
             </dl>
             <div className="mt-3 flex items-baseline justify-between border-t border-border pt-3">
               <span className="text-[14px] font-semibold text-foreground">Grand total</span>
-              <span className="text-2xl font-semibold tracking-[-0.01em] text-foreground tabular">{rupees(t.grandTotal)}</span>
+              <span className="text-[28px] font-semibold tracking-[-0.02em] text-foreground tabular">{rupees(t.grandTotal)}</span>
             </div>
             <p className="mt-1 text-right text-[11px] text-muted-foreground">{amountInWords(t.grandTotal)}</p>
+            {avgDisc > 0 && (
+              <p className={cn("squircle mt-3 rounded-lg px-3 py-2 text-[12px] font-medium", form.lines.some((l) => Number(l.discountPercent) > guide) ? "bg-warning/10 text-warning-text" : "bg-success/[0.08] text-success-text")}>
+                Average discount {avgDisc}%
+              </p>
+            )}
+
+            {/* A new quotation's actions sit with its total (V3): one primary
+                action, the rest behind More. An existing one keeps the bar. */}
+            {!isEdit && (
+              <div className="mt-4 space-y-2">
+                <div className="flex gap-2">
+                  <Button className="flex-1" onClick={saveThenSend} disabled={saving}>
+                    <Send className="h-4 w-4" /> {saving ? "Creating…" : "Create and send"}
+                  </Button>
+                  <Button variant="outline" icon onClick={(e) => setCreateMenu(e.currentTarget)} disabled={saving} aria-label="More ways to create">
+                    <ArrowDownLeft className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={save} disabled={saving}>
+                    Create as draft
+                  </Button>
+                  <Button variant="outline" onClick={() => onPreview(liveDoc)}>
+                    <Eye className="h-4 w-4" /> Preview
+                  </Button>
+                </div>
+                <div className="pt-1 text-xs">
+                  {saveError ? (
+                    <span className="font-medium text-destructive-text" role="alert">Not saved: {saveError}</span>
+                  ) : v.count && dirty ? (
+                    // The full list is in Ready to send; this says how many and shows them.
+                    <button type="button" onClick={revealAll} className="inline-flex items-center gap-1.5 font-medium text-destructive-text hover:underline">
+                      <AlertTriangle className="h-3.5 w-3.5" /> {v.count} thing{v.count === 1 ? "" : "s"} to fix before creating
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                      <span className={cn("h-2 w-2 rounded-full", dirty ? "bg-warning" : "bg-border-strong")} /> {dirty ? "Not created yet · kept in this browser" : "Nothing entered yet"}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </RailCard>
 
-          <RailCard title="Before you send" action={<span className="text-xs text-muted-foreground">{checks.length - bad.length} of {checks.length} ready</span>}>
+          <RailCard title="Ready to send" action={<span className="text-xs text-muted-foreground tabular">{readyOk} of {ready.length}</span>}>
+            <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={ready.length} aria-valuenow={readyOk} aria-label="Ready to send">
+              <div className={cn("h-full rounded-full transition-[width]", ready.some((x) => x.tone === "bad") ? "bg-warning" : "bg-success")} style={{ width: `${ready.length ? (readyOk / ready.length) * 100 : 0}%` }} />
+            </div>
             <ul className="space-y-2 text-[12.5px]">
-              {checks.map((x) => (
-                <li key={x.key} className={cn("flex items-start gap-2", x.ok ? "text-foreground" : x.warn ? "text-warning-text" : "text-destructive-text")}>
-                  {x.ok ? <CheckCircle2 className="mt-px h-4 w-4 flex-none text-success-text" /> : <AlertTriangle className="mt-px h-4 w-4 flex-none" />}
-                  {x.text}
-                </li>
-              ))}
-              {/* validateDocument's warnings: worth a look, never a block. */}
-              {Object.entries(v.warnings).map(([path, text]) => (
-                <li key={path} className="flex items-start gap-2 text-warning-text">
-                  <AlertTriangle className="mt-px h-4 w-4 flex-none" />
-                  {warningLabel(path)}{text}
+              {ready.map((x) => (
+                <li key={x.key} className={cn("flex items-start gap-2", x.tone === "ok" ? "text-foreground" : x.tone === "warn" ? "text-warning-text" : "text-destructive-text")}>
+                  {x.tone === "ok" ? <CheckCircle2 className="mt-px h-4 w-4 flex-none text-success-text" /> : <AlertTriangle className="mt-px h-4 w-4 flex-none" />}
+                  <span className="min-w-0 flex-1">{x.text}</span>
+                  {x.act && x.path && (
+                    <button type="button" onClick={() => jumpTo(x.path)} className="flex-none text-[12px] font-medium text-primary hover:underline">
+                      {x.act}
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
+            <p className="mt-3 text-[11px] text-muted-foreground">Warnings never block. Errors stop Create and are listed here first.</p>
           </RailCard>
 
           {isEdit && (
@@ -891,7 +1004,7 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
             </RailCard>
           )}
 
-          {partyLabel && party.count > 0 && (
+          {isEdit && partyLabel && party.count > 0 && (
             <RailCard title={partyLabel} action={party.master && <Link to={`/customers/${party.master.id}`} className="text-[12.5px] font-medium text-primary hover:underline">Open customer</Link>}>
               <div className="grid grid-cols-3 gap-2">
                 <Mini label="Quotes" value={party.count} />
@@ -905,12 +1018,19 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
               )}
             </RailCard>
           )}
+
+          <ul className="space-y-1.5 px-1 text-[12px] text-muted-foreground" aria-label="Keyboard shortcuts">
+            <li className="flex items-center gap-2"><Kbd>/</Kbd> Add an item</li>
+            <li className="flex items-center gap-2"><Kbd>Ctrl S</Kbd> {isEdit ? "Save" : "Create as draft"}</li>
+            <li className="flex items-center gap-2"><Kbd>Ctrl Enter</Kbd> {isEdit && status === "accepted" ? "Convert to invoice" : isEdit ? "Save and send" : "Create and send"}</li>
+          </ul>
         </div>
       </div>
 
+      {isEdit && (
       <StickyActionBar
         left={
-          isEdit && isAdmin && (
+          isAdmin && (
             <Button variant="dangerGhost" size="sm" onClick={() => setConfirmDelete(true)}>
               <Trash2 className="h-3.5 w-3.5" /> Delete quotation
             </Button>
@@ -920,15 +1040,15 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
         <span className="mr-1 inline-flex min-w-0 items-center gap-1.5">
           {saveError ? (
             <span className="font-medium text-destructive-text" role="alert">Not saved: {saveError}</span>
-          ) : v.count && (dirty || !isEdit) ? (
+          ) : v.count && dirty ? (
             <FixSummary v={v} />
           ) : dirty ? (
-            <span className="inline-flex items-center gap-1.5 font-medium text-warning-text"><span className="h-2 w-2 rounded-full bg-warning" /> {isEdit ? "Unsaved changes" : "Not created yet"}</span>
+            <span className="inline-flex items-center gap-1.5 font-medium text-warning-text"><span className="h-2 w-2 rounded-full bg-warning" /> Unsaved changes</span>
           ) : (
             <span className="inline-flex items-center gap-1.5 text-muted-foreground"><CheckCircle2 className="h-3.5 w-3.5 text-success-text" /> {lineCount} line{lineCount === 1 ? "" : "s"} · {rupees(t.grandTotal)} incl. GST · all changes saved</span>
           )}
         </span>
-        {dirty && isEdit && (
+        {dirty && (
           <Button variant="ghost" size="sm" onClick={() => (setForm(baseline), discardDraft(), (finished.current = false))}>
             Discard
           </Button>
@@ -936,17 +1056,19 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
         <Button variant="outline" size="sm" onClick={requestClose}>
           Close
         </Button>
-        {(dirty || !isEdit) && (
+        {dirty && (
           <Button variant="outline" size="sm" onClick={save} disabled={saving || v.count > 0} title={v.count ? v.first : undefined}>
-            {saving ? "Saving…" : isEdit ? "Save" : "Create quotation"}
+            {saving ? "Saving…" : "Save"}
           </Button>
         )}
         <Button size="sm" onClick={saveAndPreview} disabled={saving}>
-          <Eye className="h-3.5 w-3.5" /> {dirty || !isEdit ? "Save and preview" : "Preview"}
+          <Eye className="h-3.5 w-3.5" /> {dirty ? "Save and preview" : "Preview"}
         </Button>
       </StickyActionBar>
+      )}
 
       <ActionMenu open={!!menu} anchor={menu} onClose={() => setMenu(null)} sections={moreSections} width={240} />
+      <ActionMenu open={!!createMenu} anchor={createMenu} onClose={() => setCreateMenu(null)} sections={createSections} width={260} />
       {convertConfirm.element}
       <Modal
         open={confirmDelete}
@@ -1047,12 +1169,6 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
 
 // ---- pieces ---------------------------------------------------------------
 
-// "Line 2: " before a line's warning in the pre-send list; nothing for the rest.
-const warningLabel = (path) => {
-  const m = /^lines.(d+)./.exec(path)
-  return m ? `Line ${Number(m[1]) + 1}: ` : ""
-}
-
 const rupees2 = (n) => `₹${(Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 
 function compactRs(v) {
@@ -1075,35 +1191,6 @@ function Box({ title, sub, action, attached, children }) {
       </header>
       {children}
     </section>
-  )
-}
-
-function FoldBox({ title, sub, open, onToggle, children }) {
-  return (
-    <section className="squircle rounded-card bg-card">
-      <div className="flex items-center gap-3 px-[18px] py-3.5">
-        <div className="min-w-0 flex-1">
-          <h2 className="text-[14px] font-semibold text-foreground">{title}</h2>
-          <p className="truncate text-xs text-muted-foreground">{sub}</p>
-        </div>
-        <TextBtn onClick={onToggle}>{open ? "Done" : "Edit"}</TextBtn>
-      </div>
-      {open && <div className="border-t border-border px-[18px] py-4">{children}</div>}
-    </section>
-  )
-}
-
-function PartyBox({ title, onEdit, children }) {
-  return (
-    <div className="squircle rounded-xl bg-muted px-3.5 py-3 text-[12.5px] leading-5 text-muted-foreground">
-      <p className="mb-1 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.06em]">
-        {title}
-        <button type="button" onClick={onEdit} className="text-[12px] font-medium normal-case tracking-normal text-primary hover:underline">
-          Edit
-        </button>
-      </p>
-      {children}
-    </div>
   )
 }
 
