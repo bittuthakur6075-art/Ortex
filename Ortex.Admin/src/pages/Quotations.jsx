@@ -15,7 +15,7 @@ import useDocumentValidation from "../hooks/useDocumentValidation"
 import FixSummary from "../components/editors/FixSummary"
 import { currentUserId } from "../lib/auth"
 import { createQuotation, updateQuotation, markEnquiryQuoted, markLeadQuoted, isInterState, sameCustomer } from "../data/domain/domain"
-import { QUOTATION_STATUS, LOST_REASONS, newCustomer, newProduct } from "../data/domain/schema"
+import { QUOTATION_STATUS, LOST_REASONS, newCustomer, newLine, newProduct } from "../data/domain/schema"
 import { canAccess } from "../data/domain/modules"
 import { amountInWords } from "../lib/format"
 import { stateName } from "../lib/gstStates"
@@ -45,8 +45,7 @@ const emptyDraft = (settings, companyId = "") => ({
   companyId,
   customer: newCustomer(),
   shipTo: null,
-  // Empty: items come in through the add bar under the table.
-  lines: [],
+  lines: [newLine()],
   extraDiscountPercent: 0,
   paymentTerms: "",
   issueDate: new Date().toISOString(),

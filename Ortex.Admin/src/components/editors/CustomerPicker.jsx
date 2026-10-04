@@ -5,6 +5,7 @@ import { newCustomer } from "../../data/domain/schema"
 import CustomerFields from "./CustomerFields"
 import { cn } from "../../lib/cn"
 import { stateName } from "../../lib/gstStates"
+import { cleanPhoneInput } from "../../lib/validateCustomer"
 
 // Customer selection for quotations and invoices (Acctual / Xero / Square
 // pattern): one searchable combobox with "Create new customer" as the first
@@ -70,7 +71,9 @@ export default function CustomerPicker({ value, onChange, customers = [], errors
     // Carry the typed text into the most likely field so nothing is retyped.
     const typed = q.trim()
     if (typed) {
-      if (typed.includes("@")) base.email = typed
+      if (typed.includes("@")) base.email = typed.replace(/\s/g, "")
+      else if (/^\+?\d[\d\s-]*$/.test(typed)) base.phone = cleanPhoneInput(typed)
+      else if (/^[0-9]{2}[A-Za-z0-9]{13}$/.test(typed)) base.gstin = typed.toUpperCase()
       else base.name = typed
     }
     onChange(base)
