@@ -4,8 +4,8 @@ import { toast } from "sonner"
 import { Printer, X, CheckCircle2, Download } from "../ui/Icons"
 import { formatCurrency, formatDate, amountInWords } from "../../lib/format"
 import { registeredLines } from "../../lib/address"
-import { buildSheetPdf } from "./documentPdf"
-import CompanyMark, { isMedinetix } from "./CompanyMark"
+import CompanyMark from "./CompanyMark"
+import { isMedinetix } from "../../lib/companyMark"
 
 // Printable payment acknowledgement. Titles itself:
 //   • "Receipt Voucher": a payment recorded as an advance (`payment.advance`),
@@ -95,7 +95,7 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
           <div>
             <CompanyMark companyId={payment?.companyId} company={c} className="mb-2 h-10 w-auto" />
             {/* An uploaded logo already spells the name; the monogram needs it written. */}
-            {c.name && !c.logoUrl && !isMedinetix(payment?.companyId, c) && <div className="text-sm font-semibold">{c.name}</div>}
+            {c.name && !c.logoUrl && !isMedinetix(payment?.companyId, c?.name) && <div className="text-sm font-semibold">{c.name}</div>}
             <div className="mt-2 text-xs leading-relaxed text-[#4b5563]">
               {registeredLines(c).map((line, i) => (
                 <div key={i}>{line}</div>

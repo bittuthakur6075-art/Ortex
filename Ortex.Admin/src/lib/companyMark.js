@@ -40,3 +40,10 @@ export function companyMarkSvg(id, name) {
   const initials = esc(companyInitials(name) || "?")
   return `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="${companyColour(id)}"/><text x="32" y="32" dy="0.35em" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="${initials.length > 1 ? 26 : 32}" font-weight="700" fill="#FFFFFF">${initials}</text></svg>`
 }
+
+/** True when the company id or name refers to Medinetix. */
+export function isMedinetix(id, name) {
+  const sId = String(id || "").toLowerCase()
+  const sName = String(name || "").toLowerCase()
+  return sId === "medinetix" || sName.includes("medinetix")
+}

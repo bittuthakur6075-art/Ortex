@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { COMPANY_MARK_COLOURS, companyColour, companyInitials, companyMarkSvg } from "./companyMark"
+import { COMPANY_MARK_COLOURS, companyColour, companyInitials, companyMarkSvg, isMedinetix } from "./companyMark"
 
 // Pinned to the phone's Ortex.Mobile/src/domain/companyMark.ts: same inputs, same mark.
 describe("companyMark", () => {
@@ -20,5 +20,10 @@ describe("companyMark", () => {
     expect(svg).toContain('font-size="26"')
     expect(svg).toContain(">A&lt;</text>")
     expect(companyMarkSvg("x", "")).toContain(">?</text>")
+  })
+  it("identifies Medinetix by id or name", () => {
+    expect(isMedinetix("medinetix", "")).toBe(true)
+    expect(isMedinetix("c1", "Medinetix Enterprises")).toBe(true)
+    expect(isMedinetix("ortex", "Ortex Industries")).toBe(false)
   })
 })
