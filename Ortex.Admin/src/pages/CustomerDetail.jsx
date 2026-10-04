@@ -27,7 +27,7 @@ import { newCustomer, INVOICE_STATUS, QUOTATION_STATUS, ENQUIRY_STATUS } from ".
 import { customerStats, purchasedItems, whatsappNumber, CUSTOMER_STATUS, DORMANT_AFTER_DAYS } from "../lib/customerStats"
 import { formatCurrency, formatDate, formatNumber, relativeTime } from "../lib/format"
 import { stateLabel } from "../lib/gstStates"
-import { findDuplicate, normaliseCustomer, validateCustomer } from "../lib/validateCustomer"
+import { findDuplicate, normaliseCustomer, validateCustomer, cleanPhoneInput } from "../lib/validateCustomer"
 import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../components/editors/DocumentEditorShell"
 import { Banner, Button, Input, Field, Modal, StatusBadge, EmptyState, Money, PageLoader, Textarea } from "../components/ui/Ui"
 import { RecordActivity } from "../components/ui/RecordActivity"
@@ -212,7 +212,7 @@ export default function CustomerDetail() {
                 <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} onBlur={saveField} />
               </Field>
               <Field label="Phone" error={errors.phone}>
-                <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} onBlur={saveField} />
+                <Input type="tel" inputMode="tel" value={form.phone} onChange={(e) => set("phone", cleanPhoneInput(e.target.value))} onBlur={saveField} />
               </Field>
               <Field label="GSTIN" error={errors.gstin}>
                 <Input value={form.gstin} onChange={(e) => set("gstin", e.target.value)} onBlur={saveField} placeholder="Enter GSTIN" />

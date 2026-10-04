@@ -28,6 +28,14 @@ const str = (v) => String(v ?? "").trim()
 
 export const digitsOf = (value) => String(value || "").replace(/\D/g, "")
 
+export function cleanPhoneInput(raw) {
+  const trimmed = String(raw || "").trimStart()
+  const hasPlus = trimmed.startsWith("+")
+  const digits = trimmed.replace(/\D/g, "")
+  const maxDigits = hasPlus || digits.startsWith("91") ? 12 : digits.startsWith("0") ? 11 : 10
+  return (hasPlus ? "+" : "") + digits.slice(0, maxDigits)
+}
+
 // The number as it is stored and compared: bare national digits, with the +91
 // country code or the trunk 0 taken off. "+91 98765 43210", "09876543210" and
 // "9876543210" are one person. `whatsappNumber` (lib/customerStats.js) is the

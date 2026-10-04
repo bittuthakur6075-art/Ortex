@@ -1,5 +1,5 @@
 import { Input, Field, Select } from "../ui/Ui"
-import { gstinProblem } from "../../lib/validateCustomer"
+import { gstinProblem, cleanPhoneInput } from "../../lib/validateCustomer"
 import { GST_STATES } from "../../lib/gstStates"
 
 const STATE_OPTIONS = Object.entries(GST_STATES)
@@ -21,6 +21,10 @@ export default function CustomerFields({ value, onChange, customers, errors = {}
     if (!String(value.stateCode || "").trim() && g && !gstinProblem(g, "")) next.stateCode = g.slice(0, 2)
     onChange(next)
   }
+
+  // Only digits and optional leading +, preventing symbols, spaces, and alphabets
+  const setPhone = (raw) => set("phone", cleanPhoneInput(raw))
+
   const code = String(value.stateCode || "").trim()
 
   const pick = (id) => {
@@ -66,7 +70,13 @@ export default function CustomerFields({ value, onChange, customers, errors = {}
           <Input value={value.email} onChange={(e) => set("email", e.target.value)} placeholder="Enter email address" />
         </Field>
         <Field label="Phone" {...at("phone")}>
-          <Input value={value.phone} onChange={(e) => set("phone", e.target.value)} placeholder="Enter phone number" />
+          <Input
+            type="tel"
+            inputMode="tel"
+            value={value.phone || ""}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="10-digit mobile or landline"
+          />
         </Field>
         <Field label="GSTIN" hint="Buyer's GST number (for input credit)" {...at("gstin")}>
           <Input value={value.gstin} onChange={(e) => setGstin(e.target.value)} placeholder="Enter GSTIN" />

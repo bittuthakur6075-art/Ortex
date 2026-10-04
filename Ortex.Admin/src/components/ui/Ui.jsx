@@ -452,6 +452,13 @@ export function Select({ className, children, value, onChange, disabled, placeho
                 <Search variant="Linear" className="h-4 w-4 flex-none text-subtle-foreground" />
                 <input
                   autoFocus
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  name="select_search_query"
+                  data-1p-ignore="true"
+                  data-lpignore="true"
                   value={query}
                   onChange={(ev) => {
                     setQuery(ev.target.value)

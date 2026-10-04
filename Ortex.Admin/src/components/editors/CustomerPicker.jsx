@@ -24,6 +24,7 @@ export default function CustomerPicker({ value, onChange, customers = [], errors
   const [cursor, setCursor] = useState(0)
   const ref = useRef(null)
   const inputRef = useRef(null)
+  const listRef = useRef(null)
 
   useEffect(() => {
     if (!open) return
@@ -32,13 +33,18 @@ export default function CustomerPicker({ value, onChange, customers = [], errors
     return () => document.removeEventListener("mousedown", onDown)
   }, [open])
 
-  const matches = useMemo(() => {
+  const MAX_MATCHES = 200
+
+  const { matches, totalCount } = useMemo(() => {
     const s = q.trim().toLowerCase()
     const list = [...customers].sort((a, b) => (a.company || a.name || "").localeCompare(b.company || b.name || ""))
-    if (!s) return list.slice(0, 8)
-    return list
-      .filter((c) => [c.name, c.company, c.email, c.phone, c.gstin].filter(Boolean).some((v) => v.toLowerCase().includes(s)))
-      .slice(0, 8)
+    if (!s) {
+      return { matches: list.slice(0, MAX_MATCHES), totalCount: list.length }
+    }
+    const filtered = list.filter((c) =>
+      [c.name, c.company, c.email, c.phone, c.gstin].filter(Boolean).some((v) => v.toLowerCase().includes(s))
+    )
+    return { matches: filtered.slice(0, MAX_MATCHES), totalCount: filtered.length }
   }, [customers, q])
 
   // Option 0 is always "Create new customer"; options 1..n are matches.
@@ -102,6 +108,14 @@ export default function CustomerPicker({ value, onChange, customers = [], errors
 
   useEffect(() => setCursor(matches.length ? 1 : 0), [q, matches.length])
 
+  useEffect(() => {
+    if (!open || !listRef.current) return
+    const activeEl = listRef.current.querySelector('[data-active="true"]')
+    if (activeEl) {
+      activeEl.scrollIntoView({ block: "nearest" })
+    }
+  }, [cursor, open])
+
   // ---- Selected customer: compact card ------------------------------------
   if (hasCustomer && !editing && !hasErrors) {
     const title = value.company || value.name
@@ -157,6 +171,14 @@ export default function CustomerPicker({ value, onChange, customers = [], errors
           placeholder="Search customers by name, company, email, phone or GSTIN…"
           className="h-10 pl-8"
           role="combobox"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          name="customer_search_query"
+          data-1p-ignore="true"
+          data-lpignore="true"
+          data-form-type="other"
           aria-expanded={open}
           aria-autocomplete="list"
           aria-invalid={errors.name ? true : undefined}
@@ -170,20 +192,41 @@ export default function CustomerPicker({ value, onChange, customers = [], errors
       )}
       {open && (
         <div className="absolute left-0 right-0 z-30 mt-1.5 overflow-hidden rounded-lg border border-border bg-card shadow-overlay-lg animate-pop-in">
-          <ul className="max-h-72 overflow-y-auto py-1">
+          <ul ref={listRef} className="max-h-80 overflow-y-auto py-1">
             <li>
-              <button type="button" onMouseEnter={() => setCursor(0)} onClick={createNew} className={cn("flex w-full items-center gap-3 px-3 py-2 text-left text-[13px] font-medium text-primary", cursor === 0 && "bg-muted")}>
+              <button
+                type="button"
+                data-active={cursor === 0 ? "true" : undefined}
+                onMouseEnter={() => setCursor(0)}
+                onClick={createNew}
+                className={cn("flex w-full items-center gap-3 px-3 py-2 text-left text-[13px] font-medium text-primary", cursor === 0 && "bg-muted")}
+              >
                 <span className="grid h-7 w-7 flex-none place-items-center rounded-md bg-primary/10"><Plus className="h-4 w-4" /></span>
                 {q.trim() ? <>Create “{q.trim()}” as a new customer</> : "Create new customer"}
               </button>
             </li>
-            {matches.length > 0 && <li className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground">{q.trim() ? "Matches" : "Customers"}</li>}
+            {matches.length > 0 && (
+              <li className="flex items-center justify-between px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-subtle-foreground">
+                <span>{q.trim() ? "Matches" : "Customers"}</span>
+                <span className="font-normal lowercase tracking-normal text-muted-foreground">
+                  {matches.length === totalCount
+                    ? `${totalCount} ${totalCount === 1 ? "customer" : "customers"}`
+                    : `${matches.length} of ${totalCount}`}
+                </span>
+              </li>
+            )}
             {matches.map((c, i) => {
               const title = c.company || c.name
               const active = cursor === i + 1
               return (
                 <li key={c.id}>
-                  <button type="button" onMouseEnter={() => setCursor(i + 1)} onClick={() => pick(c)} className={cn("flex w-full items-center gap-3 px-3 py-2 text-left", active && "bg-muted")}>
+                  <button
+                    type="button"
+                    data-active={active ? "true" : undefined}
+                    onMouseEnter={() => setCursor(i + 1)}
+                    onClick={() => pick(c)}
+                    className={cn("flex w-full items-center gap-3 px-3 py-2 text-left", active && "bg-muted")}
+                  >
                     <Avatar name={title} className="h-7 w-7 text-[11px]" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[13px] font-medium text-foreground">{title}</span>
@@ -193,6 +236,11 @@ export default function CustomerPicker({ value, onChange, customers = [], errors
                 </li>
               )
             })}
+            {totalCount > matches.length && (
+              <li className="border-t border-border bg-subtle/40 px-3 py-2 text-center text-xs text-muted-foreground">
+                Showing first {matches.length} of {totalCount} customers. Type to narrow down.
+              </li>
+            )}
             {matches.length === 0 && q.trim() && (
               <li className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground"><Users className="h-4 w-4" /> No customers match “{q.trim()}”.</li>
             )}

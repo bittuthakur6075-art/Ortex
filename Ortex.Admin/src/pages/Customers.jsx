@@ -13,7 +13,7 @@ import { customerStats, CUSTOMER_STATUS } from "../lib/customerStats"
 import { formatCurrency, formatDate } from "../lib/format"
 import { stateName } from "../lib/gstStates"
 import { exportCsv } from "../lib/csv"
-import { findDuplicate, normaliseCustomer, validateCustomer } from "../lib/validateCustomer"
+import { findDuplicate, normaliseCustomer, validateCustomer, cleanPhoneInput } from "../lib/validateCustomer"
 import { CompanyChip, CompanyField } from "../components/ui/CompanyChip"
 import { useCompany } from "../hooks/useCompany"
 import {
@@ -335,7 +335,7 @@ function NewCustomerModal({ open, onClose, customers: allCustomers }) {
           <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
         </Field>
         <Field label="Phone" error={errors.phone} hint="Stored without +91">
-          <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} />
+          <Input type="tel" inputMode="tel" value={form.phone} onChange={(e) => set("phone", cleanPhoneInput(e.target.value))} />
         </Field>
       </div>
     </Modal>

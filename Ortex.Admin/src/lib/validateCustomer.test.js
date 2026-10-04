@@ -2,6 +2,7 @@
 // the phone refuse the same customers.
 import { describe, expect, test } from "vitest"
 import {
+  cleanPhoneInput,
   digitsOf,
   findDuplicate,
   gstinProblem,
@@ -113,6 +114,20 @@ describe("validateCustomer", () => {
     expect(nationalDigits("09876543210")).toBe("9876543210")
     expect(nationalDigits("9876543210")).toBe("9876543210")
     expect(nationalDigits("23456789")).toBe("23456789")
+  })
+
+  test("cleanPhoneInput disallows symbols, spaces, and alphabets, keeping only digits and optional leading +", () => {
+    expect(cleanPhoneInput("sedfsdfsf")).toBe("")
+    expect(cleanPhoneInput("  sedfsdfsf  ")).toBe("")
+    expect(cleanPhoneInput("!@#$%^&*()")).toBe("")
+    expect(cleanPhoneInput("98765 43210")).toBe("9876543210")
+    expect(cleanPhoneInput("+91 98765 43210")).toBe("+919876543210")
+    expect(cleanPhoneInput("+91-98765-43210")).toBe("+919876543210")
+    expect(cleanPhoneInput("(011) 2345 6789")).toBe("01123456789")
+    expect(cleanPhoneInput("98111abc22")).toBe("9811122")
+    expect(cleanPhoneInput("98+11")).toBe("9811")
+    expect(cleanPhoneInput("+")).toBe("+")
+    expect(cleanPhoneInput("")).toBe("")
   })
 })
 
