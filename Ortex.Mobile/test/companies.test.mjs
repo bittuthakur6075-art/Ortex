@@ -109,7 +109,7 @@ test("notifications ring only for the person's companies", () => {
   assert.match(ids(null), /Lead b/, "before 0075 every row")
 })
 
-const { companyInitials, companyColour, companyMarkSvg, COMPANY_MARK_COLOURS } = await loadTs("domain/companyMark.ts")
+const { companyInitials, companyColour, companyMarkSvg, COMPANY_MARK_COLOURS, isMedinetix, isAman } = await loadTs("domain/companyMark.ts")
 const { mastheadLogo } = await loadTs("documents/quotationHtml.ts")
 
 test("companyMark: initials from the first two words, a stable palette colour per id", () => {
@@ -127,17 +127,20 @@ test("companyMark: initials from the first two words, a stable palette colour pe
 })
 
 test("the quotation masthead: uploaded logo, else Ortex's wordmark for Ortex, else the monogram", () => {
-  const company = { name: "Aman Enterprise", logoUrl: "" }
-  assert.equal(mastheadLogo({ companyId: "aman" }, { ...company, logoUrl: "https://x/l.png" }), "https://x/l.png")
-  assert.equal(mastheadLogo({ companyId: "aman" }, { ...company, logoUrl: "https://x/l.png" }, "data:image/png;base64,AA"), "data:image/png;base64,AA")
-  assert.match(mastheadLogo({ companyId: "aman" }, company), /^data:image\/svg\+xml;utf8,.*AE/)
-  assert.match(mastheadLogo({ companyId: "aman" }, { ...company, logoUrl: "https://x/l.png" }, null), /^data:image\/svg\+xml/)
+  const company = { name: "Nidhi Industries", logoUrl: "" }
+  assert.equal(mastheadLogo({ companyId: "nidhi" }, { ...company, logoUrl: "https://x/l.png" }), "https://x/l.png")
+  assert.equal(mastheadLogo({ companyId: "nidhi" }, { ...company, logoUrl: "https://x/l.png" }, "data:image/png;base64,AA"), "data:image/png;base64,AA")
+  assert.match(mastheadLogo({ companyId: "nidhi" }, company), /^data:image\/svg\+xml;utf8,.*NI/)
+  assert.match(mastheadLogo({ companyId: "nidhi" }, { ...company, logoUrl: "https://x/l.png" }, null), /^data:image\/svg\+xml/)
   const ortex = mastheadLogo({ companyId: "ortex" }, company)
   assert.equal(mastheadLogo({}, company), ortex, "a record from before companies is Ortex's")
-  assert.doesNotMatch(ortex, /AE/)
+  assert.doesNotMatch(ortex, /NI/)
   const medinetix = mastheadLogo({ companyId: "medinetix" }, { name: "Medinetix Enterprises" })
   assert.match(medinetix, /^data:image\/svg\+xml;utf8,/)
   assert.match(decodeURIComponent(medinetix), /2F50E4/)
+  const aman = mastheadLogo({ companyId: "aman" }, { name: "Aman Enterprise" })
+  assert.match(aman, /^data:image\/svg\+xml;utf8,/)
+  assert.match(decodeURIComponent(aman), /010101/)
 })
 
 // The console draws the same monogram (Ortex.Admin/src/lib/companyMark.js):
@@ -153,5 +156,8 @@ test("companyMark: the console and the phone draw the same mark", async () => {
     assert.equal(admin.companyInitials(name), companyInitials(name))
     assert.equal(admin.companyColour(id), companyColour(id))
     assert.equal(admin.companyMarkSvg(id, name), companyMarkSvg(id, name))
+    assert.equal(admin.isMedinetix(id, name), isMedinetix(id, name))
+    assert.equal(admin.isAman(id, name), isAman(id, name))
   }
 })
+

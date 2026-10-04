@@ -38,7 +38,7 @@ import { UnsavedContext } from "../hooks/useUnsaved"
 import { cn } from "../lib/cn"
 import { useCompany, reloadCompanies } from "../hooks/useCompany"
 import CompanyMark from "../components/documents/CompanyMark"
-import { isMedinetix } from "../lib/companyMark"
+import { isMedinetix, isAman } from "../lib/companyMark"
 import { companySlug } from "../lib/roles"
 import { uploadCompanyLogo, removeCompanyLogo, LOGO_TYPES } from "../services/companyLogos"
 
@@ -842,7 +842,7 @@ function CompaniesSection({ companies, onEdit }) {
                   {row.active === false && <Pill>Off</Pill>}
                 </div>
                 <div className="text-xs text-subtle-foreground">
-                  {row.id} · {logo ? "Own logo" : row.id === "ortex" ? "Ortex logo" : isMedinetix(row.id, row.name) ? "Medinetix logo" : "Initials until a logo is added"}
+                  {row.id} · {logo ? "Own logo" : row.id === "ortex" ? "Ortex logo" : isMedinetix(row.id, row.name) ? "Medinetix logo" : isAman(row.id, row.name) ? "Aman logo" : "Initials until a logo is added"}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">

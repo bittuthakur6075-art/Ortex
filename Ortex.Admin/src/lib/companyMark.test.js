@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { COMPANY_MARK_COLOURS, companyColour, companyInitials, companyMarkSvg, isMedinetix } from "./companyMark"
+import { COMPANY_MARK_COLOURS, companyColour, companyInitials, companyMarkSvg, isMedinetix, isAman } from "./companyMark"
 
 // Pinned to the phone's Ortex.Mobile/src/domain/companyMark.ts: same inputs, same mark.
 describe("companyMark", () => {
@@ -26,4 +26,11 @@ describe("companyMark", () => {
     expect(isMedinetix("c1", "Medinetix Enterprises")).toBe(true)
     expect(isMedinetix("ortex", "Ortex Industries")).toBe(false)
   })
+  it("identifies Aman by id or name", () => {
+    expect(isAman("aman", "")).toBe(true)
+    expect(isAman("c2", "Aman Enterprise")).toBe(true)
+    expect(isAman("c3", "Aman Enterprises")).toBe(true)
+    expect(isAman("ortex", "Ortex Industries")).toBe(false)
+  })
 })
+

@@ -47,3 +47,11 @@ export function isMedinetix(id, name) {
   const sName = String(name || "").toLowerCase()
   return sId === "medinetix" || sName.includes("medinetix")
 }
+
+/** True when the company id or name refers to Aman. */
+export function isAman(id, name) {
+  const sId = String(id || "").toLowerCase()
+  const sName = String(name || "").toLowerCase()
+  return sId === "aman" || sName.includes("aman")
+}
+
