@@ -29,6 +29,27 @@ export const KIND_LABEL: Record<ChangeKind, string> = {
 
 export const RELEASES: Release[] = [
   {
+    id: "1.11.0",
+    version: "1.11.0",
+    date: "2026-10-04",
+    title: "Scan payment screenshots and company header improvements",
+    summary: "A required update. Scan payment screenshots with AI OCR and faster company switching.",
+    items: [
+      {
+        kind: "new",
+        title: "Scan payment screenshots",
+        detail:
+          "Tap Scan receipt in Record Payment to pick a screenshot from photos or take a photo. Amount, UTR number, date, payment method and party are automatically extracted.",
+      },
+      {
+        kind: "improved",
+        title: "Company switcher in header",
+        detail:
+          "The company switcher in the Home header now features an icon and refined layout for faster switching between companies.",
+      },
+    ],
+  },
+  {
     id: "1.10.0",
     version: "1.10.0",
     date: "2026-10-03",

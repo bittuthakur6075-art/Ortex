@@ -1,9 +1,10 @@
 import React from "react"
 import { Pressable, StyleSheet, Text, type TextInput, View } from "react-native"
+import * as ImagePicker from "expo-image-picker"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { getCollectionSnapshot, loadCollection } from "@/data/collectionStore"
-import { errorMessage } from "@/data/supabase"
+import { errorMessage, supabase } from "@/data/supabase"
 import { amountInWords, formatCurrency } from "@/domain/format"
 import { canAccess, isSuperAdmin } from "@/domain/modules"
 import { PAYMENT_METHODS, type Payment } from "@/domain/schema"
@@ -46,6 +47,7 @@ import {
   Panel,
   ScreenLoader,
   SegmentedControl,
+  Sheet,
   TextField,
   useToast,
 } from "@/ui"
@@ -158,6 +160,8 @@ function PaymentForm({ navigation, route, editing }: StackScreenProps<"PaymentNe
 
   const [d, setD] = React.useState<PaymentDraft>(initial)
   const [busy, setBusy] = React.useState(false)
+  const [scanning, setScanning] = React.useState(false)
+  const [scanSheetOpen, setScanSheetOpen] = React.useState(false)
   // The blocker stays quiet until the form is touched or Save is pressed.
   const [touched, setTouched] = React.useState(false)
   const [picking, setPicking] = React.useState(false)
@@ -178,6 +182,82 @@ function PaymentForm({ navigation, route, editing }: StackScreenProps<"PaymentNe
   const set = (patch: Partial<PaymentDraft>) => {
     setTouched(true)
     setD((x) => ({ ...x, ...patch }))
+  }
+
+  const scanImage = async (source: "camera" | "gallery") => {
+    setScanSheetOpen(false)
+    const perm =
+      source === "camera"
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!perm.granted) {
+      toast.show({ message: "Permission is required to scan receipt screenshots.", tone: "neutral" })
+      return
+    }
+
+    const opts: ImagePicker.ImagePickerOptions = {
+      mediaTypes: ["images"],
+      quality: 0.8,
+      base64: true,
+    }
+
+    const res =
+      source === "camera"
+        ? await ImagePicker.launchCameraAsync(opts)
+        : await ImagePicker.launchImageLibraryAsync(opts)
+
+    if (res.canceled || !res.assets?.[0]?.base64) return
+
+    setScanning(true)
+    feedback.tap()
+    try {
+      const asset = res.assets[0]
+      const mimeType = asset.mimeType || "image/jpeg"
+      const payload = {
+        image: `data:${mimeType};base64,${asset.base64}`,
+        company: companyId,
+        defaultType: d.type,
+      }
+
+      const { data, error } = await supabase.functions.invoke("read-payment-screenshot", {
+        body: payload,
+      })
+
+      if (error || !data?.reading) {
+        throw new Error(error?.message || "Could not recognize payment receipt text")
+      }
+
+      const r = data.reading
+      if (!r.isPaymentProof) {
+        toast.show({ message: "Image does not appear to be a payment receipt.", tone: "neutral" })
+        return
+      }
+
+      const patch: Partial<PaymentDraft> = {}
+      if (r.amount !== null && r.amount !== undefined) patch.amount = String(r.amount)
+      if (r.party) patch.party = r.party
+      if (r.reference) patch.reference = r.reference
+      if (r.method) patch.method = r.method
+      if (r.type && !linked) patch.type = r.type
+      if (r.date) patch.date = r.date
+
+      set(patch)
+      feedback.created()
+
+      const what = r.amount ? ` ₹${r.amount}` : ""
+      toast.show({ message: `Receipt scanned${what}. Please review before saving.`, tone: "success" })
+
+      if (r.warnings && r.warnings.length > 0) {
+        setTimeout(() => {
+          toast.show({ message: r.warnings[0], tone: "neutral" })
+        }, 2000)
+      }
+    } catch (err) {
+      feedback.error()
+      toast.show({ message: errorMessage(err, "Could not scan screenshot"), tone: "danger" })
+    } finally {
+      if (mounted.current) setScanning(false)
+    }
   }
 
   /** Cancel / OK as a promise, on the app's own dialog. */
@@ -423,7 +503,22 @@ function PaymentForm({ navigation, route, editing }: StackScreenProps<"PaymentNe
         </Panel>
       ) : null}
 
-      <Panel title="Amount">
+      <Panel
+        title="Amount"
+        action={
+          <Button
+            label={scanning ? "Scanning..." : "Scan receipt"}
+            icon="camera"
+            size="sm"
+            variant="outline"
+            loading={scanning}
+            onPress={() => {
+              feedback.tap()
+              setScanSheetOpen(true)
+            }}
+          />
+        }
+      >
         <View style={styles.pad}>
           <TextField
             value={d.amount}
@@ -609,6 +704,29 @@ function PaymentForm({ navigation, route, editing }: StackScreenProps<"PaymentNe
       {/* Room for the sticky footer, measured. */}
       <View style={{ height: footerH + spacing.lg }} />
 
+      <Sheet
+        visible={scanSheetOpen}
+        onClose={() => setScanSheetOpen(false)}
+        title="Scan payment screenshot"
+      >
+        <View style={styles.sheetPad}>
+          <Button
+            label="Choose from Photos / Gallery"
+            icon="image"
+            variant="outline"
+            fullWidth
+            onPress={() => void scanImage("gallery")}
+          />
+          <Button
+            label="Take Photo with Camera"
+            icon="camera"
+            variant="outline"
+            fullWidth
+            onPress={() => void scanImage("camera")}
+          />
+        </View>
+      </Sheet>
+
       <DayPickerSheet
         visible={picking}
         value={d.date}
@@ -636,6 +754,7 @@ const styles = StyleSheet.create({
   gapTop: { marginTop: spacing.sm },
   banner: { marginHorizontal: gutter, marginTop: gutter },
   pad: { paddingHorizontal: gutter, paddingBottom: spacing.md, gap: spacing.sm },
+  sheetPad: { paddingHorizontal: gutter, paddingVertical: spacing.md, gap: spacing.sm },
   caption: { marginTop: -spacing.xs },
   methods: {
     flexDirection: "row",

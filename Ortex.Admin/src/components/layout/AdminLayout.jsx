@@ -25,6 +25,7 @@ import {
   Wallet,
   UserCheck,
   Building2,
+  CheckCircle2,
 } from "../ui/Icons"
 import { useCompany, useCompanySync } from "../../hooks/useCompany"
 import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
@@ -317,32 +318,46 @@ function CompanySwitcher() {
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={`Company: ${label}`}
-        className="squircle flex h-9 max-w-[220px] items-center gap-1.5 rounded-xl border border-border bg-card pl-2.5 pr-2 text-[13.5px] font-semibold text-foreground transition-colors hover:bg-accent"
+        className={cn(
+          "squircle flex h-9 max-w-[200px] items-center gap-2 rounded-xl border border-border bg-card px-2.5 text-[13px] font-medium text-foreground transition-colors hover:bg-accent",
+          open && "border-primary/40 bg-accent ring-2 ring-primary/20",
+        )}
       >
-        <Building2 variant="Linear" className="h-4 w-4 flex-none text-primary" />
-        <span className="hidden truncate sm:inline">{label}</span>
-        <ArrowDownLeft className={cn("h-3.5 w-3.5 flex-none transition-transform", open && "rotate-180")} />
+        <Building2 variant="Bulk" className="h-4 w-4 flex-none text-primary" />
+        <span className="truncate">{label}</span>
+        <ArrowDownLeft className={cn("h-3.5 w-3.5 flex-none text-muted-foreground transition-transform duration-200", open && "rotate-180")} />
       </button>
       {open && (
-        <div role="listbox" aria-label="Company" className="squircle absolute right-0 z-30 mt-2 w-60 rounded-xl border border-border bg-card p-1.5 shadow-overlay-lg animate-pop-in">
-          {options.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              role="option"
-              aria-selected={c.id === current}
-              onClick={() => {
-                set(c.id)
-                setOpen(false)
-              }}
-              className={cn(
-                "squircle flex h-[38px] w-full items-center gap-[11px] rounded-[10px] px-2.5 text-left text-[13.5px] font-medium hover:bg-accent",
-                c.id === current ? "text-primary" : "text-foreground",
-              )}
-            >
-              <span className="flex-1 truncate">{c.name}</span>
-            </button>
-          ))}
+        <div
+          role="listbox"
+          aria-label="Company"
+          className="squircle absolute right-0 z-40 mt-1.5 min-w-[220px] rounded-xl border border-border bg-card p-1.5 shadow-overlay-lg animate-pop-in"
+        >
+          <div className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Switch Company
+          </div>
+          {options.map((c) => {
+            const active = c.id === current
+            return (
+              <button
+                key={c.id}
+                type="button"
+                role="option"
+                aria-selected={active}
+                onClick={() => {
+                  set(c.id)
+                  setOpen(false)
+                }}
+                className={cn(
+                  "squircle flex h-[38px] w-full items-center justify-between gap-2.5 rounded-[10px] px-2.5 text-left text-[13px] font-medium transition-colors hover:bg-accent",
+                  active ? "bg-primary/10 font-semibold text-primary" : "text-foreground",
+                )}
+              >
+                <span className="truncate">{c.name}</span>
+                {active && <CheckCircle2 className="h-4 w-4 flex-none text-primary" />}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

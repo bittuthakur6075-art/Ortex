@@ -6,7 +6,7 @@ import type { Customer, Quotation } from "@/domain/schema"
 import type { Settings } from "@/domain/settings"
 import { DOCUMENT_FONT_WOFF2_BASE64 } from "@/documents/documentFont"
 import { companyMarkSvg } from "@/domain/companyMark"
-import { ORTEX_WORDMARK_DATA_URI } from "@/theme/logo"
+import { ORTEX_WORDMARK_DATA_URI, MEDINETIX_WORDMARK_DATA_URI } from "@/theme/logo"
 
 // The printable A4 quotation.
 //
@@ -84,11 +84,18 @@ function bankBox(c: Settings["company"]): string {
  * never renders before a remote image arrives; null when it could not be
  * fetched; undefined to use the URL as it is (the on-screen preview).
  */
+function isMedinetix(id: string | null | undefined, name: string | null | undefined): boolean {
+  const sId = String(id || "").toLowerCase()
+  const sName = String(name || "").toLowerCase()
+  return sId === "medinetix" || sName.includes("medinetix")
+}
+
 export function mastheadLogo(doc: Quotation, c: Settings["company"], logo?: string | null): string {
-  const src = logo === undefined ? c.logoUrl : logo
+  if (isMedinetix(doc.companyId, c?.name)) return MEDINETIX_WORDMARK_DATA_URI
+  const src = logo === undefined ? c?.logoUrl : logo
   if (src) return src
   if (!doc.companyId || doc.companyId === "ortex") return ORTEX_WORDMARK_DATA_URI
-  return `data:image/svg+xml;utf8,${encodeURIComponent(companyMarkSvg(doc.companyId, c.name))}`
+  return `data:image/svg+xml;utf8,${encodeURIComponent(companyMarkSvg(doc.companyId, c?.name))}`
 }
 
 export function quotationHtml(doc: Quotation, settings: Settings, logo?: string | null): string {

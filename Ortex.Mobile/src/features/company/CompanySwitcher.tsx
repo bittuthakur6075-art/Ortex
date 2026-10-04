@@ -52,13 +52,21 @@ export function CompanyBarButton() {
         onPress={show}
         accessibilityRole="button"
         accessibilityLabel={`Company: ${label}. Change`}
-        hitSlop={6}
-        style={({ pressed }) => [styles.pill, { backgroundColor: t.fieldBg, opacity: pressed ? 0.7 : 1 }]}
+        hitSlop={8}
+        style={({ pressed }) => [
+          styles.pill,
+          {
+            backgroundColor: t.surface,
+            borderColor: t.border,
+            opacity: pressed ? 0.7 : 1,
+          },
+        ]}
       >
+        <Icon name="company" size={13} color={t.primary} />
         <Text numberOfLines={1} style={[styles.pillText, { color: t.text }]}>
           {label}
         </Text>
-        <Icon name="down" size={14} color={t.textSecondary} />
+        <Icon name="down" size={12} color={t.textSecondary} />
       </Pressable>
       {sheet}
     </>
@@ -81,11 +89,13 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    maxWidth: 140,
+    gap: 5,
+    maxWidth: 150,
     height: 32,
-    paddingHorizontal: 12,
+    paddingLeft: 10,
+    paddingRight: 8,
     borderRadius: radius.pill,
+    borderWidth: 1,
   },
-  pillText: { fontSize: 13, fontFamily: font.semibold, flexShrink: 1 },
+  pillText: { fontSize: 12.5, fontFamily: font.semibold, flexShrink: 1 },
 })

@@ -135,6 +135,9 @@ test("the quotation masthead: uploaded logo, else Ortex's wordmark for Ortex, el
   const ortex = mastheadLogo({ companyId: "ortex" }, company)
   assert.equal(mastheadLogo({}, company), ortex, "a record from before companies is Ortex's")
   assert.doesNotMatch(ortex, /AE/)
+  const medinetix = mastheadLogo({ companyId: "medinetix" }, { name: "Medinetix Enterprises" })
+  assert.match(medinetix, /^data:image\/svg\+xml;utf8,/)
+  assert.match(decodeURIComponent(medinetix), /2F50E4/)
 })
 
 // The console draws the same monogram (Ortex.Admin/src/lib/companyMark.js):
