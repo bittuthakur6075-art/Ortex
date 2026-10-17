@@ -101,6 +101,7 @@ const IDLE_NUDGES = [
 // Anu asked to end the call but her goodbye never finished arriving: hang up
 // anyway after this long, so a lost turnComplete cannot hold the line open.
 const END_GRACE_MS = 10000
+const SAY_IT_IN_THEIR_LANGUAGE = "Say it in the language the customer last spoke: English if they spoke English, Hindi or Hinglish if they spoke that."
 
 const spoken = (keys) => keys.map((k) => SPOKEN_FIELD[k]).join(", ")
 // The five details as one comparable value, to tell whether a re-save changed
@@ -479,8 +480,17 @@ export function useLiveSession() {
     // changes none of the five (a company name or email given after the
     // read-back) keeps it, or end_call was refused and she read the whole
     // summary out a second time.
-    const keptConfirm = prior.confirmed === true && confirmedPart(prior) === confirmedPart(check)
-    const confirmed = check.complete && (args.confirmed === true || keptConfirm)
+    //
+    // And a confirmation counts only AFTER a read-back: the save before it must
+    // already have held the same complete details, which is when the reply told
+    // her to read them back. On gemini-3.8-live she sent confirmed=true on the
+    // very save that first completed the order, without reading anything back
+    // (scripted test call, 2026-10-17); that is now answered with the read-back
+    // instruction instead.
+    const unchanged = confirmedPart(prior) === confirmedPart(check)
+    const readBack = prior.complete === true && unchanged
+    const keptConfirm = prior.confirmed === true && unchanged
+    const confirmed = check.complete && ((args.confirmed === true && readBack) || keptConfirm)
     const saved = { ...enriched, name: check.name, phone: check.phone, city: check.city, timeline: check.timeline, items: check.items }
     saveVoiceLead(saved, { id: callIdRef.current, recording: recPathRef.current, confirmed, complete: check.complete })
     // Remember the details so a reopened call already knows them.
@@ -535,6 +545,10 @@ export function useLiveSession() {
             endWantedRef.current = true
           }
         }
+        // Every instruction she gets mid-call says which language to use. The
+        // prompt's own rule lost to its many Hindi examples: in a test call she
+        // answered an English-speaking customer in Hindi for the whole call.
+        if (response.next) response = { ...response, next: `${response.next} ${SAY_IT_IN_THEIR_LANGUAGE}` }
         try { sessionRef.current?.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response }] }) } catch { /* noop */ }
       }
       if (endWantedRef.current) {
