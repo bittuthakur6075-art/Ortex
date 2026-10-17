@@ -9,7 +9,7 @@
 // written into each page's JSON-LD by prerender.mjs.
 
 export const STATIC_ROUTES = [
-  { path: "/", type: "WebPage", name: "Home", title: "Ortex Industries | Customised Products Manufacturer, Delhi", description: "Ortex Industries manufactures customised MDF and acrylic products, lanyards, badges, exam boards and corporate gifts in-house in Delhi. PAN India and export." },
+  { path: "/", type: "WebPage", name: "Home", title: "Ortex Industries | Customised Products Manufacturer, Delhi", description: "Ortex Industries manufactures customised MDF, acrylic, lanyards, badges and corporate gifts in-house in Delhi, shipped PAN India and exported worldwide." },
   { path: "/about", type: "AboutPage", name: "About", title: "About Ortex Industries | In-house Custom Manufacturing", description: "Who we are, how we work and why schools, hospitals, brands and government offices across India trust Ortex Industries with their customised products." },
   { path: "/products", type: "CollectionPage", name: "Products", title: "Customised MDF, Acrylic, Lanyards & Momentos | Ortex", description: "MDF and acrylic products, lanyards and ID accessories, badges, examination boards, clipboards and corporate gifts, all branded in-house by Ortex Industries." },
   { path: "/industries", type: "WebPage", name: "Industries", title: "Custom Products for Schools, Hospitals & Offices | Ortex", description: "Customised products for corporates, schools, government departments, hospitals, events, agencies, NGOs, campaigns, retail and professional firms." },

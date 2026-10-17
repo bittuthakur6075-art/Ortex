@@ -22,7 +22,7 @@ import FinalCTA from "../components/home/FinalCTA"
 export default function Home() {
   useDocumentMetadata(
     "Custom Lanyards, Badges & Corporate Gifts, Delhi | Ortex",
-    "Delhi manufacturer of customised lanyards, ID card holders, badges, momentos, MDF and acrylic products and corporate gifts. OEM, PAN India delivery, export.",
+    "Delhi manufacturer of customised lanyards, ID card holders, badges, momentos, MDF, acrylic and corporate gifts, shipped PAN India and exported worldwide.",
     { path: "/", image: HOME_OG }
   )
 

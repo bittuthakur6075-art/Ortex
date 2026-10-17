@@ -81,7 +81,7 @@ function Reasons() {
 export default function Home() {
   useDocumentMetadata(
     "Ortex Industries | Customised Products Manufacturer, Delhi",
-    "Ortex Industries manufactures customised MDF and acrylic products, lanyards, badges, exam boards and corporate gifts in-house in Delhi. PAN India and export.",
+    "Ortex Industries manufactures customised MDF, acrylic, lanyards, badges and corporate gifts in-house in Delhi, shipped PAN India and exported worldwide.",
     { path: "/" }
   )
 

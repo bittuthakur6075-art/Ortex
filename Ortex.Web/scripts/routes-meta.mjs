@@ -7,7 +7,7 @@
 // metadata to crawlers.
 
 export const STATIC_ROUTES = [
-  { path: "/", title: "Custom Lanyards, Badges & Corporate Gifts, Delhi | Ortex", description: "Delhi manufacturer of customised lanyards, ID card holders, badges, momentos, MDF and acrylic products and corporate gifts. OEM, PAN India delivery, export." },
+  { path: "/", title: "Custom Lanyards, Badges & Corporate Gifts, Delhi | Ortex", description: "Delhi manufacturer of customised lanyards, ID card holders, badges, momentos, MDF, acrylic and corporate gifts, shipped PAN India and exported worldwide." },
   { path: "/about", title: "About Ortex Industries | Custom Manufacturer in Delhi", description: "How Ortex Industries started, why brands across India trust us, and the in-house cutting, printing and engraving behind every order we manufacture." },
   { path: "/products", title: "Customised Lanyards, Badges, Momentos & Gifts | Ortex", description: "Browse Ortex Industries' custom products: MDF and acrylic items, lanyards, badges, exam boards and corporate gifts, all branded in-house with GST quotations." },
   { path: "/industries", title: "Custom Products for Schools, Hospitals & Corporates | Ortex", description: "Custom products for corporates, schools, universities, government departments, hospitals and event companies, manufactured in-house by Ortex Industries." },
