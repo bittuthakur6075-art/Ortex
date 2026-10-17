@@ -726,7 +726,7 @@ export function lookupProduct(data, query) {
       const lead = standard[0]
       return {
         catalogue_available: true,
-        catalogue_changed_during_call: changesForAnu(data),
+      catalogue_changed_during_call: changesForAnu(data),
         matches: [],
         is_custom: false,
         made_to_order: true,
@@ -737,7 +737,7 @@ export function lookupProduct(data, query) {
     }
     return {
       catalogue_available: true,
-        catalogue_changed_during_call: changesForAnu(data),
+      catalogue_changed_during_call: changesForAnu(data),
       matches: [],
       is_custom: true,
       made_to_order: true,
@@ -755,7 +755,7 @@ export function lookupProduct(data, query) {
   const mat = materialOf(best)
   return {
     catalogue_available: true,
-        catalogue_changed_during_call: changesForAnu(data),
+      catalogue_changed_during_call: changesForAnu(data),
     matches: scored.map((s) => detail(s.p)),
     same_product_other_options: bestKind
       ? data.products.filter((p) => p.name !== best.name && kindOf(p) === bestKind).slice(0, 3).map((p) => clip(p.name, NAME_CHARS))

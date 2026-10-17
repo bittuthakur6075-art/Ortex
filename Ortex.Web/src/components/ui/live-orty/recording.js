@@ -55,10 +55,7 @@ export function startCallRecording(ctx, voiceNode, micStream) {
     mix.channelCountMode = "explicit"
     mix.channelInterpretation = "speakers"
     voiceNode.connect(mix)
-    // The mic goes through its own gain so muting also silences the recording.
-    const micGain = ctx.createGain()
-    ctx.createMediaStreamSource(micStream).connect(micGain)
-    micGain.connect(mix)
+    ctx.createMediaStreamSource(micStream).connect(mix)
 
     const chunks = []
     const type = mime.split(";")[0]
@@ -72,7 +69,6 @@ export function startCallRecording(ctx, voiceNode, micStream) {
 
     return {
       ext,
-      setMicEnabled(on) { micGain.gain.value = on ? 1 : 0 },
       // Resolves with the finished file (or null). Call it BEFORE the audio
       // context closes, so the encoder still has a live stream to flush.
       stop() {

@@ -42,7 +42,9 @@ const letterCount = (s) => (String(s).match(/[a-zA-Zऀ-ॿ]/g) || []).length
 // Normalise the phone to a bare 10-digit Indian mobile.
 export function normalizePhone(raw = "") {
   let digits = String(raw).replace(/\D+/g, "")
-  if (digits.length === 12 && digits.startsWith("91")) digits = digits.slice(2) // +91 / 91
+  if (digits.length === 14 && digits.startsWith("0091")) digits = digits.slice(4) // 0091
+  else if (digits.length === 13 && digits.startsWith("091")) digits = digits.slice(3) // 091
+  else if (digits.length === 12 && digits.startsWith("91")) digits = digits.slice(2) // +91 / 91
   else if (digits.length === 11 && digits.startsWith("0")) digits = digits.slice(1) // leading 0
   return digits
 }
@@ -71,8 +73,21 @@ export function isFakePhone(digits) {
 // "5,000", "2k", "2 hazaar", "1.5 lakh" or "2 crore". Pull out the number, or
 // null when there genuinely is none, so nothing is invented. The Indian units
 // are checked first: read as a plain number, "2 crore" would become 2 pieces.
+// Spoken small numbers, English and Hindi, so "do hazaar" or "five hundred"
+// that slips through as words is read rather than sent back as "not a number"
+// (which made Anu ask again for a quantity the customer had already given).
+const NUMBER_WORDS = {
+  one: 1, ek: 1, two: 2, do: 2, three: 3, teen: 3, four: 4, char: 4, chaar: 4, five: 5, paanch: 5, panch: 5,
+  six: 6, chhe: 6, chhah: 6, seven: 7, saat: 7, eight: 8, aath: 8, nine: 9, nau: 9, ten: 10, das: 10,
+  twenty: 20, bees: 20, fifty: 50, pachaas: 50, pachas: 50, dedh: 1.5, dhai: 2.5, adhai: 2.5,
+}
+const WORD_UNITS = { hundred: 100, sau: 100, so: 100 }
+const spokenToDigits = (t) => t
+  .replace(/\b([a-z]+)\s+(hundred|sau|so)\b/g, (m, w, u) => (NUMBER_WORDS[w] ? String(NUMBER_WORDS[w] * WORD_UNITS[u]) : m))
+  .replace(/\b([a-z]+)(?=\s*(?:k|thousand|hazaar|hazar|hajar|lakh|lac|lakhs|crore|crores|karod|karor)\b)/g, (m, w) => (NUMBER_WORDS[w] ? String(NUMBER_WORDS[w]) : m))
+
 export function parseQuantity(raw) {
-  const t = String(raw ?? "").toLowerCase().replace(/,/g, "").trim()
+  const t = spokenToDigits(String(raw ?? "").toLowerCase().replace(/,/g, "").trim())
   if (!t) return null
   const crore = t.match(/(\d+(?:\.\d+)?)\s*(crore|crores|karod|karor)\b/)
   if (crore) return Math.round(Number(crore[1]) * 10000000)

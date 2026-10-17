@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { ArrowDown2, CallSlash, CloseCircle, Microphone2, Refresh2, TickCircle, VolumeHigh, Whatsapp } from "iconsax-react"
 import AnuAvatar, { ANU_PHOTO } from "./AnuAvatar"
 import { whatsappLink } from "../../../constants/site"
+import { TERMS } from "../../../constants/business"
 import { MORPH_SPRING, EASE, mmss } from "./shared"
 
 /* ============================================================
@@ -328,7 +329,7 @@ function Summary({ ended, onAgain, onClose }) {
                 <p className="text-[14px] font-semibold">Thank you, {d.name}</p>
                 <p className="mt-0.5 text-[13px] leading-relaxed text-white/55">
                   {d.complete
-                    ? "Our team will share a free design mockup and your quotation on WhatsApp, usually within one working day."
+                    ? `Our team will share a free design mockup and your quotation on WhatsApp, usually within ${TERMS.quoteTurnaround}.`
                     : "Our team will contact you on WhatsApp to complete the remaining details and prepare your quotation."}
                 </p>
               </div>

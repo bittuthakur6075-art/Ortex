@@ -83,8 +83,24 @@ const OUTPUT_GAIN = 0.9
 const MAX_END_REFUSALS = 1
 // Marks that this browser session has already been offered a call.
 const AUTO_OPEN_KEY = "ortex_anu_autocall"
+// The Live model never speaks on its own: if the customer goes quiet it waits
+// for ever, and the line sits open in dead air until the server's time limit.
+// After this long with nobody talking the page nudges her (a hidden turn) to
+// ask once more; after a second silence, to close politely; after a third,
+// the page hangs up itself.
+const IDLE_NUDGE_MS = 12000
+const IDLE_NUDGES = [
+  "(The customer has said nothing for a while. Do not repeat your last question word for word: ask once more, in shorter and simpler words, in the language of the call, whether they can hear you and what they need.)",
+  "(Still no reply from the customer. In one or two warm sentences: if you have their WhatsApp number, say the team will follow up there; otherwise say they can call again from the website any time. Then say goodbye and call end_call with reason customer_busy.)",
+]
+// Anu asked to end the call but her goodbye never finished arriving: hang up
+// anyway after this long, so a lost turnComplete cannot hold the line open.
+const END_GRACE_MS = 10000
 
 const spoken = (keys) => keys.map((k) => SPOKEN_FIELD[k]).join(", ")
+// The five details as one comparable value, to tell whether a re-save changed
+// anything the customer already confirmed.
+const confirmedPart = (d) => JSON.stringify([d.name, d.phone, d.city, d.timeline, (d.items || []).map((i) => [i.product, i.quantity])])
 
 // What Anu should do after a successful save, from the page's own check.
 function nextStep(check, confirmed) {
@@ -184,12 +200,21 @@ export function useLiveSession() {
   // The server sent goAway: the socket closing after it is the call ending.
   const goAwayRef = useRef(false)
   const callLeadRef = useRef(null)
+  // What an earlier call in this tab captured (memory), so a resumed call's
+  // first partial capture_lead merges over it instead of failing on a missing
+  // name and number she already knows.
+  const priorLeadRef = useRef(null)
+  // Silence watch: when anyone last spoke (or a tool ran), and how many nudges
+  // the current silence has had.
+  const lastActivityRef = useRef(0)
+  const idleNudgesRef = useRef(0)
   const turnDoneRef = useRef(true)
   const callIdRef = useRef(null)
   const catalogueRef = useRef(null)
   const unwatchCatalogueRef = useRef(null)
   const recorderRef = useRef(null)
   const recPathRef = useRef(null)
+  const dropGestureRef = useRef(null)
 
   // Conversation memory: rolling transcript lines + latest captured lead.
   const convoRef = useRef([])
@@ -233,6 +258,8 @@ export function useLiveSession() {
 
   const stop = useCallback(() => {
     clearInterval(timerRef.current)
+    dropGestureRef.current?.()
+    dropGestureRef.current = null
     unwatchCatalogueRef.current?.()
     unwatchCatalogueRef.current = null
     // A recorder still running here belongs to a call being abandoned (closed
@@ -341,8 +368,12 @@ export function useLiveSession() {
       sourcesRef.current = sourcesRef.current.filter((s) => s.src !== src)
       if (sourcesRef.current.length === 0) {
         setSpeaking(false)
-        // Anu asked to end the call: close once her goodbye has finished playing.
-        if (endWantedRef.current) finish()
+        lastActivityRef.current = performance.now()
+        // Anu asked to end the call: close once her goodbye has finished
+        // playing. An empty queue while the reply is still streaming is a
+        // network underrun, not the end, and hanging up there cut her goodbye
+        // off mid-word; turnComplete finishes the call in that case.
+        if (endWantedRef.current && !replyingRef.current) finish()
       }
     }
     sourcesRef.current.push({ src, gain })
@@ -378,7 +409,7 @@ export function useLiveSession() {
     // given, and she sounded like she had forgotten the whole conversation.
     // Anything she does send still wins, so a correction ("Pune, not Delhi")
     // overwrites; only blanks fall back to what we already hold.
-    const prior = callLeadRef.current || {}
+    const prior = callLeadRef.current || priorLeadRef.current || {}
     const keep = (next, held) => {
       const v = String(next ?? "").trim()
       return v || held || ""
@@ -439,8 +470,12 @@ export function useLiveSession() {
       }
     }
     // A confirmation only counts for a complete order; anything changed after
-    // it arrives without the flag and needs confirming again.
-    const confirmed = args.confirmed === true && check.complete
+    // it arrives without the flag and needs confirming again. A re-save that
+    // changes none of the five (a company name or email given after the
+    // read-back) keeps it, or end_call was refused and she read the whole
+    // summary out a second time.
+    const keptConfirm = prior.confirmed === true && confirmedPart(prior) === confirmedPart(check)
+    const confirmed = check.complete && (args.confirmed === true || keptConfirm)
     const saved = { ...enriched, name: check.name, phone: check.phone, city: check.city, timeline: check.timeline, items: check.items }
     saveVoiceLead(saved, { id: callIdRef.current, recording: recPathRef.current, confirmed, complete: check.complete })
     // Remember the details so a reopened call already knows them.
@@ -474,6 +509,7 @@ export function useLiveSession() {
       // stretch, not a late chunk.
       replyingRef.current = false
       toolSinceHeardRef.current = true
+      lastActivityRef.current = performance.now()
       for (const fc of calls) {
         let response = { ok: true }
         if (fc.name === "lookup_product") {
@@ -496,10 +532,16 @@ export function useLiveSession() {
         }
         try { sessionRef.current?.sendToolResponse({ functionResponses: [{ id: fc.id, name: fc.name, response }] }) } catch { /* noop */ }
       }
-      if (endWantedRef.current && sourcesRef.current.length === 0) {
+      if (endWantedRef.current) {
+        const endingCall = callIdRef.current
         // A goodbye that starts playing in the meantime ends the call from
-        // its own onended instead, so it is never cut off here.
-        window.setTimeout(() => { if (endWantedRef.current && !sourcesRef.current.length) finish() }, 1200)
+        // its own onended (or turnComplete) instead, so it is never cut off here.
+        if (!sourcesRef.current.length) {
+          window.setTimeout(() => { if (callIdRef.current === endingCall && endWantedRef.current && !sourcesRef.current.length && !replyingRef.current) finish() }, 1200)
+        }
+        // Tied to this call's id: a visitor who taps "Call again" inside the
+        // window must not have the new call hung up by the old one's timer.
+        window.setTimeout(() => { if (callIdRef.current === endingCall && endWantedRef.current) finish() }, END_GRACE_MS)
       }
     }
     const sc = message?.serverContent
@@ -517,6 +559,8 @@ export function useLiveSession() {
       pushCaption("you", heard)
       heardAtRef.current = performance.now()
       toolSinceHeardRef.current = false
+      lastActivityRef.current = performance.now()
+      idleNudgesRef.current = 0
     }
     if (said) { outBufRef.current += said; pushCaption("anu", said) }
     for (const part of sc.modelTurn?.parts || []) {
@@ -535,7 +579,14 @@ export function useLiveSession() {
         playChunk(base64ToInt16(inline.data))
       }
     }
-    if (sc.turnComplete) { flushTranscript(); turnDoneRef.current = true; replyingRef.current = false }
+    if (sc.turnComplete) {
+      flushTranscript()
+      turnDoneRef.current = true
+      replyingRef.current = false
+      lastActivityRef.current = performance.now()
+      // Her goodbye has fully arrived; if it has also finished playing, hang up.
+      if (endWantedRef.current && !sourcesRef.current.length) finish()
+    }
   }, [captureLead, clearPlayback, playChunk, finish, flushTranscript, pushCaption])
 
   // Loudness of whoever is talking (Anu while her audio plays, else the mic),
@@ -567,8 +618,16 @@ export function useLiveSession() {
     turnDoneRef.current = true
     endRefusalsRef.current = 0
     goAwayRef.current = false
+    idleNudgesRef.current = 0
     callIdRef.current = newCallId()
     recPathRef.current = null
+    // Storage is the record of earlier calls in this tab. After a page reload
+    // the refs start empty, and the first turn of the resumed call used to
+    // save over the memory with nothing but its own lines and no lead.
+    const memory = loadMemory()
+    convoRef.current = memory?.lines ? [...memory.lines] : []
+    leadRef.current = memory?.lead || null
+    priorLeadRef.current = memory?.lead || null
     if (!hasSupabase) {
       setErrorMsg(import.meta.env.DEV
         ? "Voice assistant not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Ortex.Web/.env and restart the dev server."
@@ -606,15 +665,18 @@ export function useLiveSession() {
       unlockAudio()
       // resume() stays pending rather than rejecting while blocked, so look again after a beat.
       window.setTimeout(syncBlocked, 500)
+      const dropGesture = () => {
+        window.removeEventListener("pointerdown", onGesture)
+        window.removeEventListener("keydown", onGesture)
+      }
       const onGesture = () => {
         unlockAudio()
-        if (out.state !== "suspended") {
-          window.removeEventListener("pointerdown", onGesture)
-          window.removeEventListener("keydown", onGesture)
-        }
+        if (out.state !== "suspended") dropGesture()
       }
       window.addEventListener("pointerdown", onGesture)
       window.addEventListener("keydown", onGesture)
+      // stop() removes them too, so a call that ends still muted leaves nothing behind.
+      dropGestureRef.current = dropGesture
       const outAnalyser = out.createAnalyser()
       outAnalyser.fftSize = 256
       outAnalyser.connect(out.destination)
@@ -713,9 +775,22 @@ export function useLiveSession() {
             // Closed while connecting: no "live" state and no timer for a dead call.
             if (outCtxRef.current !== out) return
             setStatus("live")
+            lastActivityRef.current = performance.now()
             timerRef.current = window.setInterval(() => {
               secondsRef.current += 1
               setSeconds(secondsRef.current)
+              // Silence watch (IDLE_NUDGE_MS). Not while she is talking or a
+              // reply is streaming, not while the browser holds her audio (the
+              // customer cannot hear her, so their silence means nothing), and
+              // not once she is already saying goodbye.
+              const s = sessionRef.current
+              if (!s || endWantedRef.current || sourcesRef.current.length || replyingRef.current || out.state === "suspended") return
+              if (performance.now() - lastActivityRef.current < IDLE_NUDGE_MS) return
+              lastActivityRef.current = performance.now()
+              const nudge = IDLE_NUDGES[idleNudgesRef.current]
+              idleNudgesRef.current += 1
+              if (!nudge) { finish(); return }
+              try { s.sendClientContent({ turns: [{ role: "user", parts: [{ text: nudge }] }], turnComplete: true }) } catch { /* closing */ }
             }, 1000)
           },
           onmessage: handleMessage,
@@ -732,7 +807,22 @@ export function useLiveSession() {
           },
           // Our own hang-up nulls sessionRef first; anything else is the
           // server ending the call, which gets the same summary as a hang-up.
-          onclose: () => { if (live && sessionRef.current === live) finish() },
+          // A socket the server refuses during setup (a retired model, a
+          // rejected config or token) closes abnormally within seconds; that
+          // is a failed call, not a finished one, so it shows the error face
+          // rather than a "Call ended, 00:00" summary.
+          onclose: (e) => {
+            if (!live || sessionRef.current !== live) return
+            if (import.meta.env.DEV) console.info("[Anu] socket closed:", e?.code, e?.reason)
+            if (!goAwayRef.current && e?.code && e.code !== 1000 && secondsRef.current < 3 && !callLeadRef.current) {
+              closeRecording()
+              stop()
+              setErrorMsg("We could not connect to Anu. Please try again in a moment, or chat with us on WhatsApp.")
+              setStatus("error")
+              return
+            }
+            finish()
+          },
         },
       })
       // Closed while the socket was opening: hang it up before any (billed)
@@ -745,7 +835,7 @@ export function useLiveSession() {
       // instead of a cold open, so reopening the panel does not forget the quote.
       try {
         session.sendClientContent({
-          turns: [{ role: "user", parts: [{ text: buildOpener(loadMemory()) }] }],
+          turns: [{ role: "user", parts: [{ text: buildOpener(memory) }] }],
           turnComplete: true,
         })
       } catch { /* ignore */ }
