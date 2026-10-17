@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react"
-import { GoogleGenAI, Modality, StartSensitivity, ThinkingLevel } from "@google/genai"
+import { GoogleGenAI, Modality, StartSensitivity } from "@google/genai"
 import { supabase, hasSupabase } from "../../../lib/supabaseClient"
 import { INPUT_RATE, OUTPUT_RATE, floatTo16BitPCM, int16ToBase64, base64ToInt16, downsample } from "./audio"
 import { VOICE_SYSTEM_INSTRUCTION, buildOpener } from "./prompt"
@@ -32,7 +32,12 @@ import { TERMS } from "../../../constants/business"
    uploaded for the console (recording.js).
    ============================================================ */
 
-const LIVE_MODEL = "gemini-3.1-flash-live-preview"
+// Stable since 2026-09-15 (it replaced the 3.1 Flash Live preview). It must be
+// on the allow-list in liveLockFor (Admin supabase/functions/_shared/guard.ts),
+// or the token opens the old model and the connection is refused. 3.8 rejects
+// thinkingConfig, always has proactive audio on, and runs tools NON_BLOCKING
+// unless told otherwise (tools.js sets BLOCKING).
+const LIVE_MODEL = "gemini-3.8-live"
 const MAX_CAPTION_CHUNKS = 80
 // When the playback queue has run dry (a new reply, or network jitter), start
 // the next chunk this far ahead so the ones behind it arrive in time instead of
@@ -712,7 +717,7 @@ export function useLiveSession() {
       // console is described on the next call without a deploy. It rides
       // alongside the token fetch rather than delaying the connection.
       const [{ data, error }, catalogue] = await Promise.all([
-        supabase.functions.invoke("orty-live-token", { body: {} }),
+        supabase.functions.invoke("orty-live-token", { body: { model: LIVE_MODEL } }),
         loadCatalogue(),
       ])
       // Closed while connecting: stop() already tore everything down. Checked
@@ -762,9 +767,6 @@ export function useLiveSession() {
               prefixPaddingMs: START_OF_SPEECH_PREFIX_MS,
             },
           },
-          // A sales call needs a quick answer, not deliberation: every level
-          // of thinking above minimal is dead air before her first word.
-          thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
           // Text of both sides: the live caption, and a rolling memory across reopens.
           inputAudioTranscription: {},
           outputAudioTranscription: {},

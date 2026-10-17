@@ -2,12 +2,16 @@
 // Anu calls capture_lead to save and update the lead, and end_call to hang up.
 // Both are answered by useLiveSession with a `next` instruction built from
 // validateLead (leads.js), which is how the page, not the model, decides what
-// is still missing and whether the call may end yet.
+// is still missing and whether the call may end yet. Every tool is BLOCKING:
+// gemini-3.8-live defaults to NON_BLOCKING, where she would keep talking before
+// the page's reply arrived (and, say, tell a customer "noted" for a lead that
+// failed validation).
 
 export const LIVE_TOOLS = [{
   functionDeclarations: [
     {
       name: "lookup_product",
+      behavior: "BLOCKING",
       description: "Look up what Ortex can supply before you describe, recommend or take an order for anything. The reply is one of three, and none of them is a refusal. (1) `matches` filled: Ortex lists it, so brief the customer from that entry, which carries the material, how it can be customised, the minimum quantity, the dispatch days and the description, plus the add-ons worth offering. (2) `matches` empty with `standard_range`: an everyday Ortex product that is simply not entered in the console list yet, so sell it normally with the minimum given there. (3) both empty: a made-to-order run, so sell the factory's own capability using `materials_we_work_in` and `customisation_methods`, work through `ask`, and capture it as a custom item. Always follow the `next` instruction. Call it silently, as often as you need.",
       parameters: {
         type: "OBJECT",
@@ -19,6 +23,7 @@ export const LIVE_TOOLS = [{
     },
     {
       name: "capture_lead",
+      behavior: "BLOCKING",
       description: "Save or UPDATE the customer's details. Call it as soon as you have a real name and a WhatsApp number the customer has confirmed, and again every time any detail is added or changes. ALWAYS send the complete current picture, never only the part that changed, because each call replaces the previous one. Call it silently. The reply says whether it was saved, which details are still missing or need checking, and what to do next: follow its `next` instruction.",
       parameters: {
         type: "OBJECT",
@@ -55,6 +60,7 @@ export const LIVE_TOOLS = [{
     },
     {
       name: "find_past_work",
+      behavior: "BLOCKING",
       description: "Find real jobs from Ortex's work gallery that are like what the customer wants, when they ask whether Ortex has made something similar before, or when an example would reassure them. Returns captions only. Call it silently and follow its `next` instruction.",
       parameters: {
         type: "OBJECT",
@@ -66,6 +72,7 @@ export const LIVE_TOOLS = [{
     },
     {
       name: "end_call",
+      behavior: "BLOCKING",
       description: "End the call after a warm goodbye. With reason 'completed' the reply may refuse and say which details to capture or confirm first: follow it, then try again.",
       parameters: {
         type: "OBJECT",

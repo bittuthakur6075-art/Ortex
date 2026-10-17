@@ -1,5 +1,5 @@
 import { cors, json } from "../_shared/http.ts"
-import { clientIp, LIVE_LOCK, withinLimit } from "../_shared/guard.ts"
+import { clientIp, liveLockFor, withinLimit } from "../_shared/guard.ts"
 // Edge Function: orty-live-token
 //
 // Mints a short-lived, single-use EPHEMERAL token for the Gemini Live API so the
@@ -11,7 +11,8 @@ import { clientIp, LIVE_LOCK, withinLimit } from "../_shared/guard.ts"
 // language model and no token.
 //
 // Public: called by anonymous website visitors. The token is single-use,
-// expires in minutes and is locked to one model (LIVE_LOCK in _shared/guard.ts), so exposure is minimal.
+// expires in minutes and is locked to one model (`liveLockFor` in _shared/guard.ts:
+// the body's `model` if it is on the allow-list, else LIVE_LOCK's), so exposure is minimal.
 // Free-tier Live quota applies.
 //
 // Deploy:
@@ -33,6 +34,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const asked = await req.json().then((b) => b?.model).catch(() => undefined)
     const now = Date.now()
     // The visitor must START a session within 2 minutes; the session itself may
     // run up to 30 minutes before the token fully expires.
@@ -40,7 +42,7 @@ Deno.serve(async (req) => {
       uses: 1,
       newSessionExpireTime: new Date(now + 2 * 60 * 1000).toISOString(),
       expireTime: new Date(now + 30 * 60 * 1000).toISOString(),
-      ...LIVE_LOCK,
+      ...liveLockFor(asked),
     }
 
     const r = await fetch(`https://generativelanguage.googleapis.com/v1alpha/auth_tokens?key=${apiKey}`, {

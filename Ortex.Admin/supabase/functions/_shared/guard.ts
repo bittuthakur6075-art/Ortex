@@ -34,6 +34,18 @@ export const LIVE_LOCK = {
   fieldMask: "model",
 }
 
+// Live models a client may ask orty-live-token for, so one client can move to
+// a new model without breaking the ones still built against the old: the
+// website asks for gemini-3.8-live, the console's Call agent test call sends
+// nothing and keeps LIVE_LOCK's model. Anything else falls back to LIVE_LOCK.
+const LIVE_MODELS = new Set(["gemini-3.1-flash-live-preview", "gemini-3.8-live"])
+
+/** LIVE_LOCK for the model a client asked for, if it is on the allow-list. */
+export function liveLockFor(model: unknown) {
+  const name = String(model ?? "").replace(/^models\//, "")
+  return LIVE_MODELS.has(name) ? { ...LIVE_LOCK, bidiGenerateContentSetup: { model: `models/${name}` } } : LIVE_LOCK
+}
+
 /**
  * One hit against `key`; false once it has had more than `max` hits in the
  * current `windowSec` window. Fails OPEN (true) when the limiter itself is
