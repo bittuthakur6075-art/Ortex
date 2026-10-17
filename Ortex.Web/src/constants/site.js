@@ -32,6 +32,9 @@ export const ADDRESS = {
 
 export const ADDRESS_LINE = `${ADDRESS.street}, ${ADDRESS.locality}, ${ADDRESS.city}, ${ADDRESS.region} ${ADDRESS.postalCode}`
 
+// The official Instagram account, also listed in index.html "sameAs".
+export const INSTAGRAM_URL = "https://www.instagram.com/ortex_industries/"
+
 // Digits-only number used to build WhatsApp deep links.
 const WHATSAPP_NUMBER = "919211947188"
 

@@ -6,7 +6,7 @@ import PageCTA from "../components/ui/PageCTA"
 import ContentIcon from "../components/ui/ContentIcons"
 import { ArrowRight } from "../components/ui/Icons"
 import { Section, SectionHeading, fadeUp, EASE } from "../components/ui/Section"
-import { STATS, PILLARS, REASONS, CAPABILITIES, PORTFOLIO, CLIENTS, portfolioImage } from "../constants/content"
+import { STATS, PILLARS, REASONS, CAPABILITIES, PORTFOLIO, CLIENTS, portfolioThumb } from "../constants/content"
 
 const PILLAR_ICONS = { manufacturing: "bulk", customisation: "brush", reach: "export" }
 
@@ -163,7 +163,7 @@ export default function Home() {
               >
                 <div className="overflow-hidden bg-secondary aspect-square">
                   <img
-                    src={portfolioImage(item.image)}
+                    src={portfolioThumb(item.image)}
                     alt={item.title}
                     loading="lazy"
                     decoding="async"

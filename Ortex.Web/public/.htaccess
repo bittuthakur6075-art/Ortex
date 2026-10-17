@@ -25,6 +25,10 @@ DirectorySlash Off
   # www.bizgift... moves to the one canonical host. HTTPS itself is forced by
   # hPanel's "Force HTTPS" toggle, which avoids a redirect loop behind
   # Hostinger's CDN.
+  # A trailing slash is dropped in the same hop, so www.../about/ reaches
+  # /about in one redirect, not two.
+  RewriteCond %{HTTP_HOST} ^www\.bizgift\.ortexindustries\.in$ [NC]
+  RewriteRule ^(.+?)/+$ https://bizgift.ortexindustries.in/$1 [R=301,L]
   RewriteCond %{HTTP_HOST} ^www\.bizgift\.ortexindustries\.in$ [NC]
   RewriteRule ^ https://bizgift.ortexindustries.in%{REQUEST_URI} [R=301,L]
 

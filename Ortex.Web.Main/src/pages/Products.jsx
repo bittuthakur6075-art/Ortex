@@ -30,19 +30,19 @@ export default function Products() {
       {/* Customisation intro */}
       <section className="pb-[72px] sm:pb-[96px] lg:pb-[140px] bg-background">
         <div className="lp-wrap grid grid-cols-1 lg:grid-cols-2 gap-14 lg:gap-20 items-center">
-          <motion.div {...fadeUp} className="overflow-hidden lg:order-2">
+          <div className="hero-in overflow-hidden lg:order-2">
             <img
               src="/img/portfolio/mdf-ganesha-key-holder.webp"
               alt="UV-printed MDF key holder with a Ganesha design, made by Ortex Industries"
-              loading="lazy"
+              fetchPriority="high"
               decoding="async"
               className="w-full aspect-[4/3] object-cover"
             />
-          </motion.div>
-          <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }}>
+          </div>
+          <div className="hero-in">
             <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">Made to order</span>
             <h2 className="text-[36px] md:text-[52px] font-normal leading-[1.05] tracking-tight text-foreground text-balance">
-              <RevealWords text="Every product, fully customised" />
+              Every product, fully customised
             </h2>
             <div className="mt-8 space-y-5 text-[18px] text-[#4b5675] leading-relaxed">
               <p>
@@ -54,7 +54,7 @@ export default function Products() {
                 can combine methods for exactly the finish you want.
               </p>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 

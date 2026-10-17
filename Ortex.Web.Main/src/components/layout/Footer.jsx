@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom"
 import RollText from "../ui/RollText"
 import WhatsAppIcon from "../ui/WhatsAppIcon"
-import { CONTACT, ADDRESS_LINE, CATALOGUE_URL, telHref, whatsappLink } from "../../constants/site"
+import { CONTACT, ADDRESS_LINE, CATALOGUE_URL, INSTAGRAM_URL, telHref, whatsappLink } from "../../constants/site"
 import { PRODUCTS } from "../../constants/content"
 import "./Footer.css"
 
@@ -40,6 +40,12 @@ export default function Footer() {
               <a className="lp-footer-whatsapp" href={whatsappLink()} target="_blank" rel="noopener noreferrer">
                 <WhatsAppIcon className="lp-footer-whatsapp-icon" />
                 <span>Message us on WhatsApp</span>
+              </a>
+            </div>
+            <div className="lp-footer-cgroup lp-footer-cgroup--row">
+              <p className="lp-footer-clabel">Follow us</p>
+              <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer me">
+                @ortex_industries on Instagram
               </a>
             </div>
           </div>

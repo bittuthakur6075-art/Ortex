@@ -4,6 +4,7 @@ import PageHero from "../components/ui/PageHero"
 import ContactForm from "./contact/ContactForm"
 import ContactInfoCards from "./contact/ContactInfoCards"
 import DeliveryReach from "./contact/DeliveryReach"
+import ContactFAQ from "./contact/ContactFAQ"
 import useContactForm from "./contact/useContactForm"
 
 export default function Contact() {
@@ -47,6 +48,8 @@ export default function Contact() {
           </div>
         </div>
       </section>
+
+      <ContactFAQ />
 
       <DeliveryReach />
 

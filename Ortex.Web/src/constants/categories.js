@@ -362,8 +362,11 @@ export function buildCategorySchema(entry, products = PRODUCTS) {
 
 /** Title and description for a product page, within what a results page shows. */
 export function productSeo(entry, product) {
-  const suffix = " | Ortex Industries"
-  const title = product.name.length + suffix.length <= 65 ? product.name + suffix : product.name
+  // Google cuts titles at about 60 characters: keep the full brand when it
+  // fits, fall back to the short one, and only then to the bare name.
+  const title = [" | Ortex Industries", " | Ortex", ""]
+    .map((suffix) => product.name + suffix)
+    .find((t) => t.length <= 60) || product.name
   const lead = product.description?.trim() || `Custom ${product.name} manufactured in-house by Ortex Industries.`
   const facts = `MOQ ${product.moq} ${product.unit}${product.leadTimeDays ? `, dispatch in ${product.leadTimeDays} working days` : ""}. GST quotation, PAN India delivery.`
   const full = `${lead.replace(/\s+/g, " ")} ${facts}`

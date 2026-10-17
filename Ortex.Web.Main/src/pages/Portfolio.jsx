@@ -7,7 +7,7 @@ import PageHero from "../components/ui/PageHero"
 import PageCTA from "../components/ui/PageCTA"
 import { fadeUp, EASE } from "../components/ui/Section"
 import { getLenis } from "../hooks/useSmoothScroll"
-import { PORTFOLIO, PORTFOLIO_CATEGORIES, portfolioImage } from "../constants/content"
+import { PORTFOLIO, PORTFOLIO_CATEGORIES, portfolioImage, portfolioThumb } from "../constants/content"
 
 const FILTERS = ["All", ...PORTFOLIO_CATEGORIES]
 
@@ -158,7 +158,7 @@ export default function Portfolio() {
               >
                 <div className="overflow-hidden bg-secondary aspect-square">
                   <img
-                    src={portfolioImage(item.image)}
+                    src={portfolioThumb(item.image)}
                     alt={item.title}
                     loading="lazy"
                     decoding="async"

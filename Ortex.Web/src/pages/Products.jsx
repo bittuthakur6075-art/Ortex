@@ -460,6 +460,9 @@ export default function Products() {
 
             {/* The filtered category in its own words, and the way through to
                 its landing page, where the deeper SEO content lives. */}
+            {/* With no category picked the grid still needs an h2 above its
+                h3 product titles, or the page outline jumps h1 -> h3. */}
+            {!activeCopy && <h2 className="sr-only">All products</h2>}
             {activeCopy && (
               <div className="mb-10 max-w-3xl">
                 <h2 className="text-[28px] md:text-[32px] font-medium leading-tight tracking-tight text-foreground mb-3">

@@ -16,13 +16,9 @@
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
     <link rel="canonical" href="https://bizgift.ortexindustries.in/" />
 
-    <!-- Fonts: preconnect + one stylesheet (Manrope + Instrument Serif only). -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@200..800&display=swap"
-    />
+    <!-- Fonts: self-hosted (src/index.css @font-face). Preloading Manrope lets
+         the prerendered text paint in it without a font swap. -->
+    <link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
 
     <!-- Icons & Theme. Google Search shows a square icon of at least 48px, so the
          192px PNG is listed next to the SVG; iOS needs its own 180px PNG. -->
@@ -125,7 +121,8 @@
             "sameAs": [
               "https://www.linkedin.com/company/ortex-industries",
               "https://www.facebook.com/ortexindustries",
-              "https://www.indiamart.com/ortex-industries-delhi/"
+              "https://www.indiamart.com/ortex-industries-delhi/",
+              "https://www.instagram.com/ortex_industries/"
             ]
           }
         ]

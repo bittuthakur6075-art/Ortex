@@ -47,7 +47,7 @@ Never run destructive SQL, a test write or a bulk import against it casually.
 | `Ortex.Admin/src/lib/validateDocument.js` (quotation and invoice field rules, GSTIN check digit) | `Ortex.Mobile/src/domain/validateDocument.ts` (parity test `test/validateDocument.test.mjs`) |
 | `Ortex.Admin/src/lib/address.js` (company registered / dispatch address on documents) | `Ortex.Mobile/src/domain/address.ts` (parity test `test/address.test.mjs`) |
 | `Ortex.Web/src/pages/Privacy.jsx`, `Terms.jsx` | `Ortex.Mobile/src/features/profile/legal.ts` (verbatim mirror) |
-| Contact details and address in `Ortex.Web/src/constants/site.js`, `STATS` in `constants/business.js` | `Ortex.Web.Main/src/constants/site.js`, `STATS` in `constants/content.js`, and both `index.html` LocalBusiness blocks |
+| Contact details, address and `INSTAGRAM_URL` in `Ortex.Web/src/constants/site.js`, `STATS` in `constants/business.js`, the owner's note in `constants/founder.js` | `Ortex.Web.Main/src/constants/site.js`, `STATS` and `FOUNDER` in `constants/content.js`, and both `index.html` LocalBusiness blocks (`sameAs`) |
 | Anu's portrait `Ortex.Web/public/img/anu.jpg` | `Ortex.Admin/public/img/anu.jpg`, `Ortex.Mobile/assets/anu.jpg` |
 | Anu's filler names `PLACEHOLDER_NAMES` in `Ortex.Mobile/src/domain/voice.ts` | The copy inside `upsert_customer_from()` (latest definition: migration 0050) |
 | A new public product/category field | The `products_public` / `categories_public` views (migration 0020), or the site never sees it |

@@ -22,8 +22,12 @@ DirectorySlash Off
   RewriteEngine On
   RewriteBase /
 
-  # www moves to the bare domain. HTTPS itself is forced by hPanel's
-  # "Force HTTPS" toggle, which avoids a redirect loop behind Hostinger's CDN.
+  # www moves to the bare domain, dropping a trailing slash in the same hop so
+  # www.../about/ reaches /about in one redirect, not two. HTTPS itself is
+  # forced by hPanel's "Force HTTPS" toggle (a redirect loop otherwise, behind
+  # Hostinger's CDN).
+  RewriteCond %{HTTP_HOST} ^www\.ortexindustries\.in$ [NC]
+  RewriteRule ^(.+?)/+$ https://ortexindustries.in/$1 [R=301,L]
   RewriteCond %{HTTP_HOST} ^www\.ortexindustries\.in$ [NC]
   RewriteRule ^ https://ortexindustries.in%{REQUEST_URI} [R=301,L]
 

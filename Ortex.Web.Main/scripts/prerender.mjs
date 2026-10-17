@@ -17,7 +17,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from "node
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { SITE_URL } from "../src/constants/site.js"
-import { PORTFOLIO, portfolioImage } from "../src/constants/content.js"
+import { PORTFOLIO, FAQ, portfolioImage } from "../src/constants/content.js"
 import { STATIC_ROUTES, ROUTE_SOURCE } from "./routes-meta.mjs"
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
@@ -126,6 +126,14 @@ function pageSchema(route) {
         { "@type": "ListItem", position: 1, name: "Home", item: `${SITE_URL}/` },
         { "@type": "ListItem", position: 2, name: route.name, item: url },
       ],
+    })
+  }
+  // The same questions and answers the Contact page renders (ContactFAQ.jsx).
+  if (route.path === "/contact") {
+    graph.push({
+      "@type": "FAQPage",
+      "@id": `${url}#faq`,
+      mainEntity: FAQ.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
     })
   }
   return { "@context": "https://schema.org", "@graph": graph }

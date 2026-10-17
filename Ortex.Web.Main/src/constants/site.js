@@ -39,6 +39,9 @@ export const MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encod
 // browse individual products and build a quote.
 export const CATALOGUE_URL = "https://bizgift.ortexindustries.in"
 
+// The official Instagram account, also listed in index.html "sameAs".
+export const INSTAGRAM_URL = "https://www.instagram.com/ortex_industries/"
+
 const WHATSAPP_NUMBER = "919211947188"
 const WHATSAPP_DEFAULT_MESSAGE = "Hi Ortex Industries, I would like a quote for customised products."
 

@@ -21,10 +21,10 @@ export default function Industries() {
 
       <section className="pb-[72px] sm:pb-[96px] lg:pb-[140px] bg-background">
         <div className="lp-wrap grid grid-cols-1 lg:grid-cols-2 gap-14 lg:gap-20 items-center">
-          <motion.div {...fadeUp}>
+          <div className="hero-in">
             <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">Across sectors</span>
             <h2 className="text-[36px] md:text-[52px] font-normal leading-[1.05] tracking-tight text-foreground text-balance">
-              <RevealWords text="Trusted by organisations of every kind" />
+              Trusted by organisations of every kind
             </h2>
             <div className="mt-8 space-y-5 text-[18px] text-[#4b5675] leading-relaxed">
               <p>
@@ -36,16 +36,16 @@ export default function Industries() {
                 the right finish and a realistic timeline from the first conversation.
               </p>
             </div>
-          </motion.div>
-          <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }} className="overflow-hidden">
+          </div>
+          <div className="hero-in overflow-hidden">
             <img
               src="/img/welcome-workshop.avif"
               alt="Customised products being prepared in the Ortex Industries workshop"
-              loading="lazy"
+              fetchPriority="high"
               decoding="async"
               className="w-full aspect-[4/3] object-cover"
             />
-          </motion.div>
+          </div>
         </div>
       </section>
 

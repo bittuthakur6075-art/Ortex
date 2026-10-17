@@ -203,7 +203,7 @@ export default function ProductCategory() {
               transition={{ ...fadeUp.transition, delay: Math.min(idx, 3) * 0.06 }}
             >
               <t.icon size={30} color="currentColor" variant="Bulk" className="text-primary mb-3" aria-hidden="true" />
-              <h3 className="text-[16px] font-semibold text-foreground mb-1.5">{t.title}</h3>
+              <p className="text-[16px] font-semibold text-foreground mb-1.5">{t.title}</p>
               <p className="text-[14px] text-muted-foreground leading-relaxed">{t.text}</p>
             </motion.div>
           ))}

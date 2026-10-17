@@ -262,4 +262,53 @@ export const PORTFOLIO = [
   },
 ]
 
+/** Full-size photo (lightbox, sitemap) and the 640px square crop used by grids. */
 export const portfolioImage = (name) => `/img/portfolio/${name}.webp`
+export const portfolioThumb = (name) => `/img/portfolio/thumb/${name}.webp`
+
+/**
+ * Buyer questions shown on /contact and emitted as FAQPage JSON-LD by
+ * scripts/prerender.mjs. The facts (minimums, GST, dispatch window, quote
+ * time) are those of Ortex.Web/src/constants/business.js; change both together.
+ */
+export const FAQ = [
+  {
+    q: "How do I get a price?",
+    a: "Send your requirement through the form above, on WhatsApp or by email. Prices depend on the product, material, quantity and finish, so we reply with a written GST quotation, usually within one working day.",
+  },
+  {
+    q: "What is the minimum order quantity?",
+    a: "It depends on the product. Wall clocks start at 10 pieces; acrylic paperweights, examination boards and corporate gifts at 25; keychains, badges, clipboards and MDF products at 50; lanyards and fridge magnets at 100; and moulded silicone, PVC and satin items at 200.",
+  },
+  {
+    q: "How long does an order take?",
+    a: "Most orders dispatch in about 4 to 12 working days after you approve the proof, depending on the product, quantity and finish. Your quotation confirms the date for your order.",
+  },
+  {
+    q: "Will I see a proof before production?",
+    a: "Always. We send a digital mockup for your approval, and production starts only once you approve it. A physical sample can be made on request.",
+  },
+  {
+    q: "What artwork files do you need?",
+    a: "Vector files work best: AI, CDR, EPS, PDF or SVG. High-resolution PNG or JPG files are also fine, and our team can redraw or tidy up a logo if you do not have print-ready artwork.",
+  },
+  {
+    q: "Do you provide a GST invoice?",
+    a: "Yes, every order comes with a GST invoice. Most products are billed at 18% GST, while lanyards, flags and caps are billed at 12%.",
+  },
+  {
+    q: "Do you deliver outside Delhi and outside India?",
+    a: "Yes. We dispatch across India with tracking through courier and freight partners, and handle export packing and documentation for international orders.",
+  },
+]
+
+/** The owner's note on About. Mirrors founderNote in Ortex.Web/src/constants/founder.js. */
+export const FOUNDER = {
+  name: "Louis Sharma",
+  title: "Owner, Ortex Industries",
+  paragraphs: [
+    "Every order that leaves our floor carries someone else's name, and we never forget that.",
+    "When a school trusts us with its exam boards, or a hospital with the badges its staff wear every day, we are holding a small piece of their reputation. That is why everything is made in-house, why you see and approve a proof before a single piece is cut, and why every quotation is clear and every order comes with a GST invoice. No surprises in between.",
+    "We are a manufacturer that picks up the phone. If something is not right, tell us and we will make it right. Thank you for considering Ortex Industries. We would love to make something you are proud to hand out."
+  ],
+}

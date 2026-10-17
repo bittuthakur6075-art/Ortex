@@ -3,8 +3,8 @@ import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import PageHero from "../components/ui/PageHero"
 import PageCTA from "../components/ui/PageCTA"
 import ContentIcon from "../components/ui/ContentIcons"
-import { Section, SectionHeading, RevealWords, fadeUp } from "../components/ui/Section"
-import { STATS, PILLARS, CAPABILITIES } from "../constants/content"
+import { Section, SectionHeading, fadeUp } from "../components/ui/Section"
+import { STATS, PILLARS, CAPABILITIES, FOUNDER } from "../constants/content"
 
 const PILLAR_ICONS = { manufacturing: "bulk", customisation: "brush", reach: "export" }
 
@@ -24,10 +24,10 @@ export default function About() {
       {/* Story */}
       <section className="pb-[72px] sm:pb-[96px] lg:pb-[140px] bg-background">
         <div className="lp-wrap grid grid-cols-1 lg:grid-cols-2 gap-14 lg:gap-20 items-center">
-          <motion.div {...fadeUp}>
+          <div className="hero-in">
             <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">Our story</span>
             <h2 className="text-[36px] md:text-[52px] font-normal leading-[1.05] tracking-tight text-foreground text-balance">
-              <RevealWords text="A manufacturer you can rely on" />
+              A manufacturer you can rely on
             </h2>
             <div className="mt-8 space-y-5 text-[18px] text-[#4b5675] leading-relaxed">
               <p>
@@ -45,16 +45,16 @@ export default function About() {
                 and again.
               </p>
             </div>
-          </motion.div>
-          <motion.div {...fadeUp} transition={{ ...fadeUp.transition, delay: 0.1 }} className="overflow-hidden">
+          </div>
+          <div className="hero-in overflow-hidden">
             <img
               src="/img/about-production.avif"
               alt="Production on the Ortex Industries factory floor"
-              loading="lazy"
+              fetchPriority="high"
               decoding="async"
               className="w-full aspect-[4/3] object-cover"
             />
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -69,6 +69,31 @@ export default function About() {
           ))}
         </div>
       </section>
+
+      {/* A note from the owner (same text as Ortex.Web's founder note) */}
+      <Section>
+        <motion.figure {...fadeUp} className="lp-wrap max-w-3xl text-center">
+          <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-6">
+            A note from our owner
+          </span>
+          <blockquote className="flex flex-col gap-5">
+            {FOUNDER.paragraphs.map((para, idx) => (
+              <p
+                key={para.slice(0, 24)}
+                className={idx === 0
+                  ? "text-[24px] md:text-[30px] font-medium leading-snug text-foreground text-balance"
+                  : "text-[17px] text-[#4b5675] leading-relaxed"}
+              >
+                {para}
+              </p>
+            ))}
+          </blockquote>
+          <figcaption className="mt-10">
+            <span className="block text-[17px] font-semibold text-foreground">{FOUNDER.name}</span>
+            <span className="block text-[14px] text-[#78829D] mt-0.5">{FOUNDER.title}</span>
+          </figcaption>
+        </motion.figure>
+      </Section>
 
       {/* Expertise */}
       <Section>

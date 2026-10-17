@@ -114,7 +114,9 @@
   max-width: 32ch;
 }
 
-.lp-footer h4 {
+/* Column labels are <p>, not headings, so the footer never breaks a page outline. */
+.lp-footer h4,
+.lp-footer .lp-footer-colhead {
   font-size: clamp(10px, 1.05vw, 12px);
   text-transform: uppercase;
   letter-spacing: 0.06em;

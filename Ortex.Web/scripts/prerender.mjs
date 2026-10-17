@@ -238,6 +238,20 @@ async function renderRoute(render, route, data) {
     const ld = `<script type="application/ld+json" id="${route.schemaId || "page-schema"}">${jsonForScript(route.schema)}</script>`
     html = html.replace("</head>", () => `${ld}\n</head>`)
   }
+  // Static pages carry no page schema of their own, so give them the
+  // Home > Page breadcrumb that category and product pages already have
+  // (their schema includes one). No client hook writes this id.
+  if (route.crumb) {
+    const crumbs = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: `${SITE_URL}/` },
+        { "@type": "ListItem", position: 2, name: route.crumb, item: url },
+      ],
+    }
+    html = html.replace("</head>", () => `<script type="application/ld+json" id="breadcrumb-schema">${jsonForScript(crumbs)}</script>\n</head>`)
+  }
 
   const links = chunkLinks(route.source)
   if (links) html = html.replace("</head>", () => `${links}\n</head>`)
@@ -287,7 +301,14 @@ async function main() {
   const catalogProducts = products.length ? products : PRODUCTS
   const categories = live ? mergeCategories(live.catalog.categories.map((r) => ({ id: r.id, ...(r.doc || {}) }))) : staticCategories()
 
+  // Breadcrumb label for each static page (Home itself has none).
+  const CRUMBS = {
+    "/about": "About", "/products": "Products", "/industries": "Industries", "/oem": "OEM and white label",
+    "/work": "Our work", "/contact": "Contact", "/quote": "Get a quote", "/faq": "FAQs",
+    "/privacy": "Privacy policy", "/terms": "Terms of service", "/cookies": "Cookie policy", "/acceptable-use": "Acceptable use",
+  }
   const routes = STATIC_ROUTES.map((r) => ({
+    crumb: CRUMBS[r.path],
     ...r,
     source: ROUTE_SOURCE[r.path],
     ...(r.path === "/faq" ? { schema: FAQ_SCHEMA, schemaId: "faq-schema" } : {}),

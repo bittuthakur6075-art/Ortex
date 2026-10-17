@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom"
 import RollText from "../ui/RollText"
 import WhatsAppIcon from "../ui/WhatsAppIcon"
-import { CONTACT, ADDRESS_LINE, whatsappLink } from "../../constants/site"
+import { CONTACT, ADDRESS_LINE, INSTAGRAM_URL, whatsappLink } from "../../constants/site"
 import { useCatalog } from "../../lib/catalog"
 import "./Footer.css"
 
@@ -41,7 +41,7 @@ export default function Footer() {
           
           <div className="lp-footer-lead">
             <div className="lp-footer-cgroup">
-              <h3 className="lp-footer-clabel">Contact us</h3>
+              <p className="lp-footer-clabel">Contact us</p>
               <a className="lp-footer-email" href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a>
               <span className="lp-footer-phones">
                 <a href={`tel:${CONTACT.phonePrimary.replace(/[^\d+]/g, "")}`}>{CONTACT.phonePrimary}</a>
@@ -52,7 +52,7 @@ export default function Footer() {
             </div>
 
             <div className="lp-footer-cgroup lp-footer-cgroup--row">
-              <h3 className="lp-footer-clabel">Chat with us</h3>
+              <p className="lp-footer-clabel">Chat with us</p>
               <a
                 className="lp-footer-whatsapp"
                 href={whatsappLink()}
@@ -63,13 +63,19 @@ export default function Footer() {
                 <span>Message us on WhatsApp</span>
               </a>
             </div>
+            <div className="lp-footer-cgroup lp-footer-cgroup--row">
+              <p className="lp-footer-clabel">Follow us</p>
+              <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer me">
+                @ortex_industries on Instagram
+              </a>
+            </div>
           </div>
 
           <div className="lp-footer-cols">
 
             {/* Column 0: Products, one link per live category */}
             <div className="lp-footer-col">
-              <h4>Products</h4>
+              <p className="lp-footer-colhead">Products</p>
               <ul>
                 {categories.map((c) => (
                   <li key={c.slug}><Link to={`/products/${c.slug}`}><RollText text={c.name} /></Link></li>
@@ -79,7 +85,7 @@ export default function Footer() {
 
             {/* Column 1: What we make */}
             <div className="lp-footer-col">
-              <h4>What we make</h4>
+              <p className="lp-footer-colhead">What we make</p>
               <ul>
                 <li><Link to="/products"><RollText text="Products & services" /></Link></li>
                 <li><Link to="/industries"><RollText text="Industries we serve" /></Link></li>
@@ -90,7 +96,7 @@ export default function Footer() {
 
             {/* Column 2: Company */}
             <div className="lp-footer-col">
-              <h4>Company</h4>
+              <p className="lp-footer-colhead">Company</p>
               <ul>
                 <li><Link to="/"><RollText text="Home" /></Link></li>
                 <li><Link to="/about"><RollText text="About Ortex" /></Link></li>
@@ -102,7 +108,7 @@ export default function Footer() {
 
             {/* Column 3: Legal */}
             <div className="lp-footer-col">
-              <h4>Legal</h4>
+              <p className="lp-footer-colhead">Legal</p>
               <ul>
                 <li><Link to="/privacy"><RollText text="Privacy policy" /></Link></li>
                 <li><Link to="/terms"><RollText text="Terms of service" /></Link></li>
