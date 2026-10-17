@@ -204,7 +204,12 @@ body {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+/* The label is plain inline text so it can wrap between words; each word is
+   the one-line clipped box that hides its own rolled copy (RollText.jsx). */
 .roll-text {
+  line-height: 1.25;
+}
+.roll-word {
   display: inline-block;
   overflow: clip;
   vertical-align: bottom;
