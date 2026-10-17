@@ -15,7 +15,7 @@ export const STATIC_ROUTES = [
   { path: "/industries", type: "WebPage", name: "Industries", title: "Industries We Serve | Ortex Industries", description: "Customised products for corporates, schools, government departments, hospitals, events, agencies, NGOs, campaigns, retail and professional firms." },
   { path: "/portfolio", type: "CollectionPage", name: "Portfolio", title: "Portfolio: Products We Have Made | Ortex Industries", description: "Real orders from the Ortex Industries floor: printed lanyards, magnetic and acrylic badges, MDF wall clocks, souvenir magnets and promotional stationery." },
   { path: "/contact", type: "ContactPage", name: "Contact", title: "Contact Ortex Industries | Get a Quote", description: "Ask for a quote on customised MDF, acrylic, lanyards, badges and corporate gifts. Call +91-9211947188, email sales@ortexindustries.in or WhatsApp us." },
-  { path: "/privacy", type: "WebPage", name: "Privacy policy", title: "Privacy Policy | Ortex Industries", description: "What Ortex Industries collects when you contact us through ortexindustries.in, why we keep it, who processes it and how to ask for it to be deleted." },
+  { path: "/privacy", type: "WebPage", name: "Privacy policy", title: "Privacy Policy | Ortex Industries", description: "What Ortex Industries collects through ortexindustries.in, including the contact form and our voice assistant, who processes it and how to ask for it to be deleted." },
   { path: "/terms", type: "WebPage", name: "Terms of service", title: "Terms of Service | Ortex Industries", description: "The terms for using ortexindustries.in and for quotations and customised orders with Ortex Industries, including artwork approval, payment and delivery." },
 ]
 

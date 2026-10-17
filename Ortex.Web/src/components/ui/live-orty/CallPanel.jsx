@@ -3,7 +3,7 @@ import { Link } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { ArrowDown2, CallSlash, CloseCircle, Microphone2, Refresh2, TickCircle, VolumeHigh, Whatsapp } from "iconsax-react"
 import AnuAvatar, { ANU_PHOTO } from "./AnuAvatar"
-import { whatsappLink } from "../../../constants/site"
+import { QUOTE_PATH, whatsappLink } from "../../../constants/site"
 import { TERMS } from "../../../constants/business"
 import { MORPH_SPRING, EASE, mmss } from "./shared"
 
@@ -350,7 +350,7 @@ function Summary({ ended, onAgain, onClose }) {
         <motion.button whileTap={{ scale: 0.97 }} onClick={onAgain} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white text-[15px] font-semibold text-zinc-900 transition hover:bg-white/90">
           <Microphone2 size={18} variant="Bold" color="currentColor" /> Call again
         </motion.button>
-        <Link to="/quote" onClick={onClose} className="inline-flex h-12 items-center justify-center rounded-full bg-white/10 text-[15px] font-semibold text-white transition hover:bg-white/15">
+        <Link to={QUOTE_PATH} onClick={onClose} className="inline-flex h-12 items-center justify-center rounded-full bg-white/10 text-[15px] font-semibold text-white transition hover:bg-white/15">
           Request a quote
         </Link>
       </motion.div>

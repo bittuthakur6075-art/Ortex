@@ -2,9 +2,12 @@ import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import LegalPage from "../components/ui/LegalPage"
 import { CONTACT, ADDRESS_LINE } from "../constants/site"
 
-// Written for THIS site, which has no analytics, no cookies and no voice
-// assistant. Ortex.Web's policy (mirrored in the Mobile app) covers those; do
-// not copy its sections here unless this site gains the same features.
+// Written for THIS site: the contact form and Anu, the voice assistant. It has
+// no analytics or cookies; Ortex.Web's policy (mirrored in the Mobile app)
+// covers those, so do not copy its sections here unless this site gains them.
+// Anu's disclosure matches what she does (components/ui/live-orty): Gemini
+// processes the call live, the call is recorded, and a recording is kept only
+// when the call produced an enquiry.
 const SECTIONS = [
   {
     title: "Who we are",
@@ -20,6 +23,14 @@ const SECTIONS = [
     ],
   },
   {
+    title: "Anu, our voice assistant",
+    body: [
+      "Anu is an AI voice assistant that can call you through this website. She asks for your microphone first, and the call starts only if you allow it. She says at the start that the call is recorded.",
+      "During the call your voice and the conversation are processed in real time by Google's Gemini service to produce her spoken replies. The details you give her, such as your name, WhatsApp number, the products and quantities you ask about, your timeline and delivery city, are saved as an enquiry.",
+      "The call is recorded as an audio file. A recording is kept only when the call produced an enquiry; it is stored privately, opened only by Ortex staff who handle enquiries, and used to follow up your requirement accurately and to check the assistant's quality.",
+    ],
+  },
+  {
     title: "Why we use it",
     body: [
       "We use your details only to answer your enquiry: to prepare a quotation, ask about your requirement, and, if you order, to produce, invoice and deliver it. We do not send marketing messages unless you ask us to.",
@@ -28,14 +39,16 @@ const SECTIONS = [
   {
     title: "Where it is stored and who processes it",
     body: [
-      "Form enquiries are stored in our customer database, hosted by Supabase, and are visible only to Ortex staff who handle enquiries. The website itself is hosted by Hostinger. For an order, we share delivery details with our courier partners.",
+      "Form and voice enquiries, and call recordings, are stored in our customer database and file storage, hosted by Supabase, and are visible only to Ortex staff who handle enquiries. Voice calls are processed by Google (Gemini) while they take place. The website itself is hosted by Hostinger. For an order, we share delivery details with our courier partners.",
       "We do not sell, rent or trade your personal information.",
     ],
   },
   {
     title: "Your browser",
     body: [
-      "If an enquiry cannot reach our server when you send it, it is kept in your browser's local storage and sent automatically the next time you open the site. Nothing else is stored in your browser. Clearing this site's data removes it.",
+      "If an enquiry cannot reach our server when you send it, it is kept in your browser's local storage and sent automatically the next time you open the site.",
+      "So that Anu can continue where you left off, a short note of your call (the details you gave and the last few lines of the conversation) is kept in your browser's session storage for up to two hours and is deleted when you close the tab. A marker there also stops her calling you automatically more than once per visit.",
+      "Nothing else is stored in your browser. Clearing this site's data removes all of it.",
     ],
   },
   {
@@ -59,7 +72,7 @@ const SECTIONS = [
 export default function Privacy() {
   useDocumentMetadata(
     "Privacy Policy | Ortex Industries",
-    "What Ortex Industries collects when you contact us through ortexindustries.in, why we keep it, who processes it and how to ask for it to be deleted.",
+    "What Ortex Industries collects through ortexindustries.in, including the contact form and our voice assistant, who processes it and how to ask for it to be deleted.",
     { path: "/privacy" }
   )
 
@@ -67,7 +80,7 @@ export default function Privacy() {
     <LegalPage
       title="Privacy policy"
       updated="17 October 2026"
-      intro="What we collect when you contact us through this website, and what we do with it."
+      intro="What we collect when you contact us through this website or speak with our voice assistant, and what we do with it."
       sections={SECTIONS}
     />
   )

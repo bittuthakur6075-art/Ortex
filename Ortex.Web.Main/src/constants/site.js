@@ -14,7 +14,14 @@ export const CONTACT = {
   phonePrimary: "+91-9211947188",
   phoneSecondary: "+91-8448663297",
   email: "sales@ortexindustries.in",
+  // As Ortex.Web words it; Anu's prompt turns it into speech. HOURS below is
+  // the same fact laid out for the page.
+  hours: "Mon-Sat: 9:00 AM to 6:00 PM (Sunday Closed)",
 }
+
+// Where Anu's call summary sends a visitor who wants a written quote (Ortex.Web
+// has a quote calculator at /quote; this site has the contact form).
+export const QUOTE_PATH = "/contact"
 
 export const HOURS = [
   { days: "Monday to Saturday", time: "9:00 AM to 6:00 PM" },

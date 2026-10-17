@@ -5,13 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite --mode development",
-    "build": "node scripts/check-env.mjs production && node scripts/check-meta.mjs && vite build && vite build --ssr src/entry-server.jsx --outDir dist-ssr && node scripts/prerender.mjs",
-    "build:ci": "node scripts/check-meta.mjs && vite build --mode staging && vite build --ssr src/entry-server.jsx --outDir dist-ssr --mode staging && node scripts/prerender.mjs",
+    "build": "node scripts/check-env.mjs production && node scripts/check-meta.mjs && node scripts/check-anu-mirror.mjs && vite build && vite build --ssr src/entry-server.jsx --outDir dist-ssr && node scripts/prerender.mjs",
+    "build:ci": "node scripts/check-meta.mjs && node scripts/check-anu-mirror.mjs && vite build --mode staging && vite build --ssr src/entry-server.jsx --outDir dist-ssr --mode staging && node scripts/prerender.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
-    "check:env": "node scripts/check-env.mjs production"
+    "check:env": "node scripts/check-env.mjs production",
+    "check:anu": "node scripts/check-anu-mirror.mjs"
   },
   "dependencies": {
+    "@google/genai": "^2.11.0",
     "@supabase/supabase-js": "^2.110.0",
     "framer-motion": "^12.42.2",
     "iconsax-react": "^0.0.8",

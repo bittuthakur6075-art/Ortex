@@ -2,16 +2,11 @@
 // fact differently from another. The site is fully static: change a line here,
 // rebuild and upload. Product photos live in public/img/portfolio (WebP).
 //
-// STATS mirrors STATS in Ortex.Web/src/constants/business.js. The Horizons site
-// showed invented figures ("2,847 organisations", "47.2% repeat clients"); keep
-// these to the numbers the business stands behind, and change both files together.
-
-export const STATS = [
-  { value: "10+", label: "Years crafting custom products" },
-  { value: "5L+", label: "Products delivered to date" },
-  { value: "1,200+", label: "Brands and businesses served" },
-  { value: "98%", label: "Orders dispatched on time" },
-]
+// STATS lives in ./business.js, a byte-for-byte copy of Ortex.Web's (checked by
+// scripts/check-anu-mirror.mjs), because Anu quotes the same figures aloud. The
+// Horizons site showed invented figures ("2,847 organisations", "47.2% repeat
+// clients"); keep these to the numbers the business stands behind.
+export { STATS } from "./business.js"
 
 /** The three pillars under the home hero and on About. */
 export const PILLARS = [

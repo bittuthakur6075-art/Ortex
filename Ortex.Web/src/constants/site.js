@@ -32,6 +32,11 @@ export const ADDRESS = {
 
 export const ADDRESS_LINE = `${ADDRESS.street}, ${ADDRESS.locality}, ${ADDRESS.city}, ${ADDRESS.region} ${ADDRESS.postalCode}`
 
+// Where Anu's call summary sends a visitor who wants a written quote. Anu's
+// files are identical in Ortex.Web.Main, which has no /quote page; this is
+// one of the few things that differ per site.
+export const QUOTE_PATH = "/quote"
+
 // The official Instagram account, also listed in index.html "sameAs".
 export const INSTAGRAM_URL = "https://www.instagram.com/ortex_industries/"
 

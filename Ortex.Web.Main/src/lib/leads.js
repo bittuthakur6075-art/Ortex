@@ -112,20 +112,32 @@ export async function flushOutbox() {
 /**
  * @returns {Promise<{ok: true, reference: string} | {queued: true, reference: string, error: string}>}
  */
-export async function submitEnquiry({ customer, productInterest = "", message = "", reference = newReference() }) {
+export async function submitEnquiry({
+  customer,
+  productInterest = "",
+  message = "",
+  // Anu (components/ui/live-orty/leads.js, identical to Ortex.Web's) sends her
+  // own source, the order's items and { id, recording, confirmed, complete };
+  // the contact form sends none of them.
+  source = "Website contact form",
+  items = [],
+  call = null,
+  reference = newReference(),
+}) {
   // status/starred/owner must be exactly these for the anonymous insert policy.
   const doc = {
     reference,
-    source: "Website contact form",
+    source,
     site: SITE_TAG,
     status: "new",
     starred: false,
     owner: "",
     customer,
     productInterest,
-    items: [],
+    items,
     message,
     notes: "",
+    ...(call ? { call } : {}),
     submittedAt: new Date().toISOString(),
   }
 

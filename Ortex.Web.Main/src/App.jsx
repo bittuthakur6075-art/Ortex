@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react"
+import { lazy, Suspense, useEffect, useState } from "react"
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
 import { Toaster } from "sonner"
 import Navbar from "./components/layout/Navbar"
@@ -18,9 +18,33 @@ const Contact = lazy(() => import("./pages/Contact"))
 const Privacy = lazy(() => import("./pages/Privacy"))
 const Terms = lazy(() => import("./pages/Terms"))
 const NotFound = lazy(() => import("./pages/NotFound"))
+// Anu, the voice assistant: the same files as Ortex.Web (components/ui/live-orty,
+// kept identical by scripts/check-anu-mirror.mjs).
+const LiveOrty = lazy(() => import("./components/ui/LiveOrty"))
 
 export function AppLayout() {
   useSmoothScroll()
+
+  // Anu is browser-only: mounted after load and an idle moment, never during
+  // the prerender, so the server and client markup match and her ~450 KB
+  // chunk never competes with first paint (same rule as Ortex.Web/App.jsx).
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    let idleId = null
+    let timer = null
+    const mount = () => setMounted(true)
+    const start = () => {
+      if ("requestIdleCallback" in window) idleId = window.requestIdleCallback(mount, { timeout: 2500 })
+      else timer = window.setTimeout(mount, 1200)
+    }
+    if (document.readyState === "complete") start()
+    else window.addEventListener("load", start, { once: true })
+    return () => {
+      window.removeEventListener("load", start)
+      if (idleId !== null) window.cancelIdleCallback(idleId)
+      if (timer !== null) window.clearTimeout(timer)
+    }
+  }, [])
 
   // Deliver any enquiry that could not reach the backend when it was sent.
   useEffect(() => {
@@ -65,6 +89,12 @@ export function AppLayout() {
         </main>
 
         <Footer />
+
+        {mounted && (
+          <Suspense fallback={null}>
+            <LiveOrty />
+          </Suspense>
+        )}
 
         <Toaster position="top-right" richColors />
       </div>
