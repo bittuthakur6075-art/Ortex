@@ -3,6 +3,7 @@
 Guidance for AI coding assistants. This root file holds what is true across the repo; each app has its own `CLAUDE.md` with its architecture and gotchas, loaded when you work inside that folder:
 
 * `Ortex.Web/CLAUDE.md`: marketing site, SEO prerender, Anu (the website voice assistant)
+* `Ortex.Web.Main/CLAUDE.md`: ortexindustries.in, the static company site
 * `Ortex.Admin/CLAUDE.md`: back-office console, Supabase schema, edge functions
 * `Ortex.Mobile/CLAUDE.md`: field-sales React Native app
 
@@ -10,12 +11,13 @@ Keep each fact in ONE of these files. When something changes, correct the senten
 
 ## Repository overview
 
-**Ortex Industries** makes customised MDF/acrylic items, lanyards, corporate gifts and OEM/white-label goods. Four **independent npm projects** (no root workspace); the root `README.md` has the directory tree.
+**Ortex Industries** makes customised MDF/acrylic items, lanyards, corporate gifts and OEM/white-label goods. Five **independent npm projects** (no root workspace); the root `README.md` has the directory tree.
 
 1. **`Ortex.Web`**: public marketing / lead-gen site (React 19, Vite 8, Tailwind v4, prerendered). Live at https://bizgift.ortexindustries.in.
-2. **`Ortex.Admin`**: the business console (React 19, Vite 8, Tailwind v4, Supabase). **Owns the database**: `supabase/migrations` and the Deno edge functions in `supabase/functions`.
-3. **`Ortex.Mobile`**: field-sales app (React Native 0.85 bare workflow, Expo SDK 56 modules, TypeScript). A **second client of the Admin's Supabase project**: same anon key, same `profiles` roles, same RLS, no edge function of its own. Any schema change it needs is a migration in `Ortex.Admin/supabase/migrations`.
-4. **`Ortex.Tally.Connector`**: standalone Node CLI (outbound Admin -> TallyPrime). **Not in use** (owner's decision 2026-10-03: no connector, API or server access; Tally data comes INTO the console only through the manual **Import from Tally** XML upload, see `Ortex.Admin/CLAUDE.md`). The code is kept, tested in CI, for if outbound sync is ever wanted. It would run on the **remote Windows server where TallyPrime runs** (Tally's XML gateway listens only on `localhost:9000`; never expose that port), as the scheduled task `OrtexTallyConnector`; update it there with `update.ps1` (backs up `config.json`, self-test, `npm run check-config`, restart), see its README. Reads Supabase with a `service_role` key, pushes customers, products, invoices (Sales, New Ref), payments received (Receipt, Agst Ref against the invoice, On Account when unlinked) and payouts (Payment vouchers), each with `VOUCHERNUMBER` and a stable `REMOTEID` so a re-post does not duplicate, and writes `doc.tally` back through the service-role RPC `tally_mark()` (migration 0066), which changes only that key. That field is the only link between it and the console; clients cannot change it, and a payment already in Tally can be changed or deleted only by the Super Admin.
+2. **`Ortex.Web.Main`**: the company site for the bare domain https://ortexindustries.in (same stack and design language as Ortex.Web, fully static, prerendered). Its contact form inserts into `enquiries` (source "Website contact form", `doc.site = "ortexindustries.in"`).
+3. **`Ortex.Admin`**: the business console (React 19, Vite 8, Tailwind v4, Supabase). **Owns the database**: `supabase/migrations` and the Deno edge functions in `supabase/functions`.
+4. **`Ortex.Mobile`**: field-sales app (React Native 0.85 bare workflow, Expo SDK 56 modules, TypeScript). A **second client of the Admin's Supabase project**: same anon key, same `profiles` roles, same RLS, no edge function of its own. Any schema change it needs is a migration in `Ortex.Admin/supabase/migrations`.
+5. **`Ortex.Tally.Connector`**: standalone Node CLI (outbound Admin -> TallyPrime). **Not in use** (owner's decision 2026-10-03: no connector, API or server access; Tally data comes INTO the console only through the manual **Import from Tally** XML upload, see `Ortex.Admin/CLAUDE.md`). The code is kept, tested in CI, for if outbound sync is ever wanted. It would run on the **remote Windows server where TallyPrime runs** (Tally's XML gateway listens only on `localhost:9000`; never expose that port), as the scheduled task `OrtexTallyConnector`; update it there with `update.ps1` (backs up `config.json`, self-test, `npm run check-config`, restart), see its README. Reads Supabase with a `service_role` key, pushes customers, products, invoices (Sales, New Ref), payments received (Receipt, Agst Ref against the invoice, On Account when unlinked) and payouts (Payment vouchers), each with `VOUCHERNUMBER` and a stable `REMOTEID` so a re-post does not duplicate, and writes `doc.tally` back through the service-role RPC `tally_mark()` (migration 0066), which changes only that key. That field is the only link between it and the console; clients cannot change it, and a payment already in Tally can be changed or deleted only by the Super Admin.
 
 ## Environments: one Supabase project, and it is production
 
@@ -23,6 +25,7 @@ There is exactly one Supabase project and it holds the live business data (`Orte
 
 * **Admin** `npm run dev` / staging builds normally run with **no database**: without Supabase env vars `repository.js` falls back to `localStore` (localStorage + demo data; sign in with any email and `ortex@admin`). `scripts/check-env.mjs` runs before every build and refuses a production build with a missing or placeholder `.env.production`.
 * **Web** `.env.development` holds the production values plus `ALLOW_SHARED_SUPABASE=true`. A Web dev server therefore reads the live catalogue and **writes live leads and analytics**; `isLocalTraffic()` drops localhost analytics rows unless `VITE_TRACK_LOCAL=true`.
+* **Web.Main** has no database reads; with production values in `.env.development` its contact form **writes live leads**. Without them the form queues enquiries in the browser outbox.
 * **Mobile** `.env` points at the same project. Anything you do on a dev build is real.
 
 Never run destructive SQL, a test write or a bulk import against it casually.
@@ -44,6 +47,7 @@ Never run destructive SQL, a test write or a bulk import against it casually.
 | `Ortex.Admin/src/lib/validateDocument.js` (quotation and invoice field rules, GSTIN check digit) | `Ortex.Mobile/src/domain/validateDocument.ts` (parity test `test/validateDocument.test.mjs`) |
 | `Ortex.Admin/src/lib/address.js` (company registered / dispatch address on documents) | `Ortex.Mobile/src/domain/address.ts` (parity test `test/address.test.mjs`) |
 | `Ortex.Web/src/pages/Privacy.jsx`, `Terms.jsx` | `Ortex.Mobile/src/features/profile/legal.ts` (verbatim mirror) |
+| Contact details and address in `Ortex.Web/src/constants/site.js`, `STATS` in `constants/business.js` | `Ortex.Web.Main/src/constants/site.js`, `STATS` in `constants/content.js`, and both `index.html` LocalBusiness blocks |
 | Anu's portrait `Ortex.Web/public/img/anu.jpg` | `Ortex.Admin/public/img/anu.jpg`, `Ortex.Mobile/assets/anu.jpg` |
 | Anu's filler names `PLACEHOLDER_NAMES` in `Ortex.Mobile/src/domain/voice.ts` | The copy inside `upsert_customer_from()` (latest definition: migration 0050) |
 | A new public product/category field | The `products_public` / `categories_public` views (migration 0020), or the site never sees it |
@@ -81,7 +85,7 @@ Security lives in the database (RLS, security-definer RPCs, triggers). A client-
 
 ## CI
 
-`.github/workflows/ci.yml`: Web lint + `build:ci`; Admin lint + test + `build:staging` + `check:functions` (Deno type-check) + `test:db` (all migrations in PGlite, attendance flow scenarios); Mobile lint + typecheck + test + Android JS bundle; Tally XML fixture. CI holds no production credentials, so both web builds run in a non-production mode; the production `npm run build` and its credential guard run only where the keys live (Vercel, the build machine). `.github/workflows/deploy-admin.yml` deploys the Admin console to Vercel production with the Vercel CLI on every push to `Development` touching `Ortex.Admin/` (secret `VERCEL_TOKEN`); the Vercel projects have no Git link.
+`.github/workflows/ci.yml`: Web and Web.Main lint + `build:ci`; Admin lint + test + `build:staging` + `check:functions` (Deno type-check) + `test:db` (all migrations in PGlite, attendance flow scenarios); Mobile lint + typecheck + test + Android JS bundle; Tally XML fixture. CI holds no production credentials, so both web builds run in a non-production mode; the production `npm run build` and its credential guard run only where the keys live (Vercel, the build machine). `.github/workflows/deploy-admin.yml` deploys the Admin console to Vercel production with the Vercel CLI on every push to `Development` touching `Ortex.Admin/` (secret `VERCEL_TOKEN`); the Vercel projects have no Git link.
 
 ## Ortex.Tally.Connector
 

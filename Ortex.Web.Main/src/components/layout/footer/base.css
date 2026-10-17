@@ -1,0 +1,25 @@
+/* ============================================================
+   Keystone-Cloned Footer Styles (Pixel-for-Pixel matching)
+   ============================================================ */
+
+.lp-footer {
+  position: relative;
+  overflow: hidden;
+  background: #010101;
+  color: rgba(255, 255, 255, 0.82);
+  padding: clamp(48px, 6vw, 80px) 0 clamp(80px, 8vw, 104px);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  text-align: left;
+}
+
+.lp-footer .lp-wrap {
+  position: relative;
+  z-index: 1;
+}
+
+.lp-footer-rule {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.10);
+}
+

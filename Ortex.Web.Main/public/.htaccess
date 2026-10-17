@@ -1,0 +1,82 @@
+# Ortex main site (ortexindustries.in): Apache config for static hosting on
+# Hostinger. Vite copies public/ into dist/, so this ships with every build.
+# Upload the CONTENTS of dist/ into the domain's public_html.
+
+# ----------------------------------------------------------------------
+# Routing for a PRERENDERED site (scripts/prerender.mjs writes one
+# <route>/index.html per page, plus 404.html). Every public URL is a real file,
+# so there is no catch-all to index.html: an unknown URL answers a genuine 404
+# instead of "200 OK" with an empty app (what the Horizons site did for every
+# URL, including the /privacy and /terms links that led nowhere).
+#
+# One canonical form per page: https://ortexindustries.in/<path>, no trailing
+# slash, no index.html. Everything else 301s to it in one hop.
+# ----------------------------------------------------------------------
+Options -MultiViews -Indexes
+DirectoryIndex index.html
+# Without this Apache 301s /about to /about/ before any rule below runs, which
+# contradicts the canonical tag on every page.
+DirectorySlash Off
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # www moves to the bare domain. HTTPS itself is forced by hPanel's
+  # "Force HTTPS" toggle, which avoids a redirect loop behind Hostinger's CDN.
+  RewriteCond %{HTTP_HOST} ^www\.ortexindustries\.in$ [NC]
+  RewriteRule ^ https://ortexindustries.in%{REQUEST_URI} [R=301,L]
+
+  # /index.html and /about/index.html are the same pages as / and /about.
+  RewriteCond %{THE_REQUEST} \s/index\.html[\s?]
+  RewriteRule ^ / [R=301,L]
+  RewriteCond %{THE_REQUEST} \s/(.+)/index\.html[\s?]
+  RewriteRule ^ /%1 [R=301,L]
+
+  # /about/ becomes /about (only for folders that exist, so a stray slash on
+  # an unknown URL still 404s).
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^(.+)/$ /$1 [R=301,L]
+
+  # Serve /about from about/index.html without changing the URL.
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteCond %{REQUEST_FILENAME}/index.html -f
+  RewriteRule ^(.+)$ $1/index.html [L]
+</IfModule>
+
+ErrorDocument 404 /404.html
+
+# ----------------------------------------------------------------------
+# Compression
+# ----------------------------------------------------------------------
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css application/json
+  AddOutputFilterByType DEFLATE application/javascript application/xml image/svg+xml
+</IfModule>
+
+# ----------------------------------------------------------------------
+# Caching: content-hashed assets are immutable; HTML must revalidate so a
+# deploy shows up immediately. Images in /img are not hashed, so they get a
+# week rather than a year: a replaced photo reaches visitors within days.
+# ----------------------------------------------------------------------
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|woff2)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(png|jpe?g|webp|avif|svg|gif)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+<IfModule mod_mime.c>
+  AddType image/svg+xml .svg
+  AddType image/avif .avif
+  AddType image/webp .webp
+  AddType application/manifest+json .webmanifest
+</IfModule>

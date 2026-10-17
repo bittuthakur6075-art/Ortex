@@ -1,0 +1,31 @@
+{
+  "name": "ortex-web-main",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --mode development",
+    "build": "node scripts/check-env.mjs production && node scripts/check-meta.mjs && vite build && vite build --ssr src/entry-server.jsx --outDir dist-ssr && node scripts/prerender.mjs",
+    "build:ci": "node scripts/check-meta.mjs && vite build --mode staging && vite build --ssr src/entry-server.jsx --outDir dist-ssr --mode staging && node scripts/prerender.mjs",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "check:env": "node scripts/check-env.mjs production"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.0",
+    "framer-motion": "^12.42.2",
+    "iconsax-react": "^0.0.8",
+    "lenis": "^1.3.25",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.1",
+    "sonner": "^2.0.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.2",
+    "@vitejs/plugin-react": "^6.0.3",
+    "oxlint": "^1.71.0",
+    "tailwindcss": "^4.3.2",
+    "vite": "^8.1.1"
+  }
+}

@@ -5,6 +5,7 @@ products, lanyards, badges, corporate gifts, OEM/white-label manufacturing).
 
 | App | Path | Stack | Purpose |
 |---|---|---|---|
+| Main site | [`Ortex.Web.Main/`](Ortex.Web.Main/README.md) | React 19 · Vite 8 · Tailwind v4 · Framer Motion | ortexindustries.in: company site, portfolio, contact form into the console |
 | Marketing site | [`Ortex.Web/`](Ortex.Web/README.md) | React 19 · Vite 8 · Tailwind v4 · Framer Motion | Public website, catalogue, quote wizard, lead capture, Live Orty voice assistant |
 | Admin console | [`Ortex.Admin/`](Ortex.Admin/README.md) | React 19 · Vite 8 · Tailwind v4 · Supabase | Quote-to-cash back office: enquiries → quotations → GST invoices → payments, plus growth, marketing and automation modules |
 | Mobile app | [`Ortex.Mobile/`](Ortex.Mobile/README.md) | React Native 0.85 (bare) · Expo SDK 56 modules · TypeScript | Field-sales companion: quick quotations, enquiries and voice leads, catalogue, a call/WhatsApp contact directory, and notifications (in-app and in the phone's shade) |
@@ -42,6 +43,7 @@ front-ends and the XML fixture for the connector on every push to `Development` 
 
 ```text
 Ortex/
+├── Ortex.Web.Main/            # ortexindustries.in company site (static, prerendered)
 ├── Ortex.Web/                 # marketing SPA
 │   ├── docs/                  # app-specific guides (Hostinger deploy)
 │   ├── public/                # static assets, .htaccess, robots, manifest

@@ -1,0 +1,57 @@
+/* Fonts loaded once in index.html <head>; this duplicate @import is removed. */
+
+:root {
+  --n-0:   #FFFFFF;
+  --n-25:  #F9FBFC;
+  --n-50:  #F5F6FA;
+  --n-100: #F4F6F8;
+  --n-150: #EBEDF3;
+  --n-200: #DCE0EA;
+  --n-300: #C4CADA;
+  --n-400: #99A1B7;
+  --n-500: #78829D;
+  --n-600: #4B5675;
+  --n-700: #252F4A;
+  --n-800: #16223F;
+  --n-900: #071437;
+  --n-950: #050E28;
+
+  --brand-50:  #F4F6FD;
+  --brand-100: #EBEEFD;
+  --brand-200: #D5DCFA;
+  --brand-300: #97A8F2;
+  --brand-500: #2f50e4;
+  --brand-600: #4764e4;
+  --brand-700: #193ee4;
+  
+  --success: #04B440;
+  --success-bg: #E8FAEE;
+  --success-border: #BAEECC;
+  --warning: #DFA000;
+  --warning-bg: #FFF8E6;
+  --warning-border: #FDE8B3;
+  --danger:  #E82646;
+  --danger-bg:  #FFEAEF;
+  --danger-border:  #FDBFCE;
+  --info:    #056EE9;
+
+  --r-xs: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-full: 999px;
+  --text-2: var(--n-600);
+}
+
+.lp-hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(78px, 12vw, 162px) 0 clamp(40px, 6vw, 80px);
+  background: var(--n-0);
+  font-family: 'Manrope', system-ui, sans-serif;
+  color: var(--n-900);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
