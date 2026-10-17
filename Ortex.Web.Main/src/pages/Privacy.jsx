@@ -23,9 +23,9 @@ const SECTIONS = [
     ],
   },
   {
-    title: "Anu, our voice assistant",
+    title: "Alisha, our voice assistant",
     body: [
-      "Anu is an AI voice assistant that can call you through this website. She asks for your microphone first, and the call starts only if you allow it. She says at the start that the call is recorded.",
+      "Alisha is an AI voice assistant that can call you through this website. She asks for your microphone first, and the call starts only if you allow it. She says at the start that the call is recorded.",
       "During the call your voice and the conversation are processed in real time by Google's Gemini service to produce her spoken replies. The details you give her, such as your name, WhatsApp number, the products and quantities you ask about, your timeline and delivery city, are saved as an enquiry.",
       "The call is recorded as an audio file. A recording is kept only when the call produced an enquiry; it is stored privately, opened only by Ortex staff who handle enquiries, and used to follow up your requirement accurately and to check the assistant's quality.",
     ],
@@ -47,7 +47,7 @@ const SECTIONS = [
     title: "Your browser",
     body: [
       "If an enquiry cannot reach our server when you send it, it is kept in your browser's local storage and sent automatically the next time you open the site.",
-      "So that Anu can continue where you left off, a short note of your call (the details you gave and the last few lines of the conversation) is kept in your browser's session storage for up to two hours and is deleted when you close the tab. A marker there also stops her calling you automatically more than once per visit.",
+      "So that Alisha can continue where you left off, a short note of your call (the details you gave and the last few lines of the conversation) is kept in your browser's session storage for up to two hours and is deleted when you close the tab. A marker there also stops her calling you automatically more than once per visit.",
       "Nothing else is stored in your browser. Clearing this site's data removes all of it.",
     ],
   },

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import Orb from "./Orb"
+import { ASSISTANT_NAME } from "./shared"
 
 /* ============================================================
    AnuAvatar: Anu's face on the call. A round photograph inside a ring that
@@ -141,7 +142,7 @@ export default function AnuAvatar({ mood = "idle", size = 200, readLevel, classN
       <canvas ref={canvasRef} aria-hidden="true" className="absolute inset-0" style={{ width: size, height: size }} />
       <img
         src={ANU_PHOTO}
-        alt="Anu, your Ortex consultant"
+        alt={`${ASSISTANT_NAME}, your Ortex consultant`}
         onError={() => setFailed(true)}
         draggable="false"
         className="relative rounded-full object-cover select-none"

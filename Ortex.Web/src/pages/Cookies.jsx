@@ -14,7 +14,7 @@ export default function Cookies() {
     },
     {
       title: "2. Browser Storage We Use",
-      content: "(a) localStorage: a randomly generated visitor identifier (e.g. 'usr_k3f9a2b1x'), your theme preference, your analytics consent choice, and — only if a submission fails to reach our servers — a temporary copy of your own enquiry so it can be re-sent rather than lost. (b) sessionStorage: a random session identifier, and, only if you speak with our voice assistant Anu, a short note of that conversation (the details you gave, such as your name and WhatsApp number, and its last few lines) so she can continue where you left off if you reopen her. Both are discarded when you close the tab, and the conversation note is also cleared after two hours. The localStorage items never contain your name, email, or password, and nothing in either is transmitted to any advertiser."
+      content: "(a) localStorage: a randomly generated visitor identifier (e.g. 'usr_k3f9a2b1x'), your theme preference, your analytics consent choice, and — only if a submission fails to reach our servers — a temporary copy of your own enquiry so it can be re-sent rather than lost. (b) sessionStorage: a random session identifier, and, only if you speak with our voice assistant Alisha, a short note of that conversation (the details you gave, such as your name and WhatsApp number, and its last few lines) so she can continue where you left off if you reopen her. Both are discarded when you close the tab, and the conversation note is also cleared after two hours. The localStorage items never contain your name, email, or password, and nothing in either is transmitted to any advertiser."
     },
     {
       title: "3. Optional Analytics and IP-Based Location",

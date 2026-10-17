@@ -1,4 +1,5 @@
 import { submitEnquiry } from "../../../lib/leads"
+import { ASSISTANT_NAME } from "./shared"
 
 // ---- Lead capture: validation + persistence ---------------------------------
 //
@@ -235,7 +236,7 @@ export function saveVoiceLead(args = {}, call = null) {
     },
     items,
     productInterest: items.map((i) => i.product).join(", "),
-    message: parts.join(" · ") || "Voice lead captured by Anu.",
+    message: parts.join(" · ") || `Voice lead captured by ${ASSISTANT_NAME}.`,
     call,
   }).catch(() => { /* offline outbox handles retries */ })
 }

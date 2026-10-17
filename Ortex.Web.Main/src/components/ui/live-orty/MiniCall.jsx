@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion"
 import { ArrowUp2, CallSlash } from "iconsax-react"
 import AnuAvatar from "./AnuAvatar"
-import { MORPH_SPRING, mmss } from "./shared"
+import { ASSISTANT_NAME, MORPH_SPRING, mmss } from "./shared"
 
 // The call, minimised: a dark pill in the launcher's corner that keeps the
 // conversation going while the visitor reads the page. The ring round her face
@@ -20,10 +20,10 @@ export default function MiniCall({ call }) {
       style={{ borderRadius: 9999, background: "rgba(12,13,22,0.96)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
     >
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.1 } }} className="flex items-center gap-1">
-        <button onClick={expand} aria-label="Open your call with Anu" className="flex items-center gap-2.5 rounded-full py-0.5 pl-0.5 pr-3 transition hover:bg-white/5">
+        <button onClick={expand} aria-label={`Open your call with ${ASSISTANT_NAME}`} className="flex items-center gap-2.5 rounded-full py-0.5 pl-0.5 pr-3 transition hover:bg-white/5">
           <AnuAvatar mood={mood} size={44} readLevel={readLevel} />
           <span className="text-left leading-tight">
-            <span className="block text-[14px] font-semibold">Anu</span>
+            <span className="block text-[14px] font-semibold">{ASSISTANT_NAME}</span>
             <span className="block text-[12px] tabular-nums text-white/55">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.span key={label} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.2 }} className="inline-block">

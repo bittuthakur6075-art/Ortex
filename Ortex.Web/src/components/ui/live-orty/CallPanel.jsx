@@ -5,7 +5,7 @@ import { ArrowDown2, CallSlash, CloseCircle, Microphone2, Refresh2, TickCircle, 
 import AnuAvatar, { ANU_PHOTO } from "./AnuAvatar"
 import { QUOTE_PATH, whatsappLink } from "../../../constants/site"
 import { TERMS } from "../../../constants/business"
-import { MORPH_SPRING, EASE, mmss } from "./shared"
+import { ASSISTANT_NAME, MORPH_SPRING, EASE, mmss } from "./shared"
 
 /* ============================================================
    CallPanel: the open call. A dark card docked bottom-right (a
@@ -40,10 +40,10 @@ const DETAIL_FIELDS = [
 const isDone = (d, f) => Boolean(f.read(d)) && !(d.missing || []).includes(f.key)
 
 function statusFor({ status, speaking, audioBlocked }) {
-  if (status === "connecting") return { text: "Connecting you to Anu…", dot: "bg-slate-400", pulse: true }
+  if (status === "connecting") return { text: `Connecting you to ${ASSISTANT_NAME}…`, dot: "bg-slate-400", pulse: true }
   if (audioBlocked) return { text: "Sound is paused by your browser", dot: "bg-amber-400", pulse: true }
-  if (speaking) return { text: "Anu is speaking", dot: "bg-violet-400", pulse: true }
-  return { text: "Anu is listening", dot: "bg-emerald-400", pulse: true }
+  if (speaking) return { text: `${ASSISTANT_NAME} is speaking`, dot: "bg-violet-400", pulse: true }
+  return { text: `${ASSISTANT_NAME} is listening`, dot: "bg-emerald-400", pulse: true }
 }
 
 const fadeUp = (delay = 0) => ({
@@ -58,13 +58,13 @@ export default function CallPanel({ call }) {
   // Screen readers hear only the call's milestones. The visible status line
   // flips between speaking and listening every turn, which read aloud would
   // talk over Anu herself.
-  const announce = view === "ended" ? "Call ended" : view === "error" ? "Call could not connect" : status === "connecting" ? "Connecting you to Anu" : status === "live" ? "Call connected" : ""
+  const announce = view === "ended" ? "Call ended" : view === "error" ? "Call could not connect" : status === "connecting" ? `Connecting you to ${ASSISTANT_NAME}` : status === "live" ? "Call connected" : ""
 
   return (
     <motion.div
       layoutId="anu-morph"
       role="dialog"
-      aria-label="Voice call with Anu"
+      aria-label={`Voice call with ${ASSISTANT_NAME}`}
       transition={MORPH_SPRING}
       className="fixed z-[80] inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] sm:inset-x-auto sm:right-6 sm:bottom-6 md:right-[50px] md:bottom-[50px] sm:w-[384px] max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain text-white"
       style={{ borderRadius: 32, background: "rgba(12,13,22,0.96)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
@@ -107,7 +107,7 @@ export default function CallPanel({ call }) {
                 <motion.button whileTap={{ scale: 0.97 }} onClick={start} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white text-[15px] font-semibold text-zinc-900 transition hover:bg-white/90">
                   <Refresh2 size={18} variant="Linear" color="currentColor" /> Try again
                 </motion.button>
-                <a href={whatsappLink("Hello Ortex team, I tried to speak with Anu on your website and would like a quotation.")} target="_blank" rel="noreferrer" className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white/10 text-[15px] font-semibold text-white transition hover:bg-white/15">
+                <a href={whatsappLink(`Hello Ortex team, I tried to speak with ${ASSISTANT_NAME} on your website and would like a quotation.`)} target="_blank" rel="noreferrer" className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white/10 text-[15px] font-semibold text-white transition hover:bg-white/15">
                   <Whatsapp size={18} variant="Bold" color="#4ADE80" /> Chat on WhatsApp
                 </a>
               </div>
@@ -143,7 +143,7 @@ function Header({ view, status, seconds, onMinimize, onClose }) {
         </AnimatePresence>
       </div>
       <div className="min-w-0 flex-1 leading-tight">
-        <p className="text-[16px] font-semibold">Anu</p>
+        <p className="text-[16px] font-semibold">{ASSISTANT_NAME}</p>
         <p className="truncate text-[13px] text-white/50">Product consultant, Ortex · Hindi & English</p>
       </div>
 
@@ -341,7 +341,7 @@ function Summary({ ended, onAgain, onClose }) {
         ) : (
           <div>
             <p className="text-[14px] font-semibold">Would you like a written quotation?</p>
-            <p className="mt-0.5 text-[13px] leading-relaxed text-white/55">Share your requirement through our quote form, or call Anu again whenever it suits you.</p>
+            <p className="mt-0.5 text-[13px] leading-relaxed text-white/55">Share your requirement through our quote form, or call {ASSISTANT_NAME} again whenever it suits you.</p>
           </div>
         )}
       </motion.div>

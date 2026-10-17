@@ -1,6 +1,6 @@
 import { motion } from "framer-motion"
 import AnuAvatar from "./AnuAvatar"
-import { MORPH_SPRING } from "./shared"
+import { ASSISTANT_NAME, MORPH_SPRING } from "./shared"
 
 // Bottom-right "Call with Expert" pill shown once the first (auto-opened) call has
 // been closed. Anu's face sits in a ring that breathes, so it reads as a live
@@ -11,7 +11,7 @@ export default function Launcher({ onOpen }) {
     <motion.button
       layoutId="anu-morph"
       onClick={onOpen}
-      aria-label="Call with expert: start a voice call with Anu"
+      aria-label={`Call with expert: start a voice call with ${ASSISTANT_NAME}`}
       transition={MORPH_SPRING}
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.97 }}
