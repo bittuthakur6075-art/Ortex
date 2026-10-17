@@ -72,7 +72,7 @@ const SECTIONS = [
 export default function Privacy() {
   useDocumentMetadata(
     "Privacy Policy | Ortex Industries",
-    "What Ortex Industries collects through ortexindustries.in, including the contact form and our voice assistant, who processes it and how to ask for it to be deleted.",
+    "What Ortex Industries collects through its contact form and voice assistant on ortexindustries.in, who processes it, and how to have it deleted.",
     { path: "/privacy" }
   )
 

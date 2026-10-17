@@ -7,10 +7,10 @@
 // metadata to crawlers.
 
 export const STATIC_ROUTES = [
-  { path: "/", title: "Ortex Industries | Custom Lanyards, Badges & Corporate Gifts", description: "Delhi manufacturer of custom MDF and acrylic products, lanyards, badges, exam boards and corporate gifts. OEM and white label, PAN India delivery and export." },
+  { path: "/", title: "Custom Lanyards, Badges & Corporate Gifts, Delhi | Ortex", description: "Delhi manufacturer of customised lanyards, ID card holders, badges, momentos, MDF and acrylic products and corporate gifts. OEM, PAN India delivery, export." },
   { path: "/about", title: "About Ortex Industries | Custom Manufacturer in Delhi", description: "How Ortex Industries started, why brands across India trust us, and the in-house cutting, printing and engraving behind every order we manufacture." },
-  { path: "/products", title: "Custom MDF, Acrylic, Lanyard & Badge Products | Ortex", description: "Browse Ortex Industries' custom products: MDF and acrylic items, lanyards, badges, exam boards and corporate gifts, all branded in-house with GST quotations." },
-  { path: "/industries", title: "Industries We Serve | Ortex Industries", description: "Custom products for corporates, schools, universities, government departments, hospitals and event companies, manufactured in-house by Ortex Industries." },
+  { path: "/products", title: "Customised Lanyards, Badges, Momentos & Gifts | Ortex", description: "Browse Ortex Industries' custom products: MDF and acrylic items, lanyards, badges, exam boards and corporate gifts, all branded in-house with GST quotations." },
+  { path: "/industries", title: "Custom Products for Schools, Hospitals & Corporates | Ortex", description: "Custom products for corporates, schools, universities, government departments, hospitals and event companies, manufactured in-house by Ortex Industries." },
   { path: "/oem", title: "OEM & White Label Manufacturing | Ortex Industries", description: "Contract OEM and white-label manufacturing of MDF, acrylic, lanyards, badges and merchandise, made in-house under your brand with factory-direct pricing." },
   { path: "/work", title: "Our Work: Custom Products We Made | Ortex Industries", description: "Real production photos from Ortex Industries: custom keychains, wall clocks, exam boards, badges, lanyards, fridge magnets and promotional merchandise." },
   { path: "/contact", title: "Contact Ortex Industries | Get a Custom Product Quote", description: "Get a factory-direct quote for custom MDF, acrylic, lanyards, badges and corporate gifts. Call +91-9211947188, email sales@ortexindustries.in or WhatsApp us." },

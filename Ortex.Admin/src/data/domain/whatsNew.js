@@ -10,6 +10,20 @@
 
 export const RELEASES = [
   {
+    id: "1.57.1",
+    version: "1.57.1",
+    date: "2026-10-17",
+    title: "Lighter product photos",
+    items: [
+      {
+        kind: "improved",
+        title: "Photos are saved as WebP",
+        detail:
+          "Product, category and work photos you upload are now saved in WebP, about a third smaller than before at the same quality, so the website's catalogue pages open faster on a phone. Transparent PNGs keep their transparency. Nothing changes in how you add a photo.",
+      },
+    ],
+  },
+  {
     id: "1.57.0",
     version: "1.57.0",
     date: "2026-10-03",

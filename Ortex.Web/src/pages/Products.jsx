@@ -161,7 +161,7 @@ function pageWindow(current, total) {
 
 export default function Products() {
   useDocumentMetadata(
-    "Custom MDF, Acrylic, Lanyard & Badge Products | Ortex",
+    "Customised Lanyards, Badges, Momentos & Gifts | Ortex",
     "Browse Ortex Industries' custom products: MDF and acrylic items, lanyards, badges, exam boards and corporate gifts, all branded in-house with GST quotations.",
     { path: "/products" }
   )
@@ -340,7 +340,7 @@ export default function Products() {
         <div className="lp-wrap text-center">
           <div className="hero-in max-w-3xl mx-auto">
             <h1 className="text-[36px] sm:text-[48px] md:text-[82px] font-medium leading-[1.05] mb-8 tracking-tight text-foreground text-balance">
-              Products & Services
+              Customised products & services
             </h1>
             <p className="text-[20px] font-normal text-foreground leading-relaxed max-w-2xl mx-auto">
               Comprehensive range of premium customized products manufactured in-house with complete branding and customization support.

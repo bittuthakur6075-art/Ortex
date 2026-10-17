@@ -56,3 +56,6 @@ Ortex.Admin/supabase/config.toml
 # Database backups written by Ortex.Admin/scripts/backup.mjs — real business
 # data, never committed.
 backups/
+
+# Image conversion logs (scripts/convert-images-webp.mjs); input of --revert, kept locally
+webp-conversion-*.json

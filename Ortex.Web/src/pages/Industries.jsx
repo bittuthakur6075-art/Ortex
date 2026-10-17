@@ -24,7 +24,7 @@ function rowPhotos(idx) {
  */
 export default function Industries() {
   useDocumentMetadata(
-    "Industries We Serve | Ortex Industries",
+    "Custom Products for Schools, Hospitals & Corporates | Ortex",
     "Custom products for corporates, schools, universities, government departments, hospitals and event companies, manufactured in-house by Ortex Industries.",
     { path: "/industries" }
   )
@@ -125,7 +125,7 @@ export default function Industries() {
   return (
     <>
       {/* Page Header */}
-      <PageHero title="Built for every industry" nowrap>
+      <PageHero title="Custom products for every industry" nowrap>
         Discover our versatile expertise, delivering customized product solutions for every sector, each to the standards it works to.
       </PageHero>
 

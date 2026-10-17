@@ -11,7 +11,7 @@ import { CATALOGUE_URL } from "../constants/site"
 
 export default function Products() {
   useDocumentMetadata(
-    "Products & Services | MDF, Acrylic, Lanyards | Ortex",
+    "Customised MDF, Acrylic, Lanyards & Momentos | Ortex",
     "MDF and acrylic products, lanyards and ID accessories, badges, examination boards, clipboards and corporate gifts, all branded in-house by Ortex Industries.",
     { path: "/products" }
   )
@@ -19,7 +19,7 @@ export default function Products() {
   return (
     <>
       <PageHero
-        title="Products and services"
+        title="Customised products and services"
         actions={
           <a href={CATALOGUE_URL} className="lp-pill-btn outline">Browse the full catalogue</a>
         }

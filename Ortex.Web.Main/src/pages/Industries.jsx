@@ -8,14 +8,14 @@ import { INDUSTRIES, STATS } from "../constants/content"
 
 export default function Industries() {
   useDocumentMetadata(
-    "Industries We Serve | Ortex Industries",
+    "Custom Products for Schools, Hospitals & Offices | Ortex",
     "Customised products for corporates, schools, government departments, hospitals, events, agencies, NGOs, campaigns, retail and professional firms.",
     { path: "/industries" }
   )
 
   return (
     <>
-      <PageHero title="Industries we serve">
+      <PageHero title="Customised products for every sector">
         Customised products for the sectors we know best, made to the standards each one expects.
       </PageHero>
 

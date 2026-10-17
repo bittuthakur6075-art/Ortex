@@ -7,7 +7,7 @@ import "./Hero.css"
 // starts at first paint (never a Framer `initial`, which would keep the
 // prerendered headline invisible until hydration).
 const LINE_1 = ["Customised", "products,"]
-const LINE_2 = ["made", "for", "your", "business"]
+const LINE_2 = ["manufactured", "in", "Delhi"]
 
 function Words({ words, offset, accent }) {
   return words.map((word, i) => (
@@ -37,6 +37,8 @@ export default function Hero() {
             <span className="inline-block lg:whitespace-nowrap">
               <Words words={LINE_1} offset={0} />
             </span>
+            {/* The space keeps the heading's text "products, manufactured", not "products,manufactured", for crawlers. */}
+            {" "}
             <br />
             <span className="inline-block lg:whitespace-nowrap">
               <Words words={LINE_2} offset={LINE_1.length} accent />

@@ -1,7 +1,7 @@
 {
   "name": "ortex-admin",
   "private": true,
-  "version": "1.57.0",
+  "version": "1.57.1",
   "type": "module",
   "description": "Ortex Industries — business operations admin console (Enquiries, Products, Quotations, Invoicing, Payments).",
   "scripts": {
@@ -56,6 +56,7 @@
     "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",
     "pngjs": "^7.0.0",
+    "sharp": "^0.34.4",
     "supabase": "^2.117.0-beta.21",
     "tailwindcss": "^4.3.2",
     "vite": "^8.1.1",

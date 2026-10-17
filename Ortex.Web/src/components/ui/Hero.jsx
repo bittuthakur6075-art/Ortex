@@ -19,16 +19,22 @@ export default function Hero() {
           </span>
           <h1 className="lp-hero-h1">
             <span className="inline-block lg:whitespace-nowrap">
-              <span className="lp-word"><span className="lp-word-in" style={{ animationDelay: '0.05s' }}>Premium</span></span>{' '}
-              <span className="lp-word"><span className="lp-word-in" style={{ animationDelay: '0.12s' }}>custom</span></span>{' '}
-              <span className="lp-word"><span className="lp-word-in" style={{ animationDelay: '0.19s' }}>products,</span></span>
+              {/* The H1 names what Ortex makes and where: the page's strongest
+                  keyword signal after the title. */}
+              <span className="lp-word"><span className="lp-word-in" style={{ animationDelay: '0.05s' }}>Custom</span></span>{' '}
+              <span className="lp-word"><span className="lp-word-in" style={{ animationDelay: '0.12s' }}>lanyards,</span></span>{' '}
+              <span className="lp-word"><span className="lp-word-in" style={{ animationDelay: '0.19s' }}>badges</span></span>
             </span>
+            {/* The space keeps the heading's text "badges & corporate", not "badges&", for crawlers. */}
+            {' '}
             <br />
             <span className="inline-block lg:whitespace-nowrap">
-              <span className="lp-word"><span className="lp-word-in acc" style={{ animationDelay: '0.26s' }}>manufactured</span></span>{' '}
-              <span className="lp-word"><span className="lp-word-in acc" style={{ animationDelay: '0.33s' }}>for</span></span>{' '}
-              <span className="lp-word"><span className="lp-word-in acc" style={{ animationDelay: '0.40s' }}>your</span></span>{' '}
-              <span className="lp-word"><span className="lp-word-in acc" style={{ animationDelay: '0.47s' }}>brand</span></span>
+              <span className="lp-word"><span className="lp-word-in acc" style={{ animationDelay: '0.26s' }}>&amp;</span></span>{' '}
+              <span className="lp-word"><span className="lp-word-in acc" style={{ animationDelay: '0.30s' }}>corporate</span></span>{' '}
+              <span className="lp-word"><span className="lp-word-in acc" style={{ animationDelay: '0.37s' }}>gifts,</span></span>{' '}
+              <span className="lp-word"><span className="lp-word-in acc" style={{ animationDelay: '0.44s' }}>made</span></span>{' '}
+              <span className="lp-word"><span className="lp-word-in acc" style={{ animationDelay: '0.51s' }}>in</span></span>{' '}
+              <span className="lp-word"><span className="lp-word-in acc" style={{ animationDelay: '0.58s' }}>Delhi</span></span>
             </span>
           </h1>
           <p className="lp-hero-sub">

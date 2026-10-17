@@ -126,7 +126,7 @@ export default function OEM() {
     <div className="bg-background">
 
       {/* Hero */}
-      <PageHero title="We make it. You brand it." nowrap>
+      <PageHero title="OEM & white label manufacturing" nowrap>
         We are the contract factory behind other brands, making custom MDF, acrylic, lanyard, and badge lines under your own label.
       </PageHero>
 

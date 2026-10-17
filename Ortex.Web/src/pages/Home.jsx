@@ -21,8 +21,8 @@ import FinalCTA from "../components/home/FinalCTA"
  */
 export default function Home() {
   useDocumentMetadata(
-    "Ortex Industries | Custom Lanyards, Badges & Corporate Gifts",
-    "Delhi manufacturer of custom MDF and acrylic products, lanyards, badges, exam boards and corporate gifts. OEM and white label, PAN India delivery and export.",
+    "Custom Lanyards, Badges & Corporate Gifts, Delhi | Ortex",
+    "Delhi manufacturer of customised lanyards, ID card holders, badges, momentos, MDF and acrylic products and corporate gifts. OEM, PAN India delivery, export.",
     { path: "/", image: HOME_OG }
   )
 

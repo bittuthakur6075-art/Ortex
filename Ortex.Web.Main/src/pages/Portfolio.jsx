@@ -118,7 +118,7 @@ export default function Portfolio() {
 
   return (
     <>
-      <PageHero title="Our portfolio">
+      <PageHero title="Our portfolio of custom products">
         Recent orders from our floor, photographed before dispatch. Open any photo for the details.
       </PageHero>
 

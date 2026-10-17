@@ -29,7 +29,7 @@ export default function Contact() {
         <div>
           <div className="relative aspect-[4/1] overflow-hidden">
             <img
-              src="/img/contact-strip.jpg"
+              src="/img/contact-strip.webp"
               alt="Laser engraving a custom design in the Ortex Industries workshop"
               loading="lazy"
               decoding="async"

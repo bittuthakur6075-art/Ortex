@@ -97,7 +97,7 @@ export default function Work() {
 
   return (
     <div className="bg-background min-h-screen">
-      <PageHero title="Our work">
+      <PageHero title="Custom products we have made">
         Search the full archive of real production photography, every photo an order we actually
         manufactured. No stock imagery.
       </PageHero>
