@@ -55,7 +55,7 @@ export default function Industries() {
       title: "Government & public sector",
       description:
         "Official ID cards and lanyards, department badges, flags and acrylic name plates made to the specification in your work order. Every order carries a formal GST quotation and tax invoice, which keeps purchase files and tender paperwork straightforward.",
-      links: [["ID cards & lanyards", "/products/lanyards"], ["Badges", "/products/badges"], ["Flags & banners", "/products/flags-banners"]],
+      links: [["ID cards & lanyards", "/products/lanyards"], ["Badges", "/products/badges"], ["Acrylic name plates", "/products/acrylic-products"]],
     },
     {
       icon: Hospital,
@@ -69,14 +69,14 @@ export default function Industries() {
       title: "Events & exhibitions",
       description:
         "Conference lanyards, visitor and delegate passes, button badges and branded giveaways, produced in volume to your attendee count and dispatched to the venue city. Send the event date with your enquiry and we plan production around it.",
-      links: [["Event lanyards", "/products/lanyards"], ["Promotional merchandise", "/products/promotional-merchandise"], ["Keychains", "/products/keychains"]],
+      links: [["Event lanyards", "/products/lanyards"], ["Branded merchandise", "/products/corporate-gifts"], ["Acrylic keychains", "/products/acrylic-products"]],
     },
     {
       icon: VolumeHigh,
       title: "Agencies & resellers",
       description:
         "White-label keychains, magnets, lanyards and gift sets that you sell under your own brand. We make them factory-direct with no middleman margin, pack them plain or in your branding, and ship to you or straight to your client.",
-      links: [["OEM & white label", "/oem"], ["Keychains", "/products/keychains"], ["Fridge magnets", "/products/fridge-magnets"]],
+      links: [["OEM & white label", "/oem"], ["Acrylic keychains", "/products/acrylic-products"], ["MDF fridge magnets", "/products/mdf-products"]],
     },
     {
       icon: Heart,
@@ -90,14 +90,14 @@ export default function Industries() {
       title: "Retail & consumer brands",
       description:
         "Staff name badges, showroom key holders, acrylic standees and brochure holders for the counter, plus fridge magnets and keychains to hand to customers. Finished to match your store design and your brand colours.",
-      links: [["Acrylic standees", "/products/acrylic-products"], ["Showroom key holders", "/products/mdf-products"], ["Fridge magnets", "/products/fridge-magnets"]],
+      links: [["Acrylic standees", "/products/acrylic-products"], ["Showroom key holders", "/products/mdf-products"], ["Staff name badges", "/products/badges"]],
     },
     {
       icon: Flash,
       title: "Startups & SMEs",
       description:
         "The branded basics a growing team needs, in small runs: ID lanyards, welcome kits, custom wall clocks and diary and pen sets. You get factory pricing from the first order, with a free digital mockup before anything goes into production.",
-      links: [["Welcome kits & gifts", "/products/corporate-gifts"], ["Wall clocks", "/products/wall-clocks"], ["Lanyards", "/products/lanyards"]],
+      links: [["Welcome kits & gifts", "/products/corporate-gifts"], ["Logo wall clocks", "/products/mdf-products"], ["Lanyards", "/products/lanyards"]],
     },
   ]
 

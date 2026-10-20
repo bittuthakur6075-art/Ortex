@@ -85,7 +85,7 @@ const process = [
 const productLines = [
   {
     title: "Private label keychains",
-    to: "/products/keychains",
+    to: "/products/acrylic-products",
     description: "Acrylic, wooden, metal, leather, silicone and soft PVC keychains cut to your shape and printed or engraved with your brand, for resale or as a gifting staple.",
   },
   {
