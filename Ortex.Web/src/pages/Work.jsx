@@ -98,8 +98,8 @@ export default function Work() {
   return (
     <div className="bg-background min-h-screen">
       <PageHero title="Custom products we have made">
-        Search the full archive of real production photography, every photo an order we actually
-        manufactured. No stock imagery.
+        Real production photos of the keychains, lanyards, badges, wall clocks, exam boards and gifts we
+        have manufactured for our clients. Every photo is an actual order, never stock imagery.
       </PageHero>
 
       <section className="pt-0 pb-[64px] sm:pb-[88px] lg:pb-[120px]">
@@ -110,7 +110,7 @@ export default function Work() {
               size={18}
               color="currentColor"
               variant="Linear"
-              className="absolute left-5 top-1/2 -translate-y-1/2 text-[#78829D] transition-colors peer-focus:text-primary"
+              className="absolute left-5 top-1/2 -translate-y-1/2 text-[#636c85] transition-colors peer-focus:text-primary"
               aria-hidden="true"
             />
             <input
@@ -119,7 +119,7 @@ export default function Work() {
               onChange={(e) => applyFilter({ query: e.target.value })}
               placeholder="Search products, e.g. keychain, clock, badge…"
               aria-label="Search work photos"
-              className="peer w-full pl-12 pr-14 py-3.5 rounded-full bg-background border border-[#EBEDF3] text-[16px] text-foreground placeholder:text-[16px] placeholder:font-medium placeholder:text-[#78829D] focus:outline-none focus:border-primary/80 transition-all duration-200 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
+              className="peer w-full pl-12 pr-14 py-3.5 rounded-full bg-background border border-[#EBEDF3] text-[16px] text-foreground placeholder:text-[16px] placeholder:font-medium placeholder:text-[#636c85] focus:outline-none focus:border-primary/80 transition-all duration-200 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
             />
             {query && (
               <button

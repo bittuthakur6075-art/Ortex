@@ -170,7 +170,7 @@ export default function About() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
 
             <motion.div {...fadeUp}>
-              <span className="block text-[14px] font-semibold uppercase tracking-[0.22em] text-primary mb-3">
+              <span className="block text-[14px] font-semibold uppercase tracking-[0.22em] text-[#8ea2ff] mb-3">
                 Who we are
               </span>
               <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight text-white">

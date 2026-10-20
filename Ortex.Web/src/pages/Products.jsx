@@ -362,7 +362,7 @@ export default function Products() {
                 size={18}
                 color="currentColor"
                 variant="Linear"
-                className="absolute left-5 top-1/2 -translate-y-1/2 text-[#78829D] transition-colors peer-focus:text-primary"
+                className="absolute left-5 top-1/2 -translate-y-1/2 text-[#636c85] transition-colors peer-focus:text-primary"
                 aria-hidden="true"
               />
               <input
@@ -371,7 +371,7 @@ export default function Products() {
                 onChange={(e) => onSearch(e.target.value)}
                 placeholder="Search products, e.g. keychain, clock, badge…"
                 aria-label="Search products"
-                className="peer w-full pl-12 pr-14 py-3.5 rounded-full bg-background border border-[#EBEDF3] text-[16px] text-foreground placeholder:text-[16px] placeholder:font-medium placeholder:text-[#78829D] focus:outline-none focus:border-primary/80 transition-all duration-200 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
+                className="peer w-full pl-12 pr-14 py-3.5 rounded-full bg-background border border-[#EBEDF3] text-[16px] text-foreground placeholder:text-[16px] placeholder:font-medium placeholder:text-[#636c85] focus:outline-none focus:border-primary/80 transition-all duration-200 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
               />
               {query && (
                 <button
@@ -418,7 +418,7 @@ export default function Products() {
                         aria-hidden="true"
                       />
                       {f.name}
-                      <span className="opacity-60 tabular-nums">{f.count}</span>
+                      <span className="opacity-80 tabular-nums">{f.count}</span>
                     </button>
                   )
                 })}
@@ -677,7 +677,7 @@ export default function Products() {
             <h2 className="text-[36px] md:text-[52px] font-normal leading-[1.05] tracking-tight text-white max-w-2xl">
               Your brand, made real
             </h2>
-            <p className="text-[15px] md:text-[16px] leading-relaxed text-white/75 max-w-xs lg:text-right">
+            <p className="text-[15px] md:text-[16px] leading-relaxed text-white/90 max-w-xs lg:text-right">
               From first sample to full production run, we manufacture it to your exact spec.
             </p>
           </div>

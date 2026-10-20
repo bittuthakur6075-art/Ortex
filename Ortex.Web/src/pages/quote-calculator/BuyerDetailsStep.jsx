@@ -5,7 +5,7 @@ import { ARTWORK_ACCEPT, ARTWORK_HINT } from "../../lib/uploads"
 // Reusable form styling pulled from the Contact page.
 const fieldClass = "mt-2 w-full px-4 py-3 bg-[#F9FBFC] border border-[#EBEDF3] rounded-[20px] [corner-shape:squircle] text-foreground placeholder:text-[#4B5675] focus:border-primary/70 focus:bg-white outline-none transition-colors duration-200"
 const errBorder = "border-destructive focus:border-destructive"
-const optionalTag = <span className="font-normal text-[#78829D]"> Optional</span>
+const optionalTag = <span className="font-normal text-[#636c85]"> Optional</span>
 
 // Step 2 contact form card.
 export default function BuyerDetailsStep({
@@ -80,7 +80,7 @@ export default function BuyerDetailsStep({
                   ? <span className="text-primary">{contactData.logoFileName}</span>
                   : <span>Click to upload or drag &amp; drop</span>}
               </p>
-              <p className="mt-1 text-[16px] font-normal text-[#78829D]">{ARTWORK_HINT}</p>
+              <p className="mt-1 text-[16px] font-normal text-[#636c85]">{ARTWORK_HINT}</p>
             </div>
           </div>
         </div>

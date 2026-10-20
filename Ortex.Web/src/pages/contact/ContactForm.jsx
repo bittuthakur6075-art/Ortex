@@ -9,7 +9,7 @@ import { productCategories } from "./helpers"
 const fieldClass =
   "mt-1 w-full px-4 py-3 bg-[#F9FBFC] border border-[#EBEDF3] rounded-[20px] [corner-shape:squircle] text-foreground placeholder:text-[#4B5675] focus:border-primary/70 focus:bg-white outline-none transition-colors duration-200"
 const labelClass = "block text-[16px] font-medium text-foreground capitalize"
-const optionalTag = <span className="font-normal text-[#78829D]"> Optional</span>
+const optionalTag = <span className="font-normal text-[#636c85]"> Optional</span>
 const errorBorder = "border-destructive focus:border-destructive"
 
 /** "Send a message" column: heading, enquiry form, submit and trust bullets. */
@@ -47,14 +47,13 @@ export default function ContactForm({ formData, errors, isSubmitting, handleChan
           </div>
 
           <div>
-            <label htmlFor="email" className={labelClass}>Email</label>
+            <label htmlFor="email" className={labelClass}>Email{optionalTag}</label>
             <input
               id="email"
               type="email"
               name="email"
               autoComplete="email"
               inputMode="email"
-              required
               value={formData.email}
               onChange={(e) => handleChange("email", e.target.value)}
               placeholder="Enter your email address"
@@ -115,11 +114,10 @@ export default function ContactForm({ formData, errors, isSubmitting, handleChan
         </div>
 
         <div>
-          <label htmlFor="message" className={labelClass}>Project details</label>
+          <label htmlFor="message" className={labelClass}>Project details{optionalTag}</label>
           <textarea
             id="message"
             name="message"
-            required
             value={formData.message}
             onChange={(e) => handleChange("message", e.target.value)}
             placeholder="Tell us quantities, sizes, materials, and deadlines, and share any artwork you have. The more detail, the faster we quote."

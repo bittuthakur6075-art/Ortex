@@ -9,6 +9,7 @@ import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { fadeUp, RevealWords } from "../components/ui/Section"
 import PageCTA from "../components/ui/PageCTA"
 import PageHero from "../components/ui/PageHero"
+import { dispatchSentence, moqSentence } from "../constants/business"
 
 // Otto /products reveal easing: a symmetric ease-in-out at ~0.8s, opacity +
 // translate only (no blur). Rise distance is tiered by element role.
@@ -22,8 +23,8 @@ const OTTO_EASE = [0.44, 0, 0.56, 1]
  *
  * Every claim below is one the site already substantiates elsewhere (in-house
  * production, Pantone matching, vector intake, GST invoicing, PAN-India
- * dispatch). No MOQs, lead times, or certifications are asserted here — those
- * are real commitments and must come from the business, not from copy.
+ * dispatch). Minimums and dispatch times are read from constants/business.js,
+ * the same source as the FAQ, never typed here; no certifications are claimed.
  */
 
 const propositions = [
@@ -77,6 +78,40 @@ const process = [
     title: "Dispatch, white-labelled",
     description:
       "Bulk-packed and shipped under your branding across India, with tracking and drop-shipping supported.",
+  },
+]
+
+/** The lines buyers search for by name ("OEM keychain manufacturer"), each linked to its catalogue. */
+const productLines = [
+  {
+    title: "Private label keychains",
+    to: "/products/keychains",
+    description: "Acrylic, wooden, metal, leather, silicone and soft PVC keychains cut to your shape and printed or engraved with your brand, for resale or as a gifting staple.",
+  },
+  {
+    title: "White label lanyards and ID card holders",
+    to: "/products/lanyards",
+    description: "Sublimation, satin, screen printed and woven lanyards with your choice of hook and breakaway, plus matching ID card holders, packed ready for your clients.",
+  },
+  {
+    title: "OEM badges and lapel pins",
+    to: "/products/badges",
+    description: "Metal name badges with magnet backing, enamel lapel pins, button badges and LED badges, made in bulk under your label for companies, hospitals and events.",
+  },
+  {
+    title: "Acrylic and MDF products",
+    to: "/products/acrylic-products",
+    description: "Standees, name plates, photo frames, trophies, fridge magnets and wall clocks, laser cut, UV printed and engraved on our own machines.",
+  },
+  {
+    title: "Private label corporate gifts",
+    to: "/products/corporate-gifts",
+    description: "Steel bottles, mugs, diary and pen sets and complete gift hampers assembled and boxed under your brand, for gifting companies with their own catalogue.",
+  },
+  {
+    title: "Examination boards and clipboards",
+    to: "/products/examination-boards",
+    description: "Printed MDF, PVC and acrylic exam boards and clipboards for stationery brands and school suppliers selling under their own name.",
   },
 ]
 
@@ -207,6 +242,43 @@ export default function OEM() {
               </motion.li>
             ))}
           </ol>
+        </div>
+      </section>
+
+      {/* Product lines made under the buyer's label */}
+      <section className="section-y bg-[#f9fbfc]">
+        <div className="lp-wrap">
+          <motion.div {...fadeUp} className="mb-[50px] max-w-3xl">
+            <span className="block text-[14px] font-semibold text-primary tracking-[0.22em] uppercase mb-3">
+              What we make for you
+            </span>
+            <h2 className="text-[40px] md:text-[64px] font-normal leading-[1.05] tracking-tight mb-6 text-foreground text-balance">
+              <RevealWords text="OEM product lines" />
+            </h2>
+            <p className="text-[18px] font-normal text-foreground leading-relaxed">
+              Every line below is produced in our Delhi factory and can ship with only your brand on the product and the packaging. Minimum quantities depend on the product: {moqSentence()}. {dispatchSentence()}
+            </p>
+          </motion.div>
+          <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-[42px] gap-y-[56px] list-none">
+            {productLines.map((line, idx) => (
+              <motion.li
+                key={line.title}
+                {...fadeUp}
+                transition={{ ...fadeUp.transition, delay: (idx % 3) * 0.08 }}
+              >
+                <h3 className="text-[24px] font-medium text-foreground">{line.title}</h3>
+                <div className="mt-6 border-t border-primary/20" />
+                <p className="mt-6 text-[16px] font-normal text-foreground leading-relaxed">{line.description}</p>
+                <Link
+                  to={line.to}
+                  className="group mt-5 inline-flex items-center gap-2 text-[15px] font-semibold text-primary"
+                >
+                  See the range
+                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                </Link>
+              </motion.li>
+            ))}
+          </ul>
         </div>
       </section>
 

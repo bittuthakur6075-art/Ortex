@@ -25,7 +25,7 @@ export default function SummaryPanel({
             <Box size={28} variant="Bulk" color="currentColor" aria-hidden="true" />
           </div>
           <p className="text-[15px] font-semibold text-foreground">No products yet</p>
-          <p className="mt-1 text-[13px] text-[#78829D] leading-relaxed">
+          <p className="mt-1 text-[13px] text-[#636c85] leading-relaxed">
             Add items from the catalogue to build your quote.
           </p>
         </div>
@@ -37,7 +37,7 @@ export default function SummaryPanel({
                 <div className="flex justify-between gap-2">
                   <div className="min-w-0">
                     <div className="text-[14px] font-semibold text-foreground leading-snug">{l.product.name}</div>
-                    <div className="text-[12px] font-medium text-[#78829D] mt-0.5">MOQ {l.product.moq} {l.product.unit}</div>
+                    <div className="text-[12px] font-medium text-[#636c85] mt-0.5">MOQ {l.product.moq} {l.product.unit}</div>
                   </div>
                   <button onClick={() => removeLine(l.product.id)} aria-label={`Remove ${l.product.name}`} className="text-[#99A1B7] hover:text-destructive transition-colors shrink-0 cursor-pointer">
                     <Trash size={18} variant="Bulk" color="currentColor" aria-hidden="true" />
@@ -58,7 +58,7 @@ export default function SummaryPanel({
                       <Plus className="h-4 w-4" />
                     </button>
                   </div>
-                  <span className="text-[12px] font-medium text-[#78829D]">{l.product.unit}</span>
+                  <span className="text-[12px] font-medium text-[#636c85]">{l.product.unit}</span>
                 </div>
                 {l.qty > 0 && l.qty < l.product.moq && (
                   <p className="text-[11px] font-medium text-amber-500 mt-2 flex items-center gap-1">
@@ -74,7 +74,7 @@ export default function SummaryPanel({
               <Clock size={18} variant="Bulk" color="currentColor" className="text-primary shrink-0 mt-0.5" aria-hidden="true" />
               <div className="text-[12px] leading-snug">
                 <span className="font-semibold text-foreground">Est. dispatch ~{maxLeadTime} working days</span>
-                <span className="block text-[#78829D] mt-0.5">after artwork approval</span>
+                <span className="block text-[#636c85] mt-0.5">after artwork approval</span>
               </div>
             </div>
           )}

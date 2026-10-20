@@ -34,9 +34,16 @@ export default function CookieConsent() {
           aria-label="Analytics consent"
           className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-[90] w-[calc(100%-2rem)] max-w-2xl"
         >
-          <div className="bg-card border border-border shadow-2xl rounded-2xl p-5 sm:p-6">
-            <h2 className="font-semibold text-foreground">Analytics &amp; your data</h2>
-            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+          {/* On a phone the full notice covered the hero and its quote button, so
+              there it shrinks to one sentence with the same choice and links. */}
+          <div className="bg-card border border-border shadow-2xl rounded-2xl p-4 sm:p-6">
+            <h2 className="hidden sm:block font-semibold text-foreground">Analytics &amp; your data</h2>
+            <p className="sm:hidden text-[13px] text-muted-foreground leading-snug">
+              May we record pages visited and approximate location (via ipapi.co)? Optional.{" "}
+              <Link to="/cookies" className="text-primary font-medium">Cookies</Link>,{" "}
+              <Link to="/privacy" className="text-primary font-medium">Privacy</Link>.
+            </p>
+            <p className="hidden sm:block text-sm text-muted-foreground mt-2 leading-relaxed">
               We'd like to record which pages you visit, along with your approximate location
               (derived from your IP address via ipapi.co), to understand how our catalogue is used.
               This is optional and we won't do it unless you agree. Read our{" "}
@@ -44,12 +51,13 @@ export default function CookieConsent() {
               {" "}and{" "}
               <Link to="/privacy" className="text-primary hover:underline font-medium">Privacy Policy</Link>.
             </p>
-            <div className="mt-5 flex flex-col sm:flex-row gap-3">
+            <div className="mt-3 sm:mt-5 grid grid-cols-2 sm:flex gap-3">
               <button
                 onClick={() => choose(CONSENT_GRANTED)}
                 className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
               >
-                Accept analytics
+                <span className="sm:hidden">Accept</span>
+                <span className="hidden sm:inline">Accept analytics</span>
               </button>
               <button
                 onClick={() => choose(CONSENT_DENIED)}

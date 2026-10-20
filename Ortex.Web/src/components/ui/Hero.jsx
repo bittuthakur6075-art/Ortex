@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Globe } from "./Icons"
+import { STATS, TERMS } from "../../constants/business"
 import './Hero.css'
 
 const BACKGROUND = '/img/hero-background.avif'
@@ -15,7 +16,7 @@ export default function Hero() {
         <div className="lp-hero-copy lp-reveal">
           <span className="lp-hero-badge">
             <span className="lp-hero-badge-ic"><Globe size={20} color="#fff" /></span>
-            Trusted by brands worldwide
+            Trusted by {STATS.find((s) => s.label.startsWith("Brands")).value} brands
           </span>
           <h1 className="lp-hero-h1">
             <span className="inline-block lg:whitespace-nowrap">
@@ -41,9 +42,13 @@ export default function Hero() {
             Contract manufacturing, OEM &amp; white-label production for MDF, acrylic, lanyards &amp; corporate gifts, delivered across India and worldwide.
           </p>
           <div className="lp-hero-ctas">
-            <Link className="lp-pill-btn primary" to="/products">Explore products</Link>
-            <Link className="lp-pill-btn outline" to="/quote">Get custom quote</Link>
+            {/* The quote is the action the page exists for, so it leads. */}
+            <Link className="lp-pill-btn primary" to="/quote">Get a free quote</Link>
+            <Link className="lp-pill-btn outline" to="/products">Explore products</Link>
           </div>
+          <p className="lp-hero-note">
+            Free digital mockup · GST invoice · Quote within {TERMS.quoteTurnaround}
+          </p>
         </div>
       </div>
     </section>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { Menu, X } from "../ui/Icons"
-import { whatsappLink } from "../../constants/site"
+import { Menu, X, Phone } from "../ui/Icons"
+import { whatsappLink, CONTACT } from "../../constants/site"
 import WhatsAppIcon from "../ui/WhatsAppIcon"
 
 export default function Navbar() {
@@ -145,7 +145,7 @@ export default function Navbar() {
                 rel="noopener noreferrer"
                 aria-label="Chat with us on WhatsApp"
                 title="Chat with us on WhatsApp"
-                className="px-5 py-2.5 font-medium text-[15px] text-white bg-whatsapp hover:brightness-95 rounded-full transition-all duration-200 active:scale-[0.98] cursor-pointer flex items-center gap-2 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="px-5 py-2.5 font-medium text-[15px] text-[#071437] bg-whatsapp hover:brightness-95 rounded-full transition-all duration-200 active:scale-[0.98] cursor-pointer flex items-center gap-2 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <WhatsAppIcon className="w-[18px] h-[18px] fill-current" />
                 WhatsApp
@@ -164,6 +164,14 @@ export default function Navbar() {
 
             {/* Mobile Actions & Menu Toggle */}
             <div className="flex items-center gap-2 lg:hidden">
+              {/* Most mobile buyers would rather ring than type: one tap to the sales desk. */}
+              <a
+                href={`tel:${CONTACT.phonePrimary.replace(/[^+\d]/g, "")}`}
+                aria-label={`Call Ortex Industries on ${CONTACT.phonePrimary}`}
+                className={`p-2 rounded-full transition-all duration-200 hover:scale-110 flex items-center justify-center ${inkClass} ${overHero ? "hover:bg-white/10" : "hover:bg-muted"}`}
+              >
+                <Phone className="w-5 h-5" />
+              </a>
               {/* WhatsApp Link */}
               <a
                 href={whatsappLink()}

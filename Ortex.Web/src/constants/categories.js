@@ -369,8 +369,19 @@ export function productSeo(entry, product) {
     .find((t) => t.length <= 60) || product.name
   const lead = product.description?.trim() || `Custom ${product.name} manufactured in-house by Ortex Industries.`
   const facts = `MOQ ${product.moq} ${product.unit}${product.leadTimeDays ? `, dispatch in ${product.leadTimeDays} working days` : ""}. GST quotation, PAN India delivery.`
-  const full = `${lead.replace(/\s+/g, " ")} ${facts}`
-  return { title, description: full.length <= 158 ? full : full.slice(0, 155).replace(/\s+\S*$/, "") + "…" }
+  // A snippet cut mid-sentence reads as broken in the results, so whole
+  // sentences of the description are kept while they fit beside the facts.
+  const sentences = lead.replace(/\s+/g, " ").match(/[^.!?]+[.!?]+(?=\s|$)|[^.!?]+$/g) || [lead]
+  let body = sentences[0].trim()
+  for (const s of sentences.slice(1)) {
+    if (`${body} ${s.trim()} ${facts}`.length > 158) break
+    body = `${body} ${s.trim()}`
+  }
+  if (!/[.!?]$/.test(body)) body += "."
+  const fit = [`${body} ${facts}`, `${body} Bulk orders, GST invoice, PAN India delivery.`, `${body} GST invoice, PAN India delivery.`, body]
+    .find((d) => d.length <= 158)
+  if (fit) return { title, description: fit }
+  return { title, description: body.slice(0, 155).replace(/[\s,;:]+\S*$/, "") + "…" }
 }
 
 /**

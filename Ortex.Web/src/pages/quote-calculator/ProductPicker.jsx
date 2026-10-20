@@ -12,6 +12,8 @@ export default function ProductPicker({
        single-row pills scroll inside it instead of blowing out the
        page width (grid tracks default to min-width:auto). */
     <div className="min-w-0">
+      {/* Keeps the heading order h1 > h2 > h3 for the product cards below. */}
+      <h2 className="sr-only">Choose products for your quote</h2>
       {/* Search */}
       <div className="relative mb-5">
         <Search className="pointer-events-none absolute left-5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground" />
@@ -19,7 +21,7 @@ export default function ProductPicker({
           value={query} onChange={(e) => setQuery(e.target.value)}
           placeholder="Search products, e.g. keychain, trophy, badge…"
           aria-label="Search products"
-          className="w-full pl-12 pr-5 py-3.5 rounded-full bg-background border border-[#EBEDF3] text-[16px] text-foreground placeholder:text-[#78829D] focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
+          className="w-full pl-12 pr-5 py-3.5 rounded-full bg-background border border-[#EBEDF3] text-[16px] text-foreground placeholder:text-[#636c85] focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all duration-200"
         />
       </div>
 

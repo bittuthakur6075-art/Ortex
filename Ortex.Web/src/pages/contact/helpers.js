@@ -31,9 +31,9 @@ export const getFormErrors = (formData) => {
   if (!formData.name.trim()) {
     tempErrors.name = "Name is required"
   }
-  if (!formData.email.trim()) {
-    tempErrors.email = "Email is required"
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+  // Email and project details are optional: many buyers only leave a number,
+  // and a shorter form brings in more of them. An email that is given must be valid.
+  if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
     tempErrors.email = "Please enter a valid email address"
   }
   if (!formData.phone.trim()) {
@@ -43,11 +43,6 @@ export const getFormErrors = (formData) => {
   }
   if (!formData.productInterest) {
     tempErrors.productInterest = "Please select a product category"
-  }
-  if (!formData.message.trim()) {
-    tempErrors.message = "Message is required"
-  } else if (formData.message.trim().length < 10) {
-    tempErrors.message = "Message must be at least 10 characters"
   }
   return tempErrors
 }

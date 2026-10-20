@@ -16,6 +16,7 @@ import {
   Global,
   HambergerMenu,
   Home2,
+  Call,
   Minus as MinusIcon,
   SearchNormal1,
   TickCircle,
@@ -38,6 +39,7 @@ export const ChevronDown = wrap(ArrowDown2)
 export const ChevronLeft = wrap(ArrowLeft2)
 export const Globe = wrap(Global)
 export const Home = wrap(Home2)
+export const Phone = wrap(Call)
 export const Menu = wrap(HambergerMenu)
 export const Minus = wrap(MinusIcon)
 export const Plus = wrap(Add)

@@ -19,7 +19,7 @@ export default function IndustriesPreview() {
         <h2 className="text-[36px] md:text-[52px] font-normal leading-[1.05] tracking-tight text-white max-w-2xl">
           Built for your industry
         </h2>
-        <p className="text-[15px] md:text-[16px] leading-relaxed text-white/75 max-w-xs lg:text-right">
+        <p className="text-[15px] md:text-[16px] leading-relaxed text-white/90 max-w-xs lg:text-right">
           Every sector buys differently. We build to the standards yours works to.
         </p>
       </div>

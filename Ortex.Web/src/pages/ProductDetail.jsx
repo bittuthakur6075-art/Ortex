@@ -4,12 +4,13 @@ import { useParams, Link, Navigate, useNavigate } from "react-router-dom"
 import { Add, Minus, Clock, Box, ArrowRight, Truck, ShieldTick, Gallery, DiscountShape, ReceiptText, Building3 } from "iconsax-react"
 import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import useJsonLd from "../hooks/useJsonLd"
-import { categoryFaqs, buildProductSchema, productSeo } from "../constants/categories"
+import { categoryFaqs, buildProductSchema, productSeo, photosForCategory } from "../constants/categories"
 import { useCatalog } from "../lib/catalog"
 import { productsInCategory } from "../lib/catalogCore"
 import { whatsappLink } from "../constants/site"
 import { fadeUp } from "../components/ui/Section"
 import PageCTA from "../components/ui/PageCTA"
+import QuickEnquiry from "../components/ui/QuickEnquiry"
 import PhotoLightbox from "../components/ui/PhotoLightbox"
 
 /**
@@ -59,6 +60,7 @@ export default function ProductDetail() {
   }
 
   const images = product.images || []
+  const rangePhoto = images.length ? null : entry.image || photosForCategory(entry, 1)[0]?.url || null
   const preview = previewIndex === null ? null : gallery[previewIndex]
 
   const openPreview = () => {
@@ -130,6 +132,21 @@ export default function ProductDetail() {
                       fetchPriority="high"
                     />
                   </button>
+                ) : rangePhoto ? (
+                  // No photo uploaded for this product yet: an empty grey box
+                  // loses the buyer, so show the range it belongs to, labelled
+                  // as such rather than passed off as this exact item.
+                  <div className="relative w-full h-full">
+                    <img
+                      src={rangePhoto}
+                      alt={`${entry.name} made by Ortex Industries`}
+                      className="w-full h-full object-cover"
+                      fetchPriority="high"
+                    />
+                    <span className="absolute left-3 bottom-3 rounded-full bg-black/65 px-3 py-1.5 text-[12px] font-medium text-white">
+                      Representative photo from our {entry.name.toLowerCase()} range
+                    </span>
+                  </div>
                 ) : (
                   <div className="w-full h-full grid place-items-center text-muted-foreground">
                     <Gallery size={48} color="currentColor" variant="Bulk" aria-hidden="true" />
@@ -203,6 +220,7 @@ export default function ProductDetail() {
                   Chat on WhatsApp
                 </a>
               </div>
+              <QuickEnquiry product={product} category={entry.name} />
             </div>
           </div>
         </div>

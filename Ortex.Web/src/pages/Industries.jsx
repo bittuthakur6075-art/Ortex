@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { Link } from "react-router-dom"
 import { ArrowRight, Plus } from "../components/ui/Icons"
 import { Building, Teacher, Bank, Hospital, Calendar, VolumeHigh, Heart, Shop, Flash, Building3, Slider, Setting2, Award, Truck, ShieldTick } from "iconsax-react"
@@ -32,60 +32,72 @@ export default function Industries() {
   // Single-open accordion, first row expanded by default (Otto /products).
   const [openIdx, setOpenIdx] = useState(0)
 
+  // Each sector's copy names what it actually orders, and every product it
+  // lists links to that category page, so the page passes buyers (and
+  // crawlers) on to the catalogue instead of ending in tags.
   const industries = [
     {
       icon: Building,
       title: "Corporate & enterprise",
-      description: "Staff identity, awards, and gifting kept on one brand across every office, desk, and team-wide rollout.",
-      tags: ["ID cards", "Lanyards", "Gifts"],
+      description:
+        "Employee ID lanyards and card holders, metal name badges, joining kits and festive gift hampers, all printed in your exact brand colours. HR, admin and marketing teams order from one supplier on one GST invoice, so every office and every new joiner receives the same branded set.",
+      links: [["Lanyards & ID holders", "/products/lanyards"], ["Corporate gifts", "/products/corporate-gifts"], ["Name badges", "/products/badges"]],
     },
     {
       icon: Teacher,
       title: "Schools & universities",
-      description: "Student cards and exam hardware built tough enough to take a full academic year of daily handling.",
-      tags: ["Student IDs", "Exam boards", "Nameplates"],
+      description:
+        "Examination boards and clipboards printed with the school name and crest, student ID lanyards with safety breakaways, and MDF or acrylic trophies for annual day and sports day. Built to take a full academic year of daily handling and ordered in bulk for every class.",
+      links: [["Exam boards", "/products/examination-boards"], ["Student lanyards", "/products/lanyards"], ["Trophies & momentos", "/products/mdf-products"]],
     },
     {
       icon: Bank,
       title: "Government & public sector",
-      description: "Official IDs and signage made to standard specs, invoiced GST-clean for straightforward tender procurement.",
-      tags: ["Official IDs", "Badges", "Signage"],
+      description:
+        "Official ID cards and lanyards, department badges, flags and acrylic name plates made to the specification in your work order. Every order carries a formal GST quotation and tax invoice, which keeps purchase files and tender paperwork straightforward.",
+      links: [["ID cards & lanyards", "/products/lanyards"], ["Badges", "/products/badges"], ["Flags & banners", "/products/flags-banners"]],
     },
     {
       icon: Hospital,
       title: "Hospitals & healthcare",
-      description: "Staff and patient identification with clean, hygienic, professionally finished branding for clinical settings.",
-      tags: ["Staff IDs", "Badges", "Signage"],
+      description:
+        "Staff lanyards with safety breakaway clasps, engraved doctor and nurse name badges on magnet backings, and clear acrylic signage and desk name holders for wards and reception. Clean, professional finishes that hold up to daily wear in clinical settings.",
+      links: [["Hospital lanyards", "/products/lanyards"], ["Name badges", "/products/badges"], ["Acrylic signage", "/products/acrylic-products"]],
     },
     {
       icon: Calendar,
       title: "Events & exhibitions",
-      description: "Passes, badges, and branded merchandise turned around fast and scaled to whatever your attendee count is.",
-      tags: ["Passes", "Lanyards", "Merch"],
+      description:
+        "Conference lanyards, visitor and delegate passes, button badges and branded giveaways, produced in volume to your attendee count and dispatched to the venue city. Send the event date with your enquiry and we plan production around it.",
+      links: [["Event lanyards", "/products/lanyards"], ["Promotional merchandise", "/products/promotional-merchandise"], ["Keychains", "/products/keychains"]],
     },
     {
       icon: VolumeHigh,
       title: "Agencies & resellers",
-      description: "White-label products you resell under your own brand, made factory-direct with no middleman markup added.",
-      tags: ["Promo", "Gifting", "OEM runs"],
+      description:
+        "White-label keychains, magnets, lanyards and gift sets that you sell under your own brand. We make them factory-direct with no middleman margin, pack them plain or in your branding, and ship to you or straight to your client.",
+      links: [["OEM & white label", "/oem"], ["Keychains", "/products/keychains"], ["Fridge magnets", "/products/fridge-magnets"]],
     },
     {
       icon: Heart,
       title: "NGOs & non-profits",
-      description: "Affordable volunteer identity and fundraising merchandise at order minimums that suit a smaller campaign.",
-      tags: ["Volunteer IDs", "Lanyards", "Merch"],
+      description:
+        "Volunteer ID lanyards, campaign badges, donation boxes and fundraising merchandise at minimum order quantities that suit a smaller campaign, quoted with GST so your accounts stay clean for donors and audits.",
+      links: [["Volunteer lanyards", "/products/lanyards"], ["Badges", "/products/badges"], ["Acrylic donation boxes", "/products/acrylic-products"]],
     },
     {
       icon: Shop,
       title: "Retail & consumer brands",
-      description: "Staff badges, packaging add-ons, and loyalty pieces finished to sit right alongside your storefront look.",
-      tags: ["Badges", "Packaging", "Loyalty"],
+      description:
+        "Staff name badges, showroom key holders, acrylic standees and brochure holders for the counter, plus fridge magnets and keychains to hand to customers. Finished to match your store design and your brand colours.",
+      links: [["Acrylic standees", "/products/acrylic-products"], ["Showroom key holders", "/products/mdf-products"], ["Fridge magnets", "/products/fridge-magnets"]],
     },
     {
       icon: Flash,
       title: "Startups & SMEs",
-      description: "Low-minimum runs of the branded basics a growing team needs, priced straight off the factory floor.",
-      tags: ["IDs", "Gifts", "Signage"],
+      description:
+        "The branded basics a growing team needs, in small runs: ID lanyards, welcome kits, custom wall clocks and diary and pen sets. You get factory pricing from the first order, with a free digital mockup before anything goes into production.",
+      links: [["Welcome kits & gifts", "/products/corporate-gifts"], ["Wall clocks", "/products/wall-clocks"], ["Lanyards", "/products/lanyards"]],
     },
   ]
 
@@ -126,7 +138,7 @@ export default function Industries() {
     <>
       {/* Page Header */}
       <PageHero title="Custom products for every industry" nowrap>
-        Discover our versatile expertise, delivering customized product solutions for every sector, each to the standards it works to.
+        Lanyards, ID cards, badges, exam boards, trophies and corporate gifts, made in-house for corporates, schools, hospitals, government offices and event organisers across India.
       </PageHero>
 
       {/* Industry cards grid (onething 3-column pattern) */}
@@ -179,67 +191,65 @@ export default function Industries() {
                     </span>
                   </button>
 
-                  {/* Expanded content */}
-                  <AnimatePresence initial={false}>
-                    {isOpen && (
-                      <motion.div
-                        key="body"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.5, ease: EASE }}
-                        className="overflow-hidden"
-                      >
-                        <div className="pb-12 flex flex-col lg:flex-row gap-10">
-                          {/* Three production photos */}
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-[10px] lg:w-1/2 flex-shrink-0">
-                            {photos.map((p, k) => (
-                              <div key={k} className="aspect-square overflow-hidden bg-secondary">
-                                <img
-                                  src={p.image}
-                                  alt={p.alt || p.title}
-                                  loading="lazy"
-                                  decoding="async"
-                                  className="w-full h-full object-cover transition-transform duration-[900ms] ease-out hover:scale-[1.06]"
-                                />
-                              </div>
-                            ))}
+                  {/* Expanded content. Every row stays in the HTML (collapsed to zero
+                      height and inert when closed) so each sector's copy and links
+                      are in the prerendered page, not only the open one. */}
+                  <motion.div
+                    initial={false}
+                    animate={isOpen ? { height: "auto", opacity: 1 } : { height: 0, opacity: 0 }}
+                    transition={{ duration: 0.5, ease: EASE }}
+                    className="overflow-hidden"
+                    inert={!isOpen}
+                  >
+                    <div className="pb-12 flex flex-col lg:flex-row gap-10">
+                      {/* Three production photos */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-[10px] lg:w-1/2 flex-shrink-0">
+                        {photos.map((p, k) => (
+                          <div key={k} className="aspect-square overflow-hidden bg-secondary">
+                            <img
+                              src={p.image}
+                              alt={p.alt || p.title}
+                              loading="lazy"
+                              decoding="async"
+                              className="w-full h-full object-cover transition-transform duration-[900ms] ease-out hover:scale-[1.06]"
+                            />
                           </div>
+                        ))}
+                      </div>
 
-                          {/* Description + tags + request-a-quote */}
-                          <div className="lg:w-1/2 flex flex-col">
-                            <p className="text-[18px] font-normal text-[#4b5675] leading-relaxed max-w-md">
-                              {item.description}
-                            </p>
-                            <div className="mt-auto pt-10 flex flex-wrap items-end justify-between gap-6">
-                              <div>
-                                <span className="block text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-3">
-                                  What they order
-                                </span>
-                                <div className="flex flex-wrap gap-2">
-                                  {item.tags.map((tag) => (
-                                    <span
-                                      key={tag}
-                                      className="text-[12px] font-semibold text-primary bg-primary/10 rounded-full px-3 py-[6px] whitespace-nowrap"
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                              <Link
-                                to="/quote"
-                                className="group/link inline-flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.14em] text-foreground transition-colors hover:text-primary whitespace-nowrap"
-                              >
-                                Request a quote
-                                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover/link:translate-x-1" />
-                              </Link>
+                      {/* Description + tags + request-a-quote */}
+                      <div className="lg:w-1/2 flex flex-col">
+                        <p className="text-[18px] font-normal text-[#4b5675] leading-relaxed max-w-md">
+                          {item.description}
+                        </p>
+                        <div className="mt-auto pt-10 flex flex-wrap items-end justify-between gap-6">
+                          <div>
+                            <span className="block text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-3">
+                              What they order
+                            </span>
+                            <div className="flex flex-wrap gap-2">
+                              {item.links.map(([label, to]) => (
+                                <Link
+                                  key={label}
+                                  to={to}
+                                  className="text-[12px] font-semibold text-primary bg-primary/10 rounded-full px-3 py-[6px] whitespace-nowrap transition-colors hover:bg-primary hover:text-primary-foreground"
+                                >
+                                  {label}
+                                </Link>
+                              ))}
                             </div>
                           </div>
+                          <Link
+                            to="/quote"
+                            className="group/link inline-flex items-center gap-2 text-[13px] font-semibold uppercase tracking-[0.14em] text-foreground transition-colors hover:text-primary whitespace-nowrap"
+                          >
+                            Request a quote
+                            <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover/link:translate-x-1" />
+                          </Link>
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                      </div>
+                    </div>
+                  </motion.div>
                 </div>
               )
             })}

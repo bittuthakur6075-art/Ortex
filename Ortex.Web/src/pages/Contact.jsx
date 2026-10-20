@@ -19,9 +19,9 @@ export default function Contact() {
   return (
     <>
       {/* Page Header */}
-      <PageHero title="We're here to help">
-        Product question, custom project, or an order in motion,
-        reach our team directly and a real person replies within one working day.
+      <PageHero title="Contact Ortex Industries">
+        Ask about a product, send us a custom project or check on an order in progress. Call, WhatsApp
+        or email our Delhi team and a real person replies within one working day.
       </PageHero>
 
       {/* Full-width image strip below the hero (4:2) */}

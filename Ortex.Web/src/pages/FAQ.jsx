@@ -227,8 +227,9 @@ export default function FAQ() {
 
   return (
     <div className="bg-background min-h-screen">
-      <PageHero title="Frequently asked questions">
-        Everything about ordering, customization, materials, delivery, OEM, and payment, answered in one place.
+      <PageHero title="Custom order FAQs">
+        Minimum order quantities, samples, artwork files, materials, delivery times, OEM work and GST
+        invoicing, answered in one place.
       </PageHero>
 
       <section className="pb-[72px] sm:pb-[96px] lg:pb-[140px] bg-background text-left">
