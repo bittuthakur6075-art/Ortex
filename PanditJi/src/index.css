@@ -1,0 +1,158 @@
+/* The Ortex design language (Ortex.Web/src/index.css): Manrope with an
+   Instrument Serif italic accent, white surfaces with hairline borders and no
+   shadows, 12px buttons, 16 / 24 / 40 gutters and the section-y rhythm.
+   Pandit Ji swaps Ortex blue for a deep saffron; the neutrals are Ortex's. */
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("/fonts/manrope-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/instrument-serif-italic-latin.woff2") format("woff2");
+}
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Manrope", "Noto Sans Devanagari", sans-serif;
+  --font-serif: "Instrument Serif", serif;
+  --font-deva: "Noto Serif Devanagari", serif;
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-card: hsl(var(--card));
+  --color-border: hsl(var(--border));
+  --color-ring: hsl(var(--ring));
+  --color-destructive: hsl(var(--destructive));
+  --color-call: hsl(var(--call));
+  --color-call-tile: hsl(var(--call-tile));
+  --radius-lg: 0.5rem;
+
+  --shadow: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+  --shadow-2xl: none;
+}
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --primary: 22 88% 44%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 30 60% 98%;
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 4% 46%;
+  --card: 0 0% 100%;
+  --border: 240 6% 90%;
+  --ring: 22 88% 44%;
+  --destructive: 0 84% 60%;
+  /* The video call is always dark, like any call app. */
+  --call: 222 47% 7%;
+  --call-tile: 222 30% 13%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+}
+
+.deva {
+  font-family: var(--font-deva);
+}
+
+/* In the components layer so Tailwind utilities (hidden, p-0, h-8...) still win. */
+@layer components {
+.lp-wrap {
+  width: 100%;
+  max-width: 1600px;
+  padding-left: 16px;
+  padding-right: 16px;
+  margin-left: auto;
+  margin-right: auto;
+}
+@media (min-width: 810px) {
+  .lp-wrap { padding-left: 24px; padding-right: 24px; }
+}
+@media (min-width: 1200px) {
+  .lp-wrap { padding-left: 40px; padding-right: 40px; }
+}
+
+.section-y { padding-top: 72px; padding-bottom: 72px; }
+.section-y-hero { padding-top: 88px; padding-bottom: 88px; }
+@media (min-width: 640px) {
+  .section-y { padding-top: 96px; padding-bottom: 96px; }
+  .section-y-hero { padding-top: 112px; padding-bottom: 112px; }
+}
+@media (min-width: 1024px) {
+  .section-y { padding-top: 140px; padding-bottom: 140px; }
+  .section-y-hero { padding-top: 150px; padding-bottom: 150px; }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 600;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  padding: 10px 18px;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn:focus-visible { outline: 2px solid hsl(var(--primary)); outline-offset: 2px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-lg { padding: 14px 24px; font-size: 16px; }
+.btn-primary { background-color: hsl(22 88% 44%); color: #fff; border-color: hsl(22 88% 44%); }
+.btn-primary:hover { background-color: hsl(22 80% 50%); border-color: hsl(22 80% 50%); }
+.btn-primary:active { background-color: hsl(22 90% 38%); border-color: hsl(22 90% 38%); }
+.btn-outline { background-color: transparent; color: hsl(22 88% 40%); border-color: hsl(22 88% 44%); }
+.btn-outline:hover { background-color: hsl(30 100% 97%); }
+.btn-ghost { background-color: transparent; color: hsl(var(--muted-foreground)); }
+.btn-ghost:hover { background-color: hsl(22 88% 44% / 0.08); color: hsl(22 88% 40%); }
+}
+
+@keyframes hero-in {
+  from { opacity: 0.01; transform: translateY(28px); filter: blur(8px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+.hero-in { animation: hero-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* The devotee sees themselves mirrored; frames sent to Pandit Ji are not. */
+.mirror { transform: scaleX(-1); }
+
+/* Diya light flickering behind Pandit Ji. */
+@keyframes flicker {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  40% { opacity: 1; transform: scale(1.06); }
+  70% { opacity: 0.75; transform: scale(0.97); }
+}
+.flicker { animation: flicker 2.6s ease-in-out infinite; transform-origin: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-in, .flicker { animation: none; }
+}
