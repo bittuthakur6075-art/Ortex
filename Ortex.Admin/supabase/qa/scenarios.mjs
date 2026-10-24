@@ -1317,6 +1317,200 @@ await scenario("Companies (0075, 0076)", async () => {
   await run("service", "update profiles set modules = '[]' where id = $1", [U.SALES])
 })
 
+// ---- website enquiries: unique reference, artwork bound to its enquiry, rate limit (0079) --
+await scenario("Website enquiries (0079)", async () => {
+  const ref = "ORT-QA00AAAAAA1"
+  const path = `2026/${ref}/logo.png`
+  const doc = { reference: ref, status: "new", source: "Quote calculator", artwork: { path, fileName: "logo.png" }, customer: { name: "Artwork QA", phone: "9876500091" } }
+  eq("anon saves a quote with a reference", await err("anon", "insert into enquiries (doc) values ($1)", [J(doc)]), null)
+  like("the same reference again is refused as a duplicate", await err("anon", "insert into enquiries (doc) values ($1)", [J(doc)]), /duplicate key|enquiries_reference_key/)
+  eq("rows without a reference are not limited", await err("anon", "insert into enquiries (doc) values ($1)", [J({ status: "new", message: "no ref" })]), null)
+
+  const upload = (name) => err("anon", "insert into storage.objects (bucket_id, name) values ('artwork', $1)", [name])
+  like("an upload no enquiry names is refused", await upload(`2026/${ref}/other.png`), /row-level security/)
+  like("an upload under no enquiry is refused", await upload("2026/ORT-QA00ZZZZZZ9/logo.png"), /row-level security/)
+  like("a path outside the pattern is refused", await upload("anything/at/all.exe"), /row-level security/)
+  eq("the file the enquiry names uploads", await upload(path), null)
+  like("the same file again is refused", await upload(path), /row-level security/)
+  const old = "ORT-QA00AAAAAA2"
+  await run(null, "insert into enquiries (doc, created_at) values ($1, now() - interval '3 hours')",
+    [J({ ...doc, reference: old, artwork: { path: `2026/${old}/logo.png`, fileName: "logo.png" } })])
+  like("an enquiry older than two hours no longer accepts its file", await upload(`2026/${old}/logo.png`), /row-level security/)
+  const types = await val(null, "select allowed_mime_types from storage.buckets where id = 'artwork'")
+  eq("the bucket no longer takes octet-stream", types.includes("application/octet-stream"), false)
+
+  // Rate limit, as PostgREST would call it: anon with request headers.
+  const asAnonFrom = async (ip, n) => {
+    let refused = 0
+    for (let i = 0; i < n; i++) {
+      await db.query("begin")
+      try {
+        await db.query("set local role anon")
+        await db.query("select set_config('request.jwt.claims', $1, true), set_config('request.headers', $2, true)",
+          [J({ role: "anon" }), J({ "x-forwarded-for": `${ip}, 10.0.0.1` })])
+        await db.query("insert into enquiries (doc) values ($1)", [J({ status: "new", message: `rate ${ip} ${i}` })])
+        await db.query("commit")
+      } catch (e) {
+        await db.query("rollback")
+        if (/Too many enquiries/.test(e.message)) refused++
+        else throw e
+      }
+    }
+    return refused
+  }
+  eq("20 enquiries from one address in 10 minutes pass, the next 2 are refused", await asAnonFrom("203.0.113.7", 22), 2)
+  eq("another address is not affected", await asAnonFrom("198.51.100.4", 1), 0)
+  const before = await val(null, "select count(*)::int from enquiries")
+  await run(U.SALES, "insert into enquiries (doc) values ($1)", [J({ status: "new", message: "staff are not limited" })])
+  eq("signed-in staff are not limited", await val(null, "select count(*)::int from enquiries"), before + 1)
+})
+
+// ---- voice leads: one row per call (0081) ------------------------------------------------
+await scenario("Voice lead upsert (0081)", async () => {
+  const ref = "ORT-QA00VVVVVV1"
+  const callId = randomUUID()
+  const voice = (over = {}) => ({
+    reference: ref, source: "Voice assistant (Anu)", status: "new", starred: false, owner: "",
+    customer: { name: "Voice QA", phone: "9876500191" }, items: [], productInterest: "", message: "first capture",
+    call: { id: callId, recording: `calls/2026/${callId}.webm`, confirmed: false, complete: false }, ...over,
+  })
+  const save = (doc) => err("anon", "select public.save_voice_lead($1)", [J(doc)])
+  const rows = () => run(null, "select doc from enquiries where doc->>'reference' = $1", [ref]).then((r) => r.rows)
+  const pushes = () => val(null, "select count(*)::int from enquiries where doc->>'reference' = $1", [ref])
+
+  eq("the first capture inserts the call's row", await save(voice()), null)
+  eq("the second capture of the same call updates it", await save(voice({
+    customer: { name: "Voice QA", phone: "9876500191", company: "QA Pvt Ltd" },
+    items: [{ product: "Lanyards", quantity: "500" }], productInterest: "Lanyards", message: "complete",
+    call: { id: callId, recording: `calls/2026/${callId}.webm`, confirmed: true, complete: true },
+  })), null)
+  eq("still one row for the call", await pushes(), 1)
+  const [row] = await rows()
+  eq("the row carries the newest capture", [row.doc.message, row.doc.call.confirmed, row.doc.customer.company], ["complete", true, "QA Pvt Ltd"])
+  eq("one customer for the caller", await val(null, "select count(*)::int from customers where public.national_digits(doc->>'phone') = '9876500191'"), 1)
+
+  await run(null, "update enquiries set doc = doc || '{\"owner\":\"sales\",\"notes\":\"staff note\"}' where doc->>'reference' = $1", [ref])
+  eq("a later capture keeps staff fields", await save(voice({ message: "after staff", notes: undefined })), null)
+  const [kept] = await rows()
+  eq("owner stays", kept.doc.owner, "sales")
+
+  const second = randomUUID()
+  eq("a resumed call records under its own path", await save(voice({ call: { id: callId, recording: `calls/2026/${second}.webm` } })), null)
+  const [resumed] = await rows()
+  eq("the earlier recording is kept", [resumed.doc.call.recording, resumed.doc.call.recordings], [`calls/2026/${second}.webm`, [`calls/2026/${callId}.webm`]])
+
+  like("another call cannot update the row", await save(voice({ call: { id: randomUUID() } })), /no longer be updated/)
+  await run(null, "update enquiries set doc = jsonb_set(doc, '{status}', '\"contacted\"') where doc->>'reference' = $1", [ref])
+  like("a lead staff picked up is not overwritten", await save(voice()), /no longer be updated/)
+
+  const oldRef = "ORT-QA00VVVVVV2"
+  await run(null, "insert into enquiries (doc, created_at) values ($1, now() - interval '3 hours')", [J(voice({ reference: oldRef }))])
+  like("a row older than two hours is not updated", await save(voice({ reference: oldRef })), /no longer be updated/)
+
+  like("a non-voice source is refused", await save(voice({ reference: "ORT-QA00VVVVVV3", source: "Website contact form" })), /Only voice leads/)
+  like("a new row must arrive unassigned", await save(voice({ reference: "ORT-QA00VVVVVV4", owner: "x" })), /unassigned/)
+  like("a missing call id is refused", await save(voice({ reference: "ORT-QA00VVVVVV5", call: {} })), /call id/)
+  like("an oversized message is refused", await save(voice({ reference: "ORT-QA00VVVVVV6", message: "x".repeat(8001) })), /too large/)
+  like("anon still cannot read enquiries", await err("anon", "select doc from enquiries where doc->>'reference' = $1", [ref]).then((e) => e ?? "no error"), /no error|permission/)
+})
+
+// ---- unique document numbers and import keys (0082) ---------------------------------------
+await scenario("Unique numbers (0082)", async () => {
+  const ins = (table, doc, company = "ortex") => err(null, `insert into ${table} (doc, company_id) values ($1, $2)`, [J(doc), company])
+  eq("an invoice number", await ins("invoices", { number: "INV-QA82-0001", status: "draft" }), null)
+  like("the same invoice number again is refused", await ins("invoices", { number: "INV-QA82-0001", status: "draft" }), /invoices_number_key/)
+  like("case and spaces do not get round it", await ins("invoices", { number: " inv-qa82-0001 ", status: "draft" }), /invoices_number_key/)
+  eq("another company may use the same invoice number", await ins("invoices", { number: "INV-QA82-0001", status: "draft" }, "aman"), null)
+  eq("blank invoice numbers are not limited", [await ins("invoices", { number: "", status: "draft" }), await ins("invoices", { number: "", status: "draft" })], [null, null])
+
+  eq("a quotation number", await ins("quotations", { number: "QTN-QA82-0001", status: "draft" }), null)
+  like("the same quotation number again is refused", await ins("quotations", { number: "QTN-QA82-0001", status: "draft" }), /quotations_number_key/)
+  eq("another company may use the same quotation number", await ins("quotations", { number: "QTN-QA82-0001", status: "draft" }, "aman"), null)
+
+  const tally = (guid) => ({ status: "synced", source: "tally", guid, alterId: 1 })
+  eq("a Tally invoice", await ins("invoices", { number: "INV-QA82-0002", status: "sent", tally: tally("qa82-g1") }), null)
+  like("the same Tally voucher again is refused", await ins("invoices", { number: "INV-QA82-0003", status: "sent", tally: tally("qa82-g1") }), /invoices_tally_guid_key/)
+  eq("another company may import the same GUID", await ins("invoices", { number: "INV-QA82-0002", status: "sent", tally: tally("qa82-g1") }, "aman"), null)
+  const payout = (n, guid) => ({ type: "payout", number: n, amount: 10, method: "UPI", party: "QA 0082", tally: tally(guid) })
+  eq("a Tally payout", await ins("payments", payout("P-QA82-1", "qa82-p1")), null)
+  like("the same Tally payout again is refused", await ins("payments", payout("P-QA82-2", "qa82-p1")), /payments_tally_guid_key/)
+  eq("a Tally customer", await ins("customers", { name: "QA 0082", tally: tally("qa82-c1") }), null)
+  like("the same Tally customer again is refused", await ins("customers", { name: "QA 0082 b", tally: tally("qa82-c1") }), /customers_tally_guid_key/)
+  const prod = (name) => err(null, "insert into products (doc) values ($1)", [J({ name, status: "draft", tally: tally("qa82-s1") })])
+  eq("a Tally stock item", await prod("QA 0082 item"), null)
+  like("products are shared, so the GUID is unique everywhere", await prod("QA 0082 item b"), /products_tally_guid_key/)
+
+  const im = (q) => ins("enquiries", { status: "new", source: "IndiaMART", indiamart: { queryId: q } })
+  eq("an IndiaMART lead", await im("QA82-Q1"), null)
+  like("the same IndiaMART query again is refused", await im("QA82-Q1"), /enquiries_indiamart_query_key/)
+  eq("blank enquiry references are not limited by 0079", [await ins("enquiries", { status: "new", reference: "" }), await ins("enquiries", { status: "new", reference: " " })], [null, null])
+})
+
+// ---- who and when on every human-edited table (0083) ---------------------------------------
+await scenario("Row metadata (0083)", async () => {
+  const meta = (id) => one(null, "select created_at, created_by, updated_at, updated_by from holidays where id = $1", [id])
+  const forged = "2020-01-01T00:00:00+00:00"
+  const hid = (await one(U.ADMIN,
+    "insert into holidays (day, name, kind, created_by, created_at) values ('2027-03-15', 'QA 0083', 'national', $1, $2) returning id",
+    [U.STAFF1, forged])).id
+  let m = await meta(hid)
+  eq("an insert is stamped with the signed-in user", [m.created_by, m.updated_by], [U.ADMIN, U.ADMIN])
+  check("a forged created_at is ignored", m.created_at && new Date(m.created_at).getUTCFullYear() > 2020, "server time", m.created_at)
+
+  await run(U.SUPER, "update holidays set name = 'QA 0083 renamed' where id = $1", [hid])
+  m = await meta(hid)
+  eq("an update records who changed it, creator kept", [m.created_by, m.updated_by], [U.ADMIN, U.SUPER])
+
+  const before = m.created_at
+  await run(U.SUPER, "update holidays set created_by = $2, created_at = $3, updated_by = $2 where id = $1", [hid, U.STAFF2, forged])
+  m = await meta(hid)
+  eq("a client cannot rewrite created_by / created_at / updated_by", [m.created_by, String(m.created_at), m.updated_by], [U.ADMIN, String(before), U.SUPER])
+
+  // profiles.created_at is the joining date: users cannot move it, the service role can.
+  const joined = await val(null, "select created_at from profiles where id = $1", [U.STAFF1])
+  await run(U.STAFF1, "update profiles set name = 'STAFF1', created_at = $2 where id = $1", [U.STAFF1, forged])
+  const p = await one(null, "select created_at, updated_by from profiles where id = $1", [U.STAFF1])
+  eq("a person's own profile edit is stamped, joining date unchanged", [String(p.created_at), p.updated_by], [String(joined), U.STAFF1])
+  await run("service", "update profiles set created_at = $2 where id = $1", [U.STAFF1, joined])
+  eq("the service role may still correct a joining date", String(await val(null, "select created_at from profiles where id = $1", [U.STAFF1])), String(joined))
+  like("the Owner guard still refuses an admin editing the Owner",
+    await err(U.ADMIN, "update profiles set name = 'x' where id = $1", [U.SUPER]), /Only the Owner/)
+
+  const covered = await val(null, "select count(distinct c.relname)::int from pg_trigger t join pg_class c on c.oid = t.tgrelid where t.tgname = 'zzz_row_meta'")
+  eq("every listed table carries the stamp trigger", covered, 22)
+  await run(null, "delete from holidays where id = $1", [hid])
+})
+
+// ---- each company's own number prefixes (0084) ---------------------------------------------
+await scenario("Company number prefixes (0084)", async () => {
+  const sql0084 = readFileSync(new URL("../migrations/0084_company_number_prefixes.sql", import.meta.url), "utf8")
+  const numbering = async (id) => (await val(null, "select doc -> 'numbering' from companies where id = $1", [id])) ?? null
+  const ortexBefore = await numbering("ortex")
+  // Aman chose its own invoice prefix; Nidhi has no block; Medinetix exists, as in production.
+  await run(null, "update companies set doc = jsonb_set(doc, '{numbering}', $1) where id = 'aman'", [J({ invoicePrefix: "AE", quotationPrefix: " " })])
+  await run(null, "update companies set doc = doc - 'numbering' where id = 'nidhi'")
+  await run(null, "insert into companies (id, name, doc, active, sort) values ('medinetix', 'Medinetix', '{}', true, 9) on conflict (id) do nothing")
+  await db.exec(sql0084)
+
+  eq("a chosen prefix is kept, blank ones are filled", await numbering("aman"), { invoicePrefix: "AE", paymentPrefix: "AMNP", quotationPrefix: "AMNQ" })
+  eq("a company with no block gets all three", await numbering("nidhi"), { invoicePrefix: "NDH", paymentPrefix: "NDHP", quotationPrefix: "NDHQ" })
+  eq("Medinetix gets its own", await numbering("medinetix"), { invoicePrefix: "MDX", paymentPrefix: "MDXP", quotationPrefix: "MDXQ" })
+  eq("Ortex is untouched", await numbering("ortex"), ortexBefore)
+
+  const stamp = await val(null, "select updated_at from companies where id = 'nidhi'")
+  await db.exec(sql0084)
+  eq("running it again changes nothing", String(await val(null, "select updated_at from companies where id = 'nidhi'")), String(stamp))
+
+  // A prefix another company already uses is left blank, not duplicated.
+  await run(null, "update companies set doc = jsonb_set(doc, '{numbering}', $1) where id = 'nidhi'", [J({})])
+  await run(null, "update companies set doc = jsonb_set(doc, '{numbering,paymentPrefix}', '\"NDHQ\"') where id = 'medinetix'")
+  await db.exec(sql0084)
+  eq("a prefix taken elsewhere is skipped", await numbering("nidhi"), { invoicePrefix: "NDH", paymentPrefix: "NDHP" })
+  check("an invoice number stays within 16 characters", "MDX-2627-99999".length <= 16 && "NDH-2627-99999".length <= 16 && "AMN-2627-99999".length <= 16, "<= 16", "AMN/MDX/NDH-2627-99999")
+
+  await run(null, "delete from companies where id = 'medinetix' and name = 'Medinetix'")
+})
+
 // ---- report -----------------------------------------------------------------------------
 console.log("")
 let fails = 0
