@@ -6,7 +6,7 @@ import { Check, ChevronDown } from "../../components/ui/Icons"
  * OS-rendered and can't be styled to the brand. Click / outside-click / Escape;
  * options highlight in primary on hover and show a check when selected.
  */
-export default function SelectField({ id, value, placeholder, options, onChange, invalid }) {
+export default function SelectField({ id, value, placeholder, options, onChange, invalid, describedBy }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -33,6 +33,8 @@ export default function SelectField({ id, value, placeholder, options, onChange,
         id={id}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         onClick={() => setOpen((o) => !o)}
         className={`w-full flex items-center justify-between gap-3 px-4 py-3 bg-[#F9FBFC] border rounded-[20px] [corner-shape:squircle] text-left outline-none transition-colors duration-200 ${
           invalid

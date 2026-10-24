@@ -6,16 +6,19 @@ import { ASSISTANT_NAME, MORPH_SPRING } from "./shared"
 // been closed. Anu's face sits in a ring that breathes, so it reads as a live
 // person rather than a plain button; a single soft ring pings once when it first appears. Shares
 // `layoutId="anu-morph"` with the call panel, so it expands into it and back.
+// It rises above a page's sticky bar while one is showing: an element marked
+// data-anu-avoid="on" (the product page's quote bar), which it covered on phones.
 export default function Launcher({ onOpen }) {
   return (
     <motion.button
       layoutId="anu-morph"
+      data-anu-primary
       onClick={onOpen}
       aria-label={`Call with expert: start a voice call with ${ASSISTANT_NAME}`}
       transition={MORPH_SPRING}
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.97 }}
-      className="group fixed right-4 md:right-[50px] bottom-[calc(1rem+env(safe-area-inset-bottom))] md:bottom-[50px] z-[80] inline-flex items-center gap-3 p-1.5 pr-6 bg-primary text-white"
+      className="group fixed right-4 md:right-[50px] bottom-[calc(1rem+env(safe-area-inset-bottom))] md:bottom-[50px] [:root:has([data-anu-avoid=on])_&]:bottom-[calc(6rem+env(safe-area-inset-bottom))] md:[:root:has([data-anu-avoid=on])_&]:bottom-[calc(50px+5.5rem)] transition-[bottom] duration-300 z-[80] inline-flex items-center gap-3 p-1.5 pr-6 bg-primary text-white"
       style={{ borderRadius: 9999 }}
     >
       <motion.span

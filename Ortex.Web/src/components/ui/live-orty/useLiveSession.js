@@ -6,9 +6,12 @@ import { VOICE_SYSTEM_INSTRUCTION, buildOpener } from "./prompt"
 import { LIVE_TOOLS } from "./tools"
 import { SPOKEN_FIELD, parseQuantity, validateLead, saveVoiceLead } from "./leads"
 import { MAX_MEMORY_LINES, loadMemory, saveMemory } from "./memory"
+import { newReference } from "../../../lib/leads"
 import { newCallId, recordingPath, startCallRecording, uploadCallRecording } from "./recording"
 import { catalogueBlock, classifyItem, findPastWork, loadCatalogue, lookupProduct, watchCatalogue } from "./catalogue"
 import { TERMS } from "../../../constants/business"
+import { ASSISTANT_NAME } from "./shared"
+import { takeTurnstileToken } from "./turnstile"
 
 /* ============================================================
    useLiveSession: the whole lifecycle of one voice call.
@@ -101,7 +104,38 @@ const IDLE_NUDGES = [
 // Anu asked to end the call but her goodbye never finished arriving: hang up
 // anyway after this long, so a lost turnComplete cannot hold the line open.
 const END_GRACE_MS = 10000
+// A call auto-opened before the visitor touched the page has its sound held by
+// the browser. Nothing from the mic is sent while it is (they have not heard
+// the "this call is recorded" opener), and after this long the call closes
+// quietly back to the launcher.
+const BLOCKED_CLOSE_SEC = 20
+// How long the browser's microphone prompt may sit unanswered before the call
+// gives up, and after how long the panel says what it is waiting for.
+const MIC_WAIT_MS = 45000
+const MIC_HINT_MS = 4000
+// Token, catalogue and the Live socket each get this long; past it the call
+// fails rather than showing "Connecting" for ever.
+const CONNECT_TIMEOUT_MS = 20000
+// One more try for a recording the bucket refused (its lead row was not in yet).
+const RECORDING_RETRY_MS = 2000
+const DEFAULT_ERROR_TITLE = "We couldn't connect your call"
 const SAY_IT_IN_THEIR_LANGUAGE = "Say it in the language the customer last spoke: English if they spoke English, Hindi or Hinglish if they spoke that."
+
+// Rejects after `ms`. A result that arrives later is handed to `onLate` to
+// clean up (a mic stream to stop, a socket to close), since nobody awaits it.
+function withTimeout(promise, ms, message, onLate) {
+  return new Promise((resolve, reject) => {
+    let late = false
+    const t = window.setTimeout(() => {
+      late = true
+      reject(Object.assign(new Error(message), { visitorMessage: message }))
+    }, ms)
+    promise.then(
+      (v) => { if (late) onLate?.(v); else { window.clearTimeout(t); resolve(v) } },
+      (e) => { if (!late) { window.clearTimeout(t); reject(e) } },
+    )
+  })
+}
 
 const spoken = (keys) => keys.map((k) => SPOKEN_FIELD[k]).join(", ")
 // The five details as one comparable value, to tell whether a re-save changed
@@ -157,7 +191,7 @@ function friendlyError(err) {
   if (name === "NotFoundError" || name === "OverconstrainedError") {
     return "We could not find a microphone. Please connect one and try again."
   }
-  return "We could not connect to Anu. Please check your internet connection and try again."
+  return `We could not connect to ${ASSISTANT_NAME}. Please check your internet connection and try again.`
 }
 
 export function useLiveSession() {
@@ -167,6 +201,9 @@ export function useLiveSession() {
   // True while the browser's autoplay policy holds Anu's audio suspended.
   const [audioBlocked, setAudioBlocked] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
+  const [errorTitle, setErrorTitle] = useState(DEFAULT_ERROR_TITLE)
+  // The browser's microphone prompt has been waiting a few seconds.
+  const [micWait, setMicWait] = useState(false)
   const [seconds, setSeconds] = useState(0)
   const [showLauncher, setShowLauncher] = useState(false)
   const [minimized, setMinimized] = useState(false)
@@ -181,6 +218,21 @@ export function useLiveSession() {
 
   const sessionRef = useRef(null)
   const busyRef = useRef(false)
+  // Bumped by stop(): a start() still awaiting the mic or the token belongs to
+  // an abandoned call and must not hold busyRef, or the next tap on the
+  // launcher did nothing and the panel sat on "listening" with no call.
+  const startGenRef = useRef(0)
+  // The first lead row this call saved: the recording upload waits for it.
+  const firstSaveRef = useRef(null)
+  // The conversation's one enquiry row: { reference, callId, phone }. Minted at
+  // the first save and kept in memory, so every later save, and a call resumed
+  // in this tab, updates that row instead of adding a duplicate lead.
+  const voiceRowRef = useRef(null)
+  // Saves run one after another, so an earlier, less complete capture can never
+  // land after a later one.
+  const saveChainRef = useRef(Promise.resolve())
+  // Seconds the live call has spent with its sound held by the browser.
+  const blockedSecsRef = useRef(0)
   const inCtxRef = useRef(null)
   const outCtxRef = useRef(null)
   const streamRef = useRef(null)
@@ -232,7 +284,7 @@ export function useLiveSession() {
     try {
       const lines = convoRef.current.slice(-MAX_MEMORY_LINES)
       if (!lines.length && !leadRef.current) return
-      saveMemory({ v: 1, savedAt: Date.now(), lead: leadRef.current, lines })
+      saveMemory({ v: 1, savedAt: Date.now(), lead: leadRef.current, lines, row: voiceRowRef.current })
     } catch { /* memory is best-effort */ }
   }, [])
 
@@ -295,6 +347,10 @@ export function useLiveSession() {
     replyingRef.current = false
     secondsRef.current = 0
     endWantedRef.current = false
+    blockedSecsRef.current = 0
+    busyRef.current = false
+    startGenRef.current += 1
+    setMicWait(false)
     setAudioBlocked(false)
     setSpeaking(false)
     setStatus("idle")
@@ -310,7 +366,17 @@ export function useLiveSession() {
     if (!rec) return
     const path = recPathRef.current
     const pending = rec.stop()
-    if (callLeadRef.current && path) pending.then((blob) => uploadCallRecording(path, blob))
+    if (!callLeadRef.current || !path) return
+    // The bucket accepts a recording only once a lead row naming it exists, so
+    // wait for the first save; a refusal (the row still in flight, or queued
+    // offline) gets one more try a moment later.
+    const saved = firstSaveRef.current || Promise.resolve()
+    Promise.all([pending, saved]).then(async ([blob]) => {
+      if (!blob) return
+      if (await uploadCallRecording(path, blob)) return
+      await new Promise((r) => window.setTimeout(r, RECORDING_RETRY_MS))
+      await uploadCallRecording(path, blob)
+    })
   }, [])
 
   // End the call and keep the panel open on its summary.
@@ -404,6 +470,34 @@ export function useLiveSession() {
     setSpeaking(false)
   }, [])
 
+  // Save this capture to the conversation's one row. A different WhatsApp
+  // number means a different caller (a second person in the same tab), who gets
+  // a row of their own rather than overwriting the first. When the row can no
+  // longer be updated (staff picked it up, or it is over two hours old) the
+  // save starts a fresh one.
+  const persistVoiceLead = useCallback((saved, call) => {
+    const digits = (v) => String(v || "").replace(/D/g, "").slice(-10)
+    const fresh = () => ({ reference: newReference(), callId: callIdRef.current, phone: digits(saved.phone) })
+    const current = voiceRowRef.current
+    if (!current || (current.phone && digits(saved.phone) && current.phone !== digits(saved.phone))) {
+      voiceRowRef.current = fresh()
+    } else if (!current.phone) {
+      voiceRowRef.current = { ...current, phone: digits(saved.phone) }
+    }
+    const next = saveChainRef.current.then(async () => {
+      let row = voiceRowRef.current
+      let res = await saveVoiceLead(saved, { ...call, id: row.callId }, row.reference)
+      if (res?.stale) {
+        row = voiceRowRef.current = fresh()
+        persistMemory()
+        res = await saveVoiceLead(saved, { ...call, id: row.callId }, row.reference)
+      }
+      return res
+    })
+    saveChainRef.current = next.catch(() => null)
+    return next
+  }, [persistMemory])
+
   // capture_lead: validate, save when the name and number hold up, and tell Anu
   // what is still missing and what to do next.
   const captureLead = useCallback((args) => {
@@ -492,9 +586,12 @@ export function useLiveSession() {
     const keptConfirm = prior.confirmed === true && unchanged
     const confirmed = check.complete && ((args.confirmed === true && readBack) || keptConfirm)
     const saved = { ...enriched, name: check.name, phone: check.phone, city: check.city, timeline: check.timeline, items: check.items }
-    saveVoiceLead(saved, { id: callIdRef.current, recording: recPathRef.current, confirmed, complete: check.complete })
-    // Remember the details so a reopened call already knows them.
-    leadRef.current = { ...(leadRef.current || {}), ...saved }
+    const row = persistVoiceLead(saved, { recording: recPathRef.current, confirmed, complete: check.complete })
+    if (!firstSaveRef.current) firstSaveRef.current = row
+    // Remember the details so a reopened call already knows them, with whether
+    // they were complete and confirmed: a resumed call that re-saves the same
+    // five details keeps that confirmation instead of reading it all back again.
+    leadRef.current = { ...(leadRef.current || {}), ...saved, complete: check.complete, confirmed }
     persistMemory()
     const details = {
       name: check.name, phone: check.phone, city: check.city, timeline: check.timeline, items: check.items,
@@ -511,7 +608,7 @@ export function useLiveSession() {
       problems: check.problems,
       next: nextStep(check, confirmed),
     }
-  }, [persistMemory])
+  }, [persistMemory, persistVoiceLead])
 
   const handleMessage = useCallback((message) => {
     // ponytail: no session resumption. A goAway (the connection's time limit,
@@ -630,16 +727,27 @@ export function useLiveSession() {
   }, [])
 
 
+  // Back to the launcher with no summary: a call the visitor never heard.
+  const quietClose = useCallback(() => {
+    closeRecording()
+    stop()
+    setOpen(false); setMinimized(false); setEnded(null); setErrorMsg("")
+    setShowLauncher(true)
+  }, [stop, closeRecording])
+
   const start = useCallback(async () => {
     if (busyRef.current || sessionRef.current) return
-    setEnded(null); setCaption(null); setLead(null); setErrorMsg("")
+    setEnded(null); setCaption(null); setLead(null); setErrorMsg(""); setErrorTitle(DEFAULT_ERROR_TITLE)
     callLeadRef.current = null
+    firstSaveRef.current = null
+    blockedSecsRef.current = 0
     turnDoneRef.current = true
     endRefusalsRef.current = 0
     goAwayRef.current = false
     idleNudgesRef.current = 0
     callIdRef.current = newCallId()
     recPathRef.current = null
+    saveChainRef.current = Promise.resolve()
     // Storage is the record of earlier calls in this tab. After a page reload
     // the refs start empty, and the first turn of the resumed call used to
     // save over the memory with nothing but its own lines and no lead.
@@ -647,6 +755,7 @@ export function useLiveSession() {
     convoRef.current = memory?.lines ? [...memory.lines] : []
     leadRef.current = memory?.lead || null
     priorLeadRef.current = memory?.lead || null
+    voiceRowRef.current = memory?.row?.reference ? memory.row : null
     if (!hasSupabase) {
       setErrorMsg(import.meta.env.DEV
         ? "Voice assistant not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Ortex.Web/.env and restart the dev server."
@@ -655,7 +764,9 @@ export function useLiveSession() {
       return
     }
     busyRef.current = true
+    const gen = startGenRef.current
     setStatus("connecting")
+    let micHint = 0
     try {
       // Autoplay policy: the audio contexts are created BEFORE the first await,
       // so when a click started the call, that click is still the gesture
@@ -708,10 +819,20 @@ export function useLiveSession() {
       // speakers on most laptops and phones, and without echo cancellation her
       // own voice reaches the mic, the model hears it as the customer talking
       // and cuts her off mid-sentence. Mono, since the model takes one channel.
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
-      })
+      // A prompt the visitor ignores never settles: say what we are waiting
+      // for, and give up after MIC_WAIT_MS rather than connecting for ever.
+      micHint = window.setTimeout(() => { if (outCtxRef.current === out) setMicWait(true) }, MIC_HINT_MS)
+      const stream = await withTimeout(
+        navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
+        }),
+        MIC_WAIT_MS,
+        "We did not get access to your microphone. Please allow it when your browser asks, then try again.",
+        (late) => late.getTracks().forEach((t) => t.stop()),
+      )
+      window.clearTimeout(micHint)
       if (outCtxRef.current !== out) { stream.getTracks().forEach((t) => t.stop()); return }
+      setMicWait(false)
       streamRef.current = stream
       // Chrome and Safari resample the mic into the 16 kHz context. Firefox
       // will not connect a mic to a context at another rate than the device's,
@@ -730,10 +851,14 @@ export function useLiveSession() {
       // The catalogue is read per call, so a product added or edited in the
       // console is described on the next call without a deploy. It rides
       // alongside the token fetch rather than delaying the connection.
-      const [{ data, error }, catalogue] = await Promise.all([
-        supabase.functions.invoke("orty-live-token", { body: { model: LIVE_MODEL } }),
+      const connectMsg = `We could not connect to ${ASSISTANT_NAME}. Please check your internet connection and try again.`
+      const [{ data, error }, catalogue] = await withTimeout(Promise.all([
+        // The Turnstile token (bot check, off without a site key) waits at
+        // most 3 s; without one the function applies a stricter limit.
+        takeTurnstileToken().then((turnstile) =>
+          supabase.functions.invoke("orty-live-token", { body: turnstile ? { model: LIVE_MODEL, turnstile } : { model: LIVE_MODEL } })),
         loadCatalogue(),
-      ])
+      ]), CONNECT_TIMEOUT_MS, connectMsg)
       // Closed while connecting: stop() already tore everything down. Checked
       // before the catalogue watch starts, which nothing would then stop.
       if (outCtxRef.current !== out) return
@@ -762,7 +887,7 @@ export function useLiveSession() {
 
       const ai = new GoogleGenAI({ apiKey: data.token, httpOptions: { apiVersion: "v1alpha" } })
       let live = null
-      const session = await ai.live.connect({
+      const session = await withTimeout(ai.live.connect({
         model: LIVE_MODEL,
         config: {
           responseModalities: [Modality.AUDIO],
@@ -800,7 +925,15 @@ export function useLiveSession() {
               // customer cannot hear her, so their silence means nothing), and
               // not once she is already saying goodbye.
               const s = sessionRef.current
-              if (!s || endWantedRef.current || sourcesRef.current.length || replyingRef.current || out.state === "suspended") return
+              // Sound held by the browser: nothing is sent from the mic (see
+              // sendMic), and a call nobody unlocks closes itself quietly.
+              if (out.state === "suspended") {
+                blockedSecsRef.current += 1
+                lastActivityRef.current = performance.now()
+                if (blockedSecsRef.current >= BLOCKED_CLOSE_SEC && !callLeadRef.current) quietClose()
+                return
+              }
+              if (!s || endWantedRef.current || sourcesRef.current.length || replyingRef.current) return
               if (performance.now() - lastActivityRef.current < IDLE_NUDGE_MS) return
               lastActivityRef.current = performance.now()
               const nudge = IDLE_NUDGES[idleNudgesRef.current]
@@ -815,10 +948,13 @@ export function useLiveSession() {
             // The server announced it was closing the connection (goAway, at
             // its connection time limit): that is the call ending, not the
             // visitor's internet failing, so it gets the normal summary.
-            if (goAwayRef.current) { finish(); return }
+            // A call that already saved a lead ends on its summary, so the
+            // caller still sees what was captured.
+            if (goAwayRef.current || callLeadRef.current) { finish(); return }
             closeRecording()
             stop()
-            setErrorMsg("Your call was disconnected. Please check your internet connection and try again.")
+            setErrorTitle("Your call was disconnected")
+            setErrorMsg("Please check your internet connection and try again.")
             setStatus("error")
           },
           // Our own hang-up nulls sessionRef first; anything else is the
@@ -833,14 +969,14 @@ export function useLiveSession() {
             if (!goAwayRef.current && e?.code && e.code !== 1000 && secondsRef.current < 3 && !callLeadRef.current) {
               closeRecording()
               stop()
-              setErrorMsg("We could not connect to Anu. Please try again in a moment, or chat with us on WhatsApp.")
+              setErrorMsg(`We could not connect to ${ASSISTANT_NAME}. Please try again in a moment, or chat with us on WhatsApp.`)
               setStatus("error")
               return
             }
             finish()
           },
         },
-      })
+      }), CONNECT_TIMEOUT_MS, connectMsg, (late) => { try { late.close() } catch { /* noop */ } })
       // Closed while the socket was opening: hang it up before any (billed)
       // opener is sent.
       if (outCtxRef.current !== out) { try { session.close() } catch { /* noop */ } return }
@@ -864,6 +1000,9 @@ export function useLiveSession() {
       const inCtx = inCtxRef.current
       const sendMic = (float32) => {
         if (!sessionRef.current) return
+        // The caller cannot hear her yet, so they have not heard that the call
+        // is recorded: nothing of theirs leaves the page until sound is on.
+        if (outCtxRef.current?.state === "suspended") return
         try {
           sessionRef.current.sendRealtimeInput({
             audio: { data: int16ToBase64(floatTo16BitPCM(downsample(float32, inCtx.sampleRate))), mimeType: `audio/pcm;rate=${INPUT_RATE}` },
@@ -910,15 +1049,20 @@ export function useLiveSession() {
       sink.connect(inCtx.destination)
       procRef.current = proc
     } catch (err) {
+      // An abandoned start() (closed while it waited) must not tear down or
+      // put an error on the call that replaced it.
+      if (gen !== startGenRef.current) return
       console.error("Live Orty failed:", err)
       // stop() resets status to idle, so it must run BEFORE the error is set.
       stop()
       setErrorMsg(friendlyError(err))
       setStatus("error")
     } finally {
-      busyRef.current = false
+      window.clearTimeout(micHint)
+      // A start() that stop() abandoned leaves busyRef to the next call.
+      if (gen === startGenRef.current) busyRef.current = false
     }
-  }, [handleMessage, stop, finish, unlockAudio, closeRecording])
+  }, [handleMessage, stop, finish, unlockAudio, closeRecording, quietClose])
 
   const openCall = useCallback(() => { setOpen(true); setMinimized(false); start() }, [start])
   const endCall = useCallback(() => finish(), [finish])
@@ -959,7 +1103,7 @@ export function useLiveSession() {
   }, [])
 
   return {
-    open, status, speaking, audioBlocked, errorMsg, seconds, showLauncher, minimized, caption, lead, ended,
+    open, status, speaking, audioBlocked, errorMsg, errorTitle, micWait, seconds, showLauncher, minimized, caption, lead, ended,
     readLevel, start, openCall, endCall, dismiss, unlockAudio,
     minimize: () => setMinimized(true),
     expand: () => setMinimized(false),

@@ -1,11 +1,16 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Link, useLocation } from "react-router-dom"
-import { Menu, X, Phone } from "../ui/Icons"
+import { Menu, X, Phone, Cart } from "../ui/Icons"
 import { whatsappLink, CONTACT } from "../../constants/site"
+import { useQuoteCount } from "../../lib/quoteCart"
 import WhatsAppIcon from "../ui/WhatsAppIcon"
+import { getLenis } from "../../hooks/useSmoothScroll"
 
 export default function Navbar() {
   const location = useLocation()
+  // Products in the visitor's unfinished quote (0 until the cart is restored
+  // after hydration, so server and client render the same markup).
+  const quoteCount = useQuoteCount()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [hidden, setHidden] = useState(false)
@@ -41,15 +46,42 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  // Lock background scroll when mobile menu is open
+  const menuRef = useRef(null)
+  const menuCloseRef = useRef(null)
+  const menuToggleRef = useRef(null)
+
+  // While the mobile menu is open it behaves as a dialog: the page behind
+  // stops scrolling (Lenis ignores body overflow, so it is stopped too), focus
+  // moves to its close button and stays inside it, Escape closes it, and
+  // focus goes back to the menu button afterwards.
   useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = "hidden"
-    } else {
-      document.body.style.overflow = ""
+    if (!mobileMenuOpen) return
+    const menu = menuRef.current
+    const toggle = menuToggleRef.current
+    document.body.style.overflow = "hidden"
+    getLenis()?.stop()
+    menuCloseRef.current?.focus({ preventScroll: true })
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        setMobileMenuOpen(false)
+        return
+      }
+      if (e.key !== "Tab" || !menu) return
+      const nodes = [...menu.querySelectorAll("a[href], button:not([disabled])")]
+      if (!nodes.length) return
+      const first = nodes[0]
+      const last = nodes[nodes.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+      else if (!menu.contains(document.activeElement)) { e.preventDefault(); first.focus() }
     }
+    window.addEventListener("keydown", onKey)
     return () => {
+      window.removeEventListener("keydown", onKey)
       document.body.style.overflow = ""
+      getLenis()?.start()
+      // Back to the toggle, unless a link already took the visitor elsewhere.
+      if (menu?.contains(document.activeElement)) toggle?.focus({ preventScroll: true })
     }
   }, [mobileMenuOpen])
 
@@ -93,6 +125,7 @@ export default function Navbar() {
     <>
       <header
         id="siteHeader"
+        inert={mobileMenuOpen || undefined}
         className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 will-change-transform ${
           hidden && !mobileMenuOpen ? "-translate-y-full" : "translate-y-0"
         } ${
@@ -151,19 +184,32 @@ export default function Navbar() {
                 WhatsApp
               </a>
 
-              <Link to="/quote">
-                <button className="px-6 py-2.5 font-medium text-[15px] text-white bg-[#2f50e4] hover:bg-[#193ee4] rounded-full transition-all duration-200 active:scale-[0.98] cursor-pointer flex items-center gap-1.5 group whitespace-nowrap">
-                  Get quote
+              <Link to="/quote"
+                aria-label={quoteCount > 0 ? `Get quote, ${quoteCount} product${quoteCount > 1 ? "s" : ""} added` : undefined}
+                className="px-6 py-2.5 font-medium text-[15px] text-white bg-[#2f50e4] hover:bg-[#193ee4] rounded-full transition-all duration-200 active:scale-[0.98] cursor-pointer flex items-center gap-1.5 group whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                Get quote
+                {quoteCount > 0 ? (
+                  <span className="ml-0.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-white text-[#2f50e4] text-[12px] font-semibold grid place-items-center" aria-hidden="true">{quoteCount}</span>
+                ) : (
                   <svg className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M14.4301 5.92993L20.5001 11.9999L14.4301 18.0699"/>
                     <path d="M3.5 12H20.33"/>
                   </svg>
-                </button>
+                )}
               </Link>
             </div>
 
             {/* Mobile Actions & Menu Toggle */}
             <div className="flex items-center gap-2 lg:hidden">
+              {/* Unfinished quote: only shown once something is in it. */}
+              {quoteCount > 0 && (
+                <Link to="/quote"
+                  aria-label={`Your quote, ${quoteCount} product${quoteCount > 1 ? "s" : ""}`}
+                  className={`relative p-2 rounded-full transition-all duration-200 hover:scale-110 flex items-center justify-center ${inkClass} ${overHero ? "hover:bg-white/10" : "hover:bg-muted"}`}>
+                  <Cart className="w-5 h-5" />
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#2f50e4] text-white text-[11px] font-semibold grid place-items-center" aria-hidden="true">{quoteCount}</span>
+                </Link>
+              )}
               {/* Most mobile buyers would rather ring than type: one tap to the sales desk. */}
               <a
                 href={`tel:${CONTACT.phonePrimary.replace(/[^+\d]/g, "")}`}
@@ -184,6 +230,7 @@ export default function Navbar() {
               </a>
 
               <button
+                ref={menuToggleRef}
                 onClick={() => setMobileMenuOpen(true)}
                 className={`p-2 rounded-md ${inkClass} ${overHero ? "hover:bg-white/10" : "hover:bg-muted"} transition-all duration-200 cursor-pointer`}
                 aria-label="Open navigation menu"
@@ -202,14 +249,22 @@ export default function Navbar() {
           The home hero underlaps the transparent header, so it gets no spacer. */}
       {!isHome && <div className="h-[70px]" aria-hidden="true" />}
 
-      {/* Full-screen mobile nav overlay (Lumex pattern) */}
+      {/* Full-screen mobile nav overlay (Lumex pattern). Visibility flips at once
+          on open (a still-hidden menu refuses focus) and only after the 300 ms
+          fade on close. */}
       <div
         id="mobileNav"
+        ref={menuRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation menu"
         aria-hidden={!mobileMenuOpen}
-        className={`fixed inset-0 z-[60] lg:hidden flex flex-col bg-background px-5 pt-3.5 pb-8 transition-all duration-300 ${
+        inert={!mobileMenuOpen || undefined}
+        data-lenis-prevent
+        className={`fixed inset-0 z-[60] lg:hidden flex flex-col bg-background px-5 pt-3.5 pb-8 ${
           mobileMenuOpen
-            ? "opacity-100 visible translate-y-0"
-            : "opacity-0 invisible -translate-y-2 pointer-events-none"
+            ? "opacity-100 visible translate-y-0 [transition:opacity_300ms,transform_300ms,visibility_0s]"
+            : "opacity-0 invisible -translate-y-2 pointer-events-none [transition:opacity_300ms,transform_300ms,visibility_0s_300ms]"
         }`}
       >
         {/* Overlay head: logo + close */}
@@ -218,6 +273,7 @@ export default function Navbar() {
             <img src="/img/logo.svg" alt="Ortex Industries" className="h-[38px] w-auto object-contain object-left" />
           </Link>
           <button
+            ref={menuCloseRef}
             onClick={() => setMobileMenuOpen(false)}
             className="flex-none w-9 h-9 rounded-full border border-border bg-background text-foreground flex items-center justify-center hover:bg-muted transition-colors duration-150"
             aria-label="Close navigation menu"
@@ -245,14 +301,13 @@ export default function Navbar() {
         </nav>
 
         {/* CTA */}
-        <Link to="/quote" onClick={() => setMobileMenuOpen(false)} className="mt-6">
-          <button className="w-full bg-[#2f50e4] hover:bg-[#193ee4] text-white py-3.5 font-medium rounded-full transition-all duration-200 flex items-center justify-center gap-2 group">
-            Get quote
-            <svg className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M14.4301 5.92993L20.5001 11.9999L14.4301 18.0699"/>
-              <path d="M3.5 12H20.33"/>
-            </svg>
-          </button>
+        <Link to="/quote" onClick={() => setMobileMenuOpen(false)}
+          className="mt-6 w-full bg-[#2f50e4] hover:bg-[#193ee4] text-white py-3.5 font-medium rounded-full transition-all duration-200 flex items-center justify-center gap-2 group">
+          {quoteCount > 0 ? `Your quote (${quoteCount})` : "Get quote"}
+          <svg className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M14.4301 5.92993L20.5001 11.9999L14.4301 18.0699"/>
+            <path d="M3.5 12H20.33"/>
+          </svg>
         </Link>
       </div>
     </>

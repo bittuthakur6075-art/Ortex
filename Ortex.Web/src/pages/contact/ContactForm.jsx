@@ -4,7 +4,7 @@ import { ArrowRight } from "../../components/ui/Icons"
 import { Clock, ShieldTick, TickCircle } from "iconsax-react"
 import { fadeUp, RevealWords } from "../../components/ui/Section"
 import SelectField from "./SelectField"
-import { productCategories } from "./helpers"
+import { productCategories, LIMITS } from "./helpers"
 
 const fieldClass =
   "mt-1 w-full px-4 py-3 bg-[#F9FBFC] border border-[#EBEDF3] rounded-[20px] [corner-shape:squircle] text-foreground placeholder:text-[#4B5675] focus:border-primary/70 focus:bg-white outline-none transition-colors duration-200"
@@ -36,6 +36,7 @@ export default function ContactForm({ formData, errors, isSubmitting, handleChan
               name="name"
               autoComplete="name"
               required
+              maxLength={LIMITS.name}
               value={formData.name}
               onChange={(e) => handleChange("name", e.target.value)}
               placeholder="Enter your full name"
@@ -54,6 +55,7 @@ export default function ContactForm({ formData, errors, isSubmitting, handleChan
               name="email"
               autoComplete="email"
               inputMode="email"
+              maxLength={LIMITS.email}
               value={formData.email}
               onChange={(e) => handleChange("email", e.target.value)}
               placeholder="Enter your email address"
@@ -75,6 +77,7 @@ export default function ContactForm({ formData, errors, isSubmitting, handleChan
               autoComplete="tel"
               inputMode="tel"
               required
+              maxLength={LIMITS.phone}
               value={formData.phone}
               onChange={(e) => handleChange("phone", e.target.value.replace(/[^\d+\-\s()]/g, ""))}
               placeholder="Enter your contact number"
@@ -92,6 +95,7 @@ export default function ContactForm({ formData, errors, isSubmitting, handleChan
               type="text"
               name="organization"
               autoComplete="organization"
+              maxLength={LIMITS.company}
               value={formData.company}
               onChange={(e) => handleChange("company", e.target.value)}
               placeholder="Enter your company name"
@@ -109,8 +113,9 @@ export default function ContactForm({ formData, errors, isSubmitting, handleChan
             options={productCategories}
             onChange={(val) => handleChange("productInterest", val)}
             invalid={Boolean(errors.productInterest)}
+            describedBy={errors.productInterest ? "productInterest-error" : undefined}
           />
-          {errors.productInterest && <p className="text-sm text-destructive mt-1.5">{errors.productInterest}</p>}
+          {errors.productInterest && <p id="productInterest-error" className="text-sm text-destructive mt-1.5">{errors.productInterest}</p>}
         </div>
 
         <div>
@@ -118,6 +123,7 @@ export default function ContactForm({ formData, errors, isSubmitting, handleChan
           <textarea
             id="message"
             name="message"
+            maxLength={LIMITS.message}
             value={formData.message}
             onChange={(e) => handleChange("message", e.target.value)}
             placeholder="Tell us quantities, sizes, materials, and deadlines, and share any artwork you have. The more detail, the faster we quote."

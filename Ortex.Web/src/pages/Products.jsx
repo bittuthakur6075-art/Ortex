@@ -10,6 +10,7 @@ import useDocumentMetadata from "../hooks/useDocumentMetadata"
 import { photosForCategory } from "../constants/categories"
 import { useCatalog } from "../lib/catalog"
 import { productSlugs } from "../lib/catalogCore"
+import { trackSearch } from "../lib/tracker"
 import { getLenis } from "../hooks/useSmoothScroll"
 import { fadeUp, RevealWords } from "../components/ui/Section"
 import PageCTA from "../components/ui/PageCTA"
@@ -277,6 +278,11 @@ export default function Products() {
     if (safePage > 1) next.set("page", String(safePage))
     if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true })
   }, [ready, category, query, safePage, searchParams, setSearchParams])
+
+  // A search is logged once the visitor stops typing (tracker.js), not per key.
+  useEffect(() => {
+    if (ready && query.trim()) trackSearch(query)
+  }, [ready, query])
 
   const goToPage = (next) => {
     setPage(next)

@@ -1,0 +1,14 @@
+# Vite's build output: every file name carries a content hash, so a file here
+# never changes and can be cached for a year.
+<IfModule mod_headers.c>
+  Header set Cache-Control "public, max-age=31536000, immutable"
+</IfModule>
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault "access plus 1 year"
+</IfModule>
+
+# A chunk that is not here (deleted with an older build) answers a plain 404,
+# not the 404.html page: a script import then fails at once and cleanly, and
+# the app reloads itself onto the current build (src/lib/lazyWithRetry.js).
+ErrorDocument 404 "Not found"

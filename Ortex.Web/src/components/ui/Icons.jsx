@@ -19,6 +19,7 @@ import {
   Call,
   Minus as MinusIcon,
   SearchNormal1,
+  ShoppingCart,
   TickCircle,
   Warning2,
 } from "iconsax-react"
@@ -44,4 +45,5 @@ export const Menu = wrap(HambergerMenu)
 export const Minus = wrap(MinusIcon)
 export const Plus = wrap(Add)
 export const Search = wrap(SearchNormal1)
+export const Cart = wrap(ShoppingCart)
 export const X = wrap(CloseCircle)

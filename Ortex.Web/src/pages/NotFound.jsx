@@ -6,7 +6,7 @@ export default function NotFound() {
   useDocumentMetadata(
     "Page not found (404) - Ortex Industries",
     "The page you're looking for doesn't exist or has moved. Explore our products, portfolio, or get in touch with Ortex Industries.",
-    { robots: "noindex, nofollow" }
+    { robots: "noindex, follow" }
   )
 
   const links = [

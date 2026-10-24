@@ -10,7 +10,7 @@ export default function Privacy() {
   const sections = [
     {
       title: "1. Information We Collect",
-      content: "We collect information you provide directly to us when requesting custom quotes, placing orders, or contacting our support team. This includes personal identification information (such as your name, email address, corporate domain, phone number, and shipping address), business details (such as company name, tax registration/GST numbers), and custom manufacturing assets (such as logos, vector designs, and product specifications). If you speak with Alisha, the AI voice assistant on our website, your voice and the conversation are processed in real time by Google's Gemini service to produce her spoken replies, the call is recorded as an audio file, and the details you give (such as your name, WhatsApp number, the products and quantities you ask about, your timeline and delivery city) are saved as an enquiry. Call recordings are kept in private storage that only our sales staff can open, and are used to follow up your enquiry accurately and to check the assistant's quality."
+      content: "We collect information you provide directly to us when requesting custom quotes, placing orders, or contacting our support team. This includes personal identification information (such as your name, email address, corporate domain, phone number, and shipping address), business details (such as company name, tax registration/GST numbers), and custom manufacturing assets (such as logos, vector designs, and product specifications). If you speak with Alisha, the AI voice assistant on our website, your voice and the conversation are processed in real time by Google's Gemini service to produce her spoken replies, the call is recorded as an audio file, and the details you give (such as your name, WhatsApp number, the products and quantities you ask about, your timeline and delivery city) are saved as an enquiry. Call recordings are kept in private storage that only our sales staff can open, and are used to follow up your enquiry accurately and to check the assistant's quality. When you start a call with Alisha, Cloudflare Turnstile checks your browser to keep out automated abuse, and processes technical signals such as your IP address and browser characteristics under Cloudflare's privacy policy."
     },
     {
       title: "2. How We Use Your Information",
@@ -18,11 +18,11 @@ export default function Privacy() {
     },
     {
       title: "3. Data Sharing and Third-Party Disclosures",
-      content: "Ortex Industries does not sell, lease, or trade your personal data. We share information only with the providers necessary to run this website and complete your order. Named processors: Supabase (cloud database and file storage for enquiries, uploaded artwork and voice-assistant call recordings), Google (the Gemini service that processes voice-assistant conversations in real time) and, where you have consented to analytics, ipapi.co with api.ipify.org as fallback (IP-address geolocation lookup). We additionally share order data with logistics partners for PAN India and global shipping. We do not use Google Analytics, advertising pixels, or retargeting networks of any kind."
+      content: "Ortex Industries does not sell, lease, or trade your personal data. We share information only with the providers necessary to run this website and complete your order. Named processors: Supabase (cloud database and file storage for enquiries, uploaded artwork and voice-assistant call recordings), Google (the Gemini service that processes voice-assistant conversations in real time), Cloudflare (the Turnstile check that runs when you start a voice-assistant call) and, where you have consented to analytics, ipapi.co with ipwho.is as fallback (IP-address geolocation lookup). We additionally share order data with logistics partners for PAN India and global shipping. We do not use Google Analytics, advertising pixels, or retargeting networks of any kind."
     },
     {
       title: "4. Analytics, IP Address, and Consent",
-      content: "We collect page-visit records containing your device type, browser, operating system, and referring site. If, and only if, you accept analytics on our consent banner, these records additionally include your public IP address and the approximate city, region, and country derived from it by ipapi.co. Declining means no request is sent to ipapi.co and no IP address or location is stored. You can withdraw consent at any time by clearing this site's browser storage. See our Cookie Policy for the precise list of what is stored in your browser."
+      content: "For every visitor we keep an anonymous count of the pages opened: the page, the time, the kind of device (mobile, tablet or desktop) and the name of the referring site. It carries no identifier, no IP address, no location, no browser details and no search words, so it cannot be linked to you. If, and only if, you accept analytics on our consent banner, we also keep page-visit records and your catalogue searches with your device type, browser, operating system and referring site, under a random visitor identifier, together with your public IP address and what an IP lookup by ipapi.co (or ipwho.is when that is unavailable) derives from it: approximate city, region, country, postal code, internet provider and approximate coordinates. Until you accept, or once you decline, only the anonymous count is kept: no request is sent to either provider and no IP address or location is stored. You can change your choice at any time on our Cookie Policy page. See our Cookie Policy for the precise list of what is stored in your browser."
     },
     {
       title: "5. Intellectual Property and Asset Retention",
@@ -43,7 +43,7 @@ export default function Privacy() {
       <div className="hero-in space-y-8">
         <div>
           <h1 className="text-4xl font-bold tracking-tight text-foreground">Privacy Policy</h1>
-          <p className="mt-2 text-muted-foreground">Last updated: September 14, 2026</p>
+          <p className="mt-2 text-muted-foreground">Last updated: 24 October 2026</p>
         </div>
 
         <p className="text-foreground leading-relaxed text-base">

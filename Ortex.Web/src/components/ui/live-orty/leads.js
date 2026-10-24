@@ -77,27 +77,75 @@ export function isFakePhone(digits) {
 // Spoken small numbers, English and Hindi, so "do hazaar" or "five hundred"
 // that slips through as words is read rather than sent back as "not a number"
 // (which made Anu ask again for a quantity the customer had already given).
+//
+// The whole spoken number is added up, part by part, the way it is said:
+// "1 lakh 50 thousand" is 150000, "teen hazaar paanch sau" 3500, "twenty five
+// hundred" 2500. Reading only the first number and unit saved 100000, 3000 and
+// 500 for those, which passed validation and seeded a wrong quotation. Only the
+// FIRST number in the answer counts ("500 to 1000" is 500). A lone number word
+// with no unit ("I do need 500") is not taken as a number, so "do" and "five"
+// count only with a unit or another number word next to them.
 const NUMBER_WORDS = {
   one: 1, ek: 1, two: 2, do: 2, three: 3, teen: 3, four: 4, char: 4, chaar: 4, five: 5, paanch: 5, panch: 5,
   six: 6, chhe: 6, chhah: 6, seven: 7, saat: 7, eight: 8, aath: 8, nine: 9, nau: 9, ten: 10, das: 10,
-  twenty: 20, bees: 20, fifty: 50, pachaas: 50, pachas: 50, dedh: 1.5, dhai: 2.5, adhai: 2.5,
+  eleven: 11, gyarah: 11, twelve: 12, barah: 12, thirteen: 13, terah: 13, fourteen: 14, chaudah: 14,
+  fifteen: 15, pandrah: 15, sixteen: 16, solah: 16, seventeen: 17, satrah: 17, eighteen: 18, atharah: 18,
+  nineteen: 19, unnis: 19, pachees: 25, pachchis: 25,
+  dedh: 1.5, dhai: 2.5, adhai: 2.5,
 }
-const WORD_UNITS = { hundred: 100, sau: 100, so: 100 }
-const spokenToDigits = (t) => t
-  .replace(/\b([a-z]+)\s+(hundred|sau|so)\b/g, (m, w, u) => (NUMBER_WORDS[w] ? String(NUMBER_WORDS[w] * WORD_UNITS[u]) : m))
-  .replace(/\b([a-z]+)(?=\s*(?:k|thousand|hazaar|hazar|hajar|lakh|lac|lakhs|crore|crores|karod|karor)\b)/g, (m, w) => (NUMBER_WORDS[w] ? String(NUMBER_WORDS[w]) : m))
+// Tens may take a single digit after them ("twenty five"). "saath" (60) is left
+// out on purpose: it also means "with" ("logo ke saath 300 keychains").
+const TENS = {
+  twenty: 20, bees: 20, thirty: 30, tees: 30, forty: 40, chalis: 40, chaalis: 40, fifty: 50, pachaas: 50, pachas: 50,
+  sixty: 60, seventy: 70, sattar: 70, eighty: 80, assi: 80, ninety: 90, nabbe: 90,
+}
+const UNITS = {
+  hundred: 100, sau: 100, so: 100,
+  k: 1000, thousand: 1000, hazaar: 1000, hazar: 1000, hajar: 1000,
+  lakh: 100000, lac: 100000, lakhs: 100000,
+  crore: 10000000, crores: 10000000, karod: 10000000, karor: 10000000,
+}
+// Joining words inside one number: "1 lakh and 50 thousand", "ek lakh aur pachaas hazaar".
+const JOINERS = new Set(["and", "aur"])
 
 export function parseQuantity(raw) {
-  const t = spokenToDigits(String(raw ?? "").toLowerCase().replace(/,/g, "").trim())
-  if (!t) return null
-  const crore = t.match(/(\d+(?:\.\d+)?)\s*(crore|crores|karod|karor)\b/)
-  if (crore) return Math.round(Number(crore[1]) * 10000000)
-  const lakh = t.match(/(\d+(?:\.\d+)?)\s*(lakh|lac|lakhs)\b/)
-  if (lakh) return Math.round(Number(lakh[1]) * 100000)
-  const thousand = t.match(/(\d+(?:\.\d+)?)\s*(k|thousand|hazaar|hazar|hajar)\b/)
-  if (thousand) return Math.round(Number(thousand[1]) * 1000)
-  const plain = t.match(/\d+(?:\.\d+)?/)
-  return plain ? Math.round(Number(plain[0])) : null
+  const tokens = String(raw ?? "").toLowerCase().replace(/,/g, "").match(/\d+(?:\.\d+)?|[a-z]+/g) || []
+  let total = 0, current = 0, started = false, digits = false, unit = false, words = 0, prev = ""
+  const reset = () => { total = 0; current = 0; started = false; digits = false; unit = false; words = 0; prev = "" }
+  // A group that is one bare number word ("do", "five") is not a quantity.
+  const weak = () => !digits && !unit && words < 2
+  for (const tok of tokens) {
+    const isDigit = /^\d/.test(tok)
+    const n = isDigit ? Number(tok) : (NUMBER_WORDS[tok] ?? TENS[tok])
+    if (n !== undefined) {
+      const follows = prev === "unit" || (prev === "tens" && n > 0 && n < 10)
+      if (started && !follows) {
+        if (!weak()) break
+        reset()
+      }
+      started = true
+      current += n
+      if (isDigit) digits = true
+      else words += 1
+      prev = TENS[tok] ? "tens" : isDigit ? "digit" : "num"
+    } else if (UNITS[tok] && !(tok === "so" && prev !== "num")) {
+      // "so" is "sau" only straight after a number word ("paanch so"), never in
+      // English ("500 so please").
+      if (!started) continue
+      const u = UNITS[tok]
+      unit = true
+      if (u === 100) current = (current || 1) * 100
+      else { total += (current || 1) * u; current = 0 }
+      prev = "unit"
+    } else if (started && JOINERS.has(tok) && prev === "unit") {
+      continue
+    } else if (started) {
+      if (!weak()) break
+      reset()
+    }
+  }
+  if (!started || weak()) return null
+  return Math.round(total + current)
 }
 
 // An order is a list, not a single product: a customer who takes the lanyard
@@ -194,10 +242,11 @@ export function validateLead(args = {}) {
 }
 
 // Persist a voice lead into the shared enquiries backend (same table the Admin
-// reads), tagged so it shows in the Admin "Voice calls" section. `call` ties
-// every row of one conversation together and points at its recording:
-// { id, recording, confirmed, complete }.
-export function saveVoiceLead(args = {}, call = null) {
+// reads), tagged so it shows in the Admin "Voice calls" section. `call` names
+// the conversation and points at its recording: { id, recording, confirmed,
+// complete }. Every save of one conversation passes the same `reference`, so
+// it updates one row instead of adding another (Admin migration 0081).
+export function saveVoiceLead(args = {}, call = null, reference = undefined) {
   const items = normalizeItems(args)
   // A one-line order keeps the original "Qty: x" suffix so the Admin's fallback
   // parse and every lead saved before `items` existed still read correctly.
@@ -225,7 +274,9 @@ export function saveVoiceLead(args = {}, call = null) {
   const cityLine = String(args.city || "").trim()
   const address = [addressLine, cityLine && !addressLine.toLowerCase().includes(cityLine.toLowerCase()) ? cityLine : ""]
     .filter(Boolean).join(", ")
-  submitEnquiry({
+  // Returned so the recording upload can wait for this row (its bucket policy
+  // needs it to exist).
+  return submitEnquiry({
     source: "Voice assistant (Anu)",
     customer: {
       name: (args.name || "").trim(),
@@ -238,5 +289,6 @@ export function saveVoiceLead(args = {}, call = null) {
     productInterest: items.map((i) => i.product).join(", "),
     message: parts.join(" · ") || `Voice lead captured by ${ASSISTANT_NAME}.`,
     call,
-  }).catch(() => { /* offline outbox handles retries */ })
+    reference,
+  }).catch(() => null) // offline outbox handles retries
 }

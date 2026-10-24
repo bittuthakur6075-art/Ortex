@@ -2,7 +2,7 @@ import { Check } from "../../components/ui/Icons"
 
 export default function StepIndicator({ step }) {
   return (
-    <div className="flex items-center justify-center mb-10 gap-3">
+    <div className="flex items-center justify-center mb-8 gap-3" aria-label={`Step ${step} of 2`}>
       {[{ n: 1, label: "Build quote" }, { n: 2, label: "Your details" }].map((s, i) => (
         <div key={s.n} className="flex items-center gap-3">
           <div className="flex items-center gap-2">

@@ -56,9 +56,17 @@ writes it into every page and fails the build on a malformed value.
    prerender log when it fetched live data.
 
 2. **Upload the CONTENTS of `dist/`** into `public_html`:
-   - **File Manager**: hPanel → Files → File Manager → `public_html`. Delete old
-     files, then upload a zip of `dist/`'s contents and Extract. Make sure the
-     hidden **`.htaccess`** is included (enable "show hidden files").
+   - **File Manager**: hPanel → Files → File Manager → `public_html`. Upload a
+     zip of `dist/`'s contents and Extract it **over the old files** (overwrite).
+     **Do not delete the old `assets/` files first**: a visitor who opened a page
+     before the deploy, or whose browser or Hostinger's CDN still holds the old
+     HTML, asks for the previous build's chunk names, and a deleted chunk made
+     pages and inner pages fail to load. Keep old `assets/` files for at least
+     a few days; when tidying, delete only files from builds OLDER than the
+     previous one (sort `assets/` by date). Page folders and `404.html` are
+     overwritten by the new build anyway. Make sure the hidden **`.htaccess`**
+     files are included, the root one and `assets/.htaccess` (enable "show
+     hidden files").
      **Do not zip with Windows' own "Send to → Compressed folder" or PowerShell 5's
      `Compress-Archive`**: they store paths with backslashes, and Hostinger's Linux
      extractor then creates files literally named `assetsindex.js` instead of
@@ -67,9 +75,14 @@ writes it into every page and fails the build on a malformed value.
    - **or FTP** (FileZilla): connect with your hPanel FTP account and upload the
      contents of `dist/` into `public_html`.
 
-3. Visit the site. Deep links (e.g. `/products/keychains`) work because the
-   `.htaccess` falls back to `index.html` for the SPA router, and prerendered
-   folders are served directly for SEO.
+3. Visit the site. Every prerendered page is a real folder with its own
+   `index.html`; any other URL gets `404.html`, which still boots the app, so a
+   product added in the console since the build renders for a visitor (with a
+   404 status for crawlers until the next build). A trailing slash 301s to the
+   address without it. HTML is sent `no-cache` so a deploy shows at once; the
+   hashed files in `assets/` are cached for a year, other static files for a
+   day. If a tab still asks for a chunk that is gone, it reloads itself once
+   onto the new build (`src/lib/lazyWithRetry.js`).
 
 ## Notes
 - **Updating products/categories**: edits made in the Admin panel show on the

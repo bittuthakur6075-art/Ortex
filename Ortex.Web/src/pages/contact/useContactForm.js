@@ -22,7 +22,7 @@ export default function useContactForm() {
   const [searchParams] = useSearchParams()
 
   useEffect(() => {
-    const product = searchParams.get("product")
+    const product = (searchParams.get("product") || "").slice(0, 200)
     const category = searchParams.get("category")
 
     if (product) {
@@ -64,6 +64,14 @@ export default function useContactForm() {
       setIsSubmitting(false)
     }
 
+    if (res.failed) {
+      // Refused for good: keep what they typed so nothing is lost.
+      toast.error("We could not save that enquiry. Please WhatsApp it to us instead, and we will take it from there.", {
+        duration: 10000,
+        action: { label: "WhatsApp", onClick: () => window.open(whatsappLink(`Hi Ortex, ${formData.message}`.slice(0, 1500)), "_blank", "noopener") },
+      })
+      return
+    }
     if (res.queued) {
       toast.warning(
         `Saved as ${res.reference}. We could not reach our servers just now, so it will send automatically. WhatsApp us to be sure it lands.`,

@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { CloseCircle, ArrowLeft, ArrowRight, Sms, Ruler, Layer, Colorfilter, Printer, Flash } from "iconsax-react"
 import { Link } from "react-router-dom"
+import { getLenis } from "../../hooks/useSmoothScroll"
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'
 
 // One UI's motion, ported from Ortex.Mobile/src/ui/motion.ts (itself after One
 // UI 8) so the site and the phone move alike: quick off the mark, a long gentle
@@ -39,7 +42,9 @@ const still = {
  * `item`: { src, title, category, alt }. Handles Esc / arrow-key navigation and
  * locks body scroll while open. Parent wraps this in <AnimatePresence> and
  * renders it only when an item is active, so the exit animation runs on close.
- * `index`/`total` (optional) drive the position counter.
+ * `index`/`total` (optional) drive the position counter. `onDismiss`
+ * (optional) closes it for the Enquire / Browse links, which navigate on their
+ * own; it defaults to `onClose`.
  */
 
 // Applies to every product on the site — shown as scannable chips so the panel
@@ -81,26 +86,49 @@ const CUSTOMIZABLE = [
   },
 ]
 
-export default function PhotoLightbox({ item, description, index, total, onClose, onPrev, onNext }) {
+export default function PhotoLightbox({ item, description, index, total, onClose, onPrev, onNext, onDismiss }) {
   // Which customization chip is open. It deliberately survives paging to the
   // next photo: the answer is about the factory, not about one product, so
   // closing it under someone who just opened it would be the wrong move.
   const [openDetail, setOpenDetail] = useState(null)
   const reduce = useReducedMotion()
 
+  const dialogRef = useRef(null)
+  const closeRef = useRef(null)
+
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") onClose()
       else if (e.key === "ArrowLeft") onPrev()
       else if (e.key === "ArrowRight") onNext()
+      else if (e.key === "Tab") {
+        // Keep Tab inside the dialog: the page behind it is aria-hidden in spirit.
+        const nodes = [...(dialogRef.current?.querySelectorAll(FOCUSABLE) || [])]
+        if (!nodes.length) return
+        const first = nodes[0]
+        const last = nodes[nodes.length - 1]
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+        else if (!dialogRef.current.contains(document.activeElement)) { e.preventDefault(); first.focus() }
+      }
     }
     window.addEventListener("keydown", onKey)
-    document.body.style.overflow = "hidden"
-    return () => {
-      window.removeEventListener("keydown", onKey)
-      document.body.style.overflow = ""
-    }
+    return () => window.removeEventListener("keydown", onKey)
   }, [onClose, onPrev, onNext])
+
+  // Once per opening: move focus in, freeze the page behind (Lenis ignores
+  // body overflow, so it is stopped too), and give focus back on close.
+  useEffect(() => {
+    const opener = document.activeElement
+    closeRef.current?.focus({ preventScroll: true })
+    document.body.style.overflow = "hidden"
+    getLenis()?.stop()
+    return () => {
+      document.body.style.overflow = ""
+      getLenis()?.start()
+      if (opener && typeof opener.focus === "function" && document.contains(opener)) opener.focus({ preventScroll: true })
+    }
+  }, [])
 
   // Slide direction, derived from how the index changed since the last render.
   const prevIndex = useRef(index)
@@ -122,13 +150,16 @@ export default function PhotoLightbox({ item, description, index, total, onClose
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: FADE, ease: EASE_OUT }}
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={item.title}
+      data-lenis-prevent
       className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
       onClick={onClose}
     >
       <button
+        ref={closeRef}
         type="button"
         onClick={onClose}
         className="absolute top-4 right-4 text-white/70 hover:text-white p-2.5 rounded-full hover:bg-white/10 transition-colors duration-150 cursor-pointer"
@@ -259,7 +290,7 @@ export default function PhotoLightbox({ item, description, index, total, onClose
           <div className="mt-auto pt-8 flex flex-col gap-2.5">
             <Link
               to={enquireHref}
-              onClick={onClose}
+              onClick={onDismiss || onClose}
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3.5 px-6 font-semibold rounded-full text-center transition-colors duration-200 flex items-center justify-center gap-2"
             >
               <Sms size={20} color="currentColor" variant="Linear" aria-hidden="true" />
@@ -267,7 +298,7 @@ export default function PhotoLightbox({ item, description, index, total, onClose
             </Link>
             <Link
               to="/products"
-              onClick={onClose}
+              onClick={onDismiss || onClose}
               className="w-full border border-border hover:border-foreground/40 text-foreground py-3 px-6 font-semibold rounded-full text-center transition-colors duration-200"
             >
               Browse all products

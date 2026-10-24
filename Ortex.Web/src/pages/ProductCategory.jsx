@@ -440,6 +440,7 @@ export default function ProductCategory() {
 
       {/* ── Sticky quote bar ─────────────────────────────────────────────── */}
       <div
+        data-anu-avoid={showBar && lightbox === null ? "on" : "off"}
         className={`fixed bottom-0 left-0 right-0 z-40 transition-transform duration-300 ${
           showBar && lightbox === null ? "translate-y-0" : "translate-y-full"
         }`}

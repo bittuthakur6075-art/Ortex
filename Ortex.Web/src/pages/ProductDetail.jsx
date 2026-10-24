@@ -330,6 +330,9 @@ export default function ProductDetail() {
             index={previewIndex}
             total={gallery.length}
             onClose={closePreview}
+            // The Enquire / Browse links navigate themselves: closing must not
+            // also push the product the preview was paged to.
+            onDismiss={() => setPreviewIndex(null)}
             onPrev={() => stepPreview(-1)}
             onNext={() => stepPreview(1)}
           />

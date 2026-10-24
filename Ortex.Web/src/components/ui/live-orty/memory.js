@@ -10,6 +10,9 @@
 // local storage handed all of that to the next person to open the site for up
 // to six hours. Session storage survives moving between pages and reloads, which
 // is what "continue where you left off" needs, and is gone when the tab closes.
+// It also keeps `row` ({ reference, callId, phone }), the enquiry the
+// conversation saves into, so a resumed call updates that lead instead of
+// adding a second one.
 export const MEMORY_KEY = "ortex_voice_memory"
 export const MEMORY_TTL_MS = 2 * 60 * 60 * 1000 // and never older than 2h, even in a tab left open
 export const MAX_MEMORY_LINES = 24

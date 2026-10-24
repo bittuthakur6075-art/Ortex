@@ -38,6 +38,10 @@ function metaByProp(property, content) {
   el.setAttribute("content", content)
 }
 
+// index.html's value. Every page sets robots, so a noindex from the 404 page
+// never sticks to the pages visited after it.
+const DEFAULT_ROBOTS = "index, follow, max-image-preview:large, max-snippet:-1"
+
 export default function useDocumentMetadata(title, description, options = {}) {
   const { path, image, robots } = options
   useEffect(() => {
@@ -46,7 +50,7 @@ export default function useDocumentMetadata(title, description, options = {}) {
 
     if (title) document.title = title
     metaByName("description", description)
-    if (robots) metaByName("robots", robots)
+    metaByName("robots", robots || DEFAULT_ROBOTS)
 
     // Canonical
     const canonical = setMeta('link[rel="canonical"]', () => {
@@ -68,5 +72,5 @@ export default function useDocumentMetadata(title, description, options = {}) {
     return () => {
       document.title = prevTitle
     }
-  }, [title, description, path, image])
+  }, [title, description, path, image, robots])
 }

@@ -33,22 +33,23 @@ export default function QuickEnquiry({ product, category }) {
     const next = {}
     if (!form.name.trim()) next.name = "Please enter your name"
     if (!validMobile(form.phone)) next.phone = "Please enter a 10-digit mobile number"
-    if (!form.quantity.trim()) next.quantity = "Roughly how many pieces?"
+    if (!(Number(form.quantity) >= 1)) next.quantity = "Roughly how many pieces?"
     if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) next.email = "Please check the email"
     setErrors(next)
     if (Object.keys(next).length) return
 
     setSending(true)
+    // A number, so the console can turn the request into a quotation line.
+    const quantity = Number(form.quantity)
+    const items = [{ productId: product.id, name: product.name, sku: product.sku, category, unit: product.unit, quantity }]
     try {
       const res = await submitEnquiry({
         source: "Website contact form",
         customer: { name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim(), company: "" },
         productInterest: category,
-        message: `Price request from the product page: ${product.name}, quantity ${form.quantity.trim()}.`,
-        notes: JSON.stringify({
-          items: [{ productId: product.id, name: product.name, sku: product.sku, category, unit: product.unit, quantity: form.quantity.trim() }],
-          page: product.path,
-        }),
+        items,
+        message: `Price request from the product page: ${product.name}, quantity ${quantity.toLocaleString("en-IN")}.`,
+        notes: JSON.stringify({ items, page: product.path }),
       })
       setDone(res)
     } catch {
@@ -97,7 +98,7 @@ export default function QuickEnquiry({ product, category }) {
       <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label htmlFor="qe-name" className="sr-only">Your name</label>
-          <input id="qe-name" type="text" autoComplete="name" placeholder="Your name" value={form.name}
+          <input id="qe-name" type="text" autoComplete="name" placeholder="Your name" maxLength={200} value={form.name}
             onChange={(e) => set("name", e.target.value)} aria-invalid={Boolean(errors.name)}
             aria-describedby={errors.name ? "qe-name-error" : undefined}
             className={`${fieldClass} ${errors.name ? errorBorder : ""}`} />
@@ -105,7 +106,7 @@ export default function QuickEnquiry({ product, category }) {
         </div>
         <div>
           <label htmlFor="qe-phone" className="sr-only">Mobile number</label>
-          <input id="qe-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="Mobile number" value={form.phone}
+          <input id="qe-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="Mobile number" maxLength={20} value={form.phone}
             onChange={(e) => set("phone", e.target.value.replace(/[^\d+\-\s()]/g, ""))} aria-invalid={Boolean(errors.phone)}
             aria-describedby={errors.phone ? "qe-phone-error" : undefined}
             className={`${fieldClass} ${errors.phone ? errorBorder : ""}`} />
@@ -113,15 +114,15 @@ export default function QuickEnquiry({ product, category }) {
         </div>
         <div>
           <label htmlFor="qe-qty" className="sr-only">Quantity</label>
-          <input id="qe-qty" type="text" inputMode="numeric" placeholder={`Quantity (min ${product.moq} ${product.unit})`} value={form.quantity}
-            onChange={(e) => set("quantity", e.target.value)} aria-invalid={Boolean(errors.quantity)}
+          <input id="qe-qty" type="text" inputMode="numeric" placeholder={`Quantity (min ${product.moq} ${product.unit})`} maxLength={9} value={form.quantity}
+            onChange={(e) => set("quantity", e.target.value.replace(/\D/g, "").replace(/^0+/, ""))} aria-invalid={Boolean(errors.quantity)}
             aria-describedby={errors.quantity ? "qe-qty-error" : undefined}
             className={`${fieldClass} ${errors.quantity ? errorBorder : ""}`} />
           {errors.quantity && <p id="qe-qty-error" className="text-[13px] text-destructive mt-1">{errors.quantity}</p>}
         </div>
         <div>
           <label htmlFor="qe-email" className="sr-only">Email (optional)</label>
-          <input id="qe-email" type="email" inputMode="email" autoComplete="email" placeholder="Email (optional)" value={form.email}
+          <input id="qe-email" type="email" inputMode="email" autoComplete="email" placeholder="Email (optional)" maxLength={254} value={form.email}
             onChange={(e) => set("email", e.target.value)} aria-invalid={Boolean(errors.email)}
             aria-describedby={errors.email ? "qe-email-error" : undefined}
             className={`${fieldClass} ${errors.email ? errorBorder : ""}`} />

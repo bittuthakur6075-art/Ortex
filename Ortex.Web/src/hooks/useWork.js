@@ -5,7 +5,7 @@
 // configured or a fetch fails, so /work always renders.
 
 import { useEffect, useState } from "react"
-import { supabase, hasSupabase } from "../lib/supabaseClient"
+import { supabase, hasSupabase, timeoutSignal } from "../lib/supabaseClient"
 import { workPhotos } from "../constants/home"
 import { getPreloaded } from "../lib/preloaded"
 
@@ -39,7 +39,7 @@ export function useWork() {
 
     async function load() {
       try {
-        const { data, error } = await supabase.from("work").select("id, doc")
+        const { data, error } = await supabase.from("work").select("id, doc").abortSignal(timeoutSignal())
         if (error) throw error
         if (cancelled) return
         setPhotos(workFromRows(data))

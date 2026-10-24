@@ -25,6 +25,11 @@ export const mapCategory = (cat) => {
   return "Other"
 }
 
+// The database refuses an anonymous enquiry past these lengths (Admin
+// migration 0050), and a refused one cannot be sent later either, so the form
+// stops typing at them. Company has no database cap; 200 keeps it sane.
+export const LIMITS = { name: 200, email: 254, phone: 40, company: 200, message: 8000 }
+
 /** Returns a field -> message map; an empty object means the form is valid. */
 export const getFormErrors = (formData) => {
   const tempErrors = {}
@@ -38,8 +43,18 @@ export const getFormErrors = (formData) => {
   }
   if (!formData.phone.trim()) {
     tempErrors.phone = "Phone number is required"
-  } else if (!/^\+?[\d\s-]{10,}$/.test(formData.phone)) {
-    tempErrors.phone = "Please enter a valid phone number"
+  } else {
+    // Any of +, spaces, dashes and brackets around 10 to 15 digits, as in the
+    // quote builder: "+91 98765 43210", "098765-43210", "(022) 2345 6789".
+    const digits = formData.phone.replace(/\D/g, "")
+    if (!/^\+?[\d\s\-()]+$/.test(formData.phone.trim()) || digits.length < 10 || digits.length > 15) {
+      tempErrors.phone = "Please enter a valid phone number"
+    }
+  }
+  for (const [field, max] of Object.entries(LIMITS)) {
+    if ((formData[field] || "").length > max && !tempErrors[field]) {
+      tempErrors[field] = `Please keep this under ${max.toLocaleString("en-IN")} characters`
+    }
   }
   if (!formData.productInterest) {
     tempErrors.productInterest = "Please select a product category"

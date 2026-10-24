@@ -19,7 +19,7 @@ export default function SuccessScreen({ isQueued, reference, lines, maxLeadTime,
             {isQueued ? <AlertTriangle className="h-9 w-9" /> : <Check className="h-9 w-9" />}
           </div>
           <h1 className="text-[28px] md:text-[32px] font-semibold tracking-tight text-foreground">
-            {isQueued ? "Saved — delivery pending" : "Quote request submitted"}
+            {isQueued ? "Saved, delivery pending" : "Quote request submitted"}
           </h1>
           <p className="text-muted-foreground mt-3 max-w-md mx-auto">
             Your request is logged under reference <strong className="text-foreground">{reference}</strong>.
@@ -61,10 +61,8 @@ export default function SuccessScreen({ isQueued, reference, lines, maxLeadTime,
             <button onClick={resetAll} className="px-6 py-3 bg-primary text-primary-foreground rounded-full font-semibold hover:bg-primary/90 transition-colors cursor-pointer">
               Build another quote
             </button>
-            <Link to="/">
-              <button className="px-6 py-3 border border-border text-foreground hover:border-foreground/40 rounded-full font-semibold transition-colors cursor-pointer">
-                Return home
-              </button>
+            <Link to="/" className="px-6 py-3 border border-border text-foreground hover:border-foreground/40 rounded-full font-semibold transition-colors">
+              Return home
             </Link>
           </div>
         </motion.div>

@@ -19,7 +19,7 @@
 // step with each page's useDocumentMetadata call).
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from "node:fs"
-import { dirname, join, resolve } from "node:path"
+import { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { createClient } from "@supabase/supabase-js"
 import { buildCategorySchema, buildProductSchema, productSeo, photosForCategory, SITE_URL } from "../src/constants/categories.js"
@@ -170,10 +170,12 @@ const jsonForScript = (value) =>
 const safeImageUrl = (u) => (/^https?:\/\/[^\s"'<>]+$/.test(String(u ?? "")) ? u : null)
 
 // The pattern must capture the opening and closing markup as groups 1 and 2.
-// The value is inserted via a replacer function so "$&", "$'" and friends
-// inside data are never interpreted by String.prototype.replace.
+// The value is attribute-escaped here (callers pass raw text) and inserted via
+// a replacer function so "$&", "$'" and friends inside data are never
+// interpreted by String.prototype.replace.
 function replaceTag(html, pattern, value, route, what) {
-  const next = html.replace(pattern, (_m, open, close) => `${open}${value}${close}`)
+  const safe = escapeAttr(value)
+  const next = html.replace(pattern, (_m, open, close) => `${open}${safe}${close}`)
   if (next === html && !html.match(pattern)) {
     throw new Error(`prerender: could not rewrite ${what} for ${route} (index.html head changed?)`)
   }
@@ -192,7 +194,7 @@ function dataFor(route, live) {
   // A category or product page draws only its own category's products.
   const products = route.category
     ? all.filter((r) => r.doc?.category === route.category)
-    : path === "/" || path === "/products"
+    : path === "/" || path === "/products" || path === "/quote"
       ? all
       : []
   return {
@@ -203,8 +205,8 @@ function dataFor(route, live) {
 
 async function renderRoute(render, route, data) {
   const url = `${SITE_URL}${route.path === "/" ? "/" : route.path}`
-  const title = escapeAttr(route.title)
-  const description = escapeAttr(route.description)
+  const title = route.title
+  const description = route.description
 
   let html = template
   html = replaceTag(html, /(<title>)[\s\S]*?(<\/title>)/, title, route.path, "<title>")
@@ -224,7 +226,7 @@ async function renderRoute(render, route, data) {
   }
   const image = safeImageUrl(route.image)
   if (image) {
-    const img = escapeAttr(image)
+    const img = image
     html = replaceTag(html, /(<meta\s+property="og:image"\s+content=")[^"]*(")/, img, route.path, "og:image")
     html = replaceTag(html, /(<meta\s+name="twitter:image"\s+content=")[^"]*(")/, img, route.path, "twitter:image")
     // The default card's pixel size and alt text describe the default image only.
@@ -264,6 +266,9 @@ async function renderRoute(render, route, data) {
   const out = route.file
     ? join(dist, route.file)
     : join(dist, ...route.path.split("/").filter(Boolean), "index.html")
+  // Route paths come partly from console data: never write outside dist/.
+  const rel = relative(dist, out)
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) throw new Error(`prerender: route ${route.path} resolves outside dist/`)
   mkdirSync(dirname(out), { recursive: true })
   writeFileSync(out, html)
   return body

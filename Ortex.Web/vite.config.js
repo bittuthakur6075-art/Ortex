@@ -6,6 +6,8 @@ import tailwindcss from "@tailwindcss/vite"
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // The footer's copyright year as first rendered (components/layout/Footer.jsx).
+  define: { __BUILD_YEAR__: JSON.stringify(new Date().getFullYear()) },
   resolve: {
     // "@/…" resolves to src/ (mirrored in jsconfig.json for editor intellisense).
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },

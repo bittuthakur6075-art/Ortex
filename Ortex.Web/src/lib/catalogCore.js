@@ -84,7 +84,9 @@ function applyOverrides(entry, live, index) {
 
 function synthCategory(live) {
   const displayName = live.displayName?.trim() || live.name
-  const slug = live.slug?.trim() || slugify(live.name)
+  // The console's slug field is free text: slugified here so a quote, slash or
+  // regex character can neither reach the HTML nor break the build.
+  const slug = slugify(live.slug) || slugify(live.name) || "category"
   const keywordSrc = slug.split("-").filter(Boolean).join("|") || "zzzzzz"
   return {
     slug,

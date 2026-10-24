@@ -39,7 +39,8 @@ const DETAIL_FIELDS = [
 ]
 const isDone = (d, f) => Boolean(f.read(d)) && !(d.missing || []).includes(f.key)
 
-function statusFor({ status, speaking, audioBlocked }) {
+function statusFor({ status, speaking, audioBlocked, micWait }) {
+  if (status === "connecting" && micWait) return { text: "Allow the microphone to start the call", dot: "bg-amber-400", pulse: true }
   if (status === "connecting") return { text: `Connecting you to ${ASSISTANT_NAME}…`, dot: "bg-slate-400", pulse: true }
   if (audioBlocked) return { text: "Sound is paused by your browser", dot: "bg-amber-400", pulse: true }
   if (speaking) return { text: `${ASSISTANT_NAME} is speaking`, dot: "bg-violet-400", pulse: true }
@@ -52,13 +53,13 @@ const fadeUp = (delay = 0) => ({
 })
 
 export default function CallPanel({ call }) {
-  const { status, speaking, audioBlocked, errorMsg, seconds, caption, ended, readLevel, unlockAudio, endCall, dismiss, start, minimize } = call
+  const { status, speaking, audioBlocked, errorMsg, errorTitle, micWait, seconds, caption, ended, readLevel, unlockAudio, endCall, dismiss, start, minimize } = call
   const view = ended ? "ended" : status === "error" ? "error" : "live"
   const mood = view === "ended" ? "ended" : view === "error" ? "error" : status === "connecting" ? "connecting" : speaking ? "speaking" : "listening"
   // Screen readers hear only the call's milestones. The visible status line
   // flips between speaking and listening every turn, which read aloud would
   // talk over Anu herself.
-  const announce = view === "ended" ? "Call ended" : view === "error" ? "Call could not connect" : status === "connecting" ? `Connecting you to ${ASSISTANT_NAME}` : status === "live" ? "Call connected" : ""
+  const announce = view === "ended" ? "Call ended" : view === "error" ? errorTitle : status === "connecting" ? `Connecting you to ${ASSISTANT_NAME}` : status === "live" ? "Call connected" : ""
 
   return (
     <motion.div
@@ -90,7 +91,7 @@ export default function CallPanel({ call }) {
                   <AnuAvatar mood={mood} size={196} readLevel={readLevel} />
                 </motion.div>
               </div>
-              <StatusLine {...statusFor({ status, speaking, audioBlocked })} />
+              <StatusLine {...statusFor({ status, speaking, audioBlocked, micWait })} />
               {audioBlocked && status === "live"
                 ? <SoundPrompt onUnlock={unlockAudio} />
                 : <Caption caption={caption} live={status === "live"} />}
@@ -101,10 +102,10 @@ export default function CallPanel({ call }) {
           {view === "error" && (
             <motion.div key="error" {...fadeUp()} exit={{ opacity: 0, transition: { duration: 0.15 } }} className="flex flex-col items-center px-6 pb-6 text-center">
               <AnuAvatar mood="error" size={132} />
-              <h3 className="mt-2 text-[19px] font-semibold tracking-tight">We couldn't connect your call</h3>
+              <h3 className="mt-2 text-[19px] font-semibold tracking-tight">{errorTitle}</h3>
               <p className="mt-1.5 max-w-[300px] text-[14px] leading-relaxed text-white/60">{errorMsg || "Something went wrong. Please try again."}</p>
               <div className="mt-6 grid w-full grid-cols-2 gap-2.5">
-                <motion.button whileTap={{ scale: 0.97 }} onClick={start} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white text-[15px] font-semibold text-zinc-900 transition hover:bg-white/90">
+                <motion.button data-anu-primary whileTap={{ scale: 0.97 }} onClick={start} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white text-[15px] font-semibold text-zinc-900 transition hover:bg-white/90">
                   <Refresh2 size={18} variant="Linear" color="currentColor" /> Try again
                 </motion.button>
                 <a href={whatsappLink(`Hello Ortex team, I tried to speak with ${ASSISTANT_NAME} on your website and would like a quotation.`)} target="_blank" rel="noreferrer" className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white/10 text-[15px] font-semibold text-white transition hover:bg-white/15">
@@ -301,6 +302,7 @@ function Controls({ onEnd }) {
   return (
     <motion.div {...fadeUp(0.18)} className="mt-4 mb-6 flex w-full items-center justify-center gap-3">
       <motion.button
+        data-anu-primary
         whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.95 }}
         onClick={onEnd}
         className="group inline-flex h-14 flex-1 max-w-[200px] items-center justify-center gap-2 rounded-full bg-red-500 text-[15px] font-semibold text-white transition-colors hover:bg-red-600"
@@ -347,7 +349,7 @@ function Summary({ ended, onAgain, onClose }) {
       </motion.div>
 
       <motion.div {...fadeUp(0.2)} className="mt-4 grid w-full grid-cols-2 gap-2.5">
-        <motion.button whileTap={{ scale: 0.97 }} onClick={onAgain} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white text-[15px] font-semibold text-zinc-900 transition hover:bg-white/90">
+        <motion.button data-anu-primary whileTap={{ scale: 0.97 }} onClick={onAgain} className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white text-[15px] font-semibold text-zinc-900 transition hover:bg-white/90">
           <Microphone2 size={18} variant="Bold" color="currentColor" /> Call again
         </motion.button>
         <Link to={QUOTE_PATH} onClick={onClose} className="inline-flex h-12 items-center justify-center rounded-full bg-white/10 text-[15px] font-semibold text-white transition hover:bg-white/15">

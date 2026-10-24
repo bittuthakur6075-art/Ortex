@@ -44,10 +44,12 @@ DirectorySlash Off
   RewriteCond %{THE_REQUEST} \s/(.+)/index\.html[\s?]
   RewriteRule ^ /%1 [R=301,L]
 
-  # /about/ becomes /about (only for folders that exist, so a stray slash on
-  # an unknown URL still 404s).
-  RewriteCond %{REQUEST_FILENAME} -d
-  RewriteRule ^(.+)/$ /$1 [R=301,L]
+  # /about/ becomes /about. Every URL, not only prerendered folders: a product
+  # added since the last build has no folder yet, and its /slash/ form must
+  # reach the address the app and the canonical use (an unknown URL still
+  # 404s, one hop later).
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^(.+?)/+$ /$1 [R=301,L]
 
   # Serve /about from about/index.html without changing the URL.
   RewriteCond %{REQUEST_FILENAME} -d
@@ -59,6 +61,10 @@ DirectorySlash Off
 # the console after the last build renders for a visitor while telling crawlers
 # it is not a page yet (rebuild and upload to index it).
 ErrorDocument 404 /404.html
+# A missing /assets file (a chunk from an older build, asked for by a tab
+# opened before a deploy) gets a bare 404 instead, from assets/.htaccess, so
+# the import fails fast and the app reloads onto the current build
+# (src/lib/lazyWithRetry.js).
 
 # ----------------------------------------------------------------------
 # Compression
@@ -74,8 +80,8 @@ ErrorDocument 404 /404.html
 # ----------------------------------------------------------------------
 <IfModule mod_expires.c>
   ExpiresActive On
-  ExpiresByType text/css "access plus 1 year"
-  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/css "access plus 1 day"
+  ExpiresByType application/javascript "access plus 1 day"
   ExpiresByType image/png "access plus 1 year"
   ExpiresByType image/jpeg "access plus 1 year"
   ExpiresByType image/webp "access plus 1 year"
@@ -86,9 +92,11 @@ ErrorDocument 404 /404.html
 </IfModule>
 
 <IfModule mod_headers.c>
-  # Long-lived, immutable hashed assets (Vite emits /assets/*.[hash].*)
+  # Files outside /assets keep their names across deploys (the mic worklet,
+  # /img, icons), so they are cached for a day, not for ever. The hashed files
+  # in /assets are immutable: assets/.htaccess gives them a year.
   <FilesMatch "\.(css|js|woff2|png|jpe?g|webp|avif|svg|gif)$">
-    Header set Cache-Control "public, max-age=31536000, immutable"
+    Header set Cache-Control "public, max-age=86400"
   </FilesMatch>
   # Always revalidate HTML so new deploys are picked up
   <FilesMatch "\.html$">
@@ -98,6 +106,18 @@ ErrorDocument 404 /404.html
   Header always set X-Content-Type-Options "nosniff"
   Header always set X-Frame-Options "SAMEORIGIN"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  # HTTPS only from now on (hPanel's Force HTTPS does the first redirect).
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  # The voice assistant needs the microphone on this origin; nothing else
+  # needs a device.
+  Header always set Permissions-Policy "microphone=(self), camera=(), geolocation=(), payment=(), usb=()"
+  # Keep in step with vercel.json. Every <script> the prerender writes is
+  # either an external file from /assets or a non-executable JSON block, so
+  # script-src needs no 'unsafe-inline'. connect-src: Supabase (REST, storage,
+  # realtime), Gemini Live (the voice assistant), the two consent-gated IP
+  # lookups. frame-src: the Google Maps embed on /contact. The mic worklet is a
+  # static file on 'self'.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' https: data: blob:; media-src 'self' https: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://ipapi.co https://ipwho.is; frame-src https://www.google.com https://consent.google.com https://challenges.cloudflare.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests"
 </IfModule>
 
 # Serve the correct MIME type for source maps / json if needed

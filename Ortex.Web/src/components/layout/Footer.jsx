@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import RollText from "../ui/RollText"
 import WhatsAppIcon from "../ui/WhatsAppIcon"
@@ -5,8 +6,16 @@ import { CONTACT, ADDRESS_LINE, INSTAGRAM_URL, whatsappLink } from "../../consta
 import { useCatalog } from "../../lib/catalog"
 import "./Footer.css"
 
+// Fixed at build time (vite.config.js), identical in the SSR and client bundles.
+// oxlint-disable-next-line no-undef
+const BUILD_YEAR = __BUILD_YEAR__
+
 export default function Footer() {
-  const year = new Date().getFullYear()
+  // The build year on the server and in the first client render, so hydration
+  // matches; the visitor's own year after mount (a December build is read in
+  // January).
+  const [year, setYear] = useState(BUILD_YEAR)
+  useEffect(() => setYear(new Date().getFullYear()), [])
   const { pathname } = useLocation()
   const onHome = pathname === "/"
   const sec = (id) => (onHome ? `#${id}` : `/#${id}`)

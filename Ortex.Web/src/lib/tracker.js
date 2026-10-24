@@ -34,7 +34,17 @@ function stored(store, key, prefix) {
   }
 }
 
+// Ids are stored only once the visitor has accepted analytics: the visitor id
+// in localStorage (it outlasts the visit), the session id in sessionStorage.
+// Until then nothing is written to storage; an enquiry still carries ids, held
+// in memory for this page load only, so nothing follows the person around.
+let memoryIds = null
 export function getTrackingIds() {
+  if (!hasAnalyticsConsent()) {
+    const fresh = (prefix) => prefix + Math.random().toString(36).substring(2, 11)
+    memoryIds ||= { userId: fresh("usr_"), sessionId: fresh("sess_") }
+    return { ...memoryIds }
+  }
   const userId = stored(localStorage, "ortex_tracking_user_id", "usr_")
   const sessionId = stored(sessionStorage, "ortex_tracking_session_id", "sess_")
 
@@ -181,8 +191,8 @@ export function activityForPath(path) {
   // product page, the only dynamic routes we serve.
   if (clean.startsWith("/products/")) {
     const [category, product] = clean.slice(10).split("/")
-    if (product) return { activityType: "Product page visit", page: "Product: " + product }
-    return { activityType: "Catalog view", page: "Category: " + category }
+    if (product) return { activityType: "Product page visit", page: "Product: " + product, category }
+    return { activityType: "Catalog view", page: "Category: " + category, category }
   }
   return { activityType: "Not found page visit", page: "Not found" }
 }
@@ -196,25 +206,69 @@ let viewTimer = null
 let lastView = { key: "", at: 0 }
 const VIEW_DEDUPE_MS = 5000
 
-export function trackPageView({ pathname, search = "" }) {
+//
+// It is called per PATHNAME (App.jsx), not per query string: the Products page
+// rewrites ?q=, ?category= and ?page= as someone types and filters, which used
+// to log a fresh visit, and a "Product search" for every half word, each time.
+// A query string present on arrival (a shared ?q= link) is still read here;
+// searches typed on the page go through trackSearch() below.
+//
+// Without analytics consent the visit is still counted, anonymously
+// (trackAnonymousView): no id, no location, no search words. With consent it is
+// the full row. `afterConsent` is the page a visitor accepts analytics on: it
+// was already counted anonymously, so the full row is written straight away
+// (no dedupe) and flagged, and the console does not count it twice.
+export function trackPageView({ pathname, search = "", afterConsent = false }) {
   const params = new URLSearchParams(search)
   const searchQuery = params.get("search") || params.get("q")
+  // /contact?product=<name> names the product a buyer is asking about; it is
+  // a contact visit about that product, not a product page visit.
   const productName = params.get("product")
 
   clearTimeout(viewTimer)
   viewTimer = setTimeout(() => {
-    const key = pathname + search
+    const consented = hasAnalyticsConsent()
+    if (afterConsent && !consented) return
+    const key = pathname
     const now = Date.now()
-    if (key === lastView.key && now - lastView.at < VIEW_DEDUPE_MS) return
-    lastView = { key, at: now }
+    if (!afterConsent) {
+      if (key === lastView.key && now - lastView.at < VIEW_DEDUPE_MS) return
+      lastView = { key, at: now }
+    }
 
-    const { activityType, page } = activityForPath(pathname)
-    const base = { page, pageTitle: document.title }
+    const { activityType, page, category } = activityForPath(pathname)
+    const base = { page, pageTitle: document.title, ...(category ? { category } : {}) }
 
-    if (searchQuery) trackActivity({ activityType: "Product search", metadata: { ...base, searchQuery } })
-    if (productName) trackActivity({ activityType: "Product page visit", productId: productName, metadata: { ...base, productName } })
-    else trackActivity({ activityType, metadata: base })
+    if (!consented) {
+      trackAnonymousView({ activityType, metadata: base })
+      return
+    }
+    if (searchQuery && !afterConsent) logSearch(searchQuery, base)
+    const meta = productName ? { ...base, productName } : base
+    trackActivity({ activityType, metadata: afterConsent ? { ...meta, afterConsent: true } : meta })
   }, 300)
+}
+
+// Searches typed on the Products page: logged once the visitor has paused for
+// 1.5 s, at least two characters, and never the same words twice in a row.
+const SEARCH_SETTLE_MS = 1500
+let searchTimer = null
+let lastSearch = ""
+
+function logSearch(query, base) {
+  const q = String(query || "").trim().slice(0, 100)
+  if (q.length < 2 || q.toLowerCase() === lastSearch) return
+  lastSearch = q.toLowerCase()
+  trackActivity({ activityType: "Product search", metadata: { ...base, searchQuery: q } })
+}
+
+export function trackSearch(query) {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    if (!hasAnalyticsConsent()) return
+    const { page } = activityForPath(window.location.pathname)
+    logSearch(query, { page, pageTitle: document.title })
+  }, SEARCH_SETTLE_MS)
 }
 
 // A dev server writes to the same analytics tables the live site does, there
@@ -232,9 +286,59 @@ export const isLocalTraffic = () => {
   return LOCAL_HOSTS.some((h) => host === h || host.startsWith(h)) || host.endsWith(".local")
 }
 
-// Main track function
-export async function trackActivity({ activityType, productId = null, metadata = {} }) {
+// The device class only: no browser, operating system or user-agent string.
+function deviceClass() {
+  const ua = navigator.userAgent
+  if (/ipad|tablet/i.test(ua) || (/android/i.test(ua) && !/mobile/i.test(ua))) return "Tablet"
+  return /mobile/i.test(ua) ? "Mobile" : "Desktop"
+}
+
+// Where the visit came from, as a site name and nothing more: a full referrer
+// URL can carry a search phrase or someone's own page.
+function referrerHost() {
+  try {
+    return document.referrer ? new URL(document.referrer).hostname || "Direct" : "Direct"
+  } catch {
+    return "Direct"
+  }
+}
+
+// A page view from a visitor who has not accepted analytics (not chosen yet,
+// or declined). It says which page was seen, when, on what kind of device and
+// from which site, and nothing that identifies or follows the person: no
+// visitor or session id, no IP or location lookup, no browser fingerprint, no
+// query string. The console counts these as page views only (doc.anonymous).
+// They never fire the automation engine.
+async function trackAnonymousView({ activityType, metadata = {} }) {
   if (isLocalTraffic()) return
+  const doc = {
+    anonymous: true,
+    userId: null,
+    sessionId: null,
+    productId: null,
+    activityType,
+    pageUrl: window.location.pathname,
+    referrer: referrerHost(),
+    timestamp: new Date().toISOString(),
+    device: deviceClass(),
+    metadata,
+  }
+  if (hasSupabase) {
+    try {
+      await supabase.from("user_activities").insert({ doc })
+    } catch (e) {
+      console.error("Failed to save activity to Supabase:", e)
+    }
+  }
+  await processEventTrigger(doc)
+}
+
+// Main track function
+// Nothing identifying is written without analytics consent (lib/consent.js):
+// the Cookie Policy promises it, so this is the one gate every full row passes.
+// (Anonymous page views go through trackAnonymousView instead.)
+export async function trackActivity({ activityType, productId = null, metadata = {} }) {
+  if (isLocalTraffic() || !hasAnalyticsConsent()) return
   const { userId, sessionId } = getTrackingIds()
   const { browser, os, device } = getUAInfo()
   const loc = await getLocationData()
@@ -323,7 +427,7 @@ async function processEventTrigger(activity) {
     description = `${activity.metadata?.action === "add" ? "Added" : "Removed"} product ${activity.metadata?.productName} to/from quote cart.`
   } else if (activity.activityType === "Catalog view") {
     eventType = "catalog_viewed"
-    description = `User viewed the catalog for: ${activity.metadata?.category || "general"}.`
+    description = `User viewed the catalog for: ${activity.metadata?.category || activity.metadata?.page || "general"}.`
   } else if (activity.activityType === "PDF download") {
     eventType = "pdf_downloaded"
     description = `User downloaded PDF: ${activity.metadata?.fileName || "catalog"}.`
@@ -336,6 +440,7 @@ async function processEventTrigger(activity) {
   const eventDoc = {
     activityId: activity.id || "act_" + Date.now(),
     eventType,
+    ...(activity.anonymous ? { anonymous: true } : {}),
     userId: activity.userId,
     description,
     timestamp: new Date().toISOString(),
@@ -353,7 +458,7 @@ async function processEventTrigger(activity) {
 
     // 🔥 Fire server-side automation engine via Supabase Edge Function
     try {
-      if (AUTOMATION_EVENTS.has(eventType)) supabase.functions.invoke("automation-engine", {
+      if (AUTOMATION_EVENTS.has(eventType) && !activity.anonymous) supabase.functions.invoke("automation-engine", {
         body: {
           eventType,
           userId: activity.userId,
@@ -364,7 +469,7 @@ async function processEventTrigger(activity) {
     } catch (e) {
       console.warn("Automation engine error:", e)
     }
-  } else {
+  } else if (!activity.anonymous) {
     try {
       const list = JSON.parse(localStorage.getItem("ortex_event_logs") || "[]")
       const eventRecord = { ...eventDoc, id: "evt_" + Date.now() + "_" + Math.floor(Math.random() * 1000) }

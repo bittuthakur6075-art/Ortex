@@ -3,6 +3,15 @@ import { createRoot, hydrateRoot } from 'react-dom/client'
 import 'lenis/dist/lenis.css'
 import './index.css'
 import App from './App.jsx'
+import { reloadForNewBuild } from './lib/lazyWithRetry'
+
+// Vite fires this when a chunk's preload (a page's CSS or JS dependency)
+// fails, typically because a deploy replaced the build this tab started
+// from. One guarded reload fetches the current HTML; past the guard the
+// error goes on to the route's error screen.
+window.addEventListener('vite:preloadError', (event) => {
+  if (reloadForNewBuild()) event.preventDefault()
+})
 
 const root = document.getElementById('root')
 const app = (
