@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 import { Inbox, Search, Plus, PhoneOutgoing, MessageCircle, MoreHorizontal, ImportFile, ExportFile, Mic, UserCheck, RefreshCw, Trash2 } from "../components/ui/Icons"
-import { useCollection } from "../hooks/useCollection"
+import { useCollection, useStoredChoice } from "../hooks/useCollection"
+import { compareValues, dateValue } from "../lib/listSort"
 import { useProfile } from "../hooks/useProfile"
 import { repo } from "../data/store/repository"
 import { ENQUIRY_STATUS, PRODUCT_CATEGORIES, newEnquiry } from "../data/domain/schema"
@@ -33,9 +34,13 @@ const GROUP_BY = [
 ]
 const SORT_BY = [
   { value: "newest", label: "Newest" },
+  { value: "oldest", label: "Oldest" },
+  { value: "name", label: "Name A to Z" },
+  { value: "status", label: "Status" },
   { value: "next", label: "Next step" },
   { value: "value", label: "Value" },
 ]
+const STATUS_RANK = Object.fromEntries(ENQUIRY_STATUS.map((s, i) => [s.id, i]))
 
 const monthKey = (t) => {
   const d = new Date(t)
@@ -86,7 +91,7 @@ export default function Enquiries() {
   const setOwner = (fn) => setUrl({ owner: typeof fn === "function" ? fn(owner) : fn })
   const setPage = (p) => setUrl({ page: p > 1 ? String(p) : "" })
   const [groupBy, setGroupBy] = useState("none")
-  const [sortBy, setSortBy] = useState("newest")
+  const [sortBy, setSortBy] = useStoredChoice("leads", "newest", SORT_BY.map((o) => o.value))
   const [creating, setCreating] = useState(false)
   const [pageSize, setPageSize] = useState(() => {
     try {
@@ -151,10 +156,17 @@ export default function Enquiries() {
       )
     }
     const due = (l) => (l.step ? l.step.due : Infinity)
+    // Ties always settle newest first, then by reference, so the order is stable.
+    const newest = (a, b) =>
+      compareValues(dateValue(a.e.createdAt), dateValue(b.e.createdAt), true) || compareValues(a.e.reference, b.e.reference, true)
+    const nameOf = (l) => l.e.customer?.name || l.e.customer?.company || ""
     const sorters = {
-      next: (a, b) => due(a) - due(b) || new Date(b.e.createdAt) - new Date(a.e.createdAt),
-      newest: (a, b) => new Date(b.e.createdAt) - new Date(a.e.createdAt),
-      value: (a, b) => b.value - a.value,
+      next: (a, b) => due(a) - due(b) || newest(a, b),
+      newest,
+      oldest: (a, b) => compareValues(dateValue(a.e.createdAt), dateValue(b.e.createdAt)) || compareValues(a.e.reference, b.e.reference),
+      name: (a, b) => compareValues(nameOf(a), nameOf(b)) || newest(a, b),
+      status: (a, b) => (STATUS_RANK[a.e.status || "new"] ?? 99) - (STATUS_RANK[b.e.status || "new"] ?? 99) || newest(a, b),
+      value: (a, b) => b.value - a.value || newest(a, b),
     }
     return [...rows].sort(sorters[sortBy])
   }, [leads, views, view, query, channels, owner, me, sortBy])

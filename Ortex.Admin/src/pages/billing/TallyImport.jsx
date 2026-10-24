@@ -187,7 +187,7 @@ export default function TallyImport({ open, onClose }) {
     for (const kind of KINDS) {
       if (!include[kind.key]) continue
       const rows = plan[kind.key].filter((r) => r.action)
-      const res = { label: kind.label, created: 0, updated: 0, linked: 0, unlinked: 0, failed: [] }
+      const res = { label: kind.label, created: 0, updated: 0, linked: 0, unlinked: 0, already: 0, failed: [] }
       let done = 0
       await inBatches(rows, async (r) => {
         try {
@@ -221,7 +221,10 @@ export default function TallyImport({ open, onClose }) {
           }
           if (data.invoiceId) touched.add(data.invoiceId)
         } catch (e) {
-          res.failed.push({ title: r.title, error: e?.message || String(e) })
+          // Tally GUIDs are unique (0082): someone else imported this voucher
+          // since the preview, so it is already in, not a failure.
+          if (r.action === "create" && /_tally_guid_key/.test(`${e?.message} ${e?.details}`)) res.already++
+          else res.failed.push({ title: r.title, error: e?.message || String(e) })
         } finally {
           done++
           setBusy(`${kind.label}: ${done} of ${rows.length}`)
@@ -281,7 +284,7 @@ export default function TallyImport({ open, onClose }) {
             <div key={s.label} className="rounded-lg border border-border px-4 py-3 text-sm">
               <p className="font-medium text-foreground">{s.label}</p>
               <p className="text-muted-foreground">
-                {s.created} created, {s.updated} updated{s.linked ? `, ${s.linked} linked to their invoice` : ""}, {s.failed.length} failed
+                {s.created} created, {s.updated} updated{s.linked ? `, ${s.linked} linked to their invoice` : ""}{s.already ? `, ${s.already} already imported` : ""}, {s.failed.length} failed
                 {s.unlinked ? `. ${s.unlinked} saved unlinked because their invoice was not imported` : ""}
               </p>
               {s.failed.length > 0 && (

@@ -23,7 +23,7 @@ export default function Products() {
   const [presetCategory, setPresetCategory] = useState(null) // category name for a new product
   const [viewing, setViewing] = useState(null) // product details viewing
   const [importing, setImporting] = useState(false)
-  const [sort, onSort] = useSorting("name")
+  const [sort, onSort] = useSorting("name", false, "products")
   const filtered = useMemo(() => filterAndSortProducts(items, query, category, sort), [items, query, category, sort])
   const location = useLocation()
   const navigate = useNavigate()

@@ -126,6 +126,7 @@ export default function Growth({ embedded = false }) {
           icon={Users}
           label="Visitors"
           value={formatNumber(g.visitors)}
+          hint="Who accepted analytics"
           accent="bg-info/10 text-info-text"
         />
         <StatCard
@@ -142,8 +143,9 @@ export default function Growth({ embedded = false }) {
         />
         <StatCard
           icon={MessageCircle}
-          label="Tracked actions"
-          value={formatNumber(g.totalActivities)}
+          label="Page views"
+          value={formatNumber(g.pageViews)}
+          hint={g.anonymousViews ? `${formatNumber(g.anonymousViews)} without analytics consent` : "Every visitor counted"}
           accent="bg-success/10 text-success-text"
         />
       </div>

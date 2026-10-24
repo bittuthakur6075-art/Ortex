@@ -33,7 +33,7 @@ export default function Invoices() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [editing, setEditing] = useState(null)
   const [preview, setPreview] = useState(null)
-  const [sort, onSort] = useSorting("issueDate", true)
+  const [sort, onSort] = useSorting("issueDate", true, "invoices")
   const location = useLocation()
   const navigate = useNavigate()
 

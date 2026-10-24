@@ -1,5 +1,15 @@
 import { useMemo } from "react"
 import { paidForInvoice, invoiceBalance, resolveInvoiceStatus } from "../../data/domain/domain"
+import { byNumberDesc, dateValue, sortRows } from "../../lib/listSort"
+
+function invoiceSortValue(inv, key) {
+  if (key === "customer") return inv.customer?.company || inv.customer?.name || ""
+  if (key === "grandTotal") return Number(inv.totals?.grandTotal) || 0
+  // An invoice without an issue date sorts by when it was made.
+  if (key === "issueDate") return dateValue(inv.issueDate) ?? dateValue(inv.createdAt)
+  if (key === "dueDate") return dateValue(inv.dueDate)
+  return inv[key]
+}
 
 // Enriches invoices with payment-derived fields, then applies the status chip,
 // search query and column sort. Returns both the full enriched list (`rows`)
@@ -24,23 +34,8 @@ export default function useInvoiceList({ items, payments, query, statusFilter, s
       )
     }
 
-    const { key, desc } = sort
-    const sorted = [...list].sort((a, b) => {
-      let valA = a[key]
-      let valB = b[key]
-      if (key === "customer") {
-        valA = a.customer?.company || a.customer?.name || ""
-        valB = b.customer?.company || b.customer?.name || ""
-      } else if (key === "grandTotal") {
-        valA = a.totals?.grandTotal || 0
-        valB = b.totals?.grandTotal || 0
-      }
-      if (valA === undefined || valA === null) valA = ""
-      if (valB === undefined || valB === null) valB = ""
-      if (typeof valA === "string") return valA.localeCompare(valB)
-      return valA - valB
-    })
-    return desc ? sorted.reverse() : sorted
+    // Ties (same day, same total) fall back to the newest number first.
+    return sortRows(list, sort, invoiceSortValue, byNumberDesc((i) => i.number))
   }, [rows, query, statusFilter, sort])
 
   return { rows, filtered }

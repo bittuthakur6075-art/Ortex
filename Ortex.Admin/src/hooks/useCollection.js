@@ -209,16 +209,62 @@ export function useSettingsFor() {
   }, [global, all])
 }
 
-export function useSorting(defaultKey, defaultDesc = false) {
-  const [sort, setSort] = useState({ key: defaultKey, desc: defaultDesc })
-  const onSort = useCallback((key) => {
-    setSort((prev) => {
-      if (prev.key === key) {
-        return { key, desc: !prev.desc }
-      }
-      return { key, desc: false }
-    })
-  }, [])
-  return [sort, onSort]
+// A list's sort choice is remembered per browser under `ortex.sort.<list>`.
+// Storage can be blocked or hold junk, so every read and write is guarded.
+function readStored(storageKey, fallback, valid) {
+  if (!storageKey) return fallback
+  try {
+    const raw = localStorage.getItem(`ortex.sort.${storageKey}`)
+    const value = raw == null ? null : JSON.parse(raw)
+    return value != null && valid(value) ? value : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function writeStored(storageKey, value) {
+  if (!storageKey) return
+  try {
+    localStorage.setItem(`ortex.sort.${storageKey}`, JSON.stringify(value))
+  } catch {
+    // Private mode or a full quota: the choice just isn't remembered.
+  }
+}
+
+/**
+ * Column sort state { key, desc }. Clicking the sorted column flips it; a new
+ * column starts ascending. With `storageKey` the choice survives a reload.
+ */
+export function useSorting(defaultKey, defaultDesc = false, storageKey) {
+  const [sort, setSortState] = useState(() =>
+    readStored(storageKey, { key: defaultKey, desc: defaultDesc }, (v) => typeof v?.key === "string" && typeof v?.desc === "boolean"),
+  )
+  const setSort = useCallback(
+    (next) =>
+      setSortState((prev) => {
+        const value = typeof next === "function" ? next(prev) : next
+        writeStored(storageKey, value)
+        return value
+      }),
+    [storageKey],
+  )
+  const onSort = useCallback(
+    (key) => setSort((prev) => (prev.key === key ? { key, desc: !prev.desc } : { key, desc: false })),
+    [setSort],
+  )
+  return [sort, onSort, setSort]
+}
+
+/** A remembered choice from a fixed list (e.g. a list's Sort menu). */
+export function useStoredChoice(storageKey, defaultValue, allowed) {
+  const [value, setValue] = useState(() => readStored(storageKey, defaultValue, (v) => allowed.includes(v)))
+  const set = useCallback(
+    (v) => {
+      writeStored(storageKey, v)
+      setValue(v)
+    },
+    [storageKey],
+  )
+  return [value, set]
 }
 

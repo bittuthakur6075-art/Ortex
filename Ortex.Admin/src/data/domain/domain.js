@@ -45,6 +45,15 @@ export function isInterState(companyStateCode, customerStateCode) {
 
 const FALLBACK_PREFIX = { quotation: "QTN", invoice: "INV", payment: "PAY" }
 
+// Quotation and invoice numbers are unique per company (0082): two people
+// saving at once, or a typed invoice number already in use, are refused there.
+function numberTaken(key, label) {
+  return (e) => {
+    if (new RegExp(key).test(`${e?.message} ${e?.details}`)) throw new Error(`That ${label} number is already used. Try again.`)
+    throw e
+  }
+}
+
 // Reserve the next human-facing document number for a series and bump its
 // counter. Prefix comes from settings so the business can rebrand references.
 async function generateNumber(series, companyId) {
@@ -105,7 +114,7 @@ export async function createQuotation(draft) {
     // MIRRORED in Ortex.Mobile/src/domain/quotations.ts — edit both sides.
     sellerName: draft.sellerName || "",
     showSeller: draft.showSeller !== false,
-  })
+  }).catch(numberTaken("quotations_number_key", "quotation"))
 }
 
 export async function updateQuotation(id, patch) {
@@ -165,7 +174,7 @@ export async function convertQuotationToInvoice(quotationId) {
     quotationId: q.id,
     quotationNumber: q.number,
     amountPaid: 0,
-  })
+  }).catch(numberTaken("invoices_number_key", "invoice"))
 
   await repo.update("quotations", quotationId, { status: "invoiced", invoiceId: invoice.id })
   // Email a copy (mailto or EmailJS per settings). `_notify` is transient, the
@@ -199,7 +208,7 @@ export async function createInvoice(draft) {
     quotationId: draft.quotationId || null,
     amountPaid: 0,
     tally: draft.tally || null,
-  })
+  }).catch(numberTaken("invoices_number_key", "invoice"))
   // Drafts aren't "generated" yet, only email when issued as sent/final.
   const _notify = invoice.status === "draft" || draft.tally ? { skipped: true } : await notifyInvoiceCreated(invoice, settings)
   return { ...invoice, _notify }

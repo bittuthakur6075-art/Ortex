@@ -200,6 +200,8 @@ export function buildVisitors(activities, enquiries = []) {
 
   const byDevice = new Map()
   for (const act of activities) {
+    // Anonymous page views (no analytics consent) belong to nobody.
+    if (act.anonymous) continue
     const id = act.userId || UNKNOWN_DEVICE
     if (!byDevice.has(id)) byDevice.set(id, [])
     byDevice.get(id).push(act)

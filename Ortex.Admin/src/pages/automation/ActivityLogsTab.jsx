@@ -193,7 +193,7 @@ export default function ActivityLogsTab({ activities, totals, activityTruncated,
       {view === "visitors" && (
         <>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard icon={Users} label="Visitors" value={stats.total.toLocaleString()} />
+            <StatCard icon={Users} label="Visitors" value={stats.total.toLocaleString()} hint="Who accepted analytics" />
             <StatCard icon={UserCheck} label="Sent an enquiry" value={stats.enquired.toLocaleString()} accent="bg-success/12 text-success-text" />
             <StatCard icon={Flame} label="Close to enquiring" value={stats.hot.toLocaleString()} accent="bg-warning/12 text-warning-text" />
             <StatCard icon={RefreshCw} label="Came back" value={stats.returning.toLocaleString()} accent="bg-info/10 text-info-text" />
@@ -315,7 +315,7 @@ export default function ActivityLogsTab({ activities, totals, activityTruncated,
                           className="text-xs font-semibold text-primary hover:underline"
                           onClick={() => act.userId && setOpenId(act.userId)}
                         >
-                          {act.userId}
+                          {act.userId || (act.anonymous ? "Anonymous" : "")}
                         </button>
                         <div className="font-mono text-[10px] text-muted-foreground">{act.sessionId}</div>
                       </td>

@@ -4,6 +4,8 @@ import { Users, Plus, AlertTriangle } from "../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { useCollection, useSorting } from "../hooks/useCollection"
+import { byNameAsc, dateValue, sortRows } from "../lib/listSort"
+import { InlineSelect } from "../components/sales/ListParts"
 import { sameCustomer, paymentsOrStored } from "../data/domain/domain"
 import { isSettled } from "../lib/invoiceMoney"
 import { useProfile } from "../hooks/useProfile"
@@ -37,14 +39,27 @@ import {
 // Match a stored document customer snapshot to a master customer (email → phone).
 const matches = (customer, doc) => sameCustomer(customer, doc.customer)
 
-// Columns that sort as numbers; everything else sorts as lowercased text.
-const NUMERIC_KEYS = new Set(["_orders", "_business", "_outstanding", "_lastOrderAt"])
+// Columns that sort as numbers; everything else sorts as text (lib/listSort).
+const NUMERIC_KEYS = new Set(["_orders", "_business", "_outstanding"])
+
+const displayName = (row) => row.company || row.name || ""
 
 function sortValue(row, key) {
-  if (key === "name") return (row.company || row.name || "").toLowerCase()
+  if (key === "name") return displayName(row)
+  if (key === "createdAt" || key === "_lastOrderAt") return dateValue(row[key])
   if (NUMERIC_KEYS.has(key)) return Number(row[key]) || 0
-  return String(row[key] ?? "").toLowerCase()
+  return row[key] ?? ""
 }
+
+// The Sort menu's presets; clicking a column header still sorts by that column.
+const SORT_PRESETS = [
+  { value: "name-asc", label: "Name A to Z", sort: { key: "name", desc: false } },
+  { value: "name-desc", label: "Name Z to A", sort: { key: "name", desc: true } },
+  { value: "recent", label: "Recently added", sort: { key: "createdAt", desc: true } },
+  { value: "outstanding", label: "Most outstanding", sort: { key: "_outstanding", desc: true } },
+  { value: "business", label: "Most business", sort: { key: "_business", desc: true } },
+]
+const presetOf = (sort) => SORT_PRESETS.find((p) => p.sort.key === sort.key && p.sort.desc === sort.desc)?.value || "column"
 
 export default function Customers({ embedded = false }) {
   const { items, loading } = useCollection("customers")
@@ -64,7 +79,7 @@ export default function Customers({ embedded = false }) {
     setCreating(true)
     navTo(location.pathname + location.search, { replace: true })
   }, [location.state, navTo, location.pathname, location.search])
-  const [sort, onSort] = useSorting("_business", true)
+  const [sort, onSort, setSort] = useSorting("name", false, "customers")
   const navigate = useNavigate()
 
   const enriched = useMemo(() => {
@@ -95,14 +110,7 @@ export default function Customers({ embedded = false }) {
           .some((v) => v.toLowerCase().includes(q)),
       )
     }
-    const { key, desc } = sort
-    const sorted = [...rows].sort((a, b) => {
-      const valA = sortValue(a, key)
-      const valB = sortValue(b, key)
-      if (typeof valA === "string" || typeof valB === "string") return String(valA).localeCompare(String(valB))
-      return valA - valB
-    })
-    return desc ? sorted.reverse() : sorted
+    return sortRows(rows, sort, sortValue, byNameAsc(displayName))
   }, [enriched, query, sort])
 
   const handleExport = () => {
@@ -137,7 +145,18 @@ export default function Customers({ embedded = false }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search name, company, GSTIN or state"
         />
-        <ExportButton onClick={handleExport} disabled={!filtered.length} />
+        <div className="flex items-center gap-2">
+          <InlineSelect
+            label="Sort"
+            value={presetOf(sort)}
+            onChange={(v) => {
+              const preset = SORT_PRESETS.find((p) => p.value === v)
+              if (preset) setSort(preset.sort)
+            }}
+            options={presetOf(sort) === "column" ? [...SORT_PRESETS, { value: "column", label: "By column" }] : SORT_PRESETS}
+          />
+          <ExportButton onClick={handleExport} disabled={!filtered.length} />
+        </div>
       </div>
 
       {loading ? (

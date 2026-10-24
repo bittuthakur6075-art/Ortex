@@ -1,4 +1,5 @@
 // Pure helpers for the Products page (filtering/sorting + CSV column sets).
+import { byNameAsc, sortRows } from "../../lib/listSort"
 
 // Cap images per product. Compression + upload live in lib/imageUpload.js.
 export const MAX_IMAGES = 8
@@ -15,20 +16,8 @@ export function filterAndSortProducts(items, query, category, sort) {
     )
   }
 
-  const { key, desc } = sort
-  const sorted = [...rows].sort((a, b) => {
-    let valA = a[key]
-    let valB = b[key]
-    if (key === "margin") {
-      valA = a.basePrice - a.costPrice
-      valB = b.basePrice - b.costPrice
-    }
-    if (valA === undefined || valA === null) valA = ""
-    if (valB === undefined || valB === null) valB = ""
-    if (typeof valA === "string") return valA.localeCompare(valB)
-    return valA - valB
-  })
-  return desc ? sorted.reverse() : sorted
+  const valueOf = (p, key) => (key === "margin" ? (Number(p.basePrice) || 0) - (Number(p.costPrice) || 0) : p[key])
+  return sortRows(rows, sort, valueOf, byNameAsc((p) => p.name))
 }
 
 // Columns for the generic product-master CSV export.

@@ -182,8 +182,9 @@ function CategoryForm({ open, category, products, usage, onClose }) {
       name,
       gstRate: Number(form.gstRate),
       sortOrder: Number(form.sortOrder) || 0,
-      // Auto-derive a URL slug from the name when the admin leaves it blank.
-      slug: form.slug.trim() || slugifyCategory(name),
+      // Auto-derive a URL slug from the name when the admin leaves it blank;
+      // a typed one is normalised too (the database refuses anything else).
+      slug: slugifyCategory(form.slug) || slugifyCategory(name),
     }
     if (isEdit) {
       await repo.update("categories", category.id, payload)

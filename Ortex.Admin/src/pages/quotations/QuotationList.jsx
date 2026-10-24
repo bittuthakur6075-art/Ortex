@@ -6,6 +6,8 @@ import { QUOTATION_STATUS, LOST_REASONS } from "../../data/domain/schema"
 import { formatDate } from "../../lib/format"
 import { exportCsv } from "../../lib/csv"
 import { cn } from "../../lib/cn"
+import { compareValues, dateValue } from "../../lib/listSort"
+import { useStoredChoice } from "../../hooks/useCollection"
 import { QUOTE_GROUPS, QUOTE_TONE, rupees } from "../../lib/salesWork"
 import { Button, Chip, EmptyState, Modal, PageLoader } from "../../components/ui/Ui"
 import { CompanyChip } from "../../components/ui/CompanyChip"
@@ -42,8 +44,11 @@ const GROUP_BY = [
 ]
 const SORT_BY = [
   { value: "newest", label: "Newest" },
+  { value: "oldest", label: "Oldest" },
+  { value: "amount", label: "Amount, high to low" },
+  { value: "number", label: "Number" },
+  { value: "customer", label: "Customer A to Z" },
   { value: "follow", label: "Follow-up" },
-  { value: "amount", label: "Amount" },
 ]
 
 const compact = (v) => {
@@ -67,7 +72,7 @@ export default function QuotationList({ items, loading, settingsOf, enquiries = 
   const [owner, setOwner] = useState("")
   const [amount, setAmount] = useState("any")
   const [groupBy, setGroupBy] = useState("none")
-  const [sortBy, setSortBy] = useState("newest")
+  const [sortBy, setSortBy] = useStoredChoice("quotations", "newest", SORT_BY.map((o) => o.value))
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
   const [selected, setSelected] = useState(() => new Set())
@@ -132,12 +137,19 @@ export default function QuotationList({ items, loading, settingsOf, enquiries = 
       )
     }
     const due = (r) => (r.fu.due == null ? Infinity : r.fu.due)
-    // Newest first: when it was made, then its issue date, then its number.
-    const newer = (a, b) => new Date(b.q.createdAt || b.q.issueDate) - new Date(a.q.createdAt || a.q.issueDate) || String(b.q.number || "").localeCompare(String(a.q.number || ""))
+    // Newest first by the quotation's date (when it was made if undated), then
+    // the highest number, so the order is the same on every load.
+    const dated = (r) => dateValue(r.q.issueDate) ?? dateValue(r.q.createdAt)
+    const byNumber = (a, b) => compareValues(a.q.number, b.q.number, true)
+    const newer = (a, b) => compareValues(dated(a), dated(b), true) || byNumber(a, b)
+    const customerOf = (r) => r.q.customer?.company || r.q.customer?.name || ""
     const sorters = {
       follow: (a, b) => due(a) - due(b) || newer(a, b),
       newest: newer,
-      amount: (a, b) => b.total - a.total,
+      oldest: (a, b) => compareValues(dated(a), dated(b)) || compareValues(a.q.number, b.q.number),
+      amount: (a, b) => (Number(b.total) || 0) - (Number(a.total) || 0) || newer(a, b),
+      number: byNumber,
+      customer: (a, b) => compareValues(customerOf(a), customerOf(b)) || newer(a, b),
     }
     return list.sort(sorters[sortBy])
   }, [rows, views, view, amount, query, status, owner, sortBy])

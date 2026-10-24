@@ -41,6 +41,8 @@ import CompanyMark from "../components/documents/CompanyMark"
 import { isMedinetix, isAman } from "../lib/companyMark"
 import { companySlug } from "../lib/roles"
 import { uploadCompanyLogo, removeCompanyLogo, LOGO_TYPES } from "../services/companyLogos"
+import { prefixProblems } from "../lib/numbering"
+import { settingsFor } from "../data/domain/settingsDefaults"
 
 // Settings (Figma "V3 · Settings"): a section menu on the left, one section at
 // a time, every setting as a row (label and why on the left, control on the
@@ -193,6 +195,13 @@ export default function Settings() {
     setCedit((e) => (e && e.id === chosen.id && changedPaths(e.base, e.draft).length ? e : { id: chosen.id, base: fresh, draft: structuredClone(fresh) }))
   }, [settings, chosen])
   const cchanges = useMemo(() => (companiesOn && cedit ? changedPaths(cedit.base, cedit.draft) : []), [companiesOn, cedit])
+  // A company's number prefixes must read as that company's (lib/numbering.js),
+  // checked only when they are being changed, so other edits are never blocked.
+  const numberingProblems = useMemo(() => {
+    if (!companiesOn || !cedit || !settings || !cchanges.some((p) => p.startsWith("numbering"))) return []
+    const others = companies.filter((c) => c.id !== cedit.id).map((c) => ({ name: c.name, numbering: settingsFor(settings, c.doc).numbering }))
+    return prefixProblems(cedit.draft.numbering, others)
+  }, [companiesOn, cedit, settings, cchanges, companies])
 
   useEffect(() => {
     if (settings) setEdit((e) => (e && changedPaths(e.base, e.draft).length ? e : { base: settings, draft: structuredClone(settings) }))
@@ -256,6 +265,10 @@ export default function Settings() {
   }
 
   const save = async () => {
+    if (numberingProblems.length) {
+      toast.error(numberingProblems[0])
+      return
+    }
     setSaving(true)
     try {
       if (changes.length) await savePaths(changes)
@@ -345,7 +358,7 @@ export default function Settings() {
           <UnsavedContext.Provider value={report}>
           {section === "companies" && <CompaniesSection companies={companies} onEdit={(id) => (pickCompanyToEdit(id), go("company"))} />}
           {section === "company" && <CompanySection draft={editing.draft} set={editing.set} picker={picker} perCompany={companiesOn} companyId={chosen?.id} />}
-          {section === "documents" && <DocumentsSection draft={editing.draft} set={editing.set} picker={picker} perCompany={companiesOn} />}
+          {section === "documents" && <DocumentsSection draft={editing.draft} set={editing.set} picker={picker} perCompany={companiesOn} problems={numberingProblems} />}
           {section === "notifications" && <NotificationsSection draft={draft} set={set} setEmailjs={setEmailjs} />}
           {section === "integrations" && (
             <IntegrationsSection draft={draft} settings={settings} setPath={setPath} changes={changes} savePaths={savePaths} loadFailed={loadFailed} companies={companies} />
@@ -891,7 +904,7 @@ function CompaniesSection({ companies, onEdit }) {
 
 // ---- Documents -------------------------------------------------------------------------
 
-function DocumentsSection({ draft, set, picker, perCompany }) {
+function DocumentsSection({ draft, set, picker, perCompany, problems = [] }) {
   const n = draft.numbering
   const fy = fyCode()
   return (
@@ -911,7 +924,7 @@ function DocumentsSection({ draft, set, picker, perCompany }) {
           <Switch checked={!!draft.tax.pricesIncludeTax} onChange={(v) => set("tax", "pricesIncludeTax", v)} label="Prices include tax" />
         </Row>
       </Group>
-      <Group title="Numbering" description={`Numbers restart every financial year: PREFIX-${fy}-0001.`}>
+      <Group title="Numbering" description={`Numbers read PREFIX-${fy}-0001. The year part follows the financial year; the running number continues across years and never repeats.`}>
         {[
           ["Quotation", "quotationPrefix"],
           ["Invoice", "invoicePrefix"],
@@ -926,6 +939,13 @@ function DocumentsSection({ draft, set, picker, perCompany }) {
             </div>
           </Row>
         ))}
+        {problems.length > 0 && (
+          <Banner tone="danger">
+            {problems.map((p) => (
+              <p key={p}>{p}</p>
+            ))}
+          </Banner>
+        )}
       </Group>
       <Group title="Quotation terms" description="Pre-filled on every new quotation; each one can be edited.">
         <Row label="Valid for" hint="Days from the issue date">

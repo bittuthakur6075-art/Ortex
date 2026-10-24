@@ -10,6 +10,7 @@ import { normalizeReading, findDuplicate, matchInvoice, paymentDirection, parseA
 import { useSettings } from "../../hooks/useCollection"
 import { useCompany } from "../../hooks/useCompany"
 import { CompanyField } from "../../components/ui/CompanyChip"
+import { RecordActivity } from "../../components/ui/RecordActivity"
 import ScreenshotReader from "./ScreenshotReader"
 import { Button, Input, Select, Field, Textarea, Drawer, Switch } from "../../components/ui/Ui"
 
@@ -405,6 +406,12 @@ export default function RecordPaymentModal({ type: initialType = "inflow", invoi
               <span className="block text-xs text-muted-foreground">Its receipt prints as a Receipt Voucher</span>
             </span>
             <Switch checked={advance} onChange={setAdvance} label="Advance against an order" />
+          </div>
+        )}
+
+        {editing && (
+          <div className="border-t border-border pt-4">
+            <RecordActivity collection="payments" record={payment} bare title="" />
           </div>
         )}
       </div>

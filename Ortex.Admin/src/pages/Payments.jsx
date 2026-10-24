@@ -12,6 +12,7 @@ import { isSuperAdmin } from "../lib/roles"
 import ReceiptView from "../components/documents/ReceiptView"
 import { formatDate, formatCurrency, round2 } from "../lib/format"
 import { exportCsv } from "../lib/csv"
+import { byNumberDesc, dateValue, sortRows } from "../lib/listSort"
 import RecordPaymentModal from "./invoices/RecordPaymentModal"
 import { Button, ExportButton, Card, CardHeader, SearchInput, StatCard, EmptyState, Money, Chip, ChipGroup, PageLoader, SortTh } from "../components/ui/Ui"
 
@@ -24,6 +25,13 @@ const METHOD_ICON = {
   Cash,
   Card: CreditCard,
   Razorpay: CardPos,
+}
+
+function paymentSortValue(p, key) {
+  if (key === "party") return p.party || p.customer?.name || "" // the name the row shows
+  if (key === "amount") return Number(p.amount) || 0
+  if (key === "date") return dateValue(p.date) ?? dateValue(p.createdAt)
+  return p[key]
 }
 
 const FILTERS = [
@@ -51,7 +59,7 @@ export default function Payments() {
   }, [location.state, navigate, location.pathname, location.search])
   const [receiptFor, setReceiptFor] = useState(null)
   const [editing, setEditing] = useState(null)
-  const [sort, onSort] = useSorting("date", true)
+  const [sort, onSort] = useSorting("date", true, "payments")
 
   // Migration 0066 refuses a change to a payment already in Tally for anyone
   // but the Super Admin: say so instead of opening a form that cannot save.
@@ -68,26 +76,8 @@ export default function Payments() {
         [p.number, p.party, p.customer?.name, p.invoiceNumber, p.method, p.reference, p.note].some((v) => v != null && String(v).toLowerCase().includes(s)),
       )
     }
-    const { key, desc } = sort
-    return [...rows].sort((a, b) => {
-      let valA = a[key]
-      let valB = b[key]
-      if (key === "party") {
-        // The name the row shows.
-        valA = a.party || a.customer?.name || ""
-        valB = b.party || b.customer?.name || ""
-      } else if (key === "amount") {
-        valA = Number(valA) || 0
-        valB = Number(valB) || 0
-      } else if (key === "date") {
-        valA = valA ? new Date(valA).getTime() : 0
-        valB = valB ? new Date(valB).getTime() : 0
-      }
-      if (valA === undefined || valA === null) valA = ""
-      if (valB === undefined || valB === null) valB = ""
-      if (typeof valA === "string") return desc ? valB.localeCompare(valA) : valA.localeCompare(valB)
-      return desc ? valB - valA : valA - valB
-    })
+    // Same day: the newest payment number first.
+    return sortRows(rows, sort, paymentSortValue, byNumberDesc((p) => p.number))
   }, [items, query, typeFilter, sort])
 
   const totals = useMemo(() => {

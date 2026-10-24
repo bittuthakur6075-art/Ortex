@@ -33,6 +33,14 @@ export function computeGrowthAnalytics(
 ) {
   const { from, to } = periodBounds(period)
   const acts = activities.filter((a) => inRange(a.timestamp, from, to))
+  // The website counts a visitor who has not accepted analytics anonymously
+  // (doc.anonymous: no id, no location). Those rows are page views and nothing
+  // more, so every per-visitor and per-session figure reads `tracked` only.
+  // A full row flagged afterConsent repeats the page its visitor accepted on,
+  // already counted anonymously, so it is left out of the page-view count.
+  const tracked = acts.filter((a) => !a.anonymous)
+  const pageViews = acts.filter((a) => classifyActivity(a) === "view" && !a.metadata?.afterConsent).length
+  const anonymousViews = acts.filter((a) => a.anonymous).length
 
   // ---- acquisition ----
   const visitorsSet = new Set(acts.map((a) => a.userId).filter(Boolean))
@@ -76,7 +84,7 @@ export function computeGrowthAnalytics(
   const bounceSessions = sessions.filter((s) => s.count <= 1).length
   const engagedRate = sessions.length ? Math.round((engagedSessions / sessions.length) * 100) : null
   const bounceRate = sessions.length ? Math.round((bounceSessions / sessions.length) * 100) : null
-  const actionsPerSession = sessions.length ? round2(acts.length / sessions.length) : 0
+  const actionsPerSession = sessions.length ? round2(tracked.filter((a) => a.sessionId).length / sessions.length) : 0
   const quoteSessions = new Set(acts.filter((a) => classifyActivity(a) === "quote").map((a) => a.sessionId).filter(Boolean))
   const visitorToQuote = sessions.length ? round2((quoteSessions.size / sessions.length) * 100) : null
 
@@ -160,7 +168,9 @@ export function computeGrowthAnalytics(
     demandGaps,
     funnel,
     trend,
-    totalActivities: acts.length,
+    totalActivities: tracked.length,
+    pageViews,
+    anonymousViews,
   }
 }
 
