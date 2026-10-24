@@ -94,6 +94,12 @@ Deno.serve(async (req) => {
       }
     }
     const { error } = await db.from("enquiries").insert({ company_id: company, doc })
+    // Two pushes of the same lead at once both pass the check above; the
+    // unique queryId index (0082) refuses the second, which is a duplicate.
+    if (error?.code === "23505") {
+      duplicates++
+      continue
+    }
     if (error) return json({ error: error.message }, 500)
     inserted++
   }

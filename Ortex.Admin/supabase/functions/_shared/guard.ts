@@ -72,6 +72,34 @@ export async function withinLimit(key: string, max: number, windowSec: number): 
   }
 }
 
+/**
+ * Cloudflare Turnstile check of a browser token. "ok" passed, "fail" was
+ * answered and refused (bad, reused or foreign token), "skip" means there was
+ * nothing to verify: no TURNSTILE_SECRET set, no token sent, or Cloudflare did
+ * not answer within 3 s. A caller decides what a skip costs.
+ */
+export async function verifyTurnstile(token: unknown, ip: string, hostnames: string[]): Promise<"ok" | "fail" | "skip"> {
+  const secret = Deno.env.get("TURNSTILE_SECRET")
+  if (!secret || typeof token !== "string" || !token || token.length > 2048) return "skip"
+  try {
+    const form = new FormData()
+    form.append("secret", secret)
+    form.append("response", token)
+    if (ip !== "unknown") form.append("remoteip", ip)
+    const r = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      body: form,
+      signal: AbortSignal.timeout(3000),
+    })
+    if (!r.ok) return "skip"
+    const data = await r.json()
+    return data?.success === true && hostnames.includes(String(data.hostname || "")) ? "ok" : "fail"
+  } catch (e) {
+    console.error("turnstile unavailable", e)
+    return "skip"
+  }
+}
+
 /** Does the CALLER (their own session, not the service role) hold `module`? */
 export async function callerHasModule(req: Request, module: string): Promise<boolean> {
   const url = Deno.env.get("SUPABASE_URL")!
