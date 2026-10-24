@@ -48,7 +48,7 @@ const monthKey = (t) => {
 }
 
 // Leads (Figma "V2 · Leads · List"): every enquiry, from the website, Anu's
-// calls, IndiaMART, WhatsApp and imports, in one table grouped by when the next
+// calls, WhatsApp and imports, in one table grouped by when the next
 // step is due. A row click (or Enter) opens the lead's page; P opens the quick
 // preview. The view, search, filters and page live in the URL, so Back from a
 // lead returns to the same list.

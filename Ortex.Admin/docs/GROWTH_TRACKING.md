@@ -63,7 +63,7 @@ Sources: [HubSpot, how to calculate CLV](https://blog.hubspot.com/service/how-to
 ## 2. Sales & CRM Tracking
 
 ### Lead sources
-Tag every enquiry with a **source** and compute conversion + revenue per source, so spend follows what wins: website form, quote calculator, WhatsApp, phone, referral, marketplace (IndiaMART/TradeIndia), exhibition, cold outreach, Google/paid. Metric: **conversion rate by source** and **revenue per source**.
+Tag every enquiry with a **source** and compute conversion + revenue per source, so spend follows what wins: website form, quote calculator, WhatsApp, phone, referral, marketplace (TradeIndia and similar; the IndiaMART integration was removed 2026-10-24), exhibition, cold outreach, Google/paid. Metric: **conversion rate by source** and **revenue per source**.
 
 ### Pipeline stages
 `New → Qualified → Quotation sent → Negotiation → Verbally won → Order confirmed → In production → Dispatched → Invoiced → Paid → Lost`. Track per stage: count, total ₹ value, average age in stage, stage-to-stage conversion.

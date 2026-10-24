@@ -6,7 +6,7 @@
 //      after (cadences live in Settings → Telecaller),
 //   3. dials whatever is due, inside calling hours, under the daily cap.
 //
-// Two ways in, same as social-publish / indiamart-pull:
+// Two ways in:
 //   a) pg_cron: the service-role key as the bearer, OR the anon key as bearer plus
 //      TELECALLER_WEBHOOK_SECRET in the x-telecaller-secret header (keeps the
 //      service key out of cron.job). Body { mode: "sweep" }.

@@ -23,7 +23,7 @@ import { enquiryAge, rfqArtwork, rfqRateMismatches } from "./quoteRfq"
 /** @typedef {{ key: string, tone: "danger"|"warning"|"info"|"success", text: string }} Advisory */
 
 /**
- * Advisories for a website / IndiaMART / direct enquiry.
+ * Advisories for a website or direct enquiry.
  *
  * @param enquiry  the enquiry record
  * @param ctx.rfq        parsed quote-calculator payload, or null

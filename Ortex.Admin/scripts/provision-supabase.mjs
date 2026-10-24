@@ -65,7 +65,7 @@ Still to do by hand (per-project values, never committed):
   1. Secrets — set the ones your functions use:
        supabase secrets set GEMINI_API_KEY=...        --project-ref ${ref}
        supabase secrets set META_ACCESS_TOKEN=...     --project-ref ${ref}
-       supabase secrets set INDIAMART_CRM_KEY=...     --project-ref ${ref}
+       supabase secrets set TURNSTILE_SECRET=...      --project-ref ${ref}
 
   2. Auth — Dashboard → Authentication → Providers → Email:
        "Allow new users to sign up" = OFF   (this console is invite-only)

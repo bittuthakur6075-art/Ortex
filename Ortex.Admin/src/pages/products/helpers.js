@@ -36,22 +36,6 @@ export const PRODUCT_CSV_COLUMNS = [
 
 export const productsCsvFile = () => `ortex-products-${new Date().toISOString().slice(0, 10)}.csv`
 
-// Columns for the IndiaMART bulk-upload sheet (paste into IndiaMART's Bulk
-// Product Upload; IndiaMART has no API, so listing itself stays in their panel).
-export const IM_COLUMNS = [
-  { header: "Product Name", value: (p) => p.name },
-  { header: "Product Description", value: (p) => p.description || p.material },
-  { header: "Product Category", value: (p) => p.category },
-  { header: "Price (INR)", value: (p) => p.basePrice },
-  { header: "Unit", value: (p) => p.unit },
-  { header: "Minimum Order Quantity", value: (p) => p.moq },
-  { header: "HSN Code", value: (p) => p.hsn },
-  { header: "GST %", value: (p) => p.gstRate },
-  { header: "Specifications", value: (p) => p.material },
-]
-
-export const imFile = () => `indiamart-products-${new Date().toISOString().slice(0, 10)}.csv`
-
 // What this product has actually done, rather than what it is. The product
 // master only stores list price and cost; everything a buyer or a sales lead
 // wants to know, has it sold, at what price, to whom, is it still moving, has

@@ -367,19 +367,6 @@ export default function ProductForm({ open, product, categories = [], presetCate
             </span>
           </label>
 
-          <label className="flex cursor-pointer items-start gap-2.5 text-sm text-foreground">
-            <input
-              type="checkbox"
-              className="mt-0.5 h-4 w-4"
-              checked={!!form.indiamartListed}
-              onChange={(e) => set("indiamartListed", e.target.checked)}
-            />
-            <span>
-              Listed on IndiaMART
-              <span className="mt-0.5 block text-xs text-muted-foreground">Excludes it from the IndiaMART CSV export.</span>
-            </span>
-          </label>
-
           <p className="border-t border-dashed border-border pt-3 text-xs text-muted-foreground">
             Price, cost, HSN and GST never reach the website. It reads a view that hands out name, photos,
             material, MOQ and lead time only. Rates appear when <em>you</em> build a quotation, and stay editable

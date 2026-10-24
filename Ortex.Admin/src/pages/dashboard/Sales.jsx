@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { Globe, Hash, Inbox, Mic, PhoneOutgoing, Send } from "../../components/ui/Icons"
+import { Globe, Hash, Inbox, Mic, PhoneOutgoing } from "../../components/ui/Icons"
 import { formatNumber } from "../../lib/format"
 import { computeVelocity } from "../../lib/analytics/velocity"
 import { VOICE_LABEL, computeSales, durationWords } from "../../lib/analytics/sales"
@@ -92,7 +92,6 @@ function SpeedRow({ label, value, tone = "slate" }) {
 const SOURCE_ICON = [
   [/voice|anu/i, Mic],
   [/call agent|telecall/i, PhoneOutgoing],
-  [/indiamart/i, Send],
   [/social|instagram|facebook|linkedin/i, Hash],
   [/web|site|form/i, Globe],
 ]

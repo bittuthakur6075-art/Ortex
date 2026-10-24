@@ -3,7 +3,7 @@
 // order" with a scored worklist so the daily cap goes to the calls most likely
 // to produce revenue:
 //
-//   enquiry follow-up   fresh buying intent (website, IndiaMART, voice leads)
+//   enquiry follow-up   fresh buying intent (website and voice leads)
 //   lead follow-up      open pipeline: overdue follow-ups, quoted/negotiating deals
 //   feedback            delivered orders, N days after invoice
 //   upsell / network    repeat customers, key accounts, seasonal reorders,
@@ -132,10 +132,10 @@ export function planCandidates(input: Input): { candidates: Candidate[]; forHuma
       if (!ok(phone) || (e.status || "new") !== "new" || leadByEnquiry.has(e.id)) continue
       if (recentlyRefused(phone)) continue
       // Website and Anu enquiries are anonymous: anyone can type anyone's number,
-      // and an automatic call would then ring a stranger. Only IndiaMART (its own
-      // verified channel) or an enquiry a person has starred is called unprompted;
-      // everything else waits for someone to press Call (security audit, 2026-09-26).
-      if (!/indiamart/i.test(e.source || "") && !e.starred) continue
+      // and an automatic call would then ring a stranger. Only an enquiry a person
+      // has starred is called unprompted; everything else waits for someone to
+      // press Call (security audit, 2026-09-26).
+      if (!e.starred) continue
       const ageH = (now - new Date(e.submittedAt || e.createdAt).getTime()) / HOUR
       if (ageH < 2) continue // the human team gets the first two hours
       if (jobFor((j) => j.enquiryId === e.id)) continue

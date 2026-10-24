@@ -13,9 +13,6 @@
 --                               payments and customers; products are shared,
 --                               so theirs is global. Two admins importing the
 --                               same Day Book now fail safely.
---   4. enquiries_indiamart_query_key  doc.indiamart.queryId: the indiamart-lead
---                               function checks then inserts, so two pushes of
---                               one lead could both land.
 --
 -- Each index is created only when no duplicate exists. Otherwise it is skipped
 -- with a NOTICE naming the count (like 0066), so the push never fails on old
@@ -46,10 +43,7 @@ begin
        'btrim(coalesce(doc -> ''tally'' ->> ''guid'', '''')) <> '''''),
       ('products_tally_guid_key', 'products',
        '(doc -> ''tally'' ->> ''guid'')',
-       'btrim(coalesce(doc -> ''tally'' ->> ''guid'', '''')) <> '''''),
-      ('enquiries_indiamart_query_key', 'enquiries',
-       '(doc -> ''indiamart'' ->> ''queryId'')',
-       'btrim(coalesce(doc -> ''indiamart'' ->> ''queryId'', '''')) <> ''''')
+       'btrim(coalesce(doc -> ''tally'' ->> ''guid'', '''')) <> ''''')
     ) as s(name, tbl, cols, pred)
   loop
     if exists (select 1 from pg_indexes where schemaname = 'public' and indexname = spec.name) then

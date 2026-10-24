@@ -10,7 +10,7 @@
 // shared secret is the guard instead.
 //
 // WHO: active staff whose profile grants the lead's module (the console's own
-// rule, has_module_access): `enquiries` for a website or IndiaMART lead,
+// rule, has_module_access): `enquiries` for a website lead,
 // `voice-leads` for one of Anu's calls; admins get both; and since 0075 only
 // people whose profiles.companies holds the enquiry's company_id (the Super
 // Admin reaches every company). Leave, pay, chat and punch alerts are shared

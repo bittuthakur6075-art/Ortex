@@ -99,7 +99,7 @@ export type Customer = {
   gstin: string
   stateCode: string
   address: string
-  /** Written by the IndiaMART sync and the spreadsheet import. */
+  /** Written by the spreadsheet import. */
   city?: string
   /** For the team only, never printed. Only on the customers master, not on a quotation. */
   notes?: string

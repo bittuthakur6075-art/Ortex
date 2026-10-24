@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest"
 import { buildLead, channelOf } from "./model"
 
 // One lead per writer, shaped exactly as that writer stores it, so a field that
-// lives somewhere unexpected (Anu's quantity in the message, IndiaMART's state
+// lives somewhere unexpected (Anu's quantity in the message, a state stored
 // as a name) cannot silently show "not given" on the list again.
 const now = new Date("2026-09-27T11:00:00+05:30").getTime()
 const products = [{ id: "p1", sku: "LAN-20", name: "Polyester lanyard", basePrice: 24, hsn: "6307", gstRate: 18 }]
@@ -41,9 +41,9 @@ describe("buildLead maps every source", () => {
     expect(l.askedSub).toBe("Qty 1,500 · 2 items")
   })
 
-  it("IndiaMART: city and state name", () => {
-    const l = build({ source: "IndiaMART", customer: { name: "Imran", phone: "9811112222", city: "Nagpur", state: "Maharashtra" }, productInterest: "Acrylic keychains", message: "Need price" })
-    expect(channelOf(l.e)).toBe("indiamart")
+  it("Phone lead: city and state name", () => {
+    const l = build({ source: "Phone", customer: { name: "Imran", phone: "9811112222", city: "Nagpur", state: "Maharashtra" }, productInterest: "Acrylic keychains", message: "Need price" })
+    expect(channelOf(l.e)).toBe("phone")
     expect(l.location).toBe("Nagpur, Maharashtra")
     expect(l.asked).toBe("Acrylic keychains")
   })

@@ -208,7 +208,7 @@ the daily cap, the sources are:
 | Source | Rule | Job |
 | --- | --- | --- |
 | Leads in `new` / `contacted` with a valid mobile and no follow-up due later | no open job for the number | `followup` |
-| Enquiries still `new` after 2 hours: **IndiaMART, or starred by a person**. Website and Anu voice enquiries are anonymous (anyone can type anyone's number), so they wait for someone to press **AI call** or star them | no job for that enquiry | `followup` |
+| Enquiries still `new` after 2 hours: **starred by a person**. Website and Anu voice enquiries are anonymous (anyone can type anyone's number), so they wait for someone to press **AI call** or star them | no job for that enquiry | `followup` |
 | Invoices older than **feedback.daysAfterInvoice** (7) | one per invoice | `feedback` |
 | Invoices older than **upsell.daysAfterInvoice** (30), no newer order | at most one per **repeatEveryDays** (90) | `upsell` |
 

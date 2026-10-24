@@ -66,7 +66,6 @@ export default function ProductTable({
                             <EyeOff variant="Linear" className="h-3.5 w-3.5" /> Off website
                           </span>
                         )}
-                        {p.indiamartListed && <span className="text-success-text">IndiaMART ✓</span>}
                       </div>
                     </div>
                   </div>

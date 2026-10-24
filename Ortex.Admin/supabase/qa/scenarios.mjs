@@ -1440,9 +1440,6 @@ await scenario("Unique numbers (0082)", async () => {
   eq("a Tally stock item", await prod("QA 0082 item"), null)
   like("products are shared, so the GUID is unique everywhere", await prod("QA 0082 item b"), /products_tally_guid_key/)
 
-  const im = (q) => ins("enquiries", { status: "new", source: "IndiaMART", indiamart: { queryId: q } })
-  eq("an IndiaMART lead", await im("QA82-Q1"), null)
-  like("the same IndiaMART query again is refused", await im("QA82-Q1"), /enquiries_indiamart_query_key/)
   eq("blank enquiry references are not limited by 0079", [await ins("enquiries", { status: "new", reference: "" }), await ins("enquiries", { status: "new", reference: " " })], [null, null])
 })
 
@@ -1509,6 +1506,28 @@ await scenario("Company number prefixes (0084)", async () => {
   check("an invoice number stays within 16 characters", "MDX-2627-99999".length <= 16 && "NDH-2627-99999".length <= 16 && "AMN-2627-99999".length <= 16, "<= 16", "AMN/MDX/NDH-2627-99999")
 
   await run(null, "delete from companies where id = 'medinetix' and name = 'Medinetix'")
+})
+
+// ---- IndiaMART removed (0085) -----------------------------------------------------------------
+await scenario("IndiaMART removed (0085)", async () => {
+  const sql0085 = readFileSync(new URL("../migrations/0085_remove_indiamart.sql", import.meta.url), "utf8")
+  const integrations = async () => (await val(null, "select doc -> 'integrations' from settings where id")) ?? null
+  // As production stored it: the old single block, a per-company block, and something else to keep.
+  await run(null, "update settings set doc = jsonb_set(doc, '{integrations}', $1) where id", [J({ indiamart: { crmKey: "k", enabled: true }, indiamartByCompany: { aman: { crmKey: "k2" } }, other: { on: true } })])
+  await run(null, "update companies set doc = doc || $1::jsonb where id = 'aman'", [J({ indiamart: { listed: true } })])
+  await run(null, "select cron.schedule('indiamart-pull-every-15', '*/15 * * * *', 'select 1')")
+  await db.exec(sql0085)
+
+  eq("the IndiaMART keys are gone, other integrations stay", await integrations(), { other: { on: true } })
+  eq("a company's IndiaMART block is gone", await val(null, "select doc ? 'indiamart' from companies where id = 'aman'"), false)
+  eq("an IndiaMART cron job is unscheduled", await val(null, "select count(*)::int from cron.job where jobname ilike '%indiamart%'"), 0)
+
+  await run(null, "update settings set doc = jsonb_set(doc, '{integrations}', $1) where id", [J({ indiamart: { crmKey: "k" } })])
+  await db.exec(sql0085)
+  eq("an integrations block left empty is removed", await val(null, "select doc ? 'integrations' from settings where id"), false)
+  const stamp = String(await val(null, "select updated_at from settings where id"))
+  await db.exec(sql0085)
+  eq("running it again changes nothing", String(await val(null, "select updated_at from settings where id")), stamp)
 })
 
 // ---- report -----------------------------------------------------------------------------

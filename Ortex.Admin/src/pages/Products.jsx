@@ -10,7 +10,7 @@ import ProductFilters from "./products/ProductFilters"
 import ProductTable from "./products/ProductTable"
 import ProductDetail from "./products/ProductDetail"
 import ProductForm from "./products/ProductForm"
-import { filterAndSortProducts, PRODUCT_CSV_COLUMNS, productsCsvFile, IM_COLUMNS, imFile } from "./products/helpers"
+import { filterAndSortProducts, PRODUCT_CSV_COLUMNS, productsCsvFile } from "./products/helpers"
 
 export default function Products() {
   const { items, loading } = useCollection("products")
@@ -50,14 +50,6 @@ export default function Products() {
     exportCsv(productsCsvFile(), PRODUCT_CSV_COLUMNS, filtered)
   }
 
-  // Export products not yet marked "Listed on IndiaMART" (or all if none pending).
-  const handleIndiamartExport = () => {
-    const pending = filtered.filter((p) => !p.indiamartListed)
-    const rows = pending.length ? pending : filtered
-    exportCsv(imFile(), IM_COLUMNS, rows)
-    toast.success(`Exported ${rows.length} product(s) for IndiaMART${pending.length ? " (not yet listed)" : ""}`)
-  }
-
   return (
     <div>
       <ProductFilters
@@ -68,7 +60,6 @@ export default function Products() {
         categories={categories}
         actions={
           <>
-            <ToolbarButton onClick={handleIndiamartExport} disabled={!filtered.length}>IndiaMART CSV</ToolbarButton>
             <ToolbarButton onClick={() => setImporting(true)}>Import</ToolbarButton>
             <ExportButton onClick={handleExport} disabled={!filtered.length} />
           </>

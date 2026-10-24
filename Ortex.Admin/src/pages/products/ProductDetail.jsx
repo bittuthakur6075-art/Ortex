@@ -115,7 +115,6 @@ export default function ProductDetail({ open, product, quotations = [], invoices
           <div className="min-w-0 flex-1 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge list={PRODUCT_STATUS} status={product.status} />
-              {product.indiamart?.listed && <span className="text-xs text-success-text">Listed on IndiaMART</span>}
             </div>
 
             <div>

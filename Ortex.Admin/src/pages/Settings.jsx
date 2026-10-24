@@ -9,14 +9,12 @@ import {
   EyeOff,
   FileText,
   Globe,
-  Inbox,
   Lock,
   CalendarClock,
   IndianRupee,
   Mail,
   PhoneOutgoing,
   Printer,
-  RefreshCw,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -26,7 +24,6 @@ import { repo } from "../data/store/repository"
 import { hasSupabase } from "../data/store/supabaseClient"
 import { useSettings, useCollections, useCollection } from "../hooks/useCollection"
 import { loadDemoData, countDemoData, removeDemoData } from "../data/seed/seed"
-import { syncIndiaMart } from "../services/integrations"
 import { GST_RATES } from "../data/domain/schema"
 import { GST_STATES, stateLabel } from "../lib/gstStates"
 import AttendanceSettings from "./attendance/Settings"
@@ -141,8 +138,6 @@ const PATH_LABEL = {
   "notifications.invoiceEmailEnabled": "Invoice email",
   "notifications.recipient": "Recipient",
   "notifications.sender": "Sender",
-  "integrations.indiamart.enabled": "IndiaMART sync",
-  "integrations.indiamart.crmKey": "IndiaMART key",
   "company.logoText": "Short name",
   "tax.pricesIncludeTax": "Prices include tax",
   tallyCompany: "Tally company name",
@@ -151,15 +146,6 @@ const PATH_LABEL = {
 // One company's editable settings (0075): its companies.doc blocks over the
 // global settings (settingsFor), plus the Tally company name.
 const companyShape = (settings, row) => ({ ...settingsFor(settings, row?.doc), tallyCompany: row?.doc?.tallyCompany || "" })
-
-// The webhook IndiaMART pushes a company's leads to (the key is a function secret).
-const indiamartHook = (companyId) =>
-  `${import.meta.env.VITE_SUPABASE_URL || "https://<project>.supabase.co"}/functions/v1/indiamart-lead?company=${companyId}&key=<INDIAMART_PUSH_KEY>`
-
-// { a: { b: v } } from "a.b", for mergePaths.
-function pathObject(path, v) {
-  return path.split(".").reduceRight((acc, k) => ({ [k]: acc }), v)
-}
 
 // The financial year as the document numbers write it: Sep 2026 → "2627".
 function fyCode(d = new Date()) {
@@ -170,8 +156,8 @@ function fyCode(d = new Date()) {
 export default function Settings() {
   const settings = useSettings()
   const [params, setParams] = useSearchParams()
-  // The draft and the settings it was copied from. A live change (another tab,
-  // the IndiaMART sync stamping lastPull) re-bases the draft only while it has
+  // The draft and the settings it was copied from. A live change (another tab)
+  // re-bases the draft only while it has
   // no unsaved changes, so nothing typed is ever overwritten.
   const [edit, setEdit] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -231,8 +217,6 @@ export default function Settings() {
   const setDraft = (fn) => setEdit((e) => ({ ...e, draft: fn(e.draft) }))
   const set = (group, key, v) => setDraft((d) => ({ ...d, [group]: { ...d[group], [key]: v } }))
   const setEmailjs = (key, v) => setDraft((d) => ({ ...d, notifications: { ...d.notifications, emailjs: { ...d.notifications.emailjs, [key]: v } } }))
-  // A key anywhere in the draft, by path ("integrations.indiamartByCompany.aman.crmKey").
-  const setPath = (path, v) => setDraft((d) => mergePaths(d, { ...pathObject(path, v) }, [path]))
   const setC = (group, key, v) => setCedit((e) => ({ ...e, draft: group ? { ...e.draft, [group]: { ...e.draft[group], [key]: v } } : { ...e.draft, [key]: v } }))
   const pickCompanyToEdit = (id) => {
     if (id === chosen?.id) return
@@ -299,7 +283,6 @@ export default function Settings() {
   // A list changes by index (company.paymentAliases.2): name the list.
   const changedWords = allChanges.map((p) => PATH_LABEL[p] || PATH_LABEL[p.replace(/\.\d+$/, "")] || PATH_LABEL[p.split(".").slice(0, 2).join(".")] || p.split(".").pop()).filter((v, i, a) => a.indexOf(v) === i)
 
-  const indiamartOn = !!draft.integrations.indiamart.enabled && !!draft.integrations.indiamart.crmKey
   const editing = companiesOn && cedit ? { draft: cedit.draft, set: setC } : { draft, set }
   const picker = companiesOn && chosen && (
     <CompanyPicker companies={companies} value={chosen.id} onChange={pickCompanyToEdit} />
@@ -327,7 +310,7 @@ export default function Settings() {
             </div>,
             ...SECTIONS.filter((s) => s.group === group).map((s) => {
             const active = s.id === section
-            const pill = s.id === "notifications" ? (emailOn ? null : ["Off", "slate"]) : s.id === "integrations" ? (indiamartOn ? null : ["1 off", "amber"]) : null
+            const pill = s.id === "notifications" ? (emailOn ? null : ["Off", "slate"]) : null
             return (
               <button
                 key={s.id}
@@ -361,7 +344,7 @@ export default function Settings() {
           {section === "documents" && <DocumentsSection draft={editing.draft} set={editing.set} picker={picker} perCompany={companiesOn} problems={numberingProblems} />}
           {section === "notifications" && <NotificationsSection draft={draft} set={set} setEmailjs={setEmailjs} />}
           {section === "integrations" && (
-            <IntegrationsSection draft={draft} settings={settings} setPath={setPath} changes={changes} savePaths={savePaths} loadFailed={loadFailed} companies={companies} />
+            <IntegrationsSection settings={settings} />
           )}
           {/* These three were whole pages of their own. They keep their own
               cards and their own save buttons; only their address changed. */}
@@ -1061,88 +1044,7 @@ function IntegrationCard({ icon: Icon, tone, title, description, status, facts, 
   )
 }
 
-// IndiaMART, one account per company (0075). The keys stay in the admin-only
-// settings row, at integrations.indiamartByCompany[company id]; the old single
-// block is Ortex's while indiamartByCompany.ortex does not exist (the
-// indiamart-pull function reads it the same way). Before 0075: one card.
-function indiamartPath(settings, companyId) {
-  if (!companyId) return "integrations.indiamart"
-  if (companyId === "ortex" && !settings.integrations?.indiamartByCompany?.ortex) return "integrations.indiamart"
-  return `integrations.indiamartByCompany.${companyId}`
-}
-const atPath = (obj, path) => path.split(".").reduce((o, k) => o?.[k], obj)
-
-function IndiaMartCard({ company, path, draft, settings, setPath, changes, savePaths, loadFailed }) {
-  const im = { crmKey: "", enabled: false, ...atPath(draft, path) }
-  // What the server last wrote (lastPull, lastResult), not the draft's copy.
-  const imLive = atPath(settings, path) || {}
-  const [syncing, setSyncing] = useState(false)
-  const [editingKey, setEditingKey] = useState(!im.crmKey)
-  const imPaths = changes.filter((p) => p === path || p.startsWith(`${path}.`))
-  const imOn = !!im.enabled && !!im.crmKey
-
-  // Saves ONLY this account's changes, merged into the saved settings: anything
-  // else still unsaved on this page stays a draft.
-  const syncNow = async () => {
-    setSyncing(true)
-    try {
-      if (imPaths.length) await savePaths(imPaths) // the server pulls with the saved key
-      const res = await syncIndiaMart(company?.id)
-      if (res.error) toast.error(res.error)
-      else if (res.skipped) toast.message(res.reason || "IndiaMART sync is off")
-      else toast.success(`IndiaMART: ${res.inserted} new lead(s) imported${res.duplicates ? `, ${res.duplicates} already had` : ""}`)
-    } catch (e) {
-      toast.error(e.message || "Could not save the IndiaMART settings")
-    } finally {
-      setSyncing(false)
-    }
-  }
-
-  return (
-    <IntegrationCard
-      icon={Inbox}
-      tone="blue"
-      title={company ? `IndiaMART, ${company.name}` : "IndiaMART leads"}
-      description={company ? `Imports buyer enquiries from ${company.name}'s IndiaMART account into its own Leads.` : "Imports buyer enquiries into Enquiries."}
-      status={imOn ? ["On", "green"] : im.crmKey ? ["Off", "slate"] : ["No key", "amber"]}
-      facts={[
-        ["Last sync", imLive.lastPull ? new Date(imLive.lastPull).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "Never"],
-        ["Result", imLive.lastResult || "No sync yet"],
-      ]}
-    >
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5">
-        <span className="text-[13px] font-medium text-foreground">Sync new leads</span>
-        <Switch checked={!!im.enabled} onChange={(v) => setPath(`${path}.enabled`, v)} label={`Enable IndiaMART lead sync${company ? ` for ${company.name}` : ""}`} />
-      </div>
-      {editingKey ? (
-        <Input
-          type="password"
-          value={im.crmKey}
-          onChange={(e) => setPath(`${path}.crmKey`, e.target.value)}
-          placeholder="CRM / Pull API key (Lead Manager → CRM Integration)"
-        />
-      ) : null}
-      {company && (
-        <div className="text-xs text-subtle-foreground">
-          Push webhook for this account:
-          <code className="mt-1 block break-all rounded-lg bg-subtle px-2.5 py-2 text-[11.5px] text-foreground">{indiamartHook(company.id)}</code>
-        </div>
-      )}
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" onClick={syncNow} disabled={syncing || !im.crmKey || (loadFailed && imPaths.length > 0)}>
-          <RefreshCw className="h-4 w-4" /> {syncing ? "Syncing…" : imPaths.length ? "Save IndiaMART and sync now" : "Sync now"}
-        </Button>
-        {!editingKey && (
-          <Button size="sm" variant="outline" onClick={() => setEditingKey(true)}>
-            Change key
-          </Button>
-        )}
-      </div>
-    </IntegrationCard>
-  )
-}
-
-function IntegrationsSection({ draft, settings, setPath, changes, savePaths, loadFailed, companies }) {
+function IntegrationsSection({ settings }) {
   const { items: usage, error: usageError, loading: usageLoading } = useCollection("ai_usage")
   const provider = settings.telecaller?.provider || "simulate"
 
@@ -1162,15 +1064,10 @@ function IntegrationsSection({ draft, settings, setPath, changes, savePaths, loa
   const recent = ai.last && Date.now() - new Date(ai.last).getTime() < 7 * 86400000
   const aiStatus = usageError || usageLoading || !ai.last ? ["Not checked", "slate"] : recent ? ["Working", "green"] : ["Idle", "amber"]
   const nf = (n) => (Number(n) || 0).toLocaleString("en-IN")
-  const cards = companies.length ? companies.map((c) => ({ company: c, path: indiamartPath(settings, c.id) })) : [{ company: null, path: "integrations.indiamart" }]
 
   return (
     <SectionHead title="Integrations" description="What the console is connected to, and whether each connection is working.">
       <div className="grid gap-5 lg:grid-cols-2">
-        {cards.map(({ company, path }) => (
-          <IndiaMartCard key={company?.id || "one"} company={company} path={path} draft={draft} settings={settings} setPath={setPath} changes={changes} savePaths={savePaths} loadFailed={loadFailed} />
-        ))}
-
         <IntegrationCard
           icon={Sparkles}
           tone="violet"
@@ -1193,7 +1090,7 @@ function IntegrationsSection({ draft, settings, setPath, changes, savePaths, loa
           icon={PhoneOutgoing}
           tone="violet"
           title="Call agent"
-          description="Places follow-up calls for IndiaMART and starred enquiries."
+          description="Places follow-up calls for starred enquiries."
           status={provider === "simulate" ? ["Simulate", "amber"] : ["Live", "green"]}
           facts={[
             ["Provider", provider === "simulate" ? "Simulate, no real calls" : "Vapi"],
@@ -1224,7 +1121,7 @@ function DataSection() {
       .filter(([, c]) => c > 0)
       .map(([name, c]) => `${c} ${name}`)
       .join(", ")
-    if (!window.confirm(`Delete the demo dataset? This removes ${lines}. Records from the website, IndiaMART or entered by hand are not touched. This cannot be undone.`)) return
+    if (!window.confirm(`Delete the demo dataset? This removes ${lines}. Records from the website or entered by hand are not touched. This cannot be undone.`)) return
     const removed = await removeDemoData()
     toast.success(`Demo data removed (${Object.values(removed).reduce((n, c) => n + c, 0)} records)`)
   }
@@ -1247,7 +1144,7 @@ function DataSection() {
       </div>
 
       <Group title="Demo data" description="The eight sample customers and the enquiries, quotations, invoices and payments attached to them.">
-        <Row label="Remove it" hint="Website, IndiaMART and hand-entered records are untouched, as are products">
+        <Row label="Remove it" hint="Website and hand-entered records are untouched, as are products">
           <Button variant="outline" size="sm" onClick={purgeDemoData}>
             <Trash2 className="h-4 w-4" /> Remove demo data
           </Button>

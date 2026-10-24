@@ -17,7 +17,7 @@ goes through as usual.
 
 | Alert | Who gets it | Tap opens | Setting on the phone | Migration |
 |---|---|---|---|---|
-| New enquiry (website, IndiaMART) | Active people with the `enquiries` module | `EnquiryDetail` | New enquiries | 0031, 0051 |
+| New enquiry (website) | Active people with the `enquiries` module | `EnquiryDetail` | New enquiries | 0031, 0051 |
 | New voice lead (Anu call, first capture only) | Active people with `voice-leads` | `VoiceCallDetail` | Voice calls | 0031 |
 | Leave or correction request | Admins with the Team section (`attendance-team`), never the requester | `AttendanceApprovals` | Leave and corrections | 0038, 0065 |
 | Approved leave withdrawn by the person | The same admins | `AttendanceApprovals` | Leave and corrections | 0065 |
@@ -118,7 +118,7 @@ next time it is opened signed in, and removes itself on sign-out.
 
 ## Rules worth knowing
 
-- **Who gets a lead**: active people whose access reaches the module (`enquiries` for web/IndiaMART, `voice-leads` for Anu calls), the console's own `has_module_access` rule including the Super Admin's switches and hide list.
+- **Who gets a lead**: active people whose access reaches the module (`enquiries` for web leads, `voice-leads` for Anu calls), the console's own `has_module_access` rule including the Super Admin's switches and hide list.
 - **Anu calls ring once**: a call is saved as several captures, so only the first capture from a number within 15 minutes rings.
 - **No duplicates (tags)**: each server push uses the phone's own notification id as its Android tag: `enq-new-<id>`, `voice-new-<id>`, `leave-<status>-<id>`, `corr-<status>-<id>`, `chat-<conversation>`, `payslip-<id>`, `claim-<status>-<id>`, `punch-flagged-<id>`. A copy the phone posts itself replaces the server's and the other way round. With the app in the foreground the server's copy is hidden whenever the app posts its own (everything except claim decisions and flagged punches).
 - **Notification, not data-only**: the server sends FCM notification messages (with `data` for the tap) so a killed app is drawn by Android without starting any JavaScript; data-only messages would need a headless task, which battery managers often block. The data always carries `targetScreen`, `targetId` and `kind`; the phone maps them to a screen with `pushRoute()` and ignores a screen it does not know.

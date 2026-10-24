@@ -15,9 +15,9 @@ const enquiries = [
   // web, this window
   { id: "e1", source: "Website contact form", status: "quoted", createdAt: ago(2), customer: { company: "Acme" } },
   { id: "e2", source: "Website contact form", status: "new", createdAt: ago(3), customer: { name: "Asha" } },
-  { id: "e3", source: "IndiaMART", status: "won", createdAt: ago(5), customer: { company: "Beta" } },
+  { id: "e3", source: "Phone", status: "won", createdAt: ago(5), customer: { company: "Beta" } },
   // previous window
-  { id: "e4", source: "IndiaMART", status: "quoted", createdAt: ago(40), customer: { company: "Old Co" } },
+  { id: "e4", source: "Phone", status: "quoted", createdAt: ago(40), customer: { company: "Old Co" } },
   // one Anu call, two captures ten minutes apart
   { id: "v1", source: VOICE_SOURCE, status: "new", createdAt: ago(1), message: "Wants 200 lanyards", customer: { name: "Ravi", phone: "9876543210" } },
   { id: "v2", source: VOICE_SOURCE, status: "new", createdAt: at(NOW - DAY - 10 * 60000), message: "Wants lanyards", customer: { name: "Ravi", phone: "9876543210" } },
@@ -66,7 +66,7 @@ describe("computeSales (30 days)", () => {
   it("ranks sources for the period, with conversion through a linked quotation", () => {
     const web = s.sources.find((x) => x.label === "Website contact form")
     expect(web).toMatchObject({ count: 2, won: 1, conv: 50 })
-    expect(s.sources.find((x) => x.label === "IndiaMART")).toMatchObject({ count: 1, won: 1 })
+    expect(s.sources.find((x) => x.label === "Phone")).toMatchObject({ count: 1, won: 1 })
     expect(s.sources.find((x) => x.label === VOICE_LABEL)).toMatchObject({ count: 1, won: 0, conv: 0 })
   })
 

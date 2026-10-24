@@ -106,7 +106,7 @@ Shared utilities live in `supabase/functions/_shared/`:
 * `fcm.ts`: FCM v1 HTTP protocol delivery.
 * **Deployment Flags**:
   * Functions called via pg_cron or webhooks must be deployed with `--no-verify-jwt`:
-    `push-notify`, `indiamart-lead`, `marketing-sync`, `orty-live-token`, `product-copywriter`.
+    `push-notify`, `marketing-sync`, `orty-live-token`, `product-copywriter`.
   * All other functions must maintain JWT verification enabled.
 
 ---

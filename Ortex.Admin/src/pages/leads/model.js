@@ -11,7 +11,6 @@ import { stateName } from "../../lib/gstStates"
 export const CHANNELS = [
   { key: "website", label: "Website", icon: Globe },
   { key: "anu", label: "Anu call", icon: Mic },
-  { key: "indiamart", label: "IndiaMART", icon: Hash },
   { key: "whatsapp", label: "WhatsApp", icon: MessageCircle },
   { key: "import", label: "Import", icon: FileSpreadsheet },
   { key: "email", label: "Email", icon: Mail },
@@ -23,7 +22,6 @@ export function channelOf(e) {
   const s = (e.source || "").toLowerCase()
   if (e.source === VOICE_SOURCE) return "anu"
   if (e.imported) return "import"
-  if (s.includes("indiamart")) return "indiamart"
   if (s.includes("whatsapp")) return "whatsapp"
   if (s.includes("website") || s.includes("quote calculator") || s.includes("chatbot")) return "website"
   if (s.includes("email")) return "email"
@@ -60,7 +58,7 @@ export function buildLead(e, { products, quotations, now }) {
     valueNote = "their rate"
   }
   // Every source keeps quantity and place somewhere different: an import in
-  // `quantity` and `customer.city`, IndiaMART in `customer.city` / `state`,
+  // `quantity` and `customer.city`, a typed lead in `customer.city` / `state`,
   // Anu in the message ("Qty: 1000 · Timeline: ...") or an `items` list and
   // in `customer.address`. Resolve them once here so every screen agrees.
   const voice = e.source === VOICE_SOURCE

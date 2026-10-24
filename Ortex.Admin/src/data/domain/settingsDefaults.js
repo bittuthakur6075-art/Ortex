@@ -60,11 +60,6 @@ export const DEFAULT_SETTINGS = {
     // (Superseded server-side once the Edge Function email path is live.)
     emailjs: { serviceId: "", templateId: "", publicKey: "" },
   },
-  integrations: {
-    // IndiaMART Lead Manager Pull API, paste your CRM key and enable to pull
-    // buyer enquiries into the Enquiries module. lastPull tracks the sync window.
-    indiamart: { crmKey: "", enabled: false, lastPull: null, lastResult: "" },
-  },
   // AI telecaller (Telecaller module). Mirrored by DEFAULT_TELECALLER in
   // supabase/functions/_shared/telecaller.ts. Keep the two in step.
   telecaller: {
@@ -104,11 +99,6 @@ export function mergeSettings(saved) {
       ...DEFAULT_SETTINGS.notifications,
       ...saved.notifications,
       emailjs: { ...DEFAULT_SETTINGS.notifications.emailjs, ...saved.notifications?.emailjs },
-    },
-    integrations: {
-      ...DEFAULT_SETTINGS.integrations,
-      ...saved.integrations,
-      indiamart: { ...DEFAULT_SETTINGS.integrations.indiamart, ...saved.integrations?.indiamart },
     },
     telecaller: {
       ...DEFAULT_SETTINGS.telecaller,
@@ -152,7 +142,7 @@ export const COMPANY_BLOCKS = ["company", "tax", "numbering", "quotation", "docu
  * global block, as settings_staff does; the company block NEVER does, and never
  * takes the demo defaults either, so another company can never print Ortex's
  * (or a placeholder) GSTIN. No company doc: the global settings as before.
- * Global-only blocks (notifications, integrations, telecaller) pass through.
+ * Global-only blocks (notifications, telecaller) pass through.
  * Mirrored by Ortex.Mobile/src/domain/settings.ts (same name): edit both.
  */
 export function settingsFor(globalSettings, companyDoc) {

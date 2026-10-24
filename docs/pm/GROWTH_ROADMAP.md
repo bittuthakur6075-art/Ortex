@@ -35,7 +35,9 @@ this roadmap removes.
    prices stay public (they qualify leads); the discount structure is a
    negotiation floor and is currently scrapeable.
 9. Migrate the 924 gallery images off IndiaMART's CDN (`5.imimg.com`) to owned
-   storage. If that relationship changes, the gallery goes dark.
+   storage. If that relationship changes, the gallery goes dark. (The IndiaMART
+   lead integration was removed 2026-10-24; these photos still load from their
+   CDN, so this matters more if the IndiaMART account is ever closed.)
 10. Re-encode `public/hero-bg.mp4` (90.5 MB → ~3 MB, needs ffmpeg):
     `ffmpeg -i hero-bg.mp4 -t 12 -vf "scale=1920:-2,fps=24" -c:v libx264 -crf 30 -preset slow -pix_fmt yuv420p -movflags +faststart -an hero-bg-compressed.mp4`
 

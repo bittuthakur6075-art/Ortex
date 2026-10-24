@@ -342,7 +342,7 @@ export async function loadDemoData() {
 // The seeded customers are the anchor: every demo enquiry, lead, quotation,
 // invoice and payment carries one of these emails on its embedded `customer`,
 // so matching on them removes the sample data without touching anything a real
-// visitor or IndiaMART created. Products, categories and the analytics logs are
+// visitor created. Products, categories and the analytics logs are
 // deliberately left alone - the marketing site reads the catalogue live, and a
 // blanket delete there would empty the public product pages.
 export const DEMO_EMAILS = Object.values(CUSTOMERS).map((c) => c.email)

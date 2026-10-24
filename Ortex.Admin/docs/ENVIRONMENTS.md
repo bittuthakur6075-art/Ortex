@@ -146,7 +146,7 @@ Edge Function secrets are per project, so a new project starts with none:
 ```bash
 supabase secrets set GEMINI_API_KEY=...    --project-ref <project-ref>
 supabase secrets set META_ACCESS_TOKEN=... --project-ref <project-ref>
-supabase secrets set INDIAMART_CRM_KEY=... --project-ref <project-ref>
+supabase secrets set TURNSTILE_SECRET=...  --project-ref <project-ref>
 ```
 
 ### 4. Lock down auth
