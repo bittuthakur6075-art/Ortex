@@ -5,6 +5,7 @@ import { supabase, errorMessage } from "@/data/supabase"
 import { DEFAULT_ROLE_MODULES, MODULES, ROLE_LABEL, isOwner, isSuperAdmin } from "@/domain/modules"
 import { emailProblem } from "@/features/contacts/validateContact"
 import { feedback } from "@/lib/feedback"
+import { randomPassword } from "@/lib/users"
 import { useAuth } from "@/store/AuthContext"
 import { useTheme } from "@/store/ThemeContext"
 import { spacing } from "@/theme/tokens"
@@ -34,14 +35,8 @@ import { Button, RadioGroup, Sheet, TextField, useToast } from "@/ui"
  * temporary password is put on screen for the admin to pass on by hand.
  */
 
-/** Ambiguity-free alphabet: no O/0, no l/1 — this gets read aloud down a phone. */
-const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
-
-function temporaryPassword(length = 10) {
-  let out = ""
-  for (let i = 0; i < length; i++) out += ALPHABET[Math.floor(Math.random() * ALPHABET.length)]
-  return out
-}
+/** One generator for both screens: crypto-random, the console's shape. */
+const temporaryPassword = () => randomPassword()
 
 /** Supabase's own floor for a password. */
 const MIN_PASSWORD = 6

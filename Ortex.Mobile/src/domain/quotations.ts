@@ -236,6 +236,15 @@ export async function createQuotation(
     // put the wrong person's name on a document that has already been sent.
     sellerName: draft.sellerName || "",
     showSeller: draft.showSeller !== false,
+  }).catch(async (e: { code?: string; message?: string; details?: string }) => {
+    // Quotation numbers are unique per company (0082). A retry whose first
+    // insert landed after all hits it: that row is this quotation.
+    if (e?.code === "23505" || /quotations_number_key/.test(`${e?.message} ${e?.details}`)) {
+      const landed = await findQuotationByNumber(number, draft.companyId).catch(() => null)
+      if (landed) return landed
+      throw new Error("That quotation number is already used. Try again.")
+    }
+    throw e
   })
 }
 
@@ -256,8 +265,8 @@ const SAVE_TIMEOUT = 20000
  * `createQuotation` raced against 20s (a dropped connection hangs rather than
  * fails), and on an error or a timeout the list is read again: if the reserved
  * number is there, it saved. Only then is it a failure.
- * ponytail: a request still in flight past the re-read can land after a retry's
- * check; widen the check (or a unique index on doc number) if that ever bites.
+ * A request still in flight past the re-read can land after a retry's check;
+ * the unique number index (0082) then refuses the retry, which finds that row.
  */
 export async function createQuotationReliably(
   draft: QuotationDraft,

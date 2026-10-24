@@ -71,9 +71,25 @@ export function resetUserPassword(id: string, password: string, notify = true): 
 /** Ambiguity-free alphabet: no O/0, no l/1 — this gets read aloud down a phone. */
 const ALPHABET = "abcdefghijkmnopqrstuvwxyz23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 
-/** The console's `randomPassword` shape (`Ox-` + 12). */
+type RandomSource = { getRandomValues?: (a: Uint8Array) => Uint8Array }
+
+/**
+ * The console's `randomPassword` shape (`Ox-` + 12), drawn from
+ * crypto.getRandomValues as the console's is: this string is a real credential
+ * and Math.random makes no promise of unpredictability. Bytes past the largest
+ * multiple of the alphabet are redrawn, so no character is likelier than another.
+ * Where the runtime has no getRandomValues it returns "" (never a weak
+ * password): the field is then empty and the admin types one.
+ */
 export function randomPassword(length = 12) {
+  const c = (globalThis as { crypto?: RandomSource }).crypto
+  if (!c?.getRandomValues) return ""
+  const limit = 256 - (256 % ALPHABET.length)
   let out = "Ox-"
-  for (let i = 0; i < length; i++) out += ALPHABET[Math.floor(Math.random() * ALPHABET.length)]
+  while (out.length < length + 3) {
+    for (const b of c.getRandomValues(new Uint8Array(length * 2))) {
+      if (b < limit && out.length < length + 3) out += ALPHABET[b % ALPHABET.length]
+    }
+  }
   return out
 }
