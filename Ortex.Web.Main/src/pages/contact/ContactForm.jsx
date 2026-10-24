@@ -110,8 +110,9 @@ export default function ContactForm({ formData, errors, isSubmitting, handleChan
             options={ENQUIRY_CATEGORIES}
             onChange={(val) => handleChange("productInterest", val)}
             invalid={Boolean(errors.productInterest)}
+            describedBy={errors.productInterest ? "productInterest-error" : undefined}
           />
-          {errors.productInterest && <p className="text-sm text-destructive mt-1.5">{errors.productInterest}</p>}
+          {errors.productInterest && <p id="productInterest-error" className="text-sm text-destructive mt-1.5">{errors.productInterest}</p>}
         </div>
 
         <div>

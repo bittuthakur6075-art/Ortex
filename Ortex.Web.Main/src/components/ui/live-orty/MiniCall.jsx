@@ -16,11 +16,11 @@ export default function MiniCall({ call }) {
     <motion.div
       layoutId="anu-morph"
       transition={MORPH_SPRING}
-      className="fixed z-[80] right-4 md:right-[50px] bottom-[calc(1rem+env(safe-area-inset-bottom))] md:bottom-[50px] flex items-center gap-1 p-1.5 pr-2 text-white ring-1 ring-inset ring-white/[0.08]"
+      className="fixed z-[80] right-4 md:right-[50px] bottom-[calc(1rem+env(safe-area-inset-bottom))] md:bottom-[50px] [:root:has([data-anu-avoid=on])_&]:bottom-[calc(6rem+env(safe-area-inset-bottom))] md:[:root:has([data-anu-avoid=on])_&]:bottom-[calc(50px+5.5rem)] transition-[bottom] duration-300 flex items-center gap-1 p-1.5 pr-2 text-white ring-1 ring-inset ring-white/[0.08]"
       style={{ borderRadius: 9999, background: "rgba(12,13,22,0.96)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
     >
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.1 } }} className="flex items-center gap-1">
-        <button onClick={expand} aria-label={`Open your call with ${ASSISTANT_NAME}`} className="flex items-center gap-2.5 rounded-full py-0.5 pl-0.5 pr-3 transition hover:bg-white/5">
+        <button data-anu-primary onClick={expand} aria-label={`Open your call with ${ASSISTANT_NAME}`} className="flex items-center gap-2.5 rounded-full py-0.5 pl-0.5 pr-3 transition hover:bg-white/5">
           <AnuAvatar mood={mood} size={44} readLevel={readLevel} />
           <span className="text-left leading-tight">
             <span className="block text-[14px] font-semibold">{ASSISTANT_NAME}</span>

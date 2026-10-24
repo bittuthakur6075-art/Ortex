@@ -27,6 +27,7 @@ const SECTIONS = [
     body: [
       "Alisha is an AI voice assistant that can call you through this website. She asks for your microphone first, and the call starts only if you allow it. She says at the start that the call is recorded.",
       "During the call your voice and the conversation are processed in real time by Google's Gemini service to produce her spoken replies. The details you give her, such as your name, WhatsApp number, the products and quantities you ask about, your timeline and delivery city, are saved as an enquiry.",
+      "When you start a call with Alisha, Cloudflare Turnstile checks your browser to keep out automated abuse, and processes technical signals such as your IP address and browser characteristics under Cloudflare's privacy policy.",
       "The call is recorded as an audio file. A recording is kept only when the call produced an enquiry; it is stored privately, opened only by Ortex staff who handle enquiries, and used to follow up your requirement accurately and to check the assistant's quality.",
     ],
   },
@@ -39,7 +40,7 @@ const SECTIONS = [
   {
     title: "Where it is stored and who processes it",
     body: [
-      "Form and voice enquiries, and call recordings, are stored in our customer database and file storage, hosted by Supabase, and are visible only to Ortex staff who handle enquiries. Voice calls are processed by Google (Gemini) while they take place. The website itself is hosted by Hostinger. For an order, we share delivery details with our courier partners.",
+      "Form and voice enquiries, and call recordings, are stored in our customer database and file storage, hosted by Supabase, and are visible only to Ortex staff who handle enquiries. Voice calls are processed by Google (Gemini) while they take place, and Cloudflare (Turnstile) checks the browser when a call starts. The website itself is hosted by Hostinger. For an order, we share delivery details with our courier partners.",
       "We do not sell, rent or trade your personal information.",
     ],
   },
@@ -79,7 +80,7 @@ export default function Privacy() {
   return (
     <LegalPage
       title="Privacy policy"
-      updated="17 October 2026"
+      updated="24 October 2026"
       intro="What we collect when you contact us through this website or speak with our voice assistant, and what we do with it."
       sections={SECTIONS}
     />

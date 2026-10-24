@@ -58,3 +58,9 @@ export function whatsappLink(message = WHATSAPP_DEFAULT_MESSAGE) {
 }
 
 export const telHref = (num) => `tel:${num.replace(/[^+\d]/g, "")}`
+
+// Cloudflare Turnstile site key (public) for the voice assistant's bot check.
+// Empty means no check: the widget loads nothing and orty-live-token, without
+// its TURNSTILE_SECRET, skips the check too. `?.` because a plain node script
+// (the prerender) imports this file and has no import.meta.env.
+export const TURNSTILE_SITE_KEY = import.meta.env?.VITE_TURNSTILE_SITE_KEY || ""

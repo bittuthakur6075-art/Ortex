@@ -7,11 +7,14 @@
 // `site` telling the two websites apart). RLS allows anonymous inserts only,
 // capped at 32 KB with field limits (Admin migration 0050).
 //
-// A lead is never dropped. When the insert fails (backend not configured,
-// browser offline, a transient error) the enquiry goes to a localStorage outbox
-// that is replayed on the next page load and whenever the browser comes back
-// online. Callers receive `queued` instead of `ok`, so the visitor is told the
-// truth and offered WhatsApp straight away.
+// A lead is never dropped for a reason that can pass. When the insert fails
+// (backend not configured, browser offline, a stalled request, the rate limit)
+// the enquiry goes to an outbox that is replayed on the next page load and
+// whenever the browser comes back online. Callers receive `queued` instead of
+// `ok`, so the visitor is told the truth and offered WhatsApp straight away. A
+// row the database refuses for good is never queued: callers receive `failed`.
+// References are unique in the database (Admin migration 0079), so a retry of
+// an insert that did land answers 23505 and counts as saved.
 //
 // The reference format, outbox and retry match Ortex.Web/src/lib/leads.js.
 
@@ -22,6 +25,9 @@ const getClient = () => import("./supabaseClient").then((m) => m.supabase)
 
 const OUTBOX_KEY = "ortex_main_pending_enquiries"
 const OUTBOX_LIMIT = 25
+// Voice leads carry a caller's name and number from a call that may have been
+// on a shared computer, so they wait in sessionStorage and expire after 2 hours.
+const VOICE_OUTBOX_MAX_AGE_MS = 2 * 60 * 60 * 1000
 const RETRY_DELAY_MS = 900
 const INSERT_TIMEOUT_MS = 20000
 
@@ -53,64 +59,120 @@ export function newReference() {
   return `ORT-${encodeBase32(Date.now(), 4)}${randomChars(7)}`
 }
 
-function readOutbox() {
+// Storage access itself throws where site data is blocked.
+function storage(kind) {
   try {
-    const parsed = JSON.parse(localStorage.getItem(OUTBOX_KEY) || "[]")
-    return Array.isArray(parsed) ? parsed : []
+    return kind === "session" ? globalThis.sessionStorage : globalThis.localStorage
+  } catch {
+    return null
+  }
+}
+
+const storeFor = (doc) => storage(doc?.call ? "session" : "local")
+
+function readList(store) {
+  try {
+    const parsed = JSON.parse(store?.getItem(OUTBOX_KEY) || "[]")
+    return Array.isArray(parsed) ? parsed.filter((d) => d && typeof d.reference === "string") : []
   } catch {
     return []
   }
 }
 
-function writeOutbox(list) {
+function writeList(store, list) {
   try {
-    localStorage.setItem(OUTBOX_KEY, JSON.stringify(list.slice(-OUTBOX_LIMIT)))
+    if (list.length) store?.setItem(OUTBOX_KEY, JSON.stringify(list.slice(-OUTBOX_LIMIT)))
+    else store?.removeItem(OUTBOX_KEY)
   } catch (err) {
     console.warn("Enquiry outbox write failed:", err)
   }
 }
 
+const readOutbox = () => [...readList(storage("local")), ...readList(storage("session"))]
+
+const isStale = (doc) =>
+  Boolean(doc.call) && Date.now() - (Date.parse(doc.submittedAt) || 0) > VOICE_OUTBOX_MAX_AGE_MS
+
+// A voice call saves the same reference again as the details grow, so a newer
+// save replaces the queued one instead of being dropped as a repeat.
 function enqueue(doc) {
-  const list = readOutbox()
-  if (!list.some((d) => d.reference === doc.reference)) {
-    list.push(doc)
-    writeOutbox(list)
-  }
+  const store = storeFor(doc)
+  const list = readList(store).filter((d) => d.reference !== doc.reference)
+  list.push(doc)
+  writeList(store, list)
 }
 
-function dequeue(reference) {
-  writeOutbox(readOutbox().filter((d) => d.reference !== reference))
+// From both stores: voice rows queued before they moved to sessionStorage
+// still sit in localStorage.
+function dequeue(doc) {
+  for (const store of [storage("local"), storage("session")]) {
+    const list = readList(store)
+    const rest = list.filter((d) => d.reference !== doc.reference)
+    if (rest.length !== list.length) writeList(store, rest)
+  }
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-/** One insert attempt. Resolves to null on success, or an error message. */
+// Postgres refusals that will never pass on a retry: a row-level policy (field
+// limits, the 32 KB cap), a CHECK, bad data, a malformed request. The rate
+// limit (P0429) and everything else may pass later.
+const PERMANENT_CODES = /^(42501|23514|23502|22\w{3}|PGRST1\d\d)$/
+
+/** One insert attempt. Resolves to null on success, or { message, permanent }. */
 async function insertEnquiry(doc) {
-  if (!hasSupabase) return "Backend not configured"
+  if (!hasSupabase) return { message: "Backend not configured", permanent: false }
+  // A stalled connection must not leave the visitor watching a spinner: after
+  // 20 s the request is aborted (so it cannot land behind the retry) and the
+  // outbox takes over.
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), INSERT_TIMEOUT_MS)
   try {
-    // A stalled connection must not leave the visitor watching a spinner.
     const supabase = await getClient()
-    const { error } = await Promise.race([
-      supabase.from("enquiries").insert({ doc }),
-      new Promise((resolve) => setTimeout(() => resolve({ error: { message: "Timed out" } }), INSERT_TIMEOUT_MS)),
-    ])
-    return error ? error.message : null
+    // A voice call keeps one row (Admin migration 0081): its first save inserts
+    // and every later save updates that row through save_voice_lead. P0409 means
+    // the row can no longer be updated (staff picked it up, or it is over two
+    // hours old), so the caller starts a fresh one.
+    const request = doc.call
+      ? supabase.rpc("save_voice_lead", { p_doc: doc })
+      : supabase.from("enquiries").insert({ doc })
+    const { error } = await request.abortSignal(controller.signal)
+    if (!error || error.code === "23505") return null
+    if (error.code === "P0409") return { message: error.message, permanent: true, stale: true }
+    return { message: error.message || "Insert failed", permanent: PERMANENT_CODES.test(error.code || "") }
   } catch (err) {
-    return err?.message || "Network error"
+    return { message: err?.message || "Network error", permanent: false }
+  } finally {
+    clearTimeout(timer)
   }
 }
 
+// One replay at a time: the `online` event during a flush would otherwise send
+// every queued enquiry twice.
+let flushing = null
+
 /** Replay queued enquiries. Safe to call repeatedly. */
-export async function flushOutbox() {
-  if (!hasSupabase || !readOutbox().length) return
-  for (const doc of readOutbox()) {
-    const error = await insertEnquiry(doc)
-    if (!error) dequeue(doc.reference)
+export function flushOutbox() {
+  if (!hasSupabase || !readOutbox().length) return Promise.resolve()
+  if (!flushing) {
+    flushing = (async () => {
+      for (const doc of readOutbox()) {
+        if (isStale(doc)) {
+          dequeue(doc)
+          continue
+        }
+        const error = await insertEnquiry(doc)
+        if (!error || error.permanent) dequeue(doc)
+      }
+    })().finally(() => {
+      flushing = null
+    })
   }
+  return flushing
 }
 
 /**
- * @returns {Promise<{ok: true, reference: string} | {queued: true, reference: string, error: string}>}
+ * @returns {Promise<{ok: true, reference: string} | {queued: true, reference: string, error: string} | {failed: true, reference: string, error: string, stale?: true}>}
  */
 export async function submitEnquiry({
   customer,
@@ -142,14 +204,15 @@ export async function submitEnquiry({
   }
 
   let error = await insertEnquiry(doc)
-  if (error && hasSupabase) {
+  if (error && !error.permanent && hasSupabase) {
     // One retry covers the common case, a network blip mid-submit.
     await sleep(RETRY_DELAY_MS)
     error = await insertEnquiry(doc)
   }
 
   if (!error) return { ok: true, reference }
+  if (error.permanent) return { failed: true, reference, error: error.message, ...(error.stale ? { stale: true } : {}) }
 
   enqueue(doc)
-  return { queued: true, reference, error }
+  return { queued: true, reference, error: error.message }
 }

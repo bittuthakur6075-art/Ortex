@@ -38,7 +38,8 @@ export default function useContactForm() {
   // ?interest=<category> from a product card, ?product=<title> from the portfolio.
   useEffect(() => {
     const interest = searchParams.get("interest")
-    const product = searchParams.get("product")
+    // A shared link can carry any text: cap it so the message stays well inside its limit.
+    const product = searchParams.get("product")?.slice(0, 200)
     if (!interest && !product) return
     setFormData((prev) => ({
       ...prev,
@@ -77,6 +78,18 @@ export default function useContactForm() {
     } finally {
       // Always release the button, so a lead is never lost to a hung spinner.
       setIsSubmitting(false)
+    }
+
+    if (res.failed) {
+      // Refused for good (never queued): keep what they typed and hand them WhatsApp.
+      toast.error("We could not send that enquiry. Please WhatsApp us and we will take it from there.", {
+        duration: 12000,
+        action: {
+          label: "WhatsApp",
+          onClick: () => window.open(whatsappLink(`Hi Ortex, ${formData.message}`), "_blank", "noopener"),
+        },
+      })
+      return
     }
 
     if (res.queued) {
