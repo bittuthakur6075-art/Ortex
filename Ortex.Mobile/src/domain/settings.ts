@@ -129,7 +129,10 @@ const BLANK_COMPANY: CompanySettings = {
  */
 export function settingsFor(globalSettings: unknown, companyDoc: unknown): Settings {
   const g: Dict = isPlainObject(globalSettings) ? globalSettings : {}
-  if (!isPlainObject(companyDoc)) return mergeSettings(g)
+  // Settings that failed to load are the defaults (placeholder GSTIN): the
+  // non-enumerable flag must survive the merge so documents refuse to print.
+  const flagged = (s: Settings): Settings => (g.loadFailed ? Object.defineProperty(s, "loadFailed", { value: true }) : s)
+  if (!isPlainObject(companyDoc)) return flagged(mergeSettings(g))
   const block = (k: string) => (isPlainObject(companyDoc[k]) ? companyDoc[k] : g[k])
   const merged = mergeSettings({
     tax: block("tax"),
@@ -139,5 +142,5 @@ export function settingsFor(globalSettings: unknown, companyDoc: unknown): Setti
   })
   const company = isPlainObject(companyDoc.company) ? companyDoc.company : {}
   const set = Object.fromEntries(Object.entries(company).filter(([, v]) => v != null)) as Partial<CompanySettings>
-  return { ...merged, company: { ...BLANK_COMPANY, ...set } }
+  return flagged({ ...merged, company: { ...BLANK_COMPANY, ...set } })
 }

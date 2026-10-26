@@ -41,7 +41,9 @@ export default function PayslipScreen({ navigation, route }: StackScreenProps<"P
   const toast = useToast()
   const c = usePayColors()
   const insets = useSafeAreaInsets()
-  const { settings, error: settingsError } = useSettings()
+  // Payslips carry Ortex's details whatever company is in view (owner's
+  // decision, Admin 0075), as the console's My payslips does.
+  const { settings, error: settingsError } = useSettings("ortex")
   const [slip, setSlip] = React.useState<Payslip | null | undefined>(undefined)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState<"share" | "print" | null>(null)

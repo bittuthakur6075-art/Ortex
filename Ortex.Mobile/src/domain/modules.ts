@@ -68,11 +68,14 @@ export type ModuleKey =
   | "categories"
   | "work"
   | "social"
+  | "telecaller"
+  | "insights"
   | "quotations"
   | "invoices"
   | "payments"
   | "users"
   | "settings"
+  | "modules"
 
 export type ModuleDef = {
   key: ModuleKey
@@ -114,11 +117,15 @@ export const MODULES: ModuleDef[] = [
   { key: "work", label: "Work gallery" },
   // Marketing: the console's view of posts, DMs, comments and follow-ups (console only).
   { key: "social", label: "Marketing" },
+  // Console-only pages; the keys mirror the registry so role grants read the same.
+  { key: "telecaller", label: "Call agent" },
+  { key: "insights", label: "Insights", adminOnly: true },
   { key: "quotations", label: "Quotations" },
   { key: "invoices", label: "Invoices" },
   { key: "payments", label: "Payments" },
   { key: "users", label: "Users", adminOnly: true },
   { key: "settings", label: "Settings", superAdminOnly: true },
+  { key: "modules", label: "Control centre · Modules & roles", superAdminOnly: true },
 ]
 
 /**
@@ -189,9 +196,11 @@ export function canAccess(profile: Profile | null | undefined, key: ModuleKey): 
   if (!profile) return false
   if (profile.active === false) return false
   const m = MODULES.find((x) => x.key === key)
-  if (m?.always) return true
+  // An unknown key opens nothing, as on the console.
+  if (!m) return false
+  if (m.always) return true
   if (isSuperAdmin(profile)) return true
-  if (m?.superAdminOnly) return false
+  if (m.superAdminOnly) return false
   // Switched off for the whole company on the console's Modules page.
   const control = moduleControl(profile, key)
   if (!control.enabled) return false
@@ -200,9 +209,9 @@ export function canAccess(profile: Profile | null | undefined, key: ModuleKey): 
   const granted = (profile.modules || []).includes(key) || roleModulesOf(profile).includes(key)
   // Payroll is checked before the admin shortcut: salaries are not everything
   // an Admin sees, only the Super Admin's and whoever is granted it.
-  if (m?.payrollOnly) return granted
-  if (isAdmin(profile)) return Boolean(m?.adminOnly || control.adminAccess || granted)
-  if (m?.adminOnly) return false
+  if (m.payrollOnly) return granted
+  if (isAdmin(profile)) return Boolean(m.adminOnly || control.adminAccess || granted)
+  if (m.adminOnly) return false
   return granted
 }
 
@@ -215,14 +224,14 @@ export const ROLE_LABEL: Record<string, string> = {
 }
 
 /**
- * The pill each role wears, so the five read apart at a glance. Names of
- * theme/theme.ts status tones (kept as plain strings: domain/ never imports the
- * theme).
+ * The pill each role wears: the console's ROLE_TONE (Admin lib/roles.js), so a
+ * person wears the same colour on both clients. Names of theme/theme.ts status
+ * tones (kept as plain strings: domain/ never imports the theme).
  */
 export const ROLE_TONE: Record<string, "amber" | "violet" | "emerald" | "blue" | "slate"> = {
-  super_admin: "amber",
+  super_admin: "violet",
   admin: "violet",
-  accounts: "emerald",
+  accounts: "amber",
   sales: "blue",
   staff: "slate",
 }

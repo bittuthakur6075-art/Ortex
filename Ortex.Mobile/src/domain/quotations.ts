@@ -55,9 +55,13 @@ export function totalsFor(
  * atomic — this is why a quotation cannot be raised offline: two phones with no
  * signal would both believe they had the next number.
  */
+// A blank prefix falls back as the console's generateNumber does (Admin domain.js).
+const FALLBACK_PREFIX: Record<string, string> = { quotation: "QTN", invoice: "INV", payment: "PAY" }
+
 async function generateNumber(series: string, settings: Settings, companyId?: string): Promise<string> {
   const seq = await repo.nextSequence(series, companyId)
-  const prefix = (settings.numbering as Record<string, string>)[`${series}Prefix`] || series.toUpperCase()
+  const set = String((settings.numbering as Record<string, string>)[`${series}Prefix`] ?? "").trim()
+  const prefix = set || FALLBACK_PREFIX[series] || series.toUpperCase()
   return documentNumber(prefix, seq)
 }
 

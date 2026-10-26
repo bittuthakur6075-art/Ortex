@@ -248,7 +248,7 @@ export const repo = {
           .from(name)
           .select("*")
           .order("created_at", { ascending: false })
-          .order("id", { ascending: false })
+          .order("id", { ascending: true }) // the console's tie-break (Admin apiStore.js)
           .range(from, from + size - 1)
         if (error) throw error
         for (const r of data as Row[]) {
