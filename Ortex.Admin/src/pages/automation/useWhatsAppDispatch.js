@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import { repo } from "../../data/store/repository"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Browser-side send throttle plus the wa.me hand-off for a whatsapp_logs row.
 export function useWhatsAppDispatch() {
@@ -49,7 +50,7 @@ export function useWhatsAppDispatch() {
       })
       toast.success(`Opening WhatsApp for ${log.customerName}...`)
     } catch (err) {
-      toast.error("Failed to update log: " + err.message)
+      toast.error("Failed to update log: " + friendlyError(err))
     }
   }
 

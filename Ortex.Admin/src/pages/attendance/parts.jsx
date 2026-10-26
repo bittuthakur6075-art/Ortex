@@ -6,6 +6,7 @@ import { clockIST, durationWords, flagWords, REVIEW_LABEL } from "../../lib/atte
 import { reviewPunch } from "../../services/attendance"
 import { cn } from "../../lib/cn"
 import { dayLabel } from "./format"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Pieces shared by the Today and My attendance tabs: the flag badges and the
 // day drawer (every punch of one person's day, with its place, distance,
@@ -126,7 +127,7 @@ export function ReviewButtons({ punch, onDone }) {
       setRejecting(false)
       onDone?.()
     } catch (e) {
-      toast.error(e.message || "Could not save the review")
+      toast.error(friendlyError(e, "Could not save the review"))
     }
     setBusy(false)
   }

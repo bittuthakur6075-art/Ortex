@@ -98,7 +98,7 @@ export default function MyPayslips() {
               </div>
               <Card className="overflow-hidden">
                 <CardHeader title={`Financial year ${current[0]}`} description="April to March. Click a month to see the payslip and download it." />
-                <div className="overflow-x-auto">
+                <div className="relative overflow-x-auto">
                   <table className="w-full min-w-[640px] text-sm">
                     <thead className="mt-head">
                       <tr className="text-left">

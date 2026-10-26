@@ -50,7 +50,10 @@ function findProduct(it, products) {
 // gstRate from the same products table, so a legitimate submission always
 // matches, but enquiries accept anonymous inserts, and a forged payload
 // setting gstRate 0 would otherwise flow straight into a tax document. The
-// payload value is only a fallback for items with no master match.
+// payload value is only a fallback for items with no master match. The rate
+// follows the same rule (as the phone's quoteRfq.ts does): a forged payload
+// cannot set the price of a catalogue product, and an unmatched item's
+// submitted rate is listed by rfqRateMismatches for a person to check.
 export function rfqToQuotationLines(items = [], products = []) {
   return items.map((it) => {
     const match = findProduct(it, products)
@@ -59,7 +62,7 @@ export function rfqToQuotationLines(items = [], products = []) {
       description: it.name || match?.name || "Custom item",
       hsn: match?.hsn || "",
       quantity: Number(it.quantity) || 0,
-      rate: Number(it.rate) || 0,
+      rate: Number(match?.basePrice) || Number(it.rate) || 0,
       discountPercent: Number(it.discountPercent) || 0,
       gstRate: match?.gstRate ?? (it.gstRate != null ? Number(it.gstRate) : 18),
     }

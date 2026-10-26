@@ -16,7 +16,7 @@ export default function ProductTable({
   return (
     <Card className="overflow-hidden">
     {(title || action) && <CardHeader title={title} action={action} />}
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead className="mt-head">
           <tr>

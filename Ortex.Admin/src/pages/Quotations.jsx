@@ -38,6 +38,7 @@ import { downloadPdf, duplicateDraft, extendValidity, setQuoteStatus, startWhats
 import { useConvertConfirm } from "./quotations/ConvertDialog"
 import TermsCard from "./quotations/TermsCard"
 import { averageDiscount, readyItems, taxBases } from "./quotations/model"
+import { friendlyError } from "../lib/friendlyError"
 
 const emptyDraft = (settings, companyId = "") => ({
   id: null,
@@ -466,7 +467,7 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
       setConfirmDelete(false)
       onClose()
     } catch (err) {
-      toast.error(err?.message || "Could not delete the quotation")
+      toast.error(friendlyError(err, "Could not delete the quotation"))
     } finally {
       setDeleting(false)
     }
@@ -536,7 +537,7 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
           toast.success(`${p.name} saved to the catalogue as a draft`)
           return p
         } catch (e) {
-          toast.error(e?.message || "Could not save it to the catalogue")
+          toast.error(friendlyError(e, "Could not save it to the catalogue"))
           return null
         }
       }
@@ -959,6 +960,18 @@ function QuotationEditor({ draft, products, customers: allCustomers, enquiries, 
               </div>
             )}
           </RailCard>
+
+          {/* On a phone the Totals card sits far below the lines, so a new
+              quotation keeps its Create action pinned to the bottom. */}
+          {!isEdit && (
+            <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-border bg-card px-4 py-3 lg:hidden">
+              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                {v.count && dirty ? `${v.count} thing${v.count === 1 ? "" : "s"} to fix` : dirty ? "Not created yet" : "Nothing entered yet"}
+              </span>
+              <Button size="sm" variant="outline" onClick={() => onPreview(liveDoc)}>Preview</Button>
+              <Button size="sm" onClick={save} disabled={saving}>Create as draft</Button>
+            </div>
+          )}
 
           <RailCard title="Ready to send" action={<span className="text-xs text-muted-foreground tabular">{readyOk} of {ready.length}</span>}>
             <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={ready.length} aria-valuenow={readyOk} aria-label="Ready to send">

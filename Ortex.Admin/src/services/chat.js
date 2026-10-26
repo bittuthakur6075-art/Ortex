@@ -122,7 +122,12 @@ export async function fileUrl(path) {
 // ---- realtime: one channel, a listener set --------------------------------------
 
 let channel = null
+let subscribedOnce = false
 const listeners = new Set()
+
+// Sent to listeners when the channel comes back after a drop: changes made
+// while it was down never arrive, so whoever shows chat data reads it again.
+export const CHAT_RESYNC = "_resync"
 
 /** `cb({ table, eventType, new, old })` for every chat change this person may see. */
 export function onChatChange(cb) {
@@ -135,13 +140,18 @@ export function onChatChange(cb) {
         listeners.forEach((fn) => fn(payload))
       })
     }
-    channel.subscribe()
+    channel.subscribe((status) => {
+      if (status !== "SUBSCRIBED") return
+      if (subscribedOnce) listeners.forEach((fn) => fn({ table: CHAT_RESYNC, eventType: "RESYNC" }))
+      subscribedOnce = true
+    })
   }
   return () => {
     listeners.delete(cb)
     if (!listeners.size && channel) {
       supabase.removeChannel(channel)
       channel = null
+      subscribedOnce = false
     }
   }
 }

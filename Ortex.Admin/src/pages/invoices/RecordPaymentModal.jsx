@@ -13,11 +13,29 @@ import { CompanyField } from "../../components/ui/CompanyChip"
 import { RecordActivity } from "../../components/ui/RecordActivity"
 import ScreenshotReader from "./ScreenshotReader"
 import { Button, Input, Select, Field, Textarea, Drawer, Switch } from "../../components/ui/Ui"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Today's date in India, yyyy-mm-dd: the latest a payment can be dated.
 const todayIst = () => new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10)
 // Above this a typo (an extra zero) is likelier than a real receipt: ask.
 const CONFIRM_ABOVE = 1e7
+/** The database refuses this and above (migration 0066); the phone says the same. */
+const MAX_AMOUNT = 1e10
+
+/**
+ * What is wrong with the amount as typed, or "". Nothing is rewritten behind
+ * the person: a minus sign, an exponent or letters are refused, not dropped
+ * (dropping turned "-100" into 100 and "1e12" into 112). Wording as the phone.
+ */
+function amountProblem(raw) {
+  const s = String(raw ?? "").trim()
+  if (!s) return ""
+  if (/[^\d.,]/.test(s)) return "Enter the amount in digits only, with no minus sign or letters."
+  if (/,\d{1,2}$/.test(s)) return "Use a full stop for paise: 1500.50, not 1500,50."
+  if (!/^[\d,]*(\.\d{0,2})?$/.test(s)) return "Enter the amount as digits, with at most two digits of paise."
+  if (Number(s.replace(/,/g, "")) >= MAX_AMOUNT) return "That amount is too large to record."
+  return ""
+}
 
 // One payment form for both entry points:
 //  - Invoice editor: pass `invoice` (+ `balance`, + `payments` for the
@@ -132,7 +150,8 @@ export default function RecordPaymentModal({ type: initialType = "inflow", invoi
   }
 
   // Typed as text so a scroll wheel never changes it, and "1,00,000" reads.
-  const amt = parseAmount(amount) || 0
+  const amountError = amountProblem(amount)
+  const amt = amountError ? 0 : parseAmount(amount) || 0
 
   const duplicate = useMemo(
     () => findDuplicate({ type, amount: amt || null, date: date ? paymentDateIso(date) : null, reference, party: party || linked?.customer?.name }, others),
@@ -195,7 +214,8 @@ export default function RecordPaymentModal({ type: initialType = "inflow", invoi
     if (savingRef.current) return
     const partyName = party.trim()
     const errs = {}
-    if (amt <= 0) errs.amount = "Enter the amount"
+    if (amountError) errs.amount = amountError
+    else if (amt <= 0) errs.amount = "Enter the amount"
     if (!date) errs.date = "Enter the date"
     else if (date > maxDate) errs.date = "The date cannot be after today"
     if (!pinned && !linked && !partyName) errs.party = isPayout ? "Enter who was paid" : "Enter who paid"
@@ -204,6 +224,7 @@ export default function RecordPaymentModal({ type: initialType = "inflow", invoi
     if (!confirmed) {
       const ask = [
         amt > CONFIRM_ABOVE && `${formatCurrency(amt).replace(/\.00$/, "")} is a large amount. Check it is not a typo.`,
+        over && `This is more than the ${formatCurrency(due)} due. Record it anyway?`,
         duplicate?.sure && `${duplicate.payment.number || "A payment"} already has this reference.`,
         reading?.serious && (reading.status === "failed" ? "The screenshot shows a failed payment." : "This is not a payment screenshot."),
         reading?.status === "pending" && "The screenshot shows the payment as still pending.",
@@ -238,7 +259,7 @@ export default function RecordPaymentModal({ type: initialType = "inflow", invoi
       close(onDone)
     } catch (e) {
       // The database's own words (migration 0066 refuses bad amounts, unknown invoices, ...).
-      toast.error(e?.message || "Could not save the payment")
+      toast.error(friendlyError(e, "Could not save the payment"))
       savingRef.current = false
       setSaving(false)
     }
@@ -316,7 +337,7 @@ export default function RecordPaymentModal({ type: initialType = "inflow", invoi
         <Field
           label={label("Amount", "amount")}
           required
-          error={errors.amount || (over ? `More than the ${formatCurrency(due)} due` : undefined)}
+          error={errors.amount || amountError || (over ? `More than the ${formatCurrency(due)} due` : undefined)}
           hint={due !== null && !over && amt !== due ? (
             <button type="button" className="text-primary hover:underline" onClick={() => setAmount(String(due))}>
               {formatCurrency(due)} due. Use it
@@ -330,7 +351,7 @@ export default function RecordPaymentModal({ type: initialType = "inflow", invoi
               inputMode="decimal"
               value={amount}
               onChange={(e) => {
-                setAmount(e.target.value.replace(/[^\d.,]/g, ""))
+                setAmount(e.target.value.replace(/\s/g, ""))
                 clearError("amount")
               }}
               placeholder="0"

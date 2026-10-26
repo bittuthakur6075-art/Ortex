@@ -163,7 +163,7 @@ export default function Login() {
   const subheading = {
     password: "Sign in to run sales, billing and your team from one place.",
     "reset-email": "Enter the email you sign in with. We will send a 6-digit code to it.",
-    "reset-code": <>If <strong className="font-medium text-foreground">{email}</strong> has a console account, a 6-digit code is on its way.</>,
+    "reset-code": <>If <strong className="font-medium text-foreground">{email}</strong> has a console account, a 6-digit code is on its way. If nothing arrives in a few minutes, resend it or tell your admin.</>,
     "reset-password": <>For <strong className="font-medium text-foreground">{email}</strong>. Use at least {MIN_PASSWORD_LENGTH} characters.</>,
   }[step]
 

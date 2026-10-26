@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
-import { chat, onChatChange } from "../services/chat"
+import { chat, onChatChange, CHAT_RESYNC } from "../services/chat"
 import { hasSupabase } from "../data/store/supabaseClient"
 import { currentUserId, useAuth } from "../lib/auth"
 import { onAutoRefresh } from "../data/store/autoRefresh"
@@ -120,6 +120,19 @@ export function useChatThread(conversationId) {
   useEffect(() => {
     if (!conversationId) return
     return onChatChange((p) => {
+      // Back after a dropped connection: read the latest page again, since
+      // messages sent meanwhile never arrived over realtime.
+      if (p.table === CHAT_RESYNC) {
+        const id = idRef.current
+        chat.messages(id)
+          .then((rows) => {
+            if (idRef.current !== id) return
+            setMessages((list) => rows.reduce((out, r) => merge(out, r), list))
+            markRead()
+          })
+          .catch(() => {})
+        return
+      }
       if (p.table !== "chat_messages") return
       const row = p.new?.id ? p.new : p.old
       if (!row || (row.conversation_id && row.conversation_id !== idRef.current)) return

@@ -29,14 +29,15 @@ import {
 } from "../ui/Icons"
 import { useCompany, useCompanySync } from "../../hooks/useCompany"
 import { logout, useAuth, useAuthReady, currentEmail } from "../../lib/auth"
-import { useProfile } from "../../hooks/useProfile"
+import { useProfile, refreshProfile } from "../../hooks/useProfile"
 import { NotificationsDrawer } from "./NotificationsDrawer"
 import { CommandPalette, SEARCH_SHORTCUT } from "./CommandPalette"
-import { PageLoader, Scrim, useDialog } from "../ui/Ui"
+import { Button, PageLoader, Scrim, useDialog } from "../ui/Ui"
 import { AnuProvider, useAnuController } from "../anu/AnuContext"
 import AnuPanel from "../anu/AnuPanel"
 import { AnuHeaderButton, AnuMiniCall } from "../anu/AnuLauncher"
 import ChatNotifier from "../chat/ChatNotifier"
+import RouteErrorBoundary from "./RouteErrorBoundary"
 import { useChatInbox } from "../../hooks/useChat"
 import { canAccess } from "../../data/domain/modules"
 import { roleLabel } from "../../lib/roles"
@@ -423,6 +424,26 @@ function AccountMenu({ onSignOut, onNavigate }) {
   )
 }
 
+// The profile row could not be read (network, timeout). Without it the console
+// cannot tell which pages this person may open, so it says so rather than
+// showing "You do not have access" everywhere.
+function AccountLoadError() {
+  return (
+    <section role="alert" className="flex min-h-[50vh] items-center justify-center px-4 py-16">
+      <div className="max-w-md text-center">
+        <h1 className="text-title font-semibold text-foreground">Could not load your account</h1>
+        <p className="mt-2 text-ui text-muted-foreground">
+          The console could not read your role and modules, usually because of a weak connection. Your access has not
+          changed. Try again in a moment.
+        </p>
+        <div className="mt-5 flex justify-center">
+          <Button onClick={() => refreshProfile()}>Try again</Button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default function AdminLayout() {
   const authed = useAuth()
   const navigate = useNavigate()
@@ -431,7 +452,8 @@ export default function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const nav = useAllowedNav()
-  useCompanySync(useProfile())
+  const profile = useProfile()
+  useCompanySync(profile)
   const ready = useAuthReady()
   // Anu lives in the shell, so a conversation survives every route change.
   const anu = useAnuController()
@@ -561,10 +583,18 @@ export default function AdminLayout() {
           </header>
 
           <main className="w-full grow px-6 pt-5">
-            {/* Pages are lazy chunks (App.jsx): the shell stays while one loads. */}
-            <Suspense fallback={<PageLoader />}>
-              <Outlet />
-            </Suspense>
+            {/* Pages are lazy chunks (App.jsx): the shell stays while one loads,
+                and a page that fails to load or crashes shows a Reload screen
+                instead of blanking the console (cleared by changing page). */}
+            {profile?.loadError ? (
+              <AccountLoadError />
+            ) : (
+              <RouteErrorBoundary key={location.pathname}>
+                <Suspense fallback={<PageLoader />}>
+                  <Outlet />
+                </Suspense>
+              </RouteErrorBoundary>
+            )}
           </main>
 
           {/* Hidden (html.own-footer) while a page shows its own StickyActionBar. */}

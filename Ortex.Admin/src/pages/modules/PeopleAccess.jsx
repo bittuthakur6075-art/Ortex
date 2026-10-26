@@ -12,6 +12,7 @@ import { ROLE_TONE, isSuperAdmin, roleLabel } from "../../lib/roles"
 import { cn } from "../../lib/cn"
 import { useReportUnsaved } from "../../hooks/useUnsaved"
 import { groupBySection, shortLabel } from "./helpers"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Modules → People: every person against every module, in one grid, where the
 // Super Admin shows or hides each module for each person. A box their role (or
@@ -74,7 +75,7 @@ export default function PeopleAccess({ people, reload }) {
       toast.success(done === 1 ? "Access saved for 1 person." : `Access saved for ${done} people.`)
       await reload()
     } catch (e) {
-      toast.error(e.message || "Could not save access")
+      toast.error(friendlyError(e, "Could not save access"))
       if (done) await reload()
     }
     setSaving(false)
@@ -113,7 +114,7 @@ export default function PeopleAccess({ people, reload }) {
         {rows.length === 0 ? (
           <EmptyState icon={UsersIcon} title="Nobody here" description="No one matches this filter." />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full text-sm" style={{ minWidth: 260 + columns.length * 92 }}>
               <thead className="mt-head">
                 <tr>

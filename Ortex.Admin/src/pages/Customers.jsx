@@ -35,6 +35,7 @@ import {
   SortTh,
   StatusBadge,
 } from "../components/ui/Ui"
+import { friendlyError } from "../lib/friendlyError"
 
 // Match a stored document customer snapshot to a master customer (email → phone).
 const matches = (customer, doc) => sameCustomer(customer, doc.customer)
@@ -179,7 +180,7 @@ export default function Customers({ embedded = false }) {
             description={embedded ? "" : `${filtered.length} of ${items.length}`}
             action={<Button onClick={() => setCreating(true)}>New customer</Button>}
           />
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="mt-head">
                 <tr>
@@ -205,7 +206,7 @@ export default function Customers({ embedded = false }) {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Avatar name={c.company || c.name} />
-                        <div className="min-w-0">
+                        <div className="min-w-0 max-w-[280px]">
                           <Link to={`/customers/${c.id}`} onClick={(e) => e.stopPropagation()} className="block truncate font-medium text-foreground hover:underline">
                             {c.company || c.name || "Unnamed"}
                           </Link>
@@ -284,6 +285,8 @@ function NewCustomerModal({ open, onClose, customers: allCustomers }) {
     setErrors((e) => (e[k] || e.form ? { ...e, [k]: undefined, form: undefined } : e))
   }
   const duplicate = errors.form ? findDuplicate(form, customers) : null
+  // Escape or the scrim asks before throwing typed details away.
+  const dirty = ["company", "name", "email", "phone"].some((k) => String(form[k] || "").trim())
 
   const close = () => {
     setErrors({})
@@ -302,7 +305,7 @@ function NewCustomerModal({ open, onClose, customers: allCustomers }) {
       close()
       if (created?.id) navigate(`/customers/${created.id}`)
     } catch (e) {
-      toast.error(e?.message || "Could not add the customer")
+      toast.error(friendlyError(e, "Could not add the customer"))
     } finally {
       setSaving(false)
     }
@@ -315,6 +318,7 @@ function NewCustomerModal({ open, onClose, customers: allCustomers }) {
       open={open}
       onClose={close}
       title="New customer"
+      dirty={dirty}
       footer={
         <>
           <Button variant="outline" size="sm" onClick={close}>
@@ -345,16 +349,16 @@ function NewCustomerModal({ open, onClose, customers: allCustomers }) {
       <CompanyField value={companyId} onChange={setCompanyId} className="mb-4" />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Company">
-          <Input value={form.company} onChange={(e) => set("company", e.target.value)} placeholder="Enter company name" />
+          <Input value={form.company} maxLength={200} onChange={(e) => set("company", e.target.value)} placeholder="Enter company name" />
         </Field>
         <Field label="Contact Name" error={errors.name}>
-          <Input value={form.name} onChange={(e) => set("name", e.target.value)} />
+          <Input value={form.name} maxLength={200} onChange={(e) => set("name", e.target.value)} />
         </Field>
         <Field label="Email" error={errors.email}>
-          <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
+          <Input type="email" value={form.email} maxLength={254} onChange={(e) => set("email", e.target.value)} />
         </Field>
         <Field label="Phone" error={errors.phone} hint="Stored without +91">
-          <Input type="tel" inputMode="tel" value={form.phone} onChange={(e) => set("phone", cleanPhoneInput(e.target.value))} />
+          <Input type="tel" inputMode="tel" value={form.phone} maxLength={40} onChange={(e) => set("phone", cleanPhoneInput(e.target.value))} />
         </Field>
       </div>
     </Modal>

@@ -14,6 +14,7 @@
 //
 // Money is rounded to the rupee. Nothing here reads a clock: every function is
 // given its month.
+import { cell } from "./csv"
 
 // ---- small helpers -------------------------------------------------------------------------
 
@@ -339,11 +340,9 @@ export function varianceFlags(current, previous, pct = 10) {
 
 // ---- the bank file ---------------------------------------------------------------------------------------
 
-const csvCell = (v) => {
-  const s = String(v ?? "")
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
-export const toCsv = (rows) => rows.map((r) => r.map(csvCell).join(",")).join("\r\n")
+// cell() quotes and also neutralises a leading = + - @: beneficiary names come
+// from profiles people edit themselves, and the bank file is opened in Excel.
+export const toCsv = (rows) => rows.map((r) => r.map(cell).join(",")).join("\r\n")
 
 /** A generic NEFT bulk-transfer CSV; the column order is the bank's, set in Settings. */
 export function bankFileRows(payslips, employees, { debitAccount = "", narration = "Salary", date = "", columns } = {}) {

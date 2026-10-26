@@ -9,6 +9,7 @@ import { addRevision, deleteRevision, getEmployee, listLoans, revealSecrets, rev
 import { LoadError } from "./setup/common"
 import { IFSC_RE, dateLabel, fromMonthInput, missingFor, money, monthLabel, payWords, thisMonthIST, toMonthInput } from "./setup/helpers"
 import { NewAdvance } from "./Loans"
+import { friendlyError } from "../../lib/friendlyError"
 
 // A person's pay profile: basic details, how they are paid (a monthly salary
 // or a daily wage, with an effective month), bank details for the bank file,
@@ -78,7 +79,7 @@ export default function EmployeeProfile() {
       await load()
       return true
     } catch (err) {
-      toast.error(err.message)
+      toast.error(friendlyError(err))
       return false
     }
   }
@@ -279,7 +280,7 @@ function PaymentSection({ e, userId, onSave }) {
     try {
       setShown(await revealSecrets(userId))
     } catch (err) {
-      toast.error(err.message)
+      toast.error(friendlyError(err))
     }
   }
 
@@ -360,7 +361,7 @@ function SalarySection({ person, current, upcoming, onRevise, onChanged }) {
       toast.success("Deleted")
       await onChanged()
     } catch (err) {
-      toast.error(err.message)
+      toast.error(friendlyError(err))
     }
   }
   const terms = payTermsOf(current)
@@ -388,7 +389,7 @@ function SalarySection({ person, current, upcoming, onRevise, onChanged }) {
       {person.revisions.length > 0 && (
         <div className="border-t border-border">
           <div className="px-5 pb-1 pt-4 text-[13px] font-semibold text-foreground">History</div>
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
               <thead className="mt-head">
                 <tr className="text-left">
@@ -448,7 +449,7 @@ function ReviseModal({ person, onClose, onSaved }) {
       toast.success("Pay saved")
       await onSaved()
     } catch (err) {
-      toast.error(err.message)
+      toast.error(friendlyError(err))
       setBusy(false)
     }
   }

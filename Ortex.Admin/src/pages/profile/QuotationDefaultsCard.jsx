@@ -6,6 +6,7 @@ import ListTextarea from "../../components/ui/ListTextarea"
 import { useSettings } from "../../hooks/useCollection"
 import useQuotationDefaults from "../../hooks/useQuotationDefaults"
 import { normaliseDefault } from "../../lib/quotationDefaults"
+import { friendlyError } from "../../lib/friendlyError"
 
 // My own starting text for NEW quotations: payment terms, T&C and notes. The
 // console's port of Ortex.Mobile's Profile > Quotation defaults, reading and
@@ -50,7 +51,7 @@ export default function QuotationDefaultsCard({ profile }) {
       const where = await save(next)
       toast.success(where === "account" ? "Quotation defaults saved to your account" : "Quotation defaults saved in this browser")
     } catch (e) {
-      toast.error(`Could not save your defaults. ${e?.message || "Try again."}`)
+      toast.error(`Could not save your defaults. ${friendlyError(e, "Try again.")}`)
     } finally {
       setBusy(false)
     }

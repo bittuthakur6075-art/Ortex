@@ -35,11 +35,11 @@ export const CONFIGURABLE_ROLES = ["accounts", "sales", "staff"]
 /** Badge tone per role, so the Users list reads at a glance. */
 export const ROLE_TONE = { super_admin: "violet", admin: "violet", accounts: "amber", sales: "blue", staff: "slate" }
 
-const roleOf = (p) => (typeof p === "string" ? p : p?.role)
+import { isAdmin, isSuperAdmin } from "./roleCheck"
 
-/** Super Admin or Admin: every module, and every admin-only page. */
-export const isAdmin = (p) => roleOf(p) === "admin" || roleOf(p) === "super_admin"
-export const isSuperAdmin = (p) => roleOf(p) === "super_admin"
+export { isAdmin, isSuperAdmin }
+
+const roleOf = (p) => (typeof p === "string" ? p : p?.role)
 /** The Owner: the one Super Admin nobody can change, and the only one who makes Super Admins. */
 export const isOwner = (p) => typeof p === "object" && p?.is_owner === true
 

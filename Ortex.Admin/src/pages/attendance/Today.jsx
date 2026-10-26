@@ -152,7 +152,7 @@ export default function Today() {
         {people.length === 0 ? (
           <EmptyState icon={CalendarClock} title="Nobody has clocked in yet today" description="Clock-ins appear here the moment they happen." />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[820px] text-sm">
               <thead className="mt-head">
                 <tr className="text-left">

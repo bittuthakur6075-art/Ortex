@@ -131,6 +131,9 @@ export async function updateQuotation(id, patch) {
     merged.issueDate && merged.validityDays != null
       ? new Date(new Date(merged.issueDate).getTime() + merged.validityDays * 86400000).toISOString()
       : merged.validUntil
+  // A changed customer on an edit reaches Customers too (blanks only), as on
+  // create. MIRRORED in Ortex.Mobile/src/domain/quotations.ts.
+  if (patch.customer) await upsertCustomer(patch.customer, existing.companyId)
   return repo.update("quotations", id, { ...patch, totals, validUntil })
 }
 

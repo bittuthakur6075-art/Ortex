@@ -65,7 +65,7 @@ export default function LeaveCalendar({ ctx }) {
           description="Approved leave is solid; waiting requests are light"
           action={<MonthSwitcher month={month} onChange={setMonth} />}
         />
-        <div className="overflow-x-auto px-5 pb-5">
+        <div className="relative overflow-x-auto px-5 pb-5">
           <table className="border-separate border-spacing-0 text-[12px]">
             <thead>
               <tr>

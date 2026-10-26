@@ -113,7 +113,7 @@ export default function Employees() {
             description={filter === "active" && !query ? "People appear here once they have a login in Users." : undefined}
           />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[880px] text-sm">
               <thead className="mt-head">
                 <tr className="text-left">

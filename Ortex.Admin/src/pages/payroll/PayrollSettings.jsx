@@ -6,6 +6,7 @@ import { DEFAULT_PAYROLL_SETTINGS } from "../../lib/payroll"
 import { getPayrollSettings, savePayrollSettings } from "../../services/payroll"
 import { useReportUnsaved } from "../../hooks/useUnsaved"
 import { Check, LoadError } from "./setup/common"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Payroll → Settings, the Super Admin's: the name and address on payslips,
 // the pay schedule (salary basis, pay day, overtime) and the bank file. Every
@@ -46,7 +47,7 @@ export default function PayrollSettings() {
       setSettings(await savePayrollSettings(patch))
       toast.success(`${label} saved`)
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
   }
 

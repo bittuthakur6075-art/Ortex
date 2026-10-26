@@ -47,6 +47,7 @@ import { dayHead, dayLabel, daysOf, monthLabel, monthsBetween, toneFor } from ".
 import { MonthSwitcher, StatusLegend } from "./status"
 import { ActionMenu } from "../../components/sales/ListParts"
 import StatusDayDrawer from "./StatusDayDrawer"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Attendance → Register: the month payroll reads. A summary per person
 // (attendance_month_summary, the same formula the phone and lib/attendance.js
@@ -240,7 +241,7 @@ export default function Register() {
         roleLabel,
       })
     } catch (e) {
-      toast.error(e.message || "Could not build the file")
+      toast.error(friendlyError(e, "Could not build the file"))
     }
     setExcel(null)
   }
@@ -271,7 +272,7 @@ export default function Register() {
         })
       }
     } catch (e) {
-      toast.error(e.message || "Could not build the file")
+      toast.error(friendlyError(e, "Could not build the file"))
     }
     setExcelStep("")
     setExcel(null)
@@ -363,7 +364,7 @@ export default function Register() {
         {rows.length === 0 ? (
           <EmptyState icon={CalendarClock} title="Nobody to show" description={q.trim() ? "No one by that name this month." : "No attendance for this month matches the filter."} />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[1140px] text-sm">
               <thead className="mt-head">
                 <tr className="text-left">
@@ -431,7 +432,7 @@ export default function Register() {
         </div>
         {rows.length === 0 && <p className="px-5 pb-5 text-[13px] text-muted-foreground">Nobody to show for this filter.</p>}
         {rows.length > 0 && (
-          <div className="overflow-x-auto pb-2">
+          <div className="relative overflow-x-auto pb-2">
             <table className="border-separate border-spacing-0 text-[12px]">
               <thead>
                 <tr>
@@ -601,7 +602,7 @@ function LockModal({ open, month, directory, onClose, onDone }) {
       setNote("")
       onDone()
     } catch (e) {
-      toast.error(e.message || "Could not lock the month")
+      toast.error(friendlyError(e, "Could not lock the month"))
     }
     setBusy(false)
   }
@@ -663,7 +664,7 @@ function UnlockModal({ open, month, onClose, onDone }) {
       setReason("")
       onDone()
     } catch (e) {
-      toast.error(e.message || "Could not unlock the month")
+      toast.error(friendlyError(e, "Could not unlock the month"))
     }
     setBusy(false)
   }

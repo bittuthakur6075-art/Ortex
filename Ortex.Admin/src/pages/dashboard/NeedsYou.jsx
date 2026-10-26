@@ -17,6 +17,7 @@ import {
 import { Button } from "../../components/ui/Ui"
 import { cn } from "../../lib/cn"
 import { Dot, Kicker, Panel, PanelLink, Pill, Seg, TONE, money } from "./parts"
+import { friendlyError } from "../../lib/friendlyError"
 
 // One queue for every module, most urgent first. Quote-to-cash items come from
 // attentionItems, decisions from approvalItems (lib/analytics/today.js).
@@ -149,7 +150,7 @@ function QueueRow({ it, tone, onApprove }) {
       await onApprove(it)
       toast.success("Leave approved")
     } catch (e) {
-      toast.error(e.message || "Could not approve")
+      toast.error(friendlyError(e, "Could not approve"))
       setBusy(false)
     }
   }

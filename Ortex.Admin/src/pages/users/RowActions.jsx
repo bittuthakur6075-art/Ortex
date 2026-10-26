@@ -3,9 +3,10 @@ import { toast } from "sonner"
 import { MoreHorizontal, Pencil, KeyRound, UserCheck, UserX, Trash2, AlertTriangle } from "../../components/ui/Icons"
 import { Button, Input, Field, Modal, Banner } from "../../components/ui/Ui"
 import { setUserActive, resetUserPassword, deleteUser } from "../../services/users"
-import { randomPassword } from "./helpers"
+import { randomPassword, superAdminOnlyTarget } from "./helpers"
 import { useProfile } from "../../hooks/useProfile"
 import { canManageUser } from "../../lib/roles"
+import { useRolePermissions } from "../../hooks/useRolePermissions"
 
 // Per-row account actions on the Users page: edit, enable/disable, reset the
 // password, delete outright. Everything except "edit" goes through the
@@ -23,6 +24,12 @@ export default function RowActions({ user, selfId, onEdit, onChanged }) {
   // action it would refuse is not offered.
   const viewer = useProfile()
   const canManage = canManageUser(viewer, user)
+  // Someone holding payroll, leave balances or a module kept from Admins, or
+  // outside this Admin's companies, is the Super Admin's to reset, deactivate
+  // or delete: an Admin who reset their password could sign in as them.
+  const { grants } = useRolePermissions()
+  const restricted = superAdminOnlyTarget(viewer, user, grants)
+  const restrictedTitle = restricted ? "Only the Super Admin can do this for this person." : undefined
 
   useEffect(() => {
     if (!open) return
@@ -79,12 +86,18 @@ export default function RowActions({ user, selfId, onEdit, onChanged }) {
           <button type="button" className={item} onClick={() => { setOpen(false); onEdit() }}>
             <Pencil variant="Linear" className="h-4 w-4 text-muted-foreground" /> Edit role &amp; access
           </button>
-          <button type="button" className={item} onClick={toggleActive} disabled={isSelf}>
+          <button type="button" className={item} onClick={toggleActive} disabled={isSelf || restricted} title={restrictedTitle}>
             {user.active
               ? <><UserX variant="Linear" className="h-4 w-4 text-muted-foreground" /> Deactivate account</>
               : <><UserCheck variant="Linear" className="h-4 w-4 text-muted-foreground" /> Activate account</>}
           </button>
-          <button type="button" className={item} onClick={() => { setOpen(false); setDialog("reset") }}>
+          <button
+            type="button"
+            className={item}
+            disabled={restricted}
+            title={restrictedTitle}
+            onClick={() => { setOpen(false); setDialog("reset") }}
+          >
             <KeyRound variant="Linear" className="h-4 w-4 text-muted-foreground" /> Reset password
           </button>
           <div className="my-1.5 h-px bg-border" />
@@ -92,7 +105,8 @@ export default function RowActions({ user, selfId, onEdit, onChanged }) {
             type="button"
             className={`${item} text-destructive-text hover:bg-destructive/10`}
             onClick={() => { setOpen(false); setDialog("delete") }}
-            disabled={isSelf}
+            disabled={isSelf || restricted}
+            title={restrictedTitle}
           >
             <Trash2 variant="Linear" className="h-4 w-4" /> Delete user
           </button>

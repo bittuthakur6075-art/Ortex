@@ -10,9 +10,30 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const hasSupabase = Boolean(url && anonKey)
 
+// Every request gives up eventually, so a dropped connection ends in an error
+// ("took too long", friendlyError) instead of "Saving…" spinning for ever.
+// Uploads (photos, logos, Tally XML) and edge functions (AI, photo studio) get
+// longer than plain reads and writes. A caller's own signal still applies.
+const TIMEOUT_MS = { storage: 5 * 60_000, functions: 2 * 60_000, other: 30_000 }
+
+function timeoutFor(input) {
+  const href = typeof input === "string" ? input : input?.url || ""
+  if (href.includes("/storage/v1/")) return TIMEOUT_MS.storage
+  if (href.includes("/functions/v1/")) return TIMEOUT_MS.functions
+  return TIMEOUT_MS.other
+}
+
+function fetchWithTimeout(input, init = {}) {
+  if (typeof AbortSignal === "undefined" || !AbortSignal.timeout) return fetch(input, init)
+  const timer = AbortSignal.timeout(timeoutFor(input))
+  const signal = init.signal && AbortSignal.any ? AbortSignal.any([init.signal, timer]) : init.signal || timer
+  return fetch(input, { ...init, signal })
+}
+
 export const supabase = hasSupabase
   ? createClient(url, anonKey, {
       auth: { persistSession: true, autoRefreshToken: true },
+      global: { fetch: fetchWithTimeout },
     })
   : null
 

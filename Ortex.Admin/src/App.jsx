@@ -1,4 +1,4 @@
-import { lazy } from "react"
+import { lazyWithRetry } from "./lib/lazyWithRetry"
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom"
 import { Toaster } from "sonner"
 import AdminLayout from "./components/layout/AdminLayout"
@@ -9,22 +9,23 @@ import { EmptyState } from "./components/ui/Ui"
 
 // Every page is its own chunk, fetched the first time it is opened. The shell
 // and Login stay in the main bundle, so signing in never waits on a download.
-const Dashboard = lazy(() => import("./pages/Dashboard"))
-const CustomerDetail = lazy(() => import("./pages/CustomerDetail"))
-const EnquiryDetail = lazy(() => import("./pages/EnquiryDetail"))
-const Customers = lazy(() => import("./pages/Customers"))
-const Social = lazy(() => import("./pages/Social"))
-const Telecaller = lazy(() => import("./pages/Telecaller"))
-const Quotations = lazy(() => import("./pages/Quotations"))
-const SettingsPage = lazy(() => import("./pages/Settings"))
-const Users = lazy(() => import("./pages/Users"))
-const UserDetail = lazy(() => import("./pages/users/UserDetail"))
-const Profile = lazy(() => import("./pages/Profile"))
-const WhatsNew = lazy(() => import("./pages/WhatsNew"))
-const Attendance = lazy(() => import("./pages/Attendance"))
-const PayRun = lazy(() => import("./pages/payroll/PayRun"))
-const EmployeeProfile = lazy(() => import("./pages/payroll/EmployeeProfile"))
-const Chat = lazy(() => import("./pages/Chat"))
+const Dashboard = lazyWithRetry(() => import("./pages/Dashboard"))
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"))
+const CustomerDetail = lazyWithRetry(() => import("./pages/CustomerDetail"))
+const EnquiryDetail = lazyWithRetry(() => import("./pages/EnquiryDetail"))
+const Customers = lazyWithRetry(() => import("./pages/Customers"))
+const Social = lazyWithRetry(() => import("./pages/Social"))
+const Telecaller = lazyWithRetry(() => import("./pages/Telecaller"))
+const Quotations = lazyWithRetry(() => import("./pages/Quotations"))
+const SettingsPage = lazyWithRetry(() => import("./pages/Settings"))
+const Users = lazyWithRetry(() => import("./pages/Users"))
+const UserDetail = lazyWithRetry(() => import("./pages/users/UserDetail"))
+const Profile = lazyWithRetry(() => import("./pages/Profile"))
+const WhatsNew = lazyWithRetry(() => import("./pages/WhatsNew"))
+const Attendance = lazyWithRetry(() => import("./pages/Attendance"))
+const PayRun = lazyWithRetry(() => import("./pages/payroll/PayRun"))
+const EmployeeProfile = lazyWithRetry(() => import("./pages/payroll/EmployeeProfile"))
+const Chat = lazyWithRetry(() => import("./pages/Chat"))
 
 // Route-level access gate, mirrors the sidebar filtering so a blocked module
 // can't be reached by typing its URL. Redirects home while the profile loads
@@ -63,7 +64,7 @@ function HubGuard({ keys, children }) {
 // file, and importing them statically would pull the whole hub into the main
 // bundle.
 const lazyHub = (load, keysExport) =>
-  lazy(() =>
+  lazyWithRetry(() =>
     load().then((m) => {
       const Page = m.default
       const keys = m[keysExport]
@@ -161,7 +162,7 @@ export default function App() {
           <Route path="insights" element={<Insights />} />
           <Route path="growth" element={<Redirect to="/insights?tab=growth" />} />
           <Route path="automation" element={<Redirect to="/insights?tab=events" />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
       <Toaster position="top-right" richColors />

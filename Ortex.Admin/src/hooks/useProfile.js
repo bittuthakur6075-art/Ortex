@@ -44,8 +44,13 @@ export function useProfile() {
       if (!authed) return setProfile(null)
       const id = currentUserId()
       if (!id) return setProfile(null)
-      const { data } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle()
-      if (alive) setProfile(data || { role: "sales", modules: [] })
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle()
+      if (!alive) return
+      // A failed read (network, timeout) must not quietly turn a Super Admin
+      // into a Sales user with no pages: AdminLayout shows "Could not load your
+      // account" with Retry instead. Only a missing row falls back.
+      if (error) setProfile({ loadError: true, role: null, modules: [] })
+      else setProfile(data || { role: "sales", modules: [] })
     }
     load()
     return () => {
@@ -71,7 +76,7 @@ export function useProfile() {
     }
   }, [profileId])
   return useMemo(() => {
-    if (!profile) return profile
+    if (!profile || profile.loadError) return profile
     const withControls = { ...profile, moduleControls: controls }
     if (isAdmin(profile) || !ready) return withControls
     return { ...withControls, roleModules: grants[profile.role] || [] }

@@ -192,14 +192,16 @@ export function PairBars({ series, height = 220, format }) {
           <span key={i}>{i === 3 ? "0" : format(t)}</span>
         ))}
       </div>
-      <div className="flex min-w-0 flex-1 items-end justify-between">
+      {/* On a phone the bars narrow and every other label hides, so twelve
+          weeks fit the card instead of widening the page. */}
+      <div className="flex min-w-0 flex-1 items-end justify-between gap-0.5">
         {series.map((s, i) => (
-          <div key={s.label} className="flex flex-col items-center gap-2" title={`${s.label}: invoiced ${format(s.invoiced)}, collected ${format(s.collected)}`}>
-            <div className="flex items-end gap-[3px]" style={{ height: plot }}>
-              <span className="w-3.5 rounded-t-[5px] bg-primary-soft" style={{ height: Math.max(2, (s.invoiced / top) * plot) }} />
-              <span className={cn("w-3.5 rounded-t-[5px] bg-primary", i !== series.length - 1 && "opacity-90")} style={{ height: Math.max(2, (s.collected / top) * plot) }} />
+          <div key={s.label} className="flex min-w-0 flex-1 flex-col items-center gap-2" title={`${s.label}: invoiced ${format(s.invoiced)}, collected ${format(s.collected)}`}>
+            <div className="flex items-end gap-px sm:gap-[3px]" style={{ height: plot }}>
+              <span className="w-1.5 rounded-t-[3px] bg-primary-soft sm:w-3.5 sm:rounded-t-[5px]" style={{ height: Math.max(2, (s.invoiced / top) * plot) }} />
+              <span className={cn("w-1.5 rounded-t-[3px] bg-primary sm:w-3.5 sm:rounded-t-[5px]", i !== series.length - 1 && "opacity-90")} style={{ height: Math.max(2, (s.collected / top) * plot) }} />
             </div>
-            <span className={cn("text-[11px] leading-[13px]", i === series.length - 1 ? "font-semibold text-foreground" : "text-subtle-foreground")}>{s.label}</span>
+            <span className={cn("whitespace-nowrap text-[11px] leading-[13px]", i === series.length - 1 ? "font-semibold text-foreground" : "text-subtle-foreground", (series.length - 1 - i) % 2 === 1 && "invisible sm:visible")}>{s.label}</span>
           </div>
         ))}
       </div>

@@ -5,6 +5,7 @@ import { Printer, X, CheckCircle2, Download } from "../ui/Icons"
 import { formatCurrency, formatDate, amountInWords } from "../../lib/format"
 import { registeredLines } from "../../lib/address"
 import CompanyMark from "./CompanyMark"
+import { buildSheetPdf, settingsUnloaded, SETTINGS_NOT_LOADED } from "./documentPdf"
 import { isMedinetix, isAman } from "../../lib/companyMark"
 
 // Printable payment acknowledgement. Titles itself:
@@ -51,9 +52,16 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
   // html2pdf call with 10 mm margins around a sheet already 297 mm tall, so
   // every receipt spilled onto a near-blank second page, and it captured the
   // sheet at the window width.
+  // No print or PDF from placeholder company details.
+  const unloaded = () => {
+    if (!settingsUnloaded(settings)) return false
+    toast.error(SETTINGS_NOT_LOADED)
+    return true
+  }
+
   const handleDownloadPDF = async () => {
     const element = receiptRef.current
-    if (!element) return
+    if (!element || unloaded()) return
     const stem = `receipt-${payment.number}`
     setBusy(true)
     try {
@@ -77,7 +85,7 @@ export default function ReceiptView({ open, onClose, payment, invoice, settings,
           {heading} {payment.number}
           {party && <small>{party}</small>}
         </span>
-        <button type="button" className="doc-tb-btn ghost" onClick={() => window.print()}>
+        <button type="button" className="doc-tb-btn ghost" onClick={() => { if (!unloaded()) window.print() }}>
           <Printer className="h-4 w-4" /> Print
         </button>
         <button type="button" className="doc-tb-btn primary" onClick={handleDownloadPDF} disabled={busy}>

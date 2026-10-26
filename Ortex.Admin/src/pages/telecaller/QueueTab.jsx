@@ -68,7 +68,7 @@ export default function QueueTab({ jobs, onOpenCall, onPractice }) {
 
       <Card className="overflow-hidden">
         <CardHeader title="Call queue" description={`${visible.length} of ${jobs.length}`} />
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="mt-head">
               <tr>

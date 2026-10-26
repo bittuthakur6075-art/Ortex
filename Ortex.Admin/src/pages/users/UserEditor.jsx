@@ -8,7 +8,8 @@ import { ASSIGNABLE_MODULES } from "../../data/domain/modules"
 import { assignableRoles, isAdmin, isOwner, isSuperAdmin, moduleLabel, ROLE_DESCRIPTION, roleLabel } from "../../lib/roles"
 import { useProfile } from "../../hooks/useProfile"
 import { useRolePermissions } from "../../hooks/useRolePermissions"
-import { randomPassword } from "./helpers"
+import { randomPassword, moduleLockedFor, roleLockedFor } from "./helpers"
+import { friendlyError } from "../../lib/friendlyError"
 
 // The create/edit dialog for a console account. Lives beside the Users page
 // rather than inside it because the user detail page opens the same dialog:
@@ -25,7 +26,11 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
   const roleLocked = isSelf || isOwner(user) || (isEdit && isSuperAdmin(user) && !isOwner(viewer))
   // Nobody deactivates the Owner, themselves included.
   const activeLocked = isSelf || isOwner(user)
-  const roleChoices = roleLocked ? [user.role] : assignableRoles(viewer)
+  // A role whose grants carry a Super Admin-only module (Accounts carries
+  // payroll) is the Super Admin's to give; a person keeps the one they have.
+  const roleChoices = roleLocked
+    ? [user.role]
+    : assignableRoles(viewer).filter((r) => r === user?.role || !roleLockedFor(viewer, r, grants))
   const [email, setEmail] = useState(user?.email || "")
   const [password, setPassword] = useState(isEdit ? "" : randomPassword())
   const [name, setName] = useState(user?.name || "")
@@ -48,9 +53,18 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
   const [active, setActive] = useState(user?.active ?? true)
   const [notify, setNotify] = useState(true)
   const [busy, setBusy] = useState(false)
+  // What the form held when it opened: Escape or the scrim asks before losing edits.
+  const snapshot = JSON.stringify({ email, name, role, modules, companies, active })
+  const [opened] = useState(snapshot)
+  const dirty = snapshot !== opened
 
-  const toggleModule = (key) =>
+  // Payroll, leave balances and modules kept from Admins are the Super Admin's
+  // to give or take (the database refuses the same).
+  const locked = (key) => moduleLockedFor(viewer, key)
+  const toggleModule = (key) => {
+    if (locked(key)) return
     setModules((m) => (m.includes(key) ? m.filter((k) => k !== key) : [...m, key]))
+  }
 
   // Group the checklist the way the sidebar is grouped, so granting access maps
   // onto how people actually describe the app ("give them CRM") rather than a
@@ -65,7 +79,7 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
   }, [])
 
   const toggleSection = (items) => {
-    const keys = items.map((m) => m.key)
+    const keys = items.map((m) => m.key).filter((k) => !locked(k))
     const allOn = keys.every((k) => modules.includes(k))
     setModules((m) => (allOn ? m.filter((k) => !keys.includes(k)) : [...new Set([...m, ...keys])]))
   }
@@ -135,7 +149,7 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
       }
       onSaved()
     } catch (e) {
-      toast.error(e.message || "Save failed")
+      toast.error(friendlyError(e, "Save failed"))
       setBusy(false)
     }
   }
@@ -144,6 +158,7 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
     <Modal
       open
       onClose={onClose}
+      dirty={dirty}
       width="max-w-lg"
       title={isEdit ? `Edit ${user.email}` : "Add user"}
       footer={
@@ -157,7 +172,7 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
         {!isEdit && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Email" required>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter email address" />
+              <Input type="email" value={email} maxLength={254} onChange={(e) => setEmail(e.target.value)} placeholder="Enter email address" />
             </Field>
             <Field
               label="Temporary Password"
@@ -190,7 +205,7 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
           </label>
         )}
         <Field label="Full Name">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter full name" />
+          <Input value={name} maxLength={200} onChange={(e) => setName(e.target.value)} placeholder="Enter full name" />
         </Field>
         <Field label="Role">
           <Select value={role} onChange={(e) => setRole(e.target.value)} disabled={roleLocked}>
@@ -278,12 +293,15 @@ export default function UserEditor({ user, selfId, onClose, onSaved }) {
                             className="h-4 w-4 shrink-0 rounded border-border accent-primary"
                             checked={effective.includes(m.key)}
                             // Granted by the role: changed in Control centre, Modules & roles, for everyone in it.
-                            disabled={roleGrants.includes(m.key)}
+                            disabled={roleGrants.includes(m.key) || locked(m.key)}
                             onChange={() => toggleModule(m.key)}
                           />
                           {/* The registry labels carry their section ("CRM · Pipeline"),
                               which is redundant once they sit under that heading. */}
                           {m.label.replace(/^[^·]+·\s*/, "")}
+                          {locked(m.key) && !roleGrants.includes(m.key) && (
+                            <span className="ml-auto text-xs text-muted-foreground">Super Admin</span>
+                          )}
                         </label>
                       ))}
                     </div>

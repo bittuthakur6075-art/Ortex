@@ -9,6 +9,7 @@ import { formatDate, formatNumber } from "../../lib/format"
 import { cn } from "../../lib/cn"
 import { Dot } from "../../pages/dashboard/parts"
 import { Button, CloseButton } from "../ui/Ui"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Leads -> Import: the sales team's call-log workbook (Date, Name, Mobile No.,
 // Status, Mobile No.2, Type of Product, Quantity, Rate, City, company Name,
@@ -101,7 +102,7 @@ export default function EnquiryImport({ open, onClose, existing, staff = [], me 
       setOff(new Set())
       setStep("review")
     } catch (e) {
-      toast.error(`Could not read the file: ${e.message}`)
+      toast.error(`Could not read the file: ${friendlyError(e)}`)
     } finally {
       setReading(false)
     }
@@ -134,7 +135,7 @@ export default function EnquiryImport({ open, onClose, existing, staff = [], me 
       setImported(list.length)
       setStep("done")
     } catch (e) {
-      toast.error(`Import stopped after ${formatNumber(saved)}: ${e.message}. Import the file again to add the rest; rows already in are skipped.`)
+      toast.error(`Import stopped after ${formatNumber(saved)}: ${friendlyError(e)}. Import the file again to add the rest; rows already in are skipped.`)
       setStep("review")
     }
   }

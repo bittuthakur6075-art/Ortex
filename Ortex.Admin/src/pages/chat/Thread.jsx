@@ -13,6 +13,7 @@ import { isAdmin } from "../../lib/roles"
 import { ConversationAvatar, ANU_PHOTO } from "./parts"
 import MessageBubble from "./MessageBubble"
 import Composer from "./Composer"
+import { friendlyError } from "../../lib/friendlyError"
 
 const ANU_SUGGESTIONS = [
   "What needs my attention today?",
@@ -86,7 +87,7 @@ export default function Thread({ conv, meId, profile, presence, onBack, onInfo }
       await chat.edit(m.id, body)
       thread.setMessages((list) => list.map((x) => (x.id === m.id ? { ...x, body, edited_at: new Date().toISOString() } : x)))
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
   }
 
@@ -96,14 +97,14 @@ export default function Thread({ conv, meId, profile, presence, onBack, onInfo }
       await chat.remove(m.id)
       thread.setMessages((list) => list.map((x) => (x.id === m.id ? { ...x, body: null, attachment: null, meta: null, deleted_at: new Date().toISOString() } : x)))
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
   }
 
   const toggleMute = async () => {
     const muted = !conv.muted
     patchConversation(conv.id, { muted })
-    try { await chat.setMuted(conv.id, muted) } catch (e) { patchConversation(conv.id, { muted: !muted }); toast.error(e.message) }
+    try { await chat.setMuted(conv.id, muted) } catch (e) { patchConversation(conv.id, { muted: !muted }); toast.error(friendlyError(e)) }
   }
 
   const clearAnu = async () => {
@@ -112,7 +113,7 @@ export default function Thread({ conv, meId, profile, presence, onBack, onInfo }
       await chat.clearAssistant()
       thread.setMessages([])
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
   }
 

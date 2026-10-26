@@ -11,6 +11,7 @@ import { useProfile } from "../../hooks/useProfile"
 import { isSuperAdmin } from "../../lib/roles"
 import { refreshPulse } from "../../services/telecaller"
 import { formatDateTime } from "../../lib/format"
+import { friendlyError } from "../../lib/friendlyError"
 
 const Section = ({ title, hint, children }) => (
   <Card className="p-5 ring-1 ring-border/60">
@@ -69,7 +70,7 @@ export default function AgentTab({ onPractice }) {
       await repo.saveSettings({ ...latest, telecaller: { ...t, doNotCall: (t.doNotCall || []).map((p) => String(p).replace(/\D/g, "").slice(-10)).filter(Boolean) } })
       toast.success("Agent settings saved")
     } catch (e) {
-      toast.error(e.message || "Could not save")
+      toast.error(friendlyError(e, "Could not save"))
     } finally {
       setSaving(false)
     }

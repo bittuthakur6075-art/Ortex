@@ -8,7 +8,7 @@ export default function RulesTab({ rules, templateNameFor, onEdit, onDelete }) {
   return (
     <Card className="overflow-hidden">
       <CardHeader title="Automation rules" description={`${rules.length} ${rules.length === 1 ? "rule" : "rules"}`} />
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full border-collapse text-left text-sm">
           <thead className="mt-head">
             <tr>

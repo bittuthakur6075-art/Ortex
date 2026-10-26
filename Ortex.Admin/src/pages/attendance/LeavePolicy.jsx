@@ -4,6 +4,7 @@ import { Plus } from "../../components/ui/Icons"
 import { Banner, Button, Card, CardHeader, Field, Input, Modal, PageLoader, Select } from "../../components/ui/Ui"
 import { getSettings, saveSettings } from "../../services/attendance"
 import { listLeaveTypes, saveLeaveType } from "../../services/leave"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Settings → Leave policy (Super Admin): every leave type's rules, and the
 // sandwich rule. The database refuses these writes from anyone else. Accrual
@@ -58,7 +59,7 @@ export default function LeavePolicy() {
       setSandwich(on)
       toast.success(on ? "Sandwich rule on for new requests" : "Sandwich rule off for new requests")
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
     setSavingSandwich(false)
   }
@@ -78,7 +79,7 @@ export default function LeavePolicy() {
         }
       />
       {state.error && <Banner tone="danger" className="mx-5 mb-4">{state.error}</Banner>}
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[980px] text-sm">
           <thead className="mt-head">
             <tr className="text-left">
@@ -167,7 +168,7 @@ function TypeEditor({ editing, onClose, onSaved }) {
       toast.success(isNew ? `${row.code.toUpperCase()} added` : `${row.code} saved`)
       onSaved()
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
     setBusy(false)
   }

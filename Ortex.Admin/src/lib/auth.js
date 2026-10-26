@@ -109,6 +109,10 @@ export async function sendResetCode(email) {
     options: { shouldCreateUser: false },
   })
   if (error && /signups? not allowed|user not found/i.test(error.message)) return { ok: true }
+  // A failure to SEND, or the per-address send throttle, only ever happens for
+  // an address that has an account, so its own message would reveal one. It
+  // gets the same answer; the code screen says to resend if nothing arrives.
+  if (error && /sending (magic link|recovery|confirmation) email|rate limit|only request this after|over_email_send_rate_limit/i.test(`${error.message} ${error.code || ""}`)) return { ok: true }
   return error ? fail(error) : { ok: true }
 }
 

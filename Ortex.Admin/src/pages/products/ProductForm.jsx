@@ -3,7 +3,6 @@ import { Trash2 } from "../../components/ui/Icons"
 import { toast } from "sonner"
 import { repo } from "../../data/store/repository"
 import { hasSupabase } from "../../data/store/supabaseClient"
-import { triggerSiteRebuild } from "../../lib/revalidate"
 import { PRODUCT_STATUS, UNITS, GST_RATES, newProduct, autoDetectCategory } from "../../data/domain/schema"
 import { formatCurrency, round2 } from "../../lib/format"
 import { Button, Input, Select, Textarea, Field, Drawer } from "../../components/ui/Ui"
@@ -11,6 +10,7 @@ import AiCopyPanel from "./AiCopyPanel"
 import ImageField from "../../components/editors/ImageField"
 import { MAX_IMAGES } from "./helpers"
 import { aiProductCopy, isStoredPhoto } from "../../services/ai"
+import { friendlyError } from "../../lib/friendlyError"
 
 export default function ProductForm({ open, product, categories = [], presetCategory = null, onClose }) {
   const isEdit = !!product
@@ -160,13 +160,12 @@ export default function ProductForm({ open, product, categories = [], presetCate
         await repo.create("products", payload)
         toast.success("Product added")
       }
-      triggerSiteRebuild()
       onClose()
     } catch (err) {
       // Most likely a localStorage quota hit from large base64 images. Keep the
       // drawer open so the user can remove images and retry without losing input.
       console.error("Product save failed:", err)
-      toast.error(err?.message || "Couldn't save the product. Please try again.")
+      toast.error(friendlyError(err, "Couldn't save the product. Please try again."))
     } finally {
       savingRef.current = false
       setSaving(false)
@@ -178,10 +177,9 @@ export default function ProductForm({ open, product, categories = [], presetCate
     try {
       await repo.remove("products", product.id)
       toast.success("Product deleted")
-      triggerSiteRebuild()
       onClose()
     } catch (err) {
-      toast.error(err?.message || "Could not delete the product")
+      toast.error(friendlyError(err, "Could not delete the product"))
     }
   }
 
@@ -222,7 +220,7 @@ export default function ProductForm({ open, product, categories = [], presetCate
 
         {/* 1. Product Name */}
         <Field label="Product name" required error={errors.name}>
-          <Input value={form.name} onChange={(e) => handleNameChange(e.target.value)} placeholder="Enter product name" />
+          <Input value={form.name} maxLength={200} onChange={(e) => handleNameChange(e.target.value)} placeholder="Enter product name" />
         </Field>
 
         {/* 2. Category */}
@@ -242,7 +240,7 @@ export default function ProductForm({ open, product, categories = [], presetCate
         {/* 3. SKU & Status */}
         <div className="grid grid-cols-2 gap-4">
           <Field label="SKU">
-            <Input value={form.sku} onChange={(e) => set("sku", e.target.value)} placeholder="Enter SKU" />
+            <Input value={form.sku} maxLength={60} onChange={(e) => set("sku", e.target.value)} placeholder="Enter SKU" />
           </Field>
           <Field label="Status">
             <Select value={form.status} onChange={(e) => set("status", e.target.value)}>
@@ -257,7 +255,7 @@ export default function ProductForm({ open, product, categories = [], presetCate
 
         {/* 4. Material / Spec */}
         <Field label="Material / spec">
-          <Input value={form.material} onChange={(e) => set("material", e.target.value)} placeholder="Enter material or spec" />
+          <Input value={form.material} maxLength={200} onChange={(e) => set("material", e.target.value)} placeholder="Enter material or spec" />
         </Field>
 
         {/* 5. Pricing (Base & Cost Price), console only, never published */}
@@ -285,7 +283,7 @@ export default function ProductForm({ open, product, categories = [], presetCate
         {/* 6. Taxation (HSN & GST %) */}
         <div className="grid grid-cols-2 gap-4">
           <Field label="HSN code" hint="4-digit for turnover ≤ ₹5cr">
-            <Input value={form.hsn} onChange={(e) => set("hsn", e.target.value)} placeholder="Enter HSN code" />
+            <Input value={form.hsn} maxLength={8} onChange={(e) => set("hsn", e.target.value)} placeholder="Enter HSN code" />
           </Field>
           <Field label="GST %">
             <Select value={form.gstRate} onChange={(e) => set("gstRate", e.target.value)}>

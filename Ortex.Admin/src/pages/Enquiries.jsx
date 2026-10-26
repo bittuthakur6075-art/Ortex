@@ -24,6 +24,7 @@ import { CHANNELS, channelMeta, STATUS_TONE, buildLead, leadTags } from "./leads
 import { useLeadActions, useStaffNames, telHref, waHref, mailHref, firstName, contactOf } from "./leads/actions"
 import { callContact } from "../components/sales/ContactCard"
 import LeadPreview from "./leads/LeadPreview"
+import { friendlyError } from "../lib/friendlyError"
 
 const COLS = 10
 
@@ -243,7 +244,7 @@ export default function Enquiries() {
       toast.success(`${name ? `Assigned to ${firstName(name)}` : "Unassigned"} · ${rows.length} lead${rows.length === 1 ? "" : "s"}`)
       setSelected(new Set())
     } catch (err) {
-      toast.error(err?.message || "Could not update every lead")
+      toast.error(friendlyError(err, "Could not update every lead"))
     }
   }
   // Won and lost leads are closed; "Mark contacted" leaves them alone.
@@ -344,7 +345,7 @@ export default function Enquiries() {
         ) : filtered.length === 0 ? (
           <EmptyState icon={Search} title="No matches" description="Try another view, or clear the filters." />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[1160px] table-fixed text-left">
               <colgroup>
                 <col style={{ width: 40 }} />
@@ -495,7 +496,7 @@ function NewLeadDrawer({ open, onClose, me, onCreated }) {
       close()
       onCreated(row.id)
     } catch (err) {
-      toast.error(err?.message || "Could not add the lead")
+      toast.error(friendlyError(err, "Could not add the lead"))
     } finally {
       setSaving(false)
     }

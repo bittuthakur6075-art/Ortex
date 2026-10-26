@@ -11,6 +11,7 @@ import { ActionMenu, statusSections } from "../../components/sales/ListParts"
 import { callContact } from "../../components/sales/ContactCard"
 import { STATUS_TONE } from "./model"
 import { Button, Chip, Input, Modal } from "../../components/ui/Ui"
+import { friendlyError } from "../../lib/friendlyError"
 
 // People a lead can be assigned to. `owner` on an enquiry is a display name
 // (it always was), so this is a list of names: the staff directory where the
@@ -62,7 +63,7 @@ export function useLeadActions({ products = [], staff = [], me = "" } = {}) {
       await repo.update("enquiries", e.id, changes)
       if (message) toast.success(message)
     } catch (err) {
-      toast.error(err?.message || "Could not save the lead")
+      toast.error(friendlyError(err, "Could not save the lead"))
     }
   }
 
@@ -76,7 +77,7 @@ export function useLeadActions({ products = [], staff = [], me = "" } = {}) {
     try {
       await Promise.all(rows.map((r) => repo.update("enquiries", r.id, { status, followUpAt: null, statusAt: { ...r.statusAt, [status]: at }, ...extra })))
     } catch (err) {
-      toast.error(err?.message || "Could not change the status")
+      toast.error(friendlyError(err, "Could not change the status"))
       return false
     }
     const label = status === "lost" ? "Closed as lost" : `Marked ${ENQUIRY_STATUS.find((s) => s.id === status)?.label.toLowerCase()}`
@@ -86,7 +87,7 @@ export function useLeadActions({ products = [], staff = [], me = "" } = {}) {
         onClick: () =>
           Promise.all(before.map(({ id, ...prev }) => repo.update("enquiries", id, prev))).then(
             () => toast.success("Status put back"),
-            (err) => toast.error(err?.message || "Could not undo"),
+            (err) => toast.error(friendlyError(err, "Could not undo")),
           ),
       },
     })
@@ -184,12 +185,12 @@ export function useLeadActions({ products = [], staff = [], me = "" } = {}) {
     try {
       const results = await Promise.allSettled(rows.map((r) => repo.remove("enquiries", r.id)))
       const gone = rows.filter((_, i) => results[i].status === "fulfilled")
-      if (gone.length < rows.length) toast.error(`Deleted ${gone.length} of ${rows.length}. ${results.find((r) => r.status === "rejected").reason?.message || "Please try again."}`)
+      if (gone.length < rows.length) toast.error(`Deleted ${gone.length} of ${rows.length}. ${results.find((r) => r.status === "rejected").friendlyError(reason, "Please try again.")}`)
       if (gone.length) {
         toast.success(gone.length === 1 ? "Lead deleted" : `${gone.length} leads deleted`, {
           action: {
             label: "Undo",
-            onClick: () => repo.bulkCreate("enquiries", gone).then(() => toast.success("Put back"), (err) => toast.error(err?.message || "Could not undo")),
+            onClick: () => repo.bulkCreate("enquiries", gone).then(() => toast.success("Put back"), (err) => toast.error(friendlyError(err, "Could not undo"))),
           },
         })
       }

@@ -13,6 +13,7 @@ import { useRolePermissions } from "../hooks/useRolePermissions"
 import { useModuleControls } from "../hooks/useModuleControls"
 import RowActions from "./users/RowActions"
 import UserEditor from "./users/UserEditor"
+import { friendlyError } from "../lib/friendlyError"
 
 // The people. What each role may open moved to the Super Admin's Modules page
 // (/modules); the old ?tab=roles link lands there.
@@ -59,7 +60,7 @@ function People() {
     try {
       setRows(await listProfiles())
     } catch (e) {
-      toast.error(e.message || "Failed to load users")
+      toast.error(friendlyError(e, "Failed to load users"))
       setRows([])
     }
   }, [])
@@ -79,7 +80,7 @@ function People() {
       ) : (
         <Card className="overflow-hidden">
           <CardHeader title="Users" action={isAdmin(viewer) ? <Button onClick={() => setEditing("new")}>Add user</Button> : null} />
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="mt-head">
                 <tr className="text-left">

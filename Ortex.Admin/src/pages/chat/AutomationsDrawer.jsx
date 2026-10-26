@@ -4,6 +4,7 @@ import { Banner, Button, Drawer, Input } from "../../components/ui/Ui"
 import { supabase } from "../../data/store/supabaseClient"
 import { cn } from "../../lib/cn"
 import { TEAM_TITLES } from "../../lib/anuIntent"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Anu's scheduled posts (migration 0046): when each runs, for which teams, and
 // what happened today. The Super Admin edits; admins can see and send now.
@@ -45,7 +46,7 @@ export default function AutomationsDrawer({ open, onClose, superAdmin }) {
     setSaving(true)
     const { error: e } = await supabase.from("anu_bot_settings").update({ doc, updated_at: new Date().toISOString() }).eq("id", true)
     setSaving(false)
-    if (e) return toast.error(e.message)
+    if (e) return toast.error(friendlyError(e))
     toast.success("Schedule saved")
   }
 
@@ -53,7 +54,7 @@ export default function AutomationsDrawer({ open, onClose, superAdmin }) {
     setSending(`${job}:${team}`)
     const { data, error: e } = await supabase.rpc("anu_bot_run_now", { p_job: job, p_team: team })
     setSending("")
-    if (e) return toast.error(e.message)
+    if (e) return toast.error(friendlyError(e))
     toast.success(data === "posted" ? `Posted to ${TEAM_TITLES[team]}` : `Nothing to post for ${TEAM_TITLES[team]} today`)
     load()
   }

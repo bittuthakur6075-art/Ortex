@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import { repo } from "../../data/store/repository"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Drawer + form state and CRUD handlers for message_templates.
 export function useTemplateEditor() {
@@ -48,7 +49,7 @@ export function useTemplateEditor() {
       }
       setTemplateDrawerOpen(false)
     } catch (err) {
-      toast.error("Failed to save template: " + err.message)
+      toast.error("Failed to save template: " + friendlyError(err))
     }
   }
 
@@ -58,7 +59,7 @@ export function useTemplateEditor() {
       await repo.remove("message_templates", id)
       toast.success("Template deleted")
     } catch (err) {
-      toast.error("Failed to delete template: " + err.message)
+      toast.error("Failed to delete template: " + friendlyError(err))
     }
   }
 

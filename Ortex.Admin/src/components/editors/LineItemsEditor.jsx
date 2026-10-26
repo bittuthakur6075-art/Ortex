@@ -155,7 +155,7 @@ export default function LineItemsEditor({ lines, onChange, products, extraDiscou
           </div>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-xs">
+        <div className="relative overflow-x-auto rounded-xl border border-border bg-card shadow-xs">
           <table className="w-full min-w-[720px] table-fixed text-left text-sm">
             <thead className="mt-head border-b border-border bg-subtle/50 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               <tr>

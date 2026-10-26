@@ -18,7 +18,15 @@
     <title>Ortex Operations Console</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Shown until React mounts (it replaces #root's children), so a slow
+         network shows a loader instead of a blank screen. Pure CSS. -->
+    <style>
+      .boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+      .boot i { width: 28px; height: 28px; border-radius: 50%; border: 3px solid rgba(47, 80, 228, 0.18); border-top-color: #2F50E4; animation: boot 0.8s linear infinite; }
+      @keyframes boot { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { .boot i { animation: none; } }
+    </style>
+    <div id="root"><div class="boot" role="status" aria-label="Loading"><i></i></div></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

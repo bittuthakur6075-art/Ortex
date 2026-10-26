@@ -13,10 +13,11 @@ import PageHeader, { ActionBar } from "../components/layout/PageHeader"
 import { StatCard, Badge, EmptyState, Segmented, PageLoader, Money } from "../components/ui/Ui"
 import SectionCard from "../components/ui/SectionCard"
 import { BarChart, AreaChart, CHART_COLORS } from "../components/ui/Chart"
+import LoadErrorBanner from "../components/ui/LoadErrorBanner"
 
 export default function Growth({ embedded = false }) {
   const Header = embedded ? ActionBar : PageHeader
-  const { data, loading } = useCollections([
+  const { data, loading, error: loadError, reload } = useCollections([
     "user_activities",
     "enquiries",
     "quotations",
@@ -99,7 +100,7 @@ export default function Growth({ embedded = false }) {
 
   if (loading) return <PageLoader />
 
-  if (noTracking) {
+  if (noTracking && !loadError) {
     return (
       <div>
         <Header title="Growth" subtitle="Visitor-to-cash funnel" />
@@ -119,6 +120,7 @@ export default function Growth({ embedded = false }) {
       <Header title="Growth" subtitle="Visitor-to-cash funnel & demand signals">
         <Segmented items={PERIODS} value={period} onChange={setPeriod} />
       </Header>
+      <LoadErrorBanner error={loadError} onRetry={reload} className="mb-4" />
 
       {/* North-star row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -5,6 +5,7 @@ import { cn } from "../../lib/cn"
 import { roleLabel } from "../../lib/roles"
 import { chat } from "../../services/chat"
 import { PersonAvatar } from "./parts"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Start a chat: one tap on a colleague opens (or creates) the direct chat;
 // "New group" picks several and a name. `exclude` hides people already in a
@@ -28,7 +29,7 @@ export default function NewChatModal({ open, onClose, onOpened, presence, mode: 
     setLoading(true)
     chat.people()
       .then((rows) => setPeople(rows || []))
-      .catch((e) => toast.error(e.message))
+      .catch((e) => toast.error(friendlyError(e)))
       .finally(() => setLoading(false))
   }, [open])
 
@@ -47,7 +48,7 @@ export default function NewChatModal({ open, onClose, onOpened, presence, mode: 
       onOpened(await chat.openDirect(id))
       onClose()
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     } finally {
       setBusy(false)
     }
@@ -61,7 +62,7 @@ export default function NewChatModal({ open, onClose, onOpened, presence, mode: 
       onOpened(await chat.createGroup(title.trim(), picked))
       onClose()
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     } finally {
       setBusy(false)
     }

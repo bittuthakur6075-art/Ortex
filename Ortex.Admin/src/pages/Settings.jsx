@@ -40,6 +40,8 @@ import { companySlug } from "../lib/roles"
 import { uploadCompanyLogo, removeCompanyLogo, LOGO_TYPES } from "../services/companyLogos"
 import { prefixProblems } from "../lib/numbering"
 import { settingsFor } from "../data/domain/settingsDefaults"
+import { friendlyError } from "../lib/friendlyError"
+import LoadErrorBanner from "../components/ui/LoadErrorBanner"
 
 // Settings (Figma "V3 · Settings"): a section menu on the left, one section at
 // a time, every setting as a row (label and why on the left, control on the
@@ -259,7 +261,7 @@ export default function Settings() {
       if (cchanges.length) await saveCompanyPaths(cchanges)
       toast.success("Settings saved")
     } catch (e) {
-      toast.error(e.message || "Could not save the settings")
+      toast.error(friendlyError(e, "Could not save the settings"))
     } finally {
       setSaving(false)
     }
@@ -739,7 +741,7 @@ function CompaniesSection({ companies, onEdit }) {
       if (done) toast.success(done)
       return true
     } catch (e) {
-      toast.error(e?.message || "Could not save the company")
+      toast.error(friendlyError(e, "Could not save the company"))
       return false
     } finally {
       setBusy("")
@@ -764,7 +766,7 @@ function CompaniesSection({ companies, onEdit }) {
       await repo.saveCompany({ ...other, sort: i })
       await reloadCompanies()
     } catch (e) {
-      toast.error(e?.message || "Could not reorder")
+      toast.error(friendlyError(e, "Could not reorder"))
     } finally {
       setBusy("")
     }
@@ -787,7 +789,7 @@ function CompaniesSection({ companies, onEdit }) {
       if (old) void removeCompanyLogo(old)
       toast.success("Logo saved")
     } catch (e) {
-      toast.error(e?.message || "Could not upload the logo")
+      toast.error(friendlyError(e, "Could not upload the logo"))
     } finally {
       setBusy("")
     }
@@ -1110,24 +1112,30 @@ function IntegrationsSection({ settings }) {
 // ---- Data ------------------------------------------------------------------------------
 
 function DataSection() {
-  const { data } = useCollections(["products", "enquiries", "quotations", "invoices", "payments"])
+  const { data, error: loadError, reload } = useCollections(["products", "enquiries", "quotations", "invoices", "payments"])
 
   // Count first, then confirm with the real numbers, so nobody deletes blind.
   const purgeDemoData = async () => {
-    const counts = await countDemoData()
-    const total = Object.values(counts).reduce((n, c) => n + c, 0)
-    if (!total) return toast.info("No demo records found.")
-    const lines = Object.entries(counts)
-      .filter(([, c]) => c > 0)
-      .map(([name, c]) => `${c} ${name}`)
-      .join(", ")
-    if (!window.confirm(`Delete the demo dataset? This removes ${lines}. Records from the website or entered by hand are not touched. This cannot be undone.`)) return
-    const removed = await removeDemoData()
-    toast.success(`Demo data removed (${Object.values(removed).reduce((n, c) => n + c, 0)} records)`)
+    try {
+      const counts = await countDemoData()
+      const total = Object.values(counts).reduce((n, c) => n + c, 0)
+      if (!total) return toast.info("No demo records found.")
+      const lines = Object.entries(counts)
+        .filter(([, c]) => c > 0)
+        .map(([name, c]) => `${c} ${name}`)
+        .join(", ")
+      if (!window.confirm(`Delete the demo dataset? This removes ${lines}. Records from the website or entered by hand are not touched. This cannot be undone.`)) return
+      const removed = await removeDemoData()
+      toast.success(`Demo data removed (${Object.values(removed).reduce((n, c) => n + c, 0)} records)`)
+    } catch (e) {
+      // A refused delete stops part way: say so, and what is left can be removed by running it again.
+      toast.error(`Demo data was not fully removed. ${friendlyError(e)} Run it again to remove the rest.`)
+    }
   }
 
   return (
     <SectionHead title="Data" description={hasSupabase ? "What the live database holds." : "This browser's local demo data."}>
+      <LoadErrorBanner error={loadError} onRetry={reload} className="mb-3" />
       <div className="squircle grid grid-cols-2 gap-2 rounded-card bg-card p-5 sm:grid-cols-5">
         {[
           ["Products", data.products?.length || 0],

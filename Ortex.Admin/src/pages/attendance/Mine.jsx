@@ -192,7 +192,7 @@ export default function Mine() {
         {summaries.length === 0 ? (
           <EmptyState icon={CalendarClock} title="No attendance this month" description="Clock in from the Ortex phone app and your days appear here." />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[720px] text-sm">
               <thead className="mt-head">
                 <tr className="text-left">

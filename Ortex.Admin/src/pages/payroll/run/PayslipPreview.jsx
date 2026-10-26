@@ -4,6 +4,7 @@ import { Download } from "../../../components/ui/Icons"
 import { Button, Modal } from "../../../components/ui/Ui"
 import PayslipSheet from "../../../components/documents/PayslipSheet"
 import { downloadPayslipPdf, payslipMonthLabel } from "../../../components/documents/payslipPdf"
+import { friendlyError } from "../../../lib/friendlyError"
 
 // The payslip at full A4 size with its PDF download, shared by a pay run's
 // row drawer and My payslips. `item` is { slip, status, title, payDate }.
@@ -14,7 +15,7 @@ export default function PayslipPreview({ item, org, onClose }) {
     try {
       await downloadPayslipPdf(item, org)
     } catch (e) {
-      toast.error(e.message || "Could not make the PDF")
+      toast.error(friendlyError(e, "Could not make the PDF"))
     } finally {
       setBusy(false)
     }
@@ -37,7 +38,7 @@ export default function PayslipPreview({ item, org, onClose }) {
       }
     >
       {item && (
-        <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="relative overflow-x-auto rounded-lg border border-border">
           <PayslipSheet slip={item.slip} status={item.status} title={item.title} payDate={item.payDate} org={org} className="!m-0 !shadow-none" />
         </div>
       )}

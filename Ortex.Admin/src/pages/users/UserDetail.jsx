@@ -17,6 +17,7 @@ import { ACTION_TONE, ACTION_VERB, AUDIT_COLLECTIONS, changedFields, collectionL
 import RowActions from "./RowActions"
 import { useCompany } from "../../hooks/useCompany"
 import UserEditor from "./UserEditor"
+import { friendlyError } from "../../lib/friendlyError"
 
 // One console account, end to end: who they are, what they can reach, and
 // every audited thing they have done.
@@ -82,7 +83,7 @@ export default function UserDetail() {
     try {
       setUser(await getProfile(id))
     } catch (e) {
-      toast.error(e.message || "Failed to load this user")
+      toast.error(friendlyError(e, "Failed to load this user"))
       setUser(null)
     }
   }, [id])

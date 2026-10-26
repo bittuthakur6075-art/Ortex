@@ -10,6 +10,7 @@ import { balancesFor, cancelLeave, decideLeave, leaveBalances, leaveDocumentUrl,
 import { datesText, nameOf, num } from "./common"
 import { openRow } from "../format"
 import { LeaveStatusBadge, TypeChip } from "./leaveUi"
+import { friendlyError } from "../../../lib/friendlyError"
 
 // Leave → Requests (Employment Hero's Requests view, Deputy's review drawer):
 // every request, filtered by status, with bulk approve and decline for admins.
@@ -188,7 +189,7 @@ export default function Requests({ ctx, canDecide }) {
             description={status === "pending" ? "New leave requests appear here the moment they are sent." : "Try another status."}
           />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className={canDecide ? "w-full min-w-[1160px] text-sm" : "w-full min-w-[980px] text-sm"}>
               <thead className="mt-head">
                 <tr className="text-left">
@@ -340,7 +341,7 @@ function RequestDrawer({ request: r, ctx, all, canDecide, deciding, selfId, onCl
       setCancelling(false)
       onChanged()
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
     setBusy(false)
   }

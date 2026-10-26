@@ -15,6 +15,7 @@ import { exportCsv } from "../lib/csv"
 import { byNumberDesc, dateValue, sortRows } from "../lib/listSort"
 import RecordPaymentModal from "./invoices/RecordPaymentModal"
 import { Button, ExportButton, Card, CardHeader, SearchInput, StatCard, EmptyState, Money, Chip, ChipGroup, PageLoader, SortTh } from "../components/ui/Ui"
+import { friendlyError } from "../lib/friendlyError"
 
 // How the money moved, as an icon beside the method (PAYMENT_METHODS in schema.js).
 const METHOD_ICON = {
@@ -118,7 +119,7 @@ export default function Payments() {
       await removePayment(p)
       toast.success("Payment deleted")
     } catch (e) {
-      toast.error(e?.message || "Could not delete the payment")
+      toast.error(friendlyError(e, "Could not delete the payment"))
     }
   }
 
@@ -176,7 +177,7 @@ export default function Payments() {
         ) : filtered.length === 0 ? (
           <EmptyState icon={Search} title="No matches" description="Try another search or filter." />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="mt-head">
                 <tr>

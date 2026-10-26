@@ -345,7 +345,9 @@ export async function loadDemoData() {
 // visitor created. Products, categories and the analytics logs are
 // deliberately left alone - the marketing site reads the catalogue live, and a
 // blanket delete there would empty the public product pages.
-export const DEMO_EMAILS = Object.values(CUSTOMERS).map((c) => c.email)
+// The six CUSTOMERS plus the two that appear only as enquiries and leads
+// (Horizon Events, NextGen Pharma), which the purge used to leave behind.
+export const DEMO_EMAILS = [...Object.values(CUSTOMERS).map((c) => c.email), "sunita@horizonevents.in", "amit@nextgenpharma.com"]
 
 const emailOf = (row) => (row?.customer?.email || row?.email || "").toLowerCase()
 const isDemoRow = (row) => DEMO_EMAILS.includes(emailOf(row))

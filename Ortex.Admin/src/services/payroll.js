@@ -5,6 +5,13 @@
 // grant), so a refused call surfaces its message rather than being hidden.
 
 import { supabase } from "../data/store/supabaseClient"
+
+// Payroll lives only in the database: in demo mode (no Supabase) every call
+// says so in words instead of failing on a null client.
+const db = () => {
+  if (!supabase) throw new Error("Payroll needs the database. It is not available in demo mode.")
+  return supabase
+}
 import {
   computePayslip,
   dayRateOf,
@@ -57,7 +64,7 @@ const deepMerge = (a, b) => {
 // ---- settings --------------------------------------------------------------------------------------
 
 export async function getPayrollSettings() {
-  const { data, error } = await supabase.from("payroll_settings").select("doc, updated_at").eq("id", true).maybeSingle()
+  const { data, error } = await db().from("payroll_settings").select("doc, updated_at").eq("id", true).maybeSingle()
   fail(error)
   return deepMerge(DEFAULT_PAYROLL_SETTINGS, data?.doc || {})
 }
@@ -66,7 +73,7 @@ export async function getPayrollSettings() {
 export async function savePayrollSettings(patch) {
   const current = await getPayrollSettings()
   const doc = deepMerge(current, patch)
-  const { data, error } = await supabase.from("payroll_settings").update({ doc }).eq("id", true).select("id")
+  const { data, error } = await db().from("payroll_settings").update({ doc }).eq("id", true).select("id")
   fail(error)
   if (!data?.length) throw new Error("Only the Super Admin can change payroll settings.")
   return doc
@@ -77,9 +84,9 @@ export async function savePayrollSettings(patch) {
 /** Every active profile with its pay profile (or none yet) and its revisions, newest first. */
 export async function listEmployees() {
   const [profiles, employees, revisions] = await Promise.all([
-    all(() => supabase.from("profiles").select("id, name, email, role, active, avatar_url, created_at").order("name")),
-    all(() => supabase.from("employees").select("*")),
-    all(() => supabase.from("salary_revisions").select("*").order("effective_from", { ascending: false })),
+    all(() => db().from("profiles").select("id, name, email, role, active, avatar_url, created_at").order("name")),
+    all(() => db().from("employees").select("*")),
+    all(() => db().from("salary_revisions").select("*").order("effective_from", { ascending: false })),
   ])
   const byUser = new Map(employees.map((e) => [e.user_id, e]))
   const revs = new Map()
@@ -102,13 +109,13 @@ export async function getEmployee(userId) {
 
 /** Plain fields plus, optionally, `account_number` (encrypted by the database). */
 export async function saveEmployee(userId, fields) {
-  const { error } = await supabase.rpc("payroll_employee_save", { p_user: userId, p: fields })
+  const { error } = await db().rpc("payroll_employee_save", { p_user: userId, p: fields })
   fail(error)
 }
 
 /** The full account number. Every call is written to the payroll history. */
 export async function revealSecrets(userId) {
-  const { data, error } = await supabase.rpc("payroll_employee_secrets", { p_user: userId })
+  const { data, error } = await db().rpc("payroll_employee_secrets", { p_user: userId })
   fail(error)
   return (data || [])[0] || { account_number: null }
 }
@@ -121,7 +128,7 @@ export function revisionFor(revisions, month) {
 
 /** Add a revision: a pay type ("monthly" | "daily"), its rate, and the month it takes effect. */
 export async function addRevision({ userId, type, rate, effectiveFrom, reason }) {
-  const { error } = await supabase.from("salary_revisions").insert({
+  const { error } = await db().from("salary_revisions").insert({
     user_id: userId,
     ...revisionRow({ type, rate }),
     effective_from: monthKey(effectiveFrom),
@@ -132,7 +139,7 @@ export async function addRevision({ userId, type, rate, effectiveFrom, reason })
 }
 
 export async function deleteRevision(id) {
-  const { error } = await supabase.from("salary_revisions").delete().eq("id", id)
+  const { error } = await db().from("salary_revisions").delete().eq("id", id)
   fail(error)
 }
 
@@ -140,8 +147,8 @@ export async function deleteRevision(id) {
 
 export async function listLoans() {
   const [loans, recoveries] = await Promise.all([
-    all(() => supabase.from("loans").select("*").order("created_at", { ascending: false })),
-    all(() => supabase.from("loan_recoveries").select("*")),
+    all(() => db().from("loans").select("*").order("created_at", { ascending: false })),
+    all(() => db().from("loan_recoveries").select("*")),
   ])
   return loans.map((l) => {
     const rec = recoveries.filter((r) => r.loan_id === l.id)
@@ -151,41 +158,41 @@ export async function listLoans() {
 }
 
 export async function saveLoan(loan) {
-  const { error } = await supabase.from("loans").upsert(loan)
+  const { error } = await db().from("loans").upsert(loan)
   fail(error)
 }
 
 export async function recordLoanRepayment(loanId, amount, note) {
-  const { error } = await supabase.from("loan_recoveries").insert({ loan_id: loanId, amount, note: note || "Manual repayment" })
+  const { error } = await db().from("loan_recoveries").insert({ loan_id: loanId, amount, note: note || "Manual repayment" })
   fail(error)
 }
 
 // ---- pay runs -----------------------------------------------------------------------------------------------
 
 export async function listRuns() {
-  const { data, error } = await supabase.from("pay_runs").select("*").order("month", { ascending: false }).order("created_at", { ascending: false })
+  const { data, error } = await db().from("pay_runs").select("*").order("month", { ascending: false }).order("created_at", { ascending: false })
   fail(error)
   return data || []
 }
 
 export async function getRun(id) {
   const [{ data: run, error }, slips] = await Promise.all([
-    supabase.from("pay_runs").select("*").eq("id", id).maybeSingle(),
-    all(() => supabase.from("payslips").select("*").eq("run_id", id)),
+    db().from("pay_runs").select("*").eq("id", id).maybeSingle(),
+    all(() => db().from("payslips").select("*").eq("run_id", id)),
   ])
   fail(error)
   return run ? { ...run, payslips: slips } : null
 }
 
 export async function createRun(month, kind = "regular", title = null) {
-  const { data, error } = await supabase.rpc("payroll_run_create", { p_month: monthKey(month), p_kind: kind, p_title: title })
+  const { data, error } = await db().rpc("payroll_run_create", { p_month: monthKey(month), p_kind: kind, p_title: title })
   fail(error)
   return data
 }
 
 /** submit · approve · recall · pay · cancel */
 export async function transitionRun(id, action, { note, payDate, mode, ref } = {}) {
-  const { error } = await supabase.rpc("payroll_run_transition", {
+  const { error } = await db().rpc("payroll_run_transition", {
     p_run: id,
     p_action: action,
     p_note: note || null,
@@ -197,12 +204,12 @@ export async function transitionRun(id, action, { note, payDate, mode, ref } = {
 }
 
 export async function releaseWithheld(slipId) {
-  const { error } = await supabase.rpc("payroll_release_withheld", { p_slip: slipId })
+  const { error } = await db().rpc("payroll_release_withheld", { p_slip: slipId })
   fail(error)
 }
 
 export async function bankDetails(runId) {
-  const { data, error } = await supabase.rpc("payroll_bank_details", { p_run: runId })
+  const { data, error } = await db().rpc("payroll_bank_details", { p_run: runId })
   fail(error)
   return data || []
 }
@@ -213,20 +220,20 @@ export async function paidSlipsBefore(month) {
   const fy = fyOf(m)
   const runs = (await listRuns()).filter((r) => r.status === "paid" && r.month >= fy.start && r.month < m)
   if (!runs.length) return []
-  const slips = await all(() => supabase.from("payslips").select("run_id, user_id, status, data").in("run_id", runs.map((r) => r.id)))
+  const slips = await all(() => db().from("payslips").select("run_id, user_id, status, data").in("run_id", runs.map((r) => r.id)))
   return slips.map((s) => ({ ...s, month: runs.find((r) => r.id === s.run_id)?.month }))
 }
 
 /** Per-person payable days for the month (attendance_month_summary, 0034). */
 export async function attendanceFor(month) {
-  const { data, error } = await supabase.rpc("attendance_month_summary", { p_month: monthKey(month) })
+  const { data, error } = await db().rpc("attendance_month_summary", { p_month: monthKey(month) })
   if (error) return { rows: [], error: error.message }
   return { rows: data || [], error: null }
 }
 
 /** Per-person days worked (P, OD, HD) for daily wages (payroll_days_worked, 0077). Throws when it cannot be read. */
 async function daysWorkedRows(month) {
-  const { data, error } = await supabase.rpc("payroll_days_worked", { p_month: monthKey(month) })
+  const { data, error } = await db().rpc("payroll_days_worked", { p_month: monthKey(month) })
   if (error) {
     throw new Error(
       `Days worked for ${monthKey(month).slice(0, 7)} could not be read, so nothing was calculated: ${MISSING.test(error.message || "") ? "the database needs migration 0077" : error.message}`,
@@ -257,11 +264,11 @@ async function overtimeFor(month, required) {
   }
   let rows = []
   try {
-    rows = await all(() => supabase.from("attendance_overtime").select("user_id, day, minutes").gte("day", from).lte("day", to).order("day").order("user_id"))
+    rows = await all(() => db().from("attendance_overtime").select("user_id, day, minutes").gte("day", from).lte("day", to).order("day").order("user_id"))
   } catch (e) {
     return refuse(e.missing ? "the overtime table is not on this database (migration 0056)" : e.message)
   }
-  const { data: att, error } = await supabase.from("attendance_settings").select("doc").eq("id", true).maybeSingle()
+  const { data: att, error } = await db().from("attendance_settings").select("doc").eq("id", true).maybeSingle()
   if (error) return refuse(error.message)
   const byUser = new Map()
   for (const r of rows) {
@@ -390,12 +397,12 @@ export async function computeRun(run, { edits = {} } = {}) {
 }
 
 export async function saveRun(runId, slips, totals) {
-  const { error } = await supabase.rpc("payroll_run_save", { p_run: runId, p_slips: slips, p_totals: totals })
+  const { error } = await db().rpc("payroll_run_save", { p_run: runId, p_slips: slips, p_totals: totals })
   fail(error)
 }
 
 export async function history({ limit = 200 } = {}) {
-  const { data, error } = await supabase.from("payroll_audit").select("*").order("at", { ascending: false }).limit(limit)
+  const { data, error } = await db().from("payroll_audit").select("*").order("at", { ascending: false }).limit(limit)
   fail(error)
   return data || []
 }
@@ -405,7 +412,7 @@ export async function history({ limit = 200 } = {}) {
 /** The signed-in person's released payslips (RLS returns only theirs). */
 export async function myPayslips(userId) {
   const slips = await all(() =>
-    supabase.from("payslips").select("id, run_id, status, data, gross, net_pay, released_at").eq("user_id", userId).not("released_at", "is", null),
+    db().from("payslips").select("id, run_id, status, data, gross, net_pay, released_at").eq("user_id", userId).not("released_at", "is", null),
   )
   return slips.sort((a, b) => (a.data?.month < b.data?.month ? 1 : -1))
 }

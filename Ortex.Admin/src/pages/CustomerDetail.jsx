@@ -31,6 +31,7 @@ import { findDuplicate, normaliseCustomer, validateCustomer, cleanPhoneInput } f
 import { EditorHeader, Tiles, Tile, Section, EditorFooter } from "../components/editors/DocumentEditorShell"
 import { Banner, Button, Input, Field, Modal, StatusBadge, EmptyState, Money, PageLoader, Textarea } from "../components/ui/Ui"
 import { RecordActivity } from "../components/ui/RecordActivity"
+import { friendlyError } from "../lib/friendlyError"
 
 const byNewest = (a, b) => new Date(b.issueDate || b.createdAt || 0) - new Date(a.issueDate || a.createdAt || 0)
 
@@ -125,7 +126,7 @@ export default function CustomerDetail() {
       toast.success("Customer deleted")
       navigate("/customers")
     } catch (err) {
-      toast.error(err?.message || "Could not delete the customer")
+      toast.error(friendlyError(err, "Could not delete the customer"))
       setDeleting(false)
     }
   }
@@ -203,25 +204,25 @@ export default function CustomerDetail() {
             )}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Company">
-                <Input value={form.company} onChange={(e) => set("company", e.target.value)} onBlur={saveField} />
+                <Input value={form.company} maxLength={200} onChange={(e) => set("company", e.target.value)} onBlur={saveField} />
               </Field>
               <Field label="Contact Name" error={errors.name}>
-                <Input value={form.name} onChange={(e) => set("name", e.target.value)} onBlur={saveField} />
+                <Input value={form.name} maxLength={200} onChange={(e) => set("name", e.target.value)} onBlur={saveField} />
               </Field>
               <Field label="Email" error={errors.email}>
-                <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} onBlur={saveField} />
+                <Input type="email" value={form.email} maxLength={254} onChange={(e) => set("email", e.target.value)} onBlur={saveField} />
               </Field>
               <Field label="Phone" error={errors.phone}>
-                <Input type="tel" inputMode="tel" value={form.phone} onChange={(e) => set("phone", cleanPhoneInput(e.target.value))} onBlur={saveField} />
+                <Input type="tel" inputMode="tel" value={form.phone} maxLength={40} onChange={(e) => set("phone", cleanPhoneInput(e.target.value))} onBlur={saveField} />
               </Field>
               <Field label="GSTIN" error={errors.gstin}>
-                <Input value={form.gstin} onChange={(e) => set("gstin", e.target.value)} onBlur={saveField} placeholder="Enter GSTIN" />
+                <Input value={form.gstin} maxLength={15} onChange={(e) => set("gstin", e.target.value)} onBlur={saveField} placeholder="Enter GSTIN" />
               </Field>
               <Field label="State Code" error={errors.stateCode} hint={stateLabel(form.stateCode) || "Sets IGST vs CGST + SGST"}>
-                <Input value={form.stateCode} onChange={(e) => set("stateCode", e.target.value)} onBlur={saveField} placeholder="Enter state code" />
+                <Input value={form.stateCode} maxLength={2} onChange={(e) => set("stateCode", e.target.value)} onBlur={saveField} placeholder="Enter state code" />
               </Field>
               <Field label="Address" className="sm:col-span-2">
-                <Input value={form.address} onChange={(e) => set("address", e.target.value)} onBlur={saveField} />
+                <Input value={form.address} maxLength={500} onChange={(e) => set("address", e.target.value)} onBlur={saveField} />
               </Field>
               <Field label="Notes" className="sm:col-span-2" hint="For the team only. Never printed on a quotation or invoice.">
                 <Textarea rows={3} value={form.notes || ""} onChange={(e) => set("notes", e.target.value)} onBlur={saveField} placeholder="Preferences, past issues, who to ask for" />
@@ -237,7 +238,7 @@ export default function CustomerDetail() {
             {buys.length === 0 ? (
               <p className="text-[13px] text-muted-foreground">No line items yet. Raise a quotation to start the history.</p>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="relative overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="mt-head">
                     <tr>

@@ -6,6 +6,7 @@ import { listPunches, overrideDay } from "../../services/attendance"
 import { cn } from "../../lib/cn"
 import { DayDrawer } from "./parts"
 import { dayView, STATUS_ORDER, toneFor } from "./format"
+import { friendlyError } from "../../lib/friendlyError"
 
 // The day drawer for the Register and the My attendance calendar: the day's
 // punches under what the day COUNTS as. The Super Admin can
@@ -60,7 +61,7 @@ export default function StatusDayDrawer({ open, onClose, person, userId, day, en
       toast.success(clear ? "Override cleared. The day is recalculated." : "Override saved")
       onChanged?.()
     } catch (e) {
-      toast.error(e.message || "Could not save the override")
+      toast.error(friendlyError(e, "Could not save the override"))
     }
     setBusy(false)
   }

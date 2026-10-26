@@ -9,6 +9,7 @@ import { saveModuleControls, useModuleControls } from "../../hooks/useModuleCont
 import { REASON_LABEL, whoCanOpen } from "../../lib/moduleAccess"
 import { roleLabel } from "../../lib/roles"
 import { groupBySection, shortLabel } from "./helpers"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Modules → Overview: every grantable module with its company-wide switch
 // (module_controls.enabled, migration 0053) and who can open it today, and why.
@@ -43,7 +44,7 @@ export default function ModuleOverview({ people, peopleError }) {
       await saveModuleControls({ [m.key]: { ...current, enabled } })
       toast.success(enabled ? `${m.label} is on again.` : `${m.label} is off. Only you can open it now.`)
     } catch (e) {
-      toast.error(e.message || "Could not change the module")
+      toast.error(friendlyError(e, "Could not change the module"))
     }
     setBusy(null)
     setConfirmOff(null)
@@ -70,7 +71,7 @@ export default function ModuleOverview({ people, peopleError }) {
               : "Every module is on. Switch one off to close it to everyone but you."
           }
         />
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead className="mt-head">
               <tr className="text-left">

@@ -8,6 +8,7 @@ import { adjustLeave, balancesFor } from "../../../services/leave"
 import { LedgerDrawer } from "./MyLeave"
 import { nameOf, num } from "./common"
 import { TypeChip } from "./leaveUi"
+import { friendlyError } from "../../../lib/friendlyError"
 
 // Leave → Balances (Employment Hero's Balances view): every person × every
 // leave type with a balance, as available / taken this year / waiting. A cell
@@ -74,7 +75,7 @@ export default function Balances({ ctx, canAdjust, ownId = null }) {
             <ExportButton onClick={exportRows} />
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead className="mt-head">
               <tr className="text-left">
@@ -200,7 +201,7 @@ function AdjustModal({ target, ctx, types, balanceOf, onClose, onDone }) {
       toast.success(`${delta > 0 ? "Added" : "Removed"} ${num(Math.abs(delta))} ${code} for ${nameOf(ctx, target.userId)}`)
       onDone()
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
     setBusy(false)
   }

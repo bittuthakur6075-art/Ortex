@@ -26,6 +26,7 @@ import { LeadSources, Pipeline } from "./dashboard/Sales"
 import Automation from "./dashboard/Automation"
 import GateCard from "./dashboard/GateCard"
 import { Activity, CatalogueCard, PayrollCard, PeopleAccess, TeamToday } from "./dashboard/People"
+import LoadErrorBanner from "../components/ui/LoadErrorBanner"
 
 // A page for the next hour, not a report (V2). Two columns:
 //   · the main column is the WORK: one queue of everything waiting on this
@@ -86,7 +87,7 @@ export default function Dashboard() {
       ].filter(Boolean),
     [access],
   )
-  const { data: raw, loading } = useCollections(names)
+  const { data: raw, loading, error: loadError, reload } = useCollections(names)
   // Without the payments module RLS returns no payments: each invoice's stored
   // amountPaid stands in (undated, so it never counts as cash in a period).
   const data = useMemo(
@@ -179,6 +180,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <LoadErrorBanner error={loadError} onRetry={reload} />
       {/* ---- header ---- */}
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="min-w-0">

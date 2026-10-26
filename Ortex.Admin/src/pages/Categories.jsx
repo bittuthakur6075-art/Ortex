@@ -4,11 +4,11 @@ import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { useCollection, useSorting } from "../hooks/useCollection"
 import { newCategory, slugifyCategory, GST_RATES, PRODUCT_CATEGORIES } from "../data/domain/schema"
-import { triggerSiteRebuild } from "../lib/revalidate"
 import { supabase, hasSupabase } from "../data/store/supabaseClient"
 import ImageField from "../components/editors/ImageField"
 import { Button, Card, CardHeader, Input, Select, Textarea, Field, EmptyState, Drawer, PageLoader, SortTh } from "../components/ui/Ui"
 import CategoryDetail from "./catalog/CategoryDetail"
+import { friendlyError } from "../lib/friendlyError"
 
 export default function Categories() {
   const { items, loading } = useCollection("categories")
@@ -71,7 +71,7 @@ export default function Categories() {
             title="Product categories"
             action={<Button onClick={() => setEditing("new")}>New category</Button>}
           />
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="mt-head">
                 <tr>
@@ -128,12 +128,17 @@ export default function Categories() {
 function CategoryForm({ open, category, products, usage, onClose }) {
   const isEdit = !!category
   const [form, setForm] = useState(newCategory())
+  // The form as it opened, so Escape or the scrim asks before losing edits.
+  const [opened, setOpened] = useState("")
+  const dirty = open && opened !== "" && JSON.stringify(form) !== opened
   const [error, setError] = useState("")
   const [aiBusy, setAiBusy] = useState(false)
 
   useEffect(() => {
     if (open) {
-      setForm(category ? { ...newCategory(), ...category } : newCategory())
+      const start = category ? { ...newCategory(), ...category } : newCategory()
+      setForm(start)
+      setOpened(JSON.stringify(start))
       setError("")
     }
   }, [open, category])
@@ -168,7 +173,7 @@ function CategoryForm({ open, category, products, usage, onClose }) {
       toast.success("AI copy generated. Review before saving")
     } catch (err) {
       console.error("Category AI copy failed:", err)
-      toast.error(err?.message || "AI generation failed")
+      toast.error(friendlyError(err, "AI generation failed"))
     } finally {
       setAiBusy(false)
     }
@@ -206,7 +211,6 @@ function CategoryForm({ open, category, products, usage, onClose }) {
       await repo.create("categories", payload)
       toast.success("Category added")
     }
-    triggerSiteRebuild()
     onClose()
   }
 
@@ -216,10 +220,9 @@ function CategoryForm({ open, category, products, usage, onClose }) {
     try {
       await repo.remove("categories", category.id)
       toast.success("Category deleted")
-      triggerSiteRebuild()
       onClose()
     } catch (err) {
-      toast.error(err?.message || "Could not delete the category")
+      toast.error(friendlyError(err, "Could not delete the category"))
     }
   }
 
@@ -227,13 +230,14 @@ function CategoryForm({ open, category, products, usage, onClose }) {
     <Drawer
       open={open}
       onClose={onClose}
+      dirty={dirty}
       title={isEdit ? form.name || "Edit category" : "New category"}
       subtitle={
         isEdit
           ? `${usage} product${usage === 1 ? "" : "s"} in this category · /${form.slug || slugifyCategory(form.name) || "…"}`
           : "A shelf on the website, and the default HSN & GST for its products"
       }
-      width="w-[40vw] min-w-[460px] max-w-none"
+      width="w-full sm:w-[40vw] sm:min-w-[460px] max-w-none"
       footer={
         <div className="flex w-full items-center justify-between">
           {isEdit ? (
@@ -256,10 +260,10 @@ function CategoryForm({ open, category, products, usage, onClose }) {
         <Group title="Identity">
         <div className="grid grid-cols-2 gap-4">
           <Field label="Category name" required error={error} hint="Must match the name on products">
-            <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Enter category name" autoFocus />
+            <Input value={form.name} maxLength={120} onChange={(e) => set("name", e.target.value)} placeholder="Enter category name" autoFocus />
           </Field>
           <Field label="URL slug" hint="Auto-filled from name if blank">
-            <Input value={form.slug} onChange={(e) => set("slug", e.target.value)} placeholder={slugifyCategory(form.name) || "acrylic-products"} />
+            <Input value={form.slug} maxLength={120} onChange={(e) => set("slug", e.target.value)} placeholder={slugifyCategory(form.name) || "acrylic-products"} />
           </Field>
         </div>
 
@@ -268,7 +272,7 @@ function CategoryForm({ open, category, products, usage, onClose }) {
         <Group title="Tax defaults" note="Copied onto every new product in this category">
         <div className="grid grid-cols-2 gap-4">
           <Field label="Default HSN">
-            <Input value={form.hsn} onChange={(e) => set("hsn", e.target.value)} placeholder="Enter default HSN" />
+            <Input value={form.hsn} maxLength={8} onChange={(e) => set("hsn", e.target.value)} placeholder="Enter default HSN" />
           </Field>
           <Field label="Default GST">
             <Select value={form.gstRate} onChange={(e) => set("gstRate", e.target.value)}>
@@ -300,7 +304,7 @@ function CategoryForm({ open, category, products, usage, onClose }) {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Field label="Display heading" hint="Shown on site; falls back to name">
-              <Input value={form.displayName} onChange={(e) => set("displayName", e.target.value)} placeholder={form.name || "Custom Acrylic Products"} />
+              <Input value={form.displayName} maxLength={120} onChange={(e) => set("displayName", e.target.value)} placeholder={form.name || "Custom Acrylic Products"} />
             </Field>
             <Field label="Sort order" hint="Lower shows first">
               <Input type="number" value={form.sortOrder} onChange={(e) => set("sortOrder", e.target.value)} placeholder="Enter sort order" />
@@ -324,7 +328,7 @@ function CategoryForm({ open, category, products, usage, onClose }) {
 
           <div className="grid grid-cols-1 gap-4">
             <Field label="SEO title" hint="Browser tab + Google result title">
-              <Input value={form.seoTitle} onChange={(e) => set("seoTitle", e.target.value)} placeholder="Enter SEO title" />
+              <Input value={form.seoTitle} maxLength={120} onChange={(e) => set("seoTitle", e.target.value)} placeholder="Enter SEO title" />
             </Field>
             <Field
               label="SEO description"

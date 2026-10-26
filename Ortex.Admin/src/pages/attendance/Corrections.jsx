@@ -8,6 +8,7 @@ import { clockIST, REGULARISATION_LABEL } from "../../lib/attendance"
 import { relativeTime } from "../../lib/format"
 import { decideCorrection, listCorrections, listPunches } from "../../services/attendance"
 import { dayLabel } from "./format"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Attendance → Corrections: "I forgot to clock out", asked on the phone
 // (regularise_request) and decided here by an admin. Approving applies the
@@ -79,7 +80,7 @@ export default function Corrections() {
       toast.success("Approved. The day is recalculated with the corrected times.")
       void load()
     } catch (e) {
-      toast.error(e.message || "Could not approve")
+      toast.error(friendlyError(e, "Could not approve"))
     }
     setApproving(null)
   }
@@ -107,7 +108,7 @@ export default function Corrections() {
             description={view === "pending" ? "New requests from the phone app appear here." : "Approved and declined requests appear here."}
           />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[900px] text-sm">
               <thead className="mt-head">
                 <tr className="text-left">
@@ -208,7 +209,7 @@ function DeclineModal({ request, onClose, onDone }) {
       setNote("")
       onDone()
     } catch (e) {
-      toast.error(e.message || "Could not decline")
+      toast.error(friendlyError(e, "Could not decline"))
     }
     setBusy(false)
   }

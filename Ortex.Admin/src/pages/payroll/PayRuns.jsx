@@ -7,6 +7,7 @@ import { loadDirectory } from "../../hooks/useRecordHistory"
 import { createRun, listRuns } from "../../services/payroll"
 import { LoadError } from "./setup/common"
 import { KIND_LABEL, ROW_LINK, RUN_STATUS, RUN_STATUS_ORDER, dayWords, defaultRunMonth, monthWords, rowOpens, rupees, thisMonthIST } from "./run/shared"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Payroll → Pay runs: every run, newest month first, as Zoho Payroll lists
 // them. A regular run per month (the database allows one that is not
@@ -52,7 +53,7 @@ export default function PayRuns() {
       toast.success(`Pay run for ${monthWords(dialog.month)} created`)
       navigate(`/payroll/runs/${id}`)
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     } finally {
       setBusy(false)
     }
@@ -109,7 +110,7 @@ export default function PayRuns() {
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[880px] text-sm">
               <thead className="mt-head">
                 <tr className="text-left">

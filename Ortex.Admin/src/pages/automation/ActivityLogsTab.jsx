@@ -210,7 +210,7 @@ export default function ActivityLogsTab({ activities, totals, activityTruncated,
               title="Website visitors"
               description={`${plural(visitors.length, "visitor")} ${periodWords}, most recent first. Each is one browser on one device. Click a row to see everything they did.`}
             />
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full border-collapse text-left text-sm">
                 <thead className="mt-head">
                   <tr>
@@ -285,7 +285,7 @@ export default function ActivityLogsTab({ activities, totals, activityTruncated,
             title="Raw activity log"
             description={`${plural(rawRows.length, "tracked action")} ${periodWords}, exactly as the website recorded them.`}
           />
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full border-collapse text-left text-sm">
               <thead className="mt-head">
                 <tr>

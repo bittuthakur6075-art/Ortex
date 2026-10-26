@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { repo } from "../../data/store/repository"
 import { LOG_WINDOW } from "./helpers"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Loads every collection the console reads, tracks which ones failed, and
 // re-runs on store updates.
@@ -72,7 +73,7 @@ export function useAutomationData() {
           setSelectedCustomerId(custList[0].id || "")
         }
       } catch (err) {
-        toast.error("Failed to load automation records: " + err.message)
+        toast.error("Failed to load automation records: " + friendlyError(err))
       } finally {
         setLoading(false)
       }

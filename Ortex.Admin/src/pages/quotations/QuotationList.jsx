@@ -292,7 +292,7 @@ export default function QuotationList({ items, loading, settingsOf, enquiries = 
         ) : filtered.length === 0 ? (
           <EmptyState icon={Search} title="Nothing here" description={view === "needs" ? "No drafts, overdue follow-ups or acceptances to bill. Nice." : "Try another view, or clear the filters."} />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[1160px] table-fixed text-left">
               <colgroup>
                 <col style={{ width: 40 }} />

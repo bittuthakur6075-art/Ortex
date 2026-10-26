@@ -4,13 +4,13 @@ import { toast } from "sonner"
 import { repo } from "../data/store/repository"
 import { useCollection, useCategories } from "../hooks/useCollection"
 import { newWork } from "../data/domain/schema"
-import { triggerSiteRebuild } from "../lib/revalidate"
 import { supabase, hasSupabase } from "../data/store/supabaseClient"
 import { WORK_SEED } from "../data/seed/workSeed"
 import PageHeader, { ActionBar } from "../components/layout/PageHeader"
 import ImageField from "../components/editors/ImageField"
 import { Button, Card, Input, Select, Textarea, Field, EmptyState, Drawer, PageLoader } from "../components/ui/Ui"
 import WorkDetail from "./catalog/WorkDetail"
+import { friendlyError } from "../lib/friendlyError"
 
 // Sentinel option in the category dropdown that reveals a free-text input.
 const OTHER = "__other"
@@ -54,7 +54,6 @@ export default function Work({ embedded = false }) {
       WORK_SEED.map((w, i) => newWork({ ...w, sortOrder: i })),
     )
     toast.success("Sample work items added")
-    triggerSiteRebuild()
   }
 
   return (
@@ -192,7 +191,7 @@ function WorkForm({ open, work, onClose }) {
       toast.success("AI copy generated. Review before saving")
     } catch (err) {
       console.error("Work AI copy failed:", err)
-      toast.error(err?.message || "AI generation failed")
+      toast.error(friendlyError(err, "AI generation failed"))
     } finally {
       setAiBusy(false)
     }
@@ -213,7 +212,6 @@ function WorkForm({ open, work, onClose }) {
       await repo.create("work", payload)
       toast.success("Work item added")
     }
-    triggerSiteRebuild()
     onClose()
   }
 
@@ -222,10 +220,9 @@ function WorkForm({ open, work, onClose }) {
     try {
       await repo.remove("work", work.id)
       toast.success("Work item deleted")
-      triggerSiteRebuild()
       onClose()
     } catch (err) {
-      toast.error(err?.message || "Could not delete the work item")
+      toast.error(friendlyError(err, "Could not delete the work item"))
     }
   }
 

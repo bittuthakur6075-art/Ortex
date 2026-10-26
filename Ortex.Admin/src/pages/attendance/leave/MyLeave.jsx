@@ -13,6 +13,7 @@ import ApplyLeaveModal from "./ApplyLeaveModal"
 import { datesText, nameOf, num } from "./common"
 import { LeaveStatusBadge, TypeChip } from "./leaveUi"
 import UpcomingHolidays from "./UpcomingHolidays"
+import { friendlyError } from "../../../lib/friendlyError"
 
 // Leave → My leave: my balances, my requests, "Apply for leave" and the coming
 // holidays. Everyone sees this, whatever their role. A tile opens that type's
@@ -40,7 +41,7 @@ export default function MyLeave({ ctx }) {
       toast.success(r.status === "approved" ? "Leave cancelled. The days are back in your balance." : "Request withdrawn")
       void load()
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
   }
 
@@ -91,7 +92,7 @@ export default function MyLeave({ ctx }) {
           {(state.requests || []).length === 0 ? (
             <EmptyState icon={Calendar} title="No leave requests yet" description="Apply for leave and it appears here with its status." />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full min-w-[820px] text-sm">
                 <thead className="mt-head">
                   <tr className="text-left">
@@ -190,7 +191,7 @@ export function LedgerDrawer({ balance, userId, onClose, personName, canUndo = f
       setTick((n) => n + 1)
       onChanged?.()
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
     setUndoing(null)
   }

@@ -16,7 +16,7 @@
 // stop Admins reaching it automatically, and hide any module from one person
 // (profiles.modules_hidden, migration 0055). See moduleControl() below.
 
-import { isAdmin, isSuperAdmin } from "../../lib/roles"
+import { isAdmin, isSuperAdmin } from "../../lib/roleCheck"
 
 export const MODULES = [
   { key: "dashboard", path: "/", label: "Dashboard", section: null, always: true },

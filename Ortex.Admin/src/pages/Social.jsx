@@ -212,7 +212,7 @@ function Outreach({ rows, kind, onOpen, activeId }) {
   const dm = kind === "dm"
   const cols = dm ? 5 : 4
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full min-w-[860px] table-fixed text-left">
         <colgroup>
           <col style={{ width: dm ? "30%" : "36%" }} />
@@ -278,7 +278,7 @@ function Group({ g, cols, tone, hint, children }) {
 
 function FollowUps({ rows, onOpen, activeId }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full min-w-[900px] table-fixed text-left">
         <colgroup>
           <col style={{ width: "26%" }} />

@@ -10,6 +10,7 @@ import { formatCurrency, formatDate } from "../../lib/format"
 import { useCompany } from "../../hooks/useCompany"
 import { isCompanyTable } from "../../data/store/company"
 import { decodeXmlBytes, xmlCompanyName, parseTallyFiles, planTallyImport, countByStatus, STATUS } from "../../lib/tallyImport"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Billing -> Import from Tally (admins only). Manual: a person exports XML from
 // TallyPrime and drops the files here; nothing connects to Tally. Step 1 how to
@@ -172,7 +173,7 @@ export default function TallyImport({ open, onClose }) {
       setPlan(planTallyImport(p, { customers, products, invoices, payments }, { categories: categories.map((c) => c.name).filter(Boolean) }))
     } catch (e) {
       console.error(e)
-      toast.error(`Could not read the files: ${e?.message || e}`)
+      toast.error(`Could not read the files: ${friendlyError(e)}`)
     } finally {
       setBusy("")
     }
@@ -247,7 +248,7 @@ export default function TallyImport({ open, onClose }) {
     setBusy("Starting")
     runImport().catch((e) => {
       setBusy("")
-      toast.error(e?.message || "The import stopped")
+      toast.error(friendlyError(e, "The import stopped"))
     })
   }
 

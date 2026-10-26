@@ -16,6 +16,7 @@ import NewChatModal from "./chat/NewChatModal"
 import GroupInfoDrawer from "./chat/GroupInfoDrawer"
 import AutomationsDrawer from "./chat/AutomationsDrawer"
 import { isAdmin, isSuperAdmin } from "../lib/roles"
+import { friendlyError } from "../lib/friendlyError"
 
 /* ============================================================
    Team chat (/chat): WhatsApp for the team, inside the console.
@@ -57,7 +58,7 @@ export default function Chat() {
     if (!withUser) return
     chat.openDirect(withUser)
       .then(async (id) => { await reloadInbox(); open(id) })
-      .catch((e) => { toast.error(e.message); setParams({}) })
+      .catch((e) => { toast.error(friendlyError(e)); setParams({}) })
   }, [params, open, setParams])
 
   // The notifier stays quiet about the conversation on screen.

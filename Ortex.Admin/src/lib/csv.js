@@ -2,7 +2,7 @@
 // for the bulk-import flow. CSV opens natively in Excel/Sheets, so the
 // "download template → fill in Excel → upload" loop needs no spreadsheet lib.
 
-function cell(value) {
+export function cell(value) {
   let s = value == null ? "" : String(value)
   // Neutralize spreadsheet formula injection: Excel/Sheets evaluate any cell
   // that begins with = + - @ (or a leading tab/CR) as a formula, so a customer

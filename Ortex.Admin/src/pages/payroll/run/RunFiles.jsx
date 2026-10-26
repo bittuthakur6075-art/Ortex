@@ -4,6 +4,7 @@ import { Download } from "../../../components/ui/Icons"
 import { Button, Card, CardHeader } from "../../../components/ui/Ui"
 import { downloadPayslipsPdf } from "../../../components/documents/payslipPdf"
 import { downloadBankFile } from "./files"
+import { friendlyError } from "../../../lib/friendlyError"
 
 // The files an approved run hands over: the bank transfer CSV (full account
 // numbers, so reading it is logged in the payroll history through
@@ -21,7 +22,7 @@ export default function RunFiles({ run, rows, settings, org, title }) {
         toast.warning(`${warnings.length} to check: ${warnings.slice(0, 3).join("; ")}${warnings.length > 3 ? "…" : ""}`, { duration: 9000 })
       }
     } catch (e) {
-      toast.error(e.message || "Could not make the file")
+      toast.error(friendlyError(e, "Could not make the file"))
     } finally {
       setBusy(null)
     }

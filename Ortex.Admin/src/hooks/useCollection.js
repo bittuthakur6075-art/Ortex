@@ -6,6 +6,7 @@ import { PRODUCT_CATEGORIES } from "../data/domain/schema"
 import { DEFAULT_SETTINGS, settingsFor } from "../data/domain/settingsDefaults"
 import { companyState, isCompanyTable } from "../data/store/company"
 import { inCompanies } from "../lib/roles"
+import { friendlyError } from "../lib/friendlyError"
 
 // The company scope lists show (0075): ids, or null for every row. Switching
 // company filters what is already loaded; nothing is fetched again.
@@ -105,6 +106,9 @@ export function useCollections(names) {
   const key = names.join(",")
   const [data, setData] = useState({})
   const [loading, setLoading] = useState(true)
+  // A failed read must not look like an empty business: pages show it instead
+  // of zero invoices or ₹0.
+  const [error, setError] = useState(null)
   const mounted = useRef(true)
   const latest = useRef(0)
 
@@ -116,11 +120,15 @@ export function useCollections(names) {
         const next = {}
         names.forEach((n, i) => (next[n] = lists[i]))
         setData(next)
+        setError(null)
         setLoading(false)
       }
     } catch (e) {
       console.error("Failed to load collections:", e)
-      if (mounted.current && ticket === latest.current) setLoading(false)
+      if (mounted.current && ticket === latest.current) {
+        setError(e)
+        setLoading(false)
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
@@ -141,7 +149,7 @@ export function useCollections(names) {
     for (const [n, rows] of Object.entries(data)) out[n] = isCompanyTable(n) ? inCompanies(rows, scope) : rows
     return out
   }, [data, scope])
-  return { data: scoped, loading, reload }
+  return { data: scoped, loading, error, reload }
 }
 
 // Category master with a built-in fallback so category dropdowns are never
@@ -167,7 +175,7 @@ export function useSettings(companyId) {
       // on <PageLoader/> forever when the fetch fails.
       // Said out loud: a page drawn from the defaults shows a placeholder GSTIN.
       console.error("Failed to load settings:", e)
-      toast.error(`Company settings could not be loaded: ${e?.message || e}`, { id: "settings-load" })
+      toast.error(`Company settings could not be loaded: ${friendlyError(e)}`, { id: "settings-load" })
       // Flagged (non-enumerable, so never saved or cloned along) for the
       // Control centre to refuse saving; settings that did load are kept.
       const fallback = Object.defineProperty(structuredClone(DEFAULT_SETTINGS), "loadFailed", { value: true })

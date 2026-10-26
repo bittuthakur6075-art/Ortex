@@ -26,6 +26,7 @@ import { Pill } from "./dashboard/parts"
 import { buildLead, channelMeta, STATUS_TONE, gstRead, historyWith } from "./leads/model"
 import { useLeadActions, useStaffNames, telHref, waHref, mailHref, firstName, contactOf } from "./leads/actions"
 import { callContact } from "../components/sales/ContactCard"
+import { friendlyError } from "../lib/friendlyError"
 
 const TRACK = ["new", "contacted", "qualified", "quoted", "won"]
 const dayMonth = (ts) => new Date(ts).toLocaleDateString("en-IN", { day: "numeric", month: "short" })
@@ -485,7 +486,7 @@ function AskedTable({ l, lines, gst }) {
   const e = l.e
   if (!l.items.length) {
     return (
-      <div className="squircle overflow-x-auto rounded-xl border border-line">
+      <div className="squircle relative overflow-x-auto rounded-xl border border-line">
         <table className="w-full min-w-[480px] text-left text-[13px]">
           <thead className="v2-head">
             <tr>
@@ -514,7 +515,7 @@ function AskedTable({ l, lines, gst }) {
   }
   const total = lines.reduce((s, ln) => s + (ln.rate || 0) * (Number(ln.quantity) || 0), 0)
   return (
-    <div className="squircle overflow-x-auto rounded-xl border border-line">
+    <div className="squircle relative overflow-x-auto rounded-xl border border-line">
       <table className="w-full min-w-[480px] text-left text-[13px]">
         <thead className="v2-head">
           <tr>
@@ -824,7 +825,7 @@ function EditModal({ kind, e, onClose }) {
       toast.success("Saved")
       onClose()
     } catch (err) {
-      toast.error(err?.message || "Could not save")
+      toast.error(friendlyError(err, "Could not save"))
     }
   }
   return (

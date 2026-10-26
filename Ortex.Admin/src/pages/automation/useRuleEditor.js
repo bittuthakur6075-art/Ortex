@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import { repo } from "../../data/store/repository"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Drawer + form state and CRUD handlers for automation_rules.
 export function useRuleEditor(templates) {
@@ -53,7 +54,7 @@ export function useRuleEditor(templates) {
       }
       setRuleDrawerOpen(false)
     } catch (err) {
-      toast.error("Failed to save rule: " + err.message)
+      toast.error("Failed to save rule: " + friendlyError(err))
     }
   }
 
@@ -63,7 +64,7 @@ export function useRuleEditor(templates) {
       await repo.remove("automation_rules", id)
       toast.success("Rule deleted")
     } catch (err) {
-      toast.error("Failed to delete rule: " + err.message)
+      toast.error("Failed to delete rule: " + friendlyError(err))
     }
   }
 

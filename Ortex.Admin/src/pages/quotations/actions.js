@@ -4,6 +4,7 @@ import { convertQuotationToInvoice, updateQuotation } from "../../data/domain/do
 import { notifyMessage, notifyQuotationSent } from "../../services/notify"
 import { beginWhatsAppShare, renderDocumentPdf, shareQuotationOnWhatsApp } from "../../components/documents/documentPdf"
 import { hasPhone, quotationFileName, quotationShareMessage, whatsappLink } from "../../lib/quotationShare"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Every outward action a quotation takes, shared by the list, the editor and
 // the preview-and-send screen. A send stamps `sentAt` and appends to
@@ -117,7 +118,7 @@ export async function convertToInvoice(q) {
     if (m) toast[m.tone === "error" ? "error" : "message"](m.text)
     return inv
   } catch (err) {
-    toast.error(err?.message || "Could not convert this quotation to an invoice.")
+    toast.error(friendlyError(err, "Could not convert this quotation to an invoice."))
     return null
   } finally {
     converting.delete(q.id)

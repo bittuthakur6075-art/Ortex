@@ -20,7 +20,7 @@ export default function InvoiceTable({ rows, sort, onSort, onEdit, onPreview, ti
   return (
     <Card className="overflow-hidden">
       {(title || action) && <CardHeader title={title} action={action} />}
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="mt-head">
             <tr>
@@ -47,12 +47,12 @@ export default function InvoiceTable({ rows, sort, onSort, onEdit, onPreview, ti
                   onClick={open}
                   onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && open()}
                 >
-                  <td className="px-4 py-3 font-medium tabular text-foreground">
+                  <td className="whitespace-nowrap px-4 py-3 font-medium tabular text-foreground">
                     {i.number} <CompanyChip companyId={i.companyId} className="ml-1" />
                   </td>
                   <td className="px-4 py-3">
-                    <div className="font-medium text-foreground">{i.customer?.company || i.customer?.name}</div>
-                    <div className="text-xs text-muted-foreground">{i.customer?.name}</div>
+                    <div className="max-w-[260px] truncate font-medium text-foreground" title={i.customer?.company || i.customer?.name}>{i.customer?.company || i.customer?.name}</div>
+                    <div className="max-w-[260px] truncate text-xs text-muted-foreground" title={i.customer?.name}>{i.customer?.name}</div>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">{formatDate(i.issueDate)}</td>
                   <td className="px-4 py-3 text-right font-semibold text-foreground">

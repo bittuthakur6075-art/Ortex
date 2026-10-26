@@ -48,7 +48,7 @@ export default function WhatsAppTab({ whatsappLogs, searchQuery, maskSensitiveDa
 
       <Card className="overflow-hidden">
         <CardHeader title="WhatsApp queue" description={`${whatsappLogs.length} ${whatsappLogs.length === 1 ? "message" : "messages"}`} />
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full border-collapse text-left text-sm">
             <thead className="mt-head">
               <tr>

@@ -16,6 +16,7 @@ import PageHeader, { ActionBar } from "../components/layout/PageHeader"
 import SectionCard from "../components/ui/SectionCard"
 import { PageLoader, Segmented } from "../components/ui/Ui"
 import { AreaChart, BarChart, CHART_COLORS } from "../components/ui/Chart"
+import LoadErrorBanner from "../components/ui/LoadErrorBanner"
 
 // The slower questions, one tab away from the Dashboard: where leads come from
 // and which convert, what is being quoted and to whom, why deals are lost, how
@@ -63,7 +64,7 @@ export default function SalesInsights({ embedded = false }) {
     ],
     [leadsAccess, access.quotations, access.invoices],
   )
-  const { data, loading } = useCollections(names)
+  const { data, loading, error: loadError, reload } = useCollections(names)
   const [range, setRange] = useState("30d")
 
   const s = useMemo(() => {
@@ -116,6 +117,7 @@ export default function SalesInsights({ embedded = false }) {
       <Header title="Sales" subtitle={`Last ${s.days} days, compared with ${s.noun}`}>
         <Segmented items={RANGES} value={range} onChange={setRange} size="md" />
       </Header>
+      <LoadErrorBanner error={loadError} onRetry={reload} className="mb-4" />
 
       {access.quotations && <Headline s={s} leadsAccess={leadsAccess} />}
 
@@ -417,7 +419,7 @@ function WhenLeadsArrive({ heatmap: h }) {
           <p className="text-[13px] text-muted-foreground">
             Busiest: <span className="font-medium text-foreground">{h.peak.day} {h.peak.band}</span> with {plural(h.peak.count, "lead")} of {formatNumber(h.total)}.
           </p>
-          <div className="mt-4 overflow-x-auto">
+          <div className="relative mt-4 overflow-x-auto">
             <div className="grid min-w-[340px] gap-1" style={{ gridTemplateColumns: `2.5rem repeat(${h.bands.length}, minmax(0, 1fr))` }}>
               <span />
               {h.bands.map((b) => (

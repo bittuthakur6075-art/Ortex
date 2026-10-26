@@ -11,6 +11,7 @@ import {
   todayIST,
 } from "../../services/attendance"
 import { dayLabel, daysOf } from "./format"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Holidays (migration 0034) and the Super Admin's Maintenance section of the
 // attendance rules in the Control centre. Holidays change what a day with no
@@ -45,7 +46,7 @@ export function Holidays() {
       if (done) toast.success(done)
       void load()
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
   }
 
@@ -68,7 +69,7 @@ export function Holidays() {
       {state.rows.length === 0 ? (
         <EmptyState icon={Calendar} title="No holidays yet" description="Add the festival holidays for the year." />
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="mt-head">
               <tr className="text-left">
@@ -147,7 +148,7 @@ function HolidayEditor({ holiday, onClose, onSaved }) {
       toast.success(isEdit ? "Holiday updated" : "Holiday added")
       onSaved()
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
     setBusy(false)
   }
@@ -194,7 +195,7 @@ export function Maintenance() {
       const n = await recalculate(days[0], todayIST())
       toast.success(`Recalculated ${n} person-days for this month`)
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
     setBusy(null)
   }

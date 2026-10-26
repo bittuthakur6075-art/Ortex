@@ -19,6 +19,7 @@ import PayslipPreview from "./run/PayslipPreview"
 import RunFiles from "./run/RunFiles"
 import SlipDrawer from "./run/SlipDrawer"
 import { KIND_LABEL, ROW_LINK, RUN_STATUS, SLIP_STATUS, dayWords, flatSlip, monthWords, pctChange, previousPaidRegular, rowOpens, rupees, runName, todayISTDay } from "./run/shared"
+import { friendlyError } from "../../lib/friendlyError"
 
 // One pay run. A draft is where the work is: Calculate builds every payslip
 // from the pay in force (a monthly salary prorated by paid days, or a daily
@@ -146,7 +147,7 @@ export default function PayRun() {
       return true
     } catch (e) {
       setRefusal(e.message)
-      toast.error(e.message)
+      toast.error(friendlyError(e))
       return false
     } finally {
       setBusy(null)
@@ -200,7 +201,7 @@ export default function PayRun() {
     try {
       await downloadPayslipPdf({ slip: row.data, status: row.status, title: run.kind === "regular" ? null : run.title, payDate: run.pay_date }, org)
     } catch (e) {
-      toast.error(e.message || "Could not make the PDF")
+      toast.error(friendlyError(e, "Could not make the PDF"))
     } finally {
       setPdfBusy(false)
     }
@@ -414,7 +415,7 @@ export default function PayRun() {
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[1180px] text-sm">
               <thead className="mt-head">
                 <tr className="text-left">

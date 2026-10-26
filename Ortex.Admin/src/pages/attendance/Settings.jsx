@@ -36,6 +36,7 @@ import { listProfiles } from "../../services/users"
 import { Maintenance } from "./SettingsExtra"
 import LeavePolicy from "./LeavePolicy"
 import { useReportUnsaved } from "../../hooks/useUnsaved"
+import { friendlyError } from "../../lib/friendlyError"
 
 // The attendance rules (Control centre, Super Admin): stations, the rules, and how each
 // person clocks in. Every input the module needs lives here, shipped with
@@ -99,7 +100,7 @@ function Sites() {
       toast.success("Location removed")
       load()
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
   }
 
@@ -127,7 +128,7 @@ function Sites() {
           description="There is nowhere to show a code, so office staff cannot clock in. Add the factory first."
         />
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="mt-head">
               <tr className="text-left">
@@ -203,7 +204,7 @@ function SiteEditor({ site, onClose, onSaved }) {
       setResults(rows)
       if (!rows.length) toast.error("No place found. Try the area and city, or drop the pin by hand.")
     } catch (err) {
-      toast.error(err.message)
+      toast.error(friendlyError(err))
     }
     setSearching(false)
   }
@@ -215,7 +216,7 @@ function SiteEditor({ site, onClose, onSaved }) {
       placePin(here)
       toast.success(`Pin placed where this computer is (accurate to about ${here.accuracy} m). Drag it onto the building if needed.`)
     } catch (err) {
-      toast.error(err.message)
+      toast.error(friendlyError(err))
     }
     setLocating(false)
   }
@@ -249,7 +250,7 @@ function SiteEditor({ site, onClose, onSaved }) {
       toast.success(site ? "Location updated" : "Location added")
       onSaved()
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
       setBusy(false)
     }
   }
@@ -453,7 +454,7 @@ function Rules() {
       setLoaded(saved)
       toast.success("Attendance rules saved. They apply from now on.")
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
     setBusy(false)
   }
@@ -613,7 +614,7 @@ function People() {
     try {
       await saveSettings({ autoPresent: next })
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
       void load()
     }
   }
@@ -630,7 +631,7 @@ function People() {
         title="People"
         description="How each person clocks in. Office staff scan a station code; field staff (Sales) mark without one, and it is flagged for review. Always present skips the gate entirely."
       />
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[760px] text-sm">
           <thead className="mt-head">
             <tr className="text-left">
@@ -679,7 +680,7 @@ function PersonRow({ person, row, sites, onSaved, autoPresent, onAutoPresent }) 
       toast.success(`${person.name || person.email} saved`)
       onSaved()
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
     setBusy(false)
   }

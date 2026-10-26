@@ -10,6 +10,7 @@ import { instalmentFor } from "../../lib/payroll"
 import { LoadError } from "./setup/common"
 import { dateLabel, fromMonthInput, money, monthLabel, thisMonthIST } from "./setup/helpers"
 import { ROW_LINK, rowOpens } from "./run/shared"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Payroll → Advances (the loans table): salary advances, each recovered in
 // the pay runs from its start month, in full or by instalment. An advance
@@ -79,7 +80,7 @@ export default function Loans() {
       toast.success(status === "paused" ? "Recovery paused. The next pay run will skip it." : "Recovery resumed")
       await load()
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
     }
   }
 
@@ -129,7 +130,7 @@ export default function Loans() {
             description={filter === "open" && !query ? "An advance is recovered from pay, in full or a fixed instalment each month." : undefined}
           />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[980px] text-sm">
               <thead className="mt-head">
                 <tr className="text-left">
@@ -313,7 +314,7 @@ export function NewAdvance({ people, userId = "", start = thisMonthIST(), onClos
       toast.success("Advance recorded")
       await onSaved()
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
       setBusy(false)
     }
   }
@@ -386,7 +387,7 @@ function Repayment({ loan, onClose, onSaved }) {
       toast.success(n === loan.balance ? "Repaid in full. The loan is closed." : "Repayment recorded")
       await onSaved()
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
       setBusy(false)
     }
   }

@@ -46,7 +46,7 @@ export default function EventLogsTab({ events, totals, eventTruncated, page, onP
     )}
     <Card className="overflow-hidden">
       <CardHeader title="Event logs" description={`${events.length} ${events.length === 1 ? "event" : "events"}`} />
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full border-collapse text-left text-sm">
           <thead className="mt-head">
             <tr>

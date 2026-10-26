@@ -7,6 +7,7 @@ import { payTermsOf } from "../../lib/payroll"
 import { createRun, listEmployees, listRuns, revisionFor } from "../../services/payroll"
 import { LoadError } from "./setup/common"
 import { RUN_STATUS, dayWords, defaultRunMonth, monthWords, nextAction, rupees, thisMonthIST } from "./run/shared"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Payroll → Overview: this month's pay run and what it needs next, its total
 // net pay, and how many people are on payroll (monthly and daily wage).
@@ -60,7 +61,7 @@ export default function PayrollDashboard() {
       const id = await createRun(`${m}-01`, "regular")
       navigate(`/payroll/runs/${id}`)
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
       setCreating(false)
     }
   }

@@ -9,6 +9,7 @@ import { saveModuleControls, useModuleControls } from "../../hooks/useModuleCont
 import { whoCanOpen } from "../../lib/moduleAccess"
 import { useReportUnsaved } from "../../hooks/useUnsaved"
 import { groupBySection, shortLabel } from "./helpers"
+import { friendlyError } from "../../lib/friendlyError"
 
 // Modules → Roles: what each role may open. The Super Admin ticks a module for
 // a role and everyone in it gets it, on the console and the phone, the moment
@@ -103,7 +104,7 @@ export default function RoleMatrix({ people = [] }) {
       setAdminDraft({})
       toast.success("Saved. Everyone in those roles has the new access now.")
     } catch (e) {
-      toast.error(e.message || "Could not save role access")
+      toast.error(friendlyError(e, "Could not save role access"))
     }
     setSaving(false)
   }
@@ -143,7 +144,7 @@ export default function RoleMatrix({ people = [] }) {
             </div>
           }
         />
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <thead className="mt-head">
               <tr className="text-left">

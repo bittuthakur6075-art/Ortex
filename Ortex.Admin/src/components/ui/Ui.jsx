@@ -684,7 +684,7 @@ export function PageLoader() {
 export function TableWrap({ className, children }) {
   return (
     <Card className={cn("overflow-hidden", className)}>
-      <div className="overflow-x-auto">{children}</div>
+      <div className="relative overflow-x-auto">{children}</div>
     </Card>
   )
 }

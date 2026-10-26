@@ -33,6 +33,8 @@ import useDocumentValidation from "../../hooks/useDocumentValidation"
 import FixSummary from "../../components/editors/FixSummary"
 import PaymentHistory from "./PaymentHistory"
 import RecordPaymentModal from "./RecordPaymentModal"
+import { friendlyError } from "../../lib/friendlyError"
+import useLeaveGuard from "../../hooks/useLeaveGuard"
 
 // Full-page invoice editor: form on the left in the order people fill it in
 // (customer → dates → line items → terms → extras), the live A4 document on
@@ -54,6 +56,8 @@ export default function InvoiceEditor({ draft, products, customers: allCustomers
   // change its _ fields), so the comparison is against this snapshot.
   const [saved, setSaved] = useState(draft)
   const dirty = JSON.stringify(form) !== JSON.stringify(saved)
+  // A sidebar link or a closing tab asks first too, as the quotation editor does.
+  useLeaveGuard(dirty && !saving, "Leave without saving? Your changes to this invoice will be lost.")
   const leave = () => {
     if (dirty && !window.confirm("Discard the changes to this invoice?")) return
     onClose()
@@ -116,7 +120,7 @@ export default function InvoiceEditor({ draft, products, customers: allCustomers
       }
       onClose()
     } catch (e) {
-      toast.error(e?.message || "Could not save the invoice")
+      toast.error(friendlyError(e, "Could not save the invoice"))
       savingRef.current = false
       setSaving(false)
     }
@@ -140,7 +144,7 @@ export default function InvoiceEditor({ draft, products, customers: allCustomers
       set({ status })
       setSaved((s) => ({ ...s, status }))
     } catch (e) {
-      toast.error(e?.message || "Could not change the status")
+      toast.error(friendlyError(e, "Could not change the status"))
     }
   }
 
@@ -156,7 +160,7 @@ export default function InvoiceEditor({ draft, products, customers: allCustomers
       toast.success("Invoice deleted")
       onClose()
     } catch (e) {
-      toast.error(e?.message || "Could not delete the invoice")
+      toast.error(friendlyError(e, "Could not delete the invoice"))
     }
   }
 
@@ -348,7 +352,7 @@ export default function InvoiceEditor({ draft, products, customers: allCustomers
         }
         right={
           <>
-            {v.count && (dirty || !isEdit) ? <FixSummary v={v} /> : <span className="mr-2 hidden text-[13px] text-muted-foreground sm:inline">{summary}</span>}
+            {v.count && dirty ? <FixSummary v={v} /> : <span className="mr-2 hidden text-[13px] text-muted-foreground sm:inline">{summary}</span>}
             <Button variant="outline" size="sm" onClick={leave}>
               Cancel
             </Button>

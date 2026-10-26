@@ -4,6 +4,12 @@ import DocumentSheet from "./DocumentSheet"
 import { A4_JSPDF, A4_SHEET } from "../../lib/a4"
 import { quotationFileName } from "../../lib/quotationShare"
 
+// Settings that failed to load are the defaults, with a placeholder GSTIN and
+// address (settingsFor keeps the non-enumerable `loadFailed` flag). Nothing is
+// printed, saved as a PDF or shared from them.
+export const SETTINGS_NOT_LOADED = "Company details did not load. Refresh before printing."
+export const settingsUnloaded = (settings) => !settings || !!settings.loadFailed
+
 // The PDF path shared by DocumentView's "Download PDF" and the WhatsApp share.
 //
 // html2pdf.js (html2canvas + jsPDF) captures the sheet at exactly 794px (A4 at
@@ -72,6 +78,7 @@ export async function buildSheetPdf(el, fileStem) {
 // showing the full-size sheet (the quotation editor only has the scaled
 // LivePreview, which must not be captured at its transform).
 export async function renderDocumentPdf(doc, settings, type, fileStem) {
+  if (settingsUnloaded(settings)) throw new Error(SETTINGS_NOT_LOADED)
   const host = document.createElement("div")
   Object.assign(host.style, { position: "fixed", left: "-10000px", top: "0", width: "794px", pointerEvents: "none" })
   host.setAttribute("aria-hidden", "true")

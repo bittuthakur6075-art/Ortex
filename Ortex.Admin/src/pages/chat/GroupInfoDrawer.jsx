@@ -7,6 +7,7 @@ import { chat } from "../../services/chat"
 import { reloadInbox } from "../../hooks/useChat"
 import { ConversationAvatar, PersonAvatar } from "./parts"
 import NewChatModal from "./NewChatModal"
+import { friendlyError } from "../../lib/friendlyError"
 
 // A group's members and settings. Renaming, adding and removing are for the
 // group's admin (its creator, or whoever inherited it); anyone may leave.
@@ -25,7 +26,7 @@ export default function GroupInfoDrawer({ open, onClose, conv, meId, presence, o
       await reloadInbox()
       return true
     } catch (e) {
-      toast.error(e.message)
+      toast.error(friendlyError(e))
       return false
     }
   }

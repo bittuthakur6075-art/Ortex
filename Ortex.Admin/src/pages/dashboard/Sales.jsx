@@ -23,7 +23,9 @@ export function Pipeline({ t, data, access }) {
 
   return (
     <Panel title="Pipeline" description={`What moved through each stage in the last ${t.days} days`} action={access.quotations && <PanelLink to="/quotations">Quotations</PanelLink>}>
-      <ol className="flex gap-1">
+      {/* One row of stages on a wide screen; two columns on a phone, where five
+          side by side overlapped and cut the amounts short. */}
+      <ol className="grid grid-cols-2 gap-1 sm:flex">
         {stages.map((s, i) => {
           const prev = stages[i - 1]
           const conv = prev && prev.count > 0 ? Math.round((s.count / prev.count) * 100) : null
@@ -31,10 +33,10 @@ export function Pipeline({ t, data, access }) {
             <li
               key={s.key}
               className={cn(
-                "squircle flex min-w-0 flex-1 flex-col gap-1.5 rounded-[4px] px-4 py-3.5",
+                "squircle flex min-w-0 flex-1 flex-col gap-1.5 rounded-[12px] px-4 py-3.5 sm:rounded-[4px]",
                 STAGE_FILL[i] || STAGE_FILL[4],
-                i === 0 && "rounded-l-[16px]",
-                i === stages.length - 1 && "rounded-r-[16px]",
+                i === 0 && "sm:rounded-l-[16px]",
+                i === stages.length - 1 && "sm:rounded-r-[16px]",
               )}
             >
               <span className="text-xs font-medium leading-[15px] text-muted-foreground">{s.label}</span>

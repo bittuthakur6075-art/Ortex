@@ -3,7 +3,7 @@ import { createPortal } from "react-dom"
 import { toast } from "sonner"
 import { Printer, X, Download, MessageCircle } from "../ui/Icons"
 import DocumentSheet from "./DocumentSheet"
-import { buildSheetPdf } from "./documentPdf"
+import { buildSheetPdf, settingsUnloaded, SETTINGS_NOT_LOADED } from "./documentPdf"
 
 // Full-screen, printable A4 document overlay for a quotation or tax invoice.
 // Overlay chrome ported from the Keystone invoice document: a dark fixed
@@ -37,11 +37,20 @@ export default function DocumentView({ open, onClose, doc, settings, type, onSha
   const heading = isInvoice ? "Tax invoice" : "Quotation"
   const fileStem = `${isInvoice ? "Invoice" : "Quotation"}-${doc.number || "draft"}`
 
-  const print = () => window.print()
+  // No print, PDF or share from placeholder company details.
+  const unloaded = () => {
+    if (!settingsUnloaded(settings)) return false
+    toast.error(SETTINGS_NOT_LOADED)
+    return true
+  }
+
+  const print = () => {
+    if (!unloaded()) window.print()
+  }
 
   const download = async () => {
     const el = sheetRef.current
-    if (!el) return
+    if (!el || unloaded()) return
     setBusy(true)
     try {
       const pdf = await buildSheetPdf(el, fileStem)
@@ -56,7 +65,7 @@ export default function DocumentView({ open, onClose, doc, settings, type, onSha
   }
 
   const share = async () => {
-    if (!onShareWhatsApp) return
+    if (!onShareWhatsApp || unloaded()) return
     setSharing(true)
     try {
       await onShareWhatsApp(doc)
