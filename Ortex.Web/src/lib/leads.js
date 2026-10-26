@@ -123,6 +123,10 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 // Postgres refusals that will never pass on a retry: a row-level policy (field
 // limits, the 32 KB cap), a CHECK, bad data, a malformed request. The rate
 // limit (P0429) and everything else may pass later.
+// PostgREST answers PGRST202 (404) for an RPC the database does not have.
+const missingFunction = (error) =>
+  error.code === "PGRST202" || /could not find the function/i.test(error.message || "")
+
 const PERMANENT_CODES = /^(42501|23514|23502|22\w{3}|PGRST1\d\d)$/
 
 /**
@@ -145,7 +149,13 @@ async function insertEnquiry(doc) {
     const request = doc.call
       ? supabase.rpc("save_voice_lead", { p_doc: doc })
       : supabase.from("enquiries").insert({ doc })
-    const { error } = await request.abortSignal(controller.signal)
+    let { error } = await request.abortSignal(controller.signal)
+    // A database without 0081 has no save_voice_lead: save the row the old way
+    // (one row per save) rather than lose the lead.
+    if (error && doc.call && missingFunction(error)) {
+      const retry = await supabase.from("enquiries").insert({ doc }).abortSignal(controller.signal)
+      error = retry.error
+    }
     if (!error || error.code === "23505") return null
     if (error.code === "P0409") return { message: error.message, permanent: true, stale: true }
     return { message: error.message || "Insert failed", permanent: PERMANENT_CODES.test(error.code || "") }
