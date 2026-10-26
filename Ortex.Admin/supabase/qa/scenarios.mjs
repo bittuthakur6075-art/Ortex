@@ -722,8 +722,13 @@ await scenario("Payments: numbering, invoice delete, Anu, realtime (0066 8-11)",
 
   eq("safe_num", await one(null, "select safe_num('12.5') a, safe_num('1,000') b, safe_num('abc') c, safe_num('1e30') d, safe_num(null) e"),
     { a: "12.5", b: null, c: null, d: null, e: null })
+  // Legacy rows from before 0086's money rules, so written with the guard off.
+  await run(null, "alter table invoices disable trigger invoices_money_guard")
+  await run(null, "alter table quotations disable trigger quotations_money_guard")
   await newInvoice(null, { number: "INV-QA-BAD", status: "sent", totals: { grandTotal: "lots" }, dueDate: "2026-09-01T00:00:00Z" })
   await run(null, "insert into quotations (doc) values ('{\"status\":\"sent\",\"totals\":{\"grandTotal\":\"n/a\"}}')")
+  await run(null, "alter table invoices enable trigger invoices_money_guard")
+  await run(null, "alter table quotations enable trigger quotations_money_guard")
   // A legacy payment with a text amount: only possible with the CHECK and triggers out of the way, inside one rolled-back transaction.
   await db.query("begin")
   let txt = null
@@ -1296,13 +1301,16 @@ await scenario("Companies (0075, 0076)", async () => {
   // Document settings per company.
   await run(null, "insert into settings (id, doc) values (true, $1) on conflict (id) do update set doc = settings.doc || excluded.doc",
     [J({ company: { name: "Ortex Industries", gstin: "07ORTEX" }, tax: { defaultGstRate: 18 }, telecaller: { enabled: false } })])
-  eq("a Settings save is copied onto Ortex", await val(null, "select doc->'company'->>'gstin' from companies where id = 'ortex'"), "07ORTEX")
+  check("0086: a Settings save is no longer copied onto Ortex",
+    (await val(null, "select doc->'company'->>'gstin' from companies where id = 'ortex'")) !== "07ORTEX", "not 07ORTEX", "mirror retired")
+  // The console writes a company's own doc (Control centre -> Company).
+  await run(U.SUPER, "update companies set doc = doc || $1::jsonb where id = 'ortex'", [J({ company: { name: "Ortex Industries", gstin: "07ORTEX" } })])
   await run(U.SUPER, "update companies set doc = $1 where id = 'aman'", [J({ company: { name: "Aman Enterprise", gstin: "09AMAN" } })])
   const ss = (who) => val(who, "select doc from settings_staff")
   const sa = await ss(AMAN), so = await ss(U.SALES)
   eq("settings_staff: Aman's company block", sa.company.gstin, "09AMAN")
   eq("settings_staff: Ortex's for Ortex", so.company.gstin, "07ORTEX")
-  eq("same shape, global tax where the company has none", [Object.keys(sa).sort(), sa.tax.defaultGstRate], [["company", "documents", "numbering", "quotation", "tax"], 18])
+  eq("same shape, global tax where the company has none", [Object.keys(sa).sort(), sa.tax.defaultGstRate], [["company", "documents", "notifications", "numbering", "quotation", "tax"], 18])
 
   // Anu.
   await run(U.SUPER, "update companies set active = true where id = 'aman'")
@@ -1528,6 +1536,109 @@ await scenario("IndiaMART removed (0085)", async () => {
   const stamp = String(await val(null, "select updated_at from settings where id"))
   await db.exec(sql0085)
   eq("running it again changes nothing", String(await val(null, "select updated_at from settings where id")), stamp)
+})
+
+// ---- security hardening, round two (0086) ----------------------------------------------
+await scenario("Security hardening 2 (0086)", async () => {
+  // 1. Staff no longer holds payroll by role.
+  eq("staff role has no payroll grant", await val(null, "select modules ? 'payroll' from role_permissions where role = 'staff'"), false)
+  eq("so a plain Staff login is not payroll", await val(U.STAFF1, "select is_payroll()"), false)
+
+  // 2. Leftover permissive policies.
+  await run("anon", "insert into user_activities (doc) values ($1)", [J({ page: "/qa-0086" })])
+  eq("staff cannot read website analytics", await val(U.STAFF1, "select count(*)::int from user_activities"), 0)
+  check("an admin can", (await val(U.ADMIN, "select count(*)::int from user_activities")) >= 1, ">= 1", "admin reads analytics")
+  like("anon cannot insert WhatsApp logs", await err("anon", "insert into whatsapp_logs (doc) values ('{}')"), /row-level security|permission denied/)
+  like("anon cannot insert AI messages", await err("anon", "insert into ai_messages (doc) values ('{}')"), /row-level security|permission denied/)
+  eq("anon cannot read automation rules", await val("anon", "select count(*)::int from automation_rules").catch(() => 0), 0)
+  like("staff cannot write automation rules", await err(U.STAFF1, "insert into automation_rules (doc) values ('{}')"), /row-level security|permission denied/)
+  eq("an admin manages them (insights)", await err(U.ADMIN, "insert into automation_rules (doc) values ('{\"name\":\"qa\"}')"), null)
+
+  // 3. leads follow enquiries, per company.
+  eq("sales (enquiries) can add a lead", await err(U.SALES, "insert into leads (doc) values ('{\"name\":\"QA lead\"}')"), null)
+  check("and read it", (await val(U.SALES, "select count(*)::int from leads")) >= 1, ">= 1", "sales reads leads")
+  eq("staff (no enquiries) reads none", await val(U.STAFF1, "select count(*)::int from leads"), 0)
+
+  // 4. What only the Super Admin grants.
+  await run(null, "update role_permissions set modules = modules || '[\"payroll\"]'::jsonb where role = 'accounts' and not modules ? 'payroll'")
+  like("an admin cannot give payroll by module",
+    await err(U.ADMIN, "update profiles set modules = '[\"payroll\"]' where id = $1", [U.SALES]), /Only the Super Admin can give someone payroll/)
+  like("nor by role (Accounts carries payroll)",
+    await err(U.ADMIN, "update profiles set role = 'accounts' where id = $1", [U.SALES]), /Only the Super Admin can give someone payroll/)
+  like("nor deactivate someone who holds payroll",
+    await err(U.ADMIN, "update profiles set active = false where id = $1", [U.PAY]), /Only the Super Admin can change the account of someone with payroll/)
+  eq("an admin still deactivates plain staff", await err(U.ADMIN, "update profiles set active = false where id = $1", [U.STAFF2]), null)
+  await run("service", "update profiles set active = true where id = $1", [U.STAFF2])
+  eq("an admin still edits a plain user's modules", await err(U.ADMIN, "update profiles set modules = '[\"products\"]' where id = $1", [U.SALES]), null)
+  await run("service", "update profiles set modules = '[]' where id = $1", [U.SALES])
+  eq("the Super Admin may give payroll", await err(U.SUPER, "update profiles set modules = '[\"payroll\"]' where id = $1", [U.SALES]), null)
+  await run("service", "update profiles set modules = '[]' where id = $1", [U.SALES])
+
+  const manage = (actor, target) => val("service", "select admin_manage_refusal($1, $2)", [actor, target])
+  const grant = (actor, role, mods) => val("service", "select admin_grant_refusal($1, $2, $3)", [actor, role, J(mods)])
+  like("functions: admin may not reset a payroll holder", await manage(U.ADMIN, U.PAY), /payroll/)
+  like("nor an Accounts user (payroll by role)", await manage(U.ADMIN, U.ACCT), /payroll/)
+  eq("but may reset plain staff", await manage(U.ADMIN, U.STAFF2), null)
+  eq("the Super Admin may reset anyone", await manage(U.SUPER, U.PAY), null)
+  await run("service", "update profiles set companies = '[\"aman\"]' where id = $1", [U.STAFF2])
+  like("an admin may not manage someone outside their companies", await manage(U.ADMIN, U.STAFF2), /one of your companies/)
+  like("nor change them directly", await err(U.ADMIN, "update profiles set active = false where id = $1", [U.STAFF2]), /one of your companies/)
+  await run("service", "update profiles set companies = '[\"ortex\"]' where id = $1", [U.STAFF2])
+  like("functions: admin may not create an Accounts user", await grant(U.ADMIN, "accounts", []), /payroll/)
+  like("nor give leave balances", await grant(U.ADMIN, "staff", ["leave-balances"]), /leave-balances/)
+  eq("but may create a Sales user", await grant(U.ADMIN, "sales", ["customers"]), null)
+  eq("the Super Admin may create anyone", await grant(U.SUPER, "accounts", ["payroll"]), null)
+  like("signed-in users cannot call the refusal checks", await err(U.ADMIN, "select admin_manage_refusal($1, $2)", [U.ADMIN, U.PAY]), /permission denied/)
+
+  // 5. chat_send throttle: 30 a minute.
+  const conv = await val(null, "select anu_team_conversation('staff')")
+  const key = `chat:user:${U.STAFF1}`
+  await run(null, "insert into rate_limits (key, bucket, hits) values ($1, to_timestamp(floor(extract(epoch from now()) / 60) * 60), 30) on conflict (key, bucket) do update set hits = 30", [key])
+  like("the 31st message in a minute is refused",
+    await err(U.STAFF1, "select chat_send($1, $2, 'one too many')", [randomUUID(), conv]), /sending messages too fast/)
+  await run(null, "delete from rate_limits where key = $1", [key])
+  eq("a normal message goes through", await err(U.STAFF1, "select chat_send($1, $2, 'hello')", [randomUUID(), conv]), null)
+  eq("bot posts are not throttled", await err(null, "insert into chat_messages (conversation_id, sender_id, kind, body) values ($1, null, 'bot', 'tick')", [conv]), null)
+
+  // 6. staff_directory.
+  eq("an inactive login reads no directory", await val(U.INACT, "select count(*)::int from staff_directory").catch(() => 0), 0)
+  await run("service", "update profiles set active = false where id = $1", [U.INACT])
+  eq("a leaver still has a name for active staff", await val(U.STAFF1, "select name from staff_directory where id = $1", [U.INACT]), "INACT")
+  eq("and the directory answers a deactivated caller with nothing", await val(U.INACT, "select count(*)::int from staff_directory").catch(() => 0), 0)
+  await run("service", "update profiles set active = true where id = $1", [U.INACT])
+
+  // 7. settings_staff carries notifications without credentials.
+  await run(null, "update settings set doc = jsonb_set(doc, '{notifications}', $1) where id",
+    [J({ emailEnabled: false, recipients: "owner@ortex.test", smtpPassword: "secret", apiKey: "k" })])
+  eq("staff read notifications, minus credential-like keys",
+    await val(U.STAFF1, "select doc -> 'notifications' from settings_staff"), { recipients: "owner@ortex.test", emailEnabled: false })
+
+  // 8. The Ortex mirror is retired.
+  eq("settings_mirror_ortex trigger is gone", await val(null, "select count(*)::int from pg_trigger where tgname = 'settings_mirror_ortex'"), 0)
+
+  // 9. Money rules on quotations and invoices.
+  const line = (o) => ({ description: "Badge", quantity: 10, rate: 50, discountPercent: 0, ...o })
+  const newQuote = (lines, extra = {}) => err(U.ADMIN, "insert into quotations (doc) values ($1)", [J({ status: "draft", lines, totals: { grandTotal: 500 }, ...extra })])
+  eq("a normal quotation saves", await newQuote([line()]), null)
+  like("a negative quantity is refused", await newQuote([line({ quantity: -5 })]), /Line 1: the quantity must be more than 0/)
+  like("a zero quantity is refused", await newQuote([line(), line({ quantity: 0 })]), /Line 2: the quantity/)
+  like("a negative rate is refused", await newQuote([line({ rate: -1 })]), /rate cannot be negative/)
+  like("a 150% discount is refused", await newQuote([line({ discountPercent: 150 })]), /discount must be between 0 and 100/)
+  like("an extra discount over 100% is refused", await newQuote([line()], { extraDiscountPercent: 120 }), /extra discount/)
+  like("a negative total is refused", await newQuote([line()], { totals: { grandTotal: -10 } }), /total is not a valid amount/)
+  like("text in the total is refused", await newQuote([line()], { totals: { grandTotal: "lots" } }), /total is not a valid amount/)
+  eq("numbers stored as text are fine", await newQuote([line({ quantity: "10", rate: "50.5", discountPercent: "" })]), null)
+  like("an invoice follows the same rules", await err(U.ADMIN, "insert into invoices (doc) values ($1)", [J({ number: "INV-QA-0086", lines: [line({ quantity: -1 })] })]), /Line 1: the quantity/)
+  eq("a Tally invoice with totals only saves", await err(U.ADMIN, "insert into invoices (doc) values ($1)", [J({ number: "INV-QA-TALLY", tally: { status: "synced" }, totals: { grandTotal: 1180 } })]), null)
+  like("a document over 512 KB is refused",
+    await newQuote([line({ description: "x".repeat(600000) })]), /too large to save/)
+
+  // An old row with bad lines is not re-judged by an unrelated update.
+  await run(null, "alter table quotations disable trigger quotations_money_guard")
+  const legacy = (await one(null, "insert into quotations (doc) values ($1) returning id", [J({ status: "sent", lines: [line({ quantity: 0 })] })])).id
+  await run(null, "alter table quotations enable trigger quotations_money_guard")
+  eq("a status change on a legacy row is fine", await err(U.ADMIN, "update quotations set doc = doc || '{\"status\":\"accepted\"}'::jsonb where id = $1", [legacy]), null)
+  like("but editing its lines is checked", await err(U.ADMIN, "update quotations set doc = jsonb_set(doc, '{lines}', $2) where id = $1", [legacy, J([line({ rate: -2 })])]), /rate cannot be negative/)
 })
 
 // ---- report -----------------------------------------------------------------------------
