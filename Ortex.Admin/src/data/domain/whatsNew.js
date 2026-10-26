@@ -10,6 +10,62 @@
 
 export const RELEASES = [
   {
+    id: "1.58.0",
+    version: "1.58.0",
+    date: "2026-10-26",
+    title: "Safer, steadier and easier on a phone",
+    items: [
+      {
+        kind: "improved",
+        title: "Lists in a sensible order",
+        detail:
+          "Customers and products are listed A to Z, and leads, quotations, invoices and payments newest first. Customers, Leads and Quotations have a Sort menu, and the console remembers your choice for each list.",
+      },
+      {
+        kind: "new",
+        title: "Who made it and who changed it",
+        detail:
+          "Payments now show who recorded them, who last edited them and the full history, as customers, leads, quotations and invoices already did.",
+      },
+      {
+        kind: "improved",
+        title: "Clear messages instead of technical errors",
+        detail:
+          "When something cannot be saved, you now see a plain sentence saying why, not a database message. If a page fails to load after an update, the console offers Reload instead of a blank screen, and a slow connection no longer leaves Saving spinning for ever.",
+      },
+      {
+        kind: "improved",
+        title: "Your changes are protected",
+        detail:
+          "The invoice editor and the customer, category and user forms now ask before closing with unsaved changes. A payment larger than the invoice's due amount asks you to confirm, and the amount box refuses a minus sign or a mistyped number instead of changing it quietly.",
+      },
+      {
+        kind: "fixed",
+        title: "Works properly on a phone",
+        detail:
+          "Billing no longer slides sideways and the Record payment drawer fits the screen. The Dashboard fits a phone, a new quotation keeps its Create button at the bottom of the screen, and a very long name no longer pushes table columns off the page.",
+      },
+      {
+        kind: "improved",
+        title: "Each company has its own numbers",
+        detail:
+          "Aman, Medinetix and Nidhi get their own prefixes, for example AMN-2627-0001, so their invoices and quotations never look like Ortex's. Control centre, Documents checks any prefix you type: letters, numbers and hyphens only, and short enough for a GST invoice number.",
+      },
+      {
+        kind: "improved",
+        title: "Tighter access",
+        detail:
+          "Only the Super Admin can give someone payroll or leave-balance access, or manage a user who has it. Documents will not print while company details have failed to load, so a placeholder GSTIN can never reach a customer.",
+      },
+      {
+        kind: "fixed",
+        title: "IndiaMART removed",
+        detail:
+          "The unused IndiaMART connection, its Control centre cards and the IndiaMART product export are gone.",
+      },
+    ],
+  },
+  {
     id: "1.57.1",
     version: "1.57.1",
     date: "2026-10-17",
