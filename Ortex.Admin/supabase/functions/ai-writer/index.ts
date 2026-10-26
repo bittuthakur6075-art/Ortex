@@ -19,6 +19,7 @@
 
 import { cors, json } from "../_shared/http.ts"
 import { requireStaff } from "../_shared/auth.ts"
+import { withinUserQuota, QUOTA_MESSAGE } from "../_shared/guard.ts"
 import { extractText, generateContent, logAiUsage } from "../_shared/gemini.ts"
 
 const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-flash-lite-latest"
@@ -113,6 +114,7 @@ Deno.serve(async (req) => {
 
     const staff = await requireStaff(req)
     if (staff instanceof Response) return staff
+    if (!(await withinUserQuota("ai-writer", staff.userId, 40, 300))) return json({ error: QUOTA_MESSAGE }, 429)
 
     const body = await req.json().catch(() => ({}))
     const mode = (String(body.mode || "write") as Mode) in MODES ? (String(body.mode || "write") as Mode) : "write"

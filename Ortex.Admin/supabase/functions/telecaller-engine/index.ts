@@ -65,6 +65,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error("telecaller-engine:", msg)
-    return json({ error: msg }, 500)
+    // The detail (it can carry a Postgres message) stays in the log.
+    return json({ error: "Something went wrong." }, 500)
   }
 })

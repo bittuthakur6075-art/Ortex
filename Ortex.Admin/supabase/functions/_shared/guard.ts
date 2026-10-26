@@ -101,6 +101,17 @@ export async function verifyTurnstile(token: unknown, ip: string, hostnames: str
 }
 
 /** Does the CALLER (their own session, not the service role) hold `module`? */
+/** Per-user quota for paid or metered work (Gemini, Workers AI): a 10 minute
+ *  burst cap and a daily cap, on separate keys so the two windows never share
+ *  a counter. Any signed-in staff member could otherwise loop a function and
+ *  spend the quota the website assistant also runs on. */
+export async function withinUserQuota(feature: string, userId: string, burst: number, daily: number): Promise<boolean> {
+  return (await withinLimit(`${feature}:user:${userId}:10m`, burst, 600)) &&
+    (await withinLimit(`${feature}:user:${userId}:day`, daily, 86400))
+}
+
+export const QUOTA_MESSAGE = "You have used this a lot just now. Please wait a few minutes and try again."
+
 export async function callerHasModule(req: Request, module: string): Promise<boolean> {
   const url = Deno.env.get("SUPABASE_URL")!
   const anon = Deno.env.get("SUPABASE_ANON_KEY")!

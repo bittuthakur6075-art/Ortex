@@ -28,6 +28,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { cors, json } from "../_shared/http.ts"
 import { requireStaff } from "../_shared/auth.ts"
+import { callerHasModule, withinUserQuota, QUOTA_MESSAGE } from "../_shared/guard.ts"
 import { logAiUsage } from "../_shared/gemini.ts"
 import { fetchImage, fromBase64, ownStorageUrl, shrinkToJpeg, sniffImageMime } from "../_shared/images.ts"
 
@@ -73,6 +74,14 @@ Deno.serve(async (req) => {
 
     const staff = await requireStaff(req)
     if (staff instanceof Response) return staff
+    // Each render writes a new public object and spends Workers AI quota, so it
+    // needs a catalogue module (the photo belongs to a product, category or work
+    // item) and a tight per-person quota. The Staff role reads the catalogue
+    // but may not write it (0054); this function saves with the service role,
+    // which skips that policy, so the rule is repeated here.
+    const canEdit = staff.role !== "staff" && ((await callerHasModule(req, "products")) || (await callerHasModule(req, "categories")) || (await callerHasModule(req, "work")))
+    if (!canEdit) return json({ error: "You need the products, categories or work module to edit photos." }, 403)
+    if (!(await withinUserQuota("image-studio", staff.userId, 10, 40))) return json({ error: QUOTA_MESSAGE }, 429)
 
     const body = await req.json().catch(() => ({}))
     if (!ownStorageUrl(body.imageUrl)) {

@@ -8,6 +8,7 @@
 
 import { cors, json } from "../_shared/http.ts"
 import { requireStaff } from "../_shared/auth.ts"
+import { callerHasModule, withinUserQuota, QUOTA_MESSAGE } from "../_shared/guard.ts"
 import { extractText, generateContent, logAiUsage } from "../_shared/gemini.ts"
 
 const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash"
@@ -48,14 +49,19 @@ Rules:
 8. Confidence: Float between 0.0 and 1.0 representing extraction confidence.
 9. isPaymentProof: true if this is a genuine payment screenshot/slip, false if unrelated photo.`
 
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp"])
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors })
 
   const staff = await requireStaff(req)
   if (staff instanceof Response) return staff
+  if (!(await callerHasModule(req, "payments"))) return json({ error: "You need the payments module to read a receipt." }, 403)
+  if (!(await withinUserQuota("payment-reader", staff.userId, 20, 100))) return json({ error: QUOTA_MESSAGE }, 429)
 
   const apiKey = Deno.env.get("GEMINI_API_KEY")
-  if (!apiKey) return json({ error: "GEMINI_API_KEY is not configured" }, 500)
+  if (!apiKey) return json({ error: "The receipt reader is not set up yet." }, 500)
 
   let body: RequestBody
   try {
@@ -64,17 +70,25 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Invalid JSON body" }, 400)
   }
 
-  const rawImage = body.image || ""
-  if (!rawImage) return json({ error: "Missing required 'image' (base64 string)" }, 400)
+  const rawImage = typeof body.image === "string" ? body.image : ""
+  if (!rawImage) return json({ error: "Add a screenshot of the payment first." }, 400)
 
   // Extract mime type and clean base64 data
   let mimeType = "image/jpeg"
   let base64Data = rawImage
 
-  const match = rawImage.match(/^data:([^;]+);base64,(.+)$/)
+  const match = rawImage.match(/^data:([^;]+);base64,(.+)$/s)
   if (match) {
-    mimeType = match[1]
+    mimeType = match[1].toLowerCase()
     base64Data = match[2]
+  }
+  base64Data = base64Data.replace(/\s+/g, "")
+  // A screenshot only: JPEG, PNG or WebP, at most 5 MB once decoded. Anything
+  // else would be sent to Gemini at our cost, so it is refused here.
+  if (!ALLOWED_TYPES.has(mimeType)) return json({ error: "Use a JPG, PNG or WebP screenshot." }, 415)
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(base64Data)) return json({ error: "That image could not be read." }, 400)
+  if (Math.floor((base64Data.length * 3) / 4) > MAX_IMAGE_BYTES) {
+    return json({ error: "That screenshot is too large. Use one under 5 MB." }, 413)
   }
 
   try {
@@ -105,8 +119,8 @@ Deno.serve(async (req: Request) => {
     const res = await generateContent(MODEL, apiKey, payload)
     if (!res.ok) {
       const errText = await res.text().catch(() => "")
-      console.error("Gemini API error in read-payment-screenshot:", res.status, errText)
-      return json({ error: `Vision OCR failed: ${res.statusText || res.status}` }, 502)
+      console.error("Gemini API error in read-payment-screenshot:", res.status, errText.slice(0, 300))
+      return json({ error: "Could not read the screenshot just now. Try again, or enter the payment by hand." }, 502)
     }
 
     const data = await res.json()
@@ -118,8 +132,9 @@ Deno.serve(async (req: Request) => {
     try {
       parsed = JSON.parse(rawText)
     } catch (e) {
-      console.error("Failed to parse Gemini JSON response:", rawText, e)
-      return json({ error: "Failed to parse structured payment output" }, 502)
+      // The reply holds the payer's name, UPI ID and amount: log its length only.
+      console.error("read-payment-screenshot: unparseable reply, length", rawText.length, e instanceof Error ? e.name : "")
+      return json({ error: "Could not read the screenshot. Enter the payment by hand." }, 502)
     }
 
     const reading: ExtractedPayment = {
@@ -140,6 +155,6 @@ Deno.serve(async (req: Request) => {
     return json({ reading })
   } catch (err) {
     console.error("Unexpected error in read-payment-screenshot:", err)
-    return json({ error: "Internal server error" }, 500)
+    return json({ error: "Something went wrong." }, 500)
   }
 })

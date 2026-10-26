@@ -102,6 +102,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e)
     console.error("telecaller-webhook:", m)
-    return json({ error: m }, 500)
+    // The detail (it can carry a Postgres message) stays in the log.
+    return json({ error: "Something went wrong." }, 500)
   }
 })

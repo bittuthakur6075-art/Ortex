@@ -50,6 +50,17 @@ Deno.serve(async (req) => {
     if (role === "admin" && staff.role !== "super_admin") {
       return json({ error: "Only the Super Admin can create an Admin" }, 403)
     }
+    // 0086: payroll, leave balances and modules switched off for Admins are the
+    // Super Admin's to give, by role (Accounts carries payroll) or by module.
+    if (staff.role !== "super_admin") {
+      const { data: refusal, error: refusalErr } = await createClient(url, service).rpc("admin_grant_refusal", {
+        p_actor: staff.userId,
+        p_role: role,
+        p_modules: Array.isArray(modules) ? modules : [],
+      })
+      if (refusalErr) return json({ error: "Could not check the access you are giving. Try again." }, 500)
+      if (refusal) return json({ error: refusal }, 403)
+    }
     // Which companies they work in (0075): the Super Admin's choice, else Ortex.
     let companyList = ["ortex"]
     if (companies !== undefined) {

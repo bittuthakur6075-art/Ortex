@@ -14,7 +14,7 @@
 import { cors, json } from "../_shared/http.ts"
 import { requireStaff } from "../_shared/auth.ts"
 import { generateContent, extractText, logAiUsage } from "../_shared/gemini.ts"
-import { clipStrings } from "../_shared/guard.ts"
+import { clipStrings, withinUserQuota, QUOTA_MESSAGE } from "../_shared/guard.ts"
 
 const MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-flash-lite-latest"
 
@@ -46,6 +46,7 @@ Deno.serve(async (req) => {
     // 1) Authenticate the caller and confirm they are active staff.
     const staff = await requireStaff(req)
     if (staff instanceof Response) return staff
+    if (!(await withinUserQuota("category-copywriter", staff.userId, 30, 200))) return json({ error: QUOTA_MESSAGE }, 429)
 
     // 2) Validate input.
     const body = clipStrings(await req.json().catch(() => ({})))

@@ -67,6 +67,15 @@ Deno.serve(async (req) => {
       return json({ error: "Only the Super Admin can change an Admin's account" }, 403)
     }
 
+    // 0086: an Admin may not ban, reset or delete someone holding payroll (or
+    // another Super Admin-only module), or someone outside their companies:
+    // signing in as that person would hand the Admin what they cannot grant.
+    if (staff.role !== "super_admin" && ["set-active", "reset-password", "delete"].includes(action)) {
+      const { data: refusal, error: refusalErr } = await admin.rpc("admin_manage_refusal", { p_actor: staff.userId, p_target: id })
+      if (refusalErr) return json({ error: "Could not check whether you may change this account. Try again." }, 500)
+      if (refusal) return json({ error: refusal }, 403)
+    }
+
     // ---- companies (0075) ---------------------------------------------------
     if (action === "set-companies" || body?.companies !== undefined) {
       if (staff.role !== "super_admin") return json({ error: COMPANIES_SUPER_ADMIN_ONLY }, 403)
